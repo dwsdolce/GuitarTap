@@ -73,6 +73,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// - Note: If the hardware sample rate differs, audio will be resampled to match this rate
     private let targetSampleRate: Double
     
+    /// Whether to use hardware sample rate directly instead of resampling
+    /// - Note: When true, targetSampleRate is ignored and hardware rate is used
+    private let useHardwareSampleRate: Bool
+    
     /// The actual sample rate of the audio hardware
     /// - Note: This is determined at runtime when the audio engine starts
     private var actualSampleRate: Double = 0
@@ -148,12 +152,15 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///              Common values: 2048, 4096, 8192, 16384
     ///   - targetSampleRate: The desired sample rate for processing. Default is 44100 Hz.
     ///                      If hardware uses a different rate, audio will be resampled.
+    ///   - useHardwareSampleRate: If true, uses hardware's native sample rate instead of resampling.
+    ///                           Default is true for better performance and compatibility.
     ///
-    /// - Note: The frequency resolution will be `targetSampleRate / fftSize` Hz per bin.
+    /// - Note: The frequency resolution will be `sampleRate / fftSize` Hz per bin.
     ///         For example, 48000 Hz / 16384 = ~2.93 Hz per bin.
-    init(fftSize: Int = 4096, targetSampleRate: Double = 44100) {
+    init(fftSize: Int = 4096, targetSampleRate: Double = 44100, useHardwareSampleRate: Bool = true) {
         self.fftSize = fftSize
         self.targetSampleRate = targetSampleRate
+        self.useHardwareSampleRate = useHardwareSampleRate
         self.audioEngine = AVAudioEngine()
         self.inputNode = audioEngine.inputNode
         
@@ -208,38 +215,79 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///
     /// - Note: Requires microphone permissions. Add `NSMicrophoneUsageDescription` to Info.plist
     func start() throws {
-        // Get the input format from the hardware
-        // This tells us the actual sample rate and channel configuration
-        let inputFormat = inputNode.inputFormat(forBus: 0)
-        actualSampleRate = inputFormat.sampleRate
+        print("=== Starting Audio Engine ===")
         
+        // Reset the audio engine to ensure clean state
+        audioEngine.stop()
+        audioEngine.reset()
+        inputNode = audioEngine.inputNode
+        
+        // Start the audio engine WITHOUT connecting to output
+        // We only need input, not playback, so no connection needed
+        try audioEngine.start()
+        print("Audio engine started")
+        
+        // Get hardware format AFTER engine starts
+        let hardwareFormat = inputNode.inputFormat(forBus: 0)
+        actualSampleRate = hardwareFormat.sampleRate
+        
+        print("Hardware format: \(hardwareFormat)")
         print("Hardware sample rate: \(actualSampleRate) Hz")
+        print("Channels: \(hardwareFormat.channelCount)")
+        
+        // Validate sample rate
+        guard actualSampleRate > 0 else {
+            audioEngine.stop()
+            throw NSError(
+                domain: "RealtimeFFTAnalyzer",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Audio hardware not available. Sample rate is 0 Hz. Check microphone permissions and ensure an audio input device is connected."]
+            )
+        }
+        
+        let effectiveSampleRate = useHardwareSampleRate ? actualSampleRate : targetSampleRate
+        
         print("Target sample rate: \(targetSampleRate) Hz")
+        print("Using sample rate: \(effectiveSampleRate) Hz")
         print("FFT size: \(fftSize)")
         
-        // Update frequency bins based on target sample rate
-        // This ensures frequency labels are correct regardless of hardware sample rate
-        updateFrequencyBins()
+        // Create tap format matching hardware (use hardware channel count)
+        guard let tapFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: hardwareFormat.sampleRate,
+            channels: AVAudioChannelCount(hardwareFormat.channelCount),  // Match hardware
+            interleaved: false
+        ) else {
+            audioEngine.stop()
+            throw NSError(
+                domain: "RealtimeFFTAnalyzer",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to create audio format"]
+            )
+        }
         
-        // Update metrics based on actual configuration
-        updateMetrics()
+        print("Tap format: \(tapFormat)")
         
-        // Install tap on input node to receive audio buffers
-        // The tap captures audio data before it's processed by other nodes
-        // Audio callback happens on a real-time audio thread provided by AVAudioEngine
-        let bufferSize = AVAudioFrameCount(fftSize)
+        // CRITICAL FIX: Use smaller buffer size for large FFTs
+        let maxSafeBufferSize: AVAudioFrameCount = 4096
+        let requestedBufferSize = min(AVAudioFrameCount(fftSize), maxSafeBufferSize)
         
-        inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) { [weak self] buffer, time in
-            // Immediately dispatch to our dedicated processing queue to avoid blocking the audio thread
-            // The audio thread must return quickly to prevent dropouts and glitches
+        print("Requested buffer size: \(requestedBufferSize) samples (max safe: \(maxSafeBufferSize))")
+        print("Will accumulate to: \(fftSize) samples for FFT")
+        
+        inputNode.installTap(onBus: 0, bufferSize: requestedBufferSize, format: tapFormat) { [weak self] buffer, time in
             guard let self = self else { return }
             self.audioProcessingQueue.async {
                 self.processAudioBuffer(buffer)
             }
         }
         
-        // Request microphone permission and start the audio engine
-        try audioEngine.start()
+        // Update frequency bins based on effective sample rate
+        // This ensures frequency labels are correct
+        updateFrequencyBins()
+        
+        // Update metrics based on actual configuration
+        updateMetrics()
         
         // Update UI state on main thread since this property is @Published
         DispatchQueue.main.async {
@@ -282,7 +330,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     // MARK: - Private Processing Methods
     
-    /// Updates the frequency bin values based on the target sample rate.
+    /// Updates the frequency bin values based on the effective sample rate.
     ///
     /// Each bin represents a frequency range determined by:
     /// `frequency[i] = i * (sampleRate / fftSize)`
@@ -294,8 +342,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// - ...
     /// - Bin 8192 = 24000 Hz (Nyquist frequency)
     private func updateFrequencyBins() {
+        // Use effective sample rate based on configuration
+        let effectiveSampleRate = useHardwareSampleRate ? actualSampleRate : targetSampleRate
+        
         // Calculate the frequency resolution per bin
-        let binWidth = Float(targetSampleRate) / Float(fftSize)
+        let binWidth = Float(effectiveSampleRate) / Float(fftSize)
         
         // Populate frequency array
         // Only need fftSize/2 bins because FFT of real data is symmetric
@@ -312,7 +363,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// - Sample length (time duration of each FFT window)
     /// - Frame rate (FFT calculations per second, accounting for overlap)
     private func updateMetrics() {
-        let sampleRate = Float(targetSampleRate)
+        // Use effective sample rate based on configuration
+        let effectiveSampleRate = useHardwareSampleRate ? actualSampleRate : targetSampleRate
+        let sampleRate = Float(effectiveSampleRate)
         let fftSizeFloat = Float(fftSize)
         
         // Frequency resolution: how many Hz each bin represents
@@ -387,9 +440,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             
             // Process the chunk outside the synchronized block to minimize lock time
             if let chunk = chunk {
-                // Resample if needed to match target sample rate
+                // Resample only if not using hardware rate and rates differ
                 let processedChunk: [Float]
-                if abs(actualSampleRate - targetSampleRate) > 1.0 {
+                if !useHardwareSampleRate && abs(actualSampleRate - targetSampleRate) > 1.0 {
                     processedChunk = resample(chunk, from: actualSampleRate, to: targetSampleRate)
                 } else {
                     processedChunk = chunk
