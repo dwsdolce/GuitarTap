@@ -134,6 +134,12 @@ final class TapToneAnalyzer: ObservableObject {
     /// Decay threshold for ring-out measurement (dB below peak)
     @Published var decayThreshold: Float = 20
     
+    /// Number of taps to average (1 = no averaging, 3-5 recommended)
+    @Published var numberOfTaps: Int = 1
+    
+    /// Time window after tap to capture spectrum (seconds)
+    @Published var captureWindow: TimeInterval = 0.2
+    
     // MARK: - Published Results
     
     /// Currently detected peaks
@@ -157,12 +163,40 @@ final class TapToneAnalyzer: ObservableObject {
     /// Indicates if a tap was just detected
     @Published var tapDetected: Bool = false
     
+    /// Detection state
+    @Published var isDetecting: Bool = true
+    
+    /// Current tap count in multi-tap sequence
+    @Published var currentTapCount: Int = 0
+    
+    /// Progress of multi-tap sequence (0.0 to 1.0)
+    @Published var tapProgress: Float = 0.0
+    
+    /// Status message for user feedback
+    @Published var statusMessage: String = "Ready to detect taps"
+    
+    /// Frozen spectrum data (captured when sequence completes)
+    @Published var frozenFrequencies: [Float] = []
+    @Published var frozenMagnitudes: [Float] = []
+    
+    /// Whether to display frozen spectrum instead of live data
+    @Published var isSpectrumFrozen: Bool = false
+    
     // MARK: - Private State
     
     private var cancellables = Set<AnyCancellable>()
     private var peakMagnitudeHistory: [(time: Date, magnitude: Float)] = []
     private var lastTapTime: Date?
     private let tapCooldown: TimeInterval = 0.5  // Minimum time between taps
+    
+    /// Storage for captured tap spectra (for averaging)
+    private var capturedTaps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)] = []
+    
+    /// Storage for peaks from each tap (before averaging)
+    private var tapsForAveraging: [[ResonantPeak]] = []
+    
+    /// Timer for capture window
+    private var captureTimer: Timer?
     
     // MARK: - Initialization
     
@@ -192,28 +226,33 @@ final class TapToneAnalyzer: ObservableObject {
         let validMags = magnitudes.filter { $0 > -100 }
         averageMagnitude = validMags.isEmpty ? -100 : validMags.reduce(0, +) / Float(validMags.count)
         
-        // Detect taps (sudden increase in energy)
-        detectTap(peakMagnitude: peakMagnitude)
+        // Only detect taps if detection is enabled
+        if isDetecting {
+            detectTap(peakMagnitude: peakMagnitude, magnitudes: magnitudes, frequencies: frequencies)
+        }
         
-        // Find peaks in spectrum
-        let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
-        currentPeaks = peaks
-        
-        // Classify modes
-        identifiedModes = peaks.map { peak in
-            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+        // Only analyze peaks if detection is enabled OR we're in capture window
+        if isDetecting || captureTimer != nil {
+            // Find peaks in spectrum
+            let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
+            currentPeaks = peaks
+            
+            // Classify modes
+            identifiedModes = peaks.map { peak in
+                (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+            }
+            
+            // Add to history
+            if !peaks.isEmpty {
+                peakHistory.append(peaks)
+                if peakHistory.count > 100 {
+                    peakHistory.removeFirst()
+                }
+            }
         }
         
         // Track peak magnitude for decay analysis
         trackDecay(peakMagnitude: peakMagnitude)
-        
-        // Add to history
-        if !peaks.isEmpty {
-            peakHistory.append(peaks)
-            if peakHistory.count > 100 {
-                peakHistory.removeFirst()
-            }
-        }
     }
     
     /// Find all significant peaks in the spectrum
@@ -288,7 +327,7 @@ final class TapToneAnalyzer: ObservableObject {
     }
     
     /// Detect tap events (sudden energy increase)
-    private func detectTap(peakMagnitude: Float) {
+    private func detectTap(peakMagnitude: Float, magnitudes: [Float], frequencies: [Float]) {
         let now = Date()
         
         // Check cooldown
@@ -305,10 +344,152 @@ final class TapToneAnalyzer: ObservableObject {
                 tapDetected = true
                 lastTapTime = now
                 print("🎯 Tap detected! Peak: \(peakMagnitude) dB")
+                
+                // Handle tap in multi-tap sequence
+                handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
             } else {
                 tapDetected = false
             }
         }
+    }
+    
+    /// Handle a detected tap in the multi-tap sequence
+    private func handleTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
+        // Stop detection temporarily
+        isDetecting = false
+        
+        // Store spectrum data immediately
+        capturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: time))
+        
+        // Increment tap count
+        currentTapCount += 1
+        tapProgress = Float(currentTapCount) / Float(numberOfTaps)
+        
+        print("📊 Captured tap \(currentTapCount) of \(numberOfTaps)")
+        
+        // Start capture window timer to collect spectrum during ring-out
+        captureTimer?.invalidate()
+        captureTimer = Timer.scheduledTimer(withTimeInterval: captureWindow, repeats: false) { [weak self] _ in
+            self?.finishCapture()
+        }
+        
+        // Update status
+        if currentTapCount < numberOfTaps {
+            statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
+        } else {
+            statusMessage = "All taps captured. Processing..."
+        }
+        
+        // If we've collected all taps, process them
+        if currentTapCount >= numberOfTaps {
+            DispatchQueue.main.asyncAfter(deadline: .now() + captureWindow) { [weak self] in
+                self?.processMultipleTaps()
+            }
+        } else {
+            // Re-enable detection after cooldown for next tap
+            DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
+                self?.isDetecting = true
+                self?.tapDetected = false
+            }
+        }
+    }
+    
+    /// Finish capturing spectrum after capture window
+    private func finishCapture() {
+        captureTimer?.invalidate()
+        captureTimer = nil
+    }
+    
+    /// Process multiple captured taps and average the results
+    private func processMultipleTaps() {
+        guard !capturedTaps.isEmpty else { return }
+        
+        print("🔬 Processing \(capturedTaps.count) taps for averaging...")
+        
+        // Extract peaks from each tap
+        tapsForAveraging = capturedTaps.map { tap in
+            findPeaks(magnitudes: tap.magnitudes, frequencies: tap.frequencies)
+        }
+        
+        // Average the peaks
+        let averagedPeaks = averagePeaks(from: tapsForAveraging)
+        
+        // Update current peaks with averaged results
+        currentPeaks = averagedPeaks
+        
+        // Classify modes based on averaged peaks
+        identifiedModes = averagedPeaks.map { peak in
+            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+        }
+        
+        // Freeze the spectrum at the last captured tap
+        if let lastTap = capturedTaps.last {
+            frozenFrequencies = lastTap.frequencies
+            frozenMagnitudes = lastTap.magnitudes
+            isSpectrumFrozen = true
+            print("📸 Spectrum frozen at last tap")
+        }
+        
+        // Update status
+        statusMessage = "Analysis complete! \(averagedPeaks.count) peaks identified."
+        tapProgress = 1.0
+        
+        print("✅ Averaged \(tapsForAveraging.count) taps into \(averagedPeaks.count) peaks")
+    }
+    
+    /// Average peaks across multiple taps
+    private func averagePeaks(from tapPeaks: [[ResonantPeak]]) -> [ResonantPeak] {
+        guard !tapPeaks.isEmpty else { return [] }
+        
+        // If only one tap, return its peaks
+        if tapPeaks.count == 1 {
+            return tapPeaks[0]
+        }
+        
+        // Collect all unique peak frequencies (with tolerance)
+        var peakGroups: [[ResonantPeak]] = []
+        let frequencyTolerance: Float = 5.0  // Hz
+        
+        // Group similar peaks across taps
+        for tapIndex in 0..<tapPeaks.count {
+            for peak in tapPeaks[tapIndex] {
+                // Try to find existing group
+                var foundGroup = false
+                for groupIndex in 0..<peakGroups.count {
+                    let groupAvgFreq = peakGroups[groupIndex].map({ $0.frequency }).reduce(0, +) / Float(peakGroups[groupIndex].count)
+                    if abs(peak.frequency - groupAvgFreq) < frequencyTolerance {
+                        peakGroups[groupIndex].append(peak)
+                        foundGroup = true
+                        break
+                    }
+                }
+                
+                // Create new group if no match found
+                if !foundGroup {
+                    peakGroups.append([peak])
+                }
+            }
+        }
+        
+        // Average each group
+        var averagedPeaks: [ResonantPeak] = []
+        for group in peakGroups {
+            let avgFreq = group.map({ $0.frequency }).reduce(0, +) / Float(group.count)
+            let avgMag = group.map({ $0.magnitude }).reduce(0, +) / Float(group.count)
+            let avgQuality = group.map({ $0.quality }).reduce(0, +) / Float(group.count)
+            let avgBandwidth = group.map({ $0.bandwidth }).reduce(0, +) / Float(group.count)
+            
+            let averagedPeak = ResonantPeak(
+                frequency: avgFreq,
+                magnitude: avgMag,
+                quality: avgQuality,
+                bandwidth: avgBandwidth
+            )
+            averagedPeaks.append(averagedPeak)
+        }
+        
+        // Sort by magnitude and return top peaks
+        return Array(averagedPeaks.sorted(by: { $0.magnitude > $1.magnitude }).prefix(maxPeaks))
     }
     
     /// Track magnitude over time for decay analysis
@@ -447,5 +628,80 @@ final class TapToneAnalyzer: ObservableObject {
         peakMagnitudeHistory = []
         lastTapTime = nil
         tapDetected = false
+        isDetecting = true
+        currentTapCount = 0
+        tapProgress = 0.0
+        capturedTaps = []
+        tapsForAveraging = []
+        captureTimer?.invalidate()
+        captureTimer = nil
+        
+        // Unfreeze spectrum
+        isSpectrumFrozen = false
+        frozenFrequencies = []
+        frozenMagnitudes = []
+        
+        statusMessage = "Ready to detect taps"
+    }
+    
+    /// Start a new tap detection sequence
+    func startTapSequence() {
+        print("🎬 Starting tap sequence: \(numberOfTaps) tap(s)")
+        
+        // Clear previous data
+        capturedTaps = []
+        tapsForAveraging = []
+        currentTapCount = 0
+        tapProgress = 0.0
+        tapDetected = false
+        
+        // Unfreeze spectrum
+        isSpectrumFrozen = false
+        frozenFrequencies = []
+        frozenMagnitudes = []
+        
+        // Enable detection
+        isDetecting = true
+        statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
+        
+        // Clear current results
+        currentPeaks = []
+        identifiedModes = []
+    }
+    
+    /// Cancel current tap sequence and restart detection
+    func cancelTapSequence() {
+        print("❌ Tap sequence cancelled")
+        
+        capturedTaps = []
+        tapsForAveraging = []
+        currentTapCount = 0
+        tapProgress = 0.0
+        tapDetected = false
+        isDetecting = true
+        captureTimer?.invalidate()
+        captureTimer = nil
+        statusMessage = "Cancelled. Ready for new sequence."
+    }
+    
+    /// Resume detection after analysis
+    func resumeDetection() {
+        print("▶️ Resuming tap detection")
+        
+        isDetecting = true
+        currentTapCount = 0
+        tapProgress = 0.0
+        capturedTaps = []
+        tapsForAveraging = []
+        tapDetected = false
+        captureTimer?.invalidate()
+        captureTimer = nil
+        
+        // Unfreeze spectrum
+        isSpectrumFrozen = false
+        frozenFrequencies = []
+        frozenMagnitudes = []
+        
+        statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
     }
 }

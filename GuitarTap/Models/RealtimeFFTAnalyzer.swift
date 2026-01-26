@@ -133,7 +133,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     @Published var sampleLengthSeconds: Float = 0
     
     /// Frame rate in Hz - how many FFT analyses are performed per second
-    /// Depends on hop size (overlap). With 50% overlap: sampleRate / (fftSize / 2)
+    /// Depends on hop size (overlap). With 25% overlap: sampleRate / (fftSize * 3/4)
     @Published var frameRate: Float = 0
     
     /// Processing time in milliseconds - time taken to process the last FFT frame
@@ -388,7 +388,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         let freqRes = sampleRate / fftSizeFloat
         let bw = sampleRate / 2.0
         let sampleLen = fftSizeFloat / sampleRate
-        let hopSize = fftSizeFloat / 2.0
+        
+        // Frame rate calculation based on 25% overlap (hop size = fftSize * 3/4)
+        let hopSize = fftSizeFloat * 3.0 / 4.0  // 25% overlap
         let fr = sampleRate / hopSize
         
         print("=== Analysis Metrics ===")
@@ -444,7 +446,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
         
         // Process when we have enough samples for an FFT
-        // Use 50% overlap (hop size = fftSize/2) for smoother frequency response
+        // Use 25% overlap (hop size = fftSize * 3/4) for balance between smoothness and responsiveness
         var shouldContinue = true
         while shouldContinue {
             var chunk: [Float]?
@@ -455,10 +457,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                     // Extract a chunk of samples
                     chunk = Array(inputBuffer.prefix(fftSize))
                     
-                    // Remove half the samples (50% overlap)
-                    // This provides better time resolution while maintaining frequency accuracy
-                    inputBuffer.removeFirst(fftSize / 2)
-//                    inputBuffer.removeFirst(fftSize)
+                    // Remove 75% of samples (25% overlap)
+                    // This provides better frame rate while maintaining some smoothness
+                    // Options:
+                    // - fftSize (0% overlap) = maximum frame rate
+                    // - fftSize * 3/4 (25% overlap) = balanced
+                    // - fftSize / 2 (50% overlap) = smoothest but slowest
+                    inputBuffer.removeFirst(fftSize * 3 / 4)  // 25% overlap
+//                    inputBuffer.removeFirst(fftSize / 2)  // 50% overlap (old)
 
                 } else {
                     shouldContinue = false
