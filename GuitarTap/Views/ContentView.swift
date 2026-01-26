@@ -387,6 +387,7 @@ struct ContentView: View {
         if analyzer.isRunning {
             analyzer.stop()
             errorMessage = nil
+            print("🛑 Analyzer stopped")
         } else {
             #if os(iOS)
             // Request microphone permission on iOS
@@ -400,18 +401,27 @@ struct ContentView: View {
                         if granted {
                             self.startAnalyzer()
                         } else {
-                            print("Microphone permission not granted")
+                            Task { @MainActor in
+                                self.errorMessage = "Microphone permission denied"
+                            }
+                            print("❌ Microphone permission not granted")
                         }
                     }
                 } else {
                     session.requestRecordPermission { granted in
-                        if !granted {
-                            print("Microphone permission not granted")
+                        if granted {
+                            self.startAnalyzer()
+                        } else {
+                            Task { @MainActor in
+                                self.errorMessage = "Microphone permission denied"
+                            }
+                            print("❌ Microphone permission not granted")
                         }
                     }
                 }
             } catch {
-                print("Audio session error: \(error)")
+                errorMessage = "Audio session error: \(error.localizedDescription)"
+                print("❌ Audio session error: \(error)")
             }
             #else
             // On macOS and other platforms, start directly
@@ -424,11 +434,19 @@ struct ContentView: View {
     ///
     /// This helper method handles the actual analyzer startup and error handling.
     private func startAnalyzer() {
-        do {
-            try analyzer.start()
-            errorMessage = nil
-        } catch {
-            errorMessage = "Error: \(error.localizedDescription)"
+        Task {
+            do {
+                try analyzer.start()
+                await MainActor.run {
+                    errorMessage = nil
+                }
+                print("✅ Analyzer started successfully")
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Error: \(error.localizedDescription)"
+                }
+                print("❌ Failed to start analyzer: \(error)")
+            }
         }
     }
     

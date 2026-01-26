@@ -1,0 +1,72 @@
+#!/bin/bash
+
+echo "🔍 Diagnosing macOS App Icon Issue"
+echo "===================================="
+echo ""
+
+# Find the app
+APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "GuitarTap.app" -path "*/Debug/*" -type d -print -quit)
+
+if [ -z "$APP_PATH" ]; then
+    echo "❌ App not found. Build your app first!"
+    exit 1
+fi
+
+echo "✅ Found app: $APP_PATH"
+echo ""
+
+# Check Resources
+echo "📦 Resources folder contents:"
+ls -lh "$APP_PATH/Contents/Resources/"*.icns 2>/dev/null && echo "  → Found .icns file" || echo "  ⚠️  No .icns file"
+ls -lh "$APP_PATH/Contents/Resources/Assets.car" 2>/dev/null && echo "  → Found Assets.car (compiled asset catalog)" || echo "  ⚠️  No Assets.car"
+echo ""
+
+# Check Info.plist
+echo "📄 Info.plist icon settings:"
+ICON_FILE=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleIconFile 2>/dev/null)
+ICON_NAME=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleIconName 2>/dev/null)
+
+if [ -n "$ICON_FILE" ]; then
+    echo "  CFBundleIconFile = $ICON_FILE"
+else
+    echo "  CFBundleIconFile = (not set)"
+fi
+
+if [ -n "$ICON_NAME" ]; then
+    echo "  CFBundleIconName = $ICON_NAME"
+else
+    echo "  CFBundleIconName = (not set)"
+fi
+echo ""
+
+# Extract Assets.car to inspect
+if [ -f "$APP_PATH/Contents/Resources/Assets.car" ]; then
+    echo "🔬 Inspecting Assets.car for app icons..."
+    
+    # Use assetutil if available (macOS built-in)
+    if command -v assetutil &> /dev/null; then
+        echo "  App Icon assets in Assets.car:"
+        assetutil --info "$APP_PATH/Contents/Resources/Assets.car" 2>/dev/null | grep -i "appicon" | head -10
+    else
+        echo "  ⚠️  assetutil not available, can't inspect Assets.car"
+    fi
+fi
+echo ""
+
+# Check actual app icon
+echo "🎨 Testing actual icon display:"
+echo "  Opening app to check Dock icon..."
+open "$APP_PATH"
+
+echo ""
+echo "📋 Summary:"
+if [ -f "$APP_PATH/Contents/Resources/Assets.car" ] && [ -n "$ICON_NAME" ]; then
+    echo "  ✅ Using Asset Catalog (modern approach)"
+    echo "  Expected: Icons from Assets.xcassets should appear"
+elif [ -f "$APP_PATH/Contents/Resources/"*.icns ] && [ -n "$ICON_FILE" ]; then
+    echo "  ✅ Using .icns file (traditional approach)"
+    echo "  Expected: Icon from .icns file should appear"
+else
+    echo "  ❌ Configuration issue detected!"
+    echo "  Problem: No icon source properly configured"
+fi

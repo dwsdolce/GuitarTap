@@ -112,7 +112,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     @Published var peakMagnitude: Float = 0
     
     /// Indicates whether the analyzer is currently running and processing audio
-    @Published var isRunning: Bool = false
+    @Published var isRunning: Bool = false // {
+//        didSet {
+//            print("🔄 isRunning changed from \(oldValue) to \(isRunning) on thread: \(Thread.isMainThread ? "MAIN" : "BACKGROUND")")
+//        }
+//    }
     
     // MARK: - Performance and Analysis Metrics
     
@@ -141,6 +145,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Circular buffer for tracking recent processing times
     private var processingTimeHistory: [Float] = []
     private let processingTimeHistorySize = 30  // Track last 30 frames
+    
+    /// Tracks the last time we published UI updates to avoid flooding the main queue
+    private var lastPublishTime: CFAbsoluteTime = 0
+    private let minPublishInterval: CFAbsoluteTime = 0.5  // Update every 500ms (2 Hz) to avoid overwhelming SwiftUI
     
     // MARK: - Initialization
     
@@ -289,12 +297,13 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         // Update metrics based on actual configuration
         updateMetrics()
         
-        // Update UI state on main thread since this property is @Published
+//        print("Audio engine started successfully")
+        
+        // Update UI state - set isRunning to true on main thread
         DispatchQueue.main.async {
             self.isRunning = true
+//            print("✓ Set isRunning = true - value is now: \(self.isRunning)")
         }
-        
-        print("Audio engine started successfully")
     }
     
     /// Stops the audio engine and releases audio resources.
@@ -314,21 +323,23 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             // Stop the audio engine
             audioEngine.stop()
             
-            // Clear the input buffer on the buffer access queue
-            bufferAccessQueue.sync {
-                inputBuffer.removeAll()
+            // Clear the input buffer on the buffer access queue (async to avoid blocking)
+            bufferAccessQueue.async {
+                self.inputBuffer.removeAll()
             }
             
-            // Update UI state on main thread
-            DispatchQueue.main.async {
-                self.isRunning = false
-            }
+            // Update UI state
+            self.isRunning = false
             
             print("Audio engine stopped")
         }
     }
     
     // MARK: - Private Processing Methods
+    
+    // Debug tracking
+    private var firstBufferReceived = false
+    private var fftCount = 0
     
     /// Updates the frequency bin values based on the effective sample rate.
     ///
@@ -348,10 +359,15 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         // Calculate the frequency resolution per bin
         let binWidth = Float(effectiveSampleRate) / Float(fftSize)
         
-        // Populate frequency array
-        // Only need fftSize/2 bins because FFT of real data is symmetric
+        // Populate frequency array - use local array to avoid publishing on background thread
+        var newFrequencies = [Float](repeating: 0, count: fftSize / 2)
         for i in 0..<(fftSize / 2) {
-            frequencies[i] = Float(i) * binWidth
+            newFrequencies[i] = Float(i) * binWidth
+        }
+        
+        // Update published property on main thread
+        DispatchQueue.main.async {
+            self.frequencies = newFrequencies
         }
     }
     
@@ -368,26 +384,27 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         let sampleRate = Float(effectiveSampleRate)
         let fftSizeFloat = Float(fftSize)
         
-        // Frequency resolution: how many Hz each bin represents
-        frequencyResolution = sampleRate / fftSizeFloat
-        
-        // Bandwidth: maximum frequency we can analyze (Nyquist frequency)
-        bandwidth = sampleRate / 2.0
-        
-        // Sample length: how long in time each FFT window represents
-        sampleLengthSeconds = fftSizeFloat / sampleRate
-        
-        // Frame rate: with 50% overlap, hop size is fftSize/2
-        // Number of frames per second = sampleRate / hopSize
+        // Calculate metrics
+        let freqRes = sampleRate / fftSizeFloat
+        let bw = sampleRate / 2.0
+        let sampleLen = fftSizeFloat / sampleRate
         let hopSize = fftSizeFloat / 2.0
-        frameRate = sampleRate / hopSize
+        let fr = sampleRate / hopSize
         
         print("=== Analysis Metrics ===")
-        print("Frequency Resolution: \(frequencyResolution) Hz")
-        print("Bandwidth: \(bandwidth) Hz (0 Hz to \(bandwidth) Hz)")
-        print("Sample Length: \(sampleLengthSeconds * 1000) ms (\(sampleLengthSeconds) seconds)")
-        print("Frame Rate: \(frameRate) Hz")
+        print("Frequency Resolution: \(freqRes) Hz")
+        print("Bandwidth: \(bw) Hz (0 Hz to \(bw) Hz)")
+        print("Sample Length: \(sampleLen * 1000) ms (\(sampleLen) seconds)")
+        print("Frame Rate: \(fr) Hz")
         print("=======================")
+        
+        // Update published properties on main thread
+        DispatchQueue.main.async {
+            self.frequencyResolution = freqRes
+            self.bandwidth = bw
+            self.sampleLengthSeconds = sampleLen
+            self.frameRate = fr
+        }
     }
     
     /// Processes an incoming audio buffer from the microphone.
@@ -405,11 +422,21 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///         All buffer access is synchronized via bufferAccessQueue to prevent race conditions.
     private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
         // Safety check: ensure we have channel data
-        guard let channelData = buffer.floatChannelData else { return }
+        guard let channelData = buffer.floatChannelData else {
+            print("⚠️ No channel data in buffer!")
+            return
+        }
         
         // Extract samples from the first channel
         let frameLength = Int(buffer.frameLength)
         let samples = Array(UnsafeBufferPointer(start: channelData[0], count: frameLength))
+        
+        // Debug: Print first time we receive audio
+//        if !firstBufferReceived {
+//            print("🎤 First audio buffer received! Frame length: \(frameLength)")
+//            print("🎤 Sample values: \(samples.prefix(5))")
+//            firstBufferReceived = true
+//        }
         
         // Thread-safe: Accumulate samples in input buffer using synchronized access
         bufferAccessQueue.sync {
@@ -592,15 +619,51 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             // Calculate average processing time
             let avgTime = processingTimeHistory.reduce(0, +) / Float(processingTimeHistory.count)
             
-            // Update published properties on main thread for SwiftUI
-            DispatchQueue.main.async {
-                self.magnitudes = db
-                self.peakFrequency = peakFreq
-                self.peakMagnitude = peakMag
-                self.processingTimeMs = processingTime
-                self.avgProcessingTimeMs = avgTime
+            // Debug: Print when FFT completes
+            fftCount += 1
+//            if fftCount % 10 == 0 {
+//                print("📈 FFT #\(fftCount) complete - Peak: \(peakMag) dB @ \(peakFreq) Hz")
+//            }
+            
+            // Throttle UI updates to avoid flooding main queue
+            let currentTime = CFAbsoluteTimeGetCurrent()
+            let shouldPublish = (currentTime - lastPublishTime) >= minPublishInterval
+            
+            if shouldPublish {
+                lastPublishTime = currentTime
+                
+//                print("⏰ Attempting to /*dispatch*/ UI update to main queue...")
+                
+                // Update published properties on main thread for SwiftUI
+                // Use DispatchQueue.main.async to avoid blocking audio processing
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    
+//                    print("🎨 INSIDE main.async block - updating magnitudes array (length: \(db.count))")
+                    
+                    self.magnitudes = db
+                    self.peakFrequency = peakFreq
+                    self.peakMagnitude = peakMag
+                    self.processingTimeMs = processingTime
+                    self.avgProcessingTimeMs = avgTime
+                    
+//                    print("🎨 Updated all properties - magnitudes[0]: \(self.magnitudes[0]) dB")
+                    
+                    // Debug: Confirm update happened
+//                    if self.fftCount % 10 == 0 {
+//                        print("✨ Published to main thread - Peak is now: \(self.peakMagnitude) dB")
+//                    }
+                }
+                
+//                print("⏰ Dispatched! Waiting for main queue to process it...")
+//            } else {
+//                // Skipped publish due to throttling
+//                if fftCount % 100 == 0 {
+//                    print("⏭️ Skipped publish (throttled) - \(Int((currentTime - lastPublishTime) * 1000))ms since last")
+//                }
             }
         }
     }
 }
+
 

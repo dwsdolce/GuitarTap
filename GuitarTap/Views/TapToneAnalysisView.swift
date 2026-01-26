@@ -7,11 +7,12 @@
 
 import SwiftUI
 import Charts
+import AVFoundation
 
 // MARK: - Main Tap Tone Analysis View
 
 struct TapToneAnalysisView: View {
-    @StateObject private var fftAnalyzer = RealtimeFFTAnalyzer(fftSize: 65536, targetSampleRate: 48000)
+    @StateObject private var fftAnalyzer: RealtimeFFTAnalyzer
     @StateObject private var tapToneAnalyzer: TapToneAnalyzer
     
     @State private var tapLocation: String = ""
@@ -19,14 +20,28 @@ struct TapToneAnalysisView: View {
     @State private var showingSaveSheet = false
     @State private var showingMeasurements = false
     
+    // Spectrum display state
+    @State private var minFreq: Float = 20
+    @State private var maxFreq: Float = 1000
+    @State private var minDB: Float = -100
+    @State private var maxDB: Float = 0
+    @State private var isLogarithmic: Bool = false
+    @State private var minFreqInput: String = "20"
+    @State private var maxFreqInput: String = "1000"
+    @State private var minDBInput: String = "-100"
+    @State private var maxDBInput: String = "0"
+    
     init() {
+        // Create a single FFT analyzer instance
         let fft = RealtimeFFTAnalyzer(fftSize: 65536, targetSampleRate: 48000)
+        
+        // Use the SAME instance for both state objects
         _fftAnalyzer = StateObject(wrappedValue: fft)
         _tapToneAnalyzer = StateObject(wrappedValue: TapToneAnalyzer(fftAnalyzer: fft))
     }
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             VStack(spacing: 0) {
                 // Header with controls
                 headerView
@@ -36,6 +51,9 @@ struct TapToneAnalysisView: View {
                 // Main content
                 ScrollView {
                     VStack(spacing: 20) {
+                        // Real-time Frequency Response Display
+                        realTimeSpectrumView
+                        
                         // Tap detection indicator
                         tapIndicatorView
                         
@@ -108,6 +126,180 @@ struct TapToneAnalysisView: View {
             .buttonStyle(.bordered)
         }
         .padding()
+    }
+    
+    private var realTimeSpectrumView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Toolbar: title, scale toggle, and reset button
+            HStack {
+                Text("Real-Time Frequency Response")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Toggle(isOn: $isLogarithmic) {
+                    Text("Logarithmic")
+                }
+                .toggleStyle(.switch)
+                .font(.caption)
+                
+                Button(action: resetZoom) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text("Reset")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                }
+            }
+            
+            // Range Controls
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    // Frequency Range Controls
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Frequency Range")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 8) {
+                            TextField("Min", text: $minFreqInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                .onSubmit { applyFrequencyRange() }
+                            Text("–")
+                                .foregroundColor(.secondary)
+                            TextField("Max", text: $maxFreqInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                .onSubmit { applyFrequencyRange() }
+                            Text("Hz")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Button(action: applyFrequencyRange) {
+                                Image(systemName: "arrow.right.circle.fill")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                        .frame(height: 40)
+                    
+                    // Magnitude Range Controls
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Magnitude Range")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 8) {
+                            TextField("Min", text: $minDBInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                .onSubmit { applyMagnitudeRange() }
+                            Text("–")
+                                .foregroundColor(.secondary)
+                            TextField("Max", text: $maxDBInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                .onSubmit { applyMagnitudeRange() }
+                            Text("dB")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Button(action: applyMagnitudeRange) {
+                                Image(systemName: "arrow.right.circle.fill")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.gray.opacity(0.05))
+                .cornerRadius(8)
+            }
+            
+            Text("Pinch to zoom • Drag to pan • Enter custom range above")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            
+            // Spectrum Chart
+            SpectrumView(
+                frequencies: fftAnalyzer.frequencies,
+                magnitudes: fftAnalyzer.magnitudes,
+                minFreq: $minFreq,
+                maxFreq: $maxFreq,
+                minDB: $minDB,
+                maxDB: $maxDB,
+                isLogarithmic: $isLogarithmic,
+                onFrequencyRangeChanged: updateFrequencyInputFields
+            )
+            .frame(minHeight: 250, maxHeight: 400)
+            .padding()
+            .background(Color.gray.opacity(0.05))
+            .cornerRadius(10)
+            .overlay(
+                Group {
+                    if !fftAnalyzer.isRunning {
+                        VStack {
+                            Image(systemName: "waveform.slash")
+                                .font(.system(size: 48))
+                                .foregroundColor(.secondary)
+                            Text("Press Start to begin analysis")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    } else if fftAnalyzer.frequencies.isEmpty {
+                        VStack {
+                            ProgressView()
+                            Text("Loading...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            )
+            
+            // Range Display
+            HStack {
+                Text("Range: \(formatFrequency(minFreq)) - \(formatFrequency(maxFreq))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("\(Int(minDB)) to \(Int(maxDB)) dB")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Debug Info
+            HStack {
+                if fftAnalyzer.isRunning {
+                    Text("Status: \(fftAnalyzer.frequencies.count) freq bins")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text("Peak: \(fftAnalyzer.peakMagnitude, specifier: "%.1f") dB")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text("@ \(fftAnalyzer.peakFrequency, specifier: "%.1f") Hz")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                } else {
+                    Text("Analyzer is stopped")
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                }
+            }
+        }
     }
     
     private var tapIndicatorView: some View {
@@ -267,12 +459,55 @@ struct TapToneAnalysisView: View {
     
     private func toggleAnalyzer() {
         if fftAnalyzer.isRunning {
-            fftAnalyzer.stop()
+            tapToneAnalyzer.stop()
         } else {
+            #if os(iOS)
+            // On iOS, request microphone permission first
+            if #available(iOS 17.0, *) {
+                AVAudioApplication.requestRecordPermission { granted in
+                    DispatchQueue.main.async {
+                        if granted {
+                            self.startAnalyzer()
+                        } else {
+                            print("❌ Microphone permission denied")
+                        }
+                    }
+                }
+            } else {
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    DispatchQueue.main.async {
+                        if granted {
+                            self.startAnalyzer()
+                        } else {
+                            print("❌ Microphone permission denied")
+                        }
+                    }
+                }
+            }
+            #else
+            // On macOS, start directly
+            startAnalyzer()
+            #endif
+        }
+    }
+    
+    private func startAnalyzer() {
+        // Use DispatchQueue.global() to FORCE execution off the main thread
+        DispatchQueue.global(qos: .userInitiated).async {
             do {
-                try tapToneAnalyzer.start()
+                #if os(iOS)
+                // Configure audio session for iOS
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.record, mode: .measurement, options: [])
+                try session.setActive(true)
+                #endif
+                
+                // Start the analyzer on a detached background thread
+//                print("🚀 Starting analyzer on thread: \(Thread.isMainThread ? "MAIN ⚠️" : "BACKGROUND ✅")")
+                try self.tapToneAnalyzer.start()
+//                print("✅ Analyzer started successfully")
             } catch {
-                print("Failed to start: \(error)")
+                print("❌ Failed to start analyzer: \(error)")
             }
         }
     }
@@ -327,6 +562,79 @@ struct TapToneAnalysisView: View {
         case 0.1..<0.2: return .blue
         case 0.2..<0.3: return .orange
         default: return .red
+        }
+    }
+    
+    // MARK: - Spectrum Display Helpers
+    
+    private func resetZoom() {
+        minFreq = 75
+        maxFreq = 350
+        minDB = -100
+        maxDB = 0
+        
+        minFreqInput = "75"
+        maxFreqInput = "350"
+        minDBInput = "-100"
+        maxDBInput = "0"
+    }
+    
+    private func applyFrequencyRange() {
+        guard let newMinFreq = Float(minFreqInput),
+              let newMaxFreq = Float(maxFreqInput) else {
+            minFreqInput = String(format: "%.0f", minFreq)
+            maxFreqInput = String(format: "%.0f", maxFreq)
+            return
+        }
+        
+        let clampedMin = max(20, min(newMinFreq, 20000))
+        let clampedMax = max(20, min(newMaxFreq, 20000))
+        
+        if clampedMin < clampedMax && (clampedMax - clampedMin) >= 10 {
+            minFreq = clampedMin
+            maxFreq = clampedMax
+            
+            minFreqInput = String(format: "%.0f", clampedMin)
+            maxFreqInput = String(format: "%.0f", clampedMax)
+        } else {
+            minFreqInput = String(format: "%.0f", minFreq)
+            maxFreqInput = String(format: "%.0f", maxFreq)
+        }
+    }
+    
+    private func updateFrequencyInputFields() {
+        minFreqInput = String(format: "%.0f", minFreq)
+        maxFreqInput = String(format: "%.0f", maxFreq)
+    }
+    
+    private func applyMagnitudeRange() {
+        guard let newMinDB = Float(minDBInput),
+              let newMaxDB = Float(maxDBInput) else {
+            minDBInput = String(format: "%.0f", minDB)
+            maxDBInput = String(format: "%.0f", maxDB)
+            return
+        }
+        
+        let clampedMin = max(-120, min(newMinDB, 20))
+        let clampedMax = max(-120, min(newMaxDB, 20))
+        
+        if clampedMin < clampedMax && (clampedMax - clampedMin) >= 10 {
+            minDB = clampedMin
+            maxDB = clampedMax
+            
+            minDBInput = String(format: "%.0f", clampedMin)
+            maxDBInput = String(format: "%.0f", clampedMax)
+        } else {
+            minDBInput = String(format: "%.0f", minDB)
+            maxDBInput = String(format: "%.0f", maxDB)
+        }
+    }
+    
+    private func formatFrequency(_ freq: Float) -> String {
+        if freq >= 1000 {
+            return String(format: "%.1fk Hz", freq / 1000)
+        } else {
+            return String(format: "%.0f Hz", freq)
         }
     }
 }
@@ -438,7 +746,7 @@ struct SaveMeasurementSheet: View {
     let onSave: () -> Void
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section("Tap Location") {
                     TextField("e.g., Bridge, Soundhole, Upper Bout", text: $tapLocation)
@@ -450,9 +758,6 @@ struct SaveMeasurementSheet: View {
                 }
             }
             .navigationTitle("Save Measurement")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -465,9 +770,6 @@ struct SaveMeasurementSheet: View {
                 }
             }
         }
-        #if os(macOS)
-        .frame(minWidth: 400, minHeight: 300)
-        #endif
     }
 }
 
@@ -478,7 +780,7 @@ struct MeasurementsListView: View {
     @State private var exportText = ""
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             List {
                 ForEach(analyzer.savedMeasurements) { measurement in
                     MeasurementRowView(measurement: measurement)
@@ -490,9 +792,6 @@ struct MeasurementsListView: View {
                 }
             }
             .navigationTitle("Saved Measurements")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
@@ -507,9 +806,6 @@ struct MeasurementsListView: View {
                 ExportView(text: exportText)
             }
         }
-        #if os(macOS)
-        .frame(minWidth: 500, minHeight: 400)
-        #endif
     }
     
     private func exportMeasurements() {
@@ -573,17 +869,13 @@ struct ExportView: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             ScrollView {
                 Text(text)
                     .font(.system(.caption, design: .monospaced))
                     .padding()
-                    .textSelection(.enabled)
             }
             .navigationTitle("Export Data")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
@@ -593,9 +885,6 @@ struct ExportView: View {
                 }
             }
         }
-        #if os(macOS)
-        .frame(minWidth: 500, minHeight: 400)
-        #endif
     }
 }
 
