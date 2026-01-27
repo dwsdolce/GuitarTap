@@ -140,6 +140,13 @@ final class TapToneAnalyzer: ObservableObject {
     /// Time window after tap to capture spectrum (seconds)
     @Published var captureWindow: TimeInterval = 0.2
     
+    /// Tap detection threshold in dB (absolute magnitude level to trigger tap)
+    @Published var tapDetectionThreshold: Float = -40.0
+    
+    /// Hysteresis margin in dB (prevents bouncing around threshold)
+    /// Signal must fall this many dB below threshold before ready for next tap
+    @Published var hysteresisMargin: Float = 3.0
+    
     // MARK: - Published Results
     
     /// Currently detected peaks
@@ -159,6 +166,9 @@ final class TapToneAnalyzer: ObservableObject {
     
     /// Average magnitude in current frame (for tap detection)
     @Published var averageMagnitude: Float = -100
+    
+    /// Current tap detection level (recent average + threshold)
+    @Published var tapDetectionLevel: Float = -100
     
     /// Indicates if a tap was just detected
     @Published var tapDetected: Bool = false
@@ -197,6 +207,9 @@ final class TapToneAnalyzer: ObservableObject {
     
     /// Timer for capture window
     private var captureTimer: Timer?
+    
+    /// Track if signal is currently above threshold (for rising edge detection)
+    private var isAboveThreshold: Bool = false
     
     // MARK: - Initialization
     
@@ -326,7 +339,7 @@ final class TapToneAnalyzer: ObservableObject {
         return (quality: quality, bandwidth: bandwidth)
     }
     
-    /// Detect tap events (sudden energy increase)
+    /// Detect tap events using rising edge detection with hysteresis
     private func detectTap(peakMagnitude: Float, magnitudes: [Float], frequencies: [Float]) {
         let now = Date()
         
@@ -336,21 +349,38 @@ final class TapToneAnalyzer: ObservableObject {
             return
         }
         
-        // Check for sudden increase in magnitude
-        if peakMagnitudeHistory.count > 0 {
-            let recentAvg = peakMagnitudeHistory.suffix(5).map({ $0.magnitude }).reduce(0, +) / Float(min(5, peakMagnitudeHistory.count))
+        // Update the detection level for UI display (shows rising threshold)
+        tapDetectionLevel = tapDetectionThreshold
+        
+        // Hysteresis: Use different thresholds for rising vs falling edges
+        let risingThreshold = tapDetectionThreshold
+        let fallingThreshold = tapDetectionThreshold - hysteresisMargin
+        
+        // Determine if currently above threshold (with hysteresis)
+        let currentlyAboveThreshold = isAboveThreshold ?
+            (peakMagnitude > fallingThreshold) :  // When above: use lower threshold to stay "above"
+            (peakMagnitude > risingThreshold)     // When below: use higher threshold to go "above"
+        
+        // Debug: Log state transitions (uncomment for troubleshooting)
+        // if currentlyAboveThreshold != isAboveThreshold {
+        //     print("🔄 Threshold crossing: \(isAboveThreshold ? "ABOVE→BELOW" : "BELOW→ABOVE") at \(peakMagnitude) dB (rising: \(risingThreshold), falling: \(fallingThreshold))")
+        // }
+        
+        // Detect tap only when crossing from below to above threshold
+        if currentlyAboveThreshold && !isAboveThreshold {
+            // Rising edge detected! 📈
+            tapDetected = true
+            lastTapTime = now
+            print("🎯 Tap detected! Peak: \(peakMagnitude) dB (threshold: \(risingThreshold) dB, hysteresis: \(hysteresisMargin) dB) [Rising Edge]")
             
-            if peakMagnitude > recentAvg + 20 {  // 20 dB increase
-                tapDetected = true
-                lastTapTime = now
-                print("🎯 Tap detected! Peak: \(peakMagnitude) dB")
-                
-                // Handle tap in multi-tap sequence
-                handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
-            } else {
-                tapDetected = false
-            }
+            // Handle tap in multi-tap sequence
+            handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
+        } else {
+            tapDetected = false
         }
+        
+        // Update state for next frame
+        isAboveThreshold = currentlyAboveThreshold
     }
     
     /// Handle a detected tap in the multi-tap sequence
@@ -422,16 +452,17 @@ final class TapToneAnalyzer: ObservableObject {
             (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
         }
         
-        // Freeze the spectrum at the last captured tap
-        if let lastTap = capturedTaps.last {
-            frozenFrequencies = lastTap.frequencies
-            frozenMagnitudes = lastTap.magnitudes
-            isSpectrumFrozen = true
-            print("📸 Spectrum frozen at last tap")
-        }
+        // Average the raw FFT spectrum across all taps
+        let (avgMagnitudes, avgFrequencies) = averageSpectra(from: capturedTaps)
+        
+        // Freeze the averaged spectrum for display
+        frozenFrequencies = avgFrequencies
+        frozenMagnitudes = avgMagnitudes
+        isSpectrumFrozen = true
+        print("📸 Spectrum frozen with averaged data from \(capturedTaps.count) taps")
         
         // Update status
-        statusMessage = "Analysis complete! \(averagedPeaks.count) peaks identified."
+        statusMessage = "Analysis complete! \(averagedPeaks.count) peaks identified (averaged from \(capturedTaps.count) taps)."
         tapProgress = 1.0
         
         print("✅ Averaged \(tapsForAveraging.count) taps into \(averagedPeaks.count) peaks")
@@ -490,6 +521,49 @@ final class TapToneAnalyzer: ObservableObject {
         
         // Sort by magnitude and return top peaks
         return Array(averagedPeaks.sorted(by: { $0.magnitude > $1.magnitude }).prefix(maxPeaks))
+    }
+    
+    /// Average raw FFT spectra across multiple taps
+    private func averageSpectra(from taps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)]) -> (magnitudes: [Float], frequencies: [Float]) {
+        guard !taps.isEmpty else { return ([], []) }
+        
+        // If only one tap, return its spectrum
+        if taps.count == 1 {
+            return (taps[0].magnitudes, taps[0].frequencies)
+        }
+        
+        // Ensure all spectra have the same length
+        let spectrumLength = taps[0].magnitudes.count
+        guard taps.allSatisfy({ $0.magnitudes.count == spectrumLength }) else {
+            print("⚠️ Warning: Spectrum lengths don't match, using first tap only")
+            return (taps[0].magnitudes, taps[0].frequencies)
+        }
+        
+        // Average magnitudes bin-by-bin
+        var averagedMagnitudes = [Float](repeating: 0, count: spectrumLength)
+        
+        // Convert dB to linear (power), average, then convert back to dB
+        for binIndex in 0..<spectrumLength {
+            var linearSum: Float = 0
+            
+            for tap in taps {
+                let magnitudeDB = tap.magnitudes[binIndex]
+                // Convert dB to linear power: power = 10^(dB/10)
+                let linearPower = pow(10.0, magnitudeDB / 10.0)
+                linearSum += linearPower
+            }
+            
+            // Average and convert back to dB
+            let averageLinear = linearSum / Float(taps.count)
+            averagedMagnitudes[binIndex] = 10.0 * log10(averageLinear)
+        }
+        
+        // Frequencies should be identical across all taps, use first one
+        let frequencies = taps[0].frequencies
+        
+        print("📊 Averaged \(taps.count) spectra: \(spectrumLength) bins each")
+        
+        return (magnitudes: averagedMagnitudes, frequencies: frequencies)
     }
     
     /// Track magnitude over time for decay analysis
@@ -635,6 +709,7 @@ final class TapToneAnalyzer: ObservableObject {
         tapsForAveraging = []
         captureTimer?.invalidate()
         captureTimer = nil
+        isAboveThreshold = false  // Reset edge detection state
         
         // Unfreeze spectrum
         isSpectrumFrozen = false
@@ -654,6 +729,7 @@ final class TapToneAnalyzer: ObservableObject {
         currentTapCount = 0
         tapProgress = 0.0
         tapDetected = false
+        isAboveThreshold = false  // Reset edge detection state
         
         // Unfreeze spectrum
         isSpectrumFrozen = false
@@ -679,6 +755,7 @@ final class TapToneAnalyzer: ObservableObject {
         tapProgress = 0.0
         tapDetected = false
         isDetecting = true
+        isAboveThreshold = false  // Reset edge detection state
         captureTimer?.invalidate()
         captureTimer = nil
         statusMessage = "Cancelled. Ready for new sequence."
@@ -694,6 +771,7 @@ final class TapToneAnalyzer: ObservableObject {
         capturedTaps = []
         tapsForAveraging = []
         tapDetected = false
+        isAboveThreshold = false  // Reset edge detection state
         captureTimer?.invalidate()
         captureTimer = nil
         

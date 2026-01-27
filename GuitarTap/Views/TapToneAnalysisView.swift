@@ -236,6 +236,46 @@ struct TapToneAnalysisView: View {
                         
                         Spacer()
                         
+                        // Tap detection threshold slider (absolute dB level)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Tap threshold:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 8) {
+                                Text("High")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
+                                    .frame(width: 120)
+                                Text("Low")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.blue)
+                                    .frame(width: 50, alignment: .trailing)
+                            }
+                        }
+                        
+                        // Hysteresis margin slider
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Hysteresis:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 8) {
+                                Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
+                                    .frame(width: 100)
+                                Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.purple)
+                                    .frame(width: 50, alignment: .trailing)
+                            }
+                        }
+                        
+                        Spacer()
+                        
                         // Tap sequence buttons
                         Button(action: {
                             tapToneAnalyzer.startTapSequence()
@@ -450,6 +490,68 @@ struct TapToneAnalysisView: View {
                             Text("Loading...")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
+                        }
+                    } else {
+                        // Tap detection threshold line overlay with hysteresis visualization
+                        GeometryReader { geometry in
+                            let chartPadding: CGFloat = 16
+                            let chartHeight = geometry.size.height - 2 * chartPadding
+                            let dbRange = maxDB - minDB
+                            
+                            if tapToneAnalyzer.isDetecting {
+                                // Rising threshold (main threshold line)
+                                let risingThreshold = tapToneAnalyzer.tapDetectionLevel
+                                if risingThreshold > minDB && risingThreshold < maxDB {
+                                    let normalizedPosition = CGFloat((risingThreshold - minDB) / dbRange)
+                                    let yPosition = chartHeight * (1 - normalizedPosition) + chartPadding
+                                    
+                                    // Rising threshold line (orange)
+                                    Path { path in
+                                        path.move(to: CGPoint(x: chartPadding, y: yPosition))
+                                        path.addLine(to: CGPoint(x: geometry.size.width - chartPadding, y: yPosition))
+                                    }
+                                    .stroke(style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                                    .foregroundColor(.orange.opacity(0.7))
+                                    
+                                    // Label for rising threshold
+                                    Text("Trigger: \(Int(risingThreshold)) dB")
+                                        .font(.caption2)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.orange)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.white.opacity(0.9))
+                                        .cornerRadius(4)
+                                        .position(x: geometry.size.width - 80, y: yPosition - 12)
+                                }
+                                
+                                // Falling threshold (hysteresis line) - only show if hysteresis > 0.5 dB
+                                if tapToneAnalyzer.hysteresisMargin > 0.5 {
+                                    let fallingThreshold = risingThreshold - tapToneAnalyzer.hysteresisMargin
+                                    if fallingThreshold > minDB && fallingThreshold < maxDB {
+                                        let normalizedFallingPosition = CGFloat((fallingThreshold - minDB) / dbRange)
+                                        let yFallingPosition = chartHeight * (1 - normalizedFallingPosition) + chartPadding
+                                        
+                                        // Falling threshold line (purple, lighter)
+                                        Path { path in
+                                            path.move(to: CGPoint(x: chartPadding, y: yFallingPosition))
+                                            path.addLine(to: CGPoint(x: geometry.size.width - chartPadding, y: yFallingPosition))
+                                        }
+                                        .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
+                                        .foregroundColor(.purple.opacity(0.5))
+                                        
+                                        // Label for falling threshold
+                                        Text("Reset: \(Int(fallingThreshold)) dB")
+                                            .font(.caption2)
+                                            .foregroundColor(.purple.opacity(0.8))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.white.opacity(0.85))
+                                            .cornerRadius(4)
+                                            .position(x: chartPadding + 70, y: yFallingPosition - 12)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
