@@ -78,6 +78,9 @@ struct SpectrumView: View {
     /// Callback invoked when the frequency range changes due to zoom/pan gestures
     var onFrequencyRangeChanged: (() -> Void)?
     
+    /// Optional binding to annotation offsets for draggable labels
+    var annotationOffsets: Binding<[UUID: CGPoint]>?
+    
     // MARK: - Gesture State
     
     /// Tracks drag offset during pan gestures
@@ -223,43 +226,54 @@ struct SpectrumView: View {
                     .foregroundStyle(modeColor(for: GuitarMode.classify(frequency: peak.frequency)))
                     .symbolSize(100)
                     
-                    // Peak annotation
+                    // Static annotation (for positioning reference only)
                     PointMark(
                         x: .value("Frequency", peak.frequency),
                         y: .value("Magnitude", peak.magnitude)
                     )
                     .foregroundStyle(.clear)
                     .annotation(position: .top, alignment: .center, spacing: 4) {
-                        VStack(spacing: 2) {
-                            Text(GuitarMode.classify(frequency: peak.frequency).rawValue)
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .foregroundColor(modeColor(for: GuitarMode.classify(frequency: peak.frequency)))
-                            
-                            Text("\(peak.frequency, specifier: "%.1f") Hz")
-                                .font(.caption2)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                            
-                            Text("\(peak.magnitude, specifier: "%.1f") dB")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 4)
-                        .background(Color(white: 0.95).opacity(0.95))
-                        .cornerRadius(6)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(modeColor(for: GuitarMode.classify(frequency: peak.frequency)), lineWidth: 1.5)
-                        )
+                        // Non-interactive placeholder
+                        Color.clear
+                            .frame(width: 80, height: 60)
+                            .id("placeholder-\(peak.id)")
                     }
                 }
             }
             .chartPlotStyle { plotArea in
                 plotArea
                     .border(Color.gray, width: 1)
+                    .overlay(
+                        GeometryReader { plotGeometry in
+                            // Overlay draggable annotations using plot area geometry
+                            ZStack {
+                                ForEach(visiblePeaks) { peak in
+                                    if let offsetBinding = annotationOffsets {
+                                        DraggablePeakAnnotation(
+                                            peak: peak,
+                                            offset: offsetBinding.wrappedValue[peak.id] ?? .zero,
+                                            chartGeometry: plotGeometry,
+                                            minFreq: minFreq,
+                                            maxFreq: maxFreq,
+                                            minDB: minDB,
+                                            maxDB: maxDB,
+                                            isLogarithmic: isLogarithmic,
+                                            onOffsetChange: { newOffset in
+                                                offsetBinding.wrappedValue[peak.id] = newOffset
+                                            },
+                                            onReset: {
+                                                offsetBinding.wrappedValue.removeValue(forKey: peak.id)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            .allowsHitTesting(true)
+                        }
+                        .allowsHitTesting(true)
+                    )
             }
+            .allowsHitTesting(true)
             // Configure x-axis scale (frequency) - can be linear or logarithmic
             .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
             // Configure y-axis scale (magnitude in dB)
@@ -508,6 +522,296 @@ struct SpectrumView: View {
     }
 }
 
+// MARK: - Draggable Peak Annotation
+
+/// A draggable annotation view for peak labels that can be repositioned to prevent overlap
+struct DraggablePeakAnnotation: View {
+    let peak: ResonantPeak
+    let offset: CGPoint
+    let chartGeometry: GeometryProxy
+    let minFreq: Float
+    let maxFreq: Float
+    let minDB: Float
+    let maxDB: Float
+    let isLogarithmic: Bool
+    let onOffsetChange: (CGPoint) -> Void
+    let onReset: () -> Void
+    
+    @State private var dragOffset: CGSize = .zero
+    @State private var isHovering: Bool = false
+    @State private var isDragging: Bool = false
+    
+    // Cache computed positions to reduce calculation overhead
+    @State private var cachedChartPosition: CGPoint = .zero
+    @State private var cachedPeakPosition: CGPoint = .zero
+    
+    private var modeColor: Color {
+        let mode = GuitarMode.classify(frequency: peak.frequency)
+        switch mode {
+        case .helmholtz: return .cyan
+        case .crossGrain: return .blue
+        case .longGrain: return .green
+        case .monopole: return .orange
+        case .dipole: return .red
+        case .ringMode: return .purple
+        case .upperModes: return .gray
+        case .unknown: return .secondary
+        }
+    }
+    
+    /// Whether the annotation has been moved from its default position
+    private var isMoved: Bool {
+        offset.x != 0 || offset.y != 0
+    }
+    
+    /// Calculate position in chart coordinates
+    private func calculateChartPosition() -> CGPoint {
+        let chartWidth = chartGeometry.size.width
+        let chartHeight = chartGeometry.size.height
+        
+        // Calculate X position (frequency)
+        let freqRange = maxFreq - minFreq
+        let freqNormalized: CGFloat
+        if isLogarithmic {
+            let logMin = log10(Double(minFreq))
+            let logMax = log10(Double(maxFreq))
+            let logFreq = log10(Double(peak.frequency))
+            freqNormalized = CGFloat((logFreq - logMin) / (logMax - logMin))
+        } else {
+            freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
+        }
+        let x = freqNormalized * chartWidth
+        
+        // Calculate Y position (magnitude) - inverted because chart Y goes down
+        let dbRange = maxDB - minDB
+        let dbNormalized = CGFloat((peak.magnitude - minDB) / dbRange)
+        let y = (1.0 - dbNormalized) * chartHeight
+        
+        return CGPoint(x: x, y: y - 70) // Offset up by 70 to place above peak
+    }
+    
+    /// Position of the actual peak marker (without the label offset)
+    private func calculatePeakPosition() -> CGPoint {
+        let chartWidth = chartGeometry.size.width
+        let chartHeight = chartGeometry.size.height
+        
+        // Calculate X position (frequency)
+        let freqRange = maxFreq - minFreq
+        let freqNormalized: CGFloat
+        if isLogarithmic {
+            let logMin = log10(Double(minFreq))
+            let logMax = log10(Double(maxFreq))
+            let logFreq = log10(Double(peak.frequency))
+            freqNormalized = CGFloat((logFreq - logMin) / (logMax - logMin))
+        } else {
+            freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
+        }
+        let x = freqNormalized * chartWidth
+        
+        // Calculate Y position (magnitude) - inverted because chart Y goes down
+        let dbRange = maxDB - minDB
+        let dbNormalized = CGFloat((peak.magnitude - minDB) / dbRange)
+        let y = (1.0 - dbNormalized) * chartHeight
+        
+        return CGPoint(x: x, y: y) // No offset - this is the actual peak position
+    }
+    
+    /// Final position including user offset and drag
+    private var finalPosition: CGPoint {
+        CGPoint(
+            x: cachedChartPosition.x + offset.x + dragOffset.width,
+            y: cachedChartPosition.y + offset.y + dragOffset.height
+        )
+    }
+    
+    var body: some View {
+        // Separate the connection line and label into distinct layers
+        ZStack(alignment: .topLeading) {
+            // Connection line layer - only updates when positions change
+            if isMoved || isDragging {
+                ConnectionLine(
+                    from: cachedPeakPosition,
+                    to: CGPoint(
+                        x: cachedChartPosition.x + offset.x + dragOffset.width,
+                        y: cachedChartPosition.y + offset.y + dragOffset.height + 30
+                    ),
+                    color: modeColor
+                )
+            }
+            
+            // The annotation content - positioned independently
+            PeakAnnotationLabel(
+                peak: peak,
+                modeColor: modeColor,
+                isHovering: isHovering,
+                isDragging: isDragging,
+                isMoved: isMoved
+            )
+            .position(finalPosition)
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        if !isDragging {
+                            isDragging = true
+                            // Cache positions at start of drag
+                            cachedChartPosition = calculateChartPosition()
+                            cachedPeakPosition = calculatePeakPosition()
+                        }
+                        dragOffset = value.translation
+                    }
+                    .onEnded { value in
+                        let newOffset = CGPoint(
+                            x: offset.x + value.translation.width,
+                            y: offset.y + value.translation.height
+                        )
+                        // Disable animation for smoother dragging
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            onOffsetChange(newOffset)
+                            isDragging = false
+                        }
+                        dragOffset = .zero
+                        // Update cache after drag completes
+                        cachedChartPosition = calculateChartPosition()
+                        cachedPeakPosition = calculatePeakPosition()
+                    }
+            )
+            .onHover { hovering in
+                withAnimation(.none) {
+                    isHovering = hovering
+                }
+            }
+            #if os(macOS)
+            .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                    NSCursor.openHand.set()
+                case .ended:
+                    NSCursor.arrow.set()
+                }
+            }
+            #endif
+            .contextMenu {
+                Button(action: onReset) {
+                    Label("Reset Position", systemImage: "arrow.counterclockwise")
+                }
+                .disabled(!isMoved)
+            }
+            .help(isMoved ? "Drag to adjust • Right-click to reset position" : "Drag to reposition label")
+        }
+        .onAppear {
+            // Initialize cached positions
+            cachedChartPosition = calculateChartPosition()
+            cachedPeakPosition = calculatePeakPosition()
+        }
+        .onChange(of: minFreq) { _, _ in
+            if !isDragging {
+                cachedChartPosition = calculateChartPosition()
+                cachedPeakPosition = calculatePeakPosition()
+            }
+        }
+        .onChange(of: maxFreq) { _, _ in
+            if !isDragging {
+                cachedChartPosition = calculateChartPosition()
+                cachedPeakPosition = calculatePeakPosition()
+            }
+        }
+        .onChange(of: minDB) { _, _ in
+            if !isDragging {
+                cachedChartPosition = calculateChartPosition()
+                cachedPeakPosition = calculatePeakPosition()
+            }
+        }
+        .onChange(of: maxDB) { _, _ in
+            if !isDragging {
+                cachedChartPosition = calculateChartPosition()
+                cachedPeakPosition = calculatePeakPosition()
+            }
+        }
+        .onChange(of: isLogarithmic) { _, _ in
+            if !isDragging {
+                cachedChartPosition = calculateChartPosition()
+                cachedPeakPosition = calculatePeakPosition()
+            }
+        }
+    }
+}
+
+// MARK: - Connection Line
+
+/// A simple view that draws a connection line between two points
+private struct ConnectionLine: View {
+    let from: CGPoint
+    let to: CGPoint
+    let color: Color
+    
+    var body: some View {
+        Path { path in
+            path.move(to: from)
+            path.addLine(to: to)
+        }
+        .stroke(color.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+    }
+}
+
+// MARK: - Peak Annotation Label
+
+/// The visual label component for a peak annotation
+private struct PeakAnnotationLabel: View {
+    let peak: ResonantPeak
+    let modeColor: Color
+    let isHovering: Bool
+    let isDragging: Bool
+    let isMoved: Bool
+    
+    var body: some View {
+        VStack(spacing: 2) {
+            // Drag handle indicator
+            if isHovering || isMoved || isDragging {
+                HStack(spacing: 2) {
+                    Image(systemName: isDragging ? "hand.point.up.left.fill" : "hand.point.up.left")
+                        .font(.system(size: 8))
+                        .foregroundColor(modeColor.opacity(0.6))
+                    
+                    if isMoved && !isDragging {
+                        Image(systemName: "arrow.uturn.backward.circle.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.secondary)
+                            .help("Right-click to reset")
+                    }
+                }
+            }
+            
+            Text(GuitarMode.classify(frequency: peak.frequency).rawValue)
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundColor(modeColor)
+            
+            Text("\(peak.frequency, specifier: "%.1f") Hz")
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+            
+            Text("\(peak.magnitude, specifier: "%.1f") dB")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(white: 0.95))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(modeColor, lineWidth: isDragging ? 2.5 : (isHovering ? 2 : 1.5))
+        )
+        .shadow(color: .black.opacity(0.15), radius: 4)
+        .contentShape(Rectangle())
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
@@ -516,6 +820,7 @@ struct SpectrumView: View {
     @Previewable @State var minDB: Float = -100
     @Previewable @State var maxDB: Float = 0
     @Previewable @State var isLogarithmic = false
+    @Previewable @State var annotationOffsets: [UUID: CGPoint] = [:]
     
     let sampleFrequencies = stride(from: Float(20), through: Float(20000), by: Float(10)).map { $0 }
     let sampleMagnitudes = sampleFrequencies.map { freq in
@@ -542,7 +847,8 @@ struct SpectrumView: View {
         maxDB: $maxDB,
         isLogarithmic: $isLogarithmic,
         peaks: samplePeaks,
-        showModeBoundaries: true
+        showModeBoundaries: true,
+        annotationOffsets: $annotationOffsets
     )
     .frame(height: 300)
     .padding()

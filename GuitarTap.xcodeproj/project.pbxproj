@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		8965D5BC2F061CE300243E14 /* GuitarTap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GuitarTap.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		89C6F80E2F2848C3002A1089 /* DRAGGABLE_ANNOTATIONS_IMPLEMENTATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DRAGGABLE_ANNOTATIONS_IMPLEMENTATION.md; sourceTree = "<group>"; };
 		89CF7C9F2F272A7200243D73 /* GuitarTapMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GuitarTapMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -15,9 +16,54 @@
 		89CF7C982F2724B800243D73 /* Exceptions for "GuitarTap" folder in "GuitarTap" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Documentation/ALL_AUDIO_FIXES_SUMMARY.md,
+				Documentation/AUDIO_ARCHITECTURE_DIAGRAMS.md,
+				Documentation/AUDIO_DEVICE_STOP_FIX.md,
+				Documentation/AUDIO_ENGINE_FIX.md,
+				Documentation/AUDIO_ERRORS_QUICK_REFERENCE.md,
+				Documentation/BEFORE_AFTER_COMPARISON.md,
+				Documentation/COMPLETE_SUMMARY.md,
+				Documentation/DIAGNOSTIC_0HZ_ERROR.md,
+				Documentation/FFT_65536_FIX_SUMMARY.md,
+				Documentation/FFT_METRICS_DOCUMENTATION.md,
+				Documentation/FFT_METRICS_QUICK_START.md,
+				Documentation/FFT_SIZE_FIX.md,
+				Documentation/FINAL_FIX_APPLIED.md,
+				Documentation/IMPLEMENTATION_SUMMARY.md,
+				Documentation/INTEGRATION_COMPLETE.md,
+				Documentation/LARGE_FFT_SIZE_SUPPORT.md,
+				Documentation/PLATFORM_INTEGRATION_GUIDE.md,
+				Documentation/PROJECT_REORGANIZATION_GUIDE.md,
+				Documentation/QUICK_FIX_REFERENCE.md,
+				Documentation/QUICK_FIX_SPECTRUM_SIZING.md,
+				Documentation/QUICK_REFERENCE_CARD.md,
+				Documentation/README_METRICS.md,
+				Documentation/REORGANIZATION_ACTION_REQUIRED.md,
+				Documentation/SPECTRUM_SIZING_VISUAL_GUIDE.md,
+				Documentation/SPECTRUM_VIEW_SIZING_GUIDE.md,
+				Documentation/TAP_TONE_DOCUMENTATION.md,
+				Documentation/TAP_TONE_QUICK_START.md,
+				Documentation/VISUAL_LAYOUT_GUIDE.md,
 				"guitar-tap.png",
 				"guitar-tap.svg",
 				Info.plist,
+				Models/DRAGGABLE_ANNOTATIONS_COMPLETE_GUIDE.md,
+				Models/DRAGGABLE_ANNOTATIONS_USER_GUIDE.md,
+				Models/DRAGGABLE_PEAK_ANNOTATIONS.md,
+				Models/IMPLEMENTATION_SUMMARY.md,
+				Models/MULTI_TAP_AVERAGING.md,
+				Models/TAP_DETECTION_THRESHOLD.md,
+				Views/CONTROLS_RESTORATION_SUMMARY.md,
+				Views/FALSE_TAP_DETECTION_FIX.md,
+				Views/FRAME_RATE_FIX.md,
+				Views/FROZEN_SPECTRUM_FEATURE.md,
+				Views/IMPLEMENTATION_SUMMARY_MULTITAP.md,
+				Views/METRICS_INTEGRATION_GUIDE.md,
+				Views/METRICS_QUICK_REFERENCE.md,
+				Views/METRICS_VISUAL_GUIDE.md,
+				Views/MULTI_TAP_UI_GUIDE.md,
+				Views/OVERLAP_OPTIMIZATION_SUMMARY.md,
+				Views/PEAK_DETECTION_UPDATE.md,
 			);
 			platformFiltersByRelativePath = {
 				Assets.xcassets = (ios, macos, );
@@ -60,6 +106,7 @@
 			children = (
 				8902969A2F09D3F200B236AD /* GuitarTap */,
 				8965D5BD2F061CE300243E14 /* Products */,
+				89C6F80E2F2848C3002A1089 /* DRAGGABLE_ANNOTATIONS_IMPLEMENTATION.md */,
 			);
 			sourceTree = "<group>";
 		};

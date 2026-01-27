@@ -173,8 +173,8 @@ final class TapToneAnalyzer: ObservableObject {
     /// Indicates if a tap was just detected
     @Published var tapDetected: Bool = false
     
-    /// Detection state
-    @Published var isDetecting: Bool = true
+    /// Detection state (disabled by default until user starts a tap sequence)
+    @Published var isDetecting: Bool = false
     
     /// Current tap count in multi-tap sequence
     @Published var currentTapCount: Int = 0
@@ -183,7 +183,7 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var tapProgress: Float = 0.0
     
     /// Status message for user feedback
-    @Published var statusMessage: String = "Ready to detect taps"
+    @Published var statusMessage: String = "Press Start to begin"
     
     /// Frozen spectrum data (captured when sequence completes)
     @Published var frozenFrequencies: [Float] = []
@@ -192,12 +192,21 @@ final class TapToneAnalyzer: ObservableObject {
     /// Whether to display frozen spectrum instead of live data
     @Published var isSpectrumFrozen: Bool = false
     
+    /// Custom offsets for peak annotations (keyed by peak ID) to prevent overlap
+    @Published var peakAnnotationOffsets: [UUID: CGPoint] = [:]
+    
     // MARK: - Private State
     
     private var cancellables = Set<AnyCancellable>()
     private var peakMagnitudeHistory: [(time: Date, magnitude: Float)] = []
     private var lastTapTime: Date?
     private let tapCooldown: TimeInterval = 0.5  // Minimum time between taps
+    
+    /// Time when the analyzer started (for warm-up period)
+    private var analyzerStartTime: Date?
+    
+    /// Warm-up period in seconds - ignore taps during this time to prevent false detections
+    private let warmupPeriod: TimeInterval = 0.5
     
     /// Storage for captured tap spectra (for averaging)
     private var capturedTaps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)] = []
@@ -235,6 +244,13 @@ final class TapToneAnalyzer: ObservableObject {
     
     /// Main analysis pipeline
     private func analyzeMagnitudes(_ magnitudes: [Float], frequencies: [Float], peakMagnitude: Float) {
+        // Don't analyze anything if the FFT analyzer isn't actually running
+        guard fftAnalyzer.isRunning else {
+            // Reset tap detection state to prevent false positives before start
+            tapDetected = false
+            return
+        }
+        
         // Calculate average magnitude for tap detection
         let validMags = magnitudes.filter { $0 > -100 }
         averageMagnitude = validMags.isEmpty ? -100 : validMags.reduce(0, +) / Float(validMags.count)
@@ -387,10 +403,22 @@ final class TapToneAnalyzer: ObservableObject {
     private func detectTap(peakMagnitude: Float, magnitudes: [Float], frequencies: [Float]) {
         let now = Date()
         
+        // Check if we're still in warm-up period (prevents false detections on startup)
+        if let startTime = analyzerStartTime, now.timeIntervalSince(startTime) < warmupPeriod {
+            tapDetected = false
+            statusMessage = "Initializing... (\(String(format: "%.1f", warmupPeriod - now.timeIntervalSince(startTime)))s)"
+            return
+        }
+        
         // Check cooldown
         if let lastTap = lastTapTime, now.timeIntervalSince(lastTap) < tapCooldown {
             tapDetected = false
             return
+        }
+        
+        // Update status message if ready and waiting for tap
+        if currentTapCount == 0 && statusMessage.contains("Initializing") {
+            statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
         }
         
         // Update the detection level for UI display (shows rising threshold)
@@ -725,11 +753,44 @@ final class TapToneAnalyzer: ObservableObject {
         }
     }
     
+    // MARK: - Annotation Management
+    
+    /// Update the offset for a peak annotation
+    func updateAnnotationOffset(for peakID: UUID, offset: CGPoint) {
+        DispatchQueue.main.async { [weak self] in
+            self?.peakAnnotationOffsets[peakID] = offset
+        }
+    }
+    
+    /// Get the offset for a peak annotation
+    func getAnnotationOffset(for peakID: UUID) -> CGPoint {
+        peakAnnotationOffsets[peakID] ?? .zero
+    }
+    
+    /// Reset annotation offset for a peak
+    func resetAnnotationOffset(for peakID: UUID) {
+        DispatchQueue.main.async { [weak self] in
+            self?.peakAnnotationOffsets.removeValue(forKey: peakID)
+        }
+    }
+    
+    /// Reset all annotation offsets
+    func resetAllAnnotationOffsets() {
+        DispatchQueue.main.async { [weak self] in
+            self?.peakAnnotationOffsets = [:]
+        }
+    }
+    
     // MARK: - Control
     
     /// Start analyzing
     func start() throws {
         try fftAnalyzer.start()
+        analyzerStartTime = Date()  // Record start time for warm-up period
+        print("🎬 Analyzer started - warm-up period: \(warmupPeriod)s")
+        
+        // Automatically start tap detection when analyzer starts
+        startTapSequence()
     }
     
     /// Stop analyzing
@@ -739,91 +800,116 @@ final class TapToneAnalyzer: ObservableObject {
     
     /// Reset analysis state
     func reset() {
-        currentPeaks = []
-        identifiedModes = []
-        currentDecayTime = nil
-        peakHistory = []
-        peakMagnitudeHistory = []
-        lastTapTime = nil
-        tapDetected = false
-        isDetecting = true
-        currentTapCount = 0
-        tapProgress = 0.0
-        capturedTaps = []
-        tapsForAveraging = []
-        captureTimer?.invalidate()
-        captureTimer = nil
-        isAboveThreshold = false  // Reset edge detection state
-        
-        // Unfreeze spectrum
-        isSpectrumFrozen = false
-        frozenFrequencies = []
-        frozenMagnitudes = []
-        
-        statusMessage = "Ready to detect taps"
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            self.currentPeaks = []
+            self.identifiedModes = []
+            self.currentDecayTime = nil
+            self.peakHistory = []
+            self.peakMagnitudeHistory = []
+            self.lastTapTime = nil
+            self.tapDetected = false
+            self.isDetecting = false  // Disable detection until new sequence starts
+            self.currentTapCount = 0
+            self.tapProgress = 0.0
+            self.capturedTaps = []
+            self.tapsForAveraging = []
+            self.captureTimer?.invalidate()
+            self.captureTimer = nil
+            self.isAboveThreshold = false  // Reset edge detection state
+            self.analyzerStartTime = Date()  // Reset warm-up timer
+            
+            // Unfreeze spectrum
+            self.isSpectrumFrozen = false
+            self.frozenFrequencies = []
+            self.frozenMagnitudes = []
+            
+            // Clear annotation offsets
+            self.peakAnnotationOffsets = [:]
+            
+            self.statusMessage = "Press 'New Tap' to begin"
+        }
     }
     
     /// Start a new tap detection sequence
     func startTapSequence() {
         print("🎬 Starting tap sequence: \(numberOfTaps) tap(s)")
         
-        // Clear previous data
-        capturedTaps = []
-        tapsForAveraging = []
-        currentTapCount = 0
-        tapProgress = 0.0
-        tapDetected = false
-        isAboveThreshold = false  // Reset edge detection state
-        
-        // Unfreeze spectrum
-        isSpectrumFrozen = false
-        frozenFrequencies = []
-        frozenMagnitudes = []
-        
-        // Enable detection
-        isDetecting = true
-        statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
-        
-        // Clear current results
-        currentPeaks = []
-        identifiedModes = []
+        // Ensure all @Published updates happen on main thread
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Clear previous data
+            self.capturedTaps = []
+            self.tapsForAveraging = []
+            self.currentTapCount = 0
+            self.tapProgress = 0.0
+            self.tapDetected = false
+            self.isAboveThreshold = false  // Reset edge detection state
+            
+            // Reset warm-up timer to prevent immediate false detection
+            self.analyzerStartTime = Date()
+            
+            // Unfreeze spectrum
+            self.isSpectrumFrozen = false
+            self.frozenFrequencies = []
+            self.frozenMagnitudes = []
+            
+            // Enable detection
+            self.isDetecting = true
+            self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."
+            
+            // Clear current results
+            self.currentPeaks = []
+            self.identifiedModes = []
+        }
     }
     
     /// Cancel current tap sequence and restart detection
     func cancelTapSequence() {
         print("❌ Tap sequence cancelled")
         
-        capturedTaps = []
-        tapsForAveraging = []
-        currentTapCount = 0
-        tapProgress = 0.0
-        tapDetected = false
-        isDetecting = true
-        isAboveThreshold = false  // Reset edge detection state
-        captureTimer?.invalidate()
-        captureTimer = nil
-        statusMessage = "Cancelled. Ready for new sequence."
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            self.capturedTaps = []
+            self.tapsForAveraging = []
+            self.currentTapCount = 0
+            self.tapProgress = 0.0
+            self.tapDetected = false
+            self.isDetecting = true
+            self.isAboveThreshold = false  // Reset edge detection state
+            self.captureTimer?.invalidate()
+            self.captureTimer = nil
+            self.statusMessage = "Cancelled. Ready for new sequence."
+        }
     }
     
     /// Resume detection after analysis
     func resumeDetection() {
         print("▶️ Resuming tap detection")
         
-        isDetecting = true
-        currentTapCount = 0
-        tapProgress = 0.0
-        capturedTaps = []
-        tapsForAveraging = []
-        tapDetected = false
-        isAboveThreshold = false  // Reset edge detection state
-        captureTimer?.invalidate()
-        captureTimer = nil
-        
-        // Unfreeze spectrum
-        isSpectrumFrozen = false
-        frozenFrequencies = []
-        frozenMagnitudes = []
-        
-        statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            self.isDetecting = true
+            self.currentTapCount = 0
+            self.tapProgress = 0.0
+            self.capturedTaps = []
+            self.tapsForAveraging = []
+            self.tapDetected = false
+            self.isAboveThreshold = false  // Reset edge detection state
+            self.analyzerStartTime = Date()  // Reset warm-up timer to prevent false detection
+            self.captureTimer?.invalidate()
+            self.captureTimer = nil
+            
+            // Unfreeze spectrum
+            self.isSpectrumFrozen = false
+            self.frozenFrequencies = []
+            self.frozenMagnitudes = []
+            
+            self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."
+        }
     }
 }

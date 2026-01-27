@@ -308,6 +308,18 @@ struct TapToneAnalysisView: View {
                             .buttonStyle(.bordered)
                             .foregroundColor(.blue)
                         }
+                        
+                        // Reset annotation positions button
+                        if !tapToneAnalyzer.peakAnnotationOffsets.isEmpty {
+                            Button(action: {
+                                tapToneAnalyzer.resetAllAnnotationOffsets()
+                            }) {
+                                Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                            }
+                            .buttonStyle(.bordered)
+                            .foregroundColor(.secondary)
+                            .help("Reset all peak label positions to default")
+                        }
                     }
                     
                     // Status and progress row
@@ -469,7 +481,8 @@ struct TapToneAnalysisView: View {
                 isLogarithmic: $isLogarithmic,
                 peaks: tapToneAnalyzer.currentPeaks,
                 showModeBoundaries: true,
-                onFrequencyRangeChanged: updateFrequencyInputFields
+                onFrequencyRangeChanged: updateFrequencyInputFields,
+                annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets
             )
             .frame(minHeight: 250, maxHeight: 400)
             .padding()
