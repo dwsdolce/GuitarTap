@@ -39,6 +39,8 @@ struct SpectrumDataPoint: Identifiable {
 /// - Logarithmic or linear frequency scale
 /// - Interactive zoom and pan gestures
 /// - Clamped ranges to prevent invalid zoom levels
+/// - Mode boundary markers
+/// - Peak annotations
 ///
 /// ## Gesture Controls
 /// - **Pinch**: Zoom in/out on both frequency and dB axes
@@ -67,6 +69,12 @@ struct SpectrumView: View {
     /// Whether to use logarithmic scale for the frequency axis
     @Binding var isLogarithmic: Bool
     
+    /// Optional array of peaks to annotate on the chart
+    var peaks: [ResonantPeak]?
+    
+    /// Whether to show mode boundary markers
+    var showModeBoundaries: Bool = true
+    
     /// Callback invoked when the frequency range changes due to zoom/pan gestures
     var onFrequencyRangeChanged: (() -> Void)?
     
@@ -88,6 +96,31 @@ struct SpectrumView: View {
         zip(frequencies, magnitudes)
             .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
             .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
+    }
+    
+    /// Returns the mode boundaries that are visible in the current frequency range
+    private var visibleModeBoundaries: [(frequency: Float, mode: GuitarMode)] {
+        let allModes: [GuitarMode] = [.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode, .upperModes]
+        var boundaries: [(Float, GuitarMode)] = []
+        
+        for mode in allModes {
+            let range = mode.idealRange
+            // Add lower boundary if visible
+            if range.lowerBound >= minFreq && range.lowerBound <= maxFreq {
+                boundaries.append((range.lowerBound, mode))
+            }
+            // Add upper boundary if visible
+            if range.upperBound >= minFreq && range.upperBound <= maxFreq {
+                boundaries.append((range.upperBound, mode))
+            }
+        }
+        
+        return boundaries
+    }
+    
+    /// Returns peaks that are visible in the current frequency range
+    private var visiblePeaks: [ResonantPeak] {
+        peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
     }
     
     /// Calculates appropriate frequency values for axis labels based on the current zoom level.
@@ -143,17 +176,85 @@ struct SpectrumView: View {
                 .font(.headline)
                 .padding(.bottom, 8)
             
-            Chart(chartData) { dataPoint in
-                // Clamp the magnitude to the currently displayed min and max DB values
-                let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
+            Chart {
+                // Main spectrum line
+                ForEach(chartData) { dataPoint in
+                    // Clamp the magnitude to the currently displayed min and max DB values
+                    let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
+                    
+                    // Line mark shows the precise spectrum shape
+                    LineMark(
+                        x: .value("Frequency", dataPoint.frequency),
+                        y: .value("Magnitude", clampedMagnitude)
+                    )
+                    .foregroundStyle(.red)
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                }
                 
-                // Line mark shows the precise spectrum shape
-                LineMark(
-                    x: .value("Frequency", dataPoint.frequency),
-                    y: .value("Magnitude", clampedMagnitude)
-                )
-                .foregroundStyle(.red)
-                .lineStyle(StrokeStyle(lineWidth: 1))
+                // Mode boundary markers
+                if showModeBoundaries {
+                    ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
+                        RuleMark(x: .value("Boundary", boundary.frequency))
+                            .foregroundStyle(modeColor(for: boundary.mode).opacity(0.3))
+                            .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
+                            .annotation(position: .top, alignment: .center) {
+                                // Only show mode name at start of range (lower boundary)
+                                if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
+                                    Text(modeAbbreviation(for: boundary.mode))
+                                        .font(.caption2)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(modeColor(for: boundary.mode))
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 2)
+                                        .background(modeColor(for: boundary.mode).opacity(0.15))
+                                        .cornerRadius(4)
+                                }
+                            }
+                    }
+                }
+                
+                // Peak annotations
+                ForEach(visiblePeaks) { peak in
+                    // Peak marker
+                    PointMark(
+                        x: .value("Frequency", peak.frequency),
+                        y: .value("Magnitude", peak.magnitude)
+                    )
+                    .foregroundStyle(modeColor(for: GuitarMode.classify(frequency: peak.frequency)))
+                    .symbolSize(100)
+                    
+                    // Peak annotation
+                    PointMark(
+                        x: .value("Frequency", peak.frequency),
+                        y: .value("Magnitude", peak.magnitude)
+                    )
+                    .foregroundStyle(.clear)
+                    .annotation(position: .top, alignment: .center, spacing: 4) {
+                        VStack(spacing: 2) {
+                            Text(GuitarMode.classify(frequency: peak.frequency).rawValue)
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(modeColor(for: GuitarMode.classify(frequency: peak.frequency)))
+                            
+                            Text("\(peak.frequency, specifier: "%.1f") Hz")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            
+                            Text("\(peak.magnitude, specifier: "%.1f") dB")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .background(Color(white: 0.95).opacity(0.95))
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(modeColor(for: GuitarMode.classify(frequency: peak.frequency)), lineWidth: 1.5)
+                        )
+                    }
+                }
             }
             .chartPlotStyle { plotArea in
                 plotArea
@@ -212,6 +313,41 @@ struct SpectrumView: View {
                     }
             )
         }
+    }
+    
+    // MARK: - Helper Functions
+    
+    /// Returns the color associated with a guitar mode
+    private func modeColor(for mode: GuitarMode) -> Color {
+        switch mode {
+        case .helmholtz: return .cyan
+        case .crossGrain: return .blue
+        case .longGrain: return .green
+        case .monopole: return .orange
+        case .dipole: return .red
+        case .ringMode: return .purple
+        case .upperModes: return .gray
+        case .unknown: return .secondary
+        }
+    }
+    
+    /// Returns abbreviated mode name for boundary labels
+    private func modeAbbreviation(for mode: GuitarMode) -> String {
+        switch mode {
+        case .helmholtz: return "HH"
+        case .crossGrain: return "XG"
+        case .longGrain: return "LG"
+        case .monopole: return "MP"
+        case .dipole: return "DP"
+        case .ringMode: return "Ring"
+        case .upperModes: return "Upper"
+        case .unknown: return "?"
+        }
+    }
+    
+    /// Determines if this boundary frequency is the start (lower bound) of a mode range
+    private func isStartOfModeRange(_ frequency: Float, for mode: GuitarMode) -> Bool {
+        return abs(frequency - mode.idealRange.lowerBound) < 0.1
     }
     
     // MARK: - Gesture Handlers
@@ -390,6 +526,13 @@ struct SpectrumView: View {
         return max(peak1, peak2, peak3, -80)
     }
     
+    // Sample peaks for annotation
+    let samplePeaks = [
+        ResonantPeak(frequency: 100, magnitude: -20, quality: 15, bandwidth: 6.7),
+        ResonantPeak(frequency: 200, magnitude: -35, quality: 12, bandwidth: 16.7),
+        ResonantPeak(frequency: 240, magnitude: -40, quality: 10, bandwidth: 24)
+    ]
+    
     return SpectrumView(
         frequencies: sampleFrequencies,
         magnitudes: sampleMagnitudes,
@@ -397,7 +540,9 @@ struct SpectrumView: View {
         maxFreq: $maxFreq,
         minDB: $minDB,
         maxDB: $maxDB,
-        isLogarithmic: $isLogarithmic
+        isLogarithmic: $isLogarithmic,
+        peaks: samplePeaks,
+        showModeBoundaries: true
     )
     .frame(height: 300)
     .padding()

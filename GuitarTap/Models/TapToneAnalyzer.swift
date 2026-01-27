@@ -279,38 +279,82 @@ final class TapToneAnalyzer: ObservableObject {
         let startIdx = frequencies.firstIndex(where: { $0 >= minFrequency }) ?? 0
         let endIdx = frequencies.firstIndex(where: { $0 > maxFrequency }) ?? frequencies.count - 1
         
-        // Scan for local maxima
-        for i in (startIdx + windowSize)..<(endIdx - windowSize) {
-            let magnitude = magnitudes[i]
+        // Define all modes to search for
+        let modesToSearch: [GuitarMode] = [.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode, .upperModes]
+        
+        // For each mode, search its frequency range for peaks
+        for mode in modesToSearch {
+            let modeRange = mode.idealRange
             
-            // Skip if below threshold
-            guard magnitude > peakThreshold else { continue }
+            // Find indices for this mode's range
+            let modeStartIdx = frequencies.firstIndex(where: { $0 >= modeRange.lowerBound }) ?? startIdx
+            let modeEndIdx = frequencies.firstIndex(where: { $0 > modeRange.upperBound }) ?? endIdx
             
-            // Check if local maximum
-            var isLocalMax = true
-            for offset in -windowSize...windowSize where offset != 0 {
-                if magnitudes[i + offset] >= magnitude {
-                    isLocalMax = false
-                    break
+            // Skip if range is invalid
+            guard modeStartIdx < modeEndIdx, modeStartIdx >= startIdx, modeEndIdx <= endIdx else { continue }
+            
+            // Scan for local maxima within this mode's range
+            for i in max(modeStartIdx, startIdx + windowSize)..<min(modeEndIdx, endIdx - windowSize) {
+                let magnitude = magnitudes[i]
+                
+                // Skip if below threshold
+                guard magnitude > peakThreshold else { continue }
+                
+                // Check if local maximum
+                var isLocalMax = true
+                for offset in -windowSize...windowSize where offset != 0 {
+                    if magnitudes[i + offset] >= magnitude {
+                        isLocalMax = false
+                        break
+                    }
                 }
+                
+                guard isLocalMax else { continue }
+                
+                // Calculate Q factor (sharpness) and bandwidth
+                let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, peakIndex: i, peakMagnitude: magnitude)
+                
+                let peak = ResonantPeak(
+                    frequency: frequencies[i],
+                    magnitude: magnitude,
+                    quality: quality,
+                    bandwidth: bandwidth
+                )
+                peaks.append(peak)
             }
-            
-            guard isLocalMax else { continue }
-            
-            // Calculate Q factor (sharpness) and bandwidth
-            let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, peakIndex: i, peakMagnitude: magnitude)
-            
-            let peak = ResonantPeak(
-                frequency: frequencies[i],
-                magnitude: magnitude,
-                quality: quality,
-                bandwidth: bandwidth
-            )
-            peaks.append(peak)
         }
         
-        // Sort by magnitude and take top N
-        return Array(peaks.sorted(by: { $0.magnitude > $1.magnitude }).prefix(maxPeaks))
+        // Remove duplicate peaks (in case mode ranges overlap)
+        peaks = removeDuplicatePeaks(peaks)
+        
+        // Sort by magnitude but keep all peaks found in mode ranges
+        return peaks.sorted(by: { $0.magnitude > $1.magnitude })
+    }
+    
+    /// Remove duplicate peaks that are too close in frequency
+    private func removeDuplicatePeaks(_ peaks: [ResonantPeak]) -> [ResonantPeak] {
+        var uniquePeaks: [ResonantPeak] = []
+        let frequencyTolerance: Float = 2.0  // Hz - peaks closer than this are considered duplicates
+        
+        for peak in peaks {
+            // Check if we already have a peak at this frequency
+            let isDuplicate = uniquePeaks.contains { existingPeak in
+                abs(existingPeak.frequency - peak.frequency) < frequencyTolerance
+            }
+            
+            if !isDuplicate {
+                uniquePeaks.append(peak)
+            } else {
+                // If duplicate, keep the one with higher magnitude
+                if let existingIndex = uniquePeaks.firstIndex(where: { abs($0.frequency - peak.frequency) < frequencyTolerance }) {
+                    if peak.magnitude > uniquePeaks[existingIndex].magnitude {
+                        uniquePeaks[existingIndex] = peak
+                    }
+                }
+            }
+        }
+        
+        return uniquePeaks
     }
     
     /// Calculate Q factor and bandwidth for a peak

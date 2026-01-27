@@ -467,6 +467,8 @@ struct TapToneAnalysisView: View {
                 minDB: $minDB,
                 maxDB: $maxDB,
                 isLogarithmic: $isLogarithmic,
+                peaks: tapToneAnalyzer.currentPeaks,
+                showModeBoundaries: true,
                 onFrequencyRangeChanged: updateFrequencyInputFields
             )
             .frame(minHeight: 250, maxHeight: 400)
