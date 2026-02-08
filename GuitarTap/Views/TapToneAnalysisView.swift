@@ -20,15 +20,16 @@ struct TapToneAnalysisView: View {
     @State private var showingSaveSheet = false
     @State private var showingMeasurements = false
     @State private var showingMetrics = false
+    @State private var showingResults = false
     
     // Spectrum display state
     @State private var minFreq: Float = 20
-    @State private var maxFreq: Float = 1000
+    @State private var maxFreq: Float = 300
     @State private var minDB: Float = -100
     @State private var maxDB: Float = 0
     @State private var isLogarithmic: Bool = false
     @State private var minFreqInput: String = "20"
-    @State private var maxFreqInput: String = "1000"
+    @State private var maxFreqInput: String = "300"
     @State private var minDBInput: String = "-100"
     @State private var maxDBInput: String = "0"
     
@@ -60,23 +61,62 @@ struct TapToneAnalysisView: View {
     /// macOS layout with optional side panel for metrics
     @ViewBuilder
     private var macOSLayout: some View {
-        NavigationView {
-            if showingMetrics {
-                HSplitView {
-                    // Main content
-                    mainContentView
-                        .frame(minWidth: 600)
-                    
-                    // Metrics panel (resizable)
-                    ScrollView {
-                        FFTAnalysisMetricsView(analyzer: fftAnalyzer)
-                            .padding()
-                    }
-                    .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
-                }
-            } else {
+        if showingMetrics && showingResults {
+            // Both panels visible - three column layout
+            HSplitView {
+                // Main content
                 mainContentView
+                    .frame(minWidth: 600)
+                
+                // Results panel (middle)
+                TapAnalysisResultsView(
+                    analyzer: tapToneAnalyzer,
+                    fftAnalyzer: fftAnalyzer,
+                    minFreq: minFreq,
+                    maxFreq: maxFreq
+                )
+                .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
+                
+                // Metrics panel (right)
+                ScrollView {
+                    FFTAnalysisMetricsView(analyzer: fftAnalyzer)
+                        .padding()
+                }
+                .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
             }
+        } else if showingMetrics {
+            // Only metrics panel
+            HSplitView {
+                // Main content
+                mainContentView
+                    .frame(minWidth: 600)
+                
+                // Metrics panel (resizable)
+                ScrollView {
+                    FFTAnalysisMetricsView(analyzer: fftAnalyzer)
+                        .padding()
+                }
+                .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
+            }
+        } else if showingResults {
+            // Only results panel
+            HSplitView {
+                // Main content
+                mainContentView
+                    .frame(minWidth: 600)
+                
+                // Results panel (resizable)
+                TapAnalysisResultsView(
+                    analyzer: tapToneAnalyzer,
+                    fftAnalyzer: fftAnalyzer,
+                    minFreq: minFreq,
+                    maxFreq: maxFreq
+                )
+                .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
+            }
+        } else {
+            // No panels
+            mainContentView
         }
     }
     #endif
@@ -85,22 +125,36 @@ struct TapToneAnalysisView: View {
     @ViewBuilder
     private var iOSLayout: some View {
         NavigationView {
-            if horizontalSizeClass == .regular && showingMetrics {
-                // iPad: Side-by-side layout
+            if horizontalSizeClass == .regular && (showingMetrics || showingResults) {
+                // iPad: Side-by-side layout with optional panels
                 HStack(spacing: 0) {
                     mainContentView
                         .frame(maxWidth: .infinity)
                     
-                    Divider()
-                    
-                    ScrollView {
-                        FFTAnalysisMetricsView(analyzer: fftAnalyzer)
-                            .padding()
+                    if showingResults {
+                        Divider()
+                        
+                        TapAnalysisResultsView(
+                            analyzer: tapToneAnalyzer,
+                            fftAnalyzer: fftAnalyzer,
+                            minFreq: minFreq,
+                            maxFreq: maxFreq
+                        )
+                        .frame(width: 350)
                     }
-                    .frame(width: 350)
+                    
+                    if showingMetrics {
+                        Divider()
+                        
+                        ScrollView {
+                            FFTAnalysisMetricsView(analyzer: fftAnalyzer)
+                                .padding()
+                        }
+                        .frame(width: 350)
+                    }
                 }
             } else {
-                // iPhone or iPad without metrics panel
+                // iPhone or iPad without panels
                 ZStack(alignment: .topTrailing) {
                     mainContentView
                     
@@ -122,6 +176,38 @@ struct TapToneAnalysisView: View {
                 onSave: saveMeasurement
             )
         }
+        .sheet(isPresented: $showingResults) {
+            // On iPhone, show results as a sheet
+            if horizontalSizeClass != .regular {
+                NavigationView {
+                    TapAnalysisResultsView(
+                        analyzer: tapToneAnalyzer,
+                        fftAnalyzer: fftAnalyzer,
+                        minFreq: minFreq,
+                        maxFreq: maxFreq
+                    )
+                    .navigationTitle("Analysis Results")
+                        #if os(iOS)
+                        .navigationBarTitleDisplayMode(.inline)
+                        #endif
+                        .toolbar {
+                            #if os(iOS)
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Done") {
+                                    showingResults = false
+                                }
+                            }
+                            #else
+                            ToolbarItem(placement: .automatic) {
+                                Button("Done") {
+                                    showingResults = false
+                                }
+                            }
+                            #endif
+                        }
+                }
+            }
+        }
     }
     
     /// Main content view shared across platforms
@@ -142,20 +228,8 @@ struct TapToneAnalysisView: View {
                     // Tap detection indicator
                     tapIndicatorView
                     
-                    // Current peaks display
-                    currentPeaksView
-                    
-                    // Mode identification
-                    modeIdentificationView
-                    
-                    // Decay time
+                    // Decay time (keep this in main view for quick reference)
                     decayTimeView
-                    
-                    // Tap tone ratio
-                    tapToneRatioView
-                    
-                    // Peak history chart
-                    peakHistoryChart
                 }
                 .padding()
             }
@@ -164,6 +238,13 @@ struct TapToneAnalysisView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 HStack {
+                    Button(action: { showingResults.toggle() }) {
+                        Label(
+                            showingResults ? "Hide Results" : "Show Results",
+                            systemImage: showingResults ? "doc.text.fill" : "doc.text"
+                        )
+                    }
+                    
                     Button(action: { showingMetrics.toggle() }) {
                         Label(
                             showingMetrics ? "Hide Metrics" : "Show Metrics",
@@ -196,6 +277,15 @@ struct TapToneAnalysisView: View {
                 .buttonStyle(.bordered)
                 
                 Spacer()
+                
+                // Results button
+                Button(action: { showingResults.toggle() }) {
+                    Label(
+                        showingResults ? "Hide Results" : "Show Results",
+                        systemImage: showingResults ? "doc.text.fill" : "doc.text"
+                    )
+                }
+                .buttonStyle(.bordered)
                 
                 // Metrics button
                 Button(action: { showingMetrics.toggle() }) {
@@ -631,40 +721,6 @@ struct TapToneAnalysisView: View {
         .cornerRadius(10)
     }
     
-    private var currentPeaksView: some View {
-        GroupBox("Detected Peaks") {
-            if tapToneAnalyzer.currentPeaks.isEmpty {
-                Text("No peaks detected")
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            } else {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(tapToneAnalyzer.currentPeaks.prefix(5)) { peak in
-                        PeakRowView(peak: peak)
-                    }
-                }
-            }
-        }
-    }
-    
-    private var modeIdentificationView: some View {
-        GroupBox("Identified Modes") {
-            if tapToneAnalyzer.identifiedModes.isEmpty {
-                Text("No modes identified")
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            } else {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(tapToneAnalyzer.identifiedModes.prefix(8), id: \.peak.id) { item in
-                        ModeRowView(peak: item.peak, mode: item.mode)
-                    }
-                }
-            }
-        }
-    }
-    
     private var decayTimeView: some View {
         GroupBox("Ring-Out Time") {
             HStack {
@@ -693,73 +749,6 @@ struct TapToneAnalysisView: View {
                 }
             }
             .padding(.vertical, 4)
-        }
-    }
-    
-    private var tapToneRatioView: some View {
-        GroupBox("Tap Tone Ratio") {
-            if let ratio = tapToneAnalyzer.calculateTapToneRatio() {
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("\(ratio, specifier: "%.2f") : 1")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text("Long-grain / Cross-grain")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    VStack(alignment: .trailing) {
-                        Text(ratioQuality(ratio))
-                            .font(.headline)
-                            .foregroundColor(ratioQualityColor(ratio))
-                        
-                        Text("Ideal: 1.9 - 2.1")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            } else {
-                Text("Need both cross-grain and long-grain modes")
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-        }
-    }
-    
-    private var peakHistoryChart: some View {
-        GroupBox("Peak Tracking") {
-            if tapToneAnalyzer.peakHistory.isEmpty {
-                Text("No history available")
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 200)
-            } else {
-                Chart {
-                    ForEach(Array(tapToneAnalyzer.peakHistory.enumerated()), id: \.offset) { index, peaks in
-                        ForEach(peaks.prefix(5)) { peak in
-                            LineMark(
-                                x: .value("Time", index),
-                                y: .value("Frequency", peak.frequency)
-                            )
-                            .foregroundStyle(by: .value("Mode", GuitarMode.classify(frequency: peak.frequency).rawValue))
-                        }
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading)
-                }
-                .chartXAxis {
-                    AxisMarks { _ in
-                        AxisGridLine()
-                    }
-                }
-                .frame(height: 250)
-            }
         }
     }
     
@@ -947,7 +936,313 @@ struct TapToneAnalysisView: View {
     }
 }
 
+// MARK: - Analysis Results View
+
+/// A view that displays tap tone analysis results in a dedicated panel.
+struct TapAnalysisResultsView: View {
+    @ObservedObject var analyzer: TapToneAnalyzer
+    @ObservedObject var fftAnalyzer: RealtimeFFTAnalyzer
+    
+    // Frequency range for filtering
+    var minFreq: Float
+    var maxFreq: Float
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Header
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Analysis Results")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                    
+                    Text("Showing \(formatFrequency(minFreq)) - \(formatFrequency(maxFreq))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                // Current peaks display
+                peaksAndModesSection
+                
+                Divider()
+                
+                // Tap tone ratio
+                ratioSection
+                
+                Divider()
+                
+                // Peak history chart
+                historySection
+                
+                // Status indicator
+                statusIndicator
+            }
+            .padding()
+        }
+    }
+    
+    // MARK: - Computed Properties
+    
+    /// Combined peaks with mode classifications, filtered to the current frequency range and sorted by frequency
+    private var sortedPeaksWithModes: [(peak: ResonantPeak, mode: GuitarMode)] {
+        analyzer.currentPeaks
+            .filter { peak in
+                peak.frequency >= minFreq && peak.frequency <= maxFreq
+            }
+            .map { peak in
+                (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+            }
+            .sorted { $0.peak.frequency < $1.peak.frequency }
+    }
+    
+    // MARK: - Subviews
+    
+    private var peaksAndModesSection: some View {
+        GroupBox("Detected Peaks & Modes") {
+            if sortedPeaksWithModes.isEmpty {
+                Text("No peaks detected in visible range")
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
+                        CombinedPeakModeRowView(peak: item.peak, mode: item.mode)
+                    }
+                }
+            }
+        }
+    }
+    
+    private var ratioSection: some View {
+        GroupBox("Tap Tone Ratio") {
+            if let ratio = analyzer.calculateTapToneRatio() {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("\(ratio, specifier: "%.2f") : 1")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        
+                        Text("Long-grain / Cross-grain")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing) {
+                        Text(ratioQualityHelper(ratio))
+                            .font(.headline)
+                            .foregroundColor(ratioQualityColorHelper(ratio))
+                        
+                        Text("Ideal: 1.9 - 2.1")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            } else {
+                Text("Need both cross-grain and long-grain modes")
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+        }
+    }
+    
+    private var historySection: some View {
+        GroupBox("Peak Tracking") {
+            if analyzer.peakHistory.isEmpty {
+                Text("No history available")
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 200)
+            } else {
+                Chart {
+                    ForEach(Array(analyzer.peakHistory.enumerated()), id: \.offset) { index, peaks in
+                        ForEach(peaks.prefix(5)) { peak in
+                            LineMark(
+                                x: .value("Time", index),
+                                y: .value("Frequency", peak.frequency)
+                            )
+                            .foregroundStyle(by: .value("Mode", GuitarMode.classify(frequency: peak.frequency).rawValue))
+                        }
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading)
+                }
+                .chartXAxis {
+                    AxisMarks { _ in
+                        AxisGridLine()
+                    }
+                }
+                .frame(height: 250)
+            }
+        }
+    }
+    
+    private var statusIndicator: some View {
+        HStack {
+            Circle()
+                .fill(fftAnalyzer.isRunning ? Color.green : Color.gray)
+                .frame(width: 8, height: 8)
+            
+            Text(fftAnalyzer.isRunning ? "Analyzing" : "Stopped")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+    
+    // MARK: - Helper functions
+    
+    private func formatFrequency(_ freq: Float) -> String {
+        if freq >= 1000 {
+            return String(format: "%.1fk Hz", freq / 1000)
+        } else {
+            return String(format: "%.0f Hz", freq)
+        }
+    }
+    
+    private func ratioQualityHelper(_ ratio: Float) -> String {
+        switch ratio {
+        case 1.9...2.1:
+            return "Excellent"
+        case 1.7...1.9, 2.1...2.3:
+            return "Good"
+        case 1.5...1.7, 2.3...2.5:
+            return "Fair"
+        default:
+            return "Needs Adjustment"
+        }
+    }
+    
+    private func ratioQualityColorHelper(_ ratio: Float) -> Color {
+        switch ratio {
+        case 1.9...2.1:
+            return .green
+        case 1.7...1.9, 2.1...2.3:
+            return .blue
+        case 1.5...1.7, 2.3...2.5:
+            return .orange
+        default:
+            return .red
+        }
+    }
+}
+
 // MARK: - Supporting Views
+
+struct CombinedPeakModeRowView: View {
+    let peak: ResonantPeak
+    let mode: GuitarMode
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Mode icon and color
+            VStack(spacing: 4) {
+                Image(systemName: modeIcon)
+                    .foregroundColor(modeColor)
+                    .font(.title3)
+                    .frame(width: 30, height: 30)
+                
+                // Mode range indicator
+                if mode != .unknown && mode != .upperModes {
+                    let inRange = mode.idealRange.contains(peak.frequency)
+                    Image(systemName: inRange ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundColor(inRange ? .green : .orange)
+                        .font(.caption2)
+                }
+            }
+            
+            // Peak and mode information
+            VStack(alignment: .leading, spacing: 6) {
+                // Mode name and frequency
+                HStack {
+                    Text(mode.rawValue)
+                        .font(.headline)
+                        .foregroundColor(modeColor)
+                    
+                    Spacer()
+                    
+                    Text("\(peak.frequency, specifier: "%.2f") Hz")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                }
+                
+                // Peak details
+                HStack(spacing: 12) {
+                    HStack(spacing: 4) {
+                        Text("Q:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(peak.quality, specifier: "%.1f")")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Text("BW:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(peak.bandwidth, specifier: "%.1f") Hz")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    
+                    Spacer()
+                    
+                    // Magnitude with color coding
+                    Text("\(peak.magnitude, specifier: "%.1f") dB")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(magnitudeColor(peak.magnitude))
+                }
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(modeColor.opacity(0.05))
+        .cornerRadius(8)
+    }
+    
+    private var modeIcon: String {
+        switch mode {
+        case .helmholtz: return "wind"
+        case .crossGrain: return "arrow.left.and.right"
+        case .longGrain: return "arrow.up.and.down"
+        case .monopole: return "circle.fill"
+        case .dipole: return "circle.lefthalf.filled"
+        case .ringMode: return "circle.dashed"
+        case .upperModes: return "waveform"
+        case .unknown: return "questionmark.circle"
+        }
+    }
+    
+    private var modeColor: Color {
+        switch mode {
+        case .helmholtz: return .cyan
+        case .crossGrain: return .blue
+        case .longGrain: return .green
+        case .monopole: return .orange
+        case .dipole: return .red
+        case .ringMode: return .purple
+        case .upperModes: return .gray
+        case .unknown: return .secondary
+        }
+    }
+    
+    private func magnitudeColor(_ mag: Float) -> Color {
+        if mag >= -40.0 {
+            return .green
+        } else if mag >= -60.0 {
+            return .blue
+        } else if mag >= -80.0 {
+            return .orange
+        } else {
+            return .red
+        }
+    }
+}
 
 struct PeakRowView: View {
     let peak: ResonantPeak
@@ -1127,6 +1422,25 @@ struct MeasurementsListView: View {
 struct MeasurementRowView: View {
     let measurement: TapToneMeasurement
     
+    // Break down complex expressions for better compilation
+    private var peaksText: String {
+        "\(measurement.peaks.count) peaks"
+    }
+    
+    private var ratioText: String? {
+        if let ratio = measurement.tapToneRatio {
+            return "Ratio: \(String(format: "%.2f", ratio))"
+        }
+        return nil
+    }
+    
+    private var decayText: String? {
+        if let decay = measurement.decayTime {
+            return "Decay: \(String(format: "%.2f", decay))s"
+        }
+        return nil
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -1145,17 +1459,18 @@ struct MeasurementRowView: View {
                     .foregroundColor(.secondary)
             }
             
+            // Simplified metadata row
             HStack {
-                Text("\(measurement.peaks.count) peaks")
+                Text(peaksText)
                 
-                if let ratio = measurement.tapToneRatio {
+                if let ratio = ratioText {
                     Text("•")
-                    Text("Ratio: \(ratio, specifier: "%.2f")")
+                    Text(ratio)
                 }
                 
-                if let decay = measurement.decayTime {
+                if let decay = decayText {
                     Text("•")
-                    Text("Decay: \(decay, specifier: "%.2f")s")
+                    Text(decay)
                 }
             }
             .font(.caption)
