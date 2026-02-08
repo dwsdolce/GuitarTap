@@ -10,10 +10,17 @@ import SwiftUI
 @main
 struct GuitarTapApp: App {
     var body: some Scene {
+        #if os(macOS)
+        // On macOS, use Window instead of WindowGroup to prevent multiple instances
+        Window("Guitar Tap", id: "main") {
+            TapToneAnalysisView()
+        }
+        .commandsRemoved() // Remove the "New Window" menu command
+        #else
+        // On iOS, WindowGroup is appropriate
         WindowGroup {
-//            ContentView()
-//                .frame(minWidth: 600, minHeight: 700)
             TapToneAnalysisView()  
         }
+        #endif
     }
 }

@@ -234,30 +234,9 @@ struct TapToneAnalysisView: View {
                 .padding()
             }
         }
+        #if os(iOS)
         .navigationTitle("Tap Tone Analysis")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                HStack {
-                    Button(action: { showingResults.toggle() }) {
-                        Label(
-                            showingResults ? "Hide Results" : "Show Results",
-                            systemImage: showingResults ? "doc.text.fill" : "doc.text"
-                        )
-                    }
-                    
-                    Button(action: { showingMetrics.toggle() }) {
-                        Label(
-                            showingMetrics ? "Hide Metrics" : "Show Metrics",
-                            systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar"
-                        )
-                    }
-                    
-                    Button(action: { showingMeasurements = true }) {
-                        Label("Measurements", systemImage: "list.bullet")
-                    }
-                }
-            }
-        }
+        #endif
     }
     
     // MARK: - Subviews
