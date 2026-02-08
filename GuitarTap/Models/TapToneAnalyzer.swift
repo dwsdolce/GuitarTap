@@ -846,7 +846,15 @@ final class TapToneAnalyzer: ObservableObject {
             self.currentTapCount = 0
             self.tapProgress = 0.0
             self.tapDetected = false
-            self.isAboveThreshold = false  // Reset edge detection state
+            
+            // IMPORTANT: Initialize threshold state based on current audio level
+            // This prevents false "rising edge" detection when starting
+            let currentPeakMag = self.fftAnalyzer.peakMagnitude
+            self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
+            
+            if self.isAboveThreshold {
+                print("⚠️ Starting with audio already above threshold (\(currentPeakMag) dB > \(self.tapDetectionThreshold) dB) - will wait for signal to drop first")
+            }
             
             // Reset warm-up timer to prevent immediate false detection
             self.analyzerStartTime = Date()
@@ -879,7 +887,16 @@ final class TapToneAnalyzer: ObservableObject {
             self.tapProgress = 0.0
             self.tapDetected = false
             self.isDetecting = true
-            self.isAboveThreshold = false  // Reset edge detection state
+            
+            // IMPORTANT: Initialize threshold state based on current audio level
+            // This prevents false "rising edge" detection when cancelling
+            let currentPeakMag = self.fftAnalyzer.peakMagnitude
+            self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
+            
+            if self.isAboveThreshold {
+                print("⚠️ Cancelling with audio already above threshold (\(currentPeakMag) dB > \(self.tapDetectionThreshold) dB) - will wait for signal to drop first")
+            }
+            
             self.captureTimer?.invalidate()
             self.captureTimer = nil
             self.statusMessage = "Cancelled. Ready for new sequence."
@@ -899,7 +916,16 @@ final class TapToneAnalyzer: ObservableObject {
             self.capturedTaps = []
             self.tapsForAveraging = []
             self.tapDetected = false
-            self.isAboveThreshold = false  // Reset edge detection state
+            
+            // IMPORTANT: Initialize threshold state based on current audio level
+            // This prevents false "rising edge" detection when resuming
+            let currentPeakMag = self.fftAnalyzer.peakMagnitude
+            self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
+            
+            if self.isAboveThreshold {
+                print("⚠️ Resuming with audio already above threshold (\(currentPeakMag) dB > \(self.tapDetectionThreshold) dB) - will wait for signal to drop first")
+            }
+            
             self.analyzerStartTime = Date()  // Reset warm-up timer to prevent false detection
             self.captureTimer?.invalidate()
             self.captureTimer = nil

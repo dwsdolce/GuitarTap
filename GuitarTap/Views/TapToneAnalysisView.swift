@@ -61,109 +61,63 @@ struct TapToneAnalysisView: View {
     /// macOS layout with optional side panel for metrics
     @ViewBuilder
     private var macOSLayout: some View {
-        if showingMetrics && showingResults {
-            // Both panels visible - three column layout
-            HSplitView {
-                // Main content
-                mainContentView
-                    .frame(minWidth: 600)
-                
-                // Results panel (middle)
-                TapAnalysisResultsView(
-                    analyzer: tapToneAnalyzer,
-                    fftAnalyzer: fftAnalyzer,
-                    minFreq: minFreq,
-                    maxFreq: maxFreq
-                )
-                .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
-                
-                // Metrics panel (right)
-                ScrollView {
-                    FFTAnalysisMetricsView(analyzer: fftAnalyzer)
-                        .padding()
-                }
-                .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
-            }
-        } else if showingMetrics {
-            // Only metrics panel
-            HSplitView {
-                // Main content
-                mainContentView
-                    .frame(minWidth: 600)
-                
-                // Metrics panel (resizable)
-                ScrollView {
-                    FFTAnalysisMetricsView(analyzer: fftAnalyzer)
-                        .padding()
-                }
-                .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
-            }
-        } else if showingResults {
-            // Only results panel
-            HSplitView {
-                // Main content
-                mainContentView
-                    .frame(minWidth: 600)
-                
-                // Results panel (resizable)
-                TapAnalysisResultsView(
-                    analyzer: tapToneAnalyzer,
-                    fftAnalyzer: fftAnalyzer,
-                    minFreq: minFreq,
-                    maxFreq: maxFreq
-                )
-                .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
-            }
-        } else {
-            // No panels
-            mainContentView
-        }
-    }
-    #endif
-    
-    /// iOS layout with adaptive metrics display
-    @ViewBuilder
-    private var iOSLayout: some View {
-        NavigationView {
-            if horizontalSizeClass == .regular && (showingMetrics || showingResults) {
-                // iPad: Side-by-side layout with optional panels
-                HStack(spacing: 0) {
+        Group {
+            if showingMetrics && showingResults {
+                // Both panels visible - three column layout
+                HSplitView {
+                    // Main content
                     mainContentView
-                        .frame(maxWidth: .infinity)
+                        .frame(minWidth: 600)
                     
-                    if showingResults {
-                        Divider()
-                        
-                        TapAnalysisResultsView(
-                            analyzer: tapToneAnalyzer,
-                            fftAnalyzer: fftAnalyzer,
-                            minFreq: minFreq,
-                            maxFreq: maxFreq
-                        )
-                        .frame(width: 350)
-                    }
+                    // Results panel (middle)
+                    TapAnalysisResultsView(
+                        analyzer: tapToneAnalyzer,
+                        fftAnalyzer: fftAnalyzer,
+                        minFreq: minFreq,
+                        maxFreq: maxFreq
+                    )
+                    .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
                     
-                    if showingMetrics {
-                        Divider()
-                        
-                        ScrollView {
-                            FFTAnalysisMetricsView(analyzer: fftAnalyzer)
-                                .padding()
-                        }
-                        .frame(width: 350)
+                    // Metrics panel (right)
+                    ScrollView {
+                        FFTAnalysisMetricsView(analyzer: fftAnalyzer)
+                            .padding()
                     }
+                    .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
+                }
+            } else if showingMetrics {
+                // Only metrics panel
+                HSplitView {
+                    // Main content
+                    mainContentView
+                        .frame(minWidth: 600)
+                    
+                    // Metrics panel (resizable)
+                    ScrollView {
+                        FFTAnalysisMetricsView(analyzer: fftAnalyzer)
+                            .padding()
+                    }
+                    .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
+                }
+            } else if showingResults {
+                // Only results panel
+                HSplitView {
+                    // Main content
+                    mainContentView
+                        .frame(minWidth: 600)
+                    
+                    // Results panel (resizable)
+                    TapAnalysisResultsView(
+                        analyzer: tapToneAnalyzer,
+                        fftAnalyzer: fftAnalyzer,
+                        minFreq: minFreq,
+                        maxFreq: maxFreq
+                    )
+                    .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
                 }
             } else {
-                // iPhone or iPad without panels
-                ZStack(alignment: .topTrailing) {
-                    mainContentView
-                    
-                    // Show compact overlay on iPhone when metrics are enabled
-                    if showingMetrics && horizontalSizeClass != .regular {
-                        CompactFFTMetricsOverlay(analyzer: fftAnalyzer)
-                            .padding(12)
-                    }
-                }
+                // No panels
+                mainContentView
             }
         }
         .sheet(isPresented: $showingMeasurements) {
@@ -176,36 +130,98 @@ struct TapToneAnalysisView: View {
                 onSave: saveMeasurement
             )
         }
-        .sheet(isPresented: $showingResults) {
-            // On iPhone, show results as a sheet
-            if horizontalSizeClass != .regular {
-                NavigationView {
-                    TapAnalysisResultsView(
-                        analyzer: tapToneAnalyzer,
-                        fftAnalyzer: fftAnalyzer,
-                        minFreq: minFreq,
-                        maxFreq: maxFreq
-                    )
-                    .navigationTitle("Analysis Results")
-                        #if os(iOS)
-                        .navigationBarTitleDisplayMode(.inline)
-                        #endif
-                        .toolbar {
-                            #if os(iOS)
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button("Done") {
-                                    showingResults = false
-                                }
-                            }
-                            #else
-                            ToolbarItem(placement: .automatic) {
-                                Button("Done") {
-                                    showingResults = false
-                                }
-                            }
-                            #endif
+    }
+    #endif
+    
+    /// iOS layout with adaptive metrics display
+    @ViewBuilder
+    private var iOSLayout: some View {
+        ZStack {
+            NavigationView {
+                if horizontalSizeClass == .regular && (showingMetrics || showingResults) {
+                    // iPad: Side-by-side layout with optional panels
+                    HStack(spacing: 0) {
+                        mainContentView
+                            .frame(maxWidth: .infinity)
+                        
+                        if showingResults {
+                            Divider()
+                            
+                            TapAnalysisResultsView(
+                                analyzer: tapToneAnalyzer,
+                                fftAnalyzer: fftAnalyzer,
+                                minFreq: minFreq,
+                                maxFreq: maxFreq
+                            )
+                            .frame(width: 350)
                         }
+                        
+                        if showingMetrics {
+                            Divider()
+                            
+                            ScrollView {
+                                FFTAnalysisMetricsView(analyzer: fftAnalyzer)
+                                    .padding()
+                            }
+                            .frame(width: 350)
+                        }
+                    }
+                } else {
+                    // iPhone or iPad without panels
+                    ZStack(alignment: .topTrailing) {
+                        mainContentView
+                        
+                        // Show compact overlay on iPhone when metrics are enabled
+                        if showingMetrics && horizontalSizeClass != .regular {
+                            CompactFFTMetricsOverlay(analyzer: fftAnalyzer)
+                                .padding(12)
+                        }
+                    }
                 }
+            }
+            .sheet(isPresented: $showingMeasurements) {
+                MeasurementsListView(analyzer: tapToneAnalyzer)
+            }
+            .sheet(isPresented: $showingSaveSheet) {
+                SaveMeasurementSheet(
+                    tapLocation: $tapLocation,
+                    notes: $notes,
+                    onSave: saveMeasurement
+                )
+            }
+            
+            // Results sheet for iPhone only
+            if showingResults && horizontalSizeClass != .regular {
+                Color.clear
+                    .sheet(isPresented: $showingResults) {
+                        NavigationView {
+                            TapAnalysisResultsView(
+                                analyzer: tapToneAnalyzer,
+                                fftAnalyzer: fftAnalyzer,
+                                minFreq: minFreq,
+                                maxFreq: maxFreq
+                            )
+                            .navigationTitle("Analysis Results")
+                                #if os(iOS)
+                                .navigationBarTitleDisplayMode(.inline)
+                                #endif
+                                .toolbar {
+                                    #if os(iOS)
+                                    ToolbarItem(placement: .navigationBarTrailing) {
+                                        Button("Done") {
+                                            showingResults = false
+                                        }
+                                    }
+                                    #else
+                                    ToolbarItem(placement: .automatic) {
+                                        Button("Done") {
+                                            showingResults = false
+                                        }
+                                    }
+                                    #endif
+                                }
+                        }
+                    }
             }
         }
     }
@@ -281,6 +297,16 @@ struct TapToneAnalysisView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(tapToneAnalyzer.currentPeaks.isEmpty)
+                
+                // Measurements button
+                Button(action: { showingMeasurements = true }) {
+                    Label("Measurements", systemImage: "list.bullet.clipboard")
+                    if !tapToneAnalyzer.savedMeasurements.isEmpty {
+                        Text("(\(tapToneAnalyzer.savedMeasurements.count))")
+                            .font(.caption)
+                    }
+                }
+                .buttonStyle(.bordered)
                 
                 // Reset button
                 Button(action: tapToneAnalyzer.reset) {
@@ -1328,17 +1354,10 @@ struct SaveMeasurementSheet: View {
     let onSave: () -> Void
     
     var body: some View {
-        NavigationView {
-            Form {
-                Section("Tap Location") {
-                    TextField("e.g., Bridge, Soundhole, Upper Bout", text: $tapLocation)
-                }
-                
-                Section("Notes") {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 100)
-                }
-            }
+        #if os(macOS)
+        // macOS layout without NavigationView wrapper
+        formContent
+            .frame(minWidth: 450, idealWidth: 500, minHeight: 250, idealHeight: 350)
             .navigationTitle("Save Measurement")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1351,7 +1370,54 @@ struct SaveMeasurementSheet: View {
                     }
                 }
             }
+        #else
+        // iOS layout with NavigationView
+        NavigationView {
+            formContent
+                .navigationTitle("Save Measurement")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            onSave()
+                            dismiss()
+                        }
+                    }
+                }
         }
+        #endif
+    }
+    
+    @ViewBuilder
+    private var formContent: some View {
+        Form {
+            Section {
+                TextField("Tap Location", text: $tapLocation, prompt: Text("Bridge, Soundhole, Upper Bout..."))
+                    .textFieldStyle(.roundedBorder)
+            } header: {
+                Text("Tap Location (Optional)")
+                    .font(.headline)
+            }
+            
+            Section {
+                TextEditor(text: $notes)
+                    .frame(minHeight: 80, idealHeight: 120)
+                    .font(.body)
+                    #if os(macOS)
+                    .background(Color(NSColor.textBackgroundColor))
+                    #endif
+            } header: {
+                Text("Notes (Optional)")
+                    .font(.headline)
+            } footer: {
+                Text("Add any observations about this measurement")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 
@@ -1360,41 +1426,276 @@ struct MeasurementsListView: View {
     @Environment(\.dismiss) var dismiss
     @State private var showingExport = false
     @State private var exportText = ""
+    @State private var isExporting = false  // Track export progress
+    @State private var selectedMeasurement: TapToneMeasurement?  // Track selected measurement
+    @State private var showingMeasurementDetail = false  // Show detail view
+    @State private var exportMode: ExportMode = .json  // Track what we're exporting
+    
+    enum ExportMode {
+        case json
+        case file
+    }
     
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(analyzer.savedMeasurements) { measurement in
-                    MeasurementRowView(measurement: measurement)
-                }
-                .onDelete { indexSet in
-                    indexSet.forEach { index in
-                        analyzer.deleteMeasurement(analyzer.savedMeasurements[index])
-                    }
-                }
-            }
-            .navigationTitle("Saved Measurements")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: exportMeasurements) {
-                        Label("Export", systemImage: "square.and.arrow.up")
-                    }
-                }
-            }
+        #if os(macOS)
+        // macOS layout without NavigationView wrapper (sheet handles its own window)
+        contentView
+            .frame(minWidth: 600, minHeight: 400)
             .sheet(isPresented: $showingExport) {
                 ExportView(text: exportText)
             }
+            .sheet(isPresented: $showingMeasurementDetail) {
+                if let measurement = selectedMeasurement {
+                    MeasurementDetailView(measurement: measurement)
+                }
+            }
+            .overlay {
+                if isExporting {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                        
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Exporting measurements...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                        }
+                        .padding(30)
+                        .background(Color.secondary.opacity(0.8))
+                        .cornerRadius(12)
+                    }
+                }
+            }
+        #else
+        // iOS layout with NavigationView
+        NavigationView {
+            contentView
+                .sheet(isPresented: $showingExport) {
+                    ExportView(text: exportText)
+                }
+                .sheet(isPresented: $showingMeasurementDetail) {
+                    if let measurement = selectedMeasurement {
+                        MeasurementDetailView(measurement: measurement)
+                    }
+                }
+                .overlay {
+                    if isExporting {
+                        ZStack {
+                            Color.black.opacity(0.3)
+                                .ignoresSafeArea()
+                            
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .scaleEffect(1.5)
+                                Text("Exporting measurements...")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(30)
+                            .background(Color.secondary.opacity(0.8))
+                            .cornerRadius(12)
+                        }
+                    }
+                }
+        }
+        #endif
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        Group {
+            if analyzer.savedMeasurements.isEmpty {
+                // Empty state
+                VStack(spacing: 20) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+                    
+                    Text("No Saved Measurements")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    Text("Tap the guitar and click Save to store measurements for comparison.")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                // Measurements list
+                List {
+                    Section {
+                        Text("Total: \(analyzer.savedMeasurements.count) measurement\(analyzer.savedMeasurements.count == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    ForEach(analyzer.savedMeasurements) { measurement in
+                        Button(action: {
+                            selectedMeasurement = measurement
+                            showingMeasurementDetail = true
+                        }) {
+                            MeasurementRowView(measurement: measurement)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(action: {
+                                selectedMeasurement = measurement
+                                showingMeasurementDetail = true
+                            }) {
+                                Label("View Details", systemImage: "eye")
+                            }
+                            
+                            Button(action: {
+                                exportSingleMeasurement(measurement)
+                            }) {
+                                Label("Export as JSON", systemImage: "square.and.arrow.up")
+                            }
+                            
+                            Divider()
+                            
+                            Button(role: .destructive, action: {
+                                analyzer.deleteMeasurement(measurement)
+                            }) {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                    .onDelete { indexSet in
+                        indexSet.forEach { index in
+                            analyzer.deleteMeasurement(analyzer.savedMeasurements[index])
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Saved Measurements")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Done") { dismiss() }
+            }
+            
+            #if os(iOS)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(action: exportMeasurements) {
+                        Label("Export All as JSON", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(analyzer.savedMeasurements.isEmpty)
+                    
+                    Divider()
+                    
+                    Button(role: .destructive, action: deleteAll) {
+                        Label("Delete All", systemImage: "trash")
+                    }
+                    .disabled(analyzer.savedMeasurements.isEmpty)
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle")
+                }
+            }
+            #else
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: exportMeasurements) {
+                    Label("Export All", systemImage: "square.and.arrow.up")
+                }
+                .disabled(analyzer.savedMeasurements.isEmpty)
+            }
+            
+            ToolbarItem(placement: .primaryAction) {
+                Button(role: .destructive, action: deleteAll) {
+                    Label("Delete All", systemImage: "trash")
+                }
+                .disabled(analyzer.savedMeasurements.isEmpty)
+            }
+            #endif
         }
     }
     
     private func exportMeasurements() {
-        if let json = analyzer.exportMeasurements() {
-            exportText = json
-            showingExport = true
+        exportMode = .file
+        isExporting = true
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let json = self.analyzer.exportMeasurements() {
+                DispatchQueue.main.async {
+                    self.saveJSONToFile(json)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.isExporting = false
+                }
+            }
         }
+    }
+    
+    private func exportSingleMeasurement(_ measurement: TapToneMeasurement) {
+        exportMode = .file
+        isExporting = true
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            
+            if let data = try? encoder.encode(measurement),
+               let json = String(data: data, encoding: .utf8) {
+                DispatchQueue.main.async {
+                    self.saveJSONToFile(json)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.isExporting = false
+                }
+            }
+        }
+    }
+    
+    private func saveJSONToFile(_ json: String) {
+        #if os(iOS)
+        // On iOS, create temp file and present document picker
+        let tempURL = createTemporaryFile(json: json)
+        let documentPicker = UIDocumentPickerViewController(forExporting: [tempURL], asCopy: true)
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            rootViewController.present(documentPicker, animated: true)
+            self.isExporting = false
+        }
+        #elseif os(macOS)
+        // On macOS, use NSSavePanel
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "guitar-measurements-\(Date().timeIntervalSince1970).json"
+        savePanel.canCreateDirectories = true
+        
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                do {
+                    try json.write(to: url, atomically: true, encoding: .utf8)
+                } catch {
+                    print("Failed to save file: \(error)")
+                }
+            }
+            self.isExporting = false
+        }
+        #endif
+    }
+    
+    private func createTemporaryFile(json: String) -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileName = "guitar-measurements-\(Date().timeIntervalSince1970).json"
+        let fileURL = tempDir.appendingPathComponent(fileName)
+        
+        try? json.write(to: fileURL, atomically: true, encoding: .utf8)
+        
+        return fileURL
+    }
+    
+    private func deleteAll() {
+        analyzer.savedMeasurements.removeAll()
     }
 }
 
@@ -1466,26 +1767,555 @@ struct MeasurementRowView: View {
     }
 }
 
-struct ExportView: View {
-    let text: String
+struct MeasurementDetailView: View {
+    let measurement: TapToneMeasurement
     @Environment(\.dismiss) var dismiss
+    @State private var showingExport = false
+    @State private var exportText = ""
+    @State private var isExporting = false
+    @State private var chartImage: Image?
     
     var body: some View {
         NavigationView {
             ScrollView {
-                Text(text)
-                    .font(.system(.caption, design: .monospaced))
-                    .padding()
+                VStack(alignment: .leading, spacing: 20) {
+                    // Header Info
+                    GroupBox("Measurement Info") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if let location = measurement.tapLocation {
+                                HStack {
+                                    Text("Location:")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text(location)
+                                        .font(.body)
+                                        .fontWeight(.medium)
+                                }
+                            }
+                            
+                            HStack {
+                                Text("Date:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(measurement.timestamp, style: .date)
+                                    .font(.body)
+                                Text("at")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(measurement.timestamp, style: .time)
+                                    .font(.body)
+                            }
+                            
+                            if let decay = measurement.decayTime {
+                                HStack {
+                                    Text("Ring-Out:")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("\(decay, specifier: "%.2f") seconds")
+                                        .font(.body)
+                                        .fontWeight(.medium)
+                                }
+                            }
+                            
+                            if let ratio = measurement.tapToneRatio {
+                                HStack {
+                                    Text("Tap Tone Ratio:")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("\(ratio, specifier: "%.2f") : 1")
+                                        .font(.body)
+                                        .fontWeight(.medium)
+                                }
+                            }
+                            
+                            if let notes = measurement.notes, !notes.isEmpty {
+                                Divider()
+                                Text("Notes:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(notes)
+                                    .font(.body)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    
+                    // Peaks
+                    GroupBox("Detected Peaks (\(measurement.peaks.count))") {
+                        if measurement.peaks.isEmpty {
+                            Text("No peaks detected")
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        } else {
+                            VStack(alignment: .leading, spacing: 12) {
+                                ForEach(measurement.peaks.sorted(by: { $0.frequency < $1.frequency })) { peak in
+                                    let mode = GuitarMode.classify(frequency: peak.frequency)
+                                    CombinedPeakModeRowView(peak: peak, mode: mode)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Measurement Details")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                
+                #if os(iOS)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(action: { exportJSONFile() }) {
+                            Label("Export JSON", systemImage: "doc.text")
+                        }
+                        
+                        Button(action: { exportChartImage() }) {
+                            Label("Export Chart Image", systemImage: "chart.xyaxis.line")
+                        }
+                    } label: {
+                        Label("Export", systemImage: "square.and.arrow.up")
+                    }
+                }
+                #else
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: { exportJSONFile() }) {
+                        Label("Export JSON", systemImage: "doc.text")
+                    }
+                }
+                
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: { exportChartImage() }) {
+                        Label("Export Chart", systemImage: "chart.xyaxis.line")
+                    }
+                }
+                #endif
+            }
+            .sheet(isPresented: $showingExport) {
+                ExportView(text: exportText)
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 600, minHeight: 500)
+        #endif
+        .overlay {
+            if isExporting {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Exporting...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(30)
+                    .background(Color.secondary.opacity(0.8))
+                    .cornerRadius(12)
+                }
+            }
+        }
+    }
+    
+    private func exportJSONFile() {
+        isExporting = true
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            
+            if let data = try? encoder.encode(measurement),
+               let json = String(data: data, encoding: .utf8) {
+                DispatchQueue.main.async {
+                    self.saveJSONToFile(json)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.isExporting = false
+                }
+            }
+        }
+    }
+    
+    private func saveJSONToFile(_ json: String) {
+        #if os(iOS)
+        let tempURL = createTemporaryJSONFile(json: json)
+        let documentPicker = UIDocumentPickerViewController(forExporting: [tempURL], asCopy: true)
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            rootViewController.present(documentPicker, animated: true)
+            self.isExporting = false
+        }
+        #elseif os(macOS)
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        let locationName = measurement.tapLocation ?? "measurement"
+        savePanel.nameFieldStringValue = "\(locationName)-\(Int(measurement.timestamp.timeIntervalSince1970)).json"
+        savePanel.canCreateDirectories = true
+        
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                do {
+                    try json.write(to: url, atomically: true, encoding: .utf8)
+                } catch {
+                    print("Failed to save file: \(error)")
+                }
+            }
+            self.isExporting = false
+        }
+        #endif
+    }
+    
+    private func createTemporaryJSONFile(json: String) -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+        let locationName = measurement.tapLocation ?? "measurement"
+        let fileName = "\(locationName)-\(Int(measurement.timestamp.timeIntervalSince1970)).json"
+        let fileURL = tempDir.appendingPathComponent(fileName)
+        
+        try? json.write(to: fileURL, atomically: true, encoding: .utf8)
+        
+        return fileURL
+    }
+    
+    private func exportChartImage() {
+        isExporting = true
+        
+        DispatchQueue.main.async {
+            let chartView = self.createExportableChartView()
+            let renderer = ImageRenderer(content: chartView)
+            
+            #if os(iOS)
+            renderer.scale = UIScreen.main.scale
+            
+            if let uiImage = renderer.uiImage {
+                let activityVC = UIActivityViewController(
+                    activityItems: [uiImage],
+                    applicationActivities: nil
+                )
+                
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let rootViewController = windowScene.windows.first?.rootViewController {
+                    rootViewController.present(activityVC, animated: true)
+                }
+            }
+            self.isExporting = false
+            #elseif os(macOS)
+            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
+            
+            if let nsImage = renderer.nsImage {
+                let savePanel = NSSavePanel()
+                savePanel.allowedContentTypes = [.png]
+                let locationName = measurement.tapLocation ?? "chart"
+                savePanel.nameFieldStringValue = "\(locationName)-\(Int(measurement.timestamp.timeIntervalSince1970)).png"
+                
+                savePanel.begin { response in
+                    if response == .OK, let url = savePanel.url {
+                        if let tiffData = nsImage.tiffRepresentation,
+                           let bitmapImage = NSBitmapImageRep(data: tiffData),
+                           let pngData = bitmapImage.representation(using: .png, properties: [:]) {
+                            try? pngData.write(to: url)
+                        }
+                    }
+                    self.isExporting = false
+                }
+            } else {
+                self.isExporting = false
+            }
+            #endif
+        }
+    }
+    
+    @ViewBuilder
+    private func createExportableChartView() -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Guitar Tap Tone Analysis")
+                    .font(.title)
+                    .fontWeight(.bold)
+                
+                if let location = measurement.tapLocation {
+                    Text("Location: \(location)")
+                        .font(.headline)
+                }
+                
+                HStack {
+                    Text("Date: \(measurement.timestamp.formatted())")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    if let ratio = measurement.tapToneRatio {
+                        Text("Tap Tone Ratio: \(ratio, specifier: "%.2f"):1")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                }
+            }
+            .padding()
+            
+            // Chart
+            Chart {
+                ForEach(measurement.peaks) { peak in
+                    let mode = GuitarMode.classify(frequency: peak.frequency)
+                    
+                    PointMark(
+                        x: .value("Frequency", peak.frequency),
+                        y: .value("Magnitude", peak.magnitude)
+                    )
+                    .foregroundStyle(modeColor(for: mode))
+                    .symbol(.circle)
+                    .symbolSize(200)
+                    
+                    RuleMark(
+                        x: .value("Frequency", peak.frequency)
+                    )
+                    .foregroundStyle(modeColor(for: mode).opacity(0.3))
+                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                    .annotation(position: .top, alignment: .center) {
+                        VStack(spacing: 2) {
+                            Text("\(peak.frequency, specifier: "%.1f") Hz")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                            Text(mode.rawValue)
+                                .font(.caption2)
+                                .foregroundColor(modeColor(for: mode))
+                            Text("\(peak.magnitude, specifier: "%.1f") dB")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(6)
+                        .background(Color.white)
+                        .cornerRadius(6)
+                        .shadow(radius: 2)
+                    }
+                }
+            }
+            .chartXAxisLabel("Frequency (Hz)", alignment: .center)
+            .chartYAxisLabel("Magnitude (dB)", alignment: .center)
+            .frame(width: 1200, height: 700)
+            .padding()
+            
+            // Legend
+            HStack(spacing: 20) {
+                ForEach([GuitarMode.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode], id: \.self) { mode in
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(modeColor(for: mode))
+                            .frame(width: 12, height: 12)
+                        Text(mode.rawValue)
+                            .font(.caption)
+                    }
+                }
+            }
+            .padding()
+        }
+        .background(Color.white)
+        .padding()
+    }
+    
+    private func modeColor(for mode: GuitarMode) -> Color {
+        switch mode {
+        case .helmholtz: return .cyan
+        case .crossGrain: return .blue
+        case .longGrain: return .green
+        case .monopole: return .orange
+        case .dipole: return .red
+        case .ringMode: return .purple
+        case .upperModes: return .gray
+        case .unknown: return .secondary
+        }
+    }
+}
+
+struct ExportView: View {
+    let text: String
+    @Environment(\.dismiss) var dismiss
+    @State private var showingCopyConfirmation = false
+    @State private var showingSaveConfirmation = false
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // Info banner
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.blue)
+                        Text("Measurement Data (JSON)")
+                            .font(.headline)
+                    }
+                    
+                    Text("This data can be imported into analysis tools, spreadsheets, or shared with other users.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.1))
+                
+                Divider()
+                
+                // JSON content
+                ScrollView {
+                    Text(text)
+                        .font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled)
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                
+                // Confirmation overlays
+                if showingCopyConfirmation {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.white)
+                            Text("Copied to clipboard")
+                                .foregroundColor(.white)
+                                .font(.subheadline)
+                        }
+                        .padding()
+                        .background(Color.green)
+                        .cornerRadius(10)
+                        .padding()
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                
+                if showingSaveConfirmation {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.white)
+                            Text("File saved successfully")
+                                .foregroundColor(.white)
+                                .font(.subheadline)
+                        }
+                        .padding()
+                        .background(Color.green)
+                        .cornerRadius(10)
+                        .padding()
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
             .navigationTitle("Export Data")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
+                
+                #if os(iOS)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(action: saveToFile) {
+                            Label("Save to Files", systemImage: "folder")
+                        }
+                        
+                        Button(action: copyToClipboard) {
+                            Label("Copy to Clipboard", systemImage: "doc.on.doc")
+                        }
+                        
+                        ShareLink(item: createTemporaryFile(), preview: SharePreview("measurements.json")) {
+                            Label("Share File", systemImage: "square.and.arrow.up")
+                        }
+                    } label: {
+                        Label("Actions", systemImage: "ellipsis.circle")
+                    }
+                }
+                #else
                 ToolbarItem(placement: .primaryAction) {
-                    ShareLink(item: text)
+                    Button(action: saveToFile) {
+                        Label("Save File", systemImage: "square.and.arrow.down")
+                    }
+                }
+                
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: copyToClipboard) {
+                        Label("Copy", systemImage: "doc.on.doc")
+                    }
+                }
+                #endif
+            }
+        }
+        .animation(.easeInOut, value: showingCopyConfirmation)
+        .animation(.easeInOut, value: showingSaveConfirmation)
+    }
+    
+    private func saveToFile() {
+        #if os(iOS)
+        // On iOS, use UIDocumentPickerViewController to let user choose save location
+        let tempURL = createTemporaryFile()
+        let documentPicker = UIDocumentPickerViewController(forExporting: [tempURL], asCopy: true)
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            rootViewController.present(documentPicker, animated: true) {
+                self.showingSaveConfirmation = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    self.showingSaveConfirmation = false
                 }
             }
+        }
+        #elseif os(macOS)
+        // On macOS, use NSSavePanel
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "measurements-\(Date().timeIntervalSince1970).json"
+        savePanel.canCreateDirectories = true
+        
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                do {
+                    try self.text.write(to: url, atomically: true, encoding: .utf8)
+                    self.showingSaveConfirmation = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        self.showingSaveConfirmation = false
+                    }
+                } catch {
+                    print("Failed to save file: \(error)")
+                }
+            }
+        }
+        #endif
+    }
+    
+    private func createTemporaryFile() -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileName = "measurements-\(Date().timeIntervalSince1970).json"
+        let fileURL = tempDir.appendingPathComponent(fileName)
+        
+        try? text.write(to: fileURL, atomically: true, encoding: .utf8)
+        
+        return fileURL
+    }
+    
+    private func copyToClipboard() {
+        #if os(iOS)
+        UIPasteboard.general.string = text
+        #elseif os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #endif
+        
+        showingCopyConfirmation = true
+        
+        // Hide confirmation after 2 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            showingCopyConfirmation = false
         }
     }
 }
