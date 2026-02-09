@@ -828,6 +828,22 @@ final class TapToneAnalyzer: ObservableObject {
         print("📂 Loaded measurement: \(measurement.peaks.count) peaks, spectrum: \(measurement.spectrumSnapshot != nil)")
     }
     
+    /// Export a single measurement as JSON with image (calls completion with JSON and measurement)
+    func exportMeasurement(_ measurement: TapToneMeasurement, completion: @escaping (String, TapToneMeasurement) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            
+            if let data = try? encoder.encode([measurement]),
+               let json = String(data: data, encoding: .utf8) {
+                DispatchQueue.main.async {
+                    completion(json, measurement)
+                }
+            }
+        }
+    }
+    
     /// Export measurements as JSON
     func exportMeasurements() -> String? {
         let encoder = JSONEncoder()

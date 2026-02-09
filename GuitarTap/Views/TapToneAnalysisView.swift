@@ -9,6 +9,10 @@ import SwiftUI
 import Charts
 import AVFoundation
 
+#if os(macOS)
+import AppKit
+#endif
+
 // MARK: - Main Tap Tone Analysis View
 
 struct TapToneAnalysisView: View {
@@ -1724,17 +1728,11 @@ struct MeasurementsListView: View {
     @State private var showingExport = false
     @State private var exportText = ""
     @State private var isExporting = false  // Track export progress
-    @State private var exportMode: ExportMode = .json  // Track what we're exporting
     @State private var showingImportPicker = false
     @State private var importError: String?
     @State private var importSuccess: String?
     @State private var selectedMeasurement: TapToneMeasurement?
-    @State private var showingDetailSheet = false
-    
-    enum ExportMode {
-        case json
-        case file
-    }
+    @State private var detailWindowController: NSWindowController?
     
     var body: some View {
         #if os(macOS)
@@ -1743,11 +1741,6 @@ struct MeasurementsListView: View {
             .frame(minWidth: 600, minHeight: 400)
             .sheet(isPresented: $showingExport) {
                 ExportView(text: exportText)
-            }
-            .sheet(isPresented: $showingDetailSheet) {
-                if let measurement = selectedMeasurement {
-                    MeasurementDetailView(measurement: measurement, analyzer: analyzer)
-                }
             }
             .background(importSheet)
             .overlay {
@@ -1775,6 +1768,9 @@ struct MeasurementsListView: View {
             contentView
                 .sheet(isPresented: $showingExport) {
                     ExportView(text: exportText)
+                }
+                .sheet(item: $selectedMeasurement) { measurement in
+                    MeasurementDetailView(measurement: measurement, analyzer: analyzer)
                 }
                 .background(importSheet)
                 .overlay {
@@ -1831,8 +1827,7 @@ struct MeasurementsListView: View {
                     }
                     
                     ForEach(analyzer.savedMeasurements) { measurement in
-                        #if os(macOS)
-                        // On macOS, use Button with sheet since NavigationLink doesn't work in sheets
+                        // Use Button for both platforms - macOS opens window, iOS shows sheet
                         Button(action: {
                             showDetail(for: measurement)
                         }) {
@@ -1860,31 +1855,6 @@ struct MeasurementsListView: View {
                                 Label("Delete", systemImage: "trash")
                             }
                         }
-                        #else
-                        // On iOS, use NavigationLink which works better in NavigationView
-                        NavigationLink(destination: MeasurementDetailView(measurement: measurement, analyzer: analyzer)) {
-                            MeasurementRowView(measurement: measurement)
-                        }
-                        .contextMenu {
-                            NavigationLink(destination: MeasurementDetailView(measurement: measurement, analyzer: analyzer)) {
-                                Label("View Details", systemImage: "eye")
-                            }
-                            
-                            Button(action: {
-                                exportSingleMeasurement(measurement)
-                            }) {
-                                Label("Export as JSON", systemImage: "square.and.arrow.up")
-                            }
-                            
-                            Divider()
-                            
-                            Button(role: .destructive, action: {
-                                analyzer.deleteMeasurement(measurement)
-                            }) {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                        #endif
                     }
                     .onDelete { indexSet in
                         indexSet.forEach { index in
@@ -1935,24 +1905,10 @@ struct MeasurementsListView: View {
     }
     
     private func exportSingleMeasurement(_ measurement: TapToneMeasurement) {
-        exportMode = .file
         isExporting = true
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            
-            if let data = try? encoder.encode([measurement]),
-               let json = String(data: data, encoding: .utf8) {
-                DispatchQueue.main.async {
-                    self.saveJSONAndImagesToFiles(json: json, measurement: measurement)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.isExporting = false
-                }
-            }
+        analyzer.exportMeasurement(measurement) { json, measurement in
+            self.saveJSONAndImagesToFiles(json: json, measurement: measurement)
         }
     }
     
@@ -2030,11 +1986,26 @@ struct MeasurementsListView: View {
     }
     
     private func showDetail(for measurement: TapToneMeasurement) {
+        #if os(macOS)
+        // On macOS, open in a new window to avoid nested sheet issues
+        let detailView = MeasurementDetailView(measurement: measurement, analyzer: analyzer)
+        let hostingController = NSHostingController(rootView: detailView)
+        
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Measurement Details"
+        window.setContentSize(NSSize(width: 600, height: 700))
+        window.styleMask = [.titled, .closable, .resizable]
+        window.makeKeyAndOrderFront(nil)
+        
+        let windowController = NSWindowController(window: window)
+        windowController.showWindow(nil)
+        
+        // Store reference to prevent deallocation
+        detailWindowController = windowController
+        #else
+        // On iOS, use sheet with item binding
         selectedMeasurement = measurement
-        // Use async to decouple sheet presentation from button action
-        DispatchQueue.main.async {
-            self.showingDetailSheet = true
-        }
+        #endif
     }
 }
 
@@ -2239,74 +2210,58 @@ struct MeasurementDetailView: View {
     
     var body: some View {
         #if os(macOS)
-        // On macOS, sheets need their own NavigationView
-        NavigationView {
-            contentView
-                .navigationTitle("Measurement Details")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") { dismiss() }
+        // On macOS in a separate window, no NavigationView needed
+        contentView
+            .frame(minWidth: 600, minHeight: 500)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: loadMeasurement) {
+                        Label("Load", systemImage: "arrow.down.doc")
                     }
-                    
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: loadMeasurement) {
-                            Label("Load", systemImage: "arrow.down.doc")
-                        }
-                    }
-                    
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: { exportJSONFile() }) {
-                            Label("Export JSON", systemImage: "doc.text")
-                        }
-                    }
-                    
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: { exportChartImage() }) {
-                            Label("Export Chart", systemImage: "chart.xyaxis.line")
-                        }
-                    }
-                    
-                    if measurement.chartImageFilename != nil || measurement.chartImageData != nil {
-                        ToolbarItem(placement: .primaryAction) {
-                            Button(action: { shareChartImage() }) {
-                                Label("Saved Image", systemImage: "photo")
-                            }
-                        }
-                    }
+                    .help("Load this measurement into the main analysis view")
                 }
-        }
-        .frame(minWidth: 600, minHeight: 500)
-        .sheet(isPresented: $showingExport) {
-            ExportView(text: exportText)
-        }
-        .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Load") {
-                analyzer.loadMeasurement(measurement)
-                dismiss()
-            }
-        } message: {
-            Text("This will replace the current analysis view with this measurement's data, including peaks and spectrum. Continue?")
-        }
-        .overlay {
-            if isExporting {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                        Text("Exporting...")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: { exportMeasurement() }) {
+                        Label("Export", systemImage: "square.and.arrow.up")
                     }
-                    .padding(30)
-                    .background(Color.secondary.opacity(0.8))
-                    .cornerRadius(12)
+                    .help("Export measurement data (JSON) and chart image")
                 }
             }
-        }
+            .sheet(isPresented: $showingExport) {
+                ExportView(text: exportText)
+            }
+            .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Load") {
+                    analyzer.loadMeasurement(measurement)
+                    // Close the window
+                    if let window = NSApplication.shared.keyWindow {
+                        window.close()
+                    }
+                }
+            } message: {
+                Text("This will replace the current analysis view with this measurement's data, including peaks and spectrum. Continue?")
+            }
+            .overlay {
+                if isExporting {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                        
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Exporting...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                        }
+                        .padding(30)
+                        .background(Color.secondary.opacity(0.8))
+                        .cornerRadius(12)
+                    }
+                }
+            }
         #else
         // On iOS, NavigationLink provides the navigation context
         contentView
@@ -2324,21 +2279,7 @@ struct MeasurementDetailView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: { exportJSONFile() }) {
-                            Label("Export JSON", systemImage: "doc.text")
-                        }
-                        
-                        Button(action: { exportChartImage() }) {
-                            Label("Export Chart Image", systemImage: "chart.xyaxis.line")
-                        }
-                        
-                        if measurement.chartImageFilename != nil || measurement.chartImageData != nil {
-                            Button(action: { shareChartImage() }) {
-                                Label("Share Saved Image", systemImage: "photo")
-                            }
-                        }
-                    } label: {
+                    Button(action: { exportMeasurement() }) {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
                 }
@@ -2467,53 +2408,11 @@ struct MeasurementDetailView: View {
         showingLoadConfirmation = true
     }
     
-    private func shareChartImage() {
-        guard let imageData = measurement.chartImageData else { return }
-        
-        #if os(iOS)
-        if let uiImage = UIImage(data: imageData) {
-            let activityVC = UIActivityViewController(
-                activityItems: [uiImage],
-                applicationActivities: nil
-            )
-            
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let rootViewController = windowScene.windows.first?.rootViewController {
-                rootViewController.present(activityVC, animated: true)
-            }
-        }
-        #elseif os(macOS)
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.png]
-        let locationName = measurement.tapLocation ?? "chart"
-        savePanel.nameFieldStringValue = "\(locationName)-saved-\(Int(measurement.timestamp.timeIntervalSince1970)).png"
-        
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
-                try? imageData.write(to: url)
-            }
-        }
-        #endif
-    }
-    
-    private func exportJSONFile() {
+    private func exportMeasurement() {
         isExporting = true
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            
-            if let data = try? encoder.encode([self.measurement]),
-               let json = String(data: data, encoding: .utf8) {
-                DispatchQueue.main.async {
-                    self.saveJSONAndImageToFiles(json: json, measurement: self.measurement)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.isExporting = false
-                }
-            }
+        analyzer.exportMeasurement(measurement) { json, measurement in
+            self.saveJSONAndImageToFiles(json: json, measurement: measurement)
         }
     }
     
@@ -2583,144 +2482,6 @@ struct MeasurementDetailView: View {
             self.isExporting = false
         }
         #endif
-    }
-    
-    private func exportChartImage() {
-        isExporting = true
-        
-        DispatchQueue.main.async {
-            let chartView = self.createExportableChartView()
-            let renderer = ImageRenderer(content: chartView)
-            
-            #if os(iOS)
-            renderer.scale = UIScreen.main.scale
-            
-            if let uiImage = renderer.uiImage {
-                let activityVC = UIActivityViewController(
-                    activityItems: [uiImage],
-                    applicationActivities: nil
-                )
-                
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let rootViewController = windowScene.windows.first?.rootViewController {
-                    rootViewController.present(activityVC, animated: true)
-                }
-            }
-            self.isExporting = false
-            #elseif os(macOS)
-            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
-            
-            if let nsImage = renderer.nsImage {
-                let savePanel = NSSavePanel()
-                savePanel.allowedContentTypes = [.png]
-                let locationName = measurement.tapLocation ?? "chart"
-                savePanel.nameFieldStringValue = "\(locationName)-\(Int(measurement.timestamp.timeIntervalSince1970)).png"
-                
-                savePanel.begin { response in
-                    if response == .OK, let url = savePanel.url {
-                        if let tiffData = nsImage.tiffRepresentation,
-                           let bitmapImage = NSBitmapImageRep(data: tiffData),
-                           let pngData = bitmapImage.representation(using: .png, properties: [:]) {
-                            try? pngData.write(to: url)
-                        }
-                    }
-                    self.isExporting = false
-                }
-            } else {
-                self.isExporting = false
-            }
-            #endif
-        }
-    }
-    
-    @ViewBuilder
-    private func createExportableChartView() -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Guitar Tap Tone Analysis")
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                if let location = measurement.tapLocation {
-                    Text("Location: \(location)")
-                        .font(.headline)
-                }
-                
-                HStack {
-                    Text("Date: \(measurement.timestamp.formatted())")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    if let ratio = measurement.tapToneRatio {
-                        Text("Tap Tone Ratio: \(ratio, specifier: "%.2f"):1")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                    }
-                }
-            }
-            .padding()
-            
-            // Chart
-            Chart {
-                ForEach(measurement.peaks) { peak in
-                    let mode = GuitarMode.classify(frequency: peak.frequency)
-                    
-                    PointMark(
-                        x: .value("Frequency", peak.frequency),
-                        y: .value("Magnitude", peak.magnitude)
-                    )
-                    .foregroundStyle(modeColor(for: mode))
-                    .symbol(.circle)
-                    .symbolSize(200)
-                    
-                    RuleMark(
-                        x: .value("Frequency", peak.frequency)
-                    )
-                    .foregroundStyle(modeColor(for: mode).opacity(0.3))
-                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
-                    .annotation(position: .top, alignment: .center) {
-                        VStack(spacing: 2) {
-                            Text("\(peak.frequency, specifier: "%.1f") Hz")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                            Text(mode.rawValue)
-                                .font(.caption2)
-                                .foregroundColor(modeColor(for: mode))
-                            Text("\(peak.magnitude, specifier: "%.1f") dB")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(6)
-                        .background(Color.white)
-                        .cornerRadius(6)
-                        .shadow(radius: 2)
-                    }
-                }
-            }
-            .chartXAxisLabel("Frequency (Hz)", alignment: .center)
-            .chartYAxisLabel("Magnitude (dB)", alignment: .center)
-            .frame(width: 1200, height: 700)
-            .padding()
-            
-            // Legend
-            HStack(spacing: 20) {
-                ForEach([GuitarMode.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode], id: \.self) { mode in
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(modeColor(for: mode))
-                            .frame(width: 12, height: 12)
-                        Text(mode.rawValue)
-                            .font(.caption)
-                    }
-                }
-            }
-            .padding()
-        }
-        .background(Color.white)
-        .padding()
     }
     
     private func modeColor(for mode: GuitarMode) -> Color {
