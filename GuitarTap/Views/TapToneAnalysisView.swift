@@ -21,6 +21,10 @@ struct TapToneAnalysisView: View {
     @State private var showingMeasurements = false
     @State private var showingMetrics = false
     @State private var showingResults = false
+    @State private var showingSpectrumExport = false
+    @State private var isExportingSpectrum = false
+    @State private var isSavingMeasurement = false
+    @State private var showingImportPicker = false
     
     // Spectrum display state
     @State private var minFreq: Float = 20
@@ -130,98 +134,164 @@ struct TapToneAnalysisView: View {
                 onSave: saveMeasurement
             )
         }
+        .overlay {
+            if isExportingSpectrum {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Exporting spectrum...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(30)
+                    .background(Color.secondary.opacity(0.8))
+                    .cornerRadius(12)
+                }
+            } else if isSavingMeasurement {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Saving measurement with chart image...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(30)
+                    .background(Color.secondary.opacity(0.8))
+                    .cornerRadius(12)
+                }
+            }
+        }
     }
     #endif
     
     /// iOS layout with adaptive metrics display
     @ViewBuilder
     private var iOSLayout: some View {
-        ZStack {
-            NavigationView {
-                if horizontalSizeClass == .regular && (showingMetrics || showingResults) {
-                    // iPad: Side-by-side layout with optional panels
-                    HStack(spacing: 0) {
-                        mainContentView
-                            .frame(maxWidth: .infinity)
+        NavigationView {
+            if horizontalSizeClass == .regular && (showingMetrics || showingResults) {
+                // iPad: Side-by-side layout with optional panels
+                HStack(spacing: 0) {
+                    mainContentView
+                        .frame(maxWidth: .infinity)
+                    
+                    if showingResults {
+                        Divider()
                         
-                        if showingResults {
-                            Divider()
-                            
-                            TapAnalysisResultsView(
-                                analyzer: tapToneAnalyzer,
-                                fftAnalyzer: fftAnalyzer,
-                                minFreq: minFreq,
-                                maxFreq: maxFreq
-                            )
-                            .frame(width: 350)
-                        }
-                        
-                        if showingMetrics {
-                            Divider()
-                            
-                            ScrollView {
-                                FFTAnalysisMetricsView(analyzer: fftAnalyzer)
-                                    .padding()
-                            }
-                            .frame(width: 350)
-                        }
+                        TapAnalysisResultsView(
+                            analyzer: tapToneAnalyzer,
+                            fftAnalyzer: fftAnalyzer,
+                            minFreq: minFreq,
+                            maxFreq: maxFreq
+                        )
+                        .frame(width: 350)
                     }
-                } else {
-                    // iPhone or iPad without panels
-                    ZStack(alignment: .topTrailing) {
-                        mainContentView
+                    
+                    if showingMetrics {
+                        Divider()
                         
-                        // Show compact overlay on iPhone when metrics are enabled
-                        if showingMetrics && horizontalSizeClass != .regular {
-                            CompactFFTMetricsOverlay(analyzer: fftAnalyzer)
-                                .padding(12)
+                        ScrollView {
+                            FFTAnalysisMetricsView(analyzer: fftAnalyzer)
+                                .padding()
                         }
+                        .frame(width: 350)
+                    }
+                }
+            } else {
+                // iPhone or iPad without panels
+                ZStack(alignment: .topTrailing) {
+                    mainContentView
+                    
+                    // Show compact overlay on iPhone when metrics are enabled
+                    if showingMetrics && horizontalSizeClass != .regular {
+                        CompactFFTMetricsOverlay(analyzer: fftAnalyzer)
+                            .padding(12)
                     }
                 }
             }
-            .sheet(isPresented: $showingMeasurements) {
-                MeasurementsListView(analyzer: tapToneAnalyzer)
-            }
-            .sheet(isPresented: $showingSaveSheet) {
-                SaveMeasurementSheet(
-                    tapLocation: $tapLocation,
-                    notes: $notes,
-                    onSave: saveMeasurement
+        }
+        .sheet(isPresented: $showingMeasurements) {
+            MeasurementsListView(analyzer: tapToneAnalyzer)
+        }
+        .sheet(isPresented: $showingSaveSheet) {
+            SaveMeasurementSheet(
+                tapLocation: $tapLocation,
+                notes: $notes,
+                onSave: saveMeasurement
+            )
+        }
+        .sheet(isPresented: Binding(
+            get: { showingResults && horizontalSizeClass != .regular },
+            set: { if !$0 { showingResults = false } }
+        )) {
+            NavigationView {
+                TapAnalysisResultsView(
+                    analyzer: tapToneAnalyzer,
+                    fftAnalyzer: fftAnalyzer,
+                    minFreq: minFreq,
+                    maxFreq: maxFreq
                 )
-            }
-            
-            // Results sheet for iPhone only
-            if showingResults && horizontalSizeClass != .regular {
-                Color.clear
-                    .sheet(isPresented: $showingResults) {
-                        NavigationView {
-                            TapAnalysisResultsView(
-                                analyzer: tapToneAnalyzer,
-                                fftAnalyzer: fftAnalyzer,
-                                minFreq: minFreq,
-                                maxFreq: maxFreq
-                            )
-                            .navigationTitle("Analysis Results")
-                                #if os(iOS)
-                                .navigationBarTitleDisplayMode(.inline)
-                                #endif
-                                .toolbar {
-                                    #if os(iOS)
-                                    ToolbarItem(placement: .navigationBarTrailing) {
-                                        Button("Done") {
-                                            showingResults = false
-                                        }
-                                    }
-                                    #else
-                                    ToolbarItem(placement: .automatic) {
-                                        Button("Done") {
-                                            showingResults = false
-                                        }
-                                    }
-                                    #endif
-                                }
+                .navigationTitle("Analysis Results")
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    #if os(iOS)
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showingResults = false
                         }
                     }
+                    #else
+                    ToolbarItem(placement: .automatic) {
+                        Button("Done") {
+                            showingResults = false
+                        }
+                    }
+                    #endif
+                }
+            }
+        }
+        .overlay {
+            if isExportingSpectrum {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Exporting spectrum...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(30)
+                    .background(Color.secondary.opacity(0.8))
+                    .cornerRadius(12)
+                }
+            } else if isSavingMeasurement {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Saving measurement with chart image...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(30)
+                    .background(Color.secondary.opacity(0.8))
+                    .cornerRadius(12)
+                }
             }
         }
     }
@@ -297,6 +367,13 @@ struct TapToneAnalysisView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(tapToneAnalyzer.currentPeaks.isEmpty)
+                
+                // Export Spectrum button
+                Button(action: { exportCurrentSpectrum() }) {
+                    Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
                 
                 // Measurements button
                 Button(action: { showingMeasurements = true }) {
@@ -815,14 +892,63 @@ struct TapToneAnalysisView: View {
     }
     
     private func saveMeasurement() {
-        tapToneAnalyzer.saveMeasurement(
-            tapLocation: tapLocation.isEmpty ? nil : tapLocation,
-            notes: notes.isEmpty ? nil : notes,
-            includeSpectrum: true
-        )
-        tapLocation = ""
-        notes = ""
-        showingSaveSheet = false
+        isSavingMeasurement = true
+        
+        // Capture the spectrum image
+        DispatchQueue.main.async {
+            let spectrumView = self.createExportableSpectrumView()
+            let renderer = ImageRenderer(content: spectrumView)
+            
+            #if os(iOS)
+            renderer.scale = UIScreen.main.scale
+            #elseif os(macOS)
+            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
+            #endif
+            
+            var imageData: Data?
+            
+            #if os(iOS)
+            if let uiImage = renderer.uiImage,
+               let pngData = uiImage.pngData() {
+                imageData = pngData
+            }
+            #elseif os(macOS)
+            if let nsImage = renderer.nsImage,
+               let tiffData = nsImage.tiffRepresentation,
+               let bitmapImage = NSBitmapImageRep(data: tiffData),
+               let pngData = bitmapImage.representation(using: .png, properties: [:]) {
+                imageData = pngData
+            }
+            #endif
+            
+            // Create spectrum snapshot
+            let snapshot = SpectrumSnapshot(
+                frequencies: self.tapToneAnalyzer.isSpectrumFrozen ? 
+                    self.tapToneAnalyzer.frozenFrequencies : self.fftAnalyzer.frequencies,
+                magnitudes: self.tapToneAnalyzer.isSpectrumFrozen ? 
+                    self.tapToneAnalyzer.frozenMagnitudes : self.fftAnalyzer.magnitudes,
+                minFreq: self.minFreq,
+                maxFreq: self.maxFreq,
+                minDB: self.minDB,
+                maxDB: self.maxDB,
+                isLogarithmic: self.isLogarithmic
+            )
+            
+            // Save with all data
+            self.tapToneAnalyzer.saveMeasurement(
+                tapLocation: self.tapLocation.isEmpty ? nil : self.tapLocation,
+                notes: self.notes.isEmpty ? nil : self.notes,
+                includeSpectrum: true,
+                chartImageData: imageData,
+                spectrumSnapshot: snapshot,
+                annotationOffsets: self.tapToneAnalyzer.peakAnnotationOffsets
+            )
+            
+            self.tapLocation = ""
+            self.notes = ""
+            self.showingSaveSheet = false
+            self.isSavingMeasurement = false
+        }
     }
     
     // MARK: - Helpers
@@ -937,6 +1063,177 @@ struct TapToneAnalysisView: View {
             return String(format: "%.1fk Hz", freq / 1000)
         } else {
             return String(format: "%.0f Hz", freq)
+        }
+    }
+    
+    // MARK: - Spectrum Export
+    
+    private func exportCurrentSpectrum() {
+        isExportingSpectrum = true
+        
+        DispatchQueue.main.async {
+            let spectrumView = self.createExportableSpectrumView()
+            let renderer = ImageRenderer(content: spectrumView)
+            
+            #if os(iOS)
+            renderer.scale = UIScreen.main.scale
+            
+            if let uiImage = renderer.uiImage {
+                let activityVC = UIActivityViewController(
+                    activityItems: [uiImage],
+                    applicationActivities: nil
+                )
+                
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let rootViewController = windowScene.windows.first?.rootViewController {
+                    rootViewController.present(activityVC, animated: true)
+                }
+            }
+            self.isExportingSpectrum = false
+            #elseif os(macOS)
+            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
+            
+            if let nsImage = renderer.nsImage {
+                let savePanel = NSSavePanel()
+                savePanel.allowedContentTypes = [.png]
+                savePanel.nameFieldStringValue = "spectrum-\(Int(Date().timeIntervalSince1970)).png"
+                savePanel.canCreateDirectories = true
+                
+                savePanel.begin { response in
+                    if response == .OK, let url = savePanel.url {
+                        if let tiffData = nsImage.tiffRepresentation,
+                           let bitmapImage = NSBitmapImageRep(data: tiffData),
+                           let pngData = bitmapImage.representation(using: .png, properties: [:]) {
+                            try? pngData.write(to: url)
+                        }
+                    }
+                    self.isExportingSpectrum = false
+                }
+            } else {
+                self.isExportingSpectrum = false
+            }
+            #endif
+        }
+    }
+    
+    @ViewBuilder
+    private func createExportableSpectrumView() -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Guitar Tap Tone Analysis - Frequency Response")
+                    .font(.title)
+                    .fontWeight(.bold)
+                
+                HStack {
+                    Text("Date: \(Date().formatted())")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text("Range: \(formatFrequency(minFreq)) - \(formatFrequency(maxFreq))")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    
+                    Text("•")
+                        .foregroundColor(.secondary)
+                    
+                    Text("\(Int(minDB)) to \(Int(maxDB)) dB")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                
+                if !tapToneAnalyzer.currentPeaks.isEmpty {
+                    Text("Detected Peaks: \(tapToneAnalyzer.currentPeaks.count)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
+            
+            // Chart
+            SpectrumView(
+                frequencies: tapToneAnalyzer.isSpectrumFrozen ? 
+                    tapToneAnalyzer.frozenFrequencies : fftAnalyzer.frequencies,
+                magnitudes: tapToneAnalyzer.isSpectrumFrozen ? 
+                    tapToneAnalyzer.frozenMagnitudes : fftAnalyzer.magnitudes,
+                minFreq: .constant(minFreq),
+                maxFreq: .constant(maxFreq),
+                minDB: .constant(minDB),
+                maxDB: .constant(maxDB),
+                isLogarithmic: .constant(isLogarithmic),
+                peaks: tapToneAnalyzer.currentPeaks,
+                showModeBoundaries: true,
+                onFrequencyRangeChanged: {},
+                annotationOffsets: .constant([:])
+            )
+            .frame(width: 1400, height: 800)
+            .padding()
+            
+            // Peak Summary
+            if !tapToneAnalyzer.currentPeaks.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Detected Peaks Summary")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    
+                    HStack(spacing: 20) {
+                        ForEach(tapToneAnalyzer.currentPeaks.prefix(8).sorted(by: { $0.frequency < $1.frequency })) { peak in
+                            let mode = GuitarMode.classify(frequency: peak.frequency)
+                            VStack(spacing: 4) {
+                                Text("\(peak.frequency, specifier: "%.1f") Hz")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                Text(mode.rawValue)
+                                    .font(.caption2)
+                                    .foregroundColor(modeColorForExport(for: mode))
+                                Text("\(peak.magnitude, specifier: "%.1f") dB")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(8)
+                            .background(modeColorForExport(for: mode).opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.vertical, 8)
+            }
+            
+            // Legend
+            HStack(spacing: 20) {
+                Text("Guitar Modes:")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                
+                ForEach([GuitarMode.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode], id: \.self) { mode in
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(modeColorForExport(for: mode))
+                            .frame(width: 12, height: 12)
+                        Text(mode.rawValue)
+                            .font(.caption)
+                    }
+                }
+            }
+            .padding()
+        }
+        .background(Color.white)
+        .padding()
+    }
+    
+    private func modeColorForExport(for mode: GuitarMode) -> Color {
+        switch mode {
+        case .helmholtz: return .cyan
+        case .crossGrain: return .blue
+        case .longGrain: return .green
+        case .monopole: return .orange
+        case .dipole: return .red
+        case .ringMode: return .purple
+        case .upperModes: return .gray
+        case .unknown: return .secondary
         }
     }
 }
@@ -1427,9 +1724,12 @@ struct MeasurementsListView: View {
     @State private var showingExport = false
     @State private var exportText = ""
     @State private var isExporting = false  // Track export progress
-    @State private var selectedMeasurement: TapToneMeasurement?  // Track selected measurement
-    @State private var showingMeasurementDetail = false  // Show detail view
     @State private var exportMode: ExportMode = .json  // Track what we're exporting
+    @State private var showingImportPicker = false
+    @State private var importError: String?
+    @State private var importSuccess: String?
+    @State private var selectedMeasurement: TapToneMeasurement?
+    @State private var showingDetailSheet = false
     
     enum ExportMode {
         case json
@@ -1444,11 +1744,12 @@ struct MeasurementsListView: View {
             .sheet(isPresented: $showingExport) {
                 ExportView(text: exportText)
             }
-            .sheet(isPresented: $showingMeasurementDetail) {
+            .sheet(isPresented: $showingDetailSheet) {
                 if let measurement = selectedMeasurement {
-                    MeasurementDetailView(measurement: measurement)
+                    MeasurementDetailView(measurement: measurement, analyzer: analyzer)
                 }
             }
+            .background(importSheet)
             .overlay {
                 if isExporting {
                     ZStack {
@@ -1475,11 +1776,7 @@ struct MeasurementsListView: View {
                 .sheet(isPresented: $showingExport) {
                     ExportView(text: exportText)
                 }
-                .sheet(isPresented: $showingMeasurementDetail) {
-                    if let measurement = selectedMeasurement {
-                        MeasurementDetailView(measurement: measurement)
-                    }
-                }
+                .background(importSheet)
                 .overlay {
                     if isExporting {
                         ZStack {
@@ -1534,17 +1831,17 @@ struct MeasurementsListView: View {
                     }
                     
                     ForEach(analyzer.savedMeasurements) { measurement in
+                        #if os(macOS)
+                        // On macOS, use Button with sheet since NavigationLink doesn't work in sheets
                         Button(action: {
-                            selectedMeasurement = measurement
-                            showingMeasurementDetail = true
+                            showDetail(for: measurement)
                         }) {
                             MeasurementRowView(measurement: measurement)
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
                             Button(action: {
-                                selectedMeasurement = measurement
-                                showingMeasurementDetail = true
+                                showDetail(for: measurement)
                             }) {
                                 Label("View Details", systemImage: "eye")
                             }
@@ -1563,6 +1860,31 @@ struct MeasurementsListView: View {
                                 Label("Delete", systemImage: "trash")
                             }
                         }
+                        #else
+                        // On iOS, use NavigationLink which works better in NavigationView
+                        NavigationLink(destination: MeasurementDetailView(measurement: measurement, analyzer: analyzer)) {
+                            MeasurementRowView(measurement: measurement)
+                        }
+                        .contextMenu {
+                            NavigationLink(destination: MeasurementDetailView(measurement: measurement, analyzer: analyzer)) {
+                                Label("View Details", systemImage: "eye")
+                            }
+                            
+                            Button(action: {
+                                exportSingleMeasurement(measurement)
+                            }) {
+                                Label("Export as JSON", systemImage: "square.and.arrow.up")
+                            }
+                            
+                            Divider()
+                            
+                            Button(role: .destructive, action: {
+                                analyzer.deleteMeasurement(measurement)
+                            }) {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        #endif
                     }
                     .onDelete { indexSet in
                         indexSet.forEach { index in
@@ -1581,10 +1903,9 @@ struct MeasurementsListView: View {
             #if os(iOS)
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                    Button(action: exportMeasurements) {
-                        Label("Export All as JSON", systemImage: "square.and.arrow.up")
+                    Button(action: { showingImportPicker = true }) {
+                        Label("Import from JSON", systemImage: "square.and.arrow.down")
                     }
-                    .disabled(analyzer.savedMeasurements.isEmpty)
                     
                     Divider()
                     
@@ -1598,10 +1919,9 @@ struct MeasurementsListView: View {
             }
             #else
             ToolbarItem(placement: .primaryAction) {
-                Button(action: exportMeasurements) {
-                    Label("Export All", systemImage: "square.and.arrow.up")
+                Button(action: { showingImportPicker = true }) {
+                    Label("Import", systemImage: "square.and.arrow.down")
                 }
-                .disabled(analyzer.savedMeasurements.isEmpty)
             }
             
             ToolbarItem(placement: .primaryAction) {
@@ -1614,23 +1934,6 @@ struct MeasurementsListView: View {
         }
     }
     
-    private func exportMeasurements() {
-        exportMode = .file
-        isExporting = true
-        
-        DispatchQueue.global(qos: .userInitiated).async {
-            if let json = self.analyzer.exportMeasurements() {
-                DispatchQueue.main.async {
-                    self.saveJSONToFile(json)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.isExporting = false
-                }
-            }
-        }
-    }
-    
     private func exportSingleMeasurement(_ measurement: TapToneMeasurement) {
         exportMode = .file
         isExporting = true
@@ -1640,10 +1943,10 @@ struct MeasurementsListView: View {
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             
-            if let data = try? encoder.encode(measurement),
+            if let data = try? encoder.encode([measurement]),
                let json = String(data: data, encoding: .utf8) {
                 DispatchQueue.main.async {
-                    self.saveJSONToFile(json)
+                    self.saveJSONAndImagesToFiles(json: json, measurement: measurement)
                 }
             } else {
                 DispatchQueue.main.async {
@@ -1653,30 +1956,68 @@ struct MeasurementsListView: View {
         }
     }
     
-    private func saveJSONToFile(_ json: String) {
+    private func saveJSONAndImagesToFiles(json: String, measurement: TapToneMeasurement) {
         #if os(iOS)
-        // On iOS, create temp file and present document picker
-        let tempURL = createTemporaryFile(json: json)
-        let documentPicker = UIDocumentPickerViewController(forExporting: [tempURL], asCopy: true)
+        // On iOS, create temp directory with JSON and image
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
         
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            rootViewController.present(documentPicker, animated: true)
-            self.isExporting = false
+        do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            
+            // Use measurement's baseFilename for both JSON and image
+            let basename = measurement.baseFilename
+            
+            // Save JSON
+            let jsonURL = tempDir.appendingPathComponent("\(basename).json")
+            try json.write(to: jsonURL, atomically: true, encoding: .utf8)
+            
+            // Save image if exists (use same basename)
+            if let imageData = measurement.chartImageData {
+                let imageURL = tempDir.appendingPathComponent("\(basename).png")
+                try imageData.write(to: imageURL)
+            }
+            
+            // Present document picker for the directory
+            let documentPicker = UIDocumentPickerViewController(forExporting: [tempDir], asCopy: true)
+            
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootViewController = windowScene.windows.first?.rootViewController {
+                rootViewController.present(documentPicker, animated: true)
+            }
+        } catch {
+            print("Failed to export: \(error)")
         }
-        #elseif os(macOS)
-        // On macOS, use NSSavePanel
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.json]
-        savePanel.nameFieldStringValue = "guitar-measurements-\(Date().timeIntervalSince1970).json"
-        savePanel.canCreateDirectories = true
         
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
+        self.isExporting = false
+        
+        #elseif os(macOS)
+        // On macOS, use panel to select directory first
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.message = "Select a folder to save measurement and image"
+        panel.prompt = "Export Here"
+        
+        panel.begin { response in
+            if response == .OK, let directoryURL = panel.url {
                 do {
-                    try json.write(to: url, atomically: true, encoding: .utf8)
+                    // Use measurement's baseFilename for both JSON and image
+                    let basename = measurement.baseFilename
+                    
+                    // Save JSON
+                    let jsonURL = directoryURL.appendingPathComponent("\(basename).json")
+                    try json.write(to: jsonURL, atomically: true, encoding: .utf8)
+                    
+                    // Save image if exists (use same basename)
+                    if let imageData = measurement.chartImageData {
+                        let imageURL = directoryURL.appendingPathComponent("\(basename).png")
+                        try imageData.write(to: imageURL)
+                    }
+                    
+                    print("✅ Exported measurement to: \(directoryURL.path)")
                 } catch {
-                    print("Failed to save file: \(error)")
+                    print("Failed to save files: \(error)")
                 }
             }
             self.isExporting = false
@@ -1684,18 +2025,122 @@ struct MeasurementsListView: View {
         #endif
     }
     
-    private func createTemporaryFile(json: String) -> URL {
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileName = "guitar-measurements-\(Date().timeIntervalSince1970).json"
-        let fileURL = tempDir.appendingPathComponent(fileName)
-        
-        try? json.write(to: fileURL, atomically: true, encoding: .utf8)
-        
-        return fileURL
-    }
-    
     private func deleteAll() {
         analyzer.savedMeasurements.removeAll()
+    }
+    
+    private func showDetail(for measurement: TapToneMeasurement) {
+        selectedMeasurement = measurement
+        // Use async to decouple sheet presentation from button action
+        DispatchQueue.main.async {
+            self.showingDetailSheet = true
+        }
+    }
+}
+
+// MARK: - Document Picker for Import
+
+#if os(iOS)
+struct DocumentPicker: UIViewControllerRepresentable {
+    @Binding var isPresented: Bool
+    let onDocumentPicked: (URL) -> Void
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.json])
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: DocumentPicker
+        
+        init(parent: DocumentPicker) {
+            self.parent = parent
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            parent.onDocumentPicked(url)
+            parent.isPresented = false
+        }
+        
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            parent.isPresented = false
+        }
+    }
+}
+#endif
+
+// MARK: - Measurements List View Extension
+
+extension MeasurementsListView {
+    var importSheet: some View {
+        Group {
+            #if os(iOS)
+            if showingImportPicker {
+                DocumentPicker(isPresented: $showingImportPicker) { url in
+                    importFromFile(url: url)
+                }
+            }
+            #endif
+        }
+        .alert("Import Error", isPresented: .constant(importError != nil)) {
+            Button("OK") { importError = nil }
+        } message: {
+            if let error = importError {
+                Text(error)
+            }
+        }
+        .alert("Import Successful", isPresented: .constant(importSuccess != nil)) {
+            Button("OK") { importSuccess = nil }
+        } message: {
+            if let success = importSuccess {
+                Text(success)
+            }
+        }
+        #if os(macOS)
+        .fileImporter(
+            isPresented: $showingImportPicker,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    importFromFile(url: url)
+                }
+            case .failure(let error):
+                importError = "Failed to open file: \(error.localizedDescription)"
+            }
+        }
+        #endif
+    }
+    
+    private func importFromFile(url: URL) {
+        do {
+            let data: Data
+            
+            // Handle security-scoped resource for sandboxed apps
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if accessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
+            data = try Data(contentsOf: url)
+            let count = try analyzer.importMeasurements(from: data, baseURL: url)
+            importSuccess = "Successfully imported \(count) measurement\(count == 1 ? "" : "s")"
+        } catch {
+            importError = "Failed to import: \(error.localizedDescription)"
+        }
     }
 }
 
@@ -1734,9 +2179,24 @@ struct MeasurementRowView: View {
                 
                 Spacer()
                 
-                Text(measurement.timestamp, style: .time)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                // Show indicators for attached data
+                HStack(spacing: 6) {
+                    if measurement.chartImageFilename != nil || measurement.chartImageData != nil {
+                        Image(systemName: "photo.fill")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                    
+                    if measurement.spectrumSnapshot != nil {
+                        Image(systemName: "waveform")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                    
+                    Text(measurement.timestamp, style: .time)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
             // Simplified metadata row
@@ -1769,18 +2229,160 @@ struct MeasurementRowView: View {
 
 struct MeasurementDetailView: View {
     let measurement: TapToneMeasurement
+    @ObservedObject var analyzer: TapToneAnalyzer
     @Environment(\.dismiss) var dismiss
     @State private var showingExport = false
     @State private var exportText = ""
     @State private var isExporting = false
     @State private var chartImage: Image?
+    @State private var showingLoadConfirmation = false
     
     var body: some View {
+        #if os(macOS)
+        // On macOS, sheets need their own NavigationView
         NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Header Info
-                    GroupBox("Measurement Info") {
+            contentView
+                .navigationTitle("Measurement Details")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                    
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: loadMeasurement) {
+                            Label("Load", systemImage: "arrow.down.doc")
+                        }
+                    }
+                    
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: { exportJSONFile() }) {
+                            Label("Export JSON", systemImage: "doc.text")
+                        }
+                    }
+                    
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: { exportChartImage() }) {
+                            Label("Export Chart", systemImage: "chart.xyaxis.line")
+                        }
+                    }
+                    
+                    if measurement.chartImageFilename != nil || measurement.chartImageData != nil {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button(action: { shareChartImage() }) {
+                                Label("Saved Image", systemImage: "photo")
+                            }
+                        }
+                    }
+                }
+        }
+        .frame(minWidth: 600, minHeight: 500)
+        .sheet(isPresented: $showingExport) {
+            ExportView(text: exportText)
+        }
+        .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Load") {
+                analyzer.loadMeasurement(measurement)
+                dismiss()
+            }
+        } message: {
+            Text("This will replace the current analysis view with this measurement's data, including peaks and spectrum. Continue?")
+        }
+        .overlay {
+            if isExporting {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Exporting...")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(30)
+                    .background(Color.secondary.opacity(0.8))
+                    .cornerRadius(12)
+                }
+            }
+        }
+        #else
+        // On iOS, NavigationLink provides the navigation context
+        contentView
+            .navigationTitle("Measurement Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: loadMeasurement) {
+                        Label("Load", systemImage: "arrow.down.doc")
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(action: { exportJSONFile() }) {
+                            Label("Export JSON", systemImage: "doc.text")
+                        }
+                        
+                        Button(action: { exportChartImage() }) {
+                            Label("Export Chart Image", systemImage: "chart.xyaxis.line")
+                        }
+                        
+                        if measurement.chartImageFilename != nil || measurement.chartImageData != nil {
+                            Button(action: { shareChartImage() }) {
+                                Label("Share Saved Image", systemImage: "photo")
+                            }
+                        }
+                    } label: {
+                        Label("Export", systemImage: "square.and.arrow.up")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingExport) {
+                ExportView(text: exportText)
+            }
+            .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Load") {
+                    analyzer.loadMeasurement(measurement)
+                    dismiss()
+                }
+            } message: {
+                Text("This will replace the current analysis view with this measurement's data, including peaks and spectrum. Continue?")
+            }
+            .overlay {
+                if isExporting {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                        
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Exporting...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                        }
+                        .padding(30)
+                        .background(Color.secondary.opacity(0.8))
+                        .cornerRadius(12)
+                    }
+                }
+            }
+        #endif
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Header Info
+                GroupBox("Measurement Info") {
                         VStack(alignment: .leading, spacing: 8) {
                             if let location = measurement.tapLocation {
                                 HStack {
@@ -1859,69 +2461,39 @@ struct MeasurementDetailView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Measurement Details")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-                
-                #if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: { exportJSONFile() }) {
-                            Label("Export JSON", systemImage: "doc.text")
-                        }
-                        
-                        Button(action: { exportChartImage() }) {
-                            Label("Export Chart Image", systemImage: "chart.xyaxis.line")
-                        }
-                    } label: {
-                        Label("Export", systemImage: "square.and.arrow.up")
-                    }
-                }
-                #else
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { exportJSONFile() }) {
-                        Label("Export JSON", systemImage: "doc.text")
-                    }
-                }
-                
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { exportChartImage() }) {
-                        Label("Export Chart", systemImage: "chart.xyaxis.line")
-                    }
-                }
-                #endif
-            }
-            .sheet(isPresented: $showingExport) {
-                ExportView(text: exportText)
+    }
+    
+    private func loadMeasurement() {
+        showingLoadConfirmation = true
+    }
+    
+    private func shareChartImage() {
+        guard let imageData = measurement.chartImageData else { return }
+        
+        #if os(iOS)
+        if let uiImage = UIImage(data: imageData) {
+            let activityVC = UIActivityViewController(
+                activityItems: [uiImage],
+                applicationActivities: nil
+            )
+            
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootViewController = windowScene.windows.first?.rootViewController {
+                rootViewController.present(activityVC, animated: true)
             }
         }
-        #if os(macOS)
-        .frame(minWidth: 600, minHeight: 500)
+        #elseif os(macOS)
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.png]
+        let locationName = measurement.tapLocation ?? "chart"
+        savePanel.nameFieldStringValue = "\(locationName)-saved-\(Int(measurement.timestamp.timeIntervalSince1970)).png"
+        
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                try? imageData.write(to: url)
+            }
+        }
         #endif
-        .overlay {
-            if isExporting {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                        Text("Exporting...")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(30)
-                    .background(Color.secondary.opacity(0.8))
-                    .cornerRadius(12)
-                }
-            }
-        }
     }
     
     private func exportJSONFile() {
@@ -1932,10 +2504,10 @@ struct MeasurementDetailView: View {
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             
-            if let data = try? encoder.encode(measurement),
+            if let data = try? encoder.encode([self.measurement]),
                let json = String(data: data, encoding: .utf8) {
                 DispatchQueue.main.async {
-                    self.saveJSONToFile(json)
+                    self.saveJSONAndImageToFiles(json: json, measurement: self.measurement)
                 }
             } else {
                 DispatchQueue.main.async {
@@ -1945,45 +2517,72 @@ struct MeasurementDetailView: View {
         }
     }
     
-    private func saveJSONToFile(_ json: String) {
+    private func saveJSONAndImageToFiles(json: String, measurement: TapToneMeasurement) {
         #if os(iOS)
-        let tempURL = createTemporaryJSONFile(json: json)
-        let documentPicker = UIDocumentPickerViewController(forExporting: [tempURL], asCopy: true)
+        // Create temp directory with JSON and image
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
         
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            rootViewController.present(documentPicker, animated: true)
-            self.isExporting = false
+        do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            
+            // Use consistent basename for both files
+            let basename = measurement.baseFilename
+            
+            // Save JSON
+            let jsonURL = tempDir.appendingPathComponent("\(basename).json")
+            try json.write(to: jsonURL, atomically: true, encoding: .utf8)
+            
+            // Save image if exists (use same basename)
+            if let imageData = measurement.chartImageData {
+                let imageURL = tempDir.appendingPathComponent("\(basename).png")
+                try imageData.write(to: imageURL)
+            }
+            
+            let documentPicker = UIDocumentPickerViewController(forExporting: [tempDir], asCopy: true)
+            
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootViewController = windowScene.windows.first?.rootViewController {
+                rootViewController.present(documentPicker, animated: true)
+            }
+        } catch {
+            print("Failed to export: \(error)")
         }
-        #elseif os(macOS)
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.json]
-        let locationName = measurement.tapLocation ?? "measurement"
-        savePanel.nameFieldStringValue = "\(locationName)-\(Int(measurement.timestamp.timeIntervalSince1970)).json"
-        savePanel.canCreateDirectories = true
         
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
+        self.isExporting = false
+        
+        #elseif os(macOS)
+        // On macOS, use panel to select directory
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.message = "Select a folder to save measurement and image"
+        panel.prompt = "Export Here"
+        
+        panel.begin { response in
+            if response == .OK, let directoryURL = panel.url {
                 do {
-                    try json.write(to: url, atomically: true, encoding: .utf8)
+                    // Use consistent basename for both files
+                    let basename = measurement.baseFilename
+                    
+                    // Save JSON
+                    let jsonURL = directoryURL.appendingPathComponent("\(basename).json")
+                    try json.write(to: jsonURL, atomically: true, encoding: .utf8)
+                    
+                    // Save image if exists (use same basename)
+                    if let imageData = measurement.chartImageData {
+                        let imageURL = directoryURL.appendingPathComponent("\(basename).png")
+                        try imageData.write(to: imageURL)
+                    }
+                    
+                    print("✅ Exported measurement to: \(directoryURL.path)")
                 } catch {
-                    print("Failed to save file: \(error)")
+                    print("Failed to save files: \(error)")
                 }
             }
             self.isExporting = false
         }
         #endif
-    }
-    
-    private func createTemporaryJSONFile(json: String) -> URL {
-        let tempDir = FileManager.default.temporaryDirectory
-        let locationName = measurement.tapLocation ?? "measurement"
-        let fileName = "\(locationName)-\(Int(measurement.timestamp.timeIntervalSince1970)).json"
-        let fileURL = tempDir.appendingPathComponent(fileName)
-        
-        try? json.write(to: fileURL, atomically: true, encoding: .utf8)
-        
-        return fileURL
     }
     
     private func exportChartImage() {

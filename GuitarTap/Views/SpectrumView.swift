@@ -707,32 +707,42 @@ struct DraggablePeakAnnotation: View {
         }
         .onChange(of: minFreq) { _, _ in
             if !isDragging {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
+                Task { @MainActor in
+                    cachedChartPosition = calculateChartPosition()
+                    cachedPeakPosition = calculatePeakPosition()
+                }
             }
         }
         .onChange(of: maxFreq) { _, _ in
             if !isDragging {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
+                Task { @MainActor in
+                    cachedChartPosition = calculateChartPosition()
+                    cachedPeakPosition = calculatePeakPosition()
+                }
             }
         }
         .onChange(of: minDB) { _, _ in
             if !isDragging {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
+                Task { @MainActor in
+                    cachedChartPosition = calculateChartPosition()
+                    cachedPeakPosition = calculatePeakPosition()
+                }
             }
         }
         .onChange(of: maxDB) { _, _ in
             if !isDragging {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
+                Task { @MainActor in
+                    cachedChartPosition = calculateChartPosition()
+                    cachedPeakPosition = calculatePeakPosition()
+                }
             }
         }
         .onChange(of: isLogarithmic) { _, _ in
             if !isDragging {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
+                Task { @MainActor in
+                    cachedChartPosition = calculateChartPosition()
+                    cachedPeakPosition = calculatePeakPosition()
+                }
             }
         }
     }

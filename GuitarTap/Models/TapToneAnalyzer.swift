@@ -85,9 +85,27 @@ struct TapToneMeasurement: Identifiable, Codable {
     let decayTime: Float?       // seconds
     let tapLocation: String?    // e.g., "Bridge", "Soundhole", "Upper Bout"
     let notes: String?
-    let spectrumSnapshot: [Float]?  // Full spectrum for comparison
+    let spectrumSnapshot: SpectrumSnapshot?  // Full spectrum data for recreation
+    let chartImageFilename: String?   // Filename of associated PNG image (e.g., "measurement-uuid.png")
+    let peakAnnotationOffsets: [UUID: CGPoint]?  // Custom annotation positions
     
-    init(peaks: [ResonantPeak], decayTime: Float? = nil, tapLocation: String? = nil, notes: String? = nil, spectrum: [Float]? = nil) {
+    // Transient property - not saved in JSON, used for runtime image handling
+    var chartImageData: Data?
+    
+    // Custom coding to exclude transient imageData from JSON
+    enum CodingKeys: String, CodingKey {
+        case id, timestamp, peaks, decayTime, tapLocation, notes
+        case spectrumSnapshot, chartImageFilename, peakAnnotationOffsets
+    }
+    
+    init(peaks: [ResonantPeak], 
+         decayTime: Float? = nil, 
+         tapLocation: String? = nil, 
+         notes: String? = nil, 
+         spectrum: SpectrumSnapshot? = nil,
+         chartImageFilename: String? = nil,
+         chartImageData: Data? = nil,
+         annotationOffsets: [UUID: CGPoint]? = nil) {
         self.id = UUID()
         self.timestamp = Date()
         self.peaks = peaks
@@ -95,6 +113,9 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.tapLocation = tapLocation
         self.notes = notes
         self.spectrumSnapshot = spectrum
+        self.chartImageFilename = chartImageFilename
+        self.chartImageData = chartImageData
+        self.peakAnnotationOffsets = annotationOffsets
     }
     
     /// Get tap tone ratio (long-grain / cross-grain)
@@ -104,6 +125,36 @@ struct TapToneMeasurement: Identifiable, Codable {
             return nil
         }
         return longGrain.frequency / crossGrain.frequency
+    }
+    
+    /// Generate base filename (without extension) for this measurement
+    var baseFilename: String {
+        let locationPart = tapLocation?.replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: "/", with: "-")
+            .lowercased() ?? "measurement"
+        let timestampPart = Int(timestamp.timeIntervalSince1970)
+        return "\(locationPart)-\(timestampPart)"
+    }
+}
+
+/// Complete spectrum snapshot with all data needed to recreate the plot
+struct SpectrumSnapshot: Codable {
+    let frequencies: [Float]
+    let magnitudes: [Float]
+    let minFreq: Float
+    let maxFreq: Float
+    let minDB: Float
+    let maxDB: Float
+    let isLogarithmic: Bool
+    
+    init(frequencies: [Float], magnitudes: [Float], minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float, isLogarithmic: Bool) {
+        self.frequencies = frequencies
+        self.magnitudes = magnitudes
+        self.minFreq = minFreq
+        self.maxFreq = maxFreq
+        self.minDB = minDB
+        self.maxDB = maxDB
+        self.isLogarithmic = isLogarithmic
     }
 }
 
@@ -671,25 +722,110 @@ final class TapToneAnalyzer: ObservableObject {
     
     // MARK: - Measurement Management
     
-    /// Save current measurement with optional metadata
-    func saveMeasurement(tapLocation: String? = nil, notes: String? = nil, includeSpectrum: Bool = true) {
-        let spectrum = includeSpectrum ? fftAnalyzer.magnitudes : nil
+    /// Save current measurement with optional metadata and chart image
+    func saveMeasurement(
+        tapLocation: String? = nil, 
+        notes: String? = nil, 
+        includeSpectrum: Bool = true,
+        chartImageData: Data? = nil,
+        spectrumSnapshot: SpectrumSnapshot? = nil,
+        annotationOffsets: [UUID: CGPoint]? = nil
+    ) {
+        let snapshot: SpectrumSnapshot?
+        if includeSpectrum {
+            snapshot = spectrumSnapshot ?? SpectrumSnapshot(
+                frequencies: isSpectrumFrozen ? frozenFrequencies : fftAnalyzer.frequencies,
+                magnitudes: isSpectrumFrozen ? frozenMagnitudes : fftAnalyzer.magnitudes,
+                minFreq: 75,  // Default values, will be overridden if passed in
+                maxFreq: 350,
+                minDB: -100,
+                maxDB: 0,
+                isLogarithmic: false
+            )
+        } else {
+            snapshot = nil
+        }
+        
+        // Generate filename if image data is provided
+        let imageFilename: String?
+        if chartImageData != nil {
+            let locationPart = tapLocation?.replacingOccurrences(of: " ", with: "-")
+                .replacingOccurrences(of: "/", with: "-")
+                .lowercased() ?? "measurement"
+            let timestampPart = Int(Date().timeIntervalSince1970)
+            imageFilename = "\(locationPart)-\(timestampPart).png"
+        } else {
+            imageFilename = nil
+        }
         
         let measurement = TapToneMeasurement(
             peaks: currentPeaks,
             decayTime: currentDecayTime,
             tapLocation: tapLocation,
             notes: notes,
-            spectrum: spectrum
+            spectrum: snapshot,
+            chartImageFilename: imageFilename,
+            chartImageData: chartImageData,
+            annotationOffsets: annotationOffsets ?? peakAnnotationOffsets
         )
         
         savedMeasurements.append(measurement)
-        print("💾 Saved measurement with \(currentPeaks.count) peaks")
+        print("💾 Saved measurement with \(currentPeaks.count) peaks, image: \(imageFilename ?? "none")")
     }
     
     /// Delete a saved measurement
     func deleteMeasurement(_ measurement: TapToneMeasurement) {
         savedMeasurements.removeAll(where: { $0.id == measurement.id })
+    }
+    
+    /// Import measurements from JSON data and optionally load associated images
+    func importMeasurements(from jsonData: Data, baseURL: URL? = nil) throws -> Int {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        var measurements = try decoder.decode([TapToneMeasurement].self, from: jsonData)
+        
+        // If baseURL is provided, try to load associated images
+        if let baseURL = baseURL {
+            for i in 0..<measurements.count {
+                if let filename = measurements[i].chartImageFilename {
+                    let imageURL = baseURL.deletingLastPathComponent().appendingPathComponent(filename)
+                    if let imageData = try? Data(contentsOf: imageURL) {
+                        measurements[i].chartImageData = imageData
+                        print("📷 Loaded image: \(filename)")
+                    }
+                }
+            }
+        }
+        
+        // Add imported measurements
+        savedMeasurements.append(contentsOf: measurements)
+        
+        print("📥 Imported \(measurements.count) measurements")
+        return measurements.count
+    }
+    
+    /// Load a measurement's data into the current view (recreate the plot)
+    func loadMeasurement(_ measurement: TapToneMeasurement) {
+        // Restore peaks
+        currentPeaks = measurement.peaks
+        
+        // Restore decay time
+        currentDecayTime = measurement.decayTime
+        
+        // Restore spectrum if available
+        if let snapshot = measurement.spectrumSnapshot {
+            frozenFrequencies = snapshot.frequencies
+            frozenMagnitudes = snapshot.magnitudes
+            isSpectrumFrozen = true
+        }
+        
+        // Restore annotation offsets
+        if let offsets = measurement.peakAnnotationOffsets {
+            peakAnnotationOffsets = offsets
+        }
+        
+        print("📂 Loaded measurement: \(measurement.peaks.count) peaks, spectrum: \(measurement.spectrumSnapshot != nil)")
     }
     
     /// Export measurements as JSON
