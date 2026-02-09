@@ -844,20 +844,6 @@ final class TapToneAnalyzer: ObservableObject {
         }
     }
     
-    /// Export measurements as JSON
-    func exportMeasurements() -> String? {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        
-        guard let data = try? encoder.encode(savedMeasurements),
-              let json = String(data: data, encoding: .utf8) else {
-            return nil
-        }
-        
-        return json
-    }
-    
     /// Import measurements from JSON
     func importMeasurements(json: String) -> Bool {
         let decoder = JSONDecoder()

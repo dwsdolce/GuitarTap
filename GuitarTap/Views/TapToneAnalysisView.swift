@@ -1734,7 +1734,7 @@ struct MeasurementsListView: View {
                             Button(action: {
                                 exportSingleMeasurement(measurement)
                             }) {
-                                Label("Export as JSON", systemImage: "square.and.arrow.up")
+                                Label("Export as JSON/image", systemImage: "square.and.arrow.up")
                             }
                             
                             Divider()

@@ -110,8 +110,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1806"
             endingLineNumber = "1806"
-            landmarkName = "contentView"
-            landmarkType = "24">
+            landmarkName = "deleteAll()"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
