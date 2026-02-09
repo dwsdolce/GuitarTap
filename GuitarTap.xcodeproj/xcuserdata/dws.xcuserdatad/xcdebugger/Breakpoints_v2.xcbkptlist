@@ -95,39 +95,16 @@
             symbolName = "_NSDetectedLayoutRecursion"
             moduleName = "">
             <Locations>
+               <Location
+                  uuid = "E8855C54-C463-4A4C-95C8-C05339673598 - b0b77cd0d128b27b"
+                  shouldBeEnabled = "No"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "_NSDetectedLayoutRecursion"
+                  moduleName = "AppKit"
+                  usesParentBreakpointCondition = "Yes">
+               </Location>
             </Locations>
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "B433F6E2-5719-4B37-963B-59077A305A08"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "GuitarTap/Views/TapToneAnalysisView.swift"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1806"
-            endingLineNumber = "1806"
-            landmarkName = "deleteAll()"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "34FFF257-041F-455D-8E9D-55082E935ED9"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "GuitarTap/Views/TapToneAnalysisView.swift"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1687"
-            endingLineNumber = "1687"
-            landmarkName = "body"
-            landmarkType = "24">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
