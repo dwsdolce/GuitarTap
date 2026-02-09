@@ -13,6 +13,211 @@ import AVFoundation
 import AppKit
 #endif
 
+// MARK: - Utility Extensions
+
+extension Float {
+    var tapToneRatioQuality: String {
+        switch self {
+        case 1.9...2.1: return "Excellent"
+        case 1.7...1.9, 2.1...2.3: return "Good"
+        case 1.5...1.7, 2.3...2.5: return "Fair"
+        default: return "Needs Adjustment"
+        }
+    }
+    
+    var tapToneRatioQualityColor: Color {
+        switch self {
+        case 1.9...2.1: return .green
+        case 1.7...1.9, 2.1...2.3: return .blue
+        case 1.5...1.7, 2.3...2.5: return .orange
+        default: return .red
+        }
+    }
+    
+    var decayQuality: String {
+        switch self {
+        case 0..<0.5: return "Very Short"
+        case 0.5..<1.0: return "Short"
+        case 1.0..<2.0: return "Good"
+        case 2.0..<3.0: return "Excellent"
+        default: return "Very Long"
+        }
+    }
+    
+    var decayQualityColor: Color {
+        switch self {
+        case 0..<0.5: return .red
+        case 0.5..<1.0: return .orange
+        case 1.0..<2.0: return .green
+        case 2.0..<3.0: return .blue
+        default: return .purple
+        }
+    }
+    
+    func formattedAsFrequency() -> String {
+        if self >= 1000 {
+            return String(format: "%.1fk Hz", self / 1000)
+        } else {
+            return String(format: "%.0f Hz", self)
+        }
+    }
+}
+
+extension GuitarMode {
+    var color: Color {
+        switch self {
+        case .helmholtz: return .cyan
+        case .crossGrain: return .blue
+        case .longGrain: return .green
+        case .monopole: return .orange
+        case .dipole: return .red
+        case .ringMode: return .purple
+        case .upperModes: return .gray
+        case .unknown: return .secondary
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .helmholtz: return "wind"
+        case .crossGrain: return "arrow.left.and.right"
+        case .longGrain: return "arrow.up.and.down"
+        case .monopole: return "circle.fill"
+        case .dipole: return "circle.lefthalf.filled"
+        case .ringMode: return "circle.dashed"
+        case .upperModes: return "waveform"
+        case .unknown: return "questionmark.circle"
+        }
+    }
+}
+
+// MARK: - File Export Manager
+
+struct MeasurementFileExporter {
+    static func exportJSONAndImage(
+        json: String,
+        measurement: TapToneMeasurement,
+        completion: @escaping () -> Void
+    ) {
+        #if os(iOS)
+        exportiOS(json: json, measurement: measurement, completion: completion)
+        #elseif os(macOS)
+        exportMacOS(json: json, measurement: measurement, completion: completion)
+        #endif
+    }
+    
+    #if os(iOS)
+    private static func exportiOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
+        
+        do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            
+            let basename = measurement.baseFilename
+            let jsonURL = tempDir.appendingPathComponent("\(basename).json")
+            try json.write(to: jsonURL, atomically: true, encoding: .utf8)
+            
+            if let imageData = measurement.chartImageData {
+                let imageURL = tempDir.appendingPathComponent("\(basename).png")
+                try imageData.write(to: imageURL)
+            }
+            
+            let documentPicker = UIDocumentPickerViewController(forExporting: [tempDir], asCopy: true)
+            
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootViewController = windowScene.windows.first?.rootViewController {
+                rootViewController.present(documentPicker, animated: true)
+            }
+        } catch {
+            print("Failed to export: \(error)")
+        }
+        
+        completion()
+    }
+    #endif
+    
+    #if os(macOS)
+    private static func exportMacOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.message = "Select a folder to save measurement and image"
+        panel.prompt = "Export Here"
+        
+        panel.begin { response in
+            if response == .OK, let directoryURL = panel.url {
+                do {
+                    let basename = measurement.baseFilename
+                    let jsonURL = directoryURL.appendingPathComponent("\(basename).json")
+                    try json.write(to: jsonURL, atomically: true, encoding: .utf8)
+                    
+                    if let imageData = measurement.chartImageData {
+                        let imageURL = directoryURL.appendingPathComponent("\(basename).png")
+                        try imageData.write(to: imageURL)
+                    }
+                    
+                    print("✅ Exported measurement to: \(directoryURL.path)")
+                } catch {
+                    print("Failed to save files: \(error)")
+                }
+            }
+            completion()
+        }
+    }
+    #endif
+}
+
+// MARK: - Reusable UI Components
+
+struct LoadingOverlay: View {
+    let message: String
+    
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 16) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                Text(message)
+                    .font(.headline)
+                    .foregroundColor(.white)
+            }
+            .padding(30)
+            .background(Color.secondary.opacity(0.8))
+            .cornerRadius(12)
+        }
+    }
+}
+
+struct EmptyStateView: View {
+    let icon: String
+    let title: String
+    let message: String
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: icon)
+                .font(.system(size: 60))
+                .foregroundColor(.secondary)
+            
+            Text(title)
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text(message)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 // MARK: - Main Tap Tone Analysis View
 
 struct TapToneAnalysisView: View {
@@ -25,10 +230,8 @@ struct TapToneAnalysisView: View {
     @State private var showingMeasurements = false
     @State private var showingMetrics = false
     @State private var showingResults = false
-    @State private var showingSpectrumExport = false
     @State private var isExportingSpectrum = false
     @State private var isSavingMeasurement = false
-    @State private var showingImportPicker = false
     
     // Spectrum display state
     @State private var minFreq: Float = 20
@@ -140,37 +343,9 @@ struct TapToneAnalysisView: View {
         }
         .overlay {
             if isExportingSpectrum {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                        Text("Exporting spectrum...")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(30)
-                    .background(Color.secondary.opacity(0.8))
-                    .cornerRadius(12)
-                }
+                LoadingOverlay(message: "Exporting spectrum...")
             } else if isSavingMeasurement {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                        Text("Saving measurement with chart image...")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(30)
-                    .background(Color.secondary.opacity(0.8))
-                    .cornerRadius(12)
-                }
+                LoadingOverlay(message: "Saving measurement with chart image...")
             }
         }
     }
@@ -265,37 +440,9 @@ struct TapToneAnalysisView: View {
         }
         .overlay {
             if isExportingSpectrum {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                        Text("Exporting spectrum...")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(30)
-                    .background(Color.secondary.opacity(0.8))
-                    .cornerRadius(12)
-                }
+                LoadingOverlay(message: "Exporting spectrum...")
             } else if isSavingMeasurement {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                        Text("Saving measurement with chart image...")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(30)
-                    .background(Color.secondary.opacity(0.8))
-                    .cornerRadius(12)
-                }
+                LoadingOverlay(message: "Saving measurement with chart image...")
             }
         }
     }
@@ -750,7 +897,7 @@ struct TapToneAnalysisView: View {
             
             // Range Display
             HStack {
-                Text("Range: \(formatFrequency(minFreq)) - \(formatFrequency(maxFreq))")
+                Text("Range: \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -824,10 +971,10 @@ struct TapToneAnalysisView: View {
                         Text("Decay Quality")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text(decayQuality(decay))
+                        Text(decay.decayQuality)
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(decayQualityColor(decay))
+                            .foregroundColor(decay.decayQualityColor)
                     }
                 } else {
                     Text("Waiting for decay measurement...")
@@ -885,10 +1032,7 @@ struct TapToneAnalysisView: View {
                 try session.setActive(true)
                 #endif
                 
-                // Start the analyzer on a detached background thread
-//                print("🚀 Starting analyzer on thread: \(Thread.isMainThread ? "MAIN ⚠️" : "BACKGROUND ✅")")
                 try self.tapToneAnalyzer.start()
-//                print("✅ Analyzer started successfully")
             } catch {
                 print("❌ Failed to start analyzer: \(error)")
             }
@@ -952,48 +1096,6 @@ struct TapToneAnalysisView: View {
             self.notes = ""
             self.showingSaveSheet = false
             self.isSavingMeasurement = false
-        }
-    }
-    
-    // MARK: - Helpers
-    
-    private func decayQuality(_ time: Float) -> String {
-        switch time {
-        case 0..<0.5: return "Very Short"
-        case 0.5..<1.0: return "Short"
-        case 1.0..<2.0: return "Good"
-        case 2.0..<3.0: return "Excellent"
-        default: return "Very Long"
-        }
-    }
-    
-    private func decayQualityColor(_ time: Float) -> Color {
-        switch time {
-        case 0..<0.5: return .red
-        case 0.5..<1.0: return .orange
-        case 1.0..<2.0: return .green
-        case 2.0..<3.0: return .blue
-        default: return .purple
-        }
-    }
-    
-    private func ratioQuality(_ ratio: Float) -> String {
-        let difference = abs(ratio - 2.0)
-        switch difference {
-        case 0..<0.1: return "Excellent"
-        case 0.1..<0.2: return "Good"
-        case 0.2..<0.3: return "Fair"
-        default: return "Needs Work"
-        }
-    }
-    
-    private func ratioQualityColor(_ ratio: Float) -> Color {
-        let difference = abs(ratio - 2.0)
-        switch difference {
-        case 0..<0.1: return .green
-        case 0.1..<0.2: return .blue
-        case 0.2..<0.3: return .orange
-        default: return .red
         }
     }
     
@@ -1191,13 +1293,13 @@ struct TapToneAnalysisView: View {
                                     .fontWeight(.bold)
                                 Text(mode.rawValue)
                                     .font(.caption2)
-                                    .foregroundColor(modeColorForExport(for: mode))
+                                    .foregroundColor(mode.color)
                                 Text("\(peak.magnitude, specifier: "%.1f") dB")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
                             .padding(8)
-                            .background(modeColorForExport(for: mode).opacity(0.1))
+                            .background(mode.color.opacity(0.1))
                             .cornerRadius(6)
                         }
                     }
@@ -1215,7 +1317,7 @@ struct TapToneAnalysisView: View {
                 ForEach([GuitarMode.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode], id: \.self) { mode in
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(modeColorForExport(for: mode))
+                            .fill(mode.color)
                             .frame(width: 12, height: 12)
                         Text(mode.rawValue)
                             .font(.caption)
@@ -1226,19 +1328,6 @@ struct TapToneAnalysisView: View {
         }
         .background(Color.white)
         .padding()
-    }
-    
-    private func modeColorForExport(for mode: GuitarMode) -> Color {
-        switch mode {
-        case .helmholtz: return .cyan
-        case .crossGrain: return .blue
-        case .longGrain: return .green
-        case .monopole: return .orange
-        case .dipole: return .red
-        case .ringMode: return .purple
-        case .upperModes: return .gray
-        case .unknown: return .secondary
-        }
     }
 }
 
@@ -1262,7 +1351,7 @@ struct TapAnalysisResultsView: View {
                         .font(.headline)
                         .fontWeight(.bold)
                     
-                    Text("Showing \(formatFrequency(minFreq)) - \(formatFrequency(maxFreq))")
+                    Text("Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -1337,9 +1426,9 @@ struct TapAnalysisResultsView: View {
                     Spacer()
                     
                     VStack(alignment: .trailing) {
-                        Text(ratioQualityHelper(ratio))
+                        Text(ratio.tapToneRatioQuality)
                             .font(.headline)
-                            .foregroundColor(ratioQualityColorHelper(ratio))
+                            .foregroundColor(ratio.tapToneRatioQualityColor)
                         
                         Text("Ideal: 1.9 - 2.1")
                             .font(.caption2)
@@ -1398,42 +1487,6 @@ struct TapAnalysisResultsView: View {
                 .foregroundColor(.secondary)
         }
     }
-    
-    // MARK: - Helper functions
-    
-    private func formatFrequency(_ freq: Float) -> String {
-        if freq >= 1000 {
-            return String(format: "%.1fk Hz", freq / 1000)
-        } else {
-            return String(format: "%.0f Hz", freq)
-        }
-    }
-    
-    private func ratioQualityHelper(_ ratio: Float) -> String {
-        switch ratio {
-        case 1.9...2.1:
-            return "Excellent"
-        case 1.7...1.9, 2.1...2.3:
-            return "Good"
-        case 1.5...1.7, 2.3...2.5:
-            return "Fair"
-        default:
-            return "Needs Adjustment"
-        }
-    }
-    
-    private func ratioQualityColorHelper(_ ratio: Float) -> Color {
-        switch ratio {
-        case 1.9...2.1:
-            return .green
-        case 1.7...1.9, 2.1...2.3:
-            return .blue
-        case 1.5...1.7, 2.3...2.5:
-            return .orange
-        default:
-            return .red
-        }
-    }
 }
 
 // MARK: - Supporting Views
@@ -1446,8 +1499,8 @@ struct CombinedPeakModeRowView: View {
         HStack(alignment: .top, spacing: 12) {
             // Mode icon and color
             VStack(spacing: 4) {
-                Image(systemName: modeIcon)
-                    .foregroundColor(modeColor)
+                Image(systemName: mode.icon)
+                    .foregroundColor(mode.color)
                     .font(.title3)
                     .frame(width: 30, height: 30)
                 
@@ -1466,7 +1519,7 @@ struct CombinedPeakModeRowView: View {
                 HStack {
                     Text(mode.rawValue)
                         .font(.headline)
-                        .foregroundColor(modeColor)
+                        .foregroundColor(mode.color)
                     
                     Spacer()
                     
@@ -1507,36 +1560,10 @@ struct CombinedPeakModeRowView: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
-        .background(modeColor.opacity(0.05))
+        .background(mode.color.opacity(0.05))
         .cornerRadius(8)
     }
     
-    private var modeIcon: String {
-        switch mode {
-        case .helmholtz: return "wind"
-        case .crossGrain: return "arrow.left.and.right"
-        case .longGrain: return "arrow.up.and.down"
-        case .monopole: return "circle.fill"
-        case .dipole: return "circle.lefthalf.filled"
-        case .ringMode: return "circle.dashed"
-        case .upperModes: return "waveform"
-        case .unknown: return "questionmark.circle"
-        }
-    }
-    
-    private var modeColor: Color {
-        switch mode {
-        case .helmholtz: return .cyan
-        case .crossGrain: return .blue
-        case .longGrain: return .green
-        case .monopole: return .orange
-        case .dipole: return .red
-        case .ringMode: return .purple
-        case .upperModes: return .gray
-        case .unknown: return .secondary
-        }
-    }
-    
     private func magnitudeColor(_ mag: Float) -> Color {
         if mag >= -40.0 {
             return .green
@@ -1546,104 +1573,6 @@ struct CombinedPeakModeRowView: View {
             return .orange
         } else {
             return .red
-        }
-    }
-}
-
-struct PeakRowView: View {
-    let peak: ResonantPeak
-    
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(peak.frequency, specifier: "%.2f") Hz")
-                    .font(.headline)
-                
-                HStack {
-                    Text("Q: \(peak.quality, specifier: "%.1f")")
-                    Text("•")
-                    Text("BW: \(peak.bandwidth, specifier: "%.1f") Hz")
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Text("\(peak.magnitude, specifier: "%.1f") dB")
-                .font(.title3)
-                .fontWeight(.semibold)
-                .foregroundColor(magnitudeColor(peak.magnitude))
-        }
-        .padding(.vertical, 4)
-    }
-    
-    private func magnitudeColor(_ mag: Float) -> Color {
-        if mag >= -40.0 {
-            return .green
-        } else if mag >= -60.0 {
-            return .blue
-        } else if mag >= -80.0 {
-            return .orange
-        } else {
-            return .red
-        }
-    }
-}
-
-struct ModeRowView: View {
-    let peak: ResonantPeak
-    let mode: GuitarMode
-    
-    var body: some View {
-        HStack {
-            Image(systemName: modeIcon)
-                .foregroundColor(modeColor)
-                .frame(width: 30)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(mode.rawValue)
-                    .font(.headline)
-                
-                Text("\(peak.frequency, specifier: "%.2f") Hz")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            if mode != .unknown && mode != .upperModes {
-                let inRange = mode.idealRange.contains(peak.frequency)
-                Image(systemName: inRange ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .foregroundColor(inRange ? .green : .orange)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-    
-    private var modeIcon: String {
-        switch mode {
-        case .helmholtz: return "wind"
-        case .crossGrain: return "arrow.left.and.right"
-        case .longGrain: return "arrow.up.and.down"
-        case .monopole: return "circle.fill"
-        case .dipole: return "circle.lefthalf.filled"
-        case .ringMode: return "circle.dashed"
-        case .upperModes: return "waveform"
-        case .unknown: return "questionmark.circle"
-        }
-    }
-    
-    private var modeColor: Color {
-        switch mode {
-        case .helmholtz: return .cyan
-        case .crossGrain: return .blue
-        case .longGrain: return .green
-        case .monopole: return .orange
-        case .dipole: return .red
-        case .ringMode: return .purple
-        case .upperModes: return .gray
-        case .unknown: return .secondary
         }
     }
 }
@@ -1745,21 +1674,7 @@ struct MeasurementsListView: View {
             .background(importSheet)
             .overlay {
                 if isExporting {
-                    ZStack {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                        
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                            Text("Exporting measurements...")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                        }
-                        .padding(30)
-                        .background(Color.secondary.opacity(0.8))
-                        .cornerRadius(12)
-                    }
+                    LoadingOverlay(message: "Exporting measurements...")
                 }
             }
         #else
@@ -1775,21 +1690,7 @@ struct MeasurementsListView: View {
                 .background(importSheet)
                 .overlay {
                     if isExporting {
-                        ZStack {
-                            Color.black.opacity(0.3)
-                                .ignoresSafeArea()
-                            
-                            VStack(spacing: 16) {
-                                ProgressView()
-                                    .scaleEffect(1.5)
-                                Text("Exporting measurements...")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                            }
-                            .padding(30)
-                            .background(Color.secondary.opacity(0.8))
-                            .cornerRadius(12)
-                        }
+                        LoadingOverlay(message: "Exporting measurements...")
                     }
                 }
         }
@@ -1801,22 +1702,11 @@ struct MeasurementsListView: View {
         Group {
             if analyzer.savedMeasurements.isEmpty {
                 // Empty state
-                VStack(spacing: 20) {
-                    Image(systemName: "tray")
-                        .font(.system(size: 60))
-                        .foregroundColor(.secondary)
-                    
-                    Text("No Saved Measurements")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    Text("Tap the guitar and click Save to store measurements for comparison.")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyStateView(
+                    icon: "tray",
+                    title: "No Saved Measurements",
+                    message: "Tap the guitar and click Save to store measurements for comparison."
+                )
             } else {
                 // Measurements list
                 List {
@@ -1906,79 +1796,11 @@ struct MeasurementsListView: View {
     
     private func exportSingleMeasurement(_ measurement: TapToneMeasurement) {
         isExporting = true
-        
         analyzer.exportMeasurement(measurement) { json, measurement in
-            self.saveJSONAndImagesToFiles(json: json, measurement: measurement)
-        }
-    }
-    
-    private func saveJSONAndImagesToFiles(json: String, measurement: TapToneMeasurement) {
-        #if os(iOS)
-        // On iOS, create temp directory with JSON and image
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
-        
-        do {
-            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-            
-            // Use measurement's baseFilename for both JSON and image
-            let basename = measurement.baseFilename
-            
-            // Save JSON
-            let jsonURL = tempDir.appendingPathComponent("\(basename).json")
-            try json.write(to: jsonURL, atomically: true, encoding: .utf8)
-            
-            // Save image if exists (use same basename)
-            if let imageData = measurement.chartImageData {
-                let imageURL = tempDir.appendingPathComponent("\(basename).png")
-                try imageData.write(to: imageURL)
+            MeasurementFileExporter.exportJSONAndImage(json: json, measurement: measurement) {
+                self.isExporting = false
             }
-            
-            // Present document picker for the directory
-            let documentPicker = UIDocumentPickerViewController(forExporting: [tempDir], asCopy: true)
-            
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let rootViewController = windowScene.windows.first?.rootViewController {
-                rootViewController.present(documentPicker, animated: true)
-            }
-        } catch {
-            print("Failed to export: \(error)")
         }
-        
-        self.isExporting = false
-        
-        #elseif os(macOS)
-        // On macOS, use panel to select directory first
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.message = "Select a folder to save measurement and image"
-        panel.prompt = "Export Here"
-        
-        panel.begin { response in
-            if response == .OK, let directoryURL = panel.url {
-                do {
-                    // Use measurement's baseFilename for both JSON and image
-                    let basename = measurement.baseFilename
-                    
-                    // Save JSON
-                    let jsonURL = directoryURL.appendingPathComponent("\(basename).json")
-                    try json.write(to: jsonURL, atomically: true, encoding: .utf8)
-                    
-                    // Save image if exists (use same basename)
-                    if let imageData = measurement.chartImageData {
-                        let imageURL = directoryURL.appendingPathComponent("\(basename).png")
-                        try imageData.write(to: imageURL)
-                    }
-                    
-                    print("✅ Exported measurement to: \(directoryURL.path)")
-                } catch {
-                    print("Failed to save files: \(error)")
-                }
-            }
-            self.isExporting = false
-        }
-        #endif
     }
     
     private func deleteAll() {
@@ -2245,21 +2067,7 @@ struct MeasurementDetailView: View {
             }
             .overlay {
                 if isExporting {
-                    ZStack {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                        
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                            Text("Exporting...")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                        }
-                        .padding(30)
-                        .background(Color.secondary.opacity(0.8))
-                        .cornerRadius(12)
-                    }
+                    LoadingOverlay(message: "Exporting...")
                 }
             }
         #else
@@ -2298,21 +2106,7 @@ struct MeasurementDetailView: View {
             }
             .overlay {
                 if isExporting {
-                    ZStack {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                        
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                            Text("Exporting...")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                        }
-                        .padding(30)
-                        .background(Color.secondary.opacity(0.8))
-                        .cornerRadius(12)
-                    }
+                    LoadingOverlay(message: "Exporting...")
                 }
             }
         #endif
@@ -2410,90 +2204,10 @@ struct MeasurementDetailView: View {
     
     private func exportMeasurement() {
         isExporting = true
-        
         analyzer.exportMeasurement(measurement) { json, measurement in
-            self.saveJSONAndImageToFiles(json: json, measurement: measurement)
-        }
-    }
-    
-    private func saveJSONAndImageToFiles(json: String, measurement: TapToneMeasurement) {
-        #if os(iOS)
-        // Create temp directory with JSON and image
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
-        
-        do {
-            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-            
-            // Use consistent basename for both files
-            let basename = measurement.baseFilename
-            
-            // Save JSON
-            let jsonURL = tempDir.appendingPathComponent("\(basename).json")
-            try json.write(to: jsonURL, atomically: true, encoding: .utf8)
-            
-            // Save image if exists (use same basename)
-            if let imageData = measurement.chartImageData {
-                let imageURL = tempDir.appendingPathComponent("\(basename).png")
-                try imageData.write(to: imageURL)
+            MeasurementFileExporter.exportJSONAndImage(json: json, measurement: measurement) {
+                self.isExporting = false
             }
-            
-            let documentPicker = UIDocumentPickerViewController(forExporting: [tempDir], asCopy: true)
-            
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let rootViewController = windowScene.windows.first?.rootViewController {
-                rootViewController.present(documentPicker, animated: true)
-            }
-        } catch {
-            print("Failed to export: \(error)")
-        }
-        
-        self.isExporting = false
-        
-        #elseif os(macOS)
-        // On macOS, use panel to select directory
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.message = "Select a folder to save measurement and image"
-        panel.prompt = "Export Here"
-        
-        panel.begin { response in
-            if response == .OK, let directoryURL = panel.url {
-                do {
-                    // Use consistent basename for both files
-                    let basename = measurement.baseFilename
-                    
-                    // Save JSON
-                    let jsonURL = directoryURL.appendingPathComponent("\(basename).json")
-                    try json.write(to: jsonURL, atomically: true, encoding: .utf8)
-                    
-                    // Save image if exists (use same basename)
-                    if let imageData = measurement.chartImageData {
-                        let imageURL = directoryURL.appendingPathComponent("\(basename).png")
-                        try imageData.write(to: imageURL)
-                    }
-                    
-                    print("✅ Exported measurement to: \(directoryURL.path)")
-                } catch {
-                    print("Failed to save files: \(error)")
-                }
-            }
-            self.isExporting = false
-        }
-        #endif
-    }
-    
-    private func modeColor(for mode: GuitarMode) -> Color {
-        switch mode {
-        case .helmholtz: return .cyan
-        case .crossGrain: return .blue
-        case .longGrain: return .green
-        case .monopole: return .orange
-        case .dipole: return .red
-        case .ringMode: return .purple
-        case .upperModes: return .gray
-        case .unknown: return .secondary
         }
     }
 }

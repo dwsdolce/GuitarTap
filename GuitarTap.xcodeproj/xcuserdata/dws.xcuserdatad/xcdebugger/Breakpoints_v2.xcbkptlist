@@ -108,10 +108,10 @@
             filePath = "GuitarTap/Views/TapToneAnalysisView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1984"
-            endingLineNumber = "1984"
-            landmarkName = "deleteAll()"
-            landmarkType = "7">
+            startingLineNumber = "1806"
+            endingLineNumber = "1806"
+            landmarkName = "contentView"
+            landmarkType = "24">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -124,8 +124,8 @@
             filePath = "GuitarTap/Views/TapToneAnalysisView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1772"
-            endingLineNumber = "1772"
+            startingLineNumber = "1687"
+            endingLineNumber = "1687"
             landmarkName = "body"
             landmarkType = "24">
          </BreakpointContent>
