@@ -37,7 +37,6 @@ struct TapToneAnalysisView: View {
     @State private var maxFreq: Float = 300
     @State private var minDB: Float = -100
     @State private var maxDB: Float = 0
-    @State private var isLogarithmic: Bool = false
     @State private var minFreqInput: String = "20"
     @State private var maxFreqInput: String = "300"
     @State private var minDBInput: String = "-100"
@@ -302,14 +301,16 @@ struct TapToneAnalysisView: View {
                     // Real-time Frequency Response Display
                     realTimeSpectrumView
                     
-                    // Tap detection indicator
-                    tapIndicatorView
-                    
                     // Decay time (keep this in main view for quick reference)
                     decayTimeView
                 }
                 .padding()
             }
+            
+            // Fixed status bar at bottom
+            Divider()
+            
+            statusBarView
         }
         #if os(iOS)
         .navigationTitle("Tap Tone Analysis")
@@ -571,6 +572,75 @@ struct TapToneAnalysisView: View {
     }
     #endif
     
+    /// Fixed status bar at bottom of screen
+    @ViewBuilder
+    private var statusBarView: some View {
+        VStack(spacing: 6) {
+            // Progress bar (when tapping)
+            if tapToneAnalyzer.currentTapCount > 0 {
+                ProgressView(value: tapToneAnalyzer.tapProgress)
+                    .progressViewStyle(.linear)
+            }
+            
+            HStack(spacing: 12) {
+                // Tap detection status
+                Circle()
+                    .fill(tapToneAnalyzer.tapDetected ? Color.green : Color.gray.opacity(0.3))
+                    .frame(width: 10, height: 10)
+                
+                Text(tapToneAnalyzer.tapDetected ? "Tap Detected!" : "Waiting for tap...")
+                    .font(.subheadline)
+                    .foregroundColor(tapToneAnalyzer.tapDetected ? .green : .secondary)
+                
+                Text("•")
+                    .foregroundColor(.secondary)
+                
+                // Current magnitude
+                Text("\(tapToneAnalyzer.averageMagnitude, specifier: "%.1f") dB")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                // FFT Status info
+                if fftAnalyzer.isRunning {
+                    Text("\(fftAnalyzer.frequencies.count) bins")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    Text("•")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Peak: \(fftAnalyzer.peakMagnitude, specifier: "%.1f") dB @ \(fftAnalyzer.peakFrequency, specifier: "%.1f") Hz")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                } else {
+                    Text("Analyzer stopped")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+                
+                // Sequence status
+                Circle()
+                    .fill(tapToneAnalyzer.isDetecting ? .green : .orange)
+                    .frame(width: 8, height: 8)
+                
+                Text(tapToneAnalyzer.statusMessage)
+                    .font(.caption)
+                    .foregroundColor(tapToneAnalyzer.isDetecting ? .primary : .orange)
+                
+                if tapToneAnalyzer.currentTapCount > 0 {
+                    Text("\(tapToneAnalyzer.currentTapCount)/\(tapToneAnalyzer.numberOfTaps)")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                }
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(Color.secondary.opacity(0.1))
+    }
+    
     /// Compact tap controls for iPhone
     @ViewBuilder
     private var compactTapControls: some View {
@@ -659,34 +729,6 @@ struct TapToneAnalysisView: View {
                     .foregroundColor(.blue)
                 }
             }
-            
-            // Row 3: Status and progress
-            VStack(spacing: 6) {
-                HStack {
-                    Circle()
-                        .fill(tapToneAnalyzer.isDetecting ? .green : .orange)
-                        .frame(width: 8, height: 8)
-                    
-                    Text(tapToneAnalyzer.statusMessage)
-                        .font(.caption)
-                        .foregroundColor(tapToneAnalyzer.isDetecting ? .primary : .orange)
-                    
-                    Spacer()
-                    
-                    if tapToneAnalyzer.currentTapCount > 0 {
-                        Text("\(tapToneAnalyzer.currentTapCount)/\(tapToneAnalyzer.numberOfTaps)")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.blue)
-                    }
-                }
-                
-                // Progress bar (when tapping)
-                if tapToneAnalyzer.currentTapCount > 0 {
-                    ProgressView(value: tapToneAnalyzer.tapProgress)
-                        .progressViewStyle(.linear)
-                }
-            }
         }
         .padding(12)
         .background(Color.secondary.opacity(0.1))
@@ -696,135 +738,104 @@ struct TapToneAnalysisView: View {
     /// Regular tap controls for iPad and macOS
     @ViewBuilder
     private var regularTapControls: some View {
-        VStack(spacing: 8) {
-            // Configuration row
-            HStack {
-                Text("Taps to average:")
-                    .font(.subheadline)
+        HStack {
+            Text("Taps to average:")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Stepper("\(tapToneAnalyzer.numberOfTaps)", 
+                    value: $tapToneAnalyzer.numberOfTaps, 
+                    in: 1...10)
+                .frame(maxWidth: 150)
+            
+            Spacer()
+            
+            // Tap detection threshold slider (absolute dB level)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Tap threshold:")
+                    .font(.caption)
                     .foregroundColor(.secondary)
-                
-                Stepper("\(tapToneAnalyzer.numberOfTaps)", 
-                        value: $tapToneAnalyzer.numberOfTaps, 
-                        in: 1...10)
-                    .frame(maxWidth: 150)
-                
-                Spacer()
-                
-                // Tap detection threshold slider (absolute dB level)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Tap threshold:")
-                        .font(.caption)
+                HStack(spacing: 8) {
+                    Text("-80 dB")
+                        .font(.caption2)
                         .foregroundColor(.secondary)
-                    HStack(spacing: 8) {
-                        Text("-80 dB")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
-                            .frame(width: 120)
-                        Text("-20 dB")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.blue)
-                            .frame(width: 50, alignment: .trailing)
-                    }
-                }
-                
-                // Hysteresis margin slider
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Hysteresis:")
-                        .font(.caption)
+                    Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
+                        .frame(width: 120)
+                    Text("-20 dB")
+                        .font(.caption2)
                         .foregroundColor(.secondary)
-                    HStack(spacing: 8) {
-                        Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
-                            .frame(width: 100)
-                        Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.purple)
-                            .frame(width: 50, alignment: .trailing)
-                    }
+                    Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                        .frame(width: 50, alignment: .trailing)
                 }
-                
-                Spacer()
-                
-                // Tap sequence buttons
-                Button(action: {
-                    tapToneAnalyzer.startTapSequence()
-                }) {
-                    Label("New Tap", systemImage: "hand.tap")
-                }
-                .buttonStyle(.bordered)
-                .disabled(tapToneAnalyzer.currentTapCount > 0 && 
-                          tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps)
-                
-                // Cancel button (during active sequence)
-                if tapToneAnalyzer.currentTapCount > 0 && 
-                   tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps {
-                    Button(action: {
-                        tapToneAnalyzer.cancelTapSequence()
-                    }) {
-                        Label("Cancel", systemImage: "xmark.circle")
-                    }
-                    .buttonStyle(.bordered)
-                    .foregroundColor(.orange)
-                }
-                
-                // Resume button (when sequence is complete)
-                if tapToneAnalyzer.tapProgress >= 1.0 {
-                    Button(action: {
-                        tapToneAnalyzer.resumeDetection()
-                    }) {
-                        Label("Resume", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.bordered)
-                    .foregroundColor(.blue)
-                }
-                
-                #if os(macOS)
-                // Reset annotation positions button (macOS only - iOS has it in header)
-                if !tapToneAnalyzer.peakAnnotationOffsets.isEmpty {
-                    Button(action: {
-                        tapToneAnalyzer.resetAllAnnotationOffsets()
-                    }) {
-                        Label("Reset Labels", systemImage: "arrow.uturn.backward")
-                    }
-                    .buttonStyle(.bordered)
-                    .foregroundColor(.secondary)
-                    .help("Reset all peak label positions to default")
-                }
-                #endif
             }
             
-            // Status and progress row
-            VStack(spacing: 6) {
-                HStack {
-                    Circle()
-                        .fill(tapToneAnalyzer.isDetecting ? .green : .orange)
-                        .frame(width: 8, height: 8)
-                    
-                    Text(tapToneAnalyzer.statusMessage)
-                        .font(.subheadline)
-                        .foregroundColor(tapToneAnalyzer.isDetecting ? .primary : .orange)
-                    
-                    Spacer()
-                    
-                    if tapToneAnalyzer.currentTapCount > 0 {
-                        Text("\(tapToneAnalyzer.currentTapCount)/\(tapToneAnalyzer.numberOfTaps)")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.blue)
-                    }
-                }
-                
-                // Progress bar (when tapping)
-                if tapToneAnalyzer.currentTapCount > 0 {
-                    ProgressView(value: tapToneAnalyzer.tapProgress)
-                        .progressViewStyle(.linear)
+            // Hysteresis margin slider
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Hysteresis:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
+                        .frame(width: 100)
+                    Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.purple)
+                        .frame(width: 50, alignment: .trailing)
                 }
             }
+            
+            Spacer()
+            
+            // Tap sequence buttons
+            Button(action: {
+                tapToneAnalyzer.startTapSequence()
+            }) {
+                Label("New Tap", systemImage: "hand.tap")
+            }
+            .buttonStyle(.bordered)
+            .disabled(tapToneAnalyzer.currentTapCount > 0 && 
+                      tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps)
+            
+            // Cancel button (during active sequence)
+            if tapToneAnalyzer.currentTapCount > 0 && 
+               tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps {
+                Button(action: {
+                    tapToneAnalyzer.cancelTapSequence()
+                }) {
+                    Label("Cancel", systemImage: "xmark.circle")
+                }
+                .buttonStyle(.bordered)
+                .foregroundColor(.orange)
+            }
+            
+            // Resume button (when sequence is complete)
+            if tapToneAnalyzer.tapProgress >= 1.0 {
+                Button(action: {
+                    tapToneAnalyzer.resumeDetection()
+                }) {
+                    Label("Resume", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .foregroundColor(.blue)
+            }
+            
+            #if os(macOS)
+            // Reset annotation positions button (macOS only - iOS has it in header)
+            if !tapToneAnalyzer.peakAnnotationOffsets.isEmpty {
+                Button(action: {
+                    tapToneAnalyzer.resetAllAnnotationOffsets()
+                }) {
+                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.bordered)
+                .foregroundColor(.secondary)
+                .help("Reset all peak label positions to default")
+            }
+            #endif
         }
         .padding(12)
         .background(Color.secondary.opacity(0.1))
@@ -833,40 +844,6 @@ struct TapToneAnalysisView: View {
     
     private var realTimeSpectrumView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Toolbar: title, scale toggle, and reset button
-            HStack {
-                Text("Real-Time Frequency Response")
-                    .font(.headline)
-                
-                // Frozen indicator
-                if tapToneAnalyzer.isSpectrumFrozen {
-                    HStack(spacing: 4) {
-                        Image(systemName: "pause.circle.fill")
-                            .foregroundColor(.orange)
-                        Text("Frozen")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                    }
-                }
-                
-                Spacer()
-                
-                Toggle(isOn: $isLogarithmic) {
-                    Text("Logarithmic")
-                }
-                .toggleStyle(.switch)
-                .font(.caption)
-                
-                Button(action: resetZoom) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.counterclockwise")
-                        Text("Reset")
-                    }
-                    .font(.caption)
-                    .foregroundColor(.blue)
-                }
-            }
-            
             // Range Controls
             VStack(spacing: 8) {
                 HStack(spacing: 12) {
@@ -930,16 +907,53 @@ struct TapToneAnalysisView: View {
                             }
                         }
                     }
+                    
+                    Divider()
+                        .frame(height: 40)
+                    
+                    // Reset Control
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Display")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                        
+                        Button(action: resetZoom) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.counterclockwise")
+                                Text("Reset")
+                            }
+                            .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    
+                    // Frozen indicator (when applicable)
+                    if tapToneAnalyzer.isSpectrumFrozen {
+                        Divider()
+                            .frame(height: 40)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Status")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                            
+                            HStack(spacing: 4) {
+                                Image(systemName: "pause.circle.fill")
+                                    .foregroundColor(.orange)
+                                Text("Frozen")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Color.gray.opacity(0.05))
                 .cornerRadius(8)
             }
-            
-            Text("Pinch to zoom • Drag to pan • Enter custom range above")
-                .font(.caption2)
-                .foregroundColor(.secondary)
             
             // Spectrum Chart
             SpectrumView(
@@ -951,7 +965,7 @@ struct TapToneAnalysisView: View {
                 maxFreq: $maxFreq,
                 minDB: $minDB,
                 maxDB: $maxDB,
-                isLogarithmic: $isLogarithmic,
+                isLogarithmic: .constant(false),
                 peaks: tapToneAnalyzer.currentPeaks,
                 showModeBoundaries: true,
                 onFrequencyRangeChanged: updateFrequencyInputFields,
@@ -979,129 +993,72 @@ struct TapToneAnalysisView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                    } else {
-                        // Tap detection threshold line overlay with hysteresis visualization
-                        GeometryReader { geometry in
-                            let chartPadding: CGFloat = 16
-                            let chartHeight = geometry.size.height - 2 * chartPadding
-                            let dbRange = maxDB - minDB
+                    }
+                }
+            )
+            .overlay(
+                // Tap detection threshold line overlay - ALWAYS shown
+                GeometryReader { geometry in
+                    let chartPadding: CGFloat = 16
+                    let chartHeight = geometry.size.height - 2 * chartPadding
+                    let dbRange = maxDB - minDB
+                    
+                    // Rising threshold (main threshold line) - always visible
+                    // Use tapDetectionThreshold directly so it works even when not running
+                    let risingThreshold = tapToneAnalyzer.tapDetectionThreshold
+                    if risingThreshold > minDB && risingThreshold < maxDB {
+                        let normalizedPosition = CGFloat((risingThreshold - minDB) / dbRange)
+                        let yPosition = chartHeight * (1 - normalizedPosition) + chartPadding
+                        
+                        // Rising threshold line (orange)
+                        Path { path in
+                            path.move(to: CGPoint(x: chartPadding, y: yPosition))
+                            path.addLine(to: CGPoint(x: geometry.size.width - chartPadding, y: yPosition))
+                        }
+                        .stroke(style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                        .foregroundColor(.orange.opacity(0.7))
+                        
+                        // Label for rising threshold
+                        Text("Trigger: \(Int(risingThreshold)) dB")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.9))
+                            .cornerRadius(4)
+                            .position(x: geometry.size.width - 80, y: yPosition - 12)
+                    }
+                    
+                    // Falling threshold (hysteresis line) - only show if hysteresis > 0.5 dB
+                    if tapToneAnalyzer.hysteresisMargin > 0.5 {
+                        let fallingThreshold = risingThreshold - tapToneAnalyzer.hysteresisMargin
+                        if fallingThreshold > minDB && fallingThreshold < maxDB {
+                            let normalizedFallingPosition = CGFloat((fallingThreshold - minDB) / dbRange)
+                            let yFallingPosition = chartHeight * (1 - normalizedFallingPosition) + chartPadding
                             
-                            if tapToneAnalyzer.isDetecting {
-                                // Rising threshold (main threshold line)
-                                let risingThreshold = tapToneAnalyzer.tapDetectionLevel
-                                if risingThreshold > minDB && risingThreshold < maxDB {
-                                    let normalizedPosition = CGFloat((risingThreshold - minDB) / dbRange)
-                                    let yPosition = chartHeight * (1 - normalizedPosition) + chartPadding
-                                    
-                                    // Rising threshold line (orange)
-                                    Path { path in
-                                        path.move(to: CGPoint(x: chartPadding, y: yPosition))
-                                        path.addLine(to: CGPoint(x: geometry.size.width - chartPadding, y: yPosition))
-                                    }
-                                    .stroke(style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
-                                    .foregroundColor(.orange.opacity(0.7))
-                                    
-                                    // Label for rising threshold
-                                    Text("Trigger: \(Int(risingThreshold)) dB")
-                                        .font(.caption2)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.orange)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.white.opacity(0.9))
-                                        .cornerRadius(4)
-                                        .position(x: geometry.size.width - 80, y: yPosition - 12)
-                                }
-                                
-                                // Falling threshold (hysteresis line) - only show if hysteresis > 0.5 dB
-                                if tapToneAnalyzer.hysteresisMargin > 0.5 {
-                                    let fallingThreshold = risingThreshold - tapToneAnalyzer.hysteresisMargin
-                                    if fallingThreshold > minDB && fallingThreshold < maxDB {
-                                        let normalizedFallingPosition = CGFloat((fallingThreshold - minDB) / dbRange)
-                                        let yFallingPosition = chartHeight * (1 - normalizedFallingPosition) + chartPadding
-                                        
-                                        // Falling threshold line (purple, lighter)
-                                        Path { path in
-                                            path.move(to: CGPoint(x: chartPadding, y: yFallingPosition))
-                                            path.addLine(to: CGPoint(x: geometry.size.width - chartPadding, y: yFallingPosition))
-                                        }
-                                        .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
-                                        .foregroundColor(.purple.opacity(0.5))
-                                        
-                                        // Label for falling threshold
-                                        Text("Reset: \(Int(fallingThreshold)) dB")
-                                            .font(.caption2)
-                                            .foregroundColor(.purple.opacity(0.8))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(Color.white.opacity(0.85))
-                                            .cornerRadius(4)
-                                            .position(x: chartPadding + 70, y: yFallingPosition - 12)
-                                    }
-                                }
+                            // Falling threshold line (purple, lighter)
+                            Path { path in
+                                path.move(to: CGPoint(x: chartPadding, y: yFallingPosition))
+                                path.addLine(to: CGPoint(x: geometry.size.width - chartPadding, y: yFallingPosition))
                             }
+                            .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
+                            .foregroundColor(.purple.opacity(0.5))
+                            
+                            // Label for falling threshold
+                            Text("Reset: \(Int(fallingThreshold)) dB")
+                                .font(.caption2)
+                                .foregroundColor(.purple.opacity(0.8))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.white.opacity(0.85))
+                                .cornerRadius(4)
+                                .position(x: chartPadding + 70, y: yFallingPosition - 12)
                         }
                     }
                 }
             )
-            
-            // Range Display
-            HStack {
-                Text("Range: \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text("\(Int(minDB)) to \(Int(maxDB)) dB")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Debug Info
-            HStack {
-                if fftAnalyzer.isRunning {
-                    Text("Status: \(fftAnalyzer.frequencies.count) freq bins")
-                        .font(.caption2)
-                        .foregroundColor(.blue)
-                    Text("•")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text("Peak: \(fftAnalyzer.peakMagnitude, specifier: "%.1f") dB")
-                        .font(.caption2)
-                        .foregroundColor(.blue)
-                    Text("•")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text("@ \(fftAnalyzer.peakFrequency, specifier: "%.1f") Hz")
-                        .font(.caption2)
-                        .foregroundColor(.blue)
-                } else {
-                    Text("Analyzer is stopped")
-                        .font(.caption2)
-                        .foregroundColor(.red)
-                }
-            }
         }
-    }
-    
-    private var tapIndicatorView: some View {
-        HStack {
-            Circle()
-                .fill(tapToneAnalyzer.tapDetected ? Color.green : Color.gray.opacity(0.3))
-                .frame(width: 20, height: 20)
-            
-            Text(tapToneAnalyzer.tapDetected ? "Tap Detected!" : "Waiting for tap...")
-                .font(.headline)
-                .foregroundColor(tapToneAnalyzer.tapDetected ? .green : .secondary)
-            
-            Spacer()
-            
-            Text("\(tapToneAnalyzer.averageMagnitude, specifier: "%.1f") dB")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .padding()
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(10)
     }
     
     private var decayTimeView: some View {
@@ -1226,7 +1183,7 @@ struct TapToneAnalysisView: View {
                 maxFreq: self.maxFreq,
                 minDB: self.minDB,
                 maxDB: self.maxDB,
-                isLogarithmic: self.isLogarithmic
+                isLogarithmic: false
             )
             
             // Save with all data
@@ -1405,7 +1362,7 @@ struct TapToneAnalysisView: View {
                 maxFreq: .constant(maxFreq),
                 minDB: .constant(minDB),
                 maxDB: .constant(maxDB),
-                isLogarithmic: .constant(isLogarithmic),
+                isLogarithmic: .constant(false),
                 peaks: tapToneAnalyzer.currentPeaks,
                 showModeBoundaries: true,
                 onFrequencyRangeChanged: {},
