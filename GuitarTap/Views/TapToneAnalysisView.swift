@@ -58,11 +58,85 @@ struct TapToneAnalysisView: View {
     }
     
     var body: some View {
-        #if os(macOS)
-        macOSLayout
-        #else
-        iOSLayout
-        #endif
+        Group {
+            #if os(macOS)
+            macOSLayout
+            #else
+            iOSLayout
+            #endif
+        }
+        .onReceive(tapToneAnalyzer.$loadedMinFreq) { minFreq in
+            if let minFreq = minFreq {
+                print("  ⬇️ View received loadedMinFreq: \(minFreq)")
+                self.minFreq = minFreq
+                self.minFreqInput = String(format: "%.0f", minFreq)
+                // Clear the loaded value after applying (with small delay to ensure UI updates)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMinFreq = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedMaxFreq) { maxFreq in
+            if let maxFreq = maxFreq {
+                print("  ⬇️ View received loadedMaxFreq: \(maxFreq)")
+                self.maxFreq = maxFreq
+                self.maxFreqInput = String(format: "%.0f", maxFreq)
+                // Clear the loaded value after applying (with small delay to ensure UI updates)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMaxFreq = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedMinDB) { minDB in
+            if let minDB = minDB {
+                print("  ⬇️ View received loadedMinDB: \(minDB)")
+                self.minDB = minDB
+                self.minDBInput = String(format: "%.0f", minDB)
+                // Clear the loaded value after applying (with small delay to ensure UI updates)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMinDB = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedMaxDB) { maxDB in
+            if let maxDB = maxDB {
+                print("  ⬇️ View received loadedMaxDB: \(maxDB)")
+                self.maxDB = maxDB
+                self.maxDBInput = String(format: "%.0f", maxDB)
+                // Clear the loaded value after applying (with small delay to ensure UI updates)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMaxDB = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedTapDetectionThreshold) { threshold in
+            if threshold != nil {
+                print("  ⬇️ View received loadedTapDetectionThreshold: \(threshold!)")
+                // Settings are already updated in the analyzer via bindings
+                // Clear the loaded value after a small delay to ensure UI updates
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedTapDetectionThreshold = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedHysteresisMargin) { hysteresis in
+            if hysteresis != nil {
+                print("  ⬇️ View received loadedHysteresisMargin: \(hysteresis!)")
+                // Clear the loaded value after a small delay to ensure UI updates
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedHysteresisMargin = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedNumberOfTaps) { taps in
+            if taps != nil {
+                print("  ⬇️ View received loadedNumberOfTaps: \(taps!)")
+                // Clear the loaded value after a small delay to ensure UI updates
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedNumberOfTaps = nil
+                }
+            }
+        }
     }
     
     // MARK: - Platform-Specific Layouts

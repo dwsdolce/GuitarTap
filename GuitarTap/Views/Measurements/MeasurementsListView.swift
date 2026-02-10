@@ -87,6 +87,14 @@ struct MeasurementsListView: View {
                         .buttonStyle(.plain)
                         .contextMenu {
                             Button(action: {
+                                analyzer.loadMeasurement(measurement)
+                            }) {
+                                Label("Load into View", systemImage: "arrow.down.doc")
+                            }
+                            
+                            Divider()
+                            
+                            Button(action: {
                                 showDetail(for: measurement)
                             }) {
                                 Label("View Details", systemImage: "eye")
@@ -248,8 +256,15 @@ extension MeasurementsListView {
             }
             
             data = try Data(contentsOf: url)
-            let count = try analyzer.importMeasurements(from: data, baseURL: url)
-            importSuccess = "Successfully imported \(count) measurement\(count == 1 ? "" : "s")"
+            let importedMeasurements = try analyzer.importMeasurements(from: data, baseURL: url)
+            
+            // If only 1 measurement was imported, automatically load it into the view
+            if importedMeasurements.count == 1, let measurement = importedMeasurements.first {
+                analyzer.loadMeasurement(measurement)
+                importSuccess = "Successfully imported and loaded 1 measurement"
+            } else {
+                importSuccess = "Successfully imported \(importedMeasurements.count) measurements"
+            }
         } catch {
             importError = "Failed to import: \(error.localizedDescription)"
         }

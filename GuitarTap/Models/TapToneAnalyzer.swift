@@ -89,6 +89,11 @@ struct TapToneMeasurement: Identifiable, Codable {
     let chartImageFilename: String?   // Filename of associated PNG image (e.g., "measurement-uuid.png")
     let peakAnnotationOffsets: [UUID: CGPoint]?  // Custom annotation positions
     
+    // Analysis settings (added for export/import)
+    let tapDetectionThreshold: Float?  // dB
+    let hysteresisMargin: Float?       // dB
+    let numberOfTaps: Int?             // Number of taps averaged
+    
     // Transient property - not saved in JSON, used for runtime image handling
     var chartImageData: Data?
     
@@ -96,6 +101,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, timestamp, peaks, decayTime, tapLocation, notes
         case spectrumSnapshot, chartImageFilename, peakAnnotationOffsets
+        case tapDetectionThreshold, hysteresisMargin, numberOfTaps
     }
     
     init(peaks: [ResonantPeak], 
@@ -105,7 +111,10 @@ struct TapToneMeasurement: Identifiable, Codable {
          spectrum: SpectrumSnapshot? = nil,
          chartImageFilename: String? = nil,
          chartImageData: Data? = nil,
-         annotationOffsets: [UUID: CGPoint]? = nil) {
+         annotationOffsets: [UUID: CGPoint]? = nil,
+         tapDetectionThreshold: Float? = nil,
+         hysteresisMargin: Float? = nil,
+         numberOfTaps: Int? = nil) {
         self.id = UUID()
         self.timestamp = Date()
         self.peaks = peaks
@@ -116,6 +125,9 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.chartImageFilename = chartImageFilename
         self.chartImageData = chartImageData
         self.peakAnnotationOffsets = annotationOffsets
+        self.tapDetectionThreshold = tapDetectionThreshold
+        self.hysteresisMargin = hysteresisMargin
+        self.numberOfTaps = numberOfTaps
     }
     
     /// Get tap tone ratio (long-grain / cross-grain)
@@ -766,7 +778,10 @@ final class TapToneAnalyzer: ObservableObject {
             spectrum: snapshot,
             chartImageFilename: imageFilename,
             chartImageData: chartImageData,
-            annotationOffsets: annotationOffsets ?? peakAnnotationOffsets
+            annotationOffsets: annotationOffsets ?? peakAnnotationOffsets,
+            tapDetectionThreshold: tapDetectionThreshold,
+            hysteresisMargin: hysteresisMargin,
+            numberOfTaps: numberOfTaps
         )
         
         savedMeasurements.append(measurement)
@@ -779,7 +794,8 @@ final class TapToneAnalyzer: ObservableObject {
     }
     
     /// Import measurements from JSON data and optionally load associated images
-    func importMeasurements(from jsonData: Data, baseURL: URL? = nil) throws -> Int {
+    /// Returns the array of imported measurements
+    func importMeasurements(from jsonData: Data, baseURL: URL? = nil) throws -> [TapToneMeasurement] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         
@@ -802,11 +818,24 @@ final class TapToneAnalyzer: ObservableObject {
         savedMeasurements.append(contentsOf: measurements)
         
         print("📥 Imported \(measurements.count) measurements")
-        return measurements.count
+        return measurements
     }
+    
+    /// Loaded spectrum display ranges (used when restoring measurements)
+    @Published var loadedMinFreq: Float?
+    @Published var loadedMaxFreq: Float?
+    @Published var loadedMinDB: Float?
+    @Published var loadedMaxDB: Float?
+    
+    /// Loaded analysis settings (used when restoring measurements)
+    @Published var loadedTapDetectionThreshold: Float?
+    @Published var loadedHysteresisMargin: Float?
+    @Published var loadedNumberOfTaps: Int?
     
     /// Load a measurement's data into the current view (recreate the plot)
     func loadMeasurement(_ measurement: TapToneMeasurement) {
+        print("🔄 Loading measurement...")
+        
         // Restore peaks
         currentPeaks = measurement.peaks
         
@@ -818,14 +847,58 @@ final class TapToneAnalyzer: ObservableObject {
             frozenFrequencies = snapshot.frequencies
             frozenMagnitudes = snapshot.magnitudes
             isSpectrumFrozen = true
+            
+            // Restore display ranges - publish these to trigger view updates
+            print("  📊 Publishing display ranges: \(snapshot.minFreq)-\(snapshot.maxFreq) Hz, \(snapshot.minDB)-\(snapshot.maxDB) dB")
+            loadedMinFreq = snapshot.minFreq
+            loadedMaxFreq = snapshot.maxFreq
+            loadedMinDB = snapshot.minDB
+            loadedMaxDB = snapshot.maxDB
+        } else {
+            print("  ⚠️ No spectrum snapshot in measurement")
+            // Even without a snapshot, freeze the current spectrum to prevent changes
+            isSpectrumFrozen = true
         }
+        
+        // Stop tap detection when loading a measurement (frozen state)
+        isDetecting = false
+        currentTapCount = 0
+        tapProgress = 0.0
+        statusMessage = "Loaded measurement (frozen). Press 'Resume' or 'New Tap' to continue."
+        print("  🧊 Spectrum frozen, tap detection disabled")
         
         // Restore annotation offsets
         if let offsets = measurement.peakAnnotationOffsets {
             peakAnnotationOffsets = offsets
+            print("  🏷️ Restored \(offsets.count) annotation offsets")
         }
         
-        print("📂 Loaded measurement: \(measurement.peaks.count) peaks, spectrum: \(measurement.spectrumSnapshot != nil)")
+        // Restore analysis settings if available - set both internal and published values
+        if let threshold = measurement.tapDetectionThreshold {
+            print("  🎯 Publishing tap threshold: \(threshold) dB")
+            tapDetectionThreshold = threshold
+            loadedTapDetectionThreshold = threshold
+        } else {
+            print("  ⚠️ No tap threshold in measurement")
+        }
+        
+        if let hysteresis = measurement.hysteresisMargin {
+            print("  🔄 Publishing hysteresis: \(hysteresis) dB")
+            hysteresisMargin = hysteresis
+            loadedHysteresisMargin = hysteresis
+        } else {
+            print("  ⚠️ No hysteresis in measurement")
+        }
+        
+        if let taps = measurement.numberOfTaps {
+            print("  🔢 Publishing number of taps: \(taps)")
+            numberOfTaps = taps
+            loadedNumberOfTaps = taps
+        } else {
+            print("  ⚠️ No number of taps in measurement")
+        }
+        
+        print("✅ Loaded measurement with \(measurement.peaks.count) peaks (frozen)")
     }
     
     /// Export a single measurement as JSON with image (calls completion with JSON and measurement)
