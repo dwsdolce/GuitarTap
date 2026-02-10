@@ -13,12 +13,6 @@ import AVFoundation
 import AppKit
 #endif
 
-// MARK: - Reusable UI Components
-
-
-
-
-
 // MARK: - Main Tap Tone Analysis View
 
 struct TapToneAnalysisView: View {
@@ -47,6 +41,7 @@ struct TapToneAnalysisView: View {
     
     // Environment
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(\.displayScale) var displayScale
     
     init() {
         // Create a single FFT analyzer instance
@@ -848,11 +843,8 @@ struct TapToneAnalysisView: View {
             let spectrumView = self.createExportableSpectrumView()
             let renderer = ImageRenderer(content: spectrumView)
             
-            #if os(iOS)
-            renderer.scale = UIScreen.main.scale
-            #elseif os(macOS)
-            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
-            #endif
+            // Use display scale from environment
+            renderer.scale = self.displayScale
             
             var imageData: Data?
             
@@ -982,44 +974,34 @@ struct TapToneAnalysisView: View {
             let spectrumView = self.createExportableSpectrumView()
             let renderer = ImageRenderer(content: spectrumView)
             
+            // Use display scale from environment
+            renderer.scale = self.displayScale
+            
+            // Get PNG data using helper
             #if os(iOS)
-            renderer.scale = UIScreen.main.scale
-            
-            if let uiImage = renderer.uiImage {
-                let activityVC = UIActivityViewController(
-                    activityItems: [uiImage],
-                    applicationActivities: nil
-                )
-                
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let rootViewController = windowScene.windows.first?.rootViewController {
-                    rootViewController.present(activityVC, animated: true)
-                }
-            }
-            self.isExportingSpectrum = false
-            #elseif os(macOS)
-            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
-            
-            if let nsImage = renderer.nsImage {
-                let savePanel = NSSavePanel()
-                savePanel.allowedContentTypes = [.png]
-                savePanel.nameFieldStringValue = "spectrum-\(Int(Date().timeIntervalSince1970)).png"
-                savePanel.canCreateDirectories = true
-                
-                savePanel.begin { response in
-                    if response == .OK, let url = savePanel.url {
-                        if let tiffData = nsImage.tiffRepresentation,
-                           let bitmapImage = NSBitmapImageRep(data: tiffData),
-                           let pngData = bitmapImage.representation(using: .png, properties: [:]) {
-                            try? pngData.write(to: url)
-                        }
-                    }
-                    self.isExportingSpectrum = false
-                }
-            } else {
+            guard let uiImage = renderer.uiImage,
+                  let pngData = uiImage.pngData() else {
                 self.isExportingSpectrum = false
+                return
+            }
+            #elseif os(macOS)
+            guard let nsImage = renderer.nsImage,
+                  let tiffData = nsImage.tiffRepresentation,
+                  let bitmapImage = NSBitmapImageRep(data: tiffData),
+                  let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
+                self.isExportingSpectrum = false
+                return
             }
             #endif
+            
+            // Export using platform-appropriate method
+            let filename = "spectrum-\(Int(Date().timeIntervalSince1970)).png"
+            FileExportHelper.exportFile(data: pngData, filename: filename, contentType: .png) { success in
+                self.isExportingSpectrum = false
+                if !success {
+                    print("❌ Failed to export spectrum")
+                }
+            }
         }
     }
     

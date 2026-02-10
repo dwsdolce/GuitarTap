@@ -6,6 +6,9 @@
 //
 import SwiftUI
 internal import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#endif
 
 struct MeasurementsListView: View {
     @ObservedObject var analyzer: TapToneAnalyzer
@@ -17,7 +20,9 @@ struct MeasurementsListView: View {
     @State private var importError: String?
     @State private var importSuccess: String?
     @State private var selectedMeasurement: TapToneMeasurement?
+    #if os(macOS)
     @State private var detailWindowController: NSWindowController?
+    #endif
     
     var body: some View {
         #if os(macOS)

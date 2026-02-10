@@ -8,6 +8,10 @@
 import SwiftUI
 import Charts
 
+#if os(macOS)
+import AppKit
+#endif
+
 // MARK: - Spectrum Data Point
 
 /// A data point representing a single frequency bin in the spectrum visualization.
@@ -683,14 +687,7 @@ struct DraggablePeakAnnotation: View {
                 }
             }
             #if os(macOS)
-            .onContinuousHover { phase in
-                switch phase {
-                case .active:
-                    NSCursor.openHand.set()
-                case .ended:
-                    NSCursor.arrow.set()
-                }
-            }
+            .cursor(NSCursor.openHand)
             #endif
             .contextMenu {
                 Button(action: onReset) {
