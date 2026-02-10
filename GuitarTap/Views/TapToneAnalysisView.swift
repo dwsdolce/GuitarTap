@@ -13,6 +13,10 @@ import AVFoundation
 import AppKit
 #endif
 
+#if os(iOS)
+import UIKit
+#endif
+
 // MARK: - Main Tap Tone Analysis View
 
 struct TapToneAnalysisView: View {
@@ -147,11 +151,15 @@ struct TapToneAnalysisView: View {
     }
     #endif
     
+    #if os(iOS)
     /// iOS layout with adaptive metrics display
     @ViewBuilder
     private var iOSLayout: some View {
         NavigationView {
-            if horizontalSizeClass == .regular && (showingMetrics || showingResults) {
+            // Only show side panels on iPad (regular width), never on iPhone even in landscape
+            if UIDevice.current.userInterfaceIdiom == .pad && 
+               horizontalSizeClass == .regular && 
+               (showingMetrics || showingResults) {
                 // iPad: Side-by-side layout with optional panels
                 HStack(spacing: 0) {
                     mainContentView
@@ -180,18 +188,11 @@ struct TapToneAnalysisView: View {
                     }
                 }
             } else {
-                // iPhone or iPad without panels
-                ZStack(alignment: .topTrailing) {
-                    mainContentView
-                    
-                    // Show compact overlay on iPhone when metrics are enabled
-                    if showingMetrics && horizontalSizeClass != .regular {
-                        CompactFFTMetricsOverlay(analyzer: fftAnalyzer)
-                            .padding(12)
-                    }
-                }
+                // iPhone (all orientations) - always use full screen with sheets
+                mainContentView
             }
         }
+        .navigationViewStyle(.stack) // Prevents iPad split view on iPhone landscape
         .sheet(isPresented: $showingMeasurements) {
             MeasurementsListView(analyzer: tapToneAnalyzer)
         }
@@ -202,8 +203,14 @@ struct TapToneAnalysisView: View {
                 onSave: saveMeasurement
             )
         }
+        // Results sheet - show on iPhone or when not in iPad side-by-side mode
         .sheet(isPresented: Binding(
-            get: { showingResults && horizontalSizeClass != .regular },
+            get: { 
+                showingResults && (
+                    UIDevice.current.userInterfaceIdiom != .pad || 
+                    horizontalSizeClass != .regular
+                )
+            },
             set: { if !$0 { showingResults = false } }
         )) {
             NavigationView {
@@ -234,6 +241,42 @@ struct TapToneAnalysisView: View {
                 }
             }
         }
+        // Metrics sheet - show on iPhone or when not in iPad side-by-side mode
+        .sheet(isPresented: Binding(
+            get: { 
+                showingMetrics && (
+                    UIDevice.current.userInterfaceIdiom != .pad || 
+                    horizontalSizeClass != .regular
+                )
+            },
+            set: { if !$0 { showingMetrics = false } }
+        )) {
+            NavigationView {
+                ScrollView {
+                    FFTAnalysisMetricsView(analyzer: fftAnalyzer)
+                        .padding()
+                }
+                .navigationTitle("FFT Metrics")
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    #if os(iOS)
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showingMetrics = false
+                        }
+                    }
+                    #else
+                    ToolbarItem(placement: .automatic) {
+                        Button("Done") {
+                            showingMetrics = false
+                        }
+                    }
+                    #endif
+                }
+            }
+        }
         .overlay {
             if isExportingSpectrum {
                 LoadingOverlay(message: "Exporting spectrum...")
@@ -242,6 +285,7 @@ struct TapToneAnalysisView: View {
             }
         }
     }
+    #endif
     
     /// Main content view shared across platforms
     @ViewBuilder
@@ -276,157 +320,72 @@ struct TapToneAnalysisView: View {
     
     private var headerView: some View {
         VStack(spacing: 12) {
-            // Top row: Main controls
-            HStack {
-                // Start/Stop button
-                Button(action: toggleAnalyzer) {
-                    Label(
-                        fftAnalyzer.isRunning ? "Stop" : "Start",
-                        systemImage: fftAnalyzer.isRunning ? "stop.circle.fill" : "play.circle.fill"
-                    )
-                    .foregroundColor(fftAnalyzer.isRunning ? .red : .green)
-                }
-                .buttonStyle(.bordered)
-                
-                Spacer()
-                
-                // Results button
-                Button(action: { showingResults.toggle() }) {
-                    Label(
-                        showingResults ? "Hide Results" : "Show Results",
-                        systemImage: showingResults ? "doc.text.fill" : "doc.text"
-                    )
-                }
-                .buttonStyle(.bordered)
-                
-                // Metrics button
-                Button(action: { showingMetrics.toggle() }) {
-                    Label(
-                        showingMetrics ? "Hide Metrics" : "Show Metrics",
-                        systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar"
-                    )
-                }
-                .buttonStyle(.bordered)
-                
-                // Save button
-                Button(action: { showingSaveSheet = true }) {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(tapToneAnalyzer.currentPeaks.isEmpty)
-                
-                // Export Spectrum button
-                Button(action: { exportCurrentSpectrum() }) {
-                    Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                .buttonStyle(.bordered)
-                .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
-                
-                // Measurements button
-                Button(action: { showingMeasurements = true }) {
-                    Label("Measurements", systemImage: "list.bullet.clipboard")
-                    if !tapToneAnalyzer.savedMeasurements.isEmpty {
-                        Text("(\(tapToneAnalyzer.savedMeasurements.count))")
-                            .font(.caption)
-                    }
-                }
-                .buttonStyle(.bordered)
-                
-                // Reset button
-                Button(action: tapToneAnalyzer.reset) {
-                    Label("Reset", systemImage: "arrow.counterclockwise")
-                }
-                .buttonStyle(.bordered)
-            }
-            
-            // Tap sequence controls (only when analyzer is running)
-            if fftAnalyzer.isRunning {
+            // Top row: Main controls - adaptive for iOS
+            #if os(iOS)
+            if horizontalSizeClass == .compact {
+                // Compact layout for iPhone - icon-only buttons in rows
                 VStack(spacing: 8) {
-                    // Configuration row
-                    HStack {
-                        Text("Taps to average:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        
-                        Stepper("\(tapToneAnalyzer.numberOfTaps)", 
-                                value: $tapToneAnalyzer.numberOfTaps, 
-                                in: 1...10)
-                            .frame(maxWidth: 150)
-                        
-                        Spacer()
-                        
-                        // Tap detection threshold slider (absolute dB level)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Tap threshold:")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            HStack(spacing: 8) {
-                                Text("High")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
-                                    .frame(width: 120)
-                                Text("Low")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.blue)
-                                    .frame(width: 50, alignment: .trailing)
-                            }
+                    // Row 1: Primary controls
+                    HStack(spacing: 8) {
+                        // Start/Stop button
+                        Button(action: toggleAnalyzer) {
+                            Label(
+                                fftAnalyzer.isRunning ? "Stop" : "Start",
+                                systemImage: fftAnalyzer.isRunning ? "stop.circle.fill" : "play.circle.fill"
+                            )
+                            .foregroundColor(fftAnalyzer.isRunning ? .red : .green)
                         }
+                        .buttonStyle(.borderedProminent)
                         
-                        // Hysteresis margin slider
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Hysteresis:")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            HStack(spacing: 8) {
-                                Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
-                                    .frame(width: 100)
-                                Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.purple)
-                                    .frame(width: 50, alignment: .trailing)
-                            }
+                        // Save button
+                        Button(action: { showingSaveSheet = true }) {
+                            Image(systemName: "square.and.arrow.down")
                         }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(tapToneAnalyzer.currentPeaks.isEmpty)
                         
-                        Spacer()
-                        
-                        // Tap sequence buttons
-                        Button(action: {
-                            tapToneAnalyzer.startTapSequence()
-                        }) {
-                            Label("New Tap", systemImage: "hand.tap")
+                        // Measurements button
+                        Button(action: { showingMeasurements = true }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "list.bullet.clipboard")
+                                if !tapToneAnalyzer.savedMeasurements.isEmpty {
+                                    Text("\(tapToneAnalyzer.savedMeasurements.count)")
+                                        .font(.caption)
+                                }
+                            }
                         }
                         .buttonStyle(.bordered)
-                        .disabled(tapToneAnalyzer.currentTapCount > 0 && 
-                                  tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps)
                         
-                        // Cancel button (during active sequence)
-                        if tapToneAnalyzer.currentTapCount > 0 && 
-                           tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps {
-                            Button(action: {
-                                tapToneAnalyzer.cancelTapSequence()
-                            }) {
-                                Label("Cancel", systemImage: "xmark.circle")
-                            }
-                            .buttonStyle(.bordered)
-                            .foregroundColor(.orange)
+                        // Results button
+                        Button(action: { showingResults.toggle() }) {
+                            Image(systemName: showingResults ? "doc.text.fill" : "doc.text")
                         }
+                        .buttonStyle(.bordered)
                         
-                        // Resume button (when sequence is complete)
-                        if tapToneAnalyzer.tapProgress >= 1.0 {
-                            Button(action: {
-                                tapToneAnalyzer.resumeDetection()
-                            }) {
-                                Label("Resume", systemImage: "arrow.clockwise")
-                            }
-                            .buttonStyle(.bordered)
-                            .foregroundColor(.blue)
+                        // Metrics button
+                        Button(action: { showingMetrics.toggle() }) {
+                            Image(systemName: showingMetrics ? "chart.bar.fill" : "chart.bar")
                         }
+                        .buttonStyle(.bordered)
+                        
+                        // Reset button
+                        Button(action: tapToneAnalyzer.reset) {
+                            Image(systemName: "arrow.counterclockwise")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    
+                    // Row 2: Secondary controls
+                    HStack(spacing: 8) {
+                        // Export Spectrum button
+                        Button(action: { exportCurrentSpectrum() }) {
+                            Label("Export Chart", systemImage: "chart.line.uptrend.xyaxis")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
+                        
+                        Spacer()
                         
                         // Reset annotation positions button
                         if !tapToneAnalyzer.peakAnnotationOffsets.isEmpty {
@@ -434,47 +393,442 @@ struct TapToneAnalysisView: View {
                                 tapToneAnalyzer.resetAllAnnotationOffsets()
                             }) {
                                 Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                                    .font(.caption)
                             }
                             .buttonStyle(.bordered)
-                            .foregroundColor(.secondary)
-                            .help("Reset all peak label positions to default")
-                        }
-                    }
-                    
-                    // Status and progress row
-                    VStack(spacing: 6) {
-                        HStack {
-                            Circle()
-                                .fill(tapToneAnalyzer.isDetecting ? .green : .orange)
-                                .frame(width: 8, height: 8)
-                            
-                            Text(tapToneAnalyzer.statusMessage)
-                                .font(.subheadline)
-                                .foregroundColor(tapToneAnalyzer.isDetecting ? .primary : .orange)
-                            
-                            Spacer()
-                            
-                            if tapToneAnalyzer.currentTapCount > 0 {
-                                Text("\(tapToneAnalyzer.currentTapCount)/\(tapToneAnalyzer.numberOfTaps)")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        
-                        // Progress bar (when tapping)
-                        if tapToneAnalyzer.currentTapCount > 0 {
-                            ProgressView(value: tapToneAnalyzer.tapProgress)
-                                .progressViewStyle(.linear)
                         }
                     }
                 }
-                .padding(12)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
+            } else {
+                // Regular layout for iPad
+                ipadHeaderButtons
             }
+            #else
+            // macOS layout (unchanged)
+            macosHeaderButtons
+            #endif
+            
+            // Tap sequence controls (always visible, not just when running)
+            #if os(iOS)
+            if horizontalSizeClass == .compact {
+                // Compact tap controls for iPhone
+                compactTapControls
+            } else {
+                // Regular tap controls for iPad
+                regularTapControls
+            }
+            #else
+            // macOS uses regular controls
+            regularTapControls
+            #endif
         }
         .padding()
+    }
+    
+    #if os(iOS)
+    /// iPad button layout - full labels
+    @ViewBuilder
+    private var ipadHeaderButtons: some View {
+        HStack(spacing: 8) {
+            // Start/Stop button
+            Button(action: toggleAnalyzer) {
+                Label(
+                    fftAnalyzer.isRunning ? "Stop" : "Start",
+                    systemImage: fftAnalyzer.isRunning ? "stop.circle.fill" : "play.circle.fill"
+                )
+                .foregroundColor(fftAnalyzer.isRunning ? .red : .green)
+            }
+            .buttonStyle(.bordered)
+            
+            Spacer()
+            
+            // Results button
+            Button(action: { showingResults.toggle() }) {
+                Label(
+                    showingResults ? "Hide Results" : "Show Results",
+                    systemImage: showingResults ? "doc.text.fill" : "doc.text"
+                )
+            }
+            .buttonStyle(.bordered)
+            
+            // Metrics button
+            Button(action: { showingMetrics.toggle() }) {
+                Label(
+                    showingMetrics ? "Hide Metrics" : "Show Metrics",
+                    systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar"
+                )
+            }
+            .buttonStyle(.bordered)
+            
+            // Save button
+            Button(action: { showingSaveSheet = true }) {
+                Label("Save", systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(tapToneAnalyzer.currentPeaks.isEmpty)
+            
+            // Export Spectrum button
+            Button(action: { exportCurrentSpectrum() }) {
+                Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
+            
+            // Measurements button
+            Button(action: { showingMeasurements = true }) {
+                Label("Measurements", systemImage: "list.bullet.clipboard")
+                if !tapToneAnalyzer.savedMeasurements.isEmpty {
+                    Text("(\(tapToneAnalyzer.savedMeasurements.count))")
+                        .font(.caption)
+                }
+            }
+            .buttonStyle(.bordered)
+            
+            // Reset button
+            Button(action: tapToneAnalyzer.reset) {
+                Label("Reset", systemImage: "arrow.counterclockwise")
+            }
+            .buttonStyle(.bordered)
+            
+            // Reset annotation positions button
+            if !tapToneAnalyzer.peakAnnotationOffsets.isEmpty {
+                Button(action: {
+                    tapToneAnalyzer.resetAllAnnotationOffsets()
+                }) {
+                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+    #endif
+    
+    #if os(macOS)
+    /// macOS button layout - full labels with spacing
+    @ViewBuilder
+    private var macosHeaderButtons: some View {
+        HStack {
+            // Start/Stop button
+            Button(action: toggleAnalyzer) {
+                Label(
+                    fftAnalyzer.isRunning ? "Stop" : "Start",
+                    systemImage: fftAnalyzer.isRunning ? "stop.circle.fill" : "play.circle.fill"
+                )
+                .foregroundColor(fftAnalyzer.isRunning ? .red : .green)
+            }
+            .buttonStyle(.bordered)
+            
+            Spacer()
+            
+            // Results button
+            Button(action: { showingResults.toggle() }) {
+                Label(
+                    showingResults ? "Hide Results" : "Show Results",
+                    systemImage: showingResults ? "doc.text.fill" : "doc.text"
+                )
+            }
+            .buttonStyle(.bordered)
+            
+            // Metrics button
+            Button(action: { showingMetrics.toggle() }) {
+                Label(
+                    showingMetrics ? "Hide Metrics" : "Show Metrics",
+                    systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar"
+                )
+            }
+            .buttonStyle(.bordered)
+            
+            // Save button
+            Button(action: { showingSaveSheet = true }) {
+                Label("Save", systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(tapToneAnalyzer.currentPeaks.isEmpty)
+            
+            // Export Spectrum button
+            Button(action: { exportCurrentSpectrum() }) {
+                Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
+            
+            // Measurements button
+            Button(action: { showingMeasurements = true }) {
+                Label("Measurements", systemImage: "list.bullet.clipboard")
+                if !tapToneAnalyzer.savedMeasurements.isEmpty {
+                    Text("(\(tapToneAnalyzer.savedMeasurements.count))")
+                        .font(.caption)
+                }
+            }
+            .buttonStyle(.bordered)
+            
+            // Reset button
+            Button(action: tapToneAnalyzer.reset) {
+                Label("Reset", systemImage: "arrow.counterclockwise")
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+    #endif
+    
+    /// Compact tap controls for iPhone
+    @ViewBuilder
+    private var compactTapControls: some View {
+        VStack(spacing: 8) {
+            // Row 1: Taps and threshold
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Taps:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Stepper("\(tapToneAnalyzer.numberOfTaps)", 
+                            value: $tapToneAnalyzer.numberOfTaps, 
+                            in: 1...10)
+                        .frame(maxWidth: 120)
+                    
+                    Spacer()
+                }
+                
+                // Tap threshold slider - full width
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Threshold: \(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.blue)
+                        Spacer()
+                    }
+                    Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
+                    HStack {
+                        Text("-80 dB")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("-20 dB")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                // Hysteresis slider - full width
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Hysteresis: \(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.purple)
+                    Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
+                }
+            }
+            
+            // Row 2: Action buttons
+            HStack(spacing: 8) {
+                // New Tap button
+                Button(action: {
+                    tapToneAnalyzer.startTapSequence()
+                }) {
+                    Label("New Tap", systemImage: "hand.tap")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(tapToneAnalyzer.currentTapCount > 0 && 
+                          tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps)
+                
+                // Cancel button (during active sequence)
+                if tapToneAnalyzer.currentTapCount > 0 && 
+                   tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps {
+                    Button(action: {
+                        tapToneAnalyzer.cancelTapSequence()
+                    }) {
+                        Label("Cancel", systemImage: "xmark.circle")
+                            .font(.subheadline)
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundColor(.orange)
+                }
+                
+                // Resume button (when sequence is complete)
+                if tapToneAnalyzer.tapProgress >= 1.0 {
+                    Button(action: {
+                        tapToneAnalyzer.resumeDetection()
+                    }) {
+                        Label("Resume", systemImage: "arrow.clockwise")
+                            .font(.subheadline)
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundColor(.blue)
+                }
+            }
+            
+            // Row 3: Status and progress
+            VStack(spacing: 6) {
+                HStack {
+                    Circle()
+                        .fill(tapToneAnalyzer.isDetecting ? .green : .orange)
+                        .frame(width: 8, height: 8)
+                    
+                    Text(tapToneAnalyzer.statusMessage)
+                        .font(.caption)
+                        .foregroundColor(tapToneAnalyzer.isDetecting ? .primary : .orange)
+                    
+                    Spacer()
+                    
+                    if tapToneAnalyzer.currentTapCount > 0 {
+                        Text("\(tapToneAnalyzer.currentTapCount)/\(tapToneAnalyzer.numberOfTaps)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                    }
+                }
+                
+                // Progress bar (when tapping)
+                if tapToneAnalyzer.currentTapCount > 0 {
+                    ProgressView(value: tapToneAnalyzer.tapProgress)
+                        .progressViewStyle(.linear)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    /// Regular tap controls for iPad and macOS
+    @ViewBuilder
+    private var regularTapControls: some View {
+        VStack(spacing: 8) {
+            // Configuration row
+            HStack {
+                Text("Taps to average:")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Stepper("\(tapToneAnalyzer.numberOfTaps)", 
+                        value: $tapToneAnalyzer.numberOfTaps, 
+                        in: 1...10)
+                    .frame(maxWidth: 150)
+                
+                Spacer()
+                
+                // Tap detection threshold slider (absolute dB level)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Tap threshold:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    HStack(spacing: 8) {
+                        Text("-80 dB")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
+                            .frame(width: 120)
+                        Text("-20 dB")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.blue)
+                            .frame(width: 50, alignment: .trailing)
+                    }
+                }
+                
+                // Hysteresis margin slider
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Hysteresis:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    HStack(spacing: 8) {
+                        Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
+                            .frame(width: 100)
+                        Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.purple)
+                            .frame(width: 50, alignment: .trailing)
+                    }
+                }
+                
+                Spacer()
+                
+                // Tap sequence buttons
+                Button(action: {
+                    tapToneAnalyzer.startTapSequence()
+                }) {
+                    Label("New Tap", systemImage: "hand.tap")
+                }
+                .buttonStyle(.bordered)
+                .disabled(tapToneAnalyzer.currentTapCount > 0 && 
+                          tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps)
+                
+                // Cancel button (during active sequence)
+                if tapToneAnalyzer.currentTapCount > 0 && 
+                   tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps {
+                    Button(action: {
+                        tapToneAnalyzer.cancelTapSequence()
+                    }) {
+                        Label("Cancel", systemImage: "xmark.circle")
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundColor(.orange)
+                }
+                
+                // Resume button (when sequence is complete)
+                if tapToneAnalyzer.tapProgress >= 1.0 {
+                    Button(action: {
+                        tapToneAnalyzer.resumeDetection()
+                    }) {
+                        Label("Resume", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundColor(.blue)
+                }
+                
+                #if os(macOS)
+                // Reset annotation positions button (macOS only - iOS has it in header)
+                if !tapToneAnalyzer.peakAnnotationOffsets.isEmpty {
+                    Button(action: {
+                        tapToneAnalyzer.resetAllAnnotationOffsets()
+                    }) {
+                        Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundColor(.secondary)
+                    .help("Reset all peak label positions to default")
+                }
+                #endif
+            }
+            
+            // Status and progress row
+            VStack(spacing: 6) {
+                HStack {
+                    Circle()
+                        .fill(tapToneAnalyzer.isDetecting ? .green : .orange)
+                        .frame(width: 8, height: 8)
+                    
+                    Text(tapToneAnalyzer.statusMessage)
+                        .font(.subheadline)
+                        .foregroundColor(tapToneAnalyzer.isDetecting ? .primary : .orange)
+                    
+                    Spacer()
+                    
+                    if tapToneAnalyzer.currentTapCount > 0 {
+                        Text("\(tapToneAnalyzer.currentTapCount)/\(tapToneAnalyzer.numberOfTaps)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                    }
+                }
+                
+                // Progress bar (when tapping)
+                if tapToneAnalyzer.currentTapCount > 0 {
+                    ProgressView(value: tapToneAnalyzer.tapProgress)
+                        .progressViewStyle(.linear)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
     }
     
     private var realTimeSpectrumView: some View {

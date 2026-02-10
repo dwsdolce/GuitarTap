@@ -175,32 +175,61 @@ HSplitView {
 ### iOS
 
 **Layout:**
-- `HStack` for split view on iPad (regular size class)
-- Sheet-based panels on iPhone (compact size class)
+- **iPad**: `HStack` for split view with side panels (regular size class)
+- **iPhone**: Always uses full-screen layout with sheets (even in landscape)
+  - Compact button layouts with icon-only controls
+  - Vertical stacking of control groups for readability
+  - Full-width sliders for better touch targets
+- Sheet-based panels for all secondary content on iPhone
 - `UIActivityViewController` for sharing
-- Compact overlays for limited screen space
+- Device detection (`UIDevice.current.userInterfaceIdiom`) prevents side panels on iPhone landscape
 
 **Controls:**
 - Gesture-based navigation
 - Bottom sheets for secondary content
 - Share sheets for file export
+- Adaptive button layouts:
+  - **iPhone (compact)**: Icon-only buttons in rows, full-width sliders
+  - **iPad (regular)**: Full labels with text
 
-**Example:**
+**Layout Strategy:**
 ```swift
-if horizontalSizeClass == .regular {
+// Only show side panels on iPad, never on iPhone
+if UIDevice.current.userInterfaceIdiom == .pad && 
+   horizontalSizeClass == .regular && 
+   (showingMetrics || showingResults) {
     // iPad: side-by-side
     HStack {
         mainContent
         Divider()
-        resultsPanel.frame(width: 350)
+        sidePanel
     }
 } else {
-    // iPhone: overlay or sheet
+    // iPhone: full screen with sheets
     mainContent
-        .sheet(isPresented: $showingResults) {
-            NavigationView { resultsPanel }
-        }
 }
+```
+
+**Button Adaptation:**
+```swift
+#if os(iOS)
+if horizontalSizeClass == .compact {
+    // iPhone: Compact icon-only buttons
+    VStack(spacing: 8) {
+        HStack(spacing: 8) {
+            Button { } label: { Image(systemName: "play") }
+            Button { } label: { Image(systemName: "save") }
+            // ... more icon-only buttons
+        }
+    }
+} else {
+    // iPad: Full labels
+    HStack {
+        Button("Start") { }
+        Button("Save") { }
+    }
+}
+#endif
 ```
 
 ---
@@ -387,7 +416,57 @@ private func handleZoom(scale: CGFloat) { ... }
 
 ## Common Pitfalls & Solutions
 
-### 1. **Main Thread Deadlock**
+### 1. **iPhone Layout in Landscape Mode**
+**Problem:** Using `horizontalSizeClass == .regular` alone shows side panels on iPhone Plus/Max models in landscape, wasting screen space.
+
+**Solution:** Combine size class detection with device type checking:
+```swift
+if UIDevice.current.userInterfaceIdiom == .pad && 
+   horizontalSizeClass == .regular {
+    // Only iPad gets side-by-side layout
+} else {
+    // iPhone always uses sheets, even in landscape
+}
+```
+
+### 2. **Control Overcrowding on Small Screens**
+**Problem:** Many buttons with labels cause horizontal overflow and unreadable text on iPhone.
+
+**Solution:** Create adaptive button layouts based on size class:
+```swift
+#if os(iOS)
+if horizontalSizeClass == .compact {
+    // Icon-only buttons in vertical stacks
+    VStack(spacing: 8) {
+        HStack(spacing: 8) {
+            Button { } label: { Image(systemName: "play") }
+            Button { } label: { Image(systemName: "save") }
+        }
+    }
+} else {
+    // Full labels for iPad
+    HStack {
+        Button("Start") { }
+        Button("Save") { }
+    }
+}
+#endif
+```
+
+### 3. **Slider Touch Targets on iPhone**
+**Problem:** Narrow sliders with labels on both sides are hard to use on touchscreens.
+
+**Solution:** Stack sliders vertically with full-width layout:
+```swift
+VStack(alignment: .leading, spacing: 4) {
+    Text("Threshold: \(value) dB")
+    Slider(value: $value, in: range)
+        .frame(maxWidth: .infinity) // Full width for better touch
+}
+```
+
+### 4. **Main Thread Deadlock**
+### 4. **Main Thread Deadlock**
 **Problem:** Calling `DispatchQueue.main.async` when already on main thread can cause deadlock in some cases.
 
 **Solution:**
@@ -402,7 +481,7 @@ if Thread.isMainThread {
 }
 ```
 
-### 2. **Gesture Interference**
+### 5. **Gesture Interference**
 **Problem:** Multiple gesture recognizers fighting for touch events.
 
 **Solution:** Use `.allowsHitTesting()` strategically:
@@ -418,7 +497,7 @@ if Thread.isMainThread {
 )
 ```
 
-### 3. **Logarithmic Scale Calculations**
+### 6. **Logarithmic Scale Calculations**
 **Problem:** Pan/zoom feels wrong on log scale when using linear math.
 
 **Solution:** Work in log space for logarithmic scales:
@@ -432,7 +511,7 @@ if isLogarithmic {
 }
 ```
 
-### 4. **Audio Session Lifecycle (iOS)**
+### 7. **Audio Session Lifecycle (iOS)**
 **Problem:** Audio session conflicts with other apps or doesn't handle interruptions.
 
 **Solution:** Configure properly and handle interruptions:
@@ -493,5 +572,5 @@ The key insight is to keep platform differences isolated at the UI layer while s
 
 ---
 
-**Last Updated:** February 9, 2026
-**Version:** 1.0
+**Last Updated:** February 10, 2026
+**Version:** 1.1 - iPhone Layout Improvements
