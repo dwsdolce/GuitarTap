@@ -238,13 +238,13 @@ struct AxisTickGenerator {
         if absValue == 0 {
             return "0"
         } else if absValue >= 1000 {
-            return String(format: "%.0f", value)
+            return String(format: "%.1fk", value/1000)
         } else if absValue >= 10 {
-            return String(format: "%.1f", value)
+            return String(format: "%.0f", value)
         } else if absValue >= 0.1 {
-            return String(format: "%.2f", value)
+            return String(format: "%.1f", value)
         } else {
-            return String(format: "%.3f", value)
+            return String(format: "%.2f", value)
         }
     }
     

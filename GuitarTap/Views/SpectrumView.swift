@@ -174,6 +174,108 @@ struct SpectrumView: View {
 //            return stride(from: Int(minFreq), through: Int(maxFreq), by: step).map { Double($0) }
 //        }
     }
+
+    // MARK: - Chart Content Builders
+    
+    /// Annotation overlay for draggable peak labels
+    @ViewBuilder
+    private var annotationOverlay: some View {
+        GeometryReader { plotGeometry in
+            ZStack {
+                ForEach(visiblePeaks) { peak in
+                    if let offsetBinding = annotationOffsets {
+                        DraggablePeakAnnotation(
+                            peak: peak,
+                            offset: offsetBinding.wrappedValue[peak.id] ?? .zero,
+                            chartGeometry: plotGeometry,
+                            minFreq: minFreq,
+                            maxFreq: maxFreq,
+                            minDB: minDB,
+                            maxDB: maxDB,
+                            isLogarithmic: isLogarithmic,
+                            onOffsetChange: { newOffset in
+                                offsetBinding.wrappedValue[peak.id] = newOffset
+                            },
+                            onReset: {
+                                offsetBinding.wrappedValue.removeValue(forKey: peak.id)
+                            }
+                        )
+                    }
+                }
+            }
+            .allowsHitTesting(true)
+        }
+        .allowsHitTesting(true)
+    }
+    
+    /// Spectrum line chart content
+    @ChartContentBuilder
+    private var spectrumLineContent: some ChartContent {
+        ForEach(chartData) { dataPoint in
+            // Clamp the magnitude to the currently displayed min and max DB values
+            let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
+            
+            // Line mark shows the precise spectrum shape
+            LineMark(
+                x: .value("Frequency", dataPoint.frequency),
+                y: .value("Magnitude", clampedMagnitude)
+            )
+            .foregroundStyle(.red)
+            .lineStyle(StrokeStyle(lineWidth: 1))
+        }
+    }
+    
+    /// Mode boundary markers chart content
+    @ChartContentBuilder
+    private var modeBoundaryContent: some ChartContent {
+        if showModeBoundaries {
+            ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
+                RuleMark(x: .value("Boundary", boundary.frequency))
+                    .foregroundStyle(modeColor(for: boundary.mode).opacity(0.3))
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
+                    .annotation(position: .top, alignment: .center) {
+                        // Only show mode name at start of range (lower boundary)
+                        if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
+                            Text(modeAbbreviation(for: boundary.mode))
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(modeColor(for: boundary.mode))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(modeColor(for: boundary.mode).opacity(0.15))
+                                .cornerRadius(4)
+                        }
+                    }
+            }
+        }
+    }
+    
+    /// Peak annotations chart content
+    @ChartContentBuilder
+    private var peakAnnotationContent: some ChartContent {
+        ForEach(visiblePeaks) { peak in
+            // Peak marker
+            PointMark(
+                x: .value("Frequency", peak.frequency),
+                y: .value("Magnitude", peak.magnitude)
+            )
+            .foregroundStyle(modeColor(for: GuitarMode.classify(frequency: peak.frequency)))
+            .symbolSize(100)
+            
+            // Static annotation (for positioning reference only)
+            PointMark(
+                x: .value("Frequency", peak.frequency),
+                y: .value("Magnitude", peak.magnitude)
+            )
+            .foregroundStyle(.clear)
+            .annotation(position: .top, alignment: .center, spacing: 4) {
+                // Non-interactive placeholder
+                Color.clear
+                    .frame(width: 80, height: 60)
+                    .id("placeholder-\(peak.id)")
+            }
+        }
+    }
     
     // MARK: - Body
     
@@ -183,154 +285,84 @@ struct SpectrumView: View {
                 .font(.headline)
                 .padding(.bottom, 8)
             
-            Chart {
-                // Main spectrum line
-                ForEach(chartData) { dataPoint in
-                    // Clamp the magnitude to the currently displayed min and max DB values
-                    let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
-                    
-                    // Line mark shows the precise spectrum shape
-                    LineMark(
-                        x: .value("Frequency", dataPoint.frequency),
-                        y: .value("Magnitude", clampedMagnitude)
-                    )
-                    .foregroundStyle(.red)
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-                }
-                
-                // Mode boundary markers
-                if showModeBoundaries {
-                    ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
-                        RuleMark(x: .value("Boundary", boundary.frequency))
-                            .foregroundStyle(modeColor(for: boundary.mode).opacity(0.3))
-                            .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
-                            .annotation(position: .top, alignment: .center) {
-                                // Only show mode name at start of range (lower boundary)
-                                if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
-                                    Text(modeAbbreviation(for: boundary.mode))
-                                        .font(.caption2)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(modeColor(for: boundary.mode))
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 2)
-                                        .background(modeColor(for: boundary.mode).opacity(0.15))
-                                        .cornerRadius(4)
-                                }
-                            }
-                    }
-                }
-                
-                // Peak annotations
-                ForEach(visiblePeaks) { peak in
-                    // Peak marker
-                    PointMark(
-                        x: .value("Frequency", peak.frequency),
-                        y: .value("Magnitude", peak.magnitude)
-                    )
-                    .foregroundStyle(modeColor(for: GuitarMode.classify(frequency: peak.frequency)))
-                    .symbolSize(100)
-                    
-                    // Static annotation (for positioning reference only)
-                    PointMark(
-                        x: .value("Frequency", peak.frequency),
-                        y: .value("Magnitude", peak.magnitude)
-                    )
-                    .foregroundStyle(.clear)
-                    .annotation(position: .top, alignment: .center, spacing: 4) {
-                        // Non-interactive placeholder
-                        Color.clear
-                            .frame(width: 80, height: 60)
-                            .id("placeholder-\(peak.id)")
-                    }
-                }
-            }
-            .chartPlotStyle { plotArea in
-                plotArea
-                    .border(Color.gray, width: 1)
-                    .overlay(
-                        GeometryReader { plotGeometry in
-                            // Overlay draggable annotations using plot area geometry
-                            ZStack {
-                                ForEach(visiblePeaks) { peak in
-                                    if let offsetBinding = annotationOffsets {
-                                        DraggablePeakAnnotation(
-                                            peak: peak,
-                                            offset: offsetBinding.wrappedValue[peak.id] ?? .zero,
-                                            chartGeometry: plotGeometry,
-                                            minFreq: minFreq,
-                                            maxFreq: maxFreq,
-                                            minDB: minDB,
-                                            maxDB: maxDB,
-                                            isLogarithmic: isLogarithmic,
-                                            onOffsetChange: { newOffset in
-                                                offsetBinding.wrappedValue[peak.id] = newOffset
-                                            },
-                                            onReset: {
-                                                offsetBinding.wrappedValue.removeValue(forKey: peak.id)
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                            .allowsHitTesting(true)
-                        }
-                        .allowsHitTesting(true)
-                    )
-            }
-            .allowsHitTesting(true)
-            // Configure x-axis scale (frequency) - can be linear or logarithmic
-            .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
-            // Configure y-axis scale (magnitude in dB)
-            .chartYScale(domain: Double(minDB)...Double(maxDB))
-            .chartXAxis {
-                AxisMarks(values: frequencyAxisValues.map { $0 }) { value in
-                    if let freq = value.as(Int.self) {
-                        AxisValueLabel {
-                            // Format frequency labels: use "k" suffix for values >= 1000 Hz
-                            if freq >= 1000 {
-                                Text("\(freq / 1000)k")
-                            } else {
-                                Text("\(freq)")
-                            }
-                        }
-                        AxisGridLine()
-                    }
-                }
-            }
+            chartView
+        }
+    }
+    
+    /// The main chart view with all configurations applied
+    private var chartView: some View {
+        baseChart
+            .chartXAxis { xAxisContent }
             .chartXAxisLabel("Frequency (Hz)", alignment: .center)
-            .chartYAxis {
-                // dB axis with 20 dB increments
-                AxisMarks(position: .leading, values: .stride(by: 20)) { value in
-                    AxisValueLabel()
-                    AxisGridLine()
-                }
-            }
+            .chartYAxis { yAxisContent }
             .chartYAxisLabel(position: .leading, alignment: .center) {
                 Text("FFT Magnitude (dB)")
                     .rotationEffect(.degrees(180))
             }
-            // Pinch gesture for zooming
-            .gesture(
-                MagnificationGesture()
-                    .updating($magnificationScale) { value, state, _ in
-                        state = value
-                    }
-                    .onEnded { scale in
-                        handleZoom(scale: scale)
-                    }
-            )
-            // Drag gesture for panning
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        dragOffset = value.translation
-                    }
-                    .onEnded { value in
-                        handlePan(translation: value.translation)
-                        dragOffset = .zero
-                    }
-            )
+            .gesture(zoomGesture)
+            .gesture(panGesture)
+    }
+    
+    /// The base chart with plot style and scales
+    private var baseChart: some View {
+        Chart {
+            spectrumLineContent
+            modeBoundaryContent
+            peakAnnotationContent
         }
+        .chartPlotStyle { plotArea in
+            plotArea
+                .border(Color.gray, width: 1)
+                .overlay(annotationOverlay)
+        }
+        .allowsHitTesting(true)
+        .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
+        .chartYScale(domain: Double(minDB)...Double(maxDB))
+    }
+    
+    /// X-axis content builder
+    @AxisContentBuilder
+    private var xAxisContent: some AxisContent {
+        AxisMarks(values: frequencyAxisValues) { value in
+            AxisValueLabel {
+                if let doubleValue = value.as(Double.self) {
+                    Text(AxisTickGenerator.formatTickLabel(doubleValue))
+                }
+            }
+            AxisGridLine()
+        }
+    }
+    
+    /// Y-axis content builder
+    @AxisContentBuilder
+    private var yAxisContent: some AxisContent {
+        AxisMarks(position: .leading, values: .stride(by: 20)) { value in
+            AxisValueLabel()
+            AxisGridLine()
+        }
+    }
+    
+    /// Pinch gesture for zooming
+    private var zoomGesture: some Gesture {
+        MagnificationGesture()
+            .updating($magnificationScale) { value, state, _ in
+                state = value
+            }
+            .onEnded { scale in
+                handleZoom(scale: scale)
+            }
+    }
+    
+    /// Drag gesture for panning
+    private var panGesture: some Gesture {
+        DragGesture()
+            .onChanged { value in
+                dragOffset = value.translation
+            }
+            .onEnded { value in
+                handlePan(translation: value.translation)
+                dragOffset = .zero
+            }
     }
     
     // MARK: - Helper Functions
