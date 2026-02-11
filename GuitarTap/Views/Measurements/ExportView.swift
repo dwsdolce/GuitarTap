@@ -130,14 +130,28 @@ struct ExportView: View {
         let tempURL = createTemporaryFile()
         let documentPicker = UIDocumentPickerViewController(forExporting: [tempURL], asCopy: true)
         
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            rootViewController.present(documentPicker, animated: true) {
+        // Set up delegate to detect when save completes
+        let coordinator = DocumentPickerCoordinator(onCompletion: {
+            DispatchQueue.main.async {
                 self.showingSaveConfirmation = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                     self.showingSaveConfirmation = false
                 }
             }
+        })
+        documentPicker.delegate = coordinator
+        
+        // Store coordinator to keep it alive
+        objc_setAssociatedObject(
+            documentPicker,
+            "coordinator",
+            coordinator,
+            .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+        )
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            rootViewController.present(documentPicker, animated: true)
         }
         #elseif os(macOS)
         // On macOS, use NSSavePanel
@@ -188,3 +202,27 @@ struct ExportView: View {
         }
     }
 }
+// MARK: - Document Picker Delegate
+
+#if os(iOS)
+import UIKit
+
+/// Coordinator to handle UIDocumentPickerViewController delegate callbacks
+private class DocumentPickerCoordinator: NSObject, UIDocumentPickerDelegate {
+    let onCompletion: () -> Void
+    
+    init(onCompletion: @escaping () -> Void) {
+        self.onCompletion = onCompletion
+    }
+    
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        // User completed the export
+        onCompletion()
+    }
+    
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        // User cancelled - no action needed
+    }
+}
+#endif
+

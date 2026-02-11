@@ -108,14 +108,34 @@ struct FileExportHelper {
         do {
             try data.write(to: tempURL)
             
-            // Present share sheet
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let rootViewController = windowScene.windows.first?.rootViewController {
-                let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
-                rootViewController.present(activityVC, animated: true)
-                completion(true)
-            } else {
-                completion(false)
+            // Present share sheet on main thread
+            DispatchQueue.main.async {
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first(where: { $0.isKeyWindow }),
+                   let rootViewController = window.rootViewController {
+                    
+                    // Find the topmost presented view controller
+                    var topController = rootViewController
+                    while let presented = topController.presentedViewController {
+                        topController = presented
+                    }
+                    
+                    let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
+                    
+                    // For iPad - set source for popover
+                    if let popover = activityVC.popoverPresentationController {
+                        popover.sourceView = topController.view
+                        popover.sourceRect = CGRect(x: topController.view.bounds.midX,
+                                                    y: topController.view.bounds.midY,
+                                                    width: 0, height: 0)
+                        popover.permittedArrowDirections = []
+                    }
+                    
+                    topController.present(activityVC, animated: true)
+                    completion(true)
+                } else {
+                    completion(false)
+                }
             }
         } catch {
             print("❌ Failed to prepare file for export: \(error)")
@@ -254,3 +274,49 @@ extension View {
         #endif
     }
 }
+// MARK: - Document Picker for iOS
+
+#if os(iOS)
+/// SwiftUI wrapper for UIDocumentPickerViewController to import files
+struct DocumentPicker: UIViewControllerRepresentable {
+    @Binding var isPresented: Bool
+    let onPick: (URL) -> Void
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.json])
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {
+        // No updates needed
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isPresented: $isPresented, onPick: onPick)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        @Binding var isPresented: Bool
+        let onPick: (URL) -> Void
+        
+        init(isPresented: Binding<Bool>, onPick: @escaping (URL) -> Void) {
+            _isPresented = isPresented
+            self.onPick = onPick
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            isPresented = false
+            if let url = urls.first {
+                onPick(url)
+            }
+        }
+        
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            isPresented = false
+        }
+    }
+}
+#endif
+

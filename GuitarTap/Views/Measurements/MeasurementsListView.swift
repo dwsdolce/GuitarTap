@@ -8,6 +8,8 @@ import SwiftUI
 internal import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
+#elseif os(iOS)
+import UIKit
 #endif
 
 struct MeasurementsListView: View {
@@ -32,7 +34,34 @@ struct MeasurementsListView: View {
             .sheet(isPresented: $showingExport) {
                 ExportView(text: exportText)
             }
-            .background(importSheet)
+            .fileImporter(
+                isPresented: $showingImportPicker,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        importFromFile(url: url)
+                    }
+                case .failure(let error):
+                    importError = "Failed to open file: \(error.localizedDescription)"
+                }
+            }
+            .alert("Import Error", isPresented: .constant(importError != nil)) {
+                Button("OK") { importError = nil }
+            } message: {
+                if let error = importError {
+                    Text(error)
+                }
+            }
+            .alert("Import Successful", isPresented: .constant(importSuccess != nil)) {
+                Button("OK") { importSuccess = nil }
+            } message: {
+                if let success = importSuccess {
+                    Text(success)
+                }
+            }
             .overlay {
                 if isExporting {
                     LoadingOverlay(message: "Exporting measurements...")
@@ -48,7 +77,25 @@ struct MeasurementsListView: View {
                 .sheet(item: $selectedMeasurement) { measurement in
                     MeasurementDetailView(measurement: measurement, analyzer: analyzer)
                 }
-                .background(importSheet)
+                .sheet(isPresented: $showingImportPicker) {
+                    DocumentPickerView { url in
+                        importFromFile(url: url)
+                    }
+                }
+                .alert("Import Error", isPresented: .constant(importError != nil)) {
+                    Button("OK") { importError = nil }
+                } message: {
+                    if let error = importError {
+                        Text(error)
+                    }
+                }
+                .alert("Import Successful", isPresented: .constant(importSuccess != nil)) {
+                    Button("OK") { importSuccess = nil }
+                } message: {
+                    if let success = importSuccess {
+                        Text(success)
+                    }
+                }
                 .overlay {
                     if isExporting {
                         LoadingOverlay(message: "Exporting measurements...")
@@ -198,50 +245,6 @@ struct MeasurementsListView: View {
         selectedMeasurement = measurement
         #endif
     }
-}
-
-extension MeasurementsListView {
-    var importSheet: some View {
-        Group {
-            #if os(iOS)
-            if showingImportPicker {
-                DocumentPicker(isPresented: $showingImportPicker) { url in
-                    importFromFile(url: url)
-                }
-            }
-            #endif
-        }
-        .alert("Import Error", isPresented: .constant(importError != nil)) {
-            Button("OK") { importError = nil }
-        } message: {
-            if let error = importError {
-                Text(error)
-            }
-        }
-        .alert("Import Successful", isPresented: .constant(importSuccess != nil)) {
-            Button("OK") { importSuccess = nil }
-        } message: {
-            if let success = importSuccess {
-                Text(success)
-            }
-        }
-        #if os(macOS)
-        .fileImporter(
-            isPresented: $showingImportPicker,
-            allowedContentTypes: [.json],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first {
-                    importFromFile(url: url)
-                }
-            case .failure(let error):
-                importError = "Failed to open file: \(error.localizedDescription)"
-            }
-        }
-        #endif
-    }
     
     private func importFromFile(url: URL) {
         do {
@@ -270,3 +273,61 @@ extension MeasurementsListView {
         }
     }
 }
+
+// MARK: - Document Picker View Wrapper
+
+#if os(iOS)
+/// A simple wrapper view for DocumentPicker that can be presented as a sheet
+private struct DocumentPickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    let onPick: (URL) -> Void
+    
+    var body: some View {
+        DocumentPickerRepresentable(onPick: { url in
+            onPick(url)
+            dismiss()
+        })
+        .ignoresSafeArea()
+    }
+}
+
+/// UIViewControllerRepresentable that directly presents the picker
+private struct DocumentPickerRepresentable: UIViewControllerRepresentable {
+    let onPick: (URL) -> Void
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.json])
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {
+        // No updates needed
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: (URL) -> Void
+        
+        init(onPick: @escaping (URL) -> Void) {
+            self.onPick = onPick
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            if let url = urls.first {
+                onPick(url)
+            }
+        }
+        
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            // Dismiss is handled by the wrapper view
+        }
+    }
+}
+#endif
+
+

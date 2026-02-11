@@ -31,22 +31,46 @@ struct MeasurementFileExporter {
             let jsonURL = tempDir.appendingPathComponent("\(basename).json")
             try json.write(to: jsonURL, atomically: true, encoding: .utf8)
             
+            var itemsToShare: [URL] = [jsonURL]
+            
             if let imageData = measurement.chartImageData {
                 let imageURL = tempDir.appendingPathComponent("\(basename).png")
                 try imageData.write(to: imageURL)
+                itemsToShare.append(imageURL)
             }
             
-            let documentPicker = UIDocumentPickerViewController(forExporting: [tempDir], asCopy: true)
-            
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let rootViewController = windowScene.windows.first?.rootViewController {
-                rootViewController.present(documentPicker, animated: true)
+            // Use UIActivityViewController (share sheet) like Export Spectrum does
+            DispatchQueue.main.async {
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first(where: { $0.isKeyWindow }),
+                   let rootViewController = window.rootViewController {
+                    
+                    // Find the topmost presented view controller
+                    var topController = rootViewController
+                    while let presented = topController.presentedViewController {
+                        topController = presented
+                    }
+                    
+                    let activityVC = UIActivityViewController(activityItems: itemsToShare, applicationActivities: nil)
+                    
+                    // For iPad - set source for popover
+                    if let popover = activityVC.popoverPresentationController {
+                        popover.sourceView = topController.view
+                        popover.sourceRect = CGRect(x: topController.view.bounds.midX, 
+                                                    y: topController.view.bounds.midY, 
+                                                    width: 0, height: 0)
+                        popover.permittedArrowDirections = []
+                    }
+                    
+                    topController.present(activityVC, animated: true)
+                }
+                
+                completion()
             }
         } catch {
             print("Failed to export: \(error)")
+            completion()
         }
-        
-        completion()
     }
     #endif
     
