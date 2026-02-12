@@ -11,6 +11,11 @@ import Accelerate
 import Charts
 import Combine
 
+#if os(macOS)
+import AudioToolbox
+import CoreAudio
+#endif
+
 // MARK: - FFT Analyzer
 
 /// A real-time Fast Fourier Transform (FFT) analyzer that captures audio from the device's microphone
@@ -39,6 +44,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     /// The audio input node representing the device's microphone
     private var inputNode: AVAudioInputNode
+    
+    /// The currently selected audio input device
+    @Published var selectedInputDevice: AVAudioDevice?
+    
+    /// List of available audio input devices
+    @Published var availableInputDevices: [AVAudioDevice] = []
     
     // MARK: - Thread Management
     
@@ -199,6 +210,19 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         
         // Initialize metrics
         updateMetrics()
+        
+        // Load available audio input devices
+        loadAvailableInputDevices()
+        
+        #if os(iOS)
+        // Observe audio route changes on iOS
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRouteChange),
+            name: AVAudioSession.routeChangeNotification,
+            object: nil
+        )
+        #endif
     }
     
     /// Cleans up resources when the analyzer is deallocated
@@ -207,6 +231,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         if let setup = fftSetup {
             vDSP_DFT_DestroySetup(setup)
         }
+        
+        #if os(iOS)
+        // Remove audio session observers
+        NotificationCenter.default.removeObserver(self)
+        #endif
     }
     
     // MARK: - Public Control Methods
@@ -229,6 +258,39 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         audioEngine.stop()
         audioEngine.reset()
         inputNode = audioEngine.inputNode
+        
+        #if os(macOS)
+        // Set the input device if one is selected (macOS only)
+        if let device = selectedInputDevice {
+            print("🎤 Setting input device to: \(device.name)")
+            
+            // Configure AVAudioEngine to use the selected device
+            guard let audioUnit = inputNode.audioUnit else {
+                throw NSError(
+                    domain: "RealtimeFFTAnalyzer",
+                    code: -3,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not access input node audio unit"]
+                )
+            }
+            
+            // Set the device ID on the audio unit
+            var deviceID = device.deviceID
+            let status = AudioUnitSetProperty(
+                audioUnit,
+                kAudioOutputUnitProperty_CurrentDevice,
+                kAudioUnitScope_Global,
+                0,
+                &deviceID,
+                UInt32(MemoryLayout<AudioDeviceID>.size)
+            )
+            
+            if status != noErr {
+                print("⚠️ Warning: Could not set audio device (error \(status)). Using default.")
+            } else {
+                print("✓ Successfully set audio device to: \(device.name)")
+            }
+        }
+        #endif
         
         // Start the audio engine WITHOUT connecting to output
         // We only need input, not playback, so no connection needed
@@ -669,6 +731,374 @@ final class RealtimeFFTAnalyzer: ObservableObject {
 //                }
             }
         }
+    }
+    
+    // MARK: - Audio Device Selection
+    
+    /// Loads the list of available audio input devices
+    private func loadAvailableInputDevices() {
+        #if os(macOS)
+        loadAvailableInputDevicesMacOS()
+        #else
+        loadAvailableInputDevicesIOS()
+        #endif
+    }
+    
+    #if os(macOS)
+    /// Loads the list of available audio input devices on macOS
+    private func loadAvailableInputDevicesMacOS() {
+        var devices: [AVAudioDevice] = []
+        
+        // Use Core Audio to enumerate audio devices
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var dataSize: UInt32 = 0
+        var status = AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize
+        )
+        
+        guard status == noErr else {
+            print("⚠️ Could not get audio device count")
+            return
+        }
+        
+        let deviceCount = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        var deviceIDs = [AudioDeviceID](repeating: 0, count: deviceCount)
+        
+        status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &deviceIDs
+        )
+        
+        guard status == noErr else {
+            print("⚠️ Could not get audio devices")
+            return
+        }
+        
+        // Filter for input devices and get their info
+        for deviceID in deviceIDs {
+            // Check if device has input channels
+            var streamPropertyAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyStreamConfiguration,
+                mScope: kAudioDevicePropertyScopeInput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            
+            status = AudioObjectGetPropertyDataSize(
+                deviceID,
+                &streamPropertyAddress,
+                0,
+                nil,
+                &dataSize
+            )
+            
+            guard status == noErr else { continue }
+            
+            let bufferList = UnsafeMutablePointer<AudioBufferList>.allocate(capacity: 1)
+            defer { bufferList.deallocate() }
+            
+            status = AudioObjectGetPropertyData(
+                deviceID,
+                &streamPropertyAddress,
+                0,
+                nil,
+                &dataSize,
+                bufferList
+            )
+            
+            guard status == noErr else { continue }
+            
+            // Use withUnsafePointer to safely access the mBuffers tuple
+            let channelCount = withUnsafePointer(to: &bufferList.pointee.mBuffers) { buffersPtr in
+                let bufferCount = Int(bufferList.pointee.mNumberBuffers)
+                var count = 0
+                for i in 0..<bufferCount {
+                    let bufferPtr = buffersPtr.advanced(by: i)
+                    count += Int(bufferPtr.pointee.mNumberChannels)
+                }
+                return count
+            }
+            
+            // Skip devices with no input channels
+            guard channelCount > 0 else { continue }
+            
+            // Get device name
+            var namePropertyAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioObjectPropertyName,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            
+            // Use Unmanaged for CFString to avoid object reference issues
+            var cfStringRef: Unmanaged<CFString>?
+            dataSize = UInt32(MemoryLayout<Unmanaged<CFString>>.size)
+            
+            status = AudioObjectGetPropertyData(
+                deviceID,
+                &namePropertyAddress,
+                0,
+                nil,
+                &dataSize,
+                &cfStringRef
+            )
+            
+            let name: String
+            if status == noErr, let cfString = cfStringRef?.takeUnretainedValue() {
+                name = cfString as String
+            } else {
+                name = "Unknown Device"
+            }
+            
+            // Get sample rate
+            var sampleRateAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyNominalSampleRate,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            
+            var sampleRate: Float64 = 48000.0
+            dataSize = UInt32(MemoryLayout<Float64>.size)
+            
+            status = AudioObjectGetPropertyData(
+                deviceID,
+                &sampleRateAddress,
+                0,
+                nil,
+                &dataSize,
+                &sampleRate
+            )
+            
+            // Get device UID
+            var uidPropertyAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyDeviceUID,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            
+            // Use Unmanaged for CFString to avoid object reference issues
+            var cfUIDRef: Unmanaged<CFString>?
+            dataSize = UInt32(MemoryLayout<Unmanaged<CFString>>.size)
+            
+            status = AudioObjectGetPropertyData(
+                deviceID,
+                &uidPropertyAddress,
+                0,
+                nil,
+                &dataSize,
+                &cfUIDRef
+            )
+            
+            let uid: String
+            if status == noErr, let cfUID = cfUIDRef?.takeUnretainedValue() {
+                uid = cfUID as String
+            } else {
+                uid = "\(deviceID)"
+            }
+            
+            let device = AVAudioDevice(
+                name: name,
+                uid: uid,
+                sampleRate: sampleRate,
+                deviceID: deviceID
+            )
+            
+            devices.append(device)
+            print("🎤 Found input device: \(name) @ \(sampleRate) Hz (UID: \(uid))")
+        }
+        
+        DispatchQueue.main.async {
+            self.availableInputDevices = devices
+            
+            // Select the first device by default if none is selected
+            if self.selectedInputDevice == nil && !devices.isEmpty {
+                self.selectedInputDevice = devices[0]
+            }
+        }
+        
+        print("🎤 Found \(devices.count) audio input device(s) total")
+    }
+    #endif
+    
+    #if os(iOS)
+    /// Loads the list of available audio input devices on iOS
+    private func loadAvailableInputDevicesIOS() {
+        let session = AVAudioSession.sharedInstance()
+        var devices: [AVAudioDevice] = []
+        
+        // Get available inputs from AVAudioSession
+        guard let availableInputs = session.availableInputs else {
+            print("⚠️ No audio inputs available")
+            
+            // Add current route as fallback
+            if let currentInput = session.currentRoute.inputs.first {
+                let device = AVAudioDevice(
+                    name: currentInput.portName,
+                    uid: currentInput.uid,
+                    sampleRate: session.sampleRate,
+                    port: currentInput
+                )
+                devices.append(device)
+            }
+            
+            DispatchQueue.main.async {
+                self.availableInputDevices = devices
+                if let first = devices.first {
+                    self.selectedInputDevice = first
+                }
+            }
+            return
+        }
+        
+        // Convert AVAudioSessionPortDescription to AVAudioDevice
+        // Filter out invalid or unusable ports
+        for port in availableInputs {
+            // Skip ports with empty or invalid names
+            guard !port.portName.isEmpty else {
+                print("⚠️ Skipping port with empty name (UID: \(port.uid))")
+                continue
+            }
+            
+            // Create device - avoid directly printing portType.rawValue as it may contain
+            // internal values that trigger warnings
+            let device = AVAudioDevice(
+                name: port.portName,
+                uid: port.uid,
+                sampleRate: session.sampleRate,
+                port: port
+            )
+            devices.append(device)
+            
+            // Safe logging - only print known port types
+            let portTypeDescription = getPortTypeDescription(port.portType)
+            print("🎤 Found input device: \(port.portName) [\(portTypeDescription)] @ \(session.sampleRate) Hz")
+        }
+        
+        DispatchQueue.main.async {
+            self.availableInputDevices = devices
+            
+            // Try to select the current input, or first device
+            if let currentInput = session.currentRoute.inputs.first,
+               let matchingDevice = devices.first(where: { $0.uid == currentInput.uid }) {
+                self.selectedInputDevice = matchingDevice
+            } else if let first = devices.first {
+                self.selectedInputDevice = first
+            }
+        }
+        
+        print("🎤 Found \(devices.count) audio input device(s) total")
+    }
+    
+    /// Returns a human-readable description of the port type without triggering internal enum warnings
+    private func getPortTypeDescription(_ portType: AVAudioSession.Port) -> String {
+        switch portType {
+        case .builtInMic:
+            return "Built-in Microphone"
+        case .headsetMic:
+            return "Headset Microphone"
+        case .lineIn:
+            return "Line In"
+        case .airPlay:
+            return "AirPlay"
+        case .bluetoothA2DP:
+            return "Bluetooth A2DP"
+        case .bluetoothLE:
+            return "Bluetooth LE"
+        case .bluetoothHFP:
+            return "Bluetooth Hands-Free"
+        case .usbAudio:
+            return "USB Audio"
+        case .carAudio:
+            return "CarPlay"
+        case .virtual:
+            return "Virtual"
+        default:
+            // Don't print the raw value for unknown types as it may trigger warnings
+            return "Audio Input"
+        }
+    }
+    
+    /// Handles audio route changes (e.g., headphones plugged in/out, USB devices connected)
+    @objc private func handleRouteChange(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+            return
+        }
+        
+        print("🔄 Audio route changed: \(reason)")
+        
+        switch reason {
+        case .newDeviceAvailable, .oldDeviceUnavailable:
+            // Reload device list when devices are added or removed
+            loadAvailableInputDevices()
+        default:
+            break
+        }
+    }
+    #endif
+    
+    /// Sets the audio input device
+    /// - Parameter device: The audio device to use for input
+    /// - Throws: An error if the device cannot be set
+    func setInputDevice(_ device: AVAudioDevice) throws {
+        print("🎤 Attempting to set input device to: \(device.name)")
+        
+        #if os(iOS)
+        // On iOS, set the preferred input using AVAudioSession
+        let session = AVAudioSession.sharedInstance()
+        
+        guard let port = device.port else {
+            throw NSError(
+                domain: "RealtimeFFTAnalyzer",
+                code: -4,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid audio port"]
+            )
+        }
+        
+        do {
+            try session.setPreferredInput(port)
+            print("✓ Successfully set input to: \(device.name)")
+        } catch {
+            print("⚠️ Failed to set preferred input: \(error)")
+            throw error
+        }
+        #else
+        // macOS: Need to restart the engine with new device
+        let wasRunning = audioEngine.isRunning
+        
+        if wasRunning {
+            stop()
+        }
+        #endif
+        
+        // Update the selected device
+        DispatchQueue.main.async {
+            self.selectedInputDevice = device
+        }
+        
+        #if os(macOS)
+        // If it was running, restart with the new device
+        if wasRunning {
+            // Give the system a moment to clean up
+            Thread.sleep(forTimeInterval: 0.1)
+            try start()
+        }
+        #else
+        // On iOS, just reload device list to refresh current state
+        loadAvailableInputDevices()
+        #endif
     }
 }
 

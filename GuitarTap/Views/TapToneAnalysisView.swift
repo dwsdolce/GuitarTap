@@ -29,18 +29,19 @@ struct TapToneAnalysisView: View {
     @State private var showingMeasurements = false
     @State private var showingMetrics = false
     @State private var showingResults = false
+    @State private var showingSettings = false
     @State private var isExportingSpectrum = false
     @State private var isSavingMeasurement = false
     
     // Spectrum display state
-    @State private var minFreq: Float = 20
-    @State private var maxFreq: Float = 300
-    @State private var minDB: Float = -100
-    @State private var maxDB: Float = 0
-    @State private var minFreqInput: String = "20"
-    @State private var maxFreqInput: String = "300"
-    @State private var minDBInput: String = "-100"
-    @State private var maxDBInput: String = "0"
+    @State private var minFreq: Float = SpectrumDisplaySettings.minFrequency
+    @State private var maxFreq: Float = SpectrumDisplaySettings.maxFrequency
+    @State private var minDB: Float = SpectrumDisplaySettings.minMagnitude
+    @State private var maxDB: Float = SpectrumDisplaySettings.maxMagnitude
+    @State private var minFreqInput: String = String(format: "%.0f", SpectrumDisplaySettings.minFrequency)
+    @State private var maxFreqInput: String = String(format: "%.0f", SpectrumDisplaySettings.maxFrequency)
+    @State private var minDBInput: String = String(format: "%.0f", SpectrumDisplaySettings.minMagnitude)
+    @State private var maxDBInput: String = String(format: "%.0f", SpectrumDisplaySettings.maxMagnitude)
     
     // Environment
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
@@ -214,6 +215,30 @@ struct TapToneAnalysisView: View {
                 onSave: saveMeasurement
             )
         }
+        .sheet(isPresented: $showingSettings) {
+            SpectrumSettingsView(
+                minFreq: $minFreq,
+                maxFreq: $maxFreq,
+                minDB: $minDB,
+                maxDB: $maxDB,
+                analysisMinFreq: $tapToneAnalyzer.minFrequency,
+                analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
+                peakThreshold: $tapToneAnalyzer.peakThreshold,
+                fftAnalyzer: fftAnalyzer
+            )
+        }
+        .onChange(of: minFreq) { _, newValue in
+            minFreqInput = String(format: "%.0f", newValue)
+        }
+        .onChange(of: maxFreq) { _, newValue in
+            maxFreqInput = String(format: "%.0f", newValue)
+        }
+        .onChange(of: minDB) { _, newValue in
+            minDBInput = String(format: "%.0f", newValue)
+        }
+        .onChange(of: maxDB) { _, newValue in
+            maxDBInput = String(format: "%.0f", newValue)
+        }
         .overlay {
             if isExportingSpectrum {
                 LoadingOverlay(message: "Exporting spectrum...")
@@ -350,6 +375,30 @@ struct TapToneAnalysisView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingSettings) {
+            SpectrumSettingsView(
+                minFreq: $minFreq,
+                maxFreq: $maxFreq,
+                minDB: $minDB,
+                maxDB: $maxDB,
+                analysisMinFreq: $tapToneAnalyzer.minFrequency,
+                analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
+                peakThreshold: $tapToneAnalyzer.peakThreshold,
+                fftAnalyzer: fftAnalyzer
+            )
+        }
+        .onChange(of: minFreq) { _, newValue in
+            minFreqInput = String(format: "%.0f", newValue)
+        }
+        .onChange(of: maxFreq) { _, newValue in
+            maxFreqInput = String(format: "%.0f", newValue)
+        }
+        .onChange(of: minDB) { _, newValue in
+            minDBInput = String(format: "%.0f", newValue)
+        }
+        .onChange(of: maxDB) { _, newValue in
+            maxDBInput = String(format: "%.0f", newValue)
+        }
         .overlay {
             if isExportingSpectrum {
                 LoadingOverlay(message: "Exporting spectrum...")
@@ -448,6 +497,12 @@ struct TapToneAnalysisView: View {
                             Image(systemName: "arrow.counterclockwise")
                         }
                         .buttonStyle(.bordered)
+                        
+                        // Settings button
+                        Button(action: { showingSettings = true }) {
+                            Image(systemName: "gearshape")
+                        }
+                        .buttonStyle(.bordered)
                     }
                     
                     // Row 2: Secondary controls
@@ -459,6 +514,15 @@ struct TapToneAnalysisView: View {
                         }
                         .buttonStyle(.bordered)
                         .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
+                        
+                        // Auto-scale dB button
+                        Button(action: { autoScaleDB() }) {
+                            Label("Auto dB", systemImage: "arrow.up.and.down.text.horizontal")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
+                        .help("Auto-scale the dB range to fit the current signal")
                         
                         Spacer()
                         
@@ -549,6 +613,14 @@ struct TapToneAnalysisView: View {
             .buttonStyle(.bordered)
             .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
             
+            // Auto-scale dB button (iPad)
+            Button(action: { autoScaleDB() }) {
+                Label("Auto dB", systemImage: "arrow.up.and.down.text.horizontal")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
+            .help("Auto-scale the dB range to fit the current signal")
+            
             // Measurements button
             Button(action: { showingMeasurements = true }) {
                 Label("Measurements", systemImage: "list.bullet.clipboard")
@@ -562,6 +634,12 @@ struct TapToneAnalysisView: View {
             // Reset button
             Button(action: tapToneAnalyzer.reset) {
                 Label("Reset", systemImage: "arrow.counterclockwise")
+            }
+            .buttonStyle(.bordered)
+            
+            // Settings button
+            Button(action: { showingSettings = true }) {
+                Label("Settings", systemImage: "gearshape")
             }
             .buttonStyle(.bordered)
             
@@ -627,6 +705,14 @@ struct TapToneAnalysisView: View {
             .buttonStyle(.bordered)
             .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
             
+            // Auto-scale dB button (macOS)
+            Button(action: { autoScaleDB() }) {
+                Label("Auto dB", systemImage: "arrow.up.and.down.text.horizontal")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
+            .help("Auto-scale the dB range to fit the current signal")
+            
             // Measurements button
             Button(action: { showingMeasurements = true }) {
                 Label("Measurements", systemImage: "list.bullet.clipboard")
@@ -640,6 +726,12 @@ struct TapToneAnalysisView: View {
             // Reset button
             Button(action: tapToneAnalyzer.reset) {
                 Label("Reset", systemImage: "arrow.counterclockwise")
+            }
+            .buttonStyle(.bordered)
+            
+            // Settings button
+            Button(action: { showingSettings = true }) {
+                Label("Settings", systemImage: "gearshape")
             }
             .buttonStyle(.bordered)
         }
@@ -675,6 +767,21 @@ struct TapToneAnalysisView: View {
                     .foregroundColor(.secondary)
                 
                 Spacer()
+                
+                // Frozen indicator
+                if tapToneAnalyzer.isSpectrumFrozen {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pause.circle.fill")
+                            .foregroundColor(.orange)
+                        Text("Frozen")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                    
+                    Text("•")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 
                 // FFT Status info
                 if fftAnalyzer.isRunning {
@@ -916,125 +1023,21 @@ struct TapToneAnalysisView: View {
         .cornerRadius(8)
     }
     
+    // Computed properties to explicitly depend on @Published properties
+    private var displayFrequencies: [Float] {
+        tapToneAnalyzer.isSpectrumFrozen ? tapToneAnalyzer.frozenFrequencies : fftAnalyzer.frequencies
+    }
+    
+    private var displayMagnitudes: [Float] {
+        tapToneAnalyzer.isSpectrumFrozen ? tapToneAnalyzer.frozenMagnitudes : fftAnalyzer.magnitudes
+    }
+    
     private var realTimeSpectrumView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Range Controls
-            VStack(spacing: 8) {
-                HStack(spacing: 12) {
-                    // Frequency Range Controls
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Frequency Range")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
-                        
-                        HStack(spacing: 8) {
-                            TextField("Min", text: $minFreqInput)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 70)
-                                .onSubmit { applyFrequencyRange() }
-                            Text("–")
-                                .foregroundColor(.secondary)
-                            TextField("Max", text: $maxFreqInput)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 70)
-                                .onSubmit { applyFrequencyRange() }
-                            Text("Hz")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Button(action: applyFrequencyRange) {
-                                Image(systemName: "arrow.right.circle.fill")
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                    }
-                    
-                    Divider()
-                        .frame(height: 40)
-                    
-                    // Magnitude Range Controls
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Magnitude Range")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
-                        
-                        HStack(spacing: 8) {
-                            TextField("Min", text: $minDBInput)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 70)
-                                .onSubmit { applyMagnitudeRange() }
-                            Text("–")
-                                .foregroundColor(.secondary)
-                            TextField("Max", text: $maxDBInput)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 70)
-                                .onSubmit { applyMagnitudeRange() }
-                            Text("dB")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Button(action: applyMagnitudeRange) {
-                                Image(systemName: "arrow.right.circle.fill")
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                    }
-                    
-                    Divider()
-                        .frame(height: 40)
-                    
-                    // Reset Control
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Display")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
-                        
-                        Button(action: resetZoom) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.counterclockwise")
-                                Text("Reset")
-                            }
-                            .font(.caption)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    
-                    // Frozen indicator (when applicable)
-                    if tapToneAnalyzer.isSpectrumFrozen {
-                        Divider()
-                            .frame(height: 40)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Status")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.secondary)
-                            
-                            HStack(spacing: 4) {
-                                Image(systemName: "pause.circle.fill")
-                                    .foregroundColor(.orange)
-                                Text("Frozen")
-                                    .font(.caption)
-                                    .foregroundColor(.orange)
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.gray.opacity(0.05))
-                .cornerRadius(8)
-            }
-            
             // Spectrum Chart
             SpectrumView(
-                frequencies: tapToneAnalyzer.isSpectrumFrozen ? 
-                    tapToneAnalyzer.frozenFrequencies : fftAnalyzer.frequencies,
-                magnitudes: tapToneAnalyzer.isSpectrumFrozen ? 
-                    tapToneAnalyzer.frozenMagnitudes : fftAnalyzer.magnitudes,
+                frequencies: displayFrequencies,
+                magnitudes: displayMagnitudes,
                 minFreq: $minFreq,
                 maxFreq: $maxFreq,
                 minDB: $minDB,
@@ -1045,6 +1048,8 @@ struct TapToneAnalysisView: View {
                 onFrequencyRangeChanged: updateFrequencyInputFields,
                 annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets
             )
+            // Force view to update when any relevant state changes
+            .id("\(tapToneAnalyzer.isSpectrumFrozen)-\(fftAnalyzer.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
             .frame(minHeight: 250, maxHeight: 400)
             .padding()
             .background(Color.gray.opacity(0.05))
@@ -1060,6 +1065,9 @@ struct TapToneAnalysisView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+                        .onAppear {
+                            print("🚫 Overlay: NOT RUNNING shown")
+                        }
                     } else if fftAnalyzer.frequencies.isEmpty {
                         VStack {
                             ProgressView()
@@ -1067,6 +1075,15 @@ struct TapToneAnalysisView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+                        .onAppear {
+                            print("⏳ Overlay: LOADING shown (frequencies is empty)")
+                        }
+                    } else {
+                        // Debug: Show when chart should be visible
+                        Color.clear
+                            .onAppear {
+                                print("✅ Overlay: CHART VISIBLE (running=\(fftAnalyzer.isRunning), freq count=\(fftAnalyzer.frequencies.count), mag count=\(fftAnalyzer.magnitudes.count))")
+                            }
                     }
                 }
             )
@@ -1279,67 +1296,9 @@ struct TapToneAnalysisView: View {
     
     // MARK: - Spectrum Display Helpers
     
-    private func resetZoom() {
-        minFreq = 75
-        maxFreq = 350
-        minDB = -100
-        maxDB = 0
-        
-        minFreqInput = "75"
-        maxFreqInput = "350"
-        minDBInput = "-100"
-        maxDBInput = "0"
-    }
-    
-    private func applyFrequencyRange() {
-        guard let newMinFreq = Float(minFreqInput),
-              let newMaxFreq = Float(maxFreqInput) else {
-            minFreqInput = String(format: "%.0f", minFreq)
-            maxFreqInput = String(format: "%.0f", maxFreq)
-            return
-        }
-        
-        let clampedMin = max(20, min(newMinFreq, 20000))
-        let clampedMax = max(20, min(newMaxFreq, 20000))
-        
-        if clampedMin < clampedMax && (clampedMax - clampedMin) >= 10 {
-            minFreq = clampedMin
-            maxFreq = clampedMax
-            
-            minFreqInput = String(format: "%.0f", clampedMin)
-            maxFreqInput = String(format: "%.0f", clampedMax)
-        } else {
-            minFreqInput = String(format: "%.0f", minFreq)
-            maxFreqInput = String(format: "%.0f", maxFreq)
-        }
-    }
-    
     private func updateFrequencyInputFields() {
         minFreqInput = String(format: "%.0f", minFreq)
         maxFreqInput = String(format: "%.0f", maxFreq)
-    }
-    
-    private func applyMagnitudeRange() {
-        guard let newMinDB = Float(minDBInput),
-              let newMaxDB = Float(maxDBInput) else {
-            minDBInput = String(format: "%.0f", minDB)
-            maxDBInput = String(format: "%.0f", maxDB)
-            return
-        }
-        
-        let clampedMin = max(-120, min(newMinDB, 20))
-        let clampedMax = max(-120, min(newMaxDB, 20))
-        
-        if clampedMin < clampedMax && (clampedMax - clampedMin) >= 10 {
-            minDB = clampedMin
-            maxDB = clampedMax
-            
-            minDBInput = String(format: "%.0f", clampedMin)
-            maxDBInput = String(format: "%.0f", clampedMax)
-        } else {
-            minDBInput = String(format: "%.0f", minDB)
-            maxDBInput = String(format: "%.0f", maxDB)
-        }
     }
     
     private func formatFrequency(_ freq: Float) -> String {
@@ -1349,6 +1308,42 @@ struct TapToneAnalysisView: View {
             return String(format: "%.0f Hz", freq)
         }
     }
+    
+    /// Auto-scale the dB range to fit the current signal
+    private func autoScaleDB() {
+        let mags = displayMagnitudes.filter { $0 > -100 && $0 < 20 }
+        guard !mags.isEmpty else {
+            print("⚠️ No valid magnitudes to auto-scale")
+            return
+        }
+        
+        let minMag = mags.min() ?? -100
+        let maxMag = mags.max() ?? 0
+        
+        // Add 10% padding above and below
+        let range = maxMag - minMag
+        let padding = max(10, range * 0.1)  // At least 10 dB padding
+        
+        let newMinDB = max(-120, minMag - padding)
+        let newMaxDB = min(20, maxMag + padding)
+        
+        // Ensure minimum 20 dB range
+        if newMaxDB - newMinDB < 20 {
+            let center = (newMinDB + newMaxDB) / 2
+            minDB = center - 10
+            maxDB = center + 10
+        } else {
+            minDB = newMinDB
+            maxDB = newMaxDB
+        }
+        
+        // Update input fields
+        minDBInput = String(format: "%.0f", minDB)
+        maxDBInput = String(format: "%.0f", maxDB)
+        
+        print("📏 Auto-scaled dB range: \(String(format: "%.1f", minDB)) to \(String(format: "%.1f", maxDB)) dB (signal range: \(String(format: "%.1f", minMag)) to \(String(format: "%.1f", maxMag)) dB)")
+    }
+
     
     // MARK: - Spectrum Export
     

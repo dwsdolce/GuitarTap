@@ -183,13 +183,13 @@ final class TapToneAnalyzer: ObservableObject {
     // MARK: - Configuration
     
     /// Minimum magnitude threshold for peak detection (dB)
-    @Published var peakThreshold: Float = -60
+    @Published var peakThreshold: Float = SpectrumDisplaySettings.defaultPeakThreshold
     
     /// Minimum frequency for analysis (Hz)
-    @Published var minFrequency: Float = 50
+    @Published var minFrequency: Float = SpectrumDisplaySettings.analysisMinFrequency
     
     /// Maximum frequency for analysis (Hz)
-    @Published var maxFrequency: Float = 2000
+    @Published var maxFrequency: Float = SpectrumDisplaySettings.analysisMaxFrequency
     
     /// Number of peaks to track
     @Published var maxPeaks: Int = 10
@@ -748,10 +748,10 @@ final class TapToneAnalyzer: ObservableObject {
             snapshot = spectrumSnapshot ?? SpectrumSnapshot(
                 frequencies: isSpectrumFrozen ? frozenFrequencies : fftAnalyzer.frequencies,
                 magnitudes: isSpectrumFrozen ? frozenMagnitudes : fftAnalyzer.magnitudes,
-                minFreq: 75,  // Default values, will be overridden if passed in
-                maxFreq: 350,
-                minDB: -100,
-                maxDB: 0,
+                minFreq: SpectrumDisplaySettings.minFrequency,
+                maxFreq: SpectrumDisplaySettings.maxFrequency,
+                minDB: SpectrumDisplaySettings.minMagnitude,
+                maxDB: SpectrumDisplaySettings.maxMagnitude,
                 isLogarithmic: false
             )
         } else {
