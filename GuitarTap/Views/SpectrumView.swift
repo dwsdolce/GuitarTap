@@ -303,13 +303,13 @@ struct SpectrumView: View {
                     }
                     .help("""
                     Zoom & Pan Controls:
-                    • Scroll: Pan view
+                    • Scroll: Pan vertically (magnitude)
+                    • ⇧ + Scroll: Pan horizontally (frequency)
                     • ⌘ + Scroll: Zoom both axes
-                    • ⌃ + Scroll: Zoom both axes
                     • ⌥ + Scroll: Zoom frequency (horizontal)
-                    • ⇧ + Scroll: Zoom magnitude (vertical)
+                    • ⌃ + Scroll: Zoom magnitude (vertical)
                     • Pinch: Zoom (trackpad)
-                    • Drag: Pan view
+                    • Drag: Pan view (both axes)
                     • Right-click: Reset axes
                     """)
                 #endif
@@ -526,10 +526,11 @@ struct SpectrumView: View {
     #if os(macOS)
     /// Handles scroll wheel events for zooming and panning on macOS
     ///
-    /// - No modifiers: Pan view (scroll)
+    /// - No modifiers: Pan view vertically (magnitude axis)
+    /// - Shift key: Pan view horizontally (frequency axis)
     /// - Command key: Zoom both axes
     /// - Option key: Zoom frequency axis only (horizontal)
-    /// - Shift key: Zoom magnitude axis only (vertical)
+    /// - Control key: Zoom magnitude axis only (vertical)
     ///
     /// - Parameter event: The scroll wheel event from AppKit
     private func handleScrollWheel(event: NSEvent) {
@@ -554,8 +555,8 @@ struct SpectrumView: View {
         // Skip very small deltas (noise from trackpad)
         guard abs(scrollDeltaY) > 0.1 || abs(scrollDeltaX) > 0.1 else { return }
         
-        // When Shift is pressed, use whichever delta is larger for zooming
-        // (Shift can sometimes convert vertical scroll to horizontal on some systems)
+        // When Control is pressed, use whichever delta is larger for zooming
+        // (Some systems may convert scroll directions with modifiers)
         let effectiveDelta = abs(scrollDeltaY) > abs(scrollDeltaX) ? scrollDeltaY : scrollDeltaX
         
         // Determine zoom factor from scroll delta (smaller changes for smoother zoom)
@@ -563,41 +564,47 @@ struct SpectrumView: View {
         let zoomFactor = 1.0 + (effectiveDelta * zoomSensitivity)
         
         // Check in order of priority
-        if hasCommand && !hasShift && !hasOption {
-            // Command (with or without Control): Zoom both axes
+        if hasCommand && !hasShift && !hasOption && !hasControl {
+            // Command only: Zoom both axes
             #if DEBUG
             print("→ Zooming both axes")
             #endif
             withAnimation(.easeOut(duration: 0.1)) {
                 handleZoom(scale: zoomFactor)
             }
-        } else if hasShift && !hasCommand && !hasOption {
-            // Shift (with or without Control): Zoom magnitude axis only
+        } else if hasControl && !hasCommand && !hasOption && !hasShift {
+            // Control only: Zoom magnitude axis only
             #if DEBUG
             print("→ Zooming magnitude axis (zoom factor: \(zoomFactor))")
             #endif
             withAnimation(.easeOut(duration: 0.1)) {
                 handleMagnitudeZoom(scale: zoomFactor)
             }
-        } else if hasOption && !hasCommand && !hasShift {
-            // Option (with or without Control): Zoom frequency axis only
+        } else if hasOption && !hasCommand && !hasShift && !hasControl {
+            // Option only: Zoom frequency axis only
             #if DEBUG
             print("→ Zooming frequency axis")
             #endif
             withAnimation(.easeOut(duration: 0.1)) {
                 handleFrequencyZoom(scale: zoomFactor)
             }
-        } else if hasControl && !hasCommand && !hasShift && !hasOption {
-            // Control only: Also zoom both axes (alternative to Command)
+        } else if hasShift && !hasCommand && !hasOption && !hasControl {
+            // Shift only: Pan horizontally (frequency axis)
+            // Shift often converts vertical scroll to horizontal, so check both deltas
             #if DEBUG
-            print("→ Zooming both axes (Control)")
+            print("→ Panning horizontally")
             #endif
+            let effectiveScroll = abs(scrollDeltaX) > abs(scrollDeltaY) ? scrollDeltaX : scrollDeltaY
+            let translation = CGSize(width: effectiveScroll, height: 0)
             withAnimation(.easeOut(duration: 0.1)) {
-                handleZoom(scale: zoomFactor)
+                handlePan(translation: translation)
             }
         } else if !hasCommand && !hasShift && !hasOption && !hasControl {
-            // No modifiers: Pan the view
-            let translation = CGSize(width: scrollDeltaX, height: scrollDeltaY)
+            // No modifiers: Pan vertically (magnitude axis)
+            #if DEBUG
+            print("→ Panning vertically")
+            #endif
+            let translation = CGSize(width: 0, height: scrollDeltaY)  // Pan only vertically
             withAnimation(.easeOut(duration: 0.1)) {
                 handlePan(translation: translation)
             }
