@@ -165,9 +165,9 @@
             filePath = "GuitarTap/Models/TapToneAnalyzer.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1096"
-            endingLineNumber = "1096"
-            landmarkName = "startTapSequence()"
+            startingLineNumber = "1105"
+            endingLineNumber = "1105"
+            landmarkName = "stop()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -181,9 +181,9 @@
             filePath = "GuitarTap/Models/TapToneAnalyzer.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1166"
-            endingLineNumber = "1166"
-            landmarkName = "resumeDetection()"
+            startingLineNumber = "1175"
+            endingLineNumber = "1175"
+            landmarkName = "startTapSequence()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

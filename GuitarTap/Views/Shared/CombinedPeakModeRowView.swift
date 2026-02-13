@@ -43,6 +43,20 @@ struct CombinedPeakModeRowView: View {
                         .foregroundColor(.primary)
                 }
                 
+                // Pitch information (prominent)
+                if peak.pitchNote != nil {
+                    HStack(spacing: 4) {
+                        Image(systemName: "music.note")
+                            .font(.caption2)
+                            .foregroundColor(.purple)
+                        
+                        Text(peak.formattedPitch)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.purple)
+                    }
+                }
+                
                 // Peak details
                 HStack(spacing: 12) {
                     HStack(spacing: 4) {

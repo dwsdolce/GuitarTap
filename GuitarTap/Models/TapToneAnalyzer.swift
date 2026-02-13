@@ -19,13 +19,30 @@ struct ResonantPeak: Identifiable, Codable {
     let bandwidth: Float        // Hz at -3dB points
     let timestamp: Date
     
-    init(frequency: Float, magnitude: Float, quality: Float = 0, bandwidth: Float = 0) {
+    // Pitch information
+    let pitchNote: String?      // e.g., "A4", "C#3"
+    let pitchCents: Double?     // Cents offset from nearest pitch
+    let pitchFrequency: Double? // Frequency of nearest pitch
+    
+    init(frequency: Float, magnitude: Float, quality: Float = 0, bandwidth: Float = 0, pitchNote: String? = nil, pitchCents: Double? = nil, pitchFrequency: Double? = nil) {
         self.id = UUID()
         self.frequency = frequency
         self.magnitude = magnitude
         self.quality = quality
         self.bandwidth = bandwidth
         self.timestamp = Date()
+        self.pitchNote = pitchNote
+        self.pitchCents = pitchCents
+        self.pitchFrequency = pitchFrequency
+    }
+    
+    /// Computed property for formatted pitch information
+    var formattedPitch: String {
+        guard let note = pitchNote, let cents = pitchCents else {
+            return "N/A"
+        }
+        let sign = cents >= 0 ? "+" : ""
+        return "\(note) (\(sign)\(String(format: "%.0f", cents)) ¢)"
     }
 }
 
@@ -180,6 +197,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// The underlying FFT analyzer
     private let fftAnalyzer: RealtimeFFTAnalyzer
     
+    /// Pitch calculator for musical note analysis
+    private let pitchCalculator = Pitch(a4: 440.0)
+    
     // MARK: - Configuration
     
     /// Minimum magnitude threshold for peak detection (dB)
@@ -283,6 +303,12 @@ final class TapToneAnalyzer: ObservableObject {
     /// Track if signal is currently above threshold (for rising edge detection)
     private var isAboveThreshold: Bool = false
     
+    /// Timer for decay tracking window (continues after tap detection)
+    private var decayTrackingTimer: Timer?
+    
+    /// Whether we're currently tracking decay after a tap
+    private var isTrackingDecay: Bool = false
+    
     // MARK: - Initialization
     
     init(fftAnalyzer: RealtimeFFTAnalyzer) {
@@ -343,7 +369,8 @@ final class TapToneAnalyzer: ObservableObject {
             }
         }
         
-        // Track peak magnitude for decay analysis
+        // Always track peak magnitude for decay analysis (even when not detecting taps)
+        // This ensures we can measure ring-out time after a tap is detected
         trackDecay(peakMagnitude: peakMagnitude)
     }
     
@@ -358,11 +385,11 @@ final class TapToneAnalyzer: ObservableObject {
         let startIdx = frequencies.firstIndex(where: { $0 >= minFrequency }) ?? 0
         let endIdx = frequencies.firstIndex(where: { $0 > maxFrequency }) ?? frequencies.count - 1
         
-        // Define all modes to search for
-        let modesToSearch: [GuitarMode] = [.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode, .upperModes]
+        // Define all known modes to search for (excluding unknown)
+        let knownModes: [GuitarMode] = [.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode, .upperModes]
         
-        // For each mode, search its frequency range for peaks
-        for mode in modesToSearch {
+        // Step 1: Search known mode ranges for peaks
+        for mode in knownModes {
             let modeRange = mode.idealRange
             
             // Find indices for this mode's range
@@ -393,20 +420,77 @@ final class TapToneAnalyzer: ObservableObject {
                 // Calculate Q factor (sharpness) and bandwidth
                 let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, peakIndex: i, peakMagnitude: magnitude)
                 
+                // Calculate pitch information
+                let freq = Double(frequencies[i])
+                let pitchNote = pitchCalculator.note(frequency: freq)
+                let pitchCents = pitchCalculator.cents(frequency: freq)
+                let pitchFreq = pitchCalculator.freq0(frequency: freq)
+                
                 let peak = ResonantPeak(
                     frequency: frequencies[i],
                     magnitude: magnitude,
                     quality: quality,
-                    bandwidth: bandwidth
+                    bandwidth: bandwidth,
+                    pitchNote: pitchNote,
+                    pitchCents: pitchCents,
+                    pitchFrequency: pitchFreq
                 )
                 peaks.append(peak)
             }
         }
         
-        // Remove duplicate peaks (in case mode ranges overlap)
+        // Step 2: Search entire spectrum for peaks outside known mode ranges (unknown peaks)
+        for i in (startIdx + windowSize)..<(endIdx - windowSize) {
+            let magnitude = magnitudes[i]
+            let frequency = frequencies[i]
+            
+            // Skip if below threshold
+            guard magnitude > peakThreshold else { continue }
+            
+            // Check if this frequency is already covered by a known mode
+            let isInKnownMode = knownModes.contains { mode in
+                mode.idealRange.contains(frequency)
+            }
+            
+            // Only process if outside known mode ranges
+            guard !isInKnownMode else { continue }
+            
+            // Check if local maximum
+            var isLocalMax = true
+            for offset in -windowSize...windowSize where offset != 0 {
+                if magnitudes[i + offset] >= magnitude {
+                    isLocalMax = false
+                    break
+                }
+            }
+            
+            guard isLocalMax else { continue }
+            
+            // Calculate Q factor (sharpness) and bandwidth
+            let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, peakIndex: i, peakMagnitude: magnitude)
+            
+            // Calculate pitch information
+            let freq = Double(frequencies[i])
+            let pitchNote = pitchCalculator.note(frequency: freq)
+            let pitchCents = pitchCalculator.cents(frequency: freq)
+            let pitchFreq = pitchCalculator.freq0(frequency: freq)
+            
+            let peak = ResonantPeak(
+                frequency: frequencies[i],
+                magnitude: magnitude,
+                quality: quality,
+                bandwidth: bandwidth,
+                pitchNote: pitchNote,
+                pitchCents: pitchCents,
+                pitchFrequency: pitchFreq
+            )
+            peaks.append(peak)
+        }
+        
+        // Remove duplicate peaks (in case of overlap)
         peaks = removeDuplicatePeaks(peaks)
         
-        // Sort by magnitude but keep all peaks found in mode ranges
+        // Sort by magnitude descending (strongest peaks first)
         return peaks.sorted(by: { $0.magnitude > $1.magnitude })
     }
     
@@ -532,6 +616,10 @@ final class TapToneAnalyzer: ObservableObject {
         
         print("📊 Captured tap \(currentTapCount) of \(numberOfTaps)")
         
+        // Start decay tracking for ring-out time measurement
+        // This continues for 3 seconds after the tap to capture full decay
+        startDecayTracking()
+        
         // Start capture window timer to collect spectrum during ring-out
         captureTimer?.invalidate()
         captureTimer = Timer.scheduledTimer(withTimeInterval: captureWindow, repeats: false) { [weak self] _ in
@@ -563,6 +651,33 @@ final class TapToneAnalyzer: ObservableObject {
     private func finishCapture() {
         captureTimer?.invalidate()
         captureTimer = nil
+    }
+    
+    /// Start decay tracking after a tap is detected
+    /// This runs for 3 seconds to capture the ring-out time
+    private func startDecayTracking() {
+        // Clear previous decay history to start fresh
+        peakMagnitudeHistory = []
+        currentDecayTime = nil
+        
+        // Enable decay tracking
+        isTrackingDecay = true
+        
+        // Stop decay tracking after 3 seconds (enough time to measure ring-out)
+        decayTrackingTimer?.invalidate()
+        decayTrackingTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+            self?.stopDecayTracking()
+        }
+        
+        print("🔔 Started decay tracking for ring-out time measurement")
+    }
+    
+    /// Stop decay tracking
+    private func stopDecayTracking() {
+        isTrackingDecay = false
+        decayTrackingTimer?.invalidate()
+        decayTrackingTimer = nil
+        print("🔕 Stopped decay tracking (final decay time: \(currentDecayTime.map { String(format: "%.2f", $0) } ?? "none") seconds)")
     }
     
     /// Process multiple captured taps and average the results
@@ -704,12 +819,17 @@ final class TapToneAnalyzer: ObservableObject {
     /// Track magnitude over time for decay analysis
     private func trackDecay(peakMagnitude: Float) {
         let now = Date()
+        
+        // Only track decay history if we're actively tracking after a tap
+        // or if we're within the tracking window
+        guard isTrackingDecay else { return }
+        
         peakMagnitudeHistory.append((time: now, magnitude: peakMagnitude))
         
         // Keep only recent history (5 seconds)
         peakMagnitudeHistory = peakMagnitudeHistory.filter { now.timeIntervalSince($0.time) < 5.0 }
         
-        // Calculate decay time if we have a tap
+        // Calculate decay time if we have a tap and enough history
         if let tapTime = lastTapTime, peakMagnitudeHistory.count > 10 {
             currentDecayTime = measureDecayTime(tapTime: tapTime)
         }
@@ -1063,6 +1183,11 @@ final class TapToneAnalyzer: ObservableObject {
             self.isAboveThreshold = false  // Reset edge detection state
             self.analyzerStartTime = Date()  // Reset warm-up timer
             
+            // Stop decay tracking
+            self.isTrackingDecay = false
+            self.decayTrackingTimer?.invalidate()
+            self.decayTrackingTimer = nil
+            
             // Unfreeze spectrum
             self.isSpectrumFrozen = false
             self.frozenFrequencies = []
@@ -1089,6 +1214,13 @@ final class TapToneAnalyzer: ObservableObject {
             self.currentTapCount = 0
             self.tapProgress = 0.0
             self.tapDetected = false
+            
+            // Reset decay tracking
+            self.currentDecayTime = nil
+            self.peakMagnitudeHistory = []
+            self.isTrackingDecay = false
+            self.decayTrackingTimer?.invalidate()
+            self.decayTrackingTimer = nil
             
             // IMPORTANT: Initialize threshold state based on current audio level
             // This prevents false "rising edge" detection when starting
@@ -1130,6 +1262,11 @@ final class TapToneAnalyzer: ObservableObject {
             self.tapProgress = 0.0
             self.tapDetected = false
             self.isDetecting = true
+            
+            // Stop decay tracking
+            self.isTrackingDecay = false
+            self.decayTrackingTimer?.invalidate()
+            self.decayTrackingTimer = nil
             
             // IMPORTANT: Initialize threshold state based on current audio level
             // This prevents false "rising edge" detection when cancelling

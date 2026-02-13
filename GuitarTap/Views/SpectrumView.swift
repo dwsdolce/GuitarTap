@@ -907,6 +907,24 @@ private struct PeakAnnotationLabel: View {
                 .fontWeight(.bold)
                 .foregroundColor(modeColor)
             
+            // Pitch information if available
+            if let pitchNote = peak.pitchNote, let pitchCents = peak.pitchCents {
+                HStack(spacing: 2) {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 8))
+                        .foregroundColor(.purple)
+                    Text(pitchNote)
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.purple)
+                }
+                
+                let sign = pitchCents >= 0 ? "+" : ""
+                Text("\(sign)\(Int(round(pitchCents))) ¢")
+                    .font(.caption2)
+                    .foregroundColor(.purple.opacity(0.8))
+            }
+            
             Text("\(peak.frequency, specifier: "%.1f") Hz")
                 .font(.caption2)
                 .fontWeight(.medium)
