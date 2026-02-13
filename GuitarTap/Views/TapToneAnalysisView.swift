@@ -1067,6 +1067,39 @@ struct TapToneAnalysisView: View {
     
     private var realTimeSpectrumView: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Prepare threshold lines for the chart
+            let thresholds: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])] = {
+                var lines: [(Float, String, Color, CGFloat, [CGFloat])] = []
+                
+                // Rising threshold (main threshold line)
+                let risingThreshold = tapToneAnalyzer.tapDetectionThreshold
+                if risingThreshold > minDB && risingThreshold < maxDB {
+                    lines.append((
+                        risingThreshold,
+                        "Trigger: \(Int(risingThreshold)) dB",
+                        .orange.opacity(0.7),
+                        2.0,
+                        [5, 3]
+                    ))
+                }
+                
+                // Falling threshold (hysteresis line)
+                if tapToneAnalyzer.hysteresisMargin > 0.5 {
+                    let fallingThreshold = risingThreshold - tapToneAnalyzer.hysteresisMargin
+                    if fallingThreshold > minDB && fallingThreshold < maxDB {
+                        lines.append((
+                            fallingThreshold,
+                            "Reset: \(Int(fallingThreshold)) dB",
+                            .purple.opacity(0.5),
+                            1.5,
+                            [3, 3]
+                        ))
+                    }
+                }
+                
+                return lines
+            }()
+            
             // Spectrum Chart
             SpectrumView(
                 frequencies: displayFrequencies,
@@ -1079,7 +1112,8 @@ struct TapToneAnalysisView: View {
                 peaks: tapToneAnalyzer.currentPeaks,
                 showModeBoundaries: true,
                 onFrequencyRangeChanged: updateFrequencyInputFields,
-                annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets
+                annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
+                thresholdLines: thresholds
             )
             // Force view to update when any relevant state changes
             .id("\(tapToneAnalyzer.isSpectrumFrozen)-\(fftAnalyzer.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
@@ -1117,68 +1151,6 @@ struct TapToneAnalysisView: View {
                             .onAppear {
                                 print("✅ Overlay: CHART VISIBLE (running=\(fftAnalyzer.isRunning), freq count=\(fftAnalyzer.frequencies.count), mag count=\(fftAnalyzer.magnitudes.count))")
                             }
-                    }
-                }
-            )
-            .overlay(
-                // Tap detection threshold line overlay - ALWAYS shown
-                GeometryReader { geometry in
-                    let chartPadding: CGFloat = 16
-                    let chartHeight = geometry.size.height - 2 * chartPadding
-                    let dbRange = maxDB - minDB
-                    
-                    // Rising threshold (main threshold line) - always visible
-                    // Use tapDetectionThreshold directly so it works even when not running
-                    let risingThreshold = tapToneAnalyzer.tapDetectionThreshold
-                    if risingThreshold > minDB && risingThreshold < maxDB {
-                        let normalizedPosition = CGFloat((risingThreshold - minDB) / dbRange)
-                        let yPosition = chartHeight * (1 - normalizedPosition) + chartPadding
-                        
-                        // Rising threshold line (orange)
-                        Path { path in
-                            path.move(to: CGPoint(x: chartPadding, y: yPosition))
-                            path.addLine(to: CGPoint(x: geometry.size.width - chartPadding, y: yPosition))
-                        }
-                        .stroke(style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
-                        .foregroundColor(.orange.opacity(0.7))
-                        
-                        // Label for rising threshold
-                        Text("Trigger: \(Int(risingThreshold)) dB")
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                            .foregroundColor(.orange)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.white.opacity(0.9))
-                            .cornerRadius(4)
-                            .position(x: geometry.size.width - 80, y: yPosition - 12)
-                    }
-                    
-                    // Falling threshold (hysteresis line) - only show if hysteresis > 0.5 dB
-                    if tapToneAnalyzer.hysteresisMargin > 0.5 {
-                        let fallingThreshold = risingThreshold - tapToneAnalyzer.hysteresisMargin
-                        if fallingThreshold > minDB && fallingThreshold < maxDB {
-                            let normalizedFallingPosition = CGFloat((fallingThreshold - minDB) / dbRange)
-                            let yFallingPosition = chartHeight * (1 - normalizedFallingPosition) + chartPadding
-                            
-                            // Falling threshold line (purple, lighter)
-                            Path { path in
-                                path.move(to: CGPoint(x: chartPadding, y: yFallingPosition))
-                                path.addLine(to: CGPoint(x: geometry.size.width - chartPadding, y: yFallingPosition))
-                            }
-                            .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
-                            .foregroundColor(.purple.opacity(0.5))
-                            
-                            // Label for falling threshold
-                            Text("Reset: \(Int(fallingThreshold)) dB")
-                                .font(.caption2)
-                                .foregroundColor(.purple.opacity(0.8))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.85))
-                                .cornerRadius(4)
-                                .position(x: chartPadding + 70, y: yFallingPosition - 12)
-                        }
                     }
                 }
             )

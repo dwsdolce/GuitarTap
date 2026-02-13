@@ -291,27 +291,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             print("⚠️ Microphone permission: UNKNOWN STATUS")
         }
         
-        // NEW APPROACH: Set the device BEFORE starting the engine
-        if let device = selectedInputDevice, let audioUnit = inputNode.audioUnit {
-            print("🎤 Configuring device BEFORE starting engine: \(device.name) (ID: \(device.deviceID))")
-            
-            var deviceID = device.deviceID
-            let status = AudioUnitSetProperty(
-                audioUnit,
-                kAudioOutputUnitProperty_CurrentDevice,
-                kAudioUnitScope_Global,
-                0,
-                &deviceID,
-                UInt32(MemoryLayout<AudioDeviceID>.size)
-            )
-            
-            if status != noErr {
-                print("⚠️ Could not pre-configure audio device (error \(status))")
-                print("   Will try to start with default and switch later")
-            } else {
-                print("✅ Successfully pre-configured audio device to: \(device.name)")
-            }
-        }
         #endif
         
         #if os(iOS)
@@ -349,6 +328,60 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         print("✅ Audio engine started")
         
         #if os(macOS)
+        // CRITICAL FIX: Manually start the audio unit if it's not running
+        // This is a workaround for a macOS bug where AVAudioEngine.start() succeeds
+        // but the underlying Audio Unit doesn't actually start
+        if let audioUnit = inputNode.audioUnit {
+            // Check if it's running
+            var isRunning: UInt32 = 0
+            var isRunningSize = UInt32(MemoryLayout<UInt32>.size)
+            var status = AudioUnitGetProperty(
+                audioUnit,
+                kAudioOutputUnitProperty_IsRunning,
+                kAudioUnitScope_Global,
+                0,
+                &isRunning,
+                &isRunningSize
+            )
+            
+            if status == noErr && isRunning == 0 {
+                print("⚠️ Audio unit not running after engine start - initializing and starting it...")
+                
+                // First, ensure the audio unit is initialized
+                status = AudioUnitInitialize(audioUnit)
+                if status != noErr && status != kAudioUnitErr_Initialized {
+                    print("⚠️ Failed to initialize audio unit (error \(status))")
+                } else if status == kAudioUnitErr_Initialized {
+                    print("ℹ️ Audio unit already initialized")
+                }
+                
+                // Now try to start it
+                status = AudioOutputUnitStart(audioUnit)
+                
+                if status == noErr {
+                    print("✅ Successfully started audio unit manually")
+                    
+                    // Verify it's now running
+                    AudioUnitGetProperty(
+                        audioUnit,
+                        kAudioOutputUnitProperty_IsRunning,
+                        kAudioUnitScope_Global,
+                        0,
+                        &isRunning,
+                        &isRunningSize
+                    )
+                    print("🔍 Audio unit now running: \(isRunning == 1 ? "YES" : "NO")")
+                } else {
+                    print("❌ Failed to start audio unit manually (error \(status))")
+                    print("   Error name: \(status == -10867 ? "kAudioUnitErr_Uninitialized" : status == -10875 ? "kAudioUnitErr_Uninitialized" : "Unknown")")
+                }
+            } else if status == noErr {
+                print("✅ Audio unit already running")
+            } else {
+                print("⚠️ Could not check audio unit status (error \(status))")
+            }
+        }
+        
         // Verify which device we're actually using
         if let audioUnit = inputNode.audioUnit {
             var actualDeviceID: AudioDeviceID = 0

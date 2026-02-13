@@ -85,6 +85,9 @@ struct SpectrumView: View {
     /// Optional binding to annotation offsets for draggable labels
     var annotationOffsets: Binding<[UUID: CGPoint]>?
     
+    /// Optional threshold lines to display (for tap detection visualization)
+    var thresholdLines: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])]?
+    
     // MARK: - Gesture State
     
     /// Tracks drag offset during pan gestures
@@ -277,6 +280,34 @@ struct SpectrumView: View {
         }
     }
     
+    /// Threshold lines chart content (for tap detection visualization)
+    @ChartContentBuilder
+    private var thresholdLinesContent: some ChartContent {
+        if let thresholds = thresholdLines {
+            ForEach(Array(thresholds.enumerated()), id: \.offset) { index, threshold in
+                // Only show threshold if it's within the visible dB range
+                if threshold.value >= minDB && threshold.value <= maxDB {
+                    RuleMark(y: .value("Threshold", threshold.value))
+                        .foregroundStyle(threshold.color)
+                        .lineStyle(StrokeStyle(lineWidth: threshold.lineWidth, dash: threshold.dash))
+                        .annotation(
+                            position: index == 0 ? .top : .bottom,
+                            alignment: index == 0 ? .trailing : .leading
+                        ) {
+                            Text(threshold.label)
+                                .font(.caption2)
+                                .fontWeight(index == 0 ? .medium : .regular)
+                                .foregroundColor(threshold.color)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.white.opacity(0.9))
+                                .cornerRadius(4)
+                        }
+                }
+            }
+        }
+    }
+    
     // MARK: - Body
     
     var body: some View {
@@ -309,6 +340,7 @@ struct SpectrumView: View {
             spectrumLineContent
             modeBoundaryContent
             peakAnnotationContent
+            thresholdLinesContent
         }
         .chartPlotStyle { plotArea in
             plotArea
