@@ -43,6 +43,9 @@ struct TapToneAnalysisView: View {
     @State private var minDBInput: String = String(format: "%.0f", SpectrumDisplaySettings.minMagnitude)
     @State private var maxDBInput: String = String(format: "%.0f", SpectrumDisplaySettings.maxMagnitude)
     
+    // Auto-scale dB state
+    @State private var isAutoScaleEnabled = false
+    
     // Environment
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.displayScale) var displayScale
@@ -136,6 +139,33 @@ struct TapToneAnalysisView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.tapToneAnalyzer.loadedNumberOfTaps = nil
                 }
+            }
+        }
+        .onReceive(fftAnalyzer.$magnitudes) { newMagnitudes in
+            // Auto-scale dB when enabled and spectrum updates
+            // Note: Check for non-empty magnitudes that aren't all -100 (initialization value)
+            let hasValidData = !newMagnitudes.isEmpty && newMagnitudes.contains { $0 > -99 }
+            if isAutoScaleEnabled && hasValidData && fftAnalyzer.isRunning {
+                autoScaleDB()
+            }
+        }
+        .onChange(of: fftAnalyzer.isRunning) { _, isNowRunning in
+            // When analyzer starts running, perform initial auto-scale if enabled
+            if isNowRunning && isAutoScaleEnabled {
+                // Wait a moment for first valid data to arrive
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if self.isAutoScaleEnabled && self.fftAnalyzer.isRunning {
+                        print("🔄 Auto-scale: Performing initial scale on analyzer start")
+                        self.autoScaleDB()
+                    }
+                }
+            }
+        }
+        .onChange(of: tapToneAnalyzer.isSpectrumFrozen) { _, isFrozen in
+            // Disable auto-scale when spectrum is frozen (tap detected)
+            if isFrozen && isAutoScaleEnabled {
+                isAutoScaleEnabled = false
+                print("🔄 Auto-scale dB disabled - tap detected, spectrum frozen")
             }
         }
     }
@@ -515,14 +545,15 @@ struct TapToneAnalysisView: View {
                         .buttonStyle(.bordered)
                         .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
                         
-                        // Auto-scale dB button
-                        Button(action: { autoScaleDB() }) {
-                            Label("Auto dB", systemImage: "arrow.up.and.down.text.horizontal")
+                        // Auto-scale dB toggle button
+                        Button(action: { toggleAutoScale() }) {
+                            Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                                 .font(.caption)
                         }
                         .buttonStyle(.bordered)
+                        .tint(isAutoScaleEnabled ? .blue : .gray)
                         .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
-                        .help("Auto-scale the dB range to fit the current signal")
+                        .help(isAutoScaleEnabled ? "Auto-scale dB enabled - tap to disable and reset" : "Enable auto-scale dB - will scale on each update")
                         
                         Spacer()
                         
@@ -613,13 +644,14 @@ struct TapToneAnalysisView: View {
             .buttonStyle(.bordered)
             .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
             
-            // Auto-scale dB button (iPad)
-            Button(action: { autoScaleDB() }) {
-                Label("Auto dB", systemImage: "arrow.up.and.down.text.horizontal")
+            // Auto-scale dB toggle button (iPad)
+            Button(action: { toggleAutoScale() }) {
+                Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
             }
             .buttonStyle(.bordered)
+            .tint(isAutoScaleEnabled ? .blue : .gray)
             .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
-            .help("Auto-scale the dB range to fit the current signal")
+            .help(isAutoScaleEnabled ? "Auto-scale dB enabled - tap to disable and reset" : "Enable auto-scale dB - will scale on each update")
             
             // Measurements button
             Button(action: { showingMeasurements = true }) {
@@ -705,13 +737,14 @@ struct TapToneAnalysisView: View {
             .buttonStyle(.bordered)
             .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
             
-            // Auto-scale dB button (macOS)
-            Button(action: { autoScaleDB() }) {
-                Label("Auto dB", systemImage: "arrow.up.and.down.text.horizontal")
+            // Auto-scale dB toggle button (macOS)
+            Button(action: { toggleAutoScale() }) {
+                Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
             }
             .buttonStyle(.bordered)
+            .tint(isAutoScaleEnabled ? .blue : .gray)
             .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
-            .help("Auto-scale the dB range to fit the current signal")
+            .help(isAutoScaleEnabled ? "Auto-scale dB enabled - click to disable and reset" : "Enable auto-scale dB - will scale on each update")
             
             // Measurements button
             Button(action: { showingMeasurements = true }) {
@@ -1220,20 +1253,20 @@ struct TapToneAnalysisView: View {
     }
     
     private func startAnalyzer() {
-        // Use DispatchQueue.global() to FORCE execution off the main thread
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                #if os(iOS)
-                // Configure audio session for iOS
-                let session = AVAudioSession.sharedInstance()
-                try session.setCategory(.record, mode: .measurement, options: [])
-                try session.setActive(true)
-                #endif
-                
-                try self.tapToneAnalyzer.start()
-            } catch {
-                print("❌ Failed to start analyzer: \(error)")
-            }
+        // AVAudioEngine.start() is safe to call from the main thread
+        // Don't dispatch to background - this can cause deadlocks when the engine
+        // tries to update @Published properties on main thread
+        do {
+            #if os(iOS)
+            // Configure audio session for iOS
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: [])
+            try session.setActive(true)
+            #endif
+            
+            try self.tapToneAnalyzer.start()
+        } catch {
+            print("❌ Failed to start analyzer: \(error)")
         }
     }
     
@@ -1342,6 +1375,30 @@ struct TapToneAnalysisView: View {
         maxDBInput = String(format: "%.0f", maxDB)
         
         print("📏 Auto-scaled dB range: \(String(format: "%.1f", minDB)) to \(String(format: "%.1f", maxDB)) dB (signal range: \(String(format: "%.1f", minMag)) to \(String(format: "%.1f", maxMag)) dB)")
+    }
+    
+    /// Toggles auto-scale mode on/off
+    private func toggleAutoScale() {
+        isAutoScaleEnabled.toggle()
+        
+        if isAutoScaleEnabled {
+            print("🔄 Auto-scale dB enabled - will scale on each update")
+            // Perform initial auto-scale
+            autoScaleDB()
+        } else {
+            print("🔄 Auto-scale dB disabled - resetting to default range")
+            // Reset to default values
+            resetDBToDefaults()
+        }
+    }
+    
+    /// Resets the dB range to default settings
+    private func resetDBToDefaults() {
+        minDB = SpectrumDisplaySettings.minMagnitude
+        maxDB = SpectrumDisplaySettings.maxMagnitude
+        minDBInput = String(format: "%.0f", minDB)
+        maxDBInput = String(format: "%.0f", maxDB)
+        print("↩️ Reset dB range to defaults: \(minDB) to \(maxDB) dB")
     }
 
     

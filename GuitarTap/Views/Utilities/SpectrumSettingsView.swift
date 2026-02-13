@@ -104,9 +104,6 @@ struct SpectrumSettingsView: View {
                         )
                     }
                     
-//                    Divider()
-//                        .padding(.vertical, 4)
-                    
                     // Magnitude Range
                     if isCompact {
                         compactFrequencyRangeView(
@@ -154,9 +151,6 @@ struct SpectrumSettingsView: View {
                         )
                     }
                     
-//                    Divider()
-//                        .padding(.vertical, 4)
-                    
                     // Peak Threshold
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Peak Detection Minimum")
@@ -193,18 +187,7 @@ struct SpectrumSettingsView: View {
                 // MARK: - Audio Input Device
                 if !fftAnalyzer.availableInputDevices.isEmpty {
                     Section {
-                        Picker("Audio Input Device", selection: Binding(
-                            get: { fftAnalyzer.selectedInputDevice ?? fftAnalyzer.availableInputDevices.first },
-                            set: { newDevice in
-                                if let device = newDevice {
-                                    do {
-                                        try fftAnalyzer.setInputDevice(device)
-                                    } catch {
-                                        print("❌ Failed to set input device: \(error)")
-                                    }
-                                }
-                            }
-                        )) {
+                        Picker("Audio Input Device", selection: $fftAnalyzer.selectedInputDevice) {
                             ForEach(fftAnalyzer.availableInputDevices) { device in
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(device.name)
@@ -219,6 +202,15 @@ struct SpectrumSettingsView: View {
                         #if os(iOS)
                         .pickerStyle(.navigationLink)
                         #endif
+                        .onChange(of: fftAnalyzer.selectedInputDevice) { oldDevice, newDevice in
+                            // When device changes, restart the analyzer if it's running
+                            guard let device = newDevice, device.uid != oldDevice?.uid else { return }
+                            
+                            print("🔄 Device selection changed to: \(device.name)")
+                            
+                            // No need to call setInputDevice here - just update the property
+                            // The next time start() is called, it will use this device
+                        }
                         
                         if let selectedDevice = fftAnalyzer.selectedInputDevice {
                             HStack {
