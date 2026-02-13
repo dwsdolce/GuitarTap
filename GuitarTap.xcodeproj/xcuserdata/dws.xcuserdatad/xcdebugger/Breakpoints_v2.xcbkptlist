@@ -78,10 +78,10 @@
             filePath = "GuitarTap/Models/RealtimeFFTAnalyzer.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "557"
-            endingLineNumber = "557"
-            landmarkName = "stop()"
-            landmarkType = "7">
+            startingLineNumber = "562"
+            endingLineNumber = "562"
+            landmarkName = "RealtimeFFTAnalyzer"
+            landmarkType = "3">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy

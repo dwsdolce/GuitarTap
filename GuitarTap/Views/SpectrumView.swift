@@ -180,37 +180,6 @@ struct SpectrumView: View {
 
     // MARK: - Chart Content Builders
     
-    /// Annotation overlay for draggable peak labels
-    @ViewBuilder
-    private var annotationOverlay: some View {
-        GeometryReader { plotGeometry in
-            ZStack {
-                ForEach(visiblePeaks) { peak in
-                    if let offsetBinding = annotationOffsets {
-                        DraggablePeakAnnotation(
-                            peak: peak,
-                            offset: offsetBinding.wrappedValue[peak.id] ?? .zero,
-                            chartGeometry: plotGeometry,
-                            minFreq: minFreq,
-                            maxFreq: maxFreq,
-                            minDB: minDB,
-                            maxDB: maxDB,
-                            isLogarithmic: isLogarithmic,
-                            onOffsetChange: { newOffset in
-                                offsetBinding.wrappedValue[peak.id] = newOffset
-                            },
-                            onReset: {
-                                offsetBinding.wrappedValue.removeValue(forKey: peak.id)
-                            }
-                        )
-                    }
-                }
-            }
-            .allowsHitTesting(true)
-        }
-        .allowsHitTesting(true)
-    }
-    
     /// Spectrum line chart content
     @ChartContentBuilder
     private var spectrumLineContent: some ChartContent {
@@ -334,6 +303,28 @@ struct SpectrumView: View {
             .gesture(panGesture)
     }
     
+    /// Helper to create GeometryReader wrapper for annotations
+    @ViewBuilder
+    private func annotationGeometryWrapper(proxy: ChartProxy) -> some View {
+        if annotationOffsets != nil, let plotAnchor = proxy.plotFrame {
+            GeometryReader { geometry in
+                let resolvedPlotFrame = geometry[plotAnchor]
+                PeakAnnotationsOverlay(
+                    peaks: visiblePeaks,
+                    annotationOffsets: annotationOffsets!,
+                    geometry: geometry,
+                    plotFrame: resolvedPlotFrame,
+                    minFreq: minFreq,
+                    maxFreq: maxFreq,
+                    minDB: minDB,
+                    maxDB: maxDB,
+                    isLogarithmic: isLogarithmic
+                )
+            }
+            .allowsHitTesting(true)
+        }
+    }
+    
     /// The base chart with plot style and scales
     private var baseChart: some View {
         Chart {
@@ -345,7 +336,9 @@ struct SpectrumView: View {
         .chartPlotStyle { plotArea in
             plotArea
                 .border(Color.gray, width: 1)
-                .overlay(annotationOverlay)
+        }
+        .chartOverlay { proxy in
+            annotationGeometryWrapper(proxy: proxy)
         }
         .allowsHitTesting(true)
         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
@@ -590,6 +583,47 @@ struct SpectrumView: View {
     }
 }
 
+// MARK: - Peak Annotations Overlay
+
+/// A container view for all peak annotations
+private struct PeakAnnotationsOverlay: View {
+    let peaks: [ResonantPeak]
+    let annotationOffsets: Binding<[UUID: CGPoint]>
+    let geometry: GeometryProxy
+    let plotFrame: CGRect
+    let minFreq: Float
+    let maxFreq: Float
+    let minDB: Float
+    let maxDB: Float
+    let isLogarithmic: Bool
+    
+    var body: some View {
+        ZStack {
+            ForEach(peaks) { peak in
+                DraggablePeakAnnotation(
+                    peak: peak,
+                    offset: annotationOffsets.wrappedValue[peak.id] ?? .zero,
+                    chartGeometry: geometry,
+                    plotFrame: plotFrame,
+                    minFreq: minFreq,
+                    maxFreq: maxFreq,
+                    minDB: minDB,
+                    maxDB: maxDB,
+                    isLogarithmic: isLogarithmic,
+                    onOffsetChange: { newOffset in
+                        annotationOffsets.wrappedValue[peak.id] = newOffset
+                    },
+                    onReset: {
+                        annotationOffsets.wrappedValue.removeValue(forKey: peak.id)
+                    }
+                )
+            }
+        }
+        .allowsHitTesting(true)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
 // MARK: - Draggable Peak Annotation
 
 /// A draggable annotation view for peak labels that can be repositioned to prevent overlap
@@ -597,6 +631,7 @@ struct DraggablePeakAnnotation: View {
     let peak: ResonantPeak
     let offset: CGPoint
     let chartGeometry: GeometryProxy
+    let plotFrame: CGRect
     let minFreq: Float
     let maxFreq: Float
     let minDB: Float
@@ -634,8 +669,9 @@ struct DraggablePeakAnnotation: View {
     
     /// Calculate position in chart coordinates
     private func calculateChartPosition() -> CGPoint {
-        let chartWidth = chartGeometry.size.width
-        let chartHeight = chartGeometry.size.height
+        // Use the plot frame dimensions for accurate positioning
+        let chartWidth = plotFrame.width
+        let chartHeight = plotFrame.height
         
         // Calculate X position (frequency)
         let freqRange = maxFreq - minFreq
@@ -648,20 +684,21 @@ struct DraggablePeakAnnotation: View {
         } else {
             freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
         }
-        let x = freqNormalized * chartWidth
+        let x = plotFrame.minX + freqNormalized * chartWidth
         
         // Calculate Y position (magnitude) - inverted because chart Y goes down
         let dbRange = maxDB - minDB
         let dbNormalized = CGFloat((peak.magnitude - minDB) / dbRange)
-        let y = (1.0 - dbNormalized) * chartHeight
+        let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
         
         return CGPoint(x: x, y: y - 70) // Offset up by 70 to place above peak
     }
     
     /// Position of the actual peak marker (without the label offset)
     private func calculatePeakPosition() -> CGPoint {
-        let chartWidth = chartGeometry.size.width
-        let chartHeight = chartGeometry.size.height
+        // Use the plot frame dimensions for accurate positioning
+        let chartWidth = plotFrame.width
+        let chartHeight = plotFrame.height
         
         // Calculate X position (frequency)
         let freqRange = maxFreq - minFreq
@@ -674,12 +711,12 @@ struct DraggablePeakAnnotation: View {
         } else {
             freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
         }
-        let x = freqNormalized * chartWidth
+        let x = plotFrame.minX + freqNormalized * chartWidth
         
         // Calculate Y position (magnitude) - inverted because chart Y goes down
         let dbRange = maxDB - minDB
         let dbNormalized = CGFloat((peak.magnitude - minDB) / dbRange)
-        let y = (1.0 - dbNormalized) * chartHeight
+        let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
         
         return CGPoint(x: x, y: y) // No offset - this is the actual peak position
     }
@@ -695,8 +732,8 @@ struct DraggablePeakAnnotation: View {
     var body: some View {
         // Separate the connection line and label into distinct layers
         ZStack(alignment: .topLeading) {
-            // Connection line layer - only updates when positions change
-            if isMoved || isDragging {
+            // Connection line layer - always show when we have valid positions
+            if cachedPeakPosition != .zero && cachedChartPosition != .zero {
                 ConnectionLine(
                     from: cachedPeakPosition,
                     to: CGPoint(
@@ -759,12 +796,21 @@ struct DraggablePeakAnnotation: View {
                 }
                 .disabled(!isMoved)
             }
+            #if os(macOS)
             .help(isMoved ? "Drag to adjust • Right-click to reset position" : "Drag to reposition label")
+            #endif
         }
         .onAppear {
-            // Initialize cached positions
+            // Initialize cached positions immediately on appear
             cachedChartPosition = calculateChartPosition()
             cachedPeakPosition = calculatePeakPosition()
+        }
+        .task {
+            // Also calculate on initial render to ensure we have positions ASAP
+            if cachedChartPosition == .zero {
+                cachedChartPosition = calculateChartPosition()
+                cachedPeakPosition = calculatePeakPosition()
+            }
         }
         .onChange(of: minFreq) { _, _ in
             if !isDragging {
@@ -849,7 +895,9 @@ private struct PeakAnnotationLabel: View {
                         Image(systemName: "arrow.uturn.backward.circle.fill")
                             .font(.system(size: 8))
                             .foregroundColor(.secondary)
+                            #if os(macOS)
                             .help("Right-click to reset")
+                            #endif
                     }
                 }
             }

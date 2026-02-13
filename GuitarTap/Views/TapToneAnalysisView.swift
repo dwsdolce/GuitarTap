@@ -448,17 +448,16 @@ struct TapToneAnalysisView: View {
             
             Divider()
             
-            // Main content
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Real-time Frequency Response Display
-                    realTimeSpectrumView
-                    
-                    // Decay time (keep this in main view for quick reference)
-                    decayTimeView
-                }
-                .padding()
+            // Main content - allow spectrum to fill available space
+            VStack(spacing: 20) {
+                // Real-time Frequency Response Display - expands to fill space
+                realTimeSpectrumView
+                
+                // Decay time (keep this in main view for quick reference)
+                decayTimeView
+                    .padding(.horizontal)
             }
+            .padding(.vertical)
             
             // Fixed status bar at bottom
             Divider()
@@ -553,20 +552,11 @@ struct TapToneAnalysisView: View {
                         .buttonStyle(.bordered)
                         .tint(isAutoScaleEnabled ? .blue : .gray)
                         .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
+                        #if os(macOS)
                         .help(isAutoScaleEnabled ? "Auto-scale dB enabled - tap to disable and reset" : "Enable auto-scale dB - will scale on each update")
+                        #endif
                         
                         Spacer()
-                        
-                        // Reset annotation positions button
-                        if !tapToneAnalyzer.peakAnnotationOffsets.isEmpty {
-                            Button(action: {
-                                tapToneAnalyzer.resetAllAnnotationOffsets()
-                            }) {
-                                Label("Reset Labels", systemImage: "arrow.uturn.backward")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.bordered)
-                        }
                     }
                 }
             } else {
@@ -596,93 +586,93 @@ struct TapToneAnalysisView: View {
     }
     
     #if os(iOS)
-    /// iPad button layout - full labels
+    /// iPad button layout - full labels in two rows
     @ViewBuilder
     private var ipadHeaderButtons: some View {
-        HStack(spacing: 8) {
-            // Start/Stop button
-            Button(action: toggleAnalyzer) {
-                Label(
-                    fftAnalyzer.isRunning ? "Stop" : "Start",
-                    systemImage: fftAnalyzer.isRunning ? "stop.circle.fill" : "play.circle.fill"
-                )
-                .foregroundColor(fftAnalyzer.isRunning ? .red : .green)
-            }
-            .buttonStyle(.bordered)
-            
-            Spacer()
-            
-            // Results button
-            Button(action: { showingResults.toggle() }) {
-                Label(
-                    showingResults ? "Hide Results" : "Show Results",
-                    systemImage: showingResults ? "doc.text.fill" : "doc.text"
-                )
-            }
-            .buttonStyle(.bordered)
-            
-            // Metrics button
-            Button(action: { showingMetrics.toggle() }) {
-                Label(
-                    showingMetrics ? "Hide Metrics" : "Show Metrics",
-                    systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar"
-                )
-            }
-            .buttonStyle(.bordered)
-            
-            // Save button
-            Button(action: { showingSaveSheet = true }) {
-                Label("Save", systemImage: "square.and.arrow.down")
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(tapToneAnalyzer.currentPeaks.isEmpty)
-            
-            // Export Spectrum button
-            Button(action: { exportCurrentSpectrum() }) {
-                Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
-            }
-            .buttonStyle(.bordered)
-            .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
-            
-            // Auto-scale dB toggle button (iPad)
-            Button(action: { toggleAutoScale() }) {
-                Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
-            }
-            .buttonStyle(.bordered)
-            .tint(isAutoScaleEnabled ? .blue : .gray)
-            .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
-            .help(isAutoScaleEnabled ? "Auto-scale dB enabled - tap to disable and reset" : "Enable auto-scale dB - will scale on each update")
-            
-            // Measurements button
-            Button(action: { showingMeasurements = true }) {
-                Label("Measurements", systemImage: "list.bullet.clipboard")
-                if !tapToneAnalyzer.savedMeasurements.isEmpty {
-                    Text("(\(tapToneAnalyzer.savedMeasurements.count))")
-                        .font(.caption)
-                }
-            }
-            .buttonStyle(.bordered)
-            
-            // Reset button
-            Button(action: tapToneAnalyzer.reset) {
-                Label("Reset", systemImage: "arrow.counterclockwise")
-            }
-            .buttonStyle(.bordered)
-            
-            // Settings button
-            Button(action: { showingSettings = true }) {
-                Label("Settings", systemImage: "gearshape")
-            }
-            .buttonStyle(.bordered)
-            
-            // Reset annotation positions button
-            if !tapToneAnalyzer.peakAnnotationOffsets.isEmpty {
-                Button(action: {
-                    tapToneAnalyzer.resetAllAnnotationOffsets()
-                }) {
-                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
+        VStack(spacing: 8) {
+            // Row 1: Primary controls
+            HStack(spacing: 8) {
+                // Start/Stop button
+                Button(action: toggleAnalyzer) {
+                    Label(
+                        fftAnalyzer.isRunning ? "Stop" : "Start",
+                        systemImage: fftAnalyzer.isRunning ? "stop.circle.fill" : "play.circle.fill"
+                    )
+                    .foregroundColor(fftAnalyzer.isRunning ? .red : .green)
                 }
                 .buttonStyle(.bordered)
+                
+                Spacer()
+                
+                // Results button
+                Button(action: { showingResults.toggle() }) {
+                    Label(
+                        showingResults ? "Hide Results" : "Show Results",
+                        systemImage: showingResults ? "doc.text.fill" : "doc.text"
+                    )
+                }
+                .buttonStyle(.bordered)
+                
+                // Metrics button
+                Button(action: { showingMetrics.toggle() }) {
+                    Label(
+                        showingMetrics ? "Hide Metrics" : "Show Metrics",
+                        systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar"
+                    )
+                }
+                .buttonStyle(.bordered)
+                
+                // Save button
+                Button(action: { showingSaveSheet = true }) {
+                    Label("Save", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(tapToneAnalyzer.currentPeaks.isEmpty)
+                
+                // Measurements button
+                Button(action: { showingMeasurements = true }) {
+                    Label("Measurements", systemImage: "list.bullet.clipboard")
+                    if !tapToneAnalyzer.savedMeasurements.isEmpty {
+                        Text("(\(tapToneAnalyzer.savedMeasurements.count))")
+                            .font(.caption)
+                    }
+                }
+                .buttonStyle(.bordered)
+                
+                // Settings button
+                Button(action: { showingSettings = true }) {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .buttonStyle(.bordered)
+            }
+            
+            // Row 2: Secondary controls
+            HStack(spacing: 8) {
+                // Export Spectrum button
+                Button(action: { exportCurrentSpectrum() }) {
+                    Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
+                
+                // Auto-scale dB toggle button (iPad)
+                Button(action: { toggleAutoScale() }) {
+                    Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                }
+                .buttonStyle(.bordered)
+                .tint(isAutoScaleEnabled ? .blue : .gray)
+                .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
+                #if os(macOS)
+                .help(isAutoScaleEnabled ? "Auto-scale dB enabled - tap to disable and reset" : "Enable auto-scale dB - will scale on each update")
+                #endif
+                
+                // Reset button
+                Button(action: tapToneAnalyzer.reset) {
+                    Label("Reset", systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+                
+                Spacer()
             }
         }
     }
@@ -744,7 +734,9 @@ struct TapToneAnalysisView: View {
             .buttonStyle(.bordered)
             .tint(isAutoScaleEnabled ? .blue : .gray)
             .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
+            #if os(macOS)
             .help(isAutoScaleEnabled ? "Auto-scale dB enabled - click to disable and reset" : "Enable auto-scale dB - will scale on each update")
+            #endif
             
             // Measurements button
             Button(action: { showingMeasurements = true }) {
@@ -931,17 +923,26 @@ struct TapToneAnalysisView: View {
                     .foregroundColor(.orange)
                 }
                 
-                // Resume button (when sequence is complete)
-                if tapToneAnalyzer.tapProgress >= 1.0 {
-                    Button(action: {
-                        tapToneAnalyzer.resumeDetection()
-                    }) {
-                        Label("Resume", systemImage: "arrow.clockwise")
-                            .font(.subheadline)
-                    }
-                    .buttonStyle(.bordered)
-                    .foregroundColor(.blue)
+                // Resume button (always visible, disabled when not applicable)
+                Button(action: {
+                    tapToneAnalyzer.resumeDetection()
+                }) {
+                    Label("Resume", systemImage: "arrow.clockwise")
+                        .font(.subheadline)
                 }
+                .buttonStyle(.bordered)
+                .foregroundColor(.blue)
+                .disabled(tapToneAnalyzer.tapProgress < 1.0)
+                
+                // Reset annotation positions button (always visible)
+                Button(action: {
+                    tapToneAnalyzer.resetAllAnnotationOffsets()
+                }) {
+                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.bordered)
+                .disabled(tapToneAnalyzer.peakAnnotationOffsets.count == 0)
             }
         }
         .padding(12)
@@ -1026,30 +1027,24 @@ struct TapToneAnalysisView: View {
                 .foregroundColor(.orange)
             }
             
-            // Resume button (when sequence is complete)
-            if tapToneAnalyzer.tapProgress >= 1.0 {
-                Button(action: {
-                    tapToneAnalyzer.resumeDetection()
-                }) {
-                    Label("Resume", systemImage: "arrow.clockwise")
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.blue)
+            // Resume button (always visible, disabled when not applicable)
+            Button(action: {
+                tapToneAnalyzer.resumeDetection()
+            }) {
+                Label("Resume", systemImage: "arrow.clockwise")
             }
+            .buttonStyle(.bordered)
+            .foregroundColor(.blue)
+            .disabled(tapToneAnalyzer.tapProgress < 1.0)
             
-            #if os(macOS)
-            // Reset annotation positions button (macOS only - iOS has it in header)
-            if !tapToneAnalyzer.peakAnnotationOffsets.isEmpty {
-                Button(action: {
-                    tapToneAnalyzer.resetAllAnnotationOffsets()
-                }) {
-                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.secondary)
-                .help("Reset all peak label positions to default")
+            // Reset annotation positions button (always visible, next to Resume)
+            Button(action: {
+                tapToneAnalyzer.resetAllAnnotationOffsets()
+            }) {
+                Label("Reset Labels", systemImage: "arrow.uturn.backward")
             }
-            #endif
+            .buttonStyle(.bordered)
+            .disabled(tapToneAnalyzer.peakAnnotationOffsets.count == 0)
         }
         .padding(12)
         .background(Color.secondary.opacity(0.1))
@@ -1117,7 +1112,7 @@ struct TapToneAnalysisView: View {
             )
             // Force view to update when any relevant state changes
             .id("\(tapToneAnalyzer.isSpectrumFrozen)-\(fftAnalyzer.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
-            .frame(minHeight: 250, maxHeight: 400)
+            .frame(minHeight: 250, maxHeight: .infinity)  // Allow to expand vertically
             .padding()
             .background(Color.gray.opacity(0.05))
             .cornerRadius(10)
@@ -1464,7 +1459,7 @@ struct TapToneAnalysisView: View {
                 peaks: tapToneAnalyzer.currentPeaks,
                 showModeBoundaries: true,
                 onFrequencyRangeChanged: {},
-                annotationOffsets: .constant([:])
+                annotationOffsets: .constant(tapToneAnalyzer.peakAnnotationOffsets)
             )
             .frame(width: 1400, height: 800)
             .padding()

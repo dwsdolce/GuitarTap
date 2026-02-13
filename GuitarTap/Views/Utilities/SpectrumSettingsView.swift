@@ -232,6 +232,77 @@ struct SpectrumSettingsView: View {
                     }
                 }
                 
+                // MARK: - FFT Processing Settings
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Hop Size Overlap")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            Spacer()
+                            
+                            Text("\(Int(fftAnalyzer.hopSizeOverlap))%")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.blue)
+                                .frame(width: 50, alignment: .trailing)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Text("0%")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Slider(value: $fftAnalyzer.hopSizeOverlap, in: 0...75, step: 5)
+                            
+                            Text("75%")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Controls the overlap between FFT windows. Higher overlap provides smoother results but reduces frame rate.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            
+                            if fftAnalyzer.hopSizeOverlap == 0 {
+                                Text("0% overlap: Maximum frame rate, no smoothing")
+                                    .font(.caption2)
+                                    .foregroundColor(.blue)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else if fftAnalyzer.hopSizeOverlap <= 25 {
+                                Text("Low overlap: Fast response with minimal smoothing")
+                                    .font(.caption2)
+                                    .foregroundColor(.green)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else if fftAnalyzer.hopSizeOverlap <= 50 {
+                                Text("Medium overlap: Balanced response and smoothness")
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                Text("High overlap: Smooth results, slower response")
+                                    .font(.caption2)
+                                    .foregroundColor(.red)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .onChange(of: fftAnalyzer.hopSizeOverlap) { _, _ in
+                        // Update metrics when hop size changes
+                        // Note: This will only take effect after the analyzer is restarted
+                    }
+                } header: {
+                    Label("FFT Processing", systemImage: "waveform.path")
+                        .font(.headline)
+                } footer: {
+                    Text("Changes to hop size will take effect the next time the analyzer is started.")
+                        .font(.caption)
+                }
+                
                 // MARK: - Reset to Defaults
                 Section {
                     Button {

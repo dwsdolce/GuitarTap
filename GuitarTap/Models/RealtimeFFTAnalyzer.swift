@@ -92,6 +92,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// - Note: This is determined at runtime when the audio engine starts
     private var actualSampleRate: Double = 0
     
+    /// Hop size overlap percentage (0-75%)
+    /// - Note: 0% = no overlap (hop size = fftSize), 75% = maximum overlap (hop size = fftSize/4)
+    /// - Default: 0% for maximum frame rate
+    @Published var hopSizeOverlap: Float = 0
+    
     // MARK: - Audio Buffers
     
     /// Accumulates incoming audio samples until there's enough data for FFT processing
@@ -654,14 +659,22 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         let bw = sampleRate / 2.0
         let sampleLen = fftSizeFloat / sampleRate
         
-        // Frame rate calculation based on 25% overlap (hop size = fftSize * 3/4)
-        let hopSize = fftSizeFloat * 3.0 / 4.0  // 25% overlap
+        // Frame rate calculation based on hop size overlap setting
+        // overlap% -> hop size multiplier
+        // 0% -> 1.0 (no overlap, hop = fftSize)
+        // 25% -> 0.75 (hop = fftSize * 3/4)
+        // 50% -> 0.5 (hop = fftSize / 2)
+        // 75% -> 0.25 (hop = fftSize / 4)
+        let overlapFraction = hopSizeOverlap / 100.0
+        let hopSizeMultiplier = 1.0 - overlapFraction
+        let hopSize = fftSizeFloat * hopSizeMultiplier
         let fr = sampleRate / hopSize
         
         print("=== Analysis Metrics ===")
         print("Frequency Resolution: \(freqRes) Hz")
         print("Bandwidth: \(bw) Hz (0 Hz to \(bw) Hz)")
         print("Sample Length: \(sampleLen * 1000) ms (\(sampleLen) seconds)")
+        print("Hop Size: \(Int(hopSize)) samples (\(Int(hopSizeOverlap))% overlap)")
         print("Frame Rate: \(fr) Hz")
         print("=======================")
         
@@ -711,7 +724,16 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
         
         // Process when we have enough samples for an FFT
-        // Use 25% overlap (hop size = fftSize * 3/4) for balance between smoothness and responsiveness
+        // Calculate hop size based on overlap setting
+        // overlap% -> hop size multiplier
+        // 0% -> 1.0 (no overlap, hop = fftSize)
+        // 25% -> 0.75 (hop = fftSize * 3/4)
+        // 50% -> 0.5 (hop = fftSize / 2)
+        // 75% -> 0.25 (hop = fftSize / 4)
+        let overlapFraction = hopSizeOverlap / 100.0
+        let hopSizeMultiplier = 1.0 - overlapFraction
+        let hopSize = Int(Float(fftSize) * hopSizeMultiplier)
+        
         var shouldContinue = true
         while shouldContinue {
             var chunk: [Float]?
@@ -722,14 +744,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                     // Extract a chunk of samples
                     chunk = Array(inputBuffer.prefix(fftSize))
                     
-                    // Remove 75% of samples (25% overlap)
-                    // This provides better frame rate while maintaining some smoothness
-                    // Options:
-                    // - fftSize (0% overlap) = maximum frame rate
-                    // - fftSize * 3/4 (25% overlap) = balanced
-                    // - fftSize / 2 (50% overlap) = smoothest but slowest
-                    inputBuffer.removeFirst(fftSize * 3 / 4)  // 25% overlap
-//                    inputBuffer.removeFirst(fftSize / 2)  // 50% overlap (old)
+                    // Remove samples based on hop size
+                    inputBuffer.removeFirst(hopSize)
 
                 } else {
                     shouldContinue = false
