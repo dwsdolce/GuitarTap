@@ -96,6 +96,9 @@ struct SpectrumView: View {
     /// Tracks magnification scale during pinch gestures
     @GestureState private var magnificationScale: CGFloat = 1.0
     
+    /// Tracks whether an annotation is currently being dragged
+    @State private var isAnnotationDragging: Bool = false
+    
     // MARK: - Computed Properties
     
     /// Filters and converts the frequency/magnitude arrays into chart data points.
@@ -281,9 +284,37 @@ struct SpectrumView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            Text("FFT Peaks")
-                .font(.headline)
-                .padding(.bottom, 8)
+            HStack {
+                Text("FFT Peaks")
+                    .font(.headline)
+                
+                Spacer()
+                
+                #if os(macOS)
+                Image(systemName: "info.circle")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .onHover { hovering in
+                        if hovering {
+                            NSCursor.pointingHand.push()
+                        } else {
+                            NSCursor.pop()
+                        }
+                    }
+                    .help("""
+                    Zoom & Pan Controls:
+                    • Scroll: Pan view
+                    • ⌘ + Scroll: Zoom both axes
+                    • ⌃ + Scroll: Zoom both axes
+                    • ⌥ + Scroll: Zoom frequency (horizontal)
+                    • ⇧ + Scroll: Zoom magnitude (vertical)
+                    • Pinch: Zoom (trackpad)
+                    • Drag: Pan view
+                    • Right-click: Reset axes
+                    """)
+                #endif
+            }
+            .padding(.bottom, 8)
             
             chartView
         }
@@ -293,14 +324,31 @@ struct SpectrumView: View {
     private var chartView: some View {
         baseChart
             .chartXAxis { xAxisContent }
-            .chartXAxisLabel("Frequency (Hz)", alignment: .center)
+            .chartXAxisLabel(alignment: .center) {
+                Text("Frequency (Hz)")
+                    .padding(4)
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        Button(action: resetFrequencyAxis) {
+                            Label("Reset Frequency Axis", systemImage: "arrow.counterclockwise")
+                        }
+                    }
+            }
             .chartYAxis { yAxisContent }
             .chartYAxisLabel(position: .leading, alignment: .center) {
                 Text("FFT Magnitude (dB)")
                     .rotationEffect(.degrees(180))
+                    .padding(4)
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        Button(action: resetMagnitudeAxis) {
+                            Label("Reset Magnitude Axis", systemImage: "arrow.counterclockwise")
+                        }
+                    }
             }
-            .gesture(zoomGesture)
-            .gesture(panGesture)
+            // Only allow chart gestures when not dragging annotations
+            .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
+            .simultaneousGesture(isAnnotationDragging ? nil : panGesture)
     }
     
     /// Helper to create GeometryReader wrapper for annotations
@@ -318,10 +366,10 @@ struct SpectrumView: View {
                     maxFreq: maxFreq,
                     minDB: minDB,
                     maxDB: maxDB,
-                    isLogarithmic: isLogarithmic
+                    isLogarithmic: isLogarithmic,
+                    isAnnotationDragging: $isAnnotationDragging
                 )
             }
-            .allowsHitTesting(true)
         }
     }
     
@@ -336,13 +384,33 @@ struct SpectrumView: View {
         .chartPlotStyle { plotArea in
             plotArea
                 .border(Color.gray, width: 1)
+                .contentShape(Rectangle())
+                .contextMenu {
+                    Button(action: resetBothAxes) {
+                        Label("Reset Both Axes", systemImage: "arrow.counterclockwise")
+                    }
+                    
+                    Divider()
+                    
+                    Button(action: resetFrequencyAxis) {
+                        Label("Reset Frequency Axis", systemImage: "arrow.clockwise")
+                    }
+                    
+                    Button(action: resetMagnitudeAxis) {
+                        Label("Reset Magnitude Axis", systemImage: "arrow.up.and.down")
+                    }
+                }
         }
         .chartOverlay { proxy in
             annotationGeometryWrapper(proxy: proxy)
         }
-        .allowsHitTesting(true)
         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
         .chartYScale(domain: Double(minDB)...Double(maxDB))
+        #if os(macOS)
+        .onScrollWheel { event in
+            handleScrollWheel(event: event)
+        }
+        #endif
     }
     
     /// X-axis content builder
@@ -392,6 +460,34 @@ struct SpectrumView: View {
     
     // MARK: - Helper Functions
     
+    /// Resets both frequency and magnitude axes to their default values
+    private func resetBothAxes() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            minFreq = SpectrumDisplaySettings.minFrequency
+            maxFreq = SpectrumDisplaySettings.maxFrequency
+            minDB = SpectrumDisplaySettings.minMagnitude
+            maxDB = SpectrumDisplaySettings.maxMagnitude
+        }
+        onFrequencyRangeChanged?()
+    }
+    
+    /// Resets the frequency axis to its default range
+    private func resetFrequencyAxis() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            minFreq = SpectrumDisplaySettings.minFrequency
+            maxFreq = SpectrumDisplaySettings.maxFrequency
+        }
+        onFrequencyRangeChanged?()
+    }
+    
+    /// Resets the magnitude axis to its default range
+    private func resetMagnitudeAxis() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            minDB = SpectrumDisplaySettings.minMagnitude
+            maxDB = SpectrumDisplaySettings.maxMagnitude
+        }
+    }
+    
     /// Returns the color associated with a guitar mode
     private func modeColor(for mode: GuitarMode) -> Color {
         switch mode {
@@ -426,6 +522,165 @@ struct SpectrumView: View {
     }
     
     // MARK: - Gesture Handlers
+    
+    #if os(macOS)
+    /// Handles scroll wheel events for zooming and panning on macOS
+    ///
+    /// - No modifiers: Pan view (scroll)
+    /// - Command key: Zoom both axes
+    /// - Option key: Zoom frequency axis only (horizontal)
+    /// - Shift key: Zoom magnitude axis only (vertical)
+    ///
+    /// - Parameter event: The scroll wheel event from AppKit
+    private func handleScrollWheel(event: NSEvent) {
+        let scrollDeltaY = event.scrollingDeltaY
+        let scrollDeltaX = event.scrollingDeltaX
+        
+        // Check modifiers - be explicit about checking individual flags
+        let modifiers = event.modifierFlags
+        let hasCommand = modifiers.contains(.command)
+        let hasShift = modifiers.contains(.shift)
+        let hasOption = modifiers.contains(.option)
+        let hasControl = modifiers.contains(.control)
+        
+        // Debug: Print scroll deltas and modifiers
+        #if DEBUG
+        if hasCommand || hasShift || hasOption || hasControl {
+            print("Scroll - deltaY: \(scrollDeltaY), deltaX: \(scrollDeltaX)")
+            print("Modifiers - Command: \(hasCommand), Shift: \(hasShift), Option: \(hasOption), Control: \(hasControl)")
+        }
+        #endif
+        
+        // Skip very small deltas (noise from trackpad)
+        guard abs(scrollDeltaY) > 0.1 || abs(scrollDeltaX) > 0.1 else { return }
+        
+        // When Shift is pressed, use whichever delta is larger for zooming
+        // (Shift can sometimes convert vertical scroll to horizontal on some systems)
+        let effectiveDelta = abs(scrollDeltaY) > abs(scrollDeltaX) ? scrollDeltaY : scrollDeltaX
+        
+        // Determine zoom factor from scroll delta (smaller changes for smoother zoom)
+        let zoomSensitivity: CGFloat = 0.02
+        let zoomFactor = 1.0 + (effectiveDelta * zoomSensitivity)
+        
+        // Check in order of priority
+        if hasCommand && !hasShift && !hasOption {
+            // Command (with or without Control): Zoom both axes
+            #if DEBUG
+            print("→ Zooming both axes")
+            #endif
+            withAnimation(.easeOut(duration: 0.1)) {
+                handleZoom(scale: zoomFactor)
+            }
+        } else if hasShift && !hasCommand && !hasOption {
+            // Shift (with or without Control): Zoom magnitude axis only
+            #if DEBUG
+            print("→ Zooming magnitude axis (zoom factor: \(zoomFactor))")
+            #endif
+            withAnimation(.easeOut(duration: 0.1)) {
+                handleMagnitudeZoom(scale: zoomFactor)
+            }
+        } else if hasOption && !hasCommand && !hasShift {
+            // Option (with or without Control): Zoom frequency axis only
+            #if DEBUG
+            print("→ Zooming frequency axis")
+            #endif
+            withAnimation(.easeOut(duration: 0.1)) {
+                handleFrequencyZoom(scale: zoomFactor)
+            }
+        } else if hasControl && !hasCommand && !hasShift && !hasOption {
+            // Control only: Also zoom both axes (alternative to Command)
+            #if DEBUG
+            print("→ Zooming both axes (Control)")
+            #endif
+            withAnimation(.easeOut(duration: 0.1)) {
+                handleZoom(scale: zoomFactor)
+            }
+        } else if !hasCommand && !hasShift && !hasOption && !hasControl {
+            // No modifiers: Pan the view
+            let translation = CGSize(width: scrollDeltaX, height: scrollDeltaY)
+            withAnimation(.easeOut(duration: 0.1)) {
+                handlePan(translation: translation)
+            }
+        } else {
+            #if DEBUG
+            print("→ Ignoring modifier combination")
+            #endif
+        }
+        // Ignore any combination of modifiers
+    }
+    
+    /// Zooms only the frequency (X) axis
+    private func handleFrequencyZoom(scale: CGFloat) {
+        if isLogarithmic {
+            let freqLogCenter = (log10(Double(maxFreq)) + log10(Double(minFreq))) / 2
+            let freqLogRange = log10(Double(maxFreq)) - log10(Double(minFreq))
+            let newFreqLogRange = freqLogRange / Double(scale)
+            
+            var newMinFreq = Float(pow(10, freqLogCenter - newFreqLogRange / 2))
+            var newMaxFreq = Float(pow(10, freqLogCenter + newFreqLogRange / 2))
+            
+            newMinFreq = max(20, newMinFreq)
+            newMaxFreq = min(20000, newMaxFreq)
+            
+            if newMaxFreq > newMinFreq * 1.1 {
+                minFreq = newMinFreq
+                maxFreq = newMaxFreq
+                onFrequencyRangeChanged?()
+            }
+        } else {
+            let freqCenter = (maxFreq + minFreq) / 2
+            let freqRange = maxFreq - minFreq
+            let newFreqRange = freqRange / Float(scale)
+            
+            var newMinFreq = freqCenter - newFreqRange / 2
+            var newMaxFreq = freqCenter + newFreqRange / 2
+            
+            newMinFreq = max(20, newMinFreq)
+            newMaxFreq = min(20000, newMaxFreq)
+            
+            if newMaxFreq > newMinFreq + 100 {
+                minFreq = newMinFreq
+                maxFreq = newMaxFreq
+                onFrequencyRangeChanged?()
+            }
+        }
+    }
+    
+    /// Zooms only the magnitude (Y) axis
+    private func handleMagnitudeZoom(scale: CGFloat) {
+        #if DEBUG
+        print("  handleMagnitudeZoom called with scale: \(scale)")
+        print("  Current dB range: \(minDB) to \(maxDB)")
+        #endif
+        
+        let dbCenter = (maxDB + minDB) / 2
+        let dbRange = maxDB - minDB
+        let newDBRange = dbRange / Float(scale)
+        
+        var newMinDB = dbCenter - newDBRange / 2
+        var newMaxDB = dbCenter + newDBRange / 2
+        
+        newMinDB = max(-120, newMinDB)
+        newMaxDB = min(20, newMaxDB)
+        
+        #if DEBUG
+        print("  Calculated new dB range: \(newMinDB) to \(newMaxDB)")
+        print("  Condition check: \(newMaxDB) > \(newMinDB) + 10 = \(newMaxDB > newMinDB + 10)")
+        #endif
+        
+        if newMaxDB > newMinDB + 10 {
+            minDB = newMinDB
+            maxDB = newMaxDB
+            #if DEBUG
+            print("  ✓ Updated dB range to: \(minDB) to \(maxDB)")
+            #endif
+        } else {
+            #if DEBUG
+            print("  ✗ Did not update (minimum range not met)")
+            #endif
+        }
+    }
+    #endif
     
     /// Handles pinch-to-zoom gestures on both frequency and dB axes.
     ///
@@ -596,6 +851,7 @@ private struct PeakAnnotationsOverlay: View {
     let minDB: Float
     let maxDB: Float
     let isLogarithmic: Bool
+    @Binding var isAnnotationDragging: Bool
     
     var body: some View {
         ZStack {
@@ -610,6 +866,7 @@ private struct PeakAnnotationsOverlay: View {
                     minDB: minDB,
                     maxDB: maxDB,
                     isLogarithmic: isLogarithmic,
+                    isAnnotationDragging: $isAnnotationDragging,
                     onOffsetChange: { newOffset in
                         annotationOffsets.wrappedValue[peak.id] = newOffset
                     },
@@ -619,7 +876,6 @@ private struct PeakAnnotationsOverlay: View {
                 )
             }
         }
-        .allowsHitTesting(true)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
@@ -637,6 +893,7 @@ struct DraggablePeakAnnotation: View {
     let minDB: Float
     let maxDB: Float
     let isLogarithmic: Bool
+    @Binding var isAnnotationDragging: Bool
     let onOffsetChange: (CGPoint) -> Void
     let onReset: () -> Void
     
@@ -753,11 +1010,12 @@ struct DraggablePeakAnnotation: View {
                 isMoved: isMoved
             )
             .position(finalPosition)
-            .gesture(
+            .highPriorityGesture(
                 DragGesture(minimumDistance: 1)
                     .onChanged { value in
                         if !isDragging {
                             isDragging = true
+                            isAnnotationDragging = true
                             // Cache positions at start of drag
                             cachedChartPosition = calculateChartPosition()
                             cachedPeakPosition = calculatePeakPosition()
@@ -775,6 +1033,7 @@ struct DraggablePeakAnnotation: View {
                         withTransaction(transaction) {
                             onOffsetChange(newOffset)
                             isDragging = false
+                            isAnnotationDragging = false
                         }
                         dragOffset = .zero
                         // Update cache after drag completes
@@ -885,22 +1144,22 @@ private struct PeakAnnotationLabel: View {
     var body: some View {
         VStack(spacing: 2) {
             // Drag handle indicator
-            if isHovering || isMoved || isDragging {
-                HStack(spacing: 2) {
-                    Image(systemName: isDragging ? "hand.point.up.left.fill" : "hand.point.up.left")
-                        .font(.system(size: 8))
-                        .foregroundColor(modeColor.opacity(0.6))
-                    
-                    if isMoved && !isDragging {
-                        Image(systemName: "arrow.uturn.backward.circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundColor(.secondary)
-                            #if os(macOS)
-                            .help("Right-click to reset")
-                            #endif
-                    }
-                }
-            }
+//            if isHovering || isMoved || isDragging {
+//                HStack(spacing: 2) {
+//                    Image(systemName: isDragging ? "hand.point.up.left.fill" : "hand.point.up.left")
+//                        .font(.system(size: 8))
+//                        .foregroundColor(modeColor.opacity(0.6))
+//                    
+//                    if isMoved && !isDragging {
+//                        Image(systemName: "arrow.uturn.backward.circle.fill")
+//                            .font(.system(size: 8))
+//                            .foregroundColor(.secondary)
+//                            #if os(macOS)
+//                            .help("Right-click to reset")
+//                            #endif
+//                    }
+//                }
+//            }
             
             Text(GuitarMode.classify(frequency: peak.frequency).rawValue)
                 .font(.caption2)
@@ -948,6 +1207,114 @@ private struct PeakAnnotationLabel: View {
         .contentShape(Rectangle())
     }
 }
+
+// MARK: - macOS Scroll Wheel Support
+
+#if os(macOS)
+/// A view modifier that captures scroll wheel events on macOS
+private struct ScrollWheelModifier: ViewModifier {
+    let onScrollWheel: (NSEvent) -> Void
+    
+    func body(content: Content) -> some View {
+        content.overlay(
+            ScrollWheelView(onScrollWheel: onScrollWheel)
+        )
+    }
+}
+
+/// A representable view that captures scroll wheel events
+private struct ScrollWheelView: NSViewRepresentable {
+    let onScrollWheel: (NSEvent) -> Void
+    
+    func makeNSView(context: Context) -> NSScrollWheelHostView {
+        let view = NSScrollWheelHostView()
+        view.onScrollWheel = onScrollWheel
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSScrollWheelHostView, context: Context) {
+        nsView.onScrollWheel = onScrollWheel
+    }
+}
+
+/// Custom NSView that captures scroll wheel events
+private class NSScrollWheelHostView: NSView {
+    var onScrollWheel: ((NSEvent) -> Void)?
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        self.wantsLayer = true
+        self.layer?.backgroundColor = NSColor.clear.cgColor
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func scrollWheel(with event: NSEvent) {
+        // Handle scroll wheel events
+        onScrollWheel?(event)
+        // Don't call super - we consume the event
+    }
+    
+    override var acceptsFirstResponder: Bool { 
+        return true 
+    }
+    
+    // Return self only when point is in bounds to receive scroll events
+    // But we won't handle any other mouse events
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        // Check subviews first - they get priority
+        for subview in subviews.reversed() {
+            let convertedPoint = subview.convert(point, from: self)
+            if let hitView = subview.hitTest(convertedPoint) {
+                return hitView
+            }
+        }
+        
+        // Return self to receive scroll events
+        if bounds.contains(point) {
+            return self
+        }
+        
+        return nil
+    }
+    
+    // Don't override any mouse event methods - let them fall through
+    // SwiftUI will handle them through its own mechanisms
+    
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        
+        // Remove existing tracking areas
+        for trackingArea in trackingAreas {
+            removeTrackingArea(trackingArea)
+        }
+        
+        // Add tracking area to receive scroll events
+        let options: NSTrackingArea.Options = [
+            .activeAlways,
+            .mouseEnteredAndExited,
+            .inVisibleRect
+        ]
+        let trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+        addTrackingArea(trackingArea)
+    }
+    
+    override var frame: NSRect {
+        didSet {
+            updateTrackingAreas()
+        }
+    }
+}
+
+extension View {
+    /// Adds scroll wheel event handling on macOS
+    fileprivate func onScrollWheel(_ handler: @escaping (NSEvent) -> Void) -> some View {
+        self.modifier(ScrollWheelModifier(onScrollWheel: handler))
+    }
+}
+#endif
 
 // MARK: - Preview
 
