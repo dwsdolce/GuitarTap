@@ -1211,99 +1211,99 @@ private struct PeakAnnotationLabel: View {
 // MARK: - macOS Scroll Wheel Support
 
 #if os(macOS)
-/// A view modifier that captures scroll wheel events on macOS
+/// A view modifier that captures scroll wheel events using event monitoring
 private struct ScrollWheelModifier: ViewModifier {
     let onScrollWheel: (NSEvent) -> Void
     
     func body(content: Content) -> some View {
-        content.overlay(
-            ScrollWheelView(onScrollWheel: onScrollWheel)
+        content.background(
+            ScrollWheelMonitorView(onScrollWheel: onScrollWheel)
         )
     }
 }
 
-/// A representable view that captures scroll wheel events
-private struct ScrollWheelView: NSViewRepresentable {
+/// NSView that uses local event monitoring to capture scroll wheel events
+private struct ScrollWheelMonitorView: NSViewRepresentable {
     let onScrollWheel: (NSEvent) -> Void
     
-    func makeNSView(context: Context) -> NSScrollWheelHostView {
-        let view = NSScrollWheelHostView()
-        view.onScrollWheel = onScrollWheel
+    func makeNSView(context: Context) -> ScrollWheelHostView {
+        let view = ScrollWheelHostView()
+        view.scrollHandler = onScrollWheel
         return view
     }
     
-    func updateNSView(_ nsView: NSScrollWheelHostView, context: Context) {
-        nsView.onScrollWheel = onScrollWheel
+    func updateNSView(_ nsView: ScrollWheelHostView, context: Context) {
+        nsView.scrollHandler = onScrollWheel
     }
 }
 
-/// Custom NSView that captures scroll wheel events
-private class NSScrollWheelHostView: NSView {
-    var onScrollWheel: ((NSEvent) -> Void)?
+/// Host view that monitors scroll events when mouse is within its bounds
+private class ScrollWheelHostView: NSView {
+    var scrollHandler: ((NSEvent) -> Void)?
+    private var eventMonitor: Any?
+    private var isMouseInside = false
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        self.wantsLayer = true
-        self.layer?.backgroundColor = NSColor.clear.cgColor
+        setupEventMonitor()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    override func scrollWheel(with event: NSEvent) {
-        // Handle scroll wheel events
-        onScrollWheel?(event)
-        // Don't call super - we consume the event
-    }
-    
-    override var acceptsFirstResponder: Bool { 
-        return true 
-    }
-    
-    // Return self only when point is in bounds to receive scroll events
-    // But we won't handle any other mouse events
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        // Check subviews first - they get priority
-        for subview in subviews.reversed() {
-            let convertedPoint = subview.convert(point, from: self)
-            if let hitView = subview.hitTest(convertedPoint) {
-                return hitView
+    private func setupEventMonitor() {
+        // Monitor scroll wheel events at the application level
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            guard let self = self, self.isMouseInside else {
+                return event  // Pass through if mouse not in our view
             }
+            
+            // Check if the event's window is our window
+            guard event.window == self.window else {
+                return event
+            }
+            
+            // Handle the scroll event
+            self.scrollHandler?(event)
+            
+            // Return nil to prevent further propagation (consume the event)
+            return nil
         }
-        
-        // Return self to receive scroll events
-        if bounds.contains(point) {
-            return self
-        }
-        
-        return nil
     }
-    
-    // Don't override any mouse event methods - let them fall through
-    // SwiftUI will handle them through its own mechanisms
     
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         
-        // Remove existing tracking areas
-        for trackingArea in trackingAreas {
-            removeTrackingArea(trackingArea)
-        }
+        // Remove old tracking areas
+        trackingAreas.forEach { removeTrackingArea($0) }
         
-        // Add tracking area to receive scroll events
-        let options: NSTrackingArea.Options = [
-            .activeAlways,
-            .mouseEnteredAndExited,
-            .inVisibleRect
-        ]
-        let trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+        // Add new tracking area
+        let trackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
         addTrackingArea(trackingArea)
     }
     
-    override var frame: NSRect {
-        didSet {
-            updateTrackingAreas()
+    override func mouseEntered(with event: NSEvent) {
+        isMouseInside = true
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        isMouseInside = false
+    }
+    
+    // Return nil to be transparent to hit testing (allows SwiftUI gestures to work)
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        return nil
+    }
+    
+    deinit {
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
         }
     }
 }
@@ -1314,6 +1314,7 @@ extension View {
         self.modifier(ScrollWheelModifier(onScrollWheel: handler))
     }
 }
+
 #endif
 
 // MARK: - Preview
