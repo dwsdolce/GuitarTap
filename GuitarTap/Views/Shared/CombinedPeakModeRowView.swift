@@ -32,7 +32,7 @@ struct CombinedPeakModeRowView: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Mode name and frequency
                 HStack {
-                    Text(mode.rawValue)
+                    Text(mode.displayName)
                         .font(.headline)
                         .foregroundColor(mode.color)
                     

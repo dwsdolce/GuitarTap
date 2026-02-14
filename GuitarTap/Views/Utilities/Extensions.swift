@@ -20,39 +20,52 @@ extension Float {
         }
     }
     
-    /// Evaluates the quality of a decay time (15 dB threshold)
+    /// Evaluates the quality of a decay time using the current guitar type setting
     /// These thresholds are calibrated for tap tone analysis where:
     /// - Body-only taps (damped strings) typically decay in 0.05-0.3s
     /// - Taps with open strings ringing decay in 0.3-1.5s+
+    /// Classical guitars typically have longer sustain than steel-string guitars
     var decayQuality: String {
+        return decayQuality(for: SpectrumDisplaySettings.guitarType)
+    }
+    
+    /// Evaluates the quality of a decay time for a specific guitar type
+    func decayQuality(for guitarType: GuitarType) -> String {
+        let thresholds = guitarType.decayThresholds
         switch self {
-        case 0..<0.1:
+        case 0..<thresholds.veryShort:
             return "Very Short"
-        case 0.1..<0.3:
+        case thresholds.veryShort..<thresholds.short:
             return "Short"
-        case 0.3..<0.6:
+        case thresholds.short..<thresholds.moderate:
             return "Moderate"
-        case 0.6..<1.0:
+        case thresholds.moderate..<thresholds.good:
             return "Good"
-        case 1.0...:
+        case thresholds.good...:
             return "Excellent"
         default:
             return "Unknown"
         }
     }
     
-    /// Color indicator for decay quality
+    /// Color indicator for decay quality (uses current guitar type setting)
     var decayQualityColor: Color {
+        return decayQualityColor(for: SpectrumDisplaySettings.guitarType)
+    }
+    
+    /// Color indicator for decay quality for a specific guitar type
+    func decayQualityColor(for guitarType: GuitarType) -> Color {
+        let thresholds = guitarType.decayThresholds
         switch self {
-        case 0..<0.1:
+        case 0..<thresholds.veryShort:
             return .gray
-        case 0.1..<0.3:
+        case thresholds.veryShort..<thresholds.short:
             return .orange
-        case 0.3..<0.6:
+        case thresholds.short..<thresholds.moderate:
             return .yellow
-        case 0.6..<1.0:
+        case thresholds.moderate..<thresholds.good:
             return .green
-        case 1.0...:
+        case thresholds.good...:
             return .blue
         default:
             return .gray
@@ -99,16 +112,14 @@ extension Float {
 // MARK: - GuitarMode Extensions
 
 extension GuitarMode {
-    /// Display color for each guitar mode
+    /// Display color for each guitar mode (uses normalized mode for legacy compatibility)
     var color: Color {
-        switch self {
-        case .helmholtz:
+        switch self.normalized {
+        case .air:
             return .cyan
-        case .crossGrain:
-            return .blue
-        case .longGrain:
+        case .top:
             return .green
-        case .monopole:
+        case .back:
             return .orange
         case .dipole:
             return .red
@@ -118,20 +129,20 @@ extension GuitarMode {
             return .gray
         case .unknown:
             return .secondary
+        default:
+            return .secondary
         }
     }
     
     /// Abbreviated mode name for compact display
     var abbreviation: String {
-        switch self {
-        case .helmholtz:
-            return "HH"
-        case .crossGrain:
-            return "XG"
-        case .longGrain:
-            return "LG"
-        case .monopole:
-            return "MP"
+        switch self.normalized {
+        case .air:
+            return "Air"
+        case .top:
+            return "Top"
+        case .back:
+            return "Back"
         case .dipole:
             return "DP"
         case .ringMode:
@@ -140,41 +151,43 @@ extension GuitarMode {
             return "Upper"
         case .unknown:
             return "?"
+        default:
+            return "?"
         }
     }
     
     /// Detailed description of the mode
     var description: String {
-        switch self {
-        case .helmholtz:
-            return "Air resonance - the 'breathing' of the guitar body"
-        case .crossGrain:
-            return "Top plate vibration across the grain"
-        case .longGrain:
-            return "Top plate vibration along the grain"
-        case .monopole:
-            return "Top plate moving in phase"
+        switch self.normalized {
+        case .air:
+            return "Air resonance (Helmholtz) - the 'breathing' of the guitar body"
+        case .top:
+            return "Main top plate resonance"
+        case .back:
+            return "Back plate resonance"
         case .dipole:
-            return "Top plate moving out of phase"
+            return "Top plate moving out of phase (dipole)"
         case .ringMode:
             return "Higher frequency body resonances"
         case .upperModes:
             return "Upper harmonic modes"
         case .unknown:
             return "Unclassified frequency"
+        default:
+            return "Unclassified frequency"
         }
     }
     
     var icon: String {
-        switch self {
-        case .helmholtz: return "wind"
-        case .crossGrain: return "arrow.left.and.right"
-        case .longGrain: return "arrow.up.and.down"
-        case .monopole: return "circle.fill"
+        switch self.normalized {
+        case .air: return "wind"
+        case .top: return "arrow.up.and.down"
+        case .back: return "square.fill"
         case .dipole: return "circle.lefthalf.filled"
         case .ringMode: return "circle.dashed"
         case .upperModes: return "waveform"
         case .unknown: return "questionmark.circle"
+        default: return "questionmark.circle"
         }
     }
 }

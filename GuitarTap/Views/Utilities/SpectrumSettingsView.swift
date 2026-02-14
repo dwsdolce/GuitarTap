@@ -39,6 +39,12 @@ struct SpectrumSettingsView: View {
     @State private var analysisMaxFreqInput: String
     @State private var peakThresholdInput: String
     
+    // Guitar type setting
+    @State private var selectedGuitarType: GuitarType = SpectrumDisplaySettings.guitarType
+    
+    // Unknown mode display setting
+    @State private var showUnknownModes: Bool = SpectrumDisplaySettings.showUnknownModes
+    
     // Validation states
     @State private var showValidationError = false
     @State private var validationMessage = ""
@@ -83,6 +89,64 @@ struct SpectrumSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // MARK: - Guitar Type
+                Section {
+                    Picker("Guitar Type", selection: $selectedGuitarType) {
+                        ForEach(GuitarType.allCases) { type in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(type.rawValue)
+                                Text(type.description)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .tag(type)
+                        }
+                    }
+                    #if os(iOS)
+                    .pickerStyle(.navigationLink)
+                    #endif
+                    
+                    // Show frequency ranges for selected type
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Mode Frequency Ranges")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                        
+                        let ranges = selectedGuitarType.modeRanges
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                modeRangeRow("Air:", range: ranges.air)
+                                modeRangeRow("Top:", range: ranges.top)
+                                modeRangeRow("Back:", range: ranges.back)
+                            }
+                            Spacer()
+                            VStack(alignment: .leading, spacing: 4) {
+                                modeRangeRow("Dipole:", range: ranges.dipole)
+                                modeRangeRow("Ring:", range: ranges.ringMode)
+                            }
+                        }
+                        .font(.caption)
+                    }
+                    .padding(.vertical, 4)
+                    
+                    // Unknown modes toggle
+                    Toggle(isOn: $showUnknownModes) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Show Unknown Modes")
+                            Text("Display peaks that don't fall within known mode ranges")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Label("Guitar Type", systemImage: "guitars")
+                        .font(.headline)
+                } footer: {
+                    Text("Select your guitar type for accurate mode classification. Disable 'Show Unknown Modes' to hide peaks outside the expected frequency ranges.")
+                        .font(.caption)
+                }
+                
                 // MARK: - Display Range Settings
                 Section {
                     // Frequency Range
@@ -450,9 +514,25 @@ struct SpectrumSettingsView: View {
         .padding(.vertical, 4)
     }
     
+    // MARK: - Helper Views
+    
+    @ViewBuilder
+    private func modeRangeRow(_ label: String, range: ClosedRange<Float>) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .foregroundColor(.secondary)
+                .frame(width: 50, alignment: .leading)
+            Text("\(Int(range.lowerBound))-\(Int(range.upperBound)) Hz")
+                .foregroundColor(.primary)
+        }
+    }
+    
     // MARK: - Actions
     
     private func applySettings() {
+        // Save guitar type and unknown mode setting
+        SpectrumDisplaySettings.guitarType = selectedGuitarType
+        SpectrumDisplaySettings.showUnknownModes = showUnknownModes
         // Parse and validate display frequency range
         guard let newMinFreq = Float(minFreqInput),
               let newMaxFreq = Float(maxFreqInput) else {
@@ -520,6 +600,8 @@ struct SpectrumSettingsView: View {
     }
     
     private func resetToDefaults() {
+        selectedGuitarType = .steelString
+        showUnknownModes = false
         minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.minFrequency)
         maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.maxFrequency)
         minDBInput = String(format: "%.0f", SpectrumDisplaySettings.minMagnitude)

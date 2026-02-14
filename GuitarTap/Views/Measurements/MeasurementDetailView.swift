@@ -163,16 +163,23 @@ struct MeasurementDetailView: View {
                         .padding(.vertical, 4)
                     }
                     
-                    // Peaks
-                    GroupBox("Detected Peaks (\(measurement.peaks.count))") {
-                        if measurement.peaks.isEmpty {
+                    // Peaks (filtered based on unknown mode setting)
+                    let filteredPeaks = measurement.peaks
+                        .sorted(by: { $0.frequency < $1.frequency })
+                        .filter { peak in
+                            SpectrumDisplaySettings.showUnknownModes || 
+                            GuitarMode.classify(frequency: peak.frequency).normalized != .unknown
+                        }
+                    
+                    GroupBox("Detected Peaks (\(filteredPeaks.count))") {
+                        if filteredPeaks.isEmpty {
                             Text("No peaks detected")
                                 .foregroundColor(.secondary)
                                 .frame(maxWidth: .infinity)
                                 .padding()
                         } else {
                             VStack(alignment: .leading, spacing: 12) {
-                                ForEach(measurement.peaks.sorted(by: { $0.frequency < $1.frequency })) { peak in
+                                ForEach(filteredPeaks) { peak in
                                     let mode = GuitarMode.classify(frequency: peak.frequency)
                                     CombinedPeakModeRowView(peak: peak, mode: mode)
                                 }

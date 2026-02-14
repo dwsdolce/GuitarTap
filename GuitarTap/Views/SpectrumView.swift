@@ -113,7 +113,7 @@ struct SpectrumView: View {
     
     /// Returns the mode boundaries that are visible in the current frequency range
     private var visibleModeBoundaries: [(frequency: Float, mode: GuitarMode)] {
-        let allModes: [GuitarMode] = [.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode, .upperModes]
+        let allModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
         var boundaries: [(Float, GuitarMode)] = []
         
         for mode in allModes {
@@ -132,8 +132,16 @@ struct SpectrumView: View {
     }
     
     /// Returns peaks that are visible in the current frequency range
+    /// Optionally filters out unknown modes based on user setting
     private var visiblePeaks: [ResonantPeak] {
-        peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
+        let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
+        
+        // Filter out unknown modes if setting is disabled
+        if SpectrumDisplaySettings.showUnknownModes {
+            return filtered
+        } else {
+            return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
+        }
     }
     
     /// Calculates appropriate frequency values for axis labels based on the current zoom level.
@@ -490,29 +498,29 @@ struct SpectrumView: View {
     
     /// Returns the color associated with a guitar mode
     private func modeColor(for mode: GuitarMode) -> Color {
-        switch mode {
-        case .helmholtz: return .cyan
-        case .crossGrain: return .blue
-        case .longGrain: return .green
-        case .monopole: return .orange
+        switch mode.normalized {
+        case .air: return .cyan
+        case .top: return .green
+        case .back: return .orange
         case .dipole: return .red
         case .ringMode: return .purple
         case .upperModes: return .gray
         case .unknown: return .secondary
+        default: return .secondary
         }
     }
     
     /// Returns abbreviated mode name for boundary labels
     private func modeAbbreviation(for mode: GuitarMode) -> String {
-        switch mode {
-        case .helmholtz: return "HH"
-        case .crossGrain: return "XG"
-        case .longGrain: return "LG"
-        case .monopole: return "MP"
+        switch mode.normalized {
+        case .air: return "Air"
+        case .top: return "Top"
+        case .back: return "Back"
         case .dipole: return "DP"
         case .ringMode: return "Ring"
         case .upperModes: return "Upper"
         case .unknown: return "?"
+        default: return "?"
         }
     }
     
@@ -913,16 +921,16 @@ struct DraggablePeakAnnotation: View {
     @State private var cachedPeakPosition: CGPoint = .zero
     
     private var modeColor: Color {
-        let mode = GuitarMode.classify(frequency: peak.frequency)
+        let mode = GuitarMode.classify(frequency: peak.frequency).normalized
         switch mode {
-        case .helmholtz: return .cyan
-        case .crossGrain: return .blue
-        case .longGrain: return .green
-        case .monopole: return .orange
+        case .air: return .cyan
+        case .top: return .green
+        case .back: return .orange
         case .dipole: return .red
         case .ringMode: return .purple
         case .upperModes: return .gray
         case .unknown: return .secondary
+        default: return .secondary
         }
     }
     
@@ -1168,7 +1176,7 @@ private struct PeakAnnotationLabel: View {
 //                }
 //            }
             
-            Text(GuitarMode.classify(frequency: peak.frequency).rawValue)
+            Text(GuitarMode.classify(frequency: peak.frequency).displayName)
                 .font(.caption2)
                 .fontWeight(.bold)
                 .foregroundColor(modeColor)

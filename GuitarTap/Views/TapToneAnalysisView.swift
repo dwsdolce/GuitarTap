@@ -1478,7 +1478,7 @@ struct TapToneAnalysisView: View {
                                 Text("\(peak.frequency, specifier: "%.1f") Hz")
                                     .font(.caption)
                                     .fontWeight(.bold)
-                                Text(mode.rawValue)
+                                Text(mode.displayName)
                                     .font(.caption2)
                                     .foregroundColor(mode.color)
                                 Text("\(peak.magnitude, specifier: "%.1f") dB")
@@ -1501,12 +1501,12 @@ struct TapToneAnalysisView: View {
                     .font(.caption)
                     .fontWeight(.semibold)
                 
-                ForEach([GuitarMode.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode], id: \.self) { mode in
+                ForEach([GuitarMode.air, .top, .back, .dipole, .ringMode], id: \.self) { mode in
                     HStack(spacing: 4) {
                         Circle()
                             .fill(mode.color)
                             .frame(width: 12, height: 12)
-                        Text(mode.rawValue)
+                        Text(mode.displayName)
                             .font(.caption)
                     }
                 }

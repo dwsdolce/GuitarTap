@@ -58,6 +58,7 @@ struct TapAnalysisResultsView: View {
     // MARK: - Computed Properties
     
     /// Combined peaks with mode classifications, filtered to the current frequency range and sorted by frequency
+    /// Optionally filters out unknown modes based on user setting
     private var sortedPeaksWithModes: [(peak: ResonantPeak, mode: GuitarMode)] {
         analyzer.currentPeaks
             .filter { peak in
@@ -65,6 +66,10 @@ struct TapAnalysisResultsView: View {
             }
             .map { peak in
                 (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+            }
+            .filter { item in
+                // Filter out unknown modes if setting is disabled
+                SpectrumDisplaySettings.showUnknownModes || item.mode.normalized != .unknown
             }
             .sorted { $0.peak.frequency < $1.peak.frequency }
     }
@@ -133,7 +138,7 @@ struct TapAnalysisResultsView: View {
                             .font(.title2)
                             .fontWeight(.semibold)
                         
-                        Text("Long-grain / Cross-grain")
+                        Text("Top / Air")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -152,7 +157,7 @@ struct TapAnalysisResultsView: View {
                 }
                 .padding(.vertical, 4)
             } else {
-                Text("Need both cross-grain and long-grain modes")
+                Text("Need both Air and Top modes")
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -174,7 +179,7 @@ struct TapAnalysisResultsView: View {
                                 x: .value("Time", index),
                                 y: .value("Frequency", peak.frequency)
                             )
-                            .foregroundStyle(by: .value("Mode", GuitarMode.classify(frequency: peak.frequency).rawValue))
+                            .foregroundStyle(by: .value("Mode", GuitarMode.classify(frequency: peak.frequency).displayName))
                         }
                     }
                 }
