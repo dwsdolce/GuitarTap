@@ -1445,21 +1445,20 @@ struct TapToneAnalysisView: View {
             }
             .padding()
             
-            // Chart
-            SpectrumView(
+            // Chart - use static export version to avoid ImageRenderer issues
+            ExportableSpectrumChart(
                 frequencies: tapToneAnalyzer.isSpectrumFrozen ? 
                     tapToneAnalyzer.frozenFrequencies : fftAnalyzer.frequencies,
                 magnitudes: tapToneAnalyzer.isSpectrumFrozen ? 
                     tapToneAnalyzer.frozenMagnitudes : fftAnalyzer.magnitudes,
-                minFreq: .constant(minFreq),
-                maxFreq: .constant(maxFreq),
-                minDB: .constant(minDB),
-                maxDB: .constant(maxDB),
-                isLogarithmic: .constant(false),
+                minFreq: minFreq,
+                maxFreq: maxFreq,
+                minDB: minDB,
+                maxDB: maxDB,
+                isLogarithmic: false,
                 peaks: tapToneAnalyzer.currentPeaks,
                 showModeBoundaries: true,
-                onFrequencyRangeChanged: {},
-                annotationOffsets: .constant(tapToneAnalyzer.peakAnnotationOffsets)
+                annotationOffsets: tapToneAnalyzer.peakAnnotationOffsets
             )
             .frame(width: 1400, height: 800)
             .padding()
