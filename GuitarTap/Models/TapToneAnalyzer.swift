@@ -283,9 +283,6 @@ final class TapToneAnalyzer: ObservableObject {
     /// Current decay time (seconds)
     @Published var currentDecayTime: Float?
     
-    /// Peak frequency history for tracking over time
-    @Published var peakHistory: [[ResonantPeak]] = []
-    
     /// Saved measurements
     @Published var savedMeasurements: [TapToneMeasurement] = []
     
@@ -411,13 +408,6 @@ final class TapToneAnalyzer: ObservableObject {
                 (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
             }
             
-            // Add to history
-            if !peaks.isEmpty {
-                peakHistory.append(peaks)
-                if peakHistory.count > 100 {
-                    peakHistory.removeFirst()
-                }
-            }
         }
         
         // Always track peak magnitude for decay analysis (even when not detecting taps)
@@ -1256,7 +1246,6 @@ final class TapToneAnalyzer: ObservableObject {
             self.currentPeaks = []
             self.identifiedModes = []
             self.currentDecayTime = nil
-            self.peakHistory = []
             self.peakMagnitudeHistory = []
             self.lastTapTime = nil
             self.tapDetected = false

@@ -866,34 +866,32 @@ struct TapToneAnalysisView: View {
                     Spacer()
                 }
                 
-                // Tap threshold slider - full width
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Threshold: \(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.blue)
-                        Spacer()
-                    }
+                // Tap threshold slider
+                HStack(spacing: 6) {
+                    Text("Threshold:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize()
                     Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
-                    HStack {
-                        Text("-80 dB")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("-20 dB")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
+                    Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                        .fixedSize()
                 }
                 
-                // Hysteresis slider - full width
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Hysteresis: \(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
+                // Hysteresis slider
+                HStack(spacing: 6) {
+                    Text("Hysteresis:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize()
+                    Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
+                    Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.purple)
-                    Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
+                        .fixedSize()
                 }
             }
             
@@ -953,55 +951,47 @@ struct TapToneAnalysisView: View {
     /// Regular tap controls for iPad and macOS
     @ViewBuilder
     private var regularTapControls: some View {
-        HStack {
-            Text("Taps to average:")
-                .font(.subheadline)
+        HStack(spacing: 12) {
+            Text("Taps:")
+                .font(.caption)
                 .foregroundColor(.secondary)
             
             Stepper("\(tapToneAnalyzer.numberOfTaps)", 
                     value: $tapToneAnalyzer.numberOfTaps, 
                     in: 1...10)
-                .frame(maxWidth: 150)
+                .frame(maxWidth: 100)
             
-            Spacer()
+            Divider()
+                .frame(height: 20)
             
-            // Tap detection threshold slider (absolute dB level)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Tap threshold:")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                HStack(spacing: 8) {
-                    Text("-80 dB")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
-                        .frame(width: 120)
-                    Text("-20 dB")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.blue)
-                        .frame(width: 50, alignment: .trailing)
-                }
-            }
+            // Tap detection threshold slider
+            Text("Threshold:")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize()
+            Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
+                .frame(width: 80)
+            Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.blue)
+                .fixedSize()
+            
+            Divider()
+                .frame(height: 20)
             
             // Hysteresis margin slider
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Hysteresis:")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                HStack(spacing: 8) {
-                    Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
-                        .frame(width: 100)
-                    Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.purple)
-                        .frame(width: 50, alignment: .trailing)
-                }
-            }
+            Text("Hysteresis:")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize()
+            Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
+                .frame(width: 60)
+            Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.purple)
+                .fixedSize()
             
             Spacer()
             
@@ -1153,33 +1143,66 @@ struct TapToneAnalysisView: View {
     }
     
     private var decayTimeView: some View {
-        GroupBox("Ring-Out Time") {
-            HStack {
-                Image(systemName: "waveform")
-                    .foregroundColor(.blue)
-                
-                if let decay = tapToneAnalyzer.currentDecayTime {
-                    Text("\(decay, specifier: "%.2f") seconds")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+        HStack(spacing: 12) {
+            // Ring-Out Time
+            GroupBox("Ring-Out Time") {
+                HStack {
+                    Image(systemName: "waveform")
+                        .foregroundColor(.blue)
                     
-                    Spacer()
-                    
-                    VStack(alignment: .trailing) {
-                        Text("Decay Quality")
-                            .font(.caption)
+                    if let decay = tapToneAnalyzer.currentDecayTime {
+                        Text("\(decay, specifier: "%.2f") seconds")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing) {
+                            Text("Decay Quality")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(decay.decayQuality)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(decay.decayQualityColor)
+                        }
+                    } else {
+                        Text("Waiting for decay measurement...")
                             .foregroundColor(.secondary)
-                        Text(decay.decayQuality)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(decay.decayQualityColor)
                     }
-                } else {
-                    Text("Waiting for decay measurement...")
-                        .foregroundColor(.secondary)
                 }
+                .padding(.vertical, 4)
             }
-            .padding(.vertical, 4)
+            
+            // Tap Tone Ratio
+            GroupBox("Tap Tone Ratio") {
+                HStack {
+                    Image(systemName: "divide")
+                        .foregroundColor(.purple)
+                    
+                    if let ratio = tapToneAnalyzer.calculateTapToneRatio() {
+                        Text("\(ratio, specifier: "%.2f")")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing) {
+                            Text("Top / Air")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(ratio.tapToneRatioQuality)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(ratio.tapToneRatioQualityColor)
+                        }
+                    } else {
+                        Text("Needs Air & Top peaks...")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
         }
     }
     

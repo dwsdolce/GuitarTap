@@ -43,11 +43,6 @@ struct TapAnalysisResultsView: View {
                 // Tap tone ratio
                 ratioSection
                 
-                Divider()
-                
-                // Peak history chart
-                historySection
-                
                 // Status indicator
                 statusIndicator
             }
@@ -161,37 +156,6 @@ struct TapAnalysisResultsView: View {
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity)
                     .padding()
-            }
-        }
-    }
-    
-    private var historySection: some View {
-        GroupBox("Peak Tracking") {
-            if analyzer.peakHistory.isEmpty {
-                Text("No history available")
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 200)
-            } else {
-                Chart {
-                    ForEach(Array(analyzer.peakHistory.enumerated()), id: \.offset) { index, peaks in
-                        ForEach(peaks.prefix(5)) { peak in
-                            LineMark(
-                                x: .value("Time", index),
-                                y: .value("Frequency", peak.frequency)
-                            )
-                            .foregroundStyle(by: .value("Mode", GuitarMode.classify(frequency: peak.frequency).displayName))
-                        }
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading)
-                }
-                .chartXAxis {
-                    AxisMarks { _ in
-                        AxisGridLine()
-                    }
-                }
-                .frame(height: 250)
             }
         }
     }
