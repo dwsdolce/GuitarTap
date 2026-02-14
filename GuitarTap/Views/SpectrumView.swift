@@ -1373,6 +1373,22 @@ extension View {
     .frame(height: 300)
     .padding()
 }
+// MARK: - Connection Line Shape for Export
+
+/// A simple Shape that draws a line between two points
+/// Used in ExportableSpectrumChart where Path views don't render correctly in ZStack
+private struct ConnectionLineShape: Shape {
+    let from: CGPoint
+    let to: CGPoint
+    
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: from)
+        path.addLine(to: to)
+        return path
+    }
+}
+
 // MARK: - Static Export Spectrum View
 
 /// A simplified, static version of SpectrumView designed for ImageRenderer export.
@@ -1389,16 +1405,6 @@ struct ExportableSpectrumChart: View {
     var peaks: [ResonantPeak]?
     var showModeBoundaries: Bool = true
     var annotationOffsets: [UUID: CGPoint] = [:]
-    
-    // Known chart dimensions for position calculation
-    // These should match the frame size used in createExportableSpectrumView
-    private let chartWidth: CGFloat = 1400
-    private let chartHeight: CGFloat = 800
-    // Approximate plot area insets (axis labels, padding, etc.)
-    private let plotInsets = EdgeInsets(top: 60, leading: 80, bottom: 60, trailing: 40)
-    
-    private var plotWidth: CGFloat { chartWidth - plotInsets.leading - plotInsets.trailing }
-    private var plotHeight: CGFloat { chartHeight - plotInsets.top - plotInsets.bottom }
     
     private var chartData: [SpectrumDataPoint] {
         zip(frequencies, magnitudes)
@@ -1468,27 +1474,6 @@ struct ExportableSpectrumChart: View {
     
     private func isStartOfModeRange(_ frequency: Float, for mode: GuitarMode) -> Bool {
         return abs(frequency - mode.idealRange.lowerBound) < 0.1
-    }
-    
-    /// Calculate position for a peak in the chart coordinate system
-    private func calculatePeakPosition(for peak: ResonantPeak) -> CGPoint {
-        // Calculate X position (frequency)
-        let freqNormalized: CGFloat
-        if isLogarithmic {
-            let logMin = log10(Double(minFreq))
-            let logMax = log10(Double(maxFreq))
-            let logFreq = log10(Double(peak.frequency))
-            freqNormalized = CGFloat((logFreq - logMin) / (logMax - logMin))
-        } else {
-            freqNormalized = CGFloat((peak.frequency - minFreq) / (maxFreq - minFreq))
-        }
-        let x = plotInsets.leading + freqNormalized * plotWidth
-        
-        // Calculate Y position (magnitude) - inverted because chart Y goes down
-        let dbNormalized = CGFloat((peak.magnitude - minDB) / (maxDB - minDB))
-        let y = plotInsets.top + (1.0 - dbNormalized) * plotHeight
-        
-        return CGPoint(x: x, y: y)
     }
     
     var body: some View {
@@ -1579,53 +1564,79 @@ struct ExportableSpectrumChart: View {
                         .rotationEffect(.degrees(180))
                         .padding(8)
                 }
-                
-                // Overlay with positioned annotations
-                ForEach(visiblePeaks) { peak in
-                    let mode = GuitarMode.classify(frequency: peak.frequency)
-                    let basePosition = calculatePeakPosition(for: peak)
-                    let offset = annotationOffsets[peak.id] ?? .zero
-                    // Default position is 70 points above the peak
-                    let annotationX = basePosition.x + offset.x
-                    let annotationY = basePosition.y - 70 + offset.y
-                    
-                    // Connection line from annotation to peak
-                    Path { path in
-                        path.move(to: CGPoint(x: annotationX, y: annotationY + 50))
-                        path.addLine(to: basePosition)
-                    }
-                    .stroke(modeColor(for: mode).opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                    
-                    // Annotation label
-                    VStack(spacing: 6) {
-                        Text(mode.displayName)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(modeColor(for: mode))
-                        
-                        if let pitchNote = peak.pitchNote {
-                            HStack(spacing: 4) {
-                                Image(systemName: "music.note")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.purple)
-                                Text(pitchNote)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.purple)
+                .chartOverlay { proxy in
+                    // Use ChartProxy for accurate positioning
+                    GeometryReader { geometry in
+                        if let plotFrame = proxy.plotFrame {
+                            let frame = geometry[plotFrame]
+                            
+                            // Connection lines layer
+                            ForEach(visiblePeaks) { peak in
+                                let mode = GuitarMode.classify(frequency: peak.frequency)
+                                if let peakX = proxy.position(forX: peak.frequency),
+                                   let peakY = proxy.position(forY: Double(peak.magnitude)) {
+                                    let peakPosition = CGPoint(
+                                        x: frame.minX + peakX,
+                                        y: frame.minY + peakY
+                                    )
+                                    let offset = annotationOffsets[peak.id] ?? .zero
+                                    let annotationX = peakPosition.x + offset.x
+                                    let annotationY = peakPosition.y - 70 + offset.y
+                                    
+                                    ConnectionLineShape(
+                                        from: CGPoint(x: annotationX, y: annotationY + 50),
+                                        to: peakPosition
+                                    )
+                                    .stroke(modeColor(for: mode).opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                                }
+                            }
+                            
+                            // Annotations layer
+                            ForEach(visiblePeaks) { peak in
+                                let mode = GuitarMode.classify(frequency: peak.frequency)
+                                if let peakX = proxy.position(forX: peak.frequency),
+                                   let peakY = proxy.position(forY: Double(peak.magnitude)) {
+                                    let peakPosition = CGPoint(
+                                        x: frame.minX + peakX,
+                                        y: frame.minY + peakY
+                                    )
+                                    let offset = annotationOffsets[peak.id] ?? .zero
+                                    let annotationX = peakPosition.x + offset.x
+                                    let annotationY = peakPosition.y - 70 + offset.y
+                                    
+                                    VStack(spacing: 6) {
+                                        Text(mode.displayName)
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(modeColor(for: mode))
+                                        
+                                        if let pitchNote = peak.pitchNote {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "music.note")
+                                                    .font(.system(size: 14))
+                                                    .foregroundColor(.purple)
+                                                Text(pitchNote)
+                                                    .font(.system(size: 16, weight: .bold))
+                                                    .foregroundColor(.purple)
+                                            }
+                                        }
+                                        
+                                        Text("\(peak.frequency, specifier: "%.1f") Hz")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(.primary)
+                                        
+                                        Text("\(peak.magnitude, specifier: "%.1f") dB")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(10)
+                                    .background(Color.white.opacity(0.95))
+                                    .cornerRadius(10)
+                                    .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+                                    .position(x: annotationX, y: annotationY)
+                                }
                             }
                         }
-                        
-                        Text("\(peak.frequency, specifier: "%.1f") Hz")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.primary)
-                        
-                        Text("\(peak.magnitude, specifier: "%.1f") dB")
-                            .font(.system(size: 13))
-                            .foregroundColor(.secondary)
                     }
-                    .padding(10)
-                    .background(Color.white.opacity(0.95))
-                    .cornerRadius(10)
-                    .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
-                    .position(x: annotationX, y: annotationY)
                 }
             }
         }
