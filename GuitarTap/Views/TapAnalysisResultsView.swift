@@ -35,6 +35,11 @@ struct TapAnalysisResultsView: View {
                 
                 Divider()
                 
+                // Ring-out time (decay)
+                ringOutSection
+                
+                Divider()
+                
                 // Tap tone ratio
                 ratioSection
                 
@@ -79,6 +84,42 @@ struct TapAnalysisResultsView: View {
                         CombinedPeakModeRowView(peak: item.peak, mode: item.mode)
                     }
                 }
+            }
+        }
+    }
+    
+    private var ringOutSection: some View {
+        GroupBox("Ring-Out Time") {
+            if let decayTime = analyzer.currentDecayTime {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("\(decayTime, specifier: "%.2f") seconds")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        
+                        Text("Time to decay \(Int(analyzer.decayThreshold)) dB")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing) {
+                        Text(decayTime.decayQuality)
+                            .font(.headline)
+                            .foregroundColor(decayTime.decayQualityColor)
+                        
+                        Text("Sustain quality")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            } else {
+                Text("Waiting for decay measurement...")
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
             }
         }
     }

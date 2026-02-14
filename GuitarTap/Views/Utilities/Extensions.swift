@@ -20,18 +20,21 @@ extension Float {
         }
     }
     
-    /// Evaluates the quality of a decay time
+    /// Evaluates the quality of a decay time (15 dB threshold)
+    /// These thresholds are calibrated for tap tone analysis where:
+    /// - Body-only taps (damped strings) typically decay in 0.05-0.3s
+    /// - Taps with open strings ringing decay in 0.3-1.5s+
     var decayQuality: String {
         switch self {
-        case 0..<0.5:
-            return "Poor"
-        case 0.5..<1.0:
-            return "Fair"
-        case 1.0..<1.5:
+        case 0..<0.1:
+            return "Very Short"
+        case 0.1..<0.3:
+            return "Short"
+        case 0.3..<0.6:
+            return "Moderate"
+        case 0.6..<1.0:
             return "Good"
-        case 1.5..<2.0:
-            return "Very Good"
-        case 2.0...:
+        case 1.0...:
             return "Excellent"
         default:
             return "Unknown"
@@ -41,15 +44,15 @@ extension Float {
     /// Color indicator for decay quality
     var decayQualityColor: Color {
         switch self {
-        case 0..<0.5:
-            return .red
-        case 0.5..<1.0:
+        case 0..<0.1:
+            return .gray
+        case 0.1..<0.3:
             return .orange
-        case 1.0..<1.5:
+        case 0.3..<0.6:
             return .yellow
-        case 1.5..<2.0:
+        case 0.6..<1.0:
             return .green
-        case 2.0...:
+        case 1.0...:
             return .blue
         default:
             return .gray

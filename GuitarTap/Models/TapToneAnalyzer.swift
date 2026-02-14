@@ -215,7 +215,8 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var maxPeaks: Int = 10
     
     /// Decay threshold for ring-out measurement (dB below peak)
-    @Published var decayThreshold: Float = 20
+    /// Default is 15 dB which works well with typical room noise floors
+    @Published var decayThreshold: Float = 15
     
     /// Number of taps to average (1 = no averaging, 3-5 recommended)
     @Published var numberOfTaps: Int = 1
@@ -283,6 +284,7 @@ final class TapToneAnalyzer: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var peakMagnitudeHistory: [(time: Date, magnitude: Float)] = []
     private var lastTapTime: Date?
+    private var tapPeakLevel: Float = -100  // The input level at tap detection time (for decay reference)
     private let tapCooldown: TimeInterval = 0.5  // Minimum time between taps
     
     /// Time when the analyzer started (for warm-up period)
@@ -319,12 +321,20 @@ final class TapToneAnalyzer: ObservableObject {
     // MARK: - Setup
     
     private func setupSubscriptions() {
-        // Subscribe to FFT updates
+        // Subscribe to FFT updates (slow - only updates per FFT frame)
         fftAnalyzer.$magnitudes
             .combineLatest(fftAnalyzer.$frequencies, fftAnalyzer.$peakMagnitude)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] magnitudes, frequencies, peakMag in
                 self?.analyzeMagnitudes(magnitudes, frequencies: frequencies, peakMagnitude: peakMag)
+            }
+            .store(in: &cancellables)
+        
+        // Subscribe to fast input level updates for decay tracking (~10Hz vs ~1Hz for FFT)
+        fftAnalyzer.$inputLevelDB
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] levelDB in
+                self?.trackDecayFast(inputLevel: levelDB)
             }
             .store(in: &cancellables)
     }
@@ -590,7 +600,12 @@ final class TapToneAnalyzer: ObservableObject {
             // Rising edge detected! 📈
             tapDetected = true
             lastTapTime = now
-            print("🎯 Tap detected! Peak: \(peakMagnitude) dB (threshold: \(risingThreshold) dB, hysteresis: \(hysteresisMargin) dB) [Rising Edge]")
+            
+            // Capture the recent peak input level for decay tracking reference
+            // Use recentPeakLevelDB which holds the max level over the last 0.5s
+            // This ensures we get the actual tap peak even though FFT detection is delayed
+            tapPeakLevel = fftAnalyzer.recentPeakLevelDB
+            print("🎯 Tap detected! FFT peak: \(String(format: "%.1f", peakMagnitude)) dB, Input peak: \(String(format: "%.1f", tapPeakLevel)) dB (threshold: \(risingThreshold) dB) [Rising Edge]")
             
             // Handle tap in multi-tap sequence
             handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
@@ -656,8 +671,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// Start decay tracking after a tap is detected
     /// This runs for 3 seconds to capture the ring-out time
     private func startDecayTracking() {
-        // Clear previous decay history to start fresh
-        peakMagnitudeHistory = []
+        // Clear previous decay history and seed with the tap peak level
+        let now = Date()
+        peakMagnitudeHistory = [(time: now, magnitude: tapPeakLevel)]
         currentDecayTime = nil
         
         // Enable decay tracking
@@ -669,7 +685,7 @@ final class TapToneAnalyzer: ObservableObject {
             self?.stopDecayTracking()
         }
         
-        print("🔔 Started decay tracking for ring-out time measurement")
+        // Debug output removed - decay tracking now works silently
     }
     
     /// Stop decay tracking
@@ -677,7 +693,25 @@ final class TapToneAnalyzer: ObservableObject {
         isTrackingDecay = false
         decayTrackingTimer?.invalidate()
         decayTrackingTimer = nil
-        print("🔕 Stopped decay tracking (final decay time: \(currentDecayTime.map { String(format: "%.2f", $0) } ?? "none") seconds)")
+        
+        // Log result for debugging
+        if let decayTime = currentDecayTime {
+            print("✅ Ring-out measured: \(String(format: "%.2f", decayTime)) seconds")
+        } else {
+            // Debug why it failed
+            if let tapTime = lastTapTime {
+                let postTapHistory = peakMagnitudeHistory.filter { $0.time >= tapTime }
+                if let peakEntry = postTapHistory.max(by: { $0.magnitude < $1.magnitude }) {
+                    let currentLevel = postTapHistory.last?.magnitude ?? -100
+                    let target = peakEntry.magnitude - decayThreshold
+                    print("⚠️ Ring-out not measured: peak=\(String(format: "%.1f", peakEntry.magnitude)) dB, final=\(String(format: "%.1f", currentLevel)) dB, target=\(String(format: "%.1f", target)) dB, samples=\(postTapHistory.count)")
+                } else {
+                    print("⚠️ Ring-out not measured: no peak found in \(peakMagnitudeHistory.count) samples")
+                }
+            } else {
+                print("⚠️ Ring-out not measured: no tap time recorded")
+            }
+        }
     }
     
     /// Process multiple captured taps and average the results
@@ -816,15 +850,22 @@ final class TapToneAnalyzer: ObservableObject {
         return (magnitudes: averagedMagnitudes, frequencies: frequencies)
     }
     
-    /// Track magnitude over time for decay analysis
+    /// Track magnitude over time for decay analysis (slow - called per FFT frame)
+    /// NOTE: This is now deprecated in favor of trackDecayFast which uses inputLevelDB
     private func trackDecay(peakMagnitude: Float) {
+        // This function is kept for compatibility but decay tracking now uses trackDecayFast
+        // which is called ~10x per second instead of ~1x per second
+    }
+    
+    /// Fast decay tracking using input level (~10Hz update rate)
+    /// This provides much better time resolution than tracking per FFT frame
+    private func trackDecayFast(inputLevel: Float) {
         let now = Date()
         
         // Only track decay history if we're actively tracking after a tap
-        // or if we're within the tracking window
         guard isTrackingDecay else { return }
         
-        peakMagnitudeHistory.append((time: now, magnitude: peakMagnitude))
+        peakMagnitudeHistory.append((time: now, magnitude: inputLevel))
         
         // Keep only recent history (5 seconds)
         peakMagnitudeHistory = peakMagnitudeHistory.filter { now.timeIntervalSince($0.time) < 5.0 }
@@ -839,14 +880,18 @@ final class TapToneAnalyzer: ObservableObject {
     private func measureDecayTime(tapTime: Date) -> Float? {
         // Find peak magnitude after tap
         let postTapHistory = peakMagnitudeHistory.filter { $0.time >= tapTime }
-        guard let peakEntry = postTapHistory.max(by: { $0.magnitude < $1.magnitude }) else { return nil }
+        
+        guard let peakEntry = postTapHistory.max(by: { $0.magnitude < $1.magnitude }) else {
+            return nil
+        }
         
         let peakMag = peakEntry.magnitude
         let decayTarget = peakMag - decayThreshold
         
         // Find when it crossed the threshold
         if let decayEntry = postTapHistory.first(where: { $0.magnitude < decayTarget && $0.time > peakEntry.time }) {
-            return Float(decayEntry.time.timeIntervalSince(peakEntry.time))
+            let decayTime = Float(decayEntry.time.timeIntervalSince(peakEntry.time))
+            return decayTime
         }
         
         return nil

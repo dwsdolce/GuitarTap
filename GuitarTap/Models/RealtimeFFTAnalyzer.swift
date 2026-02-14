@@ -128,6 +128,17 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Initialize to -100 dB (very quiet) to prevent false "above threshold" detection on startup
     @Published var peakMagnitude: Float = -100
     
+    /// Fast input level in dB - updated on every audio buffer callback (~10Hz with 4096 buffer)
+    /// Use this for decay tracking instead of peakMagnitude which only updates per FFT frame
+    @Published var inputLevelDB: Float = -100
+    
+    /// Recent peak input level in dB - tracks the maximum level over the last 2 seconds
+    /// Use this to capture the actual tap peak even when FFT detection is delayed
+    /// Must be longer than FFT processing time (~1.5s for 65536 samples @ 44.1kHz)
+    @Published var recentPeakLevelDB: Float = -100
+    private var recentPeakTime: Date = Date.distantPast
+    private let peakHoldDuration: TimeInterval = 2.0  // How long to hold the peak
+    
     /// Indicates whether the analyzer is currently running and processing audio
     @Published var isRunning: Bool = false // {
 //        didSet {
@@ -477,7 +488,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         print("Tap format: \(tapFormat)")
         
         // CRITICAL FIX: Use smaller buffer size for large FFTs
-        let maxSafeBufferSize: AVAudioFrameCount = 4096
+        // Using 1024 samples (~23ms at 44.1kHz) for faster level metering updates
+        // This improves decay measurement precision from ~100ms to ~23ms
+        // FFT accuracy is unaffected since samples are accumulated to fftSize regardless
+        let maxSafeBufferSize: AVAudioFrameCount = 1024
         let requestedBufferSize = min(AVAudioFrameCount(fftSize), maxSafeBufferSize)
         
         print("Requested buffer size: \(requestedBufferSize) samples (max safe: \(maxSafeBufferSize))")
@@ -716,6 +730,24 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             print("🎤 First audio buffer received! Frame length: \(frameLength)")
             print("🎤 Sample values (first 5): \(samples.prefix(5).map { String(format: "%.4f", $0) }.joined(separator: ", "))")
             firstBufferReceived = true
+        }
+        
+        // Calculate fast input level (RMS) for decay tracking
+        // This updates on every audio buffer (~10Hz with 4096 buffer) instead of per FFT frame
+        var rms: Float = 0
+        vDSP_rmsqv(samples, 1, &rms, vDSP_Length(samples.count))
+        let levelDB = rms > 0 ? 20 * log10(rms) : -100
+        let now = Date()
+        
+        // Update input level and recent peak on main thread
+        DispatchQueue.main.async {
+            self.inputLevelDB = levelDB
+            
+            // Track recent peak: update if current level is higher, or if peak has expired
+            if levelDB > self.recentPeakLevelDB || now.timeIntervalSince(self.recentPeakTime) > self.peakHoldDuration {
+                self.recentPeakLevelDB = levelDB
+                self.recentPeakTime = now
+            }
         }
         
         // Thread-safe: Accumulate samples in input buffer using synchronized access
