@@ -216,8 +216,10 @@ struct SpectrumSnapshot: Codable {
     let minDB: Float
     let maxDB: Float
     let isLogarithmic: Bool
+    let showUnknownModes: Bool?  // Added for controlling unknown mode display in exports
+    let guitarType: GuitarType?  // Added for storing guitar type setting
     
-    init(frequencies: [Float], magnitudes: [Float], minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float, isLogarithmic: Bool) {
+    init(frequencies: [Float], magnitudes: [Float], minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float, isLogarithmic: Bool, showUnknownModes: Bool? = nil, guitarType: GuitarType? = nil) {
         self.frequencies = frequencies
         self.magnitudes = magnitudes
         self.minFreq = minFreq
@@ -225,6 +227,8 @@ struct SpectrumSnapshot: Codable {
         self.minDB = minDB
         self.maxDB = maxDB
         self.isLogarithmic = isLogarithmic
+        self.showUnknownModes = showUnknownModes
+        self.guitarType = guitarType
     }
 }
 
@@ -948,7 +952,9 @@ final class TapToneAnalyzer: ObservableObject {
                 maxFreq: SpectrumDisplaySettings.maxFrequency,
                 minDB: SpectrumDisplaySettings.minMagnitude,
                 maxDB: SpectrumDisplaySettings.maxMagnitude,
-                isLogarithmic: false
+                isLogarithmic: false,
+                showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
+                guitarType: SpectrumDisplaySettings.guitarType
             )
         } else {
             snapshot = nil
@@ -1027,6 +1033,8 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var loadedTapDetectionThreshold: Float?
     @Published var loadedHysteresisMargin: Float?
     @Published var loadedNumberOfTaps: Int?
+    @Published var loadedShowUnknownModes: Bool?
+    @Published var loadedGuitarType: GuitarType?
     
     /// Load a measurement's data into the current view (recreate the plot)
     func loadMeasurement(_ measurement: TapToneMeasurement) {
@@ -1050,6 +1058,18 @@ final class TapToneAnalyzer: ObservableObject {
             loadedMaxFreq = snapshot.maxFreq
             loadedMinDB = snapshot.minDB
             loadedMaxDB = snapshot.maxDB
+            
+            // Restore showUnknownModes setting if available
+            if let showUnknown = snapshot.showUnknownModes {
+                print("  👁️ Publishing showUnknownModes: \(showUnknown)")
+                loadedShowUnknownModes = showUnknown
+            }
+            
+            // Restore guitarType setting if available
+            if let guitarType = snapshot.guitarType {
+                print("  🎸 Publishing guitarType: \(guitarType.rawValue)")
+                loadedGuitarType = guitarType
+            }
         } else {
             print("  ⚠️ No spectrum snapshot in measurement")
             // Even without a snapshot, freeze the current spectrum to prevent changes

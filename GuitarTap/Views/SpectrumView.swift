@@ -1405,6 +1405,7 @@ struct ExportableSpectrumChart: View {
     var peaks: [ResonantPeak]?
     var showModeBoundaries: Bool = true
     var annotationOffsets: [UUID: CGPoint] = [:]
+    var showUnknownModes: Bool? = nil  // If nil, uses global setting
     
     private var chartData: [SpectrumDataPoint] {
         zip(frequencies, magnitudes)
@@ -1431,7 +1432,9 @@ struct ExportableSpectrumChart: View {
     
     private var visiblePeaks: [ResonantPeak] {
         let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
-        if SpectrumDisplaySettings.showUnknownModes {
+        // Use explicit parameter if provided, otherwise fall back to global setting
+        let shouldShowUnknown = showUnknownModes ?? SpectrumDisplaySettings.showUnknownModes
+        if shouldShowUnknown {
             return filtered
         } else {
             return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }

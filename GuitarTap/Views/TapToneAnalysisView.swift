@@ -141,6 +141,26 @@ struct TapToneAnalysisView: View {
                 }
             }
         }
+        .onReceive(tapToneAnalyzer.$loadedShowUnknownModes) { showUnknown in
+            if let showUnknown = showUnknown {
+                print("  ⬇️ View received loadedShowUnknownModes: \(showUnknown)")
+                SpectrumDisplaySettings.showUnknownModes = showUnknown
+                // Clear the loaded value after a small delay to ensure UI updates
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedShowUnknownModes = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedGuitarType) { guitarType in
+            if let guitarType = guitarType {
+                print("  ⬇️ View received loadedGuitarType: \(guitarType.rawValue)")
+                SpectrumDisplaySettings.guitarType = guitarType
+                // Clear the loaded value after a small delay to ensure UI updates
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedGuitarType = nil
+                }
+            }
+        }
         .onReceive(fftAnalyzer.$magnitudes) { newMagnitudes in
             // Auto-scale dB when enabled and spectrum updates
             // Note: Check for non-empty magnitudes that aren't all -100 (initialization value)
@@ -1297,7 +1317,9 @@ struct TapToneAnalysisView: View {
                 maxFreq: self.maxFreq,
                 minDB: self.minDB,
                 maxDB: self.maxDB,
-                isLogarithmic: false
+                isLogarithmic: false,
+                showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
+                guitarType: SpectrumDisplaySettings.guitarType
             )
             
             // Save with all data
@@ -1481,7 +1503,8 @@ struct TapToneAnalysisView: View {
                 isLogarithmic: false,
                 peaks: tapToneAnalyzer.currentPeaks,
                 showModeBoundaries: true,
-                annotationOffsets: tapToneAnalyzer.peakAnnotationOffsets
+                annotationOffsets: tapToneAnalyzer.peakAnnotationOffsets,
+                showUnknownModes: SpectrumDisplaySettings.showUnknownModes
             )
             .frame(width: 1400, height: 800)
             .padding()
