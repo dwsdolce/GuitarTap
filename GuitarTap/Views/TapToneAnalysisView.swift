@@ -33,7 +33,7 @@ struct TapToneAnalysisView: View {
     @State private var isExportingSpectrum = false
     @State private var isSavingMeasurement = false
     
-    // Spectrum display state
+    // Spectrum display state (loaded from persisted settings)
     @State private var minFreq: Float = SpectrumDisplaySettings.minFrequency
     @State private var maxFreq: Float = SpectrumDisplaySettings.maxFrequency
     @State private var minDB: Float = SpectrumDisplaySettings.minMagnitude

@@ -533,6 +533,7 @@ struct SpectrumSettingsView: View {
         // Save guitar type and unknown mode setting
         SpectrumDisplaySettings.guitarType = selectedGuitarType
         SpectrumDisplaySettings.showUnknownModes = showUnknownModes
+        
         // Parse and validate display frequency range
         guard let newMinFreq = Float(minFreqInput),
               let newMaxFreq = Float(maxFreqInput) else {
@@ -578,7 +579,7 @@ struct SpectrumSettingsView: View {
         // Clamp peak threshold to reasonable range
         let clampedThreshold = max(-120, min(newPeakThreshold, 0))
         
-        // Apply validated values
+        // Apply validated values to bindings
         minFreq = validatedFreq.min
         maxFreq = validatedFreq.max
         minDB = validatedDB.min
@@ -586,6 +587,16 @@ struct SpectrumSettingsView: View {
         analysisMinFreq = validatedAnalysisFreq.min
         analysisMaxFreq = validatedAnalysisFreq.max
         peakThreshold = clampedThreshold
+        
+        // Persist all settings to UserDefaults
+        SpectrumDisplaySettings.minFrequency = validatedFreq.min
+        SpectrumDisplaySettings.maxFrequency = validatedFreq.max
+        SpectrumDisplaySettings.minMagnitude = validatedDB.min
+        SpectrumDisplaySettings.maxMagnitude = validatedDB.max
+        SpectrumDisplaySettings.analysisMinFrequency = validatedAnalysisFreq.min
+        SpectrumDisplaySettings.analysisMaxFrequency = validatedAnalysisFreq.max
+        SpectrumDisplaySettings.peakThreshold = clampedThreshold
+        SpectrumDisplaySettings.hopSizeOverlap = fftAnalyzer.hopSizeOverlap
         
         // Update input fields with validated values (in case they were clamped)
         minFreqInput = String(format: "%.0f", validatedFreq.min)
@@ -600,15 +611,17 @@ struct SpectrumSettingsView: View {
     }
     
     private func resetToDefaults() {
+        // Reset UI controls to defaults
         selectedGuitarType = .acoustic
         showUnknownModes = false
-        minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.minFrequency)
-        maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.maxFrequency)
-        minDBInput = String(format: "%.0f", SpectrumDisplaySettings.minMagnitude)
-        maxDBInput = String(format: "%.0f", SpectrumDisplaySettings.maxMagnitude)
-        analysisMinFreqInput = String(format: "%.0f", SpectrumDisplaySettings.analysisMinFrequency)
-        analysisMaxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.analysisMaxFrequency)
+        minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMinFrequency)
+        maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMaxFrequency)
+        minDBInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMinMagnitude)
+        maxDBInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMaxMagnitude)
+        analysisMinFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultAnalysisMinFrequency)
+        analysisMaxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultAnalysisMaxFrequency)
         peakThresholdInput = String(format: "%.0f", SpectrumDisplaySettings.defaultPeakThreshold)
+        fftAnalyzer.hopSizeOverlap = SpectrumDisplaySettings.defaultHopSizeOverlap
     }
     
     private func showError(_ message: String) {

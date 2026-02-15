@@ -357,7 +357,86 @@ final class TapToneAnalyzer: ObservableObject {
     
     init(fftAnalyzer: RealtimeFFTAnalyzer) {
         self.fftAnalyzer = fftAnalyzer
+        
+        // Load persisted analysis settings
+        peakThreshold = SpectrumDisplaySettings.peakThreshold
+        minFrequency = SpectrumDisplaySettings.analysisMinFrequency
+        maxFrequency = SpectrumDisplaySettings.analysisMaxFrequency
+        
+        // Load persisted measurements
+        loadPersistedMeasurements()
+        
         setupSubscriptions()
+    }
+    
+    // MARK: - Measurement Persistence
+    
+    /// File URL for persisted measurements
+    private static var measurementsFileURL: URL {
+        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return documentsDirectory.appendingPathComponent("saved_measurements.json")
+    }
+    
+    /// Load measurements from persistent storage
+    private func loadPersistedMeasurements() {
+        let fileURL = TapToneAnalyzer.measurementsFileURL
+        
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            print("📂 No persisted measurements file found")
+            return
+        }
+        
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let measurements = try decoder.decode([TapToneMeasurement].self, from: data)
+            
+            // Load associated images for each measurement
+            var loadedMeasurements = measurements
+            let documentsDirectory = fileURL.deletingLastPathComponent()
+            
+            for i in 0..<loadedMeasurements.count {
+                if let filename = loadedMeasurements[i].chartImageFilename {
+                    let imageURL = documentsDirectory.appendingPathComponent(filename)
+                    if let imageData = try? Data(contentsOf: imageURL) {
+                        loadedMeasurements[i].chartImageData = imageData
+                    }
+                }
+            }
+            
+            savedMeasurements = loadedMeasurements
+            print("📂 Loaded \(measurements.count) persisted measurements")
+        } catch {
+            print("❌ Failed to load persisted measurements: \(error)")
+        }
+    }
+    
+    /// Save measurements to persistent storage
+    func persistMeasurements() {
+        let fileURL = TapToneAnalyzer.measurementsFileURL
+        
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(savedMeasurements)
+            try data.write(to: fileURL)
+            
+            // Also save any chart images
+            let documentsDirectory = fileURL.deletingLastPathComponent()
+            for measurement in savedMeasurements {
+                if let filename = measurement.chartImageFilename,
+                   let imageData = measurement.chartImageData {
+                    let imageURL = documentsDirectory.appendingPathComponent(filename)
+                    try? imageData.write(to: imageURL)
+                }
+            }
+            
+            print("💾 Persisted \(savedMeasurements.count) measurements to disk")
+        } catch {
+            print("❌ Failed to persist measurements: \(error)")
+        }
     }
     
     // MARK: - Setup
@@ -988,11 +1067,24 @@ final class TapToneAnalyzer: ObservableObject {
         
         savedMeasurements.append(measurement)
         print("💾 Saved measurement with \(currentPeaks.count) peaks, image: \(imageFilename ?? "none")")
+        
+        // Persist to disk
+        persistMeasurements()
     }
     
     /// Delete a saved measurement
     func deleteMeasurement(_ measurement: TapToneMeasurement) {
+        // Also delete the associated chart image file if it exists
+        if let filename = measurement.chartImageFilename {
+            let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            let imageURL = documentsDirectory.appendingPathComponent(filename)
+            try? FileManager.default.removeItem(at: imageURL)
+        }
+        
         savedMeasurements.removeAll(where: { $0.id == measurement.id })
+        
+        // Persist to disk
+        persistMeasurements()
     }
     
     /// Import measurements from JSON data and optionally load associated images
@@ -1018,6 +1110,9 @@ final class TapToneAnalyzer: ObservableObject {
         
         // Add imported measurements
         savedMeasurements.append(contentsOf: measurements)
+        
+        // Persist to disk
+        persistMeasurements()
         
         print("📥 Imported \(measurements.count) measurements")
         return measurements

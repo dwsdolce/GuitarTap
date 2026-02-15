@@ -148,10 +148,20 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
 /// Centralized settings for spectrum display ranges across the app
 struct SpectrumDisplaySettings {
     
-    // MARK: - Guitar Type Setting
+    // MARK: - UserDefaults Keys
     
-    /// Key for storing guitar type in UserDefaults
     private static let guitarTypeKey = "guitarType"
+    private static let showUnknownModesKey = "showUnknownModes"
+    private static let displayMinFreqKey = "displayMinFreq"
+    private static let displayMaxFreqKey = "displayMaxFreq"
+    private static let displayMinDBKey = "displayMinDB"
+    private static let displayMaxDBKey = "displayMaxDB"
+    private static let analysisMinFreqKey = "analysisMinFreq"
+    private static let analysisMaxFreqKey = "analysisMaxFreq"
+    private static let peakThresholdKey = "peakThreshold"
+    private static let hopSizeOverlapKey = "hopSizeOverlap"
+    
+    // MARK: - Guitar Type Setting
     
     /// The currently selected guitar type (persisted in UserDefaults)
     static var guitarType: GuitarType {
@@ -169,9 +179,6 @@ struct SpectrumDisplaySettings {
     
     // MARK: - Unknown Mode Display Setting
     
-    /// Key for storing unknown mode display preference in UserDefaults
-    private static let showUnknownModesKey = "showUnknownModes"
-    
     /// Whether to display/report peaks classified as "Unknown" mode (persisted in UserDefaults)
     static var showUnknownModes: Bool {
         get {
@@ -185,31 +192,152 @@ struct SpectrumDisplaySettings {
             UserDefaults.standard.set(newValue, forKey: showUnknownModesKey)
         }
     }
-    // MARK: - Display Ranges
     
-    /// Standard minimum frequency for guitar tap tone spectrum display (Hz)
-    static let minFrequency: Float = 75
+    // MARK: - Display Ranges (Persisted)
     
-    /// Standard maximum frequency for guitar tap tone spectrum display (Hz)
-    static let maxFrequency: Float = 350
+    /// Default minimum frequency for guitar tap tone spectrum display (Hz)
+    static let defaultMinFrequency: Float = 75
     
-    /// Standard minimum magnitude for spectrum display (dB)
-    static let minMagnitude: Float = -100
+    /// Default maximum frequency for guitar tap tone spectrum display (Hz)
+    static let defaultMaxFrequency: Float = 350
     
-    /// Standard maximum magnitude for spectrum display (dB)
-    static let maxMagnitude: Float = 0
+    /// Default minimum magnitude for spectrum display (dB)
+    static let defaultMinMagnitude: Float = -100
     
-    // MARK: - Analysis Settings
+    /// Default maximum magnitude for spectrum display (dB)
+    static let defaultMaxMagnitude: Float = 0
     
-    /// Minimum frequency for peak detection and analysis (Hz)
-    static let analysisMinFrequency: Float = 50
+    /// Persisted minimum frequency for display (Hz)
+    static var minFrequency: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: displayMinFreqKey)
+            return value != 0 ? value : defaultMinFrequency
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: displayMinFreqKey)
+        }
+    }
     
-    /// Maximum frequency for peak detection and analysis (Hz)
-    static let analysisMaxFrequency: Float = 2000
+    /// Persisted maximum frequency for display (Hz)
+    static var maxFrequency: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: displayMaxFreqKey)
+            return value != 0 ? value : defaultMaxFrequency
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: displayMaxFreqKey)
+        }
+    }
+    
+    /// Persisted minimum magnitude for display (dB)
+    static var minMagnitude: Float {
+        get {
+            // Use object check since 0 is a valid value for dB
+            if UserDefaults.standard.object(forKey: displayMinDBKey) == nil {
+                return defaultMinMagnitude
+            }
+            return UserDefaults.standard.float(forKey: displayMinDBKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: displayMinDBKey)
+        }
+    }
+    
+    /// Persisted maximum magnitude for display (dB)
+    static var maxMagnitude: Float {
+        get {
+            // Use object check since 0 is a valid value for dB
+            if UserDefaults.standard.object(forKey: displayMaxDBKey) == nil {
+                return defaultMaxMagnitude
+            }
+            return UserDefaults.standard.float(forKey: displayMaxDBKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: displayMaxDBKey)
+        }
+    }
+    
+    // MARK: - Analysis Settings (Persisted)
+    
+    /// Default minimum frequency for peak detection and analysis (Hz)
+    static let defaultAnalysisMinFrequency: Float = 50
+    
+    /// Default maximum frequency for peak detection and analysis (Hz)
+    static let defaultAnalysisMaxFrequency: Float = 2000
     
     /// Default minimum magnitude threshold for peak detection (dB)
-    /// Any magnitude below this is ignored. Even if the threshold setting is below it.
     static let defaultPeakThreshold: Float = -60
+    
+    /// Persisted minimum frequency for analysis (Hz)
+    static var analysisMinFrequency: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: analysisMinFreqKey)
+            return value != 0 ? value : defaultAnalysisMinFrequency
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: analysisMinFreqKey)
+        }
+    }
+    
+    /// Persisted maximum frequency for analysis (Hz)
+    static var analysisMaxFrequency: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: analysisMaxFreqKey)
+            return value != 0 ? value : defaultAnalysisMaxFrequency
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: analysisMaxFreqKey)
+        }
+    }
+    
+    /// Persisted peak threshold (dB)
+    static var peakThreshold: Float {
+        get {
+            // Use object check since negative values are common for dB
+            if UserDefaults.standard.object(forKey: peakThresholdKey) == nil {
+                return defaultPeakThreshold
+            }
+            return UserDefaults.standard.float(forKey: peakThresholdKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: peakThresholdKey)
+        }
+    }
+    
+    // MARK: - FFT Settings (Persisted)
+    
+    /// Default hop size overlap percentage
+    static let defaultHopSizeOverlap: Float = 0
+    
+    /// Persisted hop size overlap percentage
+    static var hopSizeOverlap: Float {
+        get {
+            // Use object check since 0 is a valid value
+            if UserDefaults.standard.object(forKey: hopSizeOverlapKey) == nil {
+                return defaultHopSizeOverlap
+            }
+            return UserDefaults.standard.float(forKey: hopSizeOverlapKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: hopSizeOverlapKey)
+        }
+    }
+    
+    // MARK: - Reset to Defaults
+    
+    /// Reset all persisted settings to their default values
+    static func resetToDefaults() {
+        guitarType = .acoustic
+        showUnknownModes = false
+        minFrequency = defaultMinFrequency
+        maxFrequency = defaultMaxFrequency
+        minMagnitude = defaultMinMagnitude
+        maxMagnitude = defaultMaxMagnitude
+        analysisMinFrequency = defaultAnalysisMinFrequency
+        analysisMaxFrequency = defaultAnalysisMaxFrequency
+        peakThreshold = defaultPeakThreshold
+        hopSizeOverlap = defaultHopSizeOverlap
+    }
     
     // MARK: - Validation
     

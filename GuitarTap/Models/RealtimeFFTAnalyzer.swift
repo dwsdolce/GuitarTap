@@ -94,8 +94,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     /// Hop size overlap percentage (0-75%)
     /// - Note: 0% = no overlap (hop size = fftSize), 75% = maximum overlap (hop size = fftSize/4)
-    /// - Default: 0% for maximum frame rate
-    @Published var hopSizeOverlap: Float = 0
+    /// - Default: 0% for maximum frame rate (loaded from persisted settings)
+    @Published var hopSizeOverlap: Float = SpectrumDisplaySettings.hopSizeOverlap
     
     // MARK: - Audio Buffers
     
