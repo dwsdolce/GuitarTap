@@ -93,18 +93,18 @@ struct SpectrumSettingsView: View {
                 Section {
                     Picker("Guitar Type", selection: $selectedGuitarType) {
                         ForEach(GuitarType.allCases) { type in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(type.rawValue)
-                                Text(type.description)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(type)
+                            Text(type.rawValue)
+                                .tag(type)
                         }
                     }
                     #if os(iOS)
                     .pickerStyle(.navigationLink)
                     #endif
+                    
+                    // Show description for selected type
+                    Text(selectedGuitarType.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     
                     // Show frequency ranges for selected type
                     VStack(alignment: .leading, spacing: 8) {
