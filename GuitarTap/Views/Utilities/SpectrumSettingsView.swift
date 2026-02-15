@@ -600,7 +600,7 @@ struct SpectrumSettingsView: View {
     }
     
     private func resetToDefaults() {
-        selectedGuitarType = .steelString
+        selectedGuitarType = .acoustic
         showUnknownModes = false
         minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.minFrequency)
         maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.maxFrequency)

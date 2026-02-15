@@ -13,7 +13,7 @@ import Foundation
 enum GuitarType: String, Codable, CaseIterable, Identifiable {
     case classical = "Classical"
     case flamenco = "Flamenco"
-    case steelString = "Steel-String"
+    case acoustic = "Acoustic"
     
     var id: String { rawValue }
     
@@ -24,7 +24,7 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
             return "Nylon string, fan-braced, deep body"
         case .flamenco:
             return "Nylon string, light bracing, shallow body"
-        case .steelString:
+        case .acoustic:
             return "Steel string, X-braced (Dreadnought, OM, etc.)"
         }
     }
@@ -60,7 +60,7 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
                 ringMode: 600...850,  // Ring mode
                 upperModes: 850...20000
             )
-        case .steelString:
+        case .acoustic:
             return ModeRanges(
                 air: 90...120,        // Higher due to smaller/tighter body
                 top: 150...210,       // Lower due to stiffer X-bracing
@@ -93,7 +93,7 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
                 ringMode: 680...780,
                 upperModes: 880...2000
             )
-        case .steelString:
+        case .acoustic:
             return ModeRanges(
                 air: 95...110,
                 top: 165...195,
@@ -133,7 +133,7 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
                 moderate: 0.35,
                 good: 0.55
             )
-        case .steelString:
+        case .acoustic:
             // Steel-string guitars have punchier, shorter decay
             return DecayThresholds(
                 veryShort: 0.10,
@@ -160,7 +160,7 @@ struct SpectrumDisplaySettings {
                let type = GuitarType(rawValue: rawValue) {
                 return type
             }
-            return .steelString  // Default to steel-string
+            return .acoustic  // Default to steel-string
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: guitarTypeKey)

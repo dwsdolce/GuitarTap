@@ -24,7 +24,7 @@ extension Float {
     /// These thresholds are calibrated for tap tone analysis where:
     /// - Body-only taps (damped strings) typically decay in 0.05-0.3s
     /// - Taps with open strings ringing decay in 0.3-1.5s+
-    /// Classical guitars typically have longer sustain than steel-string guitars
+    /// Classical guitars typically have longer sustain than acoustic  guitars
     var decayQuality: String {
         return decayQuality(for: SpectrumDisplaySettings.guitarType)
     }
