@@ -270,11 +270,11 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var captureWindow: TimeInterval = 0.2
     
     /// Tap detection threshold in dB (absolute magnitude level to trigger tap)
-    @Published var tapDetectionThreshold: Float = -40.0
+    @Published var tapDetectionThreshold: Float = SpectrumDisplaySettings.defaultTapDetectionThreshold
     
     /// Hysteresis margin in dB (prevents bouncing around threshold)
     /// Signal must fall this many dB below threshold before ready for next tap
-    @Published var hysteresisMargin: Float = 3.0
+    @Published var hysteresisMargin: Float = SpectrumDisplaySettings.defaultHysteresisMargin
     
     // MARK: - Published Results
     
@@ -365,6 +365,10 @@ final class TapToneAnalyzer: ObservableObject {
         peakThreshold = SpectrumDisplaySettings.peakThreshold
         minFrequency = SpectrumDisplaySettings.analysisMinFrequency
         maxFrequency = SpectrumDisplaySettings.analysisMaxFrequency
+        
+        // Load persisted tap detection settings
+        tapDetectionThreshold = SpectrumDisplaySettings.tapDetectionThreshold
+        hysteresisMargin = SpectrumDisplaySettings.hysteresisMargin
         
         // Load persisted measurements
         loadPersistedMeasurements()

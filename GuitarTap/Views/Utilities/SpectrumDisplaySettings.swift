@@ -160,6 +160,8 @@ struct SpectrumDisplaySettings {
     private static let analysisMaxFreqKey = "analysisMaxFreq"
     private static let peakThresholdKey = "peakThreshold"
     private static let hopSizeOverlapKey = "hopSizeOverlap"
+    private static let tapDetectionThresholdKey = "tapDetectionThreshold"
+    private static let hysteresisMarginKey = "hysteresisMargin"
     
     // MARK: - Guitar Type Setting
     
@@ -323,6 +325,42 @@ struct SpectrumDisplaySettings {
         }
     }
     
+    // MARK: - Tap Detection Settings (Persisted)
+    
+    /// Default tap detection threshold in dB
+    static let defaultTapDetectionThreshold: Float = -40.0
+    
+    /// Default hysteresis margin in dB
+    static let defaultHysteresisMargin: Float = 3.0
+    
+    /// Persisted tap detection threshold (dB)
+    static var tapDetectionThreshold: Float {
+        get {
+            // Use object check since negative values are common for dB
+            if UserDefaults.standard.object(forKey: tapDetectionThresholdKey) == nil {
+                return defaultTapDetectionThreshold
+            }
+            return UserDefaults.standard.float(forKey: tapDetectionThresholdKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: tapDetectionThresholdKey)
+        }
+    }
+    
+    /// Persisted hysteresis margin (dB)
+    static var hysteresisMargin: Float {
+        get {
+            // Use object check since 0 could theoretically be a valid value
+            if UserDefaults.standard.object(forKey: hysteresisMarginKey) == nil {
+                return defaultHysteresisMargin
+            }
+            return UserDefaults.standard.float(forKey: hysteresisMarginKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: hysteresisMarginKey)
+        }
+    }
+    
     // MARK: - Reset to Defaults
     
     /// Reset all persisted settings to their default values
@@ -337,6 +375,8 @@ struct SpectrumDisplaySettings {
         analysisMaxFrequency = defaultAnalysisMaxFrequency
         peakThreshold = defaultPeakThreshold
         hopSizeOverlap = defaultHopSizeOverlap
+        tapDetectionThreshold = defaultTapDetectionThreshold
+        hysteresisMargin = defaultHysteresisMargin
     }
     
     // MARK: - Validation

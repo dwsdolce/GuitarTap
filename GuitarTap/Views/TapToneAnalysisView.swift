@@ -80,6 +80,17 @@ struct TapToneAnalysisView: View {
         #endif
     }
     
+    /// Cancel button should only be enabled during active multi-tap detection
+    private var cancelButtonEnabled: Bool {
+        // Must be multi-tap mode
+        guard tapToneAnalyzer.numberOfTaps > 1 else { return false }
+        // Must be actively detecting
+        guard tapToneAnalyzer.isDetecting else { return false }
+        // Must not have completed all taps
+        guard tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps else { return false }
+        return true
+    }
+    
     init() {
         // Create a single FFT analyzer instance
         // Using 65,536 FFT size for maximum frequency resolution (0.67 Hz/bin @ 44.1kHz)
@@ -538,6 +549,9 @@ struct TapToneAnalysisView: View {
                 Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
                     .accessibilityLabel("Tap detection threshold")
                     .hint(HintText.threshold)
+                    .onChange(of: tapToneAnalyzer.tapDetectionThreshold) { _, newValue in
+                        SpectrumDisplaySettings.tapDetectionThreshold = newValue
+                    }
             }
             
             // Hysteresis
@@ -547,6 +561,9 @@ struct TapToneAnalysisView: View {
                 Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
                     .accessibilityLabel("Hysteresis margin")
                     .hint(HintText.hysteresis)
+                    .onChange(of: tapToneAnalyzer.hysteresisMargin) { _, newValue in
+                        SpectrumDisplaySettings.hysteresisMargin = newValue
+                    }
             }
             
             Divider()
@@ -570,9 +587,8 @@ struct TapToneAnalysisView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .disabled(tapToneAnalyzer.numberOfTaps == 1 ||
-                          !tapToneAnalyzer.isDetecting ||
-                          tapToneAnalyzer.currentTapCount >= tapToneAnalyzer.numberOfTaps)
+                .foregroundColor(cancelButtonEnabled ? .orange : .gray)
+                .disabled(!cancelButtonEnabled)
                 .hint(HintText.cancel)
             }
             
@@ -1256,6 +1272,9 @@ struct TapToneAnalysisView: View {
                     Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
                         .accessibilityLabel("Tap detection threshold")
                         .hint(HintText.threshold)
+                        .onChange(of: tapToneAnalyzer.tapDetectionThreshold) { _, newValue in
+                            SpectrumDisplaySettings.tapDetectionThreshold = newValue
+                        }
                     Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
@@ -1272,6 +1291,9 @@ struct TapToneAnalysisView: View {
                     Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
                         .accessibilityLabel("Hysteresis margin")
                         .hint(HintText.hysteresis)
+                        .onChange(of: tapToneAnalyzer.hysteresisMargin) { _, newValue in
+                            SpectrumDisplaySettings.hysteresisMargin = newValue
+                        }
                     Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
                         .font(.caption)
                         .fontWeight(.medium)
@@ -1295,7 +1317,7 @@ struct TapToneAnalysisView: View {
                           tapToneAnalyzer.isDetecting)
                 .hint(HintText.newTap)
                 
-                // Cancel button - only for multi-tap sequences in progress
+                // Cancel button - only enabled during active multi-tap detection
                 Button(action: {
                     tapToneAnalyzer.cancelTapSequence()
                 }) {
@@ -1303,10 +1325,8 @@ struct TapToneAnalysisView: View {
                         .font(.subheadline)
                 }
                 .buttonStyle(.bordered)
-                .foregroundColor(.orange)
-                .disabled(tapToneAnalyzer.numberOfTaps == 1 ||
-                          !tapToneAnalyzer.isDetecting ||
-                          tapToneAnalyzer.currentTapCount >= tapToneAnalyzer.numberOfTaps)
+                .foregroundColor(cancelButtonEnabled ? .orange : .gray)
+                .disabled(!cancelButtonEnabled)
                 .hint(HintText.cancel)
                 
                 // Reset annotation positions button (always visible)
@@ -1361,6 +1381,9 @@ struct TapToneAnalysisView: View {
                 Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
                     .frame(width: 80)
                     .accessibilityLabel("Tap detection threshold")
+                    .onChange(of: tapToneAnalyzer.tapDetectionThreshold) { _, newValue in
+                        SpectrumDisplaySettings.tapDetectionThreshold = newValue
+                    }
                 Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
                     .font(.caption)
                     .fontWeight(.medium)
@@ -1381,6 +1404,9 @@ struct TapToneAnalysisView: View {
                 Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
                     .frame(width: 60)
                     .accessibilityLabel("Hysteresis margin")
+                    .onChange(of: tapToneAnalyzer.hysteresisMargin) { _, newValue in
+                        SpectrumDisplaySettings.hysteresisMargin = newValue
+                    }
                 Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
                     .font(.caption)
                     .fontWeight(.medium)
@@ -1403,17 +1429,15 @@ struct TapToneAnalysisView: View {
                       tapToneAnalyzer.isDetecting)
             .hint(HintText.newTap)
             
-            // Cancel button - only for multi-tap sequences in progress
+            // Cancel button - only enabled during active multi-tap detection
             Button(action: {
                 tapToneAnalyzer.cancelTapSequence()
             }) {
                 Label("Cancel", systemImage: "xmark.circle")
             }
             .buttonStyle(.bordered)
-            .foregroundColor(.orange)
-            .disabled(tapToneAnalyzer.numberOfTaps == 1 ||
-                      !tapToneAnalyzer.isDetecting ||
-                      tapToneAnalyzer.currentTapCount >= tapToneAnalyzer.numberOfTaps)
+            .foregroundColor(cancelButtonEnabled ? .orange : .gray)
+            .disabled(!cancelButtonEnabled)
             .hint(HintText.cancel)
             
             // Reset annotation positions button
