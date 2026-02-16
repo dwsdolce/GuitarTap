@@ -559,6 +559,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             self.engineStartTime = Date()  // Track start time
 //            print("✓ Set isRunning = true - value is now: \(self.isRunning)")
             
+            #if os(iOS)
+            // Refresh device list now that audio session is fully configured
+            // This ensures USB devices that weren't visible before are now available
+            self.loadAvailableInputDevices()
+            #endif
+            
             // Set up a timeout to check if audio buffers are arriving
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
                 guard let self = self else { return }
@@ -1225,6 +1231,21 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         let session = AVAudioSession.sharedInstance()
         var devices: [AVAudioDevice] = []
         
+        // CRITICAL: Configure audio session BEFORE querying available inputs
+        // Without setting the category to .record or .playAndRecord, iOS will NOT
+        // expose external USB audio devices (like UMIK-1) in availableInputs.
+        // The session must be configured to indicate we want audio input.
+        do {
+            // Use .playAndRecord to maximize device discovery
+            // This is more permissive than .record and helps discover more devices
+            try session.setCategory(.playAndRecord, mode: .measurement, options: [.allowBluetoothA2DP])
+            try session.setActive(true, options: [])
+            print("🎙️ iOS audio session configured for device enumeration")
+        } catch {
+            print("⚠️ Failed to configure audio session for device enumeration: \(error)")
+            // Continue anyway - we may still get some devices
+        }
+        
         // Get available inputs from AVAudioSession
         guard let availableInputs = session.availableInputs else {
             print("⚠️ No audio inputs available")
@@ -1328,8 +1349,16 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         print("🔄 Audio route changed: \(reason)")
         
         switch reason {
-        case .newDeviceAvailable, .oldDeviceUnavailable:
-            // Reload device list when devices are added or removed
+        case .newDeviceAvailable:
+            print("🎤 New audio device connected")
+            // Reload device list when devices are added
+            loadAvailableInputDevices()
+        case .oldDeviceUnavailable:
+            print("🎤 Audio device disconnected")
+            // Reload device list when devices are removed
+            loadAvailableInputDevices()
+        case .categoryChange:
+            print("🎤 Audio category changed - refreshing device list")
             loadAvailableInputDevices()
         default:
             break
