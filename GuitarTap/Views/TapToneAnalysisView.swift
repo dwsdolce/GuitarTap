@@ -458,11 +458,21 @@ struct TapToneAnalysisView: View {
                 .accessibilityLabel("Save")
                 .hint(HintText.save)
                 
-                Button(action: tapToneAnalyzer.reset) {
-                    Image(systemName: "arrow.counterclockwise")
+                // Export Spectrum button
+                Button(action: { exportCurrentSpectrum() }) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
                 }
-                .accessibilityLabel("Reset")
-                .hint(HintText.reset)
+                .disabled(!fftAnalyzer.isRunning || fftAnalyzer.frequencies.isEmpty)
+                .accessibilityLabel("Export Spectrum")
+                .hint(HintText.exportSpectrum)
+                
+                // Auto-scale dB toggle button
+                Button(action: { toggleAutoScale() }) {
+                    Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                }
+                .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
+                .accessibilityLabel("Auto dB")
+                .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
             }
             
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -693,14 +703,6 @@ struct TapToneAnalysisView: View {
                     .tint(isAutoScaleEnabled ? .blue : .gray)
                     .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
                     .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
-                    
-                    // Reset button
-                    Button(action: tapToneAnalyzer.reset) {
-                        Label("Reset", systemImage: "arrow.counterclockwise")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.bordered)
-                    .hint(HintText.reset)
                 }
             } else {
                 // Regular layout for iPad
@@ -814,13 +816,6 @@ struct TapToneAnalysisView: View {
                 .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
                 
-                // Reset button
-                Button(action: tapToneAnalyzer.reset) {
-                    Label("Reset", systemImage: "arrow.counterclockwise")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.reset)
-                
                 Spacer()
             }
         }
@@ -916,13 +911,6 @@ struct TapToneAnalysisView: View {
             .buttonStyle(.bordered)
             .hint(HintText.measurements)
             
-            // Reset button
-            Button(action: tapToneAnalyzer.reset) {
-                Label("Reset", systemImage: "arrow.counterclockwise")
-            }
-            .buttonStyle(.bordered)
-            .hint(HintText.reset)
-            
             // Settings button
             Button(action: { showingSettings = true }) {
                 Label("Settings", systemImage: "gearshape")
@@ -1017,13 +1005,6 @@ struct TapToneAnalysisView: View {
                 .buttonStyle(.bordered)
                 .hint(HintText.measurements)
                 
-                // Reset button
-                Button(action: tapToneAnalyzer.reset) {
-                    Label("Reset", systemImage: "arrow.counterclockwise")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.reset)
-                
                 Spacer()
             }
         }
@@ -1106,13 +1087,6 @@ struct TapToneAnalysisView: View {
                 .tint(isAutoScaleEnabled ? .blue : .gray)
                 .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
-                
-                // Reset button
-                Button(action: tapToneAnalyzer.reset) {
-                    Image(systemName: "arrow.counterclockwise")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.reset)
                 
                 Spacer()
             }
