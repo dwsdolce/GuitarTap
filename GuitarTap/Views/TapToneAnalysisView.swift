@@ -585,9 +585,6 @@ struct TapToneAnalysisView: View {
                         .progressViewStyle(.linear)
                 }
             }
-            
-            // Decay time
-            decayTimeView
         }
     }
     #endif
