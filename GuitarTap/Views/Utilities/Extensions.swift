@@ -231,8 +231,7 @@ enum HintText {
     static let threshold = "Signal level that triggers tap detection - lower values detect quieter taps"
     static let hysteresis = "Margin below threshold before detecting next tap - prevents multiple triggers from one tap"
     static let newTap = "Start a new tap sequence to detect and analyze resonance peaks"
-    static let cancel = "Cancel the current tap sequence"
-    static let resume = "Resume tap detection after a completed sequence"
+    static let cancel = "Cancel the current tap sequence and start over"
     static let resetLabels = "Reset all peak label positions to their default locations"
 }
 

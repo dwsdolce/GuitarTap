@@ -78,8 +78,8 @@
             filePath = "GuitarTap/Models/RealtimeFFTAnalyzer.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "562"
-            endingLineNumber = "562"
+            startingLineNumber = "568"
+            endingLineNumber = "568"
             landmarkName = "start()"
             landmarkType = "7">
          </BreakpointContent>
@@ -95,6 +95,15 @@
             symbolName = "_NSDetectedLayoutRecursion"
             moduleName = "">
             <Locations>
+               <Location
+                  uuid = "E8855C54-C463-4A4C-95C8-C05339673598 - b0b77cd0d128b27b"
+                  shouldBeEnabled = "No"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "_NSDetectedLayoutRecursion"
+                  moduleName = "AppKit"
+                  usesParentBreakpointCondition = "Yes">
+               </Location>
             </Locations>
          </BreakpointContent>
       </BreakpointProxy>

@@ -135,6 +135,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Recent peak input level in dB - tracks the maximum level over the last 2 seconds
     /// Use this to capture the actual tap peak even when FFT detection is delayed
     /// Must be longer than FFT processing time (~1.5s for 65536 samples @ 44.1kHz)
+    
+    /// Counter that increments each time the engine restarts due to an audio route change
+    /// Observers can watch this to reset their state (e.g., warmup timers, threshold state)
+    @Published var routeChangeRestartCount: Int = 0
     @Published var recentPeakLevelDB: Float = -100
     private var recentPeakTime: Date = Date.distantPast
     private let peakHoldDuration: TimeInterval = 2.0  // How long to hold the peak
@@ -269,12 +273,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     func start() throws {
         print("=== Starting Audio Engine ===")
         
-        // CRITICAL: Remove any existing tap first to prevent "Tap already exists" error
-        // This must be done BEFORE stopping or resetting the engine
-        if audioEngine.isRunning {
-            print("🔧 Removing existing tap before restart...")
-            inputNode.removeTap(onBus: 0)
-        }
+        // CRITICAL: Always remove any existing tap to prevent "Tap already exists" error
+        // This must be done BEFORE stopping or resetting the engine.
+        // We always attempt removal regardless of audioEngine.isRunning state because:
+        // 1. The tap can persist even after the engine stops
+        // 2. Route changes can leave the engine in an inconsistent state
+        // 3. removeTap() is safe to call even if no tap exists
+        print("🔧 Removing any existing tap before restart...")
+        inputNode.removeTap(onBus: 0)
         
         // Reset the audio engine to ensure clean state
         audioEngine.stop()
@@ -1231,19 +1237,24 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         let session = AVAudioSession.sharedInstance()
         var devices: [AVAudioDevice] = []
         
-        // CRITICAL: Configure audio session BEFORE querying available inputs
-        // Without setting the category to .record or .playAndRecord, iOS will NOT
-        // expose external USB audio devices (like UMIK-1) in availableInputs.
-        // The session must be configured to indicate we want audio input.
-        do {
-            // Use .playAndRecord to maximize device discovery
-            // This is more permissive than .record and helps discover more devices
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.allowBluetoothA2DP])
-            try session.setActive(true, options: [])
-            print("🎙️ iOS audio session configured for device enumeration")
-        } catch {
-            print("⚠️ Failed to configure audio session for device enumeration: \(error)")
-            // Continue anyway - we may still get some devices
+        // CRITICAL: Only configure audio session if not already running
+        // If the engine is running, changing the category can invalidate the audio tap
+        // and cause the app to stop receiving audio data.
+        if !audioEngine.isRunning {
+            // Configure audio session BEFORE querying available inputs
+            // Without setting the category to .record or .playAndRecord, iOS will NOT
+            // expose external USB audio devices (like UMIK-1) in availableInputs.
+            do {
+                // Use .playAndRecord to maximize device discovery
+                try session.setCategory(.playAndRecord, mode: .measurement, options: [.allowBluetoothA2DP])
+                try session.setActive(true, options: [])
+                print("🎙️ iOS audio session configured for device enumeration")
+            } catch {
+                print("⚠️ Failed to configure audio session for device enumeration: \(error)")
+                // Continue anyway - we may still get some devices
+            }
+        } else {
+            print("🎙️ Skipping audio session reconfiguration - engine is running")
         }
         
         // Get available inputs from AVAudioSession
@@ -1348,20 +1359,72 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         
         print("🔄 Audio route changed: \(reason)")
         
+        // Track if engine was running before handling the change
+        let wasRunning = isRunning
+        
         switch reason {
         case .newDeviceAvailable:
             print("🎤 New audio device connected")
             // Reload device list when devices are added
             loadAvailableInputDevices()
+            
+            // If the engine was running, restart it to pick up the new device configuration
+            // This ensures the audio tap is properly reconfigured for the new route
+            if wasRunning {
+                print("🔄 Restarting audio engine after device connection...")
+                restartEngineAfterRouteChange()
+            }
+            
         case .oldDeviceUnavailable:
             print("🎤 Audio device disconnected")
             // Reload device list when devices are removed
             loadAvailableInputDevices()
+            
+            // If the engine was running, restart it to use the fallback device
+            if wasRunning {
+                print("🔄 Restarting audio engine after device disconnection...")
+                restartEngineAfterRouteChange()
+            }
+            
         case .categoryChange:
             print("🎤 Audio category changed - refreshing device list")
+            // Don't restart on category change as it may have been triggered by our own code
             loadAvailableInputDevices()
+            
         default:
             break
+        }
+    }
+    
+    /// Restarts the audio engine after a route change
+    /// This ensures the audio tap is properly reconfigured for the new audio route
+    private func restartEngineAfterRouteChange() {
+        // Use a slight delay to allow the system to settle after the route change
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self = self else { return }
+            
+            // Only restart if we're still supposed to be running
+            guard self.isRunning else {
+                print("🔄 Skipping restart - analyzer was stopped")
+                return
+            }
+            
+            print("🔄 Performing engine restart...")
+            self.stop()
+            
+            // Give the system a moment to clean up
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self = self else { return }
+                do {
+                    try self.start()
+                    // Notify observers that a route change restart occurred
+                    // This allows TapToneAnalyzer to reset its warmup timer and threshold state
+                    self.routeChangeRestartCount += 1
+                    print("✅ Audio engine restarted successfully after route change (restart #\(self.routeChangeRestartCount))")
+                } catch {
+                    print("❌ Failed to restart audio engine: \(error)")
+                }
+            }
         }
     }
     #endif

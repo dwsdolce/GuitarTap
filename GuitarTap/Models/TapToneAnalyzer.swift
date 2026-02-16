@@ -302,6 +302,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// Detection state (disabled by default until user starts a tap sequence)
     @Published var isDetecting: Bool = false
     
+    /// Whether the analyzer is ready for tap detection (false during audio route change reinitialization)
+    @Published var isReadyForDetection: Bool = true
+    
     /// Current tap count in multi-tap sequence
     @Published var currentTapCount: Int = 0
     
@@ -458,6 +461,73 @@ final class TapToneAnalyzer: ObservableObject {
                 self?.trackDecayFast(inputLevel: levelDB)
             }
             .store(in: &cancellables)
+        
+        // Subscribe to route change restart notifications
+        // When the audio engine restarts due to a device change, reset tap detection state
+        // to prevent false detections from the audio startup transient
+        fftAnalyzer.$routeChangeRestartCount
+            .dropFirst() // Ignore initial value
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.handleRouteChangeRestart()
+            }
+            .store(in: &cancellables)
+    }
+    
+    /// Handles audio route change restart by resetting tap detection state
+    /// This prevents false tap detections when the audio engine restarts
+    private func handleRouteChangeRestart() {
+        print("🔄 TapToneAnalyzer: Handling route change restart - resetting detection state")
+        
+        // Remember if we were detecting before the route change
+        let wasDetecting = isDetecting
+        
+        // Mark analyzer as not ready - this disables New Tap and Resume buttons
+        isReadyForDetection = false
+        
+        // Temporarily disable detection to prevent false positives during restart
+        isDetecting = false
+        
+        // Reset warmup timer to prevent false detections during audio startup
+        analyzerStartTime = Date()
+        
+        // Reset threshold state to prevent false rising edge detection
+        // IMPORTANT: Set to true so the first FFT frame won't trigger a rising edge
+        // The actual state will be corrected once valid FFT data arrives
+        isAboveThreshold = true
+        
+        // Reset tap detection flag
+        tapDetected = false
+        
+        // Update status message
+        statusMessage = "Audio device changed - reinitializing..."
+        
+        // Re-enable detection after FFT has had time to produce valid data
+        // FFT with 65536 samples at 48kHz takes ~1.36 seconds, so wait 2 seconds to be safe
+        // This ensures peakMagnitude has been updated with real data before we check it
+        let fftSettleTime: TimeInterval = 2.0
+        DispatchQueue.main.asyncAfter(deadline: .now() + fftSettleTime) { [weak self] in
+            guard let self = self else { return }
+            // Only re-enable if we haven't been stopped in the meantime
+            if self.fftAnalyzer.isRunning {
+                // Re-initialize threshold state based on current audio level
+                // This MUST happen before enabling detection
+                let currentPeakMag = self.fftAnalyzer.peakMagnitude
+                self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
+                
+                // Mark analyzer as ready again - this enables New Tap and Resume buttons
+                self.isReadyForDetection = true
+                
+                // Re-enable detection if it was active before
+                if wasDetecting {
+                    self.isDetecting = true
+                    self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."
+                } else {
+                    self.statusMessage = "Ready"
+                }
+                print("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
+            }
+        }
     }
     
     // MARK: - Analysis Methods
@@ -1459,6 +1529,9 @@ final class TapToneAnalyzer: ObservableObject {
             self.decayTrackingTimer?.invalidate()
             self.decayTrackingTimer = nil
             
+            // Reset warm-up timer to prevent detection issues
+            self.analyzerStartTime = Date()
+            
             // IMPORTANT: Initialize threshold state based on current audio level
             // This prevents false "rising edge" detection when cancelling
             let currentPeakMag = self.fftAnalyzer.peakMagnitude
@@ -1470,42 +1543,6 @@ final class TapToneAnalyzer: ObservableObject {
             
             self.captureTimer?.invalidate()
             self.captureTimer = nil
-            self.statusMessage = "Cancelled. Ready for new sequence."
-        }
-    }
-    
-    /// Resume detection after analysis
-    func resumeDetection() {
-        print("▶️ Resuming tap detection")
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            self.isDetecting = true
-            self.currentTapCount = 0
-            self.tapProgress = 0.0
-            self.capturedTaps = []
-            self.tapsForAveraging = []
-            self.tapDetected = false
-            
-            // IMPORTANT: Initialize threshold state based on current audio level
-            // This prevents false "rising edge" detection when resuming
-            let currentPeakMag = self.fftAnalyzer.peakMagnitude
-            self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
-            
-            if self.isAboveThreshold {
-                print("⚠️ Resuming with audio already above threshold (\(currentPeakMag) dB > \(self.tapDetectionThreshold) dB) - will wait for signal to drop first")
-            }
-            
-            self.analyzerStartTime = Date()  // Reset warm-up timer to prevent false detection
-            self.captureTimer?.invalidate()
-            self.captureTimer = nil
-            
-            // Unfreeze spectrum
-            self.isSpectrumFrozen = false
-            self.frozenFrequencies = []
-            self.frozenMagnitudes = []
-            
             self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."
         }
     }

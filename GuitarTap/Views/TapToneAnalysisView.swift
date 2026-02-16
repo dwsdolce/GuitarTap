@@ -229,6 +229,7 @@ struct TapToneAnalysisView: View {
         mainContentView
         .sheet(isPresented: $showingMeasurements) {
             MeasurementsListView(analyzer: tapToneAnalyzer)
+                .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingSaveSheet) {
             SaveMeasurementSheet(
@@ -236,6 +237,7 @@ struct TapToneAnalysisView: View {
                 notes: $notes,
                 onSave: saveMeasurement
             )
+            .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingSettings) {
             SpectrumSettingsView(
@@ -248,6 +250,7 @@ struct TapToneAnalysisView: View {
                 peakThreshold: $tapToneAnalyzer.peakThreshold,
                 fftAnalyzer: fftAnalyzer
             )
+            .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingResults) {
             NavigationStack {
@@ -317,6 +320,7 @@ struct TapToneAnalysisView: View {
         .navigationViewStyle(.stack)
         .sheet(isPresented: $showingMeasurements) {
             MeasurementsListView(analyzer: tapToneAnalyzer)
+                .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingSaveSheet) {
             SaveMeasurementSheet(
@@ -324,6 +328,7 @@ struct TapToneAnalysisView: View {
                 notes: $notes,
                 onSave: saveMeasurement
             )
+            .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingResults) {
             NavigationView {
@@ -343,6 +348,7 @@ struct TapToneAnalysisView: View {
                     }
                 }
             }
+            .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingMetrics) {
             NavigationView {
@@ -360,6 +366,7 @@ struct TapToneAnalysisView: View {
                     }
                 }
             }
+            .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingSettings) {
             SpectrumSettingsView(
@@ -372,6 +379,7 @@ struct TapToneAnalysisView: View {
                 peakThreshold: $tapToneAnalyzer.peakThreshold,
                 fftAnalyzer: fftAnalyzer
             )
+            .interactiveDismissDisabled()
         }
         .onChange(of: minFreq) { _, newValue in
             minFreqInput = String(format: "%.0f", newValue)
@@ -551,8 +559,9 @@ struct TapToneAnalysisView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tapToneAnalyzer.currentTapCount > 0 && 
-                          tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps)
+                .disabled(!fftAnalyzer.isRunning ||
+                          !tapToneAnalyzer.isReadyForDetection ||
+                          tapToneAnalyzer.isDetecting)
                 .hint(HintText.newTap)
                 
                 Button(action: { tapToneAnalyzer.cancelTapSequence() }) {
@@ -561,18 +570,10 @@ struct TapToneAnalysisView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .disabled(!(tapToneAnalyzer.currentTapCount > 0 && 
-                           tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps))
+                .disabled(tapToneAnalyzer.numberOfTaps == 1 ||
+                          !tapToneAnalyzer.isDetecting ||
+                          tapToneAnalyzer.currentTapCount >= tapToneAnalyzer.numberOfTaps)
                 .hint(HintText.cancel)
-                
-                Button(action: { tapToneAnalyzer.resumeDetection() }) {
-                    Label("Resume", systemImage: "arrow.clockwise")
-                        .font(.caption)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(tapToneAnalyzer.tapProgress < 1.0)
-                .hint(HintText.resume)
             }
             
             // Progress
@@ -748,21 +749,15 @@ struct TapToneAnalysisView: View {
                 Spacer()
                 
                 // Results button
-                Button(action: { showingResults.toggle() }) {
-                    Label(
-                        showingResults ? "Hide Results" : "Show Results",
-                        systemImage: showingResults ? "doc.text.fill" : "doc.text"
-                    )
+                Button(action: { showingResults = true }) {
+                    Label("Results", systemImage: "doc.text")
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.showResults)
                 
                 // Metrics button
-                Button(action: { showingMetrics.toggle() }) {
-                    Label(
-                        showingMetrics ? "Hide Metrics" : "Show Metrics",
-                        systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar"
-                    )
+                Button(action: { showingMetrics = true }) {
+                    Label("Metrics", systemImage: "chart.bar")
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.showMetrics)
@@ -853,21 +848,15 @@ struct TapToneAnalysisView: View {
             Spacer()
             
             // Results button
-            Button(action: { showingResults.toggle() }) {
-                Label(
-                    showingResults ? "Hide Results" : "Show Results",
-                    systemImage: showingResults ? "doc.text.fill" : "doc.text"
-                )
+            Button(action: { showingResults = true }) {
+                Label("Results", systemImage: "doc.text")
             }
             .buttonStyle(.bordered)
             .hint(HintText.showResults)
             
             // Metrics button
-            Button(action: { showingMetrics.toggle() }) {
-                Label(
-                    showingMetrics ? "Hide Metrics" : "Show Metrics",
-                    systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar"
-                )
+            Button(action: { showingMetrics = true }) {
+                Label("Metrics", systemImage: "chart.bar")
             }
             .buttonStyle(.bordered)
             .hint(HintText.showMetrics)
@@ -937,21 +926,15 @@ struct TapToneAnalysisView: View {
                 Spacer()
                 
                 // Results button
-                Button(action: { showingResults.toggle() }) {
-                    Label(
-                        showingResults ? "Hide Results" : "Show Results",
-                        systemImage: showingResults ? "doc.text.fill" : "doc.text"
-                    )
+                Button(action: { showingResults = true }) {
+                    Label("Results", systemImage: "doc.text")
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.showResults)
                 
                 // Metrics button
-                Button(action: { showingMetrics.toggle() }) {
-                    Label(
-                        showingMetrics ? "Hide Metrics" : "Show Metrics",
-                        systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar"
-                    )
+                Button(action: { showingMetrics = true }) {
+                    Label("Metrics", systemImage: "chart.bar")
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.showMetrics)
@@ -1024,15 +1007,15 @@ struct TapToneAnalysisView: View {
                 Spacer()
                 
                 // Results button
-                Button(action: { showingResults.toggle() }) {
-                    Image(systemName: showingResults ? "doc.text.fill" : "doc.text")
+                Button(action: { showingResults = true }) {
+                    Image(systemName: "doc.text")
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.showResults)
                 
                 // Metrics button
-                Button(action: { showingMetrics.toggle() }) {
-                    Image(systemName: showingMetrics ? "chart.bar.fill" : "chart.bar")
+                Button(action: { showingMetrics = true }) {
+                    Image(systemName: "chart.bar")
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.showMetrics)
@@ -1307,11 +1290,12 @@ struct TapToneAnalysisView: View {
                         .font(.subheadline)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tapToneAnalyzer.currentTapCount > 0 && 
-                          tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps)
+                .disabled(!fftAnalyzer.isRunning ||
+                          !tapToneAnalyzer.isReadyForDetection ||
+                          tapToneAnalyzer.isDetecting)
                 .hint(HintText.newTap)
                 
-                // Cancel button - always visible, disabled when not in active sequence
+                // Cancel button - only for multi-tap sequences in progress
                 Button(action: {
                     tapToneAnalyzer.cancelTapSequence()
                 }) {
@@ -1320,21 +1304,10 @@ struct TapToneAnalysisView: View {
                 }
                 .buttonStyle(.bordered)
                 .foregroundColor(.orange)
-                .disabled(!(tapToneAnalyzer.currentTapCount > 0 && 
-                           tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps))
+                .disabled(tapToneAnalyzer.numberOfTaps == 1 ||
+                          !tapToneAnalyzer.isDetecting ||
+                          tapToneAnalyzer.currentTapCount >= tapToneAnalyzer.numberOfTaps)
                 .hint(HintText.cancel)
-                
-                // Resume button (always visible, disabled when not applicable)
-                Button(action: {
-                    tapToneAnalyzer.resumeDetection()
-                }) {
-                    Label("Resume", systemImage: "arrow.clockwise")
-                        .font(.subheadline)
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.blue)
-                .disabled(tapToneAnalyzer.tapProgress < 1.0)
-                .hint(HintText.resume)
                 
                 // Reset annotation positions button (always visible)
                 Button(action: {
@@ -1363,10 +1336,16 @@ struct TapToneAnalysisView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                Stepper("\(tapToneAnalyzer.numberOfTaps)", 
+                Text("\(tapToneAnalyzer.numberOfTaps)")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                    .frame(minWidth: 16)
+                
+                Stepper("", 
                         value: $tapToneAnalyzer.numberOfTaps, 
                         in: 1...10)
-                    .frame(maxWidth: 100)
+                    .labelsHidden()
             }
             .hint(HintText.taps)
             
@@ -1419,35 +1398,25 @@ struct TapToneAnalysisView: View {
                 Label("New Tap", systemImage: "hand.tap")
             }
             .buttonStyle(.bordered)
-            .disabled(tapToneAnalyzer.currentTapCount > 0 && 
-                      tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps)
+            .disabled(!fftAnalyzer.isRunning ||
+                      !tapToneAnalyzer.isReadyForDetection ||
+                      tapToneAnalyzer.isDetecting)
             .hint(HintText.newTap)
             
-            // Cancel button (during active sequence)
-            if tapToneAnalyzer.currentTapCount > 0 && 
-               tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps {
-                Button(action: {
-                    tapToneAnalyzer.cancelTapSequence()
-                }) {
-                    Label("Cancel", systemImage: "xmark.circle")
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.orange)
-                .hint(HintText.cancel)
-            }
-            
-            // Resume button (always visible, disabled when not applicable)
+            // Cancel button - only for multi-tap sequences in progress
             Button(action: {
-                tapToneAnalyzer.resumeDetection()
+                tapToneAnalyzer.cancelTapSequence()
             }) {
-                Label("Resume", systemImage: "arrow.clockwise")
+                Label("Cancel", systemImage: "xmark.circle")
             }
             .buttonStyle(.bordered)
-            .foregroundColor(.blue)
-            .disabled(tapToneAnalyzer.tapProgress < 1.0)
-            .hint(HintText.resume)
+            .foregroundColor(.orange)
+            .disabled(tapToneAnalyzer.numberOfTaps == 1 ||
+                      !tapToneAnalyzer.isDetecting ||
+                      tapToneAnalyzer.currentTapCount >= tapToneAnalyzer.numberOfTaps)
+            .hint(HintText.cancel)
             
-            // Reset annotation positions button (always visible, next to Resume)
+            // Reset annotation positions button
             Button(action: {
                 tapToneAnalyzer.resetAllAnnotationOffsets()
             }) {
