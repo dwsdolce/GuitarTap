@@ -192,3 +192,48 @@ extension GuitarMode {
     }
 }
 
+// MARK: - View Extensions
+
+extension View {
+    /// Cross-platform hint modifier that applies `.help()` on macOS and `.accessibilityHint()` on iOS.
+    /// This provides hover tooltips on macOS and VoiceOver hints on iOS.
+    /// - Parameter text: The hint text to display
+    /// - Returns: A view with the appropriate hint modifier applied
+    func hint(_ text: String) -> some View {
+        #if os(macOS)
+        self.help(text)
+        #else
+        self.accessibilityHint(text)
+        #endif
+    }
+}
+
+// MARK: - UI Hint Text Constants
+
+/// Centralized hint text for UI controls, used by both macOS hover tooltips and iOS VoiceOver hints.
+enum HintText {
+    // MARK: - Main Control Buttons
+    static func start(isRunning: Bool) -> String {
+        isRunning ? "Stop audio analysis" : "Start audio analysis and tap detection"
+    }
+    static let showResults = "View detected peaks with mode assignments and frequencies"
+    static let showMetrics = "View FFT analysis metrics including sample rate and resolution"
+    static let save = "Save the current measurement with location and notes"
+    static let exportSpectrum = "Export spectrum image as PNG file"
+    static func autoScale(isEnabled: Bool) -> String {
+        isEnabled ? "Auto-scale dB enabled - click to disable and reset" : "Automatically scale dB range to fit the current spectrum"
+    }
+    static let measurements = "View and manage saved measurements"
+    static let reset = "Clear all detected peaks and reset the spectrum display"
+    static let settings = "Configure spectrum display, analysis parameters, and audio input"
+    
+    // MARK: - Tap Controls
+    static let taps = "Number of taps to average for peak detection (1-10)"
+    static let threshold = "Signal level that triggers tap detection - lower values detect quieter taps"
+    static let hysteresis = "Margin below threshold before detecting next tap - prevents multiple triggers from one tap"
+    static let newTap = "Start a new tap sequence to detect and analyze resonance peaks"
+    static let cancel = "Cancel the current tap sequence"
+    static let resume = "Resume tap detection after a completed sequence"
+    static let resetLabels = "Reset all peak label positions to their default locations"
+}
+

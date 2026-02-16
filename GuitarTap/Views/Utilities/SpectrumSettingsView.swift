@@ -186,6 +186,19 @@ struct SpectrumSettingsView: View {
                             description: "Magnitude range shown in the spectrum chart"
                         )
                     }
+                    
+                    Button {
+                        resetDisplaySettings()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("Reset Display Settings")
+                            Spacer()
+                        }
+                        .font(.subheadline)
+                    }
+                    .padding(.top, 8)
                 } header: {
                     Label("Display Settings", systemImage: "chart.xyaxis.line")
                         .font(.headline)
@@ -240,6 +253,19 @@ struct SpectrumSettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.vertical, 4)
+                    
+                    Button {
+                        resetAnalysisSettings()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("Reset Analysis Settings")
+                            Spacer()
+                        }
+                        .font(.subheadline)
+                    }
+                    .padding(.top, 8)
                 } header: {
                     Label("Analysis Settings", systemImage: "waveform.path.ecg")
                         .font(.headline)
@@ -367,23 +393,7 @@ struct SpectrumSettingsView: View {
                         .font(.caption)
                 }
                 
-                // MARK: - Reset to Defaults
-                Section {
-                    Button {
-                        resetToDefaults()
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "arrow.counterclockwise")
-                            Text("Reset All to Defaults")
-                            Spacer()
-                        }
-                    }
-                    .font(.body)
-                } footer: {
-                    Text("Resets all settings to factory defaults")
-                        .font(.caption)
-                }
+
             }
             #if os(macOS)
             .formStyle(.grouped)
@@ -610,18 +620,19 @@ struct SpectrumSettingsView: View {
         dismiss()
     }
     
-    private func resetToDefaults() {
-        // Reset UI controls to defaults
-        selectedGuitarType = .acoustic
-        showUnknownModes = false
+    private func resetDisplaySettings() {
+        // Reset display settings to defaults
         minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMinFrequency)
         maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMaxFrequency)
         minDBInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMinMagnitude)
         maxDBInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMaxMagnitude)
+    }
+    
+    private func resetAnalysisSettings() {
+        // Reset analysis settings to defaults
         analysisMinFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultAnalysisMinFrequency)
         analysisMaxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultAnalysisMaxFrequency)
         peakThresholdInput = String(format: "%.0f", SpectrumDisplaySettings.defaultPeakThreshold)
-        fftAnalyzer.hopSizeOverlap = SpectrumDisplaySettings.defaultHopSizeOverlap
     }
     
     private func showError(_ message: String) {
