@@ -224,7 +224,6 @@ enum HintText {
         isEnabled ? "Auto-scale dB enabled - click to disable and reset" : "Automatically scale dB range to fit the current spectrum"
     }
     static let measurements = "View and manage saved measurements"
-    static let reset = "Clear all detected peaks and reset the spectrum display"
     static let settings = "Configure spectrum display, analysis parameters, and audio input"
     
     // MARK: - Tap Controls
