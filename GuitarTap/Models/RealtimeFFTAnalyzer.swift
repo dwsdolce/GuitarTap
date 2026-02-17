@@ -46,7 +46,23 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     private var inputNode: AVAudioInputNode
     
     /// The currently selected audio input device
-    @Published var selectedInputDevice: AVAudioDevice?
+    @Published var selectedInputDevice: AVAudioDevice? {
+        didSet {
+            // Automatically load device-specific calibration when device changes
+            if let deviceUID = selectedInputDevice?.uid {
+                if let deviceCalibration = CalibrationStorage.shared.calibration(forDeviceUID: deviceUID) {
+                    // Device has a specific calibration - use it
+                    // Use internal setter to avoid re-saving the mapping
+                    setCalibrationWithoutSavingDeviceMapping(deviceCalibration)
+                    print("📊 Auto-loaded calibration '\(deviceCalibration.name)' for device '\(selectedInputDevice?.name ?? "unknown")'")
+                } else {
+                    // No calibration for this device - clear any active calibration
+                    setCalibrationWithoutSavingDeviceMapping(nil)
+                    print("📊 No calibration for device '\(selectedInputDevice?.name ?? "unknown")' - using uncalibrated mode")
+                }
+            }
+        }
+    }
     
     /// List of available audio input devices
     @Published var availableInputDevices: [AVAudioDevice] = []
@@ -139,6 +155,52 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Counter that increments each time the engine restarts due to an audio route change
     /// Observers can watch this to reset their state (e.g., warmup timers, threshold state)
     @Published var routeChangeRestartCount: Int = 0
+    
+    // MARK: - Microphone Calibration
+    
+    /// The currently active microphone calibration, if any
+    /// When set, calibration corrections are applied to FFT magnitude data
+    @Published var activeCalibration: MicrophoneCalibration? {
+        didSet {
+            // Pre-compute corrections for current frequency bins when calibration changes
+            updateCalibrationCorrections()
+            
+            // Skip saving device mapping if we're just loading a device-specific calibration
+            guard !isLoadingDeviceCalibration else { return }
+            
+            // Persist the selection globally and associate with current device
+            if let calibration = activeCalibration {
+                CalibrationStorage.shared.activeCalibrationID = calibration.id
+                
+                // Also associate this calibration with the current device
+                if let deviceUID = selectedInputDevice?.uid {
+                    CalibrationStorage.shared.setCalibration(calibration.id, forDeviceUID: deviceUID)
+                    print("📊 Associated calibration '\(calibration.name)' with device '\(selectedInputDevice?.name ?? "unknown")'")
+                }
+            } else {
+                CalibrationStorage.shared.activeCalibrationID = nil
+                
+                // Clear the device-specific mapping too
+                if let deviceUID = selectedInputDevice?.uid {
+                    CalibrationStorage.shared.setCalibration(nil, forDeviceUID: deviceUID)
+                }
+            }
+        }
+    }
+    
+    /// Pre-computed calibration corrections for each frequency bin
+    /// This avoids interpolation overhead during real-time FFT processing
+    private var calibrationCorrections: [Float] = []
+    
+    /// Flag to prevent re-saving device mapping when loading device-specific calibration
+    private var isLoadingDeviceCalibration = false
+    
+    /// Sets calibration without updating the device mapping (used when auto-loading device calibration)
+    private func setCalibrationWithoutSavingDeviceMapping(_ calibration: MicrophoneCalibration?) {
+        isLoadingDeviceCalibration = true
+        activeCalibration = calibration
+        isLoadingDeviceCalibration = false
+    }
     @Published var recentPeakLevelDB: Float = -100
     private var recentPeakTime: Date = Date.distantPast
     private let peakHoldDuration: TimeInterval = 2.0  // How long to hold the peak
@@ -231,6 +293,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         // after the engine is running and actualSampleRate is known.
         
         // Load available audio input devices
+        // Note: This will trigger selectedInputDevice didSet which loads device-specific calibration
         loadAvailableInputDevices()
         
         #if os(iOS)
@@ -664,7 +727,26 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         // Update published property on main thread
         DispatchQueue.main.async {
             self.frequencies = newFrequencies
+            // Re-compute calibration corrections for new frequency bins
+            self.updateCalibrationCorrections()
         }
+    }
+    
+    /// Updates pre-computed calibration corrections when calibration or frequencies change.
+    ///
+    /// Pre-computing corrections avoids real-time interpolation overhead during FFT processing.
+    /// Called when:
+    /// - A new calibration is loaded
+    /// - Frequency bins are updated (sample rate changes)
+    private func updateCalibrationCorrections() {
+        guard let calibration = activeCalibration else {
+            calibrationCorrections = []
+            return
+        }
+        
+        // Pre-compute corrections for all frequency bins
+        calibrationCorrections = calibration.corrections(for: frequencies)
+        print("📊 Calibration '\(calibration.name)' applied with \(calibration.correctionPoints.count) correction points")
     }
     
     /// Updates all performance and analysis metrics based on current configuration.
@@ -931,6 +1013,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         var db = [Float](repeating: -100, count: fftSize / 2)
         var ref: Float = 1.0
         vDSP_vdbcon(mags, 1, &ref, &db, 1, vDSP_Length(fftSize / 2), 1)
+        
+        // Apply microphone calibration corrections if available
+        // This compensates for the microphone's frequency response
+        if !calibrationCorrections.isEmpty && calibrationCorrections.count == db.count {
+            vDSP_vadd(db, 1, calibrationCorrections, 1, &db, 1, vDSP_Length(db.count))
+        }
         
         // Find peak frequency in the spectrum
         if let maxIndex = db.enumerated().max(by: { $0.element < $1.element })?.offset {

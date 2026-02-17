@@ -7,6 +7,71 @@
 
 import Foundation
 
+// MARK: - Measurement Type
+
+/// The type of measurement being performed
+enum MeasurementType: String, Codable, CaseIterable, Identifiable {
+    case classical = "Classical Guitar"
+    case flamenco = "Flamenco Guitar"
+    case acoustic = "Acoustic Guitar"
+    case material = "Material (Wood Plate)"
+    
+    var id: String { rawValue }
+    
+    /// Short name for display
+    var shortName: String {
+        switch self {
+        case .classical: return "Classical"
+        case .flamenco: return "Flamenco"
+        case .acoustic: return "Acoustic"
+        case .material: return "Material"
+        }
+    }
+    
+    /// Description of the measurement type
+    var description: String {
+        switch self {
+        case .classical:
+            return "Nylon string, fan-braced, deep body"
+        case .flamenco:
+            return "Nylon string, light bracing, shallow body"
+        case .acoustic:
+            return "Steel string, X-braced (Dreadnought, OM, etc.)"
+        case .material:
+            return "Rectangular wood plate for calculating stiffness and sound radiation"
+        }
+    }
+    
+    /// Whether this is a guitar measurement (vs material)
+    var isGuitar: Bool {
+        switch self {
+        case .classical, .flamenco, .acoustic:
+            return true
+        case .material:
+            return false
+        }
+    }
+    
+    /// Convert to GuitarType if applicable
+    var guitarType: GuitarType? {
+        switch self {
+        case .classical: return .classical
+        case .flamenco: return .flamenco
+        case .acoustic: return .acoustic
+        case .material: return nil
+        }
+    }
+    
+    /// Create from GuitarType
+    static func from(_ guitarType: GuitarType) -> MeasurementType {
+        switch guitarType {
+        case .classical: return .classical
+        case .flamenco: return .flamenco
+        case .acoustic: return .acoustic
+        }
+    }
+}
+
 // MARK: - Guitar Type
 
 /// The type of guitar being analyzed, affecting frequency range classifications
@@ -150,8 +215,15 @@ struct SpectrumDisplaySettings {
     
     // MARK: - UserDefaults Keys
     
+    private static let measurementTypeKey = "measurementType"
     private static let guitarTypeKey = "guitarType"
     private static let showUnknownModesKey = "showUnknownModes"
+    
+    // Material measurement keys
+    private static let materialLengthKey = "materialLength"
+    private static let materialWidthKey = "materialWidth"
+    private static let materialThicknessKey = "materialThickness"
+    private static let materialMassKey = "materialMass"
     private static let displayMinFreqKey = "displayMinFreq"
     private static let displayMaxFreqKey = "displayMaxFreq"
     private static let displayMinDBKey = "displayMinDB"
@@ -163,11 +235,33 @@ struct SpectrumDisplaySettings {
     private static let tapDetectionThresholdKey = "tapDetectionThreshold"
     private static let hysteresisMarginKey = "hysteresisMargin"
     
-    // MARK: - Guitar Type Setting
+    // MARK: - Measurement Type Setting
+    
+    /// The currently selected measurement type (persisted in UserDefaults)
+    static var measurementType: MeasurementType {
+        get {
+            if let rawValue = UserDefaults.standard.string(forKey: measurementTypeKey),
+               let type = MeasurementType(rawValue: rawValue) {
+                return type
+            }
+            return .acoustic  // Default to steel-string guitar
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: measurementTypeKey)
+        }
+    }
+    
+    // MARK: - Guitar Type Setting (for backward compatibility)
     
     /// The currently selected guitar type (persisted in UserDefaults)
+    /// Note: Use measurementType for new code
     static var guitarType: GuitarType {
         get {
+            // First check if measurementType is set and is a guitar type
+            if let type = measurementType.guitarType {
+                return type
+            }
+            // Fall back to stored guitarType for backward compatibility
             if let rawValue = UserDefaults.standard.string(forKey: guitarTypeKey),
                let type = GuitarType(rawValue: rawValue) {
                 return type
@@ -176,6 +270,54 @@ struct SpectrumDisplaySettings {
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: guitarTypeKey)
+            // Also update measurementType
+            measurementType = MeasurementType.from(newValue)
+        }
+    }
+    
+    // MARK: - Material Dimensions (for Material measurement type)
+    
+    /// Material plate length in mm (along grain direction)
+    static var materialLength: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: materialLengthKey)
+            return value > 0 ? value : 500.0  // Default 500mm
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: materialLengthKey)
+        }
+    }
+    
+    /// Material plate width in mm (cross grain direction)
+    static var materialWidth: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: materialWidthKey)
+            return value > 0 ? value : 200.0  // Default 200mm
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: materialWidthKey)
+        }
+    }
+    
+    /// Material plate thickness in mm
+    static var materialThickness: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: materialThicknessKey)
+            return value > 0 ? value : 3.0  // Default 3mm
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: materialThicknessKey)
+        }
+    }
+    
+    /// Material plate mass in grams
+    static var materialMass: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: materialMassKey)
+            return value > 0 ? value : 100.0  // Default 100g
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: materialMassKey)
         }
     }
     

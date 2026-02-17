@@ -16,6 +16,15 @@ struct TapAnalysisResultsView: View {
     var minFreq: Float
     var maxFreq: Float
     
+    // Material mode selection state
+    @State private var selectedLongitudinalPeakID: UUID?
+    @State private var selectedCrossPeakID: UUID?
+    
+    // Current measurement type
+    private var measurementType: MeasurementType {
+        SpectrumDisplaySettings.measurementType
+    }
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -25,23 +34,41 @@ struct TapAnalysisResultsView: View {
                         .font(.headline)
                         .fontWeight(.bold)
                     
-                    Text("Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    HStack {
+                        Text("Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Text(measurementType.shortName)
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(measurementType.isGuitar ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
+                            .cornerRadius(4)
+                    }
                 }
                 
                 // Current peaks display
                 peaksAndModesSection
                 
-                Divider()
-                
-                // Ring-out time (decay)
-                ringOutSection
-                
-                Divider()
-                
-                // Tap tone ratio
-                ratioSection
+                // Material-specific sections
+                if measurementType == .material {
+                    Divider()
+                    materialPropertiesSection
+                } else {
+                    // Guitar-specific sections
+                    Divider()
+                    
+                    // Ring-out time (decay)
+                    ringOutSection
+                    
+                    Divider()
+                    
+                    // Tap tone ratio
+                    ratioSection
+                }
                 
                 // Status indicator
                 statusIndicator
@@ -72,7 +99,7 @@ struct TapAnalysisResultsView: View {
     // MARK: - Subviews
     
     private var peaksAndModesSection: some View {
-        GroupBox("Detected Peaks & Modes") {
+        GroupBox(measurementType == .material ? "Detected Peaks" : "Detected Peaks & Modes") {
             if sortedPeaksWithModes.isEmpty {
                 Text("No peaks detected in visible range")
                     .foregroundColor(.secondary)
@@ -80,8 +107,48 @@ struct TapAnalysisResultsView: View {
                     .padding()
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
-                        CombinedPeakModeRowView(peak: item.peak, mode: item.mode)
+                    // For material measurements, show selectable peaks
+                    if measurementType == .material {
+                        ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
+                            MaterialPeakRowView(
+                                peak: item.peak,
+                                isLongitudinal: selectedLongitudinalPeakID == item.peak.id,
+                                isCross: selectedCrossPeakID == item.peak.id,
+                                onSelectLongitudinal: {
+                                    if selectedLongitudinalPeakID == item.peak.id {
+                                        selectedLongitudinalPeakID = nil
+                                    } else {
+                                        selectedLongitudinalPeakID = item.peak.id
+                                        // Can't be both
+                                        if selectedCrossPeakID == item.peak.id {
+                                            selectedCrossPeakID = nil
+                                        }
+                                    }
+                                },
+                                onSelectCross: {
+                                    if selectedCrossPeakID == item.peak.id {
+                                        selectedCrossPeakID = nil
+                                    } else {
+                                        selectedCrossPeakID = item.peak.id
+                                        // Can't be both
+                                        if selectedLongitudinalPeakID == item.peak.id {
+                                            selectedLongitudinalPeakID = nil
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        
+                        // Instructions
+                        Text("Tap 'L' for longitudinal (along grain) or 'C' for cross-grain mode")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    } else {
+                        // Standard guitar mode display
+                        ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
+                            CombinedPeakModeRowView(peak: item.peak, mode: item.mode)
+                        }
                     }
                 }
             }
@@ -170,5 +237,255 @@ struct TapAnalysisResultsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+    
+    // MARK: - Material Properties Section
+    
+    /// Computed material properties based on selected peaks and dimensions
+    private var calculatedMaterialProperties: MaterialProperties? {
+        guard let longPeakID = selectedLongitudinalPeakID,
+              let crossPeakID = selectedCrossPeakID,
+              let longPeak = sortedPeaksWithModes.first(where: { $0.peak.id == longPeakID })?.peak,
+              let crossPeak = sortedPeaksWithModes.first(where: { $0.peak.id == crossPeakID })?.peak else {
+            return nil
+        }
+        
+        let dimensions = MaterialDimensions(
+            lengthMM: SpectrumDisplaySettings.materialLength,
+            widthMM: SpectrumDisplaySettings.materialWidth,
+            thicknessMM: SpectrumDisplaySettings.materialThickness,
+            massGrams: SpectrumDisplaySettings.materialMass
+        )
+        
+        return MaterialProperties(
+            dimensions: dimensions,
+            fundamentalFrequencyLong: longPeak.frequency,
+            fundamentalFrequencyCross: crossPeak.frequency
+        )
+    }
+    
+    private var materialPropertiesSection: some View {
+        GroupBox("Material Properties") {
+            if let props = calculatedMaterialProperties {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Frequencies used
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Longitudinal: \(props.fundamentalFrequencyLong, specifier: "%.1f") Hz")
+                                .font(.caption)
+                            Text("Cross-grain: \(props.fundamentalFrequencyCross, specifier: "%.1f") Hz")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    
+                    Divider()
+                    
+                    // Speed of Sound
+                    propertyRow(
+                        title: "Speed of Sound",
+                        longValue: "\(Int(props.speedOfSoundLong)) m/s",
+                        crossValue: "\(Int(props.speedOfSoundCross)) m/s"
+                    )
+                    
+                    // Young's Modulus
+                    propertyRow(
+                        title: "Young's Modulus (E)",
+                        longValue: String(format: "%.2f GPa", props.youngsModulusLongGPa),
+                        crossValue: String(format: "%.2f GPa", props.youngsModulusCrossGPa)
+                    )
+                    
+                    // Specific Modulus (E/ρ) - the key metric
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Specific Modulus (E/ρ)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Longitudinal:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                    Text(String(format: "%.1f", props.specificModulusLong))
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(qualityColor(for: props.spruceQualityLong))
+                                    Text("GPa/(g/cm³)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Text(props.spruceQualityLong.rawValue)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(qualityColor(for: props.spruceQualityLong))
+                            }
+                            
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text("Cross-grain:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                    Text(String(format: "%.2f", props.specificModulusCross))
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(qualityColor(for: props.spruceQualityCross))
+                                    Text("GPa/(g/cm³)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Text(props.spruceQualityCross.rawValue)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(qualityColor(for: props.spruceQualityCross))
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(8)
+                    
+                    // Radiation Ratio
+                    propertyRow(
+                        title: "Radiation Ratio (R)",
+                        longValue: String(format: "%.1f", props.radiationRatioLong),
+                        crossValue: String(format: "%.1f", props.radiationRatioCross)
+                    )
+                    
+                    // Cross/Long Ratio
+                    HStack {
+                        Text("Cross/Long Ratio:")
+                            .font(.subheadline)
+                        Spacer()
+                        Text(String(format: "%.3f", props.crossLongRatio))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("(typical: 0.04-0.08)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Divider()
+                    
+                    // Overall Quality Assessment
+                    HStack {
+                        Text("Overall Quality:")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                        Text(props.overallQuality.rawValue)
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(qualityColor(for: props.overallQuality))
+                    }
+                    .padding(.vertical, 4)
+                }
+            } else {
+                VStack(spacing: 12) {
+                    if selectedLongitudinalPeakID == nil && selectedCrossPeakID == nil {
+                        Text("Select peaks above to calculate properties")
+                            .foregroundColor(.secondary)
+                    } else if selectedLongitudinalPeakID == nil {
+                        Text("Select a longitudinal (L) peak")
+                            .foregroundColor(.orange)
+                    } else {
+                        Text("Select a cross-grain (C) peak")
+                            .foregroundColor(.orange)
+                    }
+                    
+                    Text("Tip: The longitudinal mode is typically the higher frequency peak")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            }
+        }
+    }
+    
+    // MARK: - Helper Views
+    
+    private func propertyRow(title: String, longValue: String, crossValue: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(.medium)
+            HStack {
+                Text("L: \(longValue)")
+                    .font(.caption)
+                Spacer()
+                Text("C: \(crossValue)")
+                    .font(.caption)
+            }
+            .foregroundColor(.secondary)
+        }
+    }
+    
+    private func qualityColor(for quality: WoodQuality) -> Color {
+        switch quality {
+        case .excellent: return .green
+        case .veryGood: return .mint
+        case .good: return .blue
+        case .fair: return .orange
+        case .poor: return .red
+        }
+    }
+}
+
+// MARK: - Material Peak Row View
+
+/// A row view for displaying a peak with material mode selection buttons
+struct MaterialPeakRowView: View {
+    let peak: ResonantPeak
+    let isLongitudinal: Bool
+    let isCross: Bool
+    let onSelectLongitudinal: () -> Void
+    let onSelectCross: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Frequency and magnitude
+            VStack(alignment: .leading, spacing: 2) {
+                Text(peak.frequency.formattedAsFrequency())
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Text("\(peak.magnitude, specifier: "%.1f") dB")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            // Mode selection buttons
+            HStack(spacing: 8) {
+                Button(action: onSelectLongitudinal) {
+                    Text("L")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .frame(width: 36, height: 36)
+                        .background(isLongitudinal ? Color.blue : Color.secondary.opacity(0.2))
+                        .foregroundColor(isLongitudinal ? .white : .primary)
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                
+                Button(action: onSelectCross) {
+                    Text("C")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .frame(width: 36, height: 36)
+                        .background(isCross ? Color.orange : Color.secondary.opacity(0.2))
+                        .foregroundColor(isCross ? .white : .primary)
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }

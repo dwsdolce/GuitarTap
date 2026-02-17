@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+internal import UniformTypeIdentifiers
 
 /// Settings view for spectrum display and analysis parameters
 struct SpectrumSettingsView: View {
@@ -39,15 +40,28 @@ struct SpectrumSettingsView: View {
     @State private var analysisMaxFreqInput: String
     @State private var peakThresholdInput: String
     
-    // Guitar type setting
-    @State private var selectedGuitarType: GuitarType = SpectrumDisplaySettings.guitarType
+    // Measurement type setting
+    @State private var selectedMeasurementType: MeasurementType = SpectrumDisplaySettings.measurementType
     
     // Unknown mode display setting
     @State private var showUnknownModes: Bool = SpectrumDisplaySettings.showUnknownModes
     
+    // Material dimensions (for Material measurement type)
+    @State private var materialLengthInput: String = String(format: "%.1f", SpectrumDisplaySettings.materialLength)
+    @State private var materialWidthInput: String = String(format: "%.1f", SpectrumDisplaySettings.materialWidth)
+    @State private var materialThicknessInput: String = String(format: "%.2f", SpectrumDisplaySettings.materialThickness)
+    @State private var materialMassInput: String = String(format: "%.1f", SpectrumDisplaySettings.materialMass)
+    
     // Validation states
     @State private var showValidationError = false
     @State private var validationMessage = ""
+    
+    // Calibration states
+    @State private var showingCalibrationImporter = false
+    @State private var storedCalibrations: [MicrophoneCalibration] = []
+    @State private var calibrationImportError: String?
+    @State private var showingCalibrationError = false
+    @State private var selectedCalibrationID: UUID?
     
     // Computed property for compact layout
     private var isCompact: Bool {
@@ -89,10 +103,10 @@ struct SpectrumSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // MARK: - Guitar Type
+                // MARK: - Measurement Type
                 Section {
-                    Picker("Guitar Type", selection: $selectedGuitarType) {
-                        ForEach(GuitarType.allCases) { type in
+                    Picker("Measurement Type", selection: $selectedMeasurementType) {
+                        ForEach(MeasurementType.allCases) { type in
                             Text(type.rawValue)
                                 .tag(type)
                         }
@@ -102,49 +116,148 @@ struct SpectrumSettingsView: View {
                     #endif
                     
                     // Show description for selected type
-                    Text(selectedGuitarType.description)
+                    Text(selectedMeasurementType.description)
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    // Show frequency ranges for selected type
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Mode Frequency Ranges")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.secondary)
-                        
-                        let ranges = selectedGuitarType.modeRanges
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                modeRangeRow("Air:", range: ranges.air)
-                                modeRangeRow("Top:", range: ranges.top)
-                                modeRangeRow("Back:", range: ranges.back)
+                    // Show guitar-specific options for guitar types
+                    if selectedMeasurementType.isGuitar, let guitarType = selectedMeasurementType.guitarType {
+                        // Show frequency ranges for selected guitar type
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Mode Frequency Ranges")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                            
+                            let ranges = guitarType.modeRanges
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    modeRangeRow("Air:", range: ranges.air)
+                                    modeRangeRow("Top:", range: ranges.top)
+                                    modeRangeRow("Back:", range: ranges.back)
+                                }
+                                Spacer()
+                                VStack(alignment: .leading, spacing: 4) {
+                                    modeRangeRow("Dipole:", range: ranges.dipole)
+                                    modeRangeRow("Ring:", range: ranges.ringMode)
+                                }
                             }
-                            Spacer()
-                            VStack(alignment: .leading, spacing: 4) {
-                                modeRangeRow("Dipole:", range: ranges.dipole)
-                                modeRangeRow("Ring:", range: ranges.ringMode)
+                            .font(.caption)
+                        }
+                        .padding(.vertical, 4)
+                        
+                        // Unknown modes toggle
+                        Toggle(isOn: $showUnknownModes) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Show Unknown Modes")
+                                Text("Display peaks that don't fall within known mode ranges")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                             }
                         }
-                        .font(.caption)
                     }
-                    .padding(.vertical, 4)
                     
-                    // Unknown modes toggle
-                    Toggle(isOn: $showUnknownModes) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Show Unknown Modes")
-                            Text("Display peaks that don't fall within known mode ranges")
+                    // Show material dimensions for material type
+                    if selectedMeasurementType == .material {
+                        Divider()
+                        
+                        Text("Sample Dimensions")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        // Length (along grain)
+                        HStack {
+                            Text("Length (along grain):")
+                                .font(.subheadline)
+                            Spacer()
+                            TextField("mm", text: $materialLengthInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("mm")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+                        
+                        // Width (cross grain)
+                        HStack {
+                            Text("Width (cross grain):")
+                                .font(.subheadline)
+                            Spacer()
+                            TextField("mm", text: $materialWidthInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("mm")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // Thickness
+                        HStack {
+                            Text("Thickness:")
+                                .font(.subheadline)
+                            Spacer()
+                            TextField("mm", text: $materialThicknessInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("mm")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // Mass
+                        HStack {
+                            Text("Mass:")
+                                .font(.subheadline)
+                            Spacer()
+                            TextField("g", text: $materialMassInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("g")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // Show calculated density
+                        if let length = Float(materialLengthInput),
+                           let width = Float(materialWidthInput),
+                           let thickness = Float(materialThicknessInput),
+                           let mass = Float(materialMassInput),
+                           length > 0, width > 0, thickness > 0, mass > 0 {
+                            let dims = MaterialDimensions(lengthMM: length, widthMM: width, thicknessMM: thickness, massGrams: mass)
+                            HStack {
+                                Text("Calculated Density:")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(String(format: "%.3f g/cm³", dims.densityGPerCm3))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                        }
                     }
                 } header: {
-                    Label("Guitar Type", systemImage: "guitars")
+                    Label("Measurement Type", systemImage: selectedMeasurementType.isGuitar ? "guitars" : "square.3.layers.3d")
                         .font(.headline)
                 } footer: {
-                    Text("Select your guitar type for accurate mode classification. Disable 'Show Unknown Modes' to hide peaks outside the expected frequency ranges.")
-                        .font(.caption)
+                    if selectedMeasurementType.isGuitar {
+                        Text("Select your guitar type for accurate mode classification.")
+                            .font(.caption)
+                    } else {
+                        Text("Enter the dimensions and mass of your rectangular wood sample. The app will calculate stiffness, speed of sound, and radiation ratio from the tap frequencies.")
+                            .font(.caption)
+                    }
                 }
                 
                 // MARK: - Display Range Settings
@@ -274,9 +387,10 @@ struct SpectrumSettingsView: View {
                         .font(.caption)
                 }
                 
-                // MARK: - Audio Input Device
+                // MARK: - Audio Input & Calibration
                 if !fftAnalyzer.availableInputDevices.isEmpty {
                     Section {
+                        // Device picker
                         Picker("Audio Input Device", selection: $fftAnalyzer.selectedInputDevice) {
                             ForEach(fftAnalyzer.availableInputDevices) { device in
                                 VStack(alignment: .leading, spacing: 4) {
@@ -293,18 +407,15 @@ struct SpectrumSettingsView: View {
                         .pickerStyle(.navigationLink)
                         #endif
                         .onChange(of: fftAnalyzer.selectedInputDevice) { oldDevice, newDevice in
-                            // When device changes, restart the analyzer if it's running
                             guard let device = newDevice, device.uid != oldDevice?.uid else { return }
-                            
                             print("🔄 Device selection changed to: \(device.name)")
-                            
-                            // No need to call setInputDevice here - just update the property
-                            // The next time start() is called, it will use this device
+                            // Update calibration picker to reflect device's calibration
+                            selectedCalibrationID = fftAnalyzer.activeCalibration?.id
                         }
                         
                         if let selectedDevice = fftAnalyzer.selectedInputDevice {
                             HStack {
-                                Text("Current Sample Rate:")
+                                Text("Sample Rate:")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 Spacer()
@@ -313,11 +424,92 @@ struct SpectrumSettingsView: View {
                                     .fontWeight(.medium)
                             }
                         }
+                        
+                        // Calibration subsection
+                        Divider()
+                        
+                        // Calibration picker (if any calibrations are stored)
+                        if !storedCalibrations.isEmpty {
+                            Picker("Calibration", selection: $selectedCalibrationID) {
+                                Text("None (Uncalibrated)")
+                                    .tag(nil as UUID?)
+                                
+                                ForEach(storedCalibrations) { calibration in
+                                    Text(calibration.name)
+                                        .tag(calibration.id as UUID?)
+                                }
+                            }
+                            #if os(iOS)
+                            .pickerStyle(.navigationLink)
+                            #endif
+                            .onChange(of: selectedCalibrationID) { _, newID in
+                                if let id = newID {
+                                    fftAnalyzer.activeCalibration = storedCalibrations.first { $0.id == id }
+                                } else {
+                                    fftAnalyzer.activeCalibration = nil
+                                }
+                            }
+                        } else {
+                            HStack {
+                                Text("Calibration:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Text("None")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        // Import button
+                        Button {
+                            showingCalibrationImporter = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "doc.badge.plus")
+                                Text("Import Calibration File...")
+                            }
+                        }
+                        
+                        // Show calibration details if one is active
+                        if let calibration = fftAnalyzer.activeCalibration {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        if let sens = calibration.sensitivityFactor {
+                                            Text("Sensitivity: \(String(format: "%.2f", sens)) dB")
+                                                .font(.caption)
+                                        }
+                                        Text("Data points: \(calibration.correctionPoints.count)")
+                                            .font(.caption)
+                                    }
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        if let first = calibration.correctionPoints.first,
+                                           let last = calibration.correctionPoints.last {
+                                            Text("\(String(format: "%.0f", first.frequency))-\(String(format: "%.0f", last.frequency)) Hz")
+                                                .font(.caption)
+                                        }
+                                    }
+                                }
+                                .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        // Delete calibrations (if any exist)
+                        if !storedCalibrations.isEmpty {
+                            Button(role: .destructive) {
+                                deleteAllCalibrations()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "trash")
+                                    Text("Delete All Calibrations")
+                                }
+                            }
+                        }
                     } header: {
-                        Label("Audio Input", systemImage: "mic.fill")
+                        Label("Audio Input & Calibration", systemImage: "mic.fill")
                             .font(.headline)
                     } footer: {
-                        Text("Select the audio input device for analysis. USB microphones like UMIK-1 will appear here when connected.")
+                        Text("Select audio input device. Import a calibration file (.txt or .cal) from your measurement microphone to compensate for its frequency response. Calibrations are automatically associated with each device.")
                             .font(.caption)
                     }
                 }
@@ -392,7 +584,6 @@ struct SpectrumSettingsView: View {
                     Text("Changes to hop size will take effect the next time the analyzer is started.")
                         .font(.caption)
                 }
-                
 
             }
             #if os(macOS)
@@ -422,7 +613,80 @@ struct SpectrumSettingsView: View {
             } message: {
                 Text(validationMessage)
             }
+            .alert("Calibration Import Error", isPresented: $showingCalibrationError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(calibrationImportError ?? "Unknown error")
+            }
+            .fileImporter(
+                isPresented: $showingCalibrationImporter,
+                allowedContentTypes: [.text, .plainText, .data, .calibrationFile],
+                allowsMultipleSelection: false
+            ) { result in
+                handleCalibrationImport(result)
+            }
+            .onAppear {
+                loadStoredCalibrations()
+                selectedCalibrationID = fftAnalyzer.activeCalibration?.id
+            }
         }
+    }
+    
+    // MARK: - Calibration Helpers
+    
+    private func loadStoredCalibrations() {
+        storedCalibrations = CalibrationStorage.shared.loadAll()
+    }
+    
+    private func handleCalibrationImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            
+            // Start accessing the security-scoped resource
+            guard url.startAccessingSecurityScopedResource() else {
+                calibrationImportError = "Could not access the selected file. Please try again."
+                showingCalibrationError = true
+                return
+            }
+            
+            defer {
+                url.stopAccessingSecurityScopedResource()
+            }
+            
+            do {
+                let calibration = try CalibrationFileParser.parse(url: url)
+                CalibrationStorage.shared.save(calibration)
+                
+                // Activate the newly imported calibration
+                fftAnalyzer.activeCalibration = calibration
+                
+                // Refresh the list
+                loadStoredCalibrations()
+                
+                print("✅ Imported calibration '\(calibration.name)' with \(calibration.correctionPoints.count) data points")
+            } catch {
+                calibrationImportError = error.localizedDescription
+                showingCalibrationError = true
+            }
+            
+        case .failure(let error):
+            calibrationImportError = error.localizedDescription
+            showingCalibrationError = true
+        }
+    }
+    
+    private func deleteAllCalibrations() {
+        // Clear active calibration first
+        fftAnalyzer.activeCalibration = nil
+        
+        // Delete all stored calibrations
+        for calibration in storedCalibrations {
+            CalibrationStorage.shared.delete(calibration)
+        }
+        
+        // Refresh the list
+        loadStoredCalibrations()
     }
     
     // MARK: - Layout Helpers
@@ -540,9 +804,25 @@ struct SpectrumSettingsView: View {
     // MARK: - Actions
     
     private func applySettings() {
-        // Save guitar type and unknown mode setting
-        SpectrumDisplaySettings.guitarType = selectedGuitarType
+        // Save measurement type and unknown mode setting
+        SpectrumDisplaySettings.measurementType = selectedMeasurementType
         SpectrumDisplaySettings.showUnknownModes = showUnknownModes
+        
+        // Save material dimensions if material type is selected
+        if selectedMeasurementType == .material {
+            if let length = Float(materialLengthInput), length > 0 {
+                SpectrumDisplaySettings.materialLength = length
+            }
+            if let width = Float(materialWidthInput), width > 0 {
+                SpectrumDisplaySettings.materialWidth = width
+            }
+            if let thickness = Float(materialThicknessInput), thickness > 0 {
+                SpectrumDisplaySettings.materialThickness = thickness
+            }
+            if let mass = Float(materialMassInput), mass > 0 {
+                SpectrumDisplaySettings.materialMass = mass
+            }
+        }
         
         // Parse and validate display frequency range
         guard let newMinFreq = Float(minFreqInput),

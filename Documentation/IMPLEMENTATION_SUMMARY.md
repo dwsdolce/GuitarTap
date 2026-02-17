@@ -1,340 +1,186 @@
-# FFT Metrics Implementation Summary
+# iOS Microphone Selection Implementation Summary
 
 ## Overview
 
-Enhanced `RealtimeFFTAnalyzer` with comprehensive metrics calculation and visualization capabilities. All metrics are automatically calculated and updated in real-time as the analyzer processes audio.
+Successfully implemented cross-platform audio input device selection for both iOS and macOS in GuitarTap. Users can now select from available audio input devices including USB microphones like the UMIK-1.
 
----
+## Changes Made
 
-## What Was Added
+### 1. RealtimeFFTAnalyzer.swift
 
-### 1. Core Metrics in `RealtimeFFTAnalyzer.swift`
+#### Property Updates
+- Removed platform-specific `#if os(macOS)` guards from device properties
+- Made `selectedInputDevice` and `availableInputDevices` available on all platforms
 
-#### New Published Properties (Auto-updating)
+#### Device Enumeration
+- **macOS**: Uses Core Audio API (`AudioObjectGetPropertyData`) to enumerate all audio hardware devices
+  - Filters for devices with input channels
+  - Retrieves device name, UID, sample rate, and device ID
+  
+- **iOS**: Uses `AVAudioSession` API to enumerate available inputs
+  - Uses `AVAudioSession.sharedInstance().availableInputs`
+  - Includes built-in mic, headsets, and USB audio interfaces
+  - Automatically tracks current route
+
+#### Device Selection
+- **macOS**: Sets device via `AudioUnitSetProperty` with `kAudioOutputUnitProperty_CurrentDevice`
+  - Requires engine restart to apply changes
+  
+- **iOS**: Sets device via `AVAudioSession.setPreferredInput()`
+  - Seamless switching without engine restart
+  - More responsive to device changes
+
+#### Route Change Monitoring (iOS only)
+- Added `NotificationCenter` observer for `AVAudioSession.routeChangeNotification`
+- Automatically refreshes device list when devices are connected/disconnected
+- Handles cases: `.newDeviceAvailable`, `.oldDeviceUnavailable`
+
+#### AVAudioDevice Struct Updates
+- **macOS**: Stores `AudioDeviceID` for Core Audio API
+- **iOS**: Stores `AVAudioSessionPortDescription` for session management
+- Unified interface with `name`, `uid`, and `sampleRate` on both platforms
+
+### 2. TapToneAnalysisView.swift
+
+#### UI Updates
+- Removed platform guard from `audioDeviceSelector` view
+- Now displays on both iOS and macOS
+- Added platform-specific picker styling:
+  - macOS: Standard dropdown with fixed width
+  - iOS: Menu-style picker (more touch-friendly)
+- Displays device name and sample rate in picker
+
+#### Layout
+- Appears in header section below tap controls
+- Blue background tint for visibility
+- Microphone icon for easy identification
+- Only shows when devices are available
+
+### 3. MICROPHONE_SELECTION.md
+
+#### Documentation Updates
+- Added comprehensive iOS section
+- Included iOS-specific troubleshooting
+- Added UMIK-1 connection tips for iOS (USB adapters required)
+- Documented platform differences in behavior
+- Added section on iOS audio route detection
+
+## Technical Details
+
+### iOS Audio Session Integration
+
+The iOS implementation properly integrates with the existing audio session setup:
+
 ```swift
-@Published var frequencyResolution: Float = 0      // Hz per bin
-@Published var bandwidth: Float = 0                // Nyquist frequency (Hz)
-@Published var sampleLengthSeconds: Float = 0      // Time window duration (seconds)
-@Published var frameRate: Float = 0                // FFT calculations per second
-@Published var processingTimeMs: Float = 0         // Last frame processing time (ms)
-@Published var avgProcessingTimeMs: Float = 0      // 30-frame average (ms)
+// In TapToneAnalysisView.swift startAnalyzer()
+let session = AVAudioSession.sharedInstance()
+try session.setCategory(.record, mode: .measurement, options: [])
+try session.setActive(true)
 ```
 
-#### New Methods
-- `updateMetrics()` - Calculates all configuration metrics
-- Processing time tracking in `performFFT()` using `CFAbsoluteTimeGetCurrent()`
-- Rolling average calculation for processing time (30-frame history)
+Device selection via `setPreferredInput()` works within this existing session configuration.
 
-#### Console Output
-Prints detailed metrics when analyzer starts:
-```
-=== Analysis Metrics ===
-Frequency Resolution: 5.86 Hz
-Bandwidth: 24000.0 Hz (0 Hz to 24000.0 Hz)
-Sample Length: 170.67 ms (0.171 seconds)
-Frame Rate: 11.72 Hz
-=======================
-```
+### Device Discovery Timing
 
----
+- **macOS**: Devices discovered once at init, static list
+- **iOS**: Devices discovered at init + dynamically updated via route change notifications
 
-### 2. Full Metrics Panel (`FFTAnalysisMetricsView.swift`)
+### Error Handling
 
-**Comprehensive SwiftUI view with three sections:**
+Both platforms gracefully handle:
+- Missing permissions (microphone access)
+- Device disconnection during use
+- Invalid device selection
+- Empty device lists (fallback to current route)
 
-#### Analysis Configuration Section
-- Frequency Resolution with subtitle "Hz per bin"
-- Bandwidth with subtitle "0 Hz to Nyquist"
-- Sample Length with subtitle "Time window duration"
-- Frame Rate with subtitle "FFT calculations/sec"
+## User Experience
 
-#### Performance Section
-- Processing Time (last frame) with color coding
-- Average Processing (30-frame average) with color coding
-- CPU Usage (calculated as % of frame time) with color coding
+### macOS Flow
+1. User plugs in UMIK-1
+2. User launches app → devices enumerated
+3. User sees dropdown with all audio inputs
+4. User selects UMIK-1
+5. If running, engine restarts with new device
 
-#### Peak Detection Section
-- Peak Frequency (dominant frequency)
-- Peak Magnitude (signal strength in dB)
+### iOS Flow
+1. User connects UMIK-1 via Lightning/USB-C adapter
+2. User launches app → devices enumerated
+3. Route change notification fires (optional, if connected after launch)
+4. User sees menu picker with all inputs
+5. User selects "USB Audio Device" or device name
+6. Audio switches immediately without restart
 
-**Features:**
-- Automatic frequency formatting (Hz vs kHz)
-- Color-coded performance warnings (green/yellow/orange/red)
-- Real-time status indicator
-- GroupBox organization for clarity
-- Responsive to all analyzer state changes
+## Benefits
 
-**Best for:** iPad, Mac, or side panel displays
+### For Users
+- ✅ Select professional measurement microphones (UMIK-1, etc.)
+- ✅ Switch between built-in mic and external devices
+- ✅ Visual confirmation of current input device
+- ✅ See sample rate of each device
+- ✅ Works on both iPhone and iPad
 
----
-
-### 3. Compact Overlay (`CompactFFTMetricsOverlay.swift`)
-
-**Minimal, translucent overlay for at-a-glance monitoring:**
-
-#### Displays
-- Status indicator (green/gray dot)
-- Resolution (with waveform icon)
-- Sample time (with timer icon)
-- Frame rate (with speedometer icon)
-- CPU usage with color coding (with CPU icon)
-- Processing time (with clock icon)
-
-**Features:**
-- Uses `.ultraThinMaterial` background for translucency
-- SF Symbols icons for visual clarity
-- Minimal space usage (~120x150 points)
-- Position anywhere using ZStack alignment
-- Shadow for readability over any background
-
-**Best for:** iOS, overlays on spectrum charts, compact displays
-
----
-
-### 4. Example Integration (`ContentViewWithMetrics.swift`)
-
-**Complete working example showing:**
-- Side-by-side layout (spectrum + metrics panel)
-- Alternative scrollable vertical layout
-- Integration with existing `SpectrumView`
-- Proper state management
-- Microphone permission handling (iOS)
-- Start/Stop controls
-
-**Two layout options:**
-1. **HStack** - Side-by-side (uncommented, default)
-2. **ScrollView + VStack** - Vertical scrollable (commented out)
-
----
-
-### 5. Documentation
-
-#### `FFT_METRICS_DOCUMENTATION.md`
-**Comprehensive technical documentation covering:**
-- Detailed explanation of each metric with formulas
-- What each metric means in practical terms
-- Examples with real numbers
-- Trade-offs and implications
-- Tables comparing different FFT sizes
-- Sample rate selection guide
-- Performance optimization tips
-- Real-world application examples:
-  - Musical pitch detection
-  - Real-time spectrum visualizer
-  - Audio meter / level detection
-
-#### `FFT_METRICS_QUICK_START.md`
-**Practical implementation guide covering:**
-- Quick reference for all available metrics
-- Three display options with code examples
-- Positioning strategies
-- Configuration examples for different use cases
-- Performance monitoring guide
-- Color coding explanation
-- Complete integration examples
-- Troubleshooting common issues
-
----
-
-## Usage Examples
-
-### Quick Integration (Compact Overlay)
-```swift
-ZStack(alignment: .topTrailing) {
-    SpectrumView(
-        frequencies: analyzer.frequencies,
-        magnitudes: analyzer.magnitudes,
-        minFreq: $minFreq,
-        maxFreq: $maxFreq,
-        minDB: $minDB,
-        maxDB: $maxDB,
-        isLogarithmic: $isLogarithmic
-    )
-    
-    CompactFFTMetricsOverlay(analyzer: analyzer)
-        .padding(12)
-}
-```
-
-### Full Metrics Panel
-```swift
-HStack {
-    // Your main content
-    MySpectrumView()
-    
-    // Metrics panel
-    ScrollView {
-        FFTAnalysisMetricsView(analyzer: analyzer)
-    }
-    .frame(width: 350)
-}
-```
-
-### Custom Access
-```swift
-Text("CPU: \(cpuUsage, specifier: "%.1f")%")
-    .foregroundColor(analyzer.avgProcessingTimeMs / frameTime > 0.8 ? .red : .green)
-
-var cpuUsage: Float {
-    let frameTime = 1000.0 / analyzer.frameRate
-    return (analyzer.avgProcessingTimeMs / frameTime) * 100
-}
-```
-
----
-
-## Metrics Reference Card
-
-| Metric | Formula | Typical Value | Notes |
-|--------|---------|---------------|-------|
-| **Frequency Resolution** | sampleRate / fftSize | 5.86 Hz | Lower = more precise |
-| **Bandwidth** | sampleRate / 2 | 24000 Hz | Nyquist limit |
-| **Sample Length** | fftSize / sampleRate | 171 ms | Longer = better frequency resolution |
-| **Frame Rate** | sampleRate / (fftSize / 2) | 11.72 Hz | With 50% overlap |
-| **Processing Time** | Measured | 2-5 ms | Device dependent |
-| **CPU Usage** | (processTime / frameTime) × 100 | 2-10% | Keep under 50% |
-
----
-
-## Color Coding System
-
-### Processing Time & CPU Usage
-- 🟢 **Green (< 50%)**: Excellent - system has plenty of capacity
-- 🟡 **Yellow (50-80%)**: Good - acceptable performance
-- 🟠 **Orange (80-95%)**: Warning - nearing capacity limits
-- 🔴 **Red (> 95%)**: Critical - may drop frames or cause glitches
-
----
-
-## Files Modified
-
-1. **RealtimeFFTAnalyzer.swift** (modified)
-   - Added 6 new @Published properties
-   - Added `updateMetrics()` method
-   - Added processing time tracking
-   - Added rolling average calculation
-   - Enhanced `performFFT()` with timing
-
-## Files Created
-
-2. **FFTAnalysisMetricsView.swift** (new)
-   - Full metrics panel view
-   - GroupBox sections
-   - MetricRow component
-   - Color-coded warnings
-   - ~216 lines
-
-3. **CompactFFTMetricsOverlay.swift** (new)
-   - Compact overlay view
-   - Translucent background
-   - MetricLine component
-   - SF Symbols icons
-   - ~179 lines
-
-4. **ContentViewWithMetrics.swift** (new)
-   - Complete example implementation
-   - Two layout options
-   - Platform-specific permission handling
-   - ~223 lines
-
-5. **FFT_METRICS_DOCUMENTATION.md** (new)
-   - Technical deep dive
-   - Formulas and explanations
-   - Comparison tables
-   - Real-world examples
-   - ~450 lines
-
-6. **FFT_METRICS_QUICK_START.md** (new)
-   - Quick reference guide
-   - Code examples
-   - Use case configurations
-   - Troubleshooting
-   - ~450 lines
-
----
-
-## Performance Impact
-
-### Minimal Overhead
-- Metrics calculation: < 0.1 ms per frame
-- Published property updates: Negligible (main thread dispatch)
-- Rolling average: O(1) with circular buffer
-- No impact on FFT performance
-
-### Memory Usage
-- Processing time history: 30 floats × 4 bytes = 120 bytes
-- Published properties: 6 floats × 4 bytes = 24 bytes
-- Total additional memory: < 1 KB
-
----
+### For Measurements
+- ✅ Use calibrated microphones for accurate analysis
+- ✅ Better frequency response with quality mics
+- ✅ Lower noise floor with professional equipment
+- ✅ Consistent results across measurement sessions
 
 ## Testing Recommendations
 
-### Verify Calculations
-1. Start analyzer with known configuration (e.g., FFT 8192, 48000 Hz)
-2. Check console output matches expected values:
-   - Frequency Resolution: 48000 / 8192 = 5.86 Hz ✓
-   - Frame Rate: 48000 / 4096 = 11.72 Hz ✓
-3. Verify displayed values match console output
+### macOS
+1. Test with built-in microphone
+2. Test with UMIK-1 USB microphone
+3. Test with other USB audio interfaces
+4. Test device switching while running
+5. Test device removal during use
 
-### Performance Monitoring
-1. Run on target device (especially lower-end models)
-2. Monitor CPU usage - should stay green (<50%)
-3. Test with different FFT sizes
-4. Verify processing time is reasonable (typically < 5ms)
+### iOS
+1. Test with built-in microphone
+2. Test with wired headset
+3. Test with UMIK-1 via Lightning to USB adapter
+4. Test with UMIK-1 via USB-C (iPad Pro)
+5. Test device connection/disconnection during use
+6. Test with powered USB hubs
+7. Test on different iOS device types (iPhone, iPad)
 
-### UI Testing
-1. Verify all metrics update in real-time
-2. Check color coding changes appropriately
-3. Test both display options (panel and overlay)
-4. Confirm proper positioning of overlay
+## Future Enhancements
 
----
+### Calibration File Support
+- Load UMIK-1 calibration files (.txt)
+- Apply frequency response correction
+- Store calibration data per device
+- Display calibration status in UI
 
-## Future Enhancements (Optional)
+### Device Metadata
+- Show device type icons (built-in, USB, etc.)
+- Display channel count
+- Show buffer size and latency
+- Indicate device capabilities
 
-### Potential Additions
-- **Latency measurement**: End-to-end audio-to-display latency
-- **Buffer underruns**: Count dropped frames or buffer issues
-- **Memory usage**: Track current memory consumption
-- **Peak history**: Graph of peak frequency over time
-- **Frequency bands**: Energy in different frequency ranges
-- **Export metrics**: Save performance data to CSV
+### Preferences
+- Remember last selected device per platform
+- Auto-select preferred device on startup
+- Save device preferences to UserDefaults
 
-### Alternative Displays
-- **Real-time graph**: Plot processing time over time
-- **Histogram**: Distribution of processing times
-- **Waterfall display**: Time-frequency spectrogram
-- **Compact HUD**: Single-line status for menu bar
+### Advanced Features
+- Support multi-channel inputs
+- Allow channel selection for multi-channel devices
+- Show input level meters per device
+- Device-specific audio settings
 
----
+## Known Limitations
 
-## Summary
+### iOS
+- Requires external USB adapter for UMIK-1
+- Some devices may need powered adapters
+- Sample rate is determined by iOS audio session
+- Limited control over device-specific settings
 
-✅ **Metrics Calculated**
-- Frequency resolution, bandwidth, sample length, frame rate
-- Processing time (current and average)
-- CPU usage percentage
+### macOS
+- Device list not updated when devices are hot-plugged (requires restart)
+- May need to restart engine when changing devices
+- Some aggregate devices may not appear correctly
 
-✅ **Display Options**
-- Full metrics panel (FFTAnalysisMetricsView)
-- Compact overlay (CompactFFTMetricsOverlay)
-- Custom access via published properties
+## Conclusion
 
-✅ **Documentation**
-- Technical deep dive (FFT_METRICS_DOCUMENTATION.md)
-- Quick start guide (FFT_METRICS_QUICK_START.md)
-- Code examples and integration patterns
-
-✅ **Performance**
-- Negligible overhead (< 0.1 ms)
-- Minimal memory usage (< 1 KB)
-- Real-time updates via Combine
-
-✅ **Developer Experience**
-- Color-coded warnings
-- Console output for debugging
-- Flexible integration options
-- Comprehensive documentation
-
-All metrics are now calculated automatically and can be displayed in multiple formats to suit different UI requirements.
+The implementation provides a robust, cross-platform solution for audio input device selection. Users on both iOS and macOS can now select their preferred microphone, including professional measurement devices like the UMIK-1, for more accurate acoustic analysis.
