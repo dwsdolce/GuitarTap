@@ -88,6 +88,15 @@ struct SpectrumView: View {
     /// Optional threshold lines to display (for tap detection visualization)
     var thresholdLines: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])]?
     
+    /// The current measurement type (guitar vs material) - affects which annotations are shown
+    var measurementType: MeasurementType = .acoustic
+    
+    /// ID of the peak selected as longitudinal mode (for material measurements)
+    var selectedLongitudinalPeakID: UUID?
+    
+    /// ID of the peak selected as cross-grain mode (for material measurements)
+    var selectedCrossPeakID: UUID?
+    
     // MARK: - Gesture State
     
     /// Tracks drag offset during pan gestures
@@ -132,11 +141,16 @@ struct SpectrumView: View {
     }
     
     /// Returns peaks that are visible in the current frequency range
-    /// Optionally filters out unknown modes based on user setting
+    /// Optionally filters out unknown modes based on user setting (guitar mode only)
     private var visiblePeaks: [ResonantPeak] {
         let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
         
-        // Filter out unknown modes if setting is disabled
+        // In material mode, show all peaks (no guitar mode filtering)
+        if !measurementType.isGuitar {
+            return filtered
+        }
+        
+        // Filter out unknown modes if setting is disabled (guitar mode only)
         if SpectrumDisplaySettings.showUnknownModes {
             return filtered
         } else {
@@ -208,10 +222,11 @@ struct SpectrumView: View {
         }
     }
     
-    /// Mode boundary markers chart content
+    /// Mode boundary markers chart content (guitar mode only)
     @ChartContentBuilder
     private var modeBoundaryContent: some ChartContent {
-        if showModeBoundaries {
+        // Only show guitar mode boundaries when in guitar measurement mode
+        if showModeBoundaries && measurementType.isGuitar {
             ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
                 RuleMark(x: .value("Boundary", boundary.frequency))
                     .foregroundStyle(modeColor(for: boundary.mode).opacity(0.3))
@@ -237,12 +252,12 @@ struct SpectrumView: View {
     @ChartContentBuilder
     private var peakAnnotationContent: some ChartContent {
         ForEach(visiblePeaks) { peak in
-            // Peak marker
+            // Peak marker - color depends on measurement type
             PointMark(
                 x: .value("Frequency", peak.frequency),
                 y: .value("Magnitude", peak.magnitude)
             )
-            .foregroundStyle(modeColor(for: GuitarMode.classify(frequency: peak.frequency)))
+            .foregroundStyle(peakColor(for: peak))
             .symbolSize(100)
             
             // Static annotation (for positioning reference only)
@@ -256,6 +271,23 @@ struct SpectrumView: View {
                 Color.clear
                     .frame(width: 80, height: 60)
                     .id("placeholder-\(peak.id)")
+            }
+        }
+    }
+    
+    /// Returns the appropriate color for a peak based on measurement type and selection
+    private func peakColor(for peak: ResonantPeak) -> Color {
+        if measurementType.isGuitar {
+            // Guitar mode: color by guitar mode classification
+            return modeColor(for: GuitarMode.classify(frequency: peak.frequency))
+        } else {
+            // Material mode: color by L/C selection
+            if peak.id == selectedLongitudinalPeakID {
+                return .blue  // Longitudinal = blue
+            } else if peak.id == selectedCrossPeakID {
+                return .orange  // Cross-grain = orange
+            } else {
+                return .secondary  // Unselected = gray
             }
         }
     }
@@ -375,7 +407,10 @@ struct SpectrumView: View {
                     minDB: minDB,
                     maxDB: maxDB,
                     isLogarithmic: isLogarithmic,
-                    isAnnotationDragging: $isAnnotationDragging
+                    isAnnotationDragging: $isAnnotationDragging,
+                    measurementType: measurementType,
+                    selectedLongitudinalPeakID: selectedLongitudinalPeakID,
+                    selectedCrossPeakID: selectedCrossPeakID
                 )
             }
         }
@@ -868,6 +903,11 @@ private struct PeakAnnotationsOverlay: View {
     let isLogarithmic: Bool
     @Binding var isAnnotationDragging: Bool
     
+    // Material measurement mode support
+    let measurementType: MeasurementType
+    let selectedLongitudinalPeakID: UUID?
+    let selectedCrossPeakID: UUID?
+    
     var body: some View {
         ZStack {
             ForEach(peaks) { peak in
@@ -882,6 +922,9 @@ private struct PeakAnnotationsOverlay: View {
                     maxDB: maxDB,
                     isLogarithmic: isLogarithmic,
                     isAnnotationDragging: $isAnnotationDragging,
+                    measurementType: measurementType,
+                    selectedLongitudinalPeakID: selectedLongitudinalPeakID,
+                    selectedCrossPeakID: selectedCrossPeakID,
                     onOffsetChange: { newOffset in
                         annotationOffsets.wrappedValue[peak.id] = newOffset
                     },
@@ -909,6 +952,12 @@ struct DraggablePeakAnnotation: View {
     let maxDB: Float
     let isLogarithmic: Bool
     @Binding var isAnnotationDragging: Bool
+    
+    // Material measurement mode support
+    let measurementType: MeasurementType
+    let selectedLongitudinalPeakID: UUID?
+    let selectedCrossPeakID: UUID?
+    
     let onOffsetChange: (CGPoint) -> Void
     let onReset: () -> Void
     
@@ -921,16 +970,28 @@ struct DraggablePeakAnnotation: View {
     @State private var cachedPeakPosition: CGPoint = .zero
     
     private var modeColor: Color {
-        let mode = GuitarMode.classify(frequency: peak.frequency).normalized
-        switch mode {
-        case .air: return .cyan
-        case .top: return .green
-        case .back: return .orange
-        case .dipole: return .red
-        case .ringMode: return .purple
-        case .upperModes: return .gray
-        case .unknown: return .secondary
-        default: return .secondary
+        if measurementType.isGuitar {
+            // Guitar mode: color by guitar mode classification
+            let mode = GuitarMode.classify(frequency: peak.frequency).normalized
+            switch mode {
+            case .air: return .cyan
+            case .top: return .green
+            case .back: return .orange
+            case .dipole: return .red
+            case .ringMode: return .purple
+            case .upperModes: return .gray
+            case .unknown: return .secondary
+            default: return .secondary
+            }
+        } else {
+            // Material mode: color by L/C selection
+            if peak.id == selectedLongitudinalPeakID {
+                return .blue  // Longitudinal = blue
+            } else if peak.id == selectedCrossPeakID {
+                return .orange  // Cross-grain = orange
+            } else {
+                return .secondary  // Unselected = gray
+            }
         }
     }
     
@@ -1022,7 +1083,10 @@ struct DraggablePeakAnnotation: View {
                 modeColor: modeColor,
                 isHovering: isHovering,
                 isDragging: isDragging,
-                isMoved: isMoved
+                isMoved: isMoved,
+                measurementType: measurementType,
+                isLongitudinal: peak.id == selectedLongitudinalPeakID,
+                isCross: peak.id == selectedCrossPeakID
             )
             .position(finalPosition)
             .highPriorityGesture(
@@ -1156,33 +1220,37 @@ private struct PeakAnnotationLabel: View {
     let isDragging: Bool
     let isMoved: Bool
     
+    // Material measurement mode support
+    let measurementType: MeasurementType
+    let isLongitudinal: Bool
+    let isCross: Bool
+    
+    /// The mode label to display - guitar mode name or material mode (L/C)
+    private var modeLabel: String {
+        if measurementType.isGuitar {
+            return GuitarMode.classify(frequency: peak.frequency).displayName
+        } else {
+            // Material mode labels
+            if isLongitudinal {
+                return "Longitudinal"
+            } else if isCross {
+                return "Cross-grain"
+            } else {
+                return "Peak"  // Unselected peak
+            }
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 2) {
-            // Drag handle indicator
-//            if isHovering || isMoved || isDragging {
-//                HStack(spacing: 2) {
-//                    Image(systemName: isDragging ? "hand.point.up.left.fill" : "hand.point.up.left")
-//                        .font(.system(size: 8))
-//                        .foregroundColor(modeColor.opacity(0.6))
-//                    
-//                    if isMoved && !isDragging {
-//                        Image(systemName: "arrow.uturn.backward.circle.fill")
-//                            .font(.system(size: 8))
-//                            .foregroundColor(.secondary)
-//                            #if os(macOS)
-//                            .help("Right-click to reset")
-//                            #endif
-//                    }
-//                }
-//            }
-            
-            Text(GuitarMode.classify(frequency: peak.frequency).displayName)
+            // Mode label (guitar mode or material L/C)
+            Text(modeLabel)
                 .font(.caption2)
                 .fontWeight(.bold)
                 .foregroundColor(modeColor)
             
-            // Pitch information if available
-            if let pitchNote = peak.pitchNote, let pitchCents = peak.pitchCents {
+            // Pitch information if available (only show for guitar mode)
+            if measurementType.isGuitar, let pitchNote = peak.pitchNote, let pitchCents = peak.pitchCents {
                 HStack(spacing: 2) {
                     Image(systemName: "music.note")
                         .font(.system(size: 8))
@@ -1407,6 +1475,11 @@ struct ExportableSpectrumChart: View {
     var annotationOffsets: [UUID: CGPoint] = [:]
     var showUnknownModes: Bool? = nil  // If nil, uses global setting
     
+    // Material measurement mode support
+    var measurementType: MeasurementType = .acoustic
+    var selectedLongitudinalPeakID: UUID?
+    var selectedCrossPeakID: UUID?
+    
     private var chartData: [SpectrumDataPoint] {
         zip(frequencies, magnitudes)
             .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
@@ -1414,6 +1487,9 @@ struct ExportableSpectrumChart: View {
     }
     
     private var visibleModeBoundaries: [(frequency: Float, mode: GuitarMode)] {
+        // Don't show guitar mode boundaries when in material mode
+        guard measurementType.isGuitar else { return [] }
+        
         let allModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
         var boundaries: [(Float, GuitarMode)] = []
         
@@ -1432,6 +1508,12 @@ struct ExportableSpectrumChart: View {
     
     private var visiblePeaks: [ResonantPeak] {
         let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
+        
+        // In material mode, show all peaks (no guitar mode filtering)
+        if !measurementType.isGuitar {
+            return filtered
+        }
+        
         // Use explicit parameter if provided, otherwise fall back to global setting
         let shouldShowUnknown = showUnknownModes ?? SpectrumDisplaySettings.showUnknownModes
         if shouldShowUnknown {
@@ -1459,6 +1541,37 @@ struct ExportableSpectrumChart: View {
         case .upperModes: return .gray
         case .unknown: return .secondary
         default: return .secondary
+        }
+    }
+    
+    /// Returns the appropriate color for a peak based on measurement type and selection
+    private func peakColor(for peak: ResonantPeak) -> Color {
+        if measurementType.isGuitar {
+            return modeColor(for: GuitarMode.classify(frequency: peak.frequency))
+        } else {
+            // Material mode: color by L/C selection
+            if peak.id == selectedLongitudinalPeakID {
+                return .blue
+            } else if peak.id == selectedCrossPeakID {
+                return .orange
+            } else {
+                return .secondary
+            }
+        }
+    }
+    
+    /// Returns the mode label for a peak based on measurement type
+    private func peakModeLabel(for peak: ResonantPeak) -> String {
+        if measurementType.isGuitar {
+            return GuitarMode.classify(frequency: peak.frequency).displayName
+        } else {
+            if peak.id == selectedLongitudinalPeakID {
+                return "Longitudinal"
+            } else if peak.id == selectedCrossPeakID {
+                return "Cross-grain"
+            } else {
+                return "Peak"
+            }
         }
     }
     
@@ -1524,12 +1637,11 @@ struct ExportableSpectrumChart: View {
                     
                     // Peak markers only (no inline annotations)
                     ForEach(visiblePeaks) { peak in
-                        let mode = GuitarMode.classify(frequency: peak.frequency)
                         PointMark(
                             x: .value("Frequency", peak.frequency),
                             y: .value("Magnitude", peak.magnitude)
                         )
-                        .foregroundStyle(modeColor(for: mode))
+                        .foregroundStyle(peakColor(for: peak))
                         .symbolSize(200)
                     }
                 }
@@ -1575,7 +1687,6 @@ struct ExportableSpectrumChart: View {
                             
                             // Connection lines layer
                             ForEach(visiblePeaks) { peak in
-                                let mode = GuitarMode.classify(frequency: peak.frequency)
                                 if let peakX = proxy.position(forX: peak.frequency),
                                    let peakY = proxy.position(forY: Double(peak.magnitude)) {
                                     let peakPosition = CGPoint(
@@ -1590,13 +1701,12 @@ struct ExportableSpectrumChart: View {
                                         from: CGPoint(x: annotationX, y: annotationY + 50),
                                         to: peakPosition
                                     )
-                                    .stroke(modeColor(for: mode).opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                                    .stroke(peakColor(for: peak).opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
                                 }
                             }
                             
                             // Annotations layer
                             ForEach(visiblePeaks) { peak in
-                                let mode = GuitarMode.classify(frequency: peak.frequency)
                                 if let peakX = proxy.position(forX: peak.frequency),
                                    let peakY = proxy.position(forY: Double(peak.magnitude)) {
                                     let peakPosition = CGPoint(
@@ -1608,11 +1718,12 @@ struct ExportableSpectrumChart: View {
                                     let annotationY = peakPosition.y - 70 + offset.y
                                     
                                     VStack(spacing: 6) {
-                                        Text(mode.displayName)
+                                        Text(peakModeLabel(for: peak))
                                             .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(modeColor(for: mode))
+                                            .foregroundColor(peakColor(for: peak))
                                         
-                                        if let pitchNote = peak.pitchNote {
+                                        // Only show pitch info for guitar mode
+                                        if measurementType.isGuitar, let pitchNote = peak.pitchNote {
                                             HStack(spacing: 4) {
                                                 Image(systemName: "music.note")
                                                     .font(.system(size: 14))

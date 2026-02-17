@@ -16,13 +16,23 @@ struct TapAnalysisResultsView: View {
     var minFreq: Float
     var maxFreq: Float
     
-    // Material mode selection state
-    @State private var selectedLongitudinalPeakID: UUID?
-    @State private var selectedCrossPeakID: UUID?
+    // Material mode selection state - exposed via bindings for parent view to use
+    @Binding var selectedLongitudinalPeakID: UUID?
+    @Binding var selectedCrossPeakID: UUID?
     
     // Current measurement type
     private var measurementType: MeasurementType {
         SpectrumDisplaySettings.measurementType
+    }
+    
+    /// Effective longitudinal peak ID - uses binding value if set, otherwise falls back to auto-selected
+    private var effectiveLongitudinalPeakID: UUID? {
+        selectedLongitudinalPeakID ?? analyzer.autoSelectedLongitudinalPeakID
+    }
+    
+    /// Effective cross-grain peak ID - uses binding value if set, otherwise falls back to auto-selected
+    private var effectiveCrossPeakID: UUID? {
+        selectedCrossPeakID ?? analyzer.autoSelectedCrossPeakID
     }
     
     var body: some View {
@@ -80,7 +90,7 @@ struct TapAnalysisResultsView: View {
     // MARK: - Computed Properties
     
     /// Combined peaks with mode classifications, filtered to the current frequency range and sorted by frequency
-    /// Optionally filters out unknown modes based on user setting
+    /// Optionally filters out unknown modes based on user setting (guitar mode only)
     private var sortedPeaksWithModes: [(peak: ResonantPeak, mode: GuitarMode)] {
         analyzer.currentPeaks
             .filter { peak in
@@ -90,8 +100,9 @@ struct TapAnalysisResultsView: View {
                 (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
             }
             .filter { item in
-                // Filter out unknown modes if setting is disabled
-                SpectrumDisplaySettings.showUnknownModes || item.mode.normalized != .unknown
+                // For material mode, show all peaks (don't filter by guitar mode)
+                // For guitar mode, optionally filter out unknown modes
+                measurementType == .material || SpectrumDisplaySettings.showUnknownModes || item.mode.normalized != .unknown
             }
             .sorted { $0.peak.frequency < $1.peak.frequency }
     }
@@ -112,38 +123,85 @@ struct TapAnalysisResultsView: View {
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
                             MaterialPeakRowView(
                                 peak: item.peak,
-                                isLongitudinal: selectedLongitudinalPeakID == item.peak.id,
-                                isCross: selectedCrossPeakID == item.peak.id,
+                                isLongitudinal: effectiveLongitudinalPeakID == item.peak.id,
+                                isCross: effectiveCrossPeakID == item.peak.id,
                                 onSelectLongitudinal: {
-                                    if selectedLongitudinalPeakID == item.peak.id {
+                                    if effectiveLongitudinalPeakID == item.peak.id {
+                                        // Deselect - clear both binding and auto-selected
                                         selectedLongitudinalPeakID = nil
+                                        analyzer.autoSelectedLongitudinalPeakID = nil
                                     } else {
                                         selectedLongitudinalPeakID = item.peak.id
                                         // Can't be both
-                                        if selectedCrossPeakID == item.peak.id {
+                                        if effectiveCrossPeakID == item.peak.id {
                                             selectedCrossPeakID = nil
+                                            analyzer.autoSelectedCrossPeakID = nil
                                         }
                                     }
                                 },
                                 onSelectCross: {
-                                    if selectedCrossPeakID == item.peak.id {
+                                    if effectiveCrossPeakID == item.peak.id {
+                                        // Deselect - clear both binding and auto-selected
                                         selectedCrossPeakID = nil
+                                        analyzer.autoSelectedCrossPeakID = nil
                                     } else {
                                         selectedCrossPeakID = item.peak.id
                                         // Can't be both
-                                        if selectedLongitudinalPeakID == item.peak.id {
+                                        if effectiveLongitudinalPeakID == item.peak.id {
                                             selectedLongitudinalPeakID = nil
+                                            analyzer.autoSelectedLongitudinalPeakID = nil
                                         }
                                     }
                                 }
                             )
                         }
                         
-                        // Instructions
-                        Text("Tap 'L' for longitudinal (along grain) or 'C' for cross-grain mode")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 4)
+                        // Instructions and guidance
+                        VStack(alignment: .leading, spacing: 6) {
+                            Divider()
+                                .padding(.vertical, 4)
+                            
+                            Text("Two-Tap Measurement Process:")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("**1. Longitudinal (L) Tap**")
+                                            .font(.caption2)
+                                        Text("Support plate along SHORT edges (at ~22% from ends). Tap center. The plate bends along its length (grain direction).")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                } icon: {
+                                    Circle()
+                                        .fill(Color.blue)
+                                        .frame(width: 8, height: 8)
+                                }
+                                
+                                Label {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("**2. Cross-grain (C) Tap**")
+                                            .font(.caption2)
+                                        Text("Rotate 90°, support along LONG edges. Tap center. The plate bends across its width (perpendicular to grain).")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                } icon: {
+                                    Circle()
+                                        .fill(Color.orange)
+                                        .frame(width: 8, height: 8)
+                                }
+                            }
+                            
+                            Text("The strongest peak from each tap is auto-selected. Adjust selections above if needed.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .italic()
+                                .padding(.top, 2)
+                        }
+                        .padding(.top, 4)
                     } else {
                         // Standard guitar mode display
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
@@ -243,8 +301,8 @@ struct TapAnalysisResultsView: View {
     
     /// Computed material properties based on selected peaks and dimensions
     private var calculatedMaterialProperties: MaterialProperties? {
-        guard let longPeakID = selectedLongitudinalPeakID,
-              let crossPeakID = selectedCrossPeakID,
+        guard let longPeakID = effectiveLongitudinalPeakID,
+              let crossPeakID = effectiveCrossPeakID,
               let longPeak = sortedPeaksWithModes.first(where: { $0.peak.id == longPeakID })?.peak,
               let crossPeak = sortedPeaksWithModes.first(where: { $0.peak.id == crossPeakID })?.peak else {
             return nil

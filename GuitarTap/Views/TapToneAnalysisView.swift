@@ -46,7 +46,9 @@ struct TapToneAnalysisView: View {
     // Auto-scale dB state
     @State private var isAutoScaleEnabled = false
     
-
+    // Material measurement mode state
+    @State private var selectedLongitudinalPeakID: UUID?
+    @State private var selectedCrossPeakID: UUID?
     
     // Environment
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
@@ -202,6 +204,79 @@ struct TapToneAnalysisView: View {
                 }
             }
         }
+        .onReceive(tapToneAnalyzer.$loadedMeasurementType) { measurementType in
+            if let measurementType = measurementType {
+                print("  ⬇️ View received loadedMeasurementType: \(measurementType.shortName)")
+                SpectrumDisplaySettings.measurementType = measurementType
+                // Clear the loaded value after a small delay to ensure UI updates
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMeasurementType = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedSelectedLongitudinalPeakID) { peakID in
+            print("  ⬇️ View received loadedSelectedLongitudinalPeakID: \(String(describing: peakID))")
+            self.selectedLongitudinalPeakID = peakID
+            // Clear the loaded value after a small delay to ensure UI updates
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.tapToneAnalyzer.loadedSelectedLongitudinalPeakID = nil
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedSelectedCrossPeakID) { peakID in
+            print("  ⬇️ View received loadedSelectedCrossPeakID: \(String(describing: peakID))")
+            self.selectedCrossPeakID = peakID
+            // Clear the loaded value after a small delay to ensure UI updates
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.tapToneAnalyzer.loadedSelectedCrossPeakID = nil
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedMaterialLength) { length in
+            if let length = length {
+                print("  ⬇️ View received loadedMaterialLength: \(length)mm")
+                SpectrumDisplaySettings.materialLength = length
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMaterialLength = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedMaterialWidth) { width in
+            if let width = width {
+                SpectrumDisplaySettings.materialWidth = width
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMaterialWidth = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedMaterialThickness) { thickness in
+            if let thickness = thickness {
+                SpectrumDisplaySettings.materialThickness = thickness
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMaterialThickness = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedMaterialMass) { mass in
+            if let mass = mass {
+                SpectrumDisplaySettings.materialMass = mass
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMaterialMass = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$autoSelectedLongitudinalPeakID) { peakID in
+            // When material measurement auto-selects a longitudinal peak, update the view state
+            if let peakID = peakID {
+                print("  🔵 Auto-selected longitudinal peak: \(peakID)")
+                self.selectedLongitudinalPeakID = peakID
+            }
+        }
+        .onReceive(tapToneAnalyzer.$autoSelectedCrossPeakID) { peakID in
+            // When material measurement auto-selects a cross-grain peak, update the view state
+            if let peakID = peakID {
+                print("  🟠 Auto-selected cross-grain peak: \(peakID)")
+                self.selectedCrossPeakID = peakID
+            }
+        }
         .onReceive(fftAnalyzer.$magnitudes) { newMagnitudes in
             // Auto-scale dB when enabled and spectrum updates
             // Note: Check for non-empty magnitudes that aren't all -100 (initialization value)
@@ -269,7 +344,9 @@ struct TapToneAnalysisView: View {
                     analyzer: tapToneAnalyzer,
                     fftAnalyzer: fftAnalyzer,
                     minFreq: minFreq,
-                    maxFreq: maxFreq
+                    maxFreq: maxFreq,
+                    selectedLongitudinalPeakID: $selectedLongitudinalPeakID,
+                    selectedCrossPeakID: $selectedCrossPeakID
                 )
                 .navigationTitle("Analysis Results")
                 .toolbar {
@@ -347,7 +424,9 @@ struct TapToneAnalysisView: View {
                     analyzer: tapToneAnalyzer,
                     fftAnalyzer: fftAnalyzer,
                     minFreq: minFreq,
-                    maxFreq: maxFreq
+                    maxFreq: maxFreq,
+                    selectedLongitudinalPeakID: $selectedLongitudinalPeakID,
+                    selectedCrossPeakID: $selectedCrossPeakID
                 )
                 .navigationTitle("Analysis Results")
                 .navigationBarTitleDisplayMode(.inline)
@@ -1512,7 +1591,10 @@ struct TapToneAnalysisView: View {
                 showModeBoundaries: true,
                 onFrequencyRangeChanged: updateFrequencyInputFields,
                 annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
-                thresholdLines: thresholds
+                thresholdLines: thresholds,
+                measurementType: SpectrumDisplaySettings.measurementType,
+                selectedLongitudinalPeakID: selectedLongitudinalPeakID,
+                selectedCrossPeakID: selectedCrossPeakID
             )
             // Force view to update when any relevant state changes
             .id("\(tapToneAnalyzer.isSpectrumFrozen)-\(fftAnalyzer.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
@@ -1557,6 +1639,125 @@ struct TapToneAnalysisView: View {
     }
     
     private var decayTimeView: some View {
+        Group {
+            if SpectrumDisplaySettings.measurementType == .material {
+                // Material measurement instructions
+                materialInstructionsView
+            } else {
+                // Guitar mode: Ring-Out Time and Tap Tone Ratio
+                guitarMetricsView
+            }
+        }
+    }
+    
+    /// Material measurement instructions panel
+    private var materialInstructionsView: some View {
+        GroupBox("Material Measurement") {
+            VStack(alignment: .leading, spacing: 8) {
+                // Current phase indicator
+                HStack {
+                    Circle()
+                        .fill(materialPhaseColor)
+                        .frame(width: 10, height: 10)
+                    Text(tapToneAnalyzer.materialTapPhase.shortStatus)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(materialPhaseColor)
+                    Spacer()
+                    Text("Step \(materialPhaseStep)/2")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Divider()
+                
+                // Instructions based on current phase
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: materialPhaseIcon)
+                        .font(.title2)
+                        .foregroundColor(materialPhaseColor)
+                        .frame(width: 30)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(materialPhaseTitle)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        Text(materialPhaseDescription)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+    
+    /// Color for current material measurement phase
+    private var materialPhaseColor: Color {
+        switch tapToneAnalyzer.materialTapPhase {
+        case .notStarted: return .gray
+        case .capturingLongitudinal: return .blue
+        case .waitingForCrossTap: return .orange
+        case .capturingCross: return .orange
+        case .complete: return .green
+        }
+    }
+    
+    /// Step number for current material measurement phase
+    private var materialPhaseStep: Int {
+        switch tapToneAnalyzer.materialTapPhase {
+        case .notStarted, .capturingLongitudinal: return 1
+        case .waitingForCrossTap, .capturingCross, .complete: return 2
+        }
+    }
+    
+    /// Icon for current material measurement phase
+    private var materialPhaseIcon: String {
+        switch tapToneAnalyzer.materialTapPhase {
+        case .notStarted: return "hand.tap"
+        case .capturingLongitudinal: return "waveform"
+        case .waitingForCrossTap: return "rotate.3d"
+        case .capturingCross: return "waveform"
+        case .complete: return "checkmark.circle.fill"
+        }
+    }
+    
+    /// Title for current material measurement phase
+    private var materialPhaseTitle: String {
+        switch tapToneAnalyzer.materialTapPhase {
+        case .notStarted:
+            return "Press 'New Tap' to Begin"
+        case .capturingLongitudinal:
+            return "Step 1: Longitudinal (L) Mode"
+        case .waitingForCrossTap:
+            return "L Captured - Prepare for Step 2"
+        case .capturingCross:
+            return "Step 2: Cross-grain (C) Mode"
+        case .complete:
+            return "Measurement Complete"
+        }
+    }
+    
+    /// Description for current material measurement phase
+    private var materialPhaseDescription: String {
+        switch tapToneAnalyzer.materialTapPhase {
+        case .notStarted:
+            return "Press 'New Tap' to begin the two-tap material measurement process."
+        case .capturingLongitudinal:
+            return "Support plate along SHORT edges at ~22% from each end. Tap the CENTER of the plate. The plate will bend along its length (grain direction)."
+        case .waitingForCrossTap:
+            return "Longitudinal mode captured! Now ROTATE the plate 90°, support along LONG edges at ~22% from each end. Tap the CENTER for cross-grain."
+        case .capturingCross:
+            return "Support plate along LONG edges at ~22% from each end. Tap the CENTER. The plate will bend across its width (perpendicular to grain)."
+        case .complete:
+            return "Both modes captured! Review the L (blue) and C (orange) peak selections in the Results panel. Adjust if the auto-selection isn't correct."
+        }
+    }
+    
+    /// Guitar mode metrics view (Ring-Out Time and Tap Tone Ratio)
+    private var guitarMetricsView: some View {
         HStack(spacing: 12) {
             // Ring-Out Time
             GroupBox("Ring-Out Time") {
@@ -1587,6 +1788,7 @@ struct TapToneAnalysisView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .frame(maxWidth: .infinity)
             
             // Tap Tone Ratio
             GroupBox("Tap Tone Ratio") {
@@ -1617,6 +1819,7 @@ struct TapToneAnalysisView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .frame(maxWidth: .infinity)
         }
     }
     
@@ -1702,6 +1905,7 @@ struct TapToneAnalysisView: View {
             #endif
             
             // Create spectrum snapshot
+            let measurementType = SpectrumDisplaySettings.measurementType
             let snapshot = SpectrumSnapshot(
                 frequencies: self.tapToneAnalyzer.isSpectrumFrozen ? 
                     self.tapToneAnalyzer.frozenFrequencies : self.fftAnalyzer.frequencies,
@@ -1713,7 +1917,13 @@ struct TapToneAnalysisView: View {
                 maxDB: self.maxDB,
                 isLogarithmic: false,
                 showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
-                guitarType: SpectrumDisplaySettings.guitarType
+                guitarType: SpectrumDisplaySettings.guitarType,
+                measurementType: measurementType,
+                // Include material dimensions only for material measurements
+                materialLength: measurementType == .material ? SpectrumDisplaySettings.materialLength : nil,
+                materialWidth: measurementType == .material ? SpectrumDisplaySettings.materialWidth : nil,
+                materialThickness: measurementType == .material ? SpectrumDisplaySettings.materialThickness : nil,
+                materialMass: measurementType == .material ? SpectrumDisplaySettings.materialMass : nil
             )
             
             // Save with all data
@@ -1723,7 +1933,9 @@ struct TapToneAnalysisView: View {
                 includeSpectrum: true,
                 chartImageData: imageData,
                 spectrumSnapshot: snapshot,
-                annotationOffsets: self.tapToneAnalyzer.peakAnnotationOffsets
+                annotationOffsets: self.tapToneAnalyzer.peakAnnotationOffsets,
+                selectedLongitudinalPeakID: self.selectedLongitudinalPeakID,
+                selectedCrossPeakID: self.selectedCrossPeakID
             )
             
             self.tapLocation = ""
@@ -1898,7 +2110,10 @@ struct TapToneAnalysisView: View {
                 peaks: tapToneAnalyzer.currentPeaks,
                 showModeBoundaries: true,
                 annotationOffsets: tapToneAnalyzer.peakAnnotationOffsets,
-                showUnknownModes: SpectrumDisplaySettings.showUnknownModes
+                showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
+                measurementType: SpectrumDisplaySettings.measurementType,
+                selectedLongitudinalPeakID: selectedLongitudinalPeakID,
+                selectedCrossPeakID: selectedCrossPeakID
             )
             .frame(width: 1400, height: 800)
             .padding()
