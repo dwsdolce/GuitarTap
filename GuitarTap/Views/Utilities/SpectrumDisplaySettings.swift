@@ -413,8 +413,8 @@ struct SpectrumDisplaySettings {
     /// Default minimum magnitude threshold for peak detection (dB)
     static let defaultPeakThreshold: Float = -60
     
-    /// Default maximum number of peaks to detect and store
-    static let defaultMaxPeaks: Int = 10
+    /// Default maximum number of peaks to detect and store (0 = all peaks)
+    static let defaultMaxPeaks: Int = 0
     
     /// Persisted minimum frequency for analysis (Hz)
     static var analysisMinFrequency: Float {
@@ -453,13 +453,18 @@ struct SpectrumDisplaySettings {
     }
     
     /// Persisted maximum number of peaks to detect and store
+    /// A value of 0 means "capture all peaks" (no limit)
     static var maxPeaks: Int {
         get {
-            let value = UserDefaults.standard.integer(forKey: maxPeaksKey)
-            return value > 0 ? value : defaultMaxPeaks
+            // Use object check to distinguish between "not set" and "set to 0"
+            if UserDefaults.standard.object(forKey: maxPeaksKey) == nil {
+                return defaultMaxPeaks
+            }
+            return UserDefaults.standard.integer(forKey: maxPeaksKey)
         }
         set {
-            UserDefaults.standard.set(max(1, newValue), forKey: maxPeaksKey)
+            // Allow 0 (all peaks) or any positive value
+            UserDefaults.standard.set(max(0, newValue), forKey: maxPeaksKey)
         }
     }
     

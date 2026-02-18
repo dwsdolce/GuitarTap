@@ -385,6 +385,38 @@ final class TapToneAnalyzer: ObservableObject {
     /// Custom offsets for peak annotations (keyed by peak ID) to prevent overlap
     @Published var peakAnnotationOffsets: [UUID: CGPoint] = [:]
     
+    /// Set of peak IDs that should be hidden from annotation display
+    @Published var hiddenPeakIDs: Set<UUID> = []
+    
+    /// Whether all peak annotations are currently visible (convenience for UI toggle)
+    var areAllPeaksVisible: Bool {
+        hiddenPeakIDs.isEmpty
+    }
+    
+    /// Toggle visibility of a specific peak
+    func togglePeakVisibility(_ peakID: UUID) {
+        if hiddenPeakIDs.contains(peakID) {
+            hiddenPeakIDs.remove(peakID)
+        } else {
+            hiddenPeakIDs.insert(peakID)
+        }
+    }
+    
+    /// Show all peak annotations
+    func showAllPeaks() {
+        hiddenPeakIDs.removeAll()
+    }
+    
+    /// Hide all peak annotations
+    func hideAllPeaks() {
+        hiddenPeakIDs = Set(currentPeaks.map { $0.id })
+    }
+    
+    /// Get visible peaks (filtered by hiddenPeakIDs)
+    var visiblePeaks: [ResonantPeak] {
+        currentPeaks.filter { !hiddenPeakIDs.contains($0.id) }
+    }
+    
     // MARK: - Material Measurement State
     
     /// Current phase of material tap sequence (two-tap process for L and C modes)
@@ -799,13 +831,22 @@ final class TapToneAnalyzer: ObservableObject {
         }
         
         // Then fill remaining slots with other peaks by magnitude
-        let remainingSlots = maxPeaks - finalPeaks.count
-        if remainingSlots > 0 {
+        // maxPeaks == 0 means "capture all peaks"
+        if maxPeaks == 0 {
+            // Add all remaining peaks (no limit)
             let otherPeaks = allPeaks
                 .filter { !includedPeakIDs.contains($0.id) }
                 .sorted { $0.magnitude > $1.magnitude }
-                .prefix(remainingSlots)
             finalPeaks.append(contentsOf: otherPeaks)
+        } else {
+            let remainingSlots = maxPeaks - finalPeaks.count
+            if remainingSlots > 0 {
+                let otherPeaks = allPeaks
+                    .filter { !includedPeakIDs.contains($0.id) }
+                    .sorted { $0.magnitude > $1.magnitude }
+                    .prefix(remainingSlots)
+                finalPeaks.append(contentsOf: otherPeaks)
+            }
         }
         
         // Sort final result by magnitude descending
@@ -1326,13 +1367,22 @@ final class TapToneAnalyzer: ObservableObject {
         }
         
         // Fill remaining slots
-        let remainingSlots = maxPeaks - finalPeaks.count
-        if remainingSlots > 0 {
+        // maxPeaks == 0 means "capture all peaks"
+        if maxPeaks == 0 {
+            // Add all remaining peaks (no limit)
             let otherPeaks = averagedPeaks
                 .filter { !includedPeakIDs.contains($0.id) }
                 .sorted { $0.magnitude > $1.magnitude }
-                .prefix(remainingSlots)
             finalPeaks.append(contentsOf: otherPeaks)
+        } else {
+            let remainingSlots = maxPeaks - finalPeaks.count
+            if remainingSlots > 0 {
+                let otherPeaks = averagedPeaks
+                    .filter { !includedPeakIDs.contains($0.id) }
+                    .sorted { $0.magnitude > $1.magnitude }
+                    .prefix(remainingSlots)
+                finalPeaks.append(contentsOf: otherPeaks)
+            }
         }
         
         // Sort final result by magnitude descending

@@ -40,6 +40,8 @@ struct SpectrumSettingsView: View {
     @State private var analysisMinFreqInput: String
     @State private var analysisMaxFreqInput: String
     @State private var peakThresholdInput: String
+    @State private var maxPeaksInput: String
+    @State private var captureAllPeaks: Bool
     
     // Measurement type setting
     @State private var selectedMeasurementType: MeasurementType = SpectrumDisplaySettings.measurementType
@@ -101,6 +103,11 @@ struct SpectrumSettingsView: View {
         self._analysisMinFreqInput = State(initialValue: String(format: "%.0f", analysisMinFreq.wrappedValue))
         self._analysisMaxFreqInput = State(initialValue: String(format: "%.0f", analysisMaxFreq.wrappedValue))
         self._peakThresholdInput = State(initialValue: String(format: "%.0f", peakThreshold.wrappedValue))
+        
+        // Initialize maxPeaks input - 0 means "all peaks"
+        let peaksValue = maxPeaks.wrappedValue
+        self._captureAllPeaks = State(initialValue: peaksValue == 0)
+        self._maxPeaksInput = State(initialValue: peaksValue == 0 ? "All" : "\(peaksValue)")
     }
     
     var body: some View {
@@ -377,13 +384,64 @@ struct SpectrumSettingsView: View {
                             .fontWeight(.medium)
                         
                         HStack(spacing: 12) {
-                            Stepper(value: $maxPeaks, in: 5...30, step: 1) {
-                                Text("\(maxPeaks) peaks")
-                                    .font(.body)
-                            }
+                            // Text field for direct input
+                            TextField("", text: $maxPeaksInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 60)
+                                #if os(iOS)
+                                .keyboardType(.numberPad)
+                                #endif
+                                .disabled(captureAllPeaks)
+                                .opacity(captureAllPeaks ? 0.5 : 1.0)
+                                .onSubmit {
+                                    // Update maxPeaks when user submits (if valid)
+                                    if let value = Int(maxPeaksInput), value >= 1 {
+                                        maxPeaks = value
+                                    } else {
+                                        // Restore valid value
+                                        maxPeaksInput = "\(maxPeaks)"
+                                    }
+                                }
+                            
+                            Text("peaks")
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            // Stepper for increment/decrement (only when not in "all" mode)
+                            Stepper("", value: Binding(
+                                get: { maxPeaks == 0 ? SpectrumDisplaySettings.defaultMaxPeaks : maxPeaks },
+                                set: { newValue in
+                                    maxPeaks = newValue
+                                    maxPeaksInput = "\(newValue)"
+                                    captureAllPeaks = false
+                                }
+                            ), in: 1...100, step: 1)
+                                .labelsHidden()
+                                .disabled(captureAllPeaks)
+                                .opacity(captureAllPeaks ? 0.5 : 1.0)
                         }
                         
-                        Text("Maximum number of peaks to detect. The strongest peak for each guitar mode is always included, then remaining slots are filled by magnitude.")
+                        // "All peaks" toggle
+                        Toggle(isOn: Binding(
+                            get: { captureAllPeaks },
+                            set: { isOn in
+                                captureAllPeaks = isOn
+                                if isOn {
+                                    maxPeaks = 0  // 0 means "all peaks"
+                                    maxPeaksInput = "All"
+                                } else {
+                                    // Restore default when turning off
+                                    maxPeaks = SpectrumDisplaySettings.defaultMaxPeaks
+                                    maxPeaksInput = "\(maxPeaks)"
+                                }
+                            }
+                        )) {
+                            Text("Capture all peaks in analysis range")
+                                .font(.subheadline)
+                        }
+                        
+                        Text("Maximum number of peaks to detect. The strongest peak for each guitar mode is always included, then remaining slots are filled by magnitude. Set to 'All' to capture every peak above the threshold.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -938,6 +996,8 @@ struct SpectrumSettingsView: View {
         analysisMaxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultAnalysisMaxFrequency)
         peakThresholdInput = String(format: "%.0f", SpectrumDisplaySettings.defaultPeakThreshold)
         maxPeaks = SpectrumDisplaySettings.defaultMaxPeaks
+        maxPeaksInput = "\(SpectrumDisplaySettings.defaultMaxPeaks)"
+        captureAllPeaks = false
     }
     
     private func showError(_ message: String) {

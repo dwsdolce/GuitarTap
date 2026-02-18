@@ -165,8 +165,8 @@
             filePath = "GuitarTap/Models/TapToneAnalyzer.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1161"
-            endingLineNumber = "1161"
+            startingLineNumber = "1170"
+            endingLineNumber = "1170"
             landmarkName = "startDecayTracking()"
             landmarkType = "7">
          </BreakpointContent>

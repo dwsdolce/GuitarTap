@@ -110,7 +110,47 @@ struct TapAnalysisResultsView: View {
     // MARK: - Subviews
     
     private var peaksAndModesSection: some View {
-        GroupBox(measurementType == .material ? "Detected Peaks" : "Detected Peaks & Modes") {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                // Header with visibility controls
+                HStack {
+                    Text(measurementType == .material ? "Detected Peaks" : "Detected Peaks & Modes")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    // Show/Hide All buttons
+                    if !sortedPeaksWithModes.isEmpty {
+                        HStack(spacing: 8) {
+                            Button {
+                                analyzer.showAllPeaks()
+                            } label: {
+                                Image(systemName: "eye")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                            .disabled(analyzer.areAllPeaksVisible)
+                            .help("Show all peak annotations")
+                            
+                            Button {
+                                analyzer.hideAllPeaks()
+                            } label: {
+                                Image(systemName: "eye.slash")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                            .disabled(analyzer.hiddenPeakIDs.count == analyzer.currentPeaks.count)
+                            .help("Hide all peak annotations")
+                        }
+                    }
+                }
+                
+                Divider()
+            }
+            
             if sortedPeaksWithModes.isEmpty {
                 Text("No peaks detected in visible range")
                     .foregroundColor(.secondary)
@@ -125,6 +165,7 @@ struct TapAnalysisResultsView: View {
                                 peak: item.peak,
                                 isLongitudinal: effectiveLongitudinalPeakID == item.peak.id,
                                 isCross: effectiveCrossPeakID == item.peak.id,
+                                isVisible: !analyzer.hiddenPeakIDs.contains(item.peak.id),
                                 onSelectLongitudinal: {
                                     if effectiveLongitudinalPeakID == item.peak.id {
                                         // Deselect - clear both binding and auto-selected
@@ -152,6 +193,9 @@ struct TapAnalysisResultsView: View {
                                             analyzer.autoSelectedLongitudinalPeakID = nil
                                         }
                                     }
+                                },
+                                onToggleVisibility: {
+                                    analyzer.togglePeakVisibility(item.peak.id)
                                 }
                             )
                         }
@@ -205,7 +249,14 @@ struct TapAnalysisResultsView: View {
                     } else {
                         // Standard guitar mode display
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
-                            CombinedPeakModeRowView(peak: item.peak, mode: item.mode)
+                            CombinedPeakModeRowView(
+                                peak: item.peak,
+                                mode: item.mode,
+                                isVisible: !analyzer.hiddenPeakIDs.contains(item.peak.id),
+                                onToggleVisibility: {
+                                    analyzer.togglePeakVisibility(item.peak.id)
+                                }
+                            )
                         }
                     }
                 }
@@ -501,11 +552,27 @@ struct MaterialPeakRowView: View {
     let peak: ResonantPeak
     let isLongitudinal: Bool
     let isCross: Bool
+    var isVisible: Bool = true
     let onSelectLongitudinal: () -> Void
     let onSelectCross: () -> Void
+    var onToggleVisibility: (() -> Void)? = nil
     
     var body: some View {
         HStack(spacing: 12) {
+            // Visibility toggle button
+            if let toggleAction = onToggleVisibility {
+                Button {
+                    toggleAction()
+                } label: {
+                    Image(systemName: isVisible ? "eye.fill" : "eye.slash")
+                        .foregroundColor(isVisible ? .blue : .secondary)
+                        .font(.body)
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .help(isVisible ? "Hide annotation" : "Show annotation")
+            }
+            
             // Frequency and magnitude
             VStack(alignment: .leading, spacing: 2) {
                 Text(peak.frequency.formattedAsFrequency())

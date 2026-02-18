@@ -9,9 +9,25 @@ import SwiftUI
 struct CombinedPeakModeRowView: View {
     let peak: ResonantPeak
     let mode: GuitarMode
+    var isVisible: Bool = true
+    var onToggleVisibility: (() -> Void)? = nil
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
+            // Visibility toggle button
+            if let toggleAction = onToggleVisibility {
+                Button {
+                    toggleAction()
+                } label: {
+                    Image(systemName: isVisible ? "eye.fill" : "eye.slash")
+                        .foregroundColor(isVisible ? .blue : .secondary)
+                        .font(.body)
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .help(isVisible ? "Hide annotation" : "Show annotation")
+            }
+            
             // Mode icon and color
             VStack(spacing: 4) {
                 Image(systemName: mode.icon)
