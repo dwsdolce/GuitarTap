@@ -20,6 +20,7 @@ struct SpectrumSettingsView: View {
     @Binding var analysisMinFreq: Float
     @Binding var analysisMaxFreq: Float
     @Binding var peakThreshold: Float
+    @Binding var maxPeaks: Int
     
     // FFT Analyzer for audio device selection
     @ObservedObject var fftAnalyzer: RealtimeFFTAnalyzer
@@ -79,6 +80,7 @@ struct SpectrumSettingsView: View {
          analysisMinFreq: Binding<Float>,
          analysisMaxFreq: Binding<Float>,
          peakThreshold: Binding<Float>,
+         maxPeaks: Binding<Int>,
          fftAnalyzer: RealtimeFFTAnalyzer) {
         
         self._minFreq = minFreq
@@ -88,6 +90,7 @@ struct SpectrumSettingsView: View {
         self._analysisMinFreq = analysisMinFreq
         self._analysisMaxFreq = analysisMaxFreq
         self._peakThreshold = peakThreshold
+        self._maxPeaks = maxPeaks
         self.fftAnalyzer = fftAnalyzer
         
         // Initialize text inputs with current values
@@ -361,6 +364,26 @@ struct SpectrumSettingsView: View {
                         }
                         
                         Text("Minimum magnitude for peak detection. Typical range: -60 to -40 dB")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.vertical, 4)
+                    
+                    // Max Peaks
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Maximum Peaks")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        HStack(spacing: 12) {
+                            Stepper(value: $maxPeaks, in: 5...30, step: 1) {
+                                Text("\(maxPeaks) peaks")
+                                    .font(.body)
+                            }
+                        }
+                        
+                        Text("Maximum number of peaks to detect. The strongest peak for each guitar mode is always included, then remaining slots are filled by magnitude.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -886,6 +909,7 @@ struct SpectrumSettingsView: View {
         SpectrumDisplaySettings.analysisMinFrequency = validatedAnalysisFreq.min
         SpectrumDisplaySettings.analysisMaxFrequency = validatedAnalysisFreq.max
         SpectrumDisplaySettings.peakThreshold = clampedThreshold
+        SpectrumDisplaySettings.maxPeaks = maxPeaks
         SpectrumDisplaySettings.hopSizeOverlap = fftAnalyzer.hopSizeOverlap
         
         // Update input fields with validated values (in case they were clamped)
@@ -913,6 +937,7 @@ struct SpectrumSettingsView: View {
         analysisMinFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultAnalysisMinFrequency)
         analysisMaxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultAnalysisMaxFrequency)
         peakThresholdInput = String(format: "%.0f", SpectrumDisplaySettings.defaultPeakThreshold)
+        maxPeaks = SpectrumDisplaySettings.defaultMaxPeaks
     }
     
     private func showError(_ message: String) {
@@ -932,6 +957,7 @@ struct SpectrumSettingsView: View {
         analysisMinFreq: .constant(50),
         analysisMaxFreq: .constant(2000),
         peakThreshold: .constant(-60),
+        maxPeaks: .constant(10),
         fftAnalyzer: RealtimeFFTAnalyzer(fftSize: 8192, targetSampleRate: 48000)
     )
 }

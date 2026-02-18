@@ -165,25 +165,9 @@
             filePath = "GuitarTap/Models/TapToneAnalyzer.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1105"
-            endingLineNumber = "1105"
-            landmarkName = "importMeasurements(from:baseURL:)"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "5883E643-C009-44C5-806E-7C3777623353"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "GuitarTap/Models/TapToneAnalyzer.swift"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1175"
-            endingLineNumber = "1175"
-            landmarkName = "loadMeasurement(_:)"
+            startingLineNumber = "1161"
+            endingLineNumber = "1161"
+            landmarkName = "startDecayTracking()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

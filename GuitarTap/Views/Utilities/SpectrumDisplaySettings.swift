@@ -231,6 +231,7 @@ struct SpectrumDisplaySettings {
     private static let analysisMinFreqKey = "analysisMinFreq"
     private static let analysisMaxFreqKey = "analysisMaxFreq"
     private static let peakThresholdKey = "peakThreshold"
+    private static let maxPeaksKey = "maxPeaks"
     private static let hopSizeOverlapKey = "hopSizeOverlap"
     private static let tapDetectionThresholdKey = "tapDetectionThreshold"
     private static let hysteresisMarginKey = "hysteresisMargin"
@@ -412,6 +413,9 @@ struct SpectrumDisplaySettings {
     /// Default minimum magnitude threshold for peak detection (dB)
     static let defaultPeakThreshold: Float = -60
     
+    /// Default maximum number of peaks to detect and store
+    static let defaultMaxPeaks: Int = 10
+    
     /// Persisted minimum frequency for analysis (Hz)
     static var analysisMinFrequency: Float {
         get {
@@ -445,6 +449,17 @@ struct SpectrumDisplaySettings {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: peakThresholdKey)
+        }
+    }
+    
+    /// Persisted maximum number of peaks to detect and store
+    static var maxPeaks: Int {
+        get {
+            let value = UserDefaults.standard.integer(forKey: maxPeaksKey)
+            return value > 0 ? value : defaultMaxPeaks
+        }
+        set {
+            UserDefaults.standard.set(max(1, newValue), forKey: maxPeaksKey)
         }
     }
     
@@ -516,6 +531,7 @@ struct SpectrumDisplaySettings {
         analysisMinFrequency = defaultAnalysisMinFrequency
         analysisMaxFrequency = defaultAnalysisMaxFrequency
         peakThreshold = defaultPeakThreshold
+        maxPeaks = defaultMaxPeaks
         hopSizeOverlap = defaultHopSizeOverlap
         tapDetectionThreshold = defaultTapDetectionThreshold
         hysteresisMargin = defaultHysteresisMargin

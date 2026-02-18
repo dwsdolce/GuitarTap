@@ -1190,6 +1190,15 @@ struct DraggablePeakAnnotation: View {
                 }
             }
         }
+        .onChange(of: plotFrame) { _, _ in
+            // Update cached positions when the chart geometry changes (e.g., during device rotation)
+            if !isDragging {
+                Task { @MainActor in
+                    cachedChartPosition = calculateChartPosition()
+                    cachedPeakPosition = calculatePeakPosition()
+                }
+            }
+        }
     }
 }
 

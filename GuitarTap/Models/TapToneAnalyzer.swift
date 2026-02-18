@@ -266,6 +266,7 @@ struct SpectrumSnapshot: Codable {
     let showUnknownModes: Bool?  // Added for controlling unknown mode display in exports
     let guitarType: GuitarType?  // Added for storing guitar type setting
     let measurementType: MeasurementType?  // Added for storing measurement type (guitar vs material)
+    let maxPeaks: Int?  // Maximum number of peaks to detect and store
     
     // Material-specific settings (stored when measurementType is .material)
     let materialLength: Float?      // mm - plate length (along grain)
@@ -273,7 +274,7 @@ struct SpectrumSnapshot: Codable {
     let materialThickness: Float?   // mm - plate thickness
     let materialMass: Float?        // grams - plate mass
     
-    init(frequencies: [Float], magnitudes: [Float], minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float, isLogarithmic: Bool, showUnknownModes: Bool? = nil, guitarType: GuitarType? = nil, measurementType: MeasurementType? = nil, materialLength: Float? = nil, materialWidth: Float? = nil, materialThickness: Float? = nil, materialMass: Float? = nil) {
+    init(frequencies: [Float], magnitudes: [Float], minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float, isLogarithmic: Bool, showUnknownModes: Bool? = nil, guitarType: GuitarType? = nil, measurementType: MeasurementType? = nil, maxPeaks: Int? = nil, materialLength: Float? = nil, materialWidth: Float? = nil, materialThickness: Float? = nil, materialMass: Float? = nil) {
         self.frequencies = frequencies
         self.magnitudes = magnitudes
         self.minFreq = minFreq
@@ -284,6 +285,7 @@ struct SpectrumSnapshot: Codable {
         self.showUnknownModes = showUnknownModes
         self.guitarType = guitarType
         self.measurementType = measurementType
+        self.maxPeaks = maxPeaks
         self.materialLength = materialLength
         self.materialWidth = materialWidth
         self.materialThickness = materialThickness
@@ -315,8 +317,8 @@ final class TapToneAnalyzer: ObservableObject {
     /// Maximum frequency for analysis (Hz)
     @Published var maxFrequency: Float = SpectrumDisplaySettings.analysisMaxFrequency
     
-    /// Number of peaks to track
-    @Published var maxPeaks: Int = 10
+    /// Number of peaks to track (persisted in SpectrumDisplaySettings)
+    @Published var maxPeaks: Int = SpectrumDisplaySettings.maxPeaks
     
     /// Decay threshold for ring-out measurement (dB below peak)
     /// Default is 15 dB which works well with typical room noise floors
@@ -655,10 +657,12 @@ final class TapToneAnalyzer: ObservableObject {
     }
     
     /// Find all significant peaks in the spectrum
+    /// Guarantees the strongest peak for each known guitar mode is included,
+    /// then fills remaining slots with additional peaks by magnitude
     func findPeaks(magnitudes: [Float], frequencies: [Float]) -> [ResonantPeak] {
         guard magnitudes.count == frequencies.count else { return [] }
         
-        var peaks: [ResonantPeak] = []
+        var allPeaks: [ResonantPeak] = []
         let windowSize = 5  // Look at ±5 bins around each point
         
         // Find frequency range indices
@@ -666,11 +670,16 @@ final class TapToneAnalyzer: ObservableObject {
         let endIdx = frequencies.firstIndex(where: { $0 > maxFrequency }) ?? frequencies.count - 1
         
         // Define all known modes to search for (excluding unknown)
+        // Uses legacy names that map to normalized modes via .normalized property
         let knownModes: [GuitarMode] = [.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode, .upperModes]
+        
+        // Track the strongest peak found in each mode range
+        var strongestPeakPerMode: [GuitarMode: ResonantPeak] = [:]
         
         // Step 1: Search known mode ranges for peaks
         for mode in knownModes {
             let modeRange = mode.idealRange
+            let normalizedMode = mode.normalized
             
             // Find indices for this mode's range
             let modeStartIdx = frequencies.firstIndex(where: { $0 >= modeRange.lowerBound }) ?? startIdx
@@ -715,7 +724,16 @@ final class TapToneAnalyzer: ObservableObject {
                     pitchCents: pitchCents,
                     pitchFrequency: pitchFreq
                 )
-                peaks.append(peak)
+                allPeaks.append(peak)
+                
+                // Track strongest peak for this mode
+                if let existing = strongestPeakPerMode[normalizedMode] {
+                    if magnitude > existing.magnitude {
+                        strongestPeakPerMode[normalizedMode] = peak
+                    }
+                } else {
+                    strongestPeakPerMode[normalizedMode] = peak
+                }
             }
         }
         
@@ -764,14 +782,34 @@ final class TapToneAnalyzer: ObservableObject {
                 pitchCents: pitchCents,
                 pitchFrequency: pitchFreq
             )
-            peaks.append(peak)
+            allPeaks.append(peak)
         }
         
         // Remove duplicate peaks (in case of overlap)
-        peaks = removeDuplicatePeaks(peaks)
+        allPeaks = removeDuplicatePeaks(allPeaks)
         
-        // Sort by magnitude descending (strongest peaks first)
-        return peaks.sorted(by: { $0.magnitude > $1.magnitude })
+        // Step 3: Build final peak list with mode priority
+        // First, include the strongest peak from each known mode (guaranteed slots)
+        var finalPeaks: [ResonantPeak] = []
+        var includedPeakIDs = Set<UUID>()
+        
+        for (_, peak) in strongestPeakPerMode {
+            finalPeaks.append(peak)
+            includedPeakIDs.insert(peak.id)
+        }
+        
+        // Then fill remaining slots with other peaks by magnitude
+        let remainingSlots = maxPeaks - finalPeaks.count
+        if remainingSlots > 0 {
+            let otherPeaks = allPeaks
+                .filter { !includedPeakIDs.contains($0.id) }
+                .sorted { $0.magnitude > $1.magnitude }
+                .prefix(remainingSlots)
+            finalPeaks.append(contentsOf: otherPeaks)
+        }
+        
+        // Sort final result by magnitude descending
+        return finalPeaks.sorted(by: { $0.magnitude > $1.magnitude })
     }
     
     /// Remove duplicate peaks that are too close in frequency
@@ -826,6 +864,9 @@ final class TapToneAnalyzer: ObservableObject {
         return (quality: quality, bandwidth: bandwidth)
     }
     
+    /// Track if we just exited warm-up period (to sync threshold state without triggering)
+    private var justExitedWarmup: Bool = false
+    
     /// Detect tap events using rising edge detection with hysteresis
     private func detectTap(peakMagnitude: Float, magnitudes: [Float], frequencies: [Float]) {
         let now = Date()
@@ -834,6 +875,20 @@ final class TapToneAnalyzer: ObservableObject {
         if let startTime = analyzerStartTime, now.timeIntervalSince(startTime) < warmupPeriod {
             tapDetected = false
             statusMessage = "Initializing... (\(String(format: "%.1f", warmupPeriod - now.timeIntervalSince(startTime)))s)"
+            justExitedWarmup = true  // Mark that next frame is first after warm-up
+            return
+        }
+        
+        // First frame after warm-up: sync isAboveThreshold with actual signal level
+        // This prevents false triggers if ambient noise is above threshold when warm-up ends
+        if justExitedWarmup {
+            justExitedWarmup = false
+            let risingThreshold = tapDetectionThreshold
+            isAboveThreshold = peakMagnitude > risingThreshold
+            print("🎬 Warm-up complete - syncing threshold state: signal at \(String(format: "%.1f", peakMagnitude)) dB, threshold \(String(format: "%.1f", risingThreshold)) dB, isAboveThreshold = \(isAboveThreshold)")
+            // Don't detect on this frame - just sync the state
+            tapDetected = false
+            statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
             return
         }
         
@@ -860,10 +915,15 @@ final class TapToneAnalyzer: ObservableObject {
             (peakMagnitude > fallingThreshold) :  // When above: use lower threshold to stay "above"
             (peakMagnitude > risingThreshold)     // When below: use higher threshold to go "above"
         
-        // Debug: Log state transitions (uncomment for troubleshooting)
-        // if currentlyAboveThreshold != isAboveThreshold {
-        //     print("🔄 Threshold crossing: \(isAboveThreshold ? "ABOVE→BELOW" : "BELOW→ABOVE") at \(peakMagnitude) dB (rising: \(risingThreshold), falling: \(fallingThreshold))")
-        // }
+        // Debug: Log state transitions
+        if currentlyAboveThreshold != isAboveThreshold {
+            print("🔄 Threshold crossing: \(isAboveThreshold ? "ABOVE→BELOW" : "BELOW→ABOVE") at \(peakMagnitude) dB (rising: \(risingThreshold), falling: \(fallingThreshold))")
+            
+            // Update status message when signal settles after a tap in multi-tap mode
+            if !currentlyAboveThreshold && isAboveThreshold && currentTapCount > 0 && currentTapCount < numberOfTaps {
+                statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
+            }
+        }
         
         // Detect tap only when crossing from below to above threshold
         if currentlyAboveThreshold && !isAboveThreshold {
@@ -934,9 +994,32 @@ final class TapToneAnalyzer: ObservableObject {
             }
         } else {
             // Re-enable detection after cooldown for next tap
+            // First, wait for the cooldown period
             DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
-                self?.isDetecting = true
-                self?.tapDetected = false
+                guard let self = self else { return }
+                
+                // Check if the signal has dropped below the falling threshold
+                // If it has, we can immediately start looking for the next tap
+                let currentLevel = self.fftAnalyzer.peakMagnitude
+                let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
+                
+                if currentLevel <= fallingThreshold {
+                    // Signal has dropped - ready for next tap
+                    self.isAboveThreshold = false
+                    self.isDetecting = true
+                    self.tapDetected = false
+                    self.statusMessage = "Tap \(self.currentTapCount)/\(self.numberOfTaps) captured. Tap again..."
+                    print("🔄 Ready for tap \(self.currentTapCount + 1) of \(self.numberOfTaps) - signal dropped to \(String(format: "%.1f", currentLevel)) dB (below falling threshold \(String(format: "%.1f", fallingThreshold)) dB)")
+                } else {
+                    // Signal still elevated - set isAboveThreshold correctly and wait for drop
+                    // The hysteresis logic in detectTap will naturally detect the falling edge
+                    // and then be ready for the next rising edge
+                    self.isAboveThreshold = true
+                    self.isDetecting = true
+                    self.tapDetected = false
+                    self.statusMessage = "Tap \(self.currentTapCount)/\(self.numberOfTaps) captured. Waiting for settle..."
+                    print("🔄 Waiting for tap \(self.currentTapCount + 1) of \(self.numberOfTaps) - signal at \(String(format: "%.1f", currentLevel)) dB (still above falling threshold \(String(format: "%.1f", fallingThreshold)) dB)")
+                }
             }
         }
     }
@@ -977,6 +1060,21 @@ final class TapToneAnalyzer: ObservableObject {
             // Re-enable detection after cooldown
             DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
                 guard let self = self else { return }
+                
+                // Check if the signal has dropped below the falling threshold
+                let currentLevel = self.fftAnalyzer.peakMagnitude
+                let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
+                
+                if currentLevel <= fallingThreshold {
+                    // Signal has dropped - ready for cross-grain tap
+                    self.isAboveThreshold = false
+                    print("🔄 Ready for cross-grain tap - signal dropped to \(String(format: "%.1f", currentLevel)) dB")
+                } else {
+                    // Signal still elevated - set isAboveThreshold correctly
+                    self.isAboveThreshold = true
+                    print("🔄 Waiting for cross-grain tap - signal at \(String(format: "%.1f", currentLevel)) dB (waiting for settle)")
+                }
+                
                 self.isDetecting = true
                 self.tapDetected = false
                 self.materialTapPhase = .capturingCross
@@ -988,10 +1086,6 @@ final class TapToneAnalyzer: ObservableObject {
                 
                 // Reset warm-up timer
                 self.analyzerStartTime = Date()
-                
-                // Initialize threshold state for second tap
-                let currentPeakMag = self.fftAnalyzer.peakMagnitude
-                self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
             }
             
         case .capturingCross, .waitingForCrossTap:
@@ -1120,23 +1214,7 @@ final class TapToneAnalyzer: ObservableObject {
         
         print("🔬 Processing \(capturedTaps.count) taps for averaging...")
         
-        // Extract peaks from each tap
-        tapsForAveraging = capturedTaps.map { tap in
-            findPeaks(magnitudes: tap.magnitudes, frequencies: tap.frequencies)
-        }
-        
-        // Average the peaks
-        let averagedPeaks = averagePeaks(from: tapsForAveraging)
-        
-        // Update current peaks with averaged results
-        currentPeaks = averagedPeaks
-        
-        // Classify modes based on averaged peaks
-        identifiedModes = averagedPeaks.map { peak in
-            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
-        }
-        
-        // Average the raw FFT spectrum across all taps
+        // Average the raw FFT spectrum across all taps FIRST
         let (avgMagnitudes, avgFrequencies) = averageSpectra(from: capturedTaps)
         
         // Freeze the averaged spectrum for display
@@ -1145,14 +1223,28 @@ final class TapToneAnalyzer: ObservableObject {
         isSpectrumFrozen = true
         print("📸 Spectrum frozen with averaged data from \(capturedTaps.count) taps")
         
+        // Now find peaks in the AVERAGED spectrum so they align with what's displayed
+        // This ensures peak markers sit on actual peaks in the averaged waveform
+        let peaksFromAveragedSpectrum = findPeaks(magnitudes: avgMagnitudes, frequencies: avgFrequencies)
+        
+        // Update current peaks with peaks from averaged spectrum
+        currentPeaks = peaksFromAveragedSpectrum
+        
+        // Classify modes based on peaks
+        identifiedModes = peaksFromAveragedSpectrum.map { peak in
+            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+        }
+        
         // Update status
-        statusMessage = "Analysis complete! \(averagedPeaks.count) peaks identified (averaged from \(capturedTaps.count) taps)."
+        statusMessage = "Analysis complete! \(peaksFromAveragedSpectrum.count) peaks identified (from \(capturedTaps.count) averaged taps)."
         tapProgress = 1.0
         
-        print("✅ Averaged \(tapsForAveraging.count) taps into \(averagedPeaks.count) peaks")
+        print("✅ Found \(peaksFromAveragedSpectrum.count) peaks in averaged spectrum from \(capturedTaps.count) taps")
     }
     
     /// Average peaks across multiple taps
+    /// Maintains mode priority: strongest peak for each known mode is guaranteed,
+    /// then fills remaining slots with additional peaks by magnitude
     private func averagePeaks(from tapPeaks: [[ResonantPeak]]) -> [ResonantPeak] {
         guard !tapPeaks.isEmpty else { return [] }
         
@@ -1203,8 +1295,48 @@ final class TapToneAnalyzer: ObservableObject {
             averagedPeaks.append(averagedPeak)
         }
         
-        // Sort by magnitude and return top peaks
-        return Array(averagedPeaks.sorted(by: { $0.magnitude > $1.magnitude }).prefix(maxPeaks))
+        // Apply mode-priority selection (same logic as findPeaks)
+        // Define known modes to search for
+        let knownModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
+        
+        // Find strongest peak for each mode
+        var strongestPeakPerMode: [GuitarMode: ResonantPeak] = [:]
+        for peak in averagedPeaks {
+            let mode = GuitarMode.classify(frequency: peak.frequency).normalized
+            if mode != .unknown {
+                if let existing = strongestPeakPerMode[mode] {
+                    if peak.magnitude > existing.magnitude {
+                        strongestPeakPerMode[mode] = peak
+                    }
+                } else {
+                    strongestPeakPerMode[mode] = peak
+                }
+            }
+        }
+        
+        // Build final list: mode peaks first, then fill remaining by magnitude
+        var finalPeaks: [ResonantPeak] = []
+        var includedPeakIDs = Set<UUID>()
+        
+        for mode in knownModes {
+            if let peak = strongestPeakPerMode[mode] {
+                finalPeaks.append(peak)
+                includedPeakIDs.insert(peak.id)
+            }
+        }
+        
+        // Fill remaining slots
+        let remainingSlots = maxPeaks - finalPeaks.count
+        if remainingSlots > 0 {
+            let otherPeaks = averagedPeaks
+                .filter { !includedPeakIDs.contains($0.id) }
+                .sorted { $0.magnitude > $1.magnitude }
+                .prefix(remainingSlots)
+            finalPeaks.append(contentsOf: otherPeaks)
+        }
+        
+        // Sort final result by magnitude descending
+        return finalPeaks.sorted { $0.magnitude > $1.magnitude }
     }
     
     /// Average raw FFT spectra across multiple taps
@@ -1325,6 +1457,7 @@ final class TapToneAnalyzer: ObservableObject {
                 showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
                 guitarType: SpectrumDisplaySettings.guitarType,
                 measurementType: measurementType,
+                maxPeaks: maxPeaks,
                 // Include material dimensions only for material measurements
                 materialLength: measurementType == .material ? SpectrumDisplaySettings.materialLength : nil,
                 materialWidth: measurementType == .material ? SpectrumDisplaySettings.materialWidth : nil,
@@ -1747,7 +1880,10 @@ final class TapToneAnalyzer: ObservableObject {
     /// Start a new tap detection sequence
     func startTapSequence() {
         let isMaterialMode = SpectrumDisplaySettings.measurementType == .material
+        let currentPeakMagImmediate = fftAnalyzer.peakMagnitude
         print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), material mode: \(isMaterialMode)")
+        print("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
+        print("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
         
         // Ensure all @Published updates happen on main thread
         DispatchQueue.main.async { [weak self] in
@@ -1780,14 +1916,23 @@ final class TapToneAnalyzer: ObservableObject {
                 self.materialTapPhase = .notStarted
             }
             
-            // IMPORTANT: Initialize threshold state based on current audio level
-            // This prevents false "rising edge" detection when starting
+            // IMPORTANT: Always start with isAboveThreshold = false
+            // The warm-up period (0.5s) gives time for the audio level to settle,
+            // and then we detect the first rising edge naturally.
+            // Previously we tried to initialize based on current level, but this caused
+            // issues when starting a new sequence while frozen spectrum showed high peaks
+            // but actual live audio was quiet - we'd get stuck waiting for a "drop" that
+            // never came because the live audio was already low.
             let currentPeakMag = self.fftAnalyzer.peakMagnitude
-            self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
+            print("🎬 Inside async block - FFT peak magnitude: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB")
+            print("🎬 FFT analyzer state: running=\(self.fftAnalyzer.isRunning), magnitudes count=\(self.fftAnalyzer.magnitudes.count)")
             
-            if self.isAboveThreshold {
-                print("⚠️ Starting with audio already above threshold (\(currentPeakMag) dB > \(self.tapDetectionThreshold) dB) - will wait for signal to drop first")
-            }
+            // Always start fresh - the warm-up period handles any transients
+            // The justExitedWarmup flag ensures we sync with actual signal level
+            // after warm-up ends, preventing false triggers from ambient noise
+            self.isAboveThreshold = false
+            self.justExitedWarmup = false  // Will be set true during warm-up
+            print("✅ Starting with isAboveThreshold = false - ready for tap detection after warm-up")
             
             // Reset warm-up timer to prevent immediate false detection
             self.analyzerStartTime = Date()
@@ -1853,14 +1998,8 @@ final class TapToneAnalyzer: ObservableObject {
             // Reset warm-up timer to prevent detection issues
             self.analyzerStartTime = Date()
             
-            // IMPORTANT: Initialize threshold state based on current audio level
-            // This prevents false "rising edge" detection when cancelling
-            let currentPeakMag = self.fftAnalyzer.peakMagnitude
-            self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
-            
-            if self.isAboveThreshold {
-                print("⚠️ Cancelling with audio already above threshold (\(currentPeakMag) dB > \(self.tapDetectionThreshold) dB) - will wait for signal to drop first")
-            }
+            // Always start fresh - the warm-up period handles any transients
+            self.isAboveThreshold = false
             
             self.captureTimer?.invalidate()
             self.captureTimer = nil

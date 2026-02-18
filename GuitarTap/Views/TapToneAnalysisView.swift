@@ -215,19 +215,23 @@ struct TapToneAnalysisView: View {
             }
         }
         .onReceive(tapToneAnalyzer.$loadedSelectedLongitudinalPeakID) { peakID in
-            print("  ⬇️ View received loadedSelectedLongitudinalPeakID: \(String(describing: peakID))")
-            self.selectedLongitudinalPeakID = peakID
-            // Clear the loaded value after a small delay to ensure UI updates
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.tapToneAnalyzer.loadedSelectedLongitudinalPeakID = nil
+            if let peakID = peakID {
+                print("  ⬇️ View received loadedSelectedLongitudinalPeakID: \(peakID)")
+                self.selectedLongitudinalPeakID = peakID
+                // Clear the loaded value after a small delay to ensure UI updates
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedSelectedLongitudinalPeakID = nil
+                }
             }
         }
         .onReceive(tapToneAnalyzer.$loadedSelectedCrossPeakID) { peakID in
-            print("  ⬇️ View received loadedSelectedCrossPeakID: \(String(describing: peakID))")
-            self.selectedCrossPeakID = peakID
-            // Clear the loaded value after a small delay to ensure UI updates
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.tapToneAnalyzer.loadedSelectedCrossPeakID = nil
+            if let peakID = peakID {
+                print("  ⬇️ View received loadedSelectedCrossPeakID: \(peakID)")
+                self.selectedCrossPeakID = peakID
+                // Clear the loaded value after a small delay to ensure UI updates
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedSelectedCrossPeakID = nil
+                }
             }
         }
         .onReceive(tapToneAnalyzer.$loadedMaterialLength) { length in
@@ -334,6 +338,7 @@ struct TapToneAnalysisView: View {
                 analysisMinFreq: $tapToneAnalyzer.minFrequency,
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakThreshold: $tapToneAnalyzer.peakThreshold,
+                maxPeaks: $tapToneAnalyzer.maxPeaks,
                 fftAnalyzer: fftAnalyzer
             )
             .interactiveDismissDisabled()
@@ -467,6 +472,7 @@ struct TapToneAnalysisView: View {
                 analysisMinFreq: $tapToneAnalyzer.minFrequency,
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakThreshold: $tapToneAnalyzer.peakThreshold,
+                maxPeaks: $tapToneAnalyzer.maxPeaks,
                 fftAnalyzer: fftAnalyzer
             )
             .interactiveDismissDisabled()
@@ -664,11 +670,20 @@ struct TapToneAnalysisView: View {
                     Label("Cancel", systemImage: "xmark.circle")
                         .font(.caption)
                         .frame(maxWidth: .infinity)
+                        .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
                 }
                 .buttonStyle(.bordered)
-                .foregroundColor(cancelButtonEnabled ? .orange : .gray)
                 .disabled(!cancelButtonEnabled)
                 .hint(HintText.cancel)
+                
+                Button(action: { tapToneAnalyzer.resetAllAnnotationOffsets() }) {
+                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                        .font(.caption)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(tapToneAnalyzer.peakAnnotationOffsets.count == 0)
+                .hint(HintText.resetLabels)
             }
             
             // Progress
@@ -1402,9 +1417,9 @@ struct TapToneAnalysisView: View {
                 }) {
                     Label("Cancel", systemImage: "xmark.circle")
                         .font(.subheadline)
+                        .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
                 }
                 .buttonStyle(.bordered)
-                .foregroundColor(cancelButtonEnabled ? .orange : .gray)
                 .disabled(!cancelButtonEnabled)
                 .hint(HintText.cancel)
                 
@@ -1429,6 +1444,21 @@ struct TapToneAnalysisView: View {
     /// Regular tap controls for iPad and macOS
     @ViewBuilder
     private var regularTapControls: some View {
+        ViewThatFits(in: .horizontal) {
+            // Wide layout - all controls in one row
+            regularTapControlsWide
+            
+            // Narrow layout - two rows
+            regularTapControlsNarrow
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    /// Wide layout for regular tap controls - all in one row
+    @ViewBuilder
+    private var regularTapControlsWide: some View {
         HStack(spacing: 12) {
             HStack(spacing: 4) {
                 Text("Taps:")
@@ -1513,9 +1543,9 @@ struct TapToneAnalysisView: View {
                 tapToneAnalyzer.cancelTapSequence()
             }) {
                 Label("Cancel", systemImage: "xmark.circle")
+                    .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
             }
             .buttonStyle(.bordered)
-            .foregroundColor(cancelButtonEnabled ? .orange : .gray)
             .disabled(!cancelButtonEnabled)
             .hint(HintText.cancel)
             
@@ -1529,9 +1559,119 @@ struct TapToneAnalysisView: View {
             .disabled(tapToneAnalyzer.peakAnnotationOffsets.count == 0)
             .hint(HintText.resetLabels)
         }
-        .padding(12)
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(8)
+    }
+    
+    /// Narrow layout for regular tap controls - two rows
+    @ViewBuilder
+    private var regularTapControlsNarrow: some View {
+        VStack(spacing: 8) {
+            // Row 1: Sliders and settings
+            HStack(spacing: 12) {
+                HStack(spacing: 4) {
+                    Text("Taps:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("\(tapToneAnalyzer.numberOfTaps)")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                        .frame(minWidth: 16)
+                    
+                    Stepper("", 
+                            value: $tapToneAnalyzer.numberOfTaps, 
+                            in: 1...10)
+                        .labelsHidden()
+                }
+                .hint(HintText.taps)
+                
+                Divider()
+                    .frame(height: 20)
+                
+                // Tap detection threshold slider
+                HStack(spacing: 4) {
+                    Text("Threshold:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize()
+                    Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
+                        .frame(width: 80)
+                        .accessibilityLabel("Tap detection threshold")
+                        .onChange(of: tapToneAnalyzer.tapDetectionThreshold) { _, newValue in
+                            SpectrumDisplaySettings.tapDetectionThreshold = newValue
+                        }
+                    Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                        .fixedSize()
+                }
+                .hint(HintText.threshold)
+                
+                Divider()
+                    .frame(height: 20)
+                
+                // Hysteresis margin slider
+                HStack(spacing: 4) {
+                    Text("Hysteresis:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize()
+                    Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
+                        .frame(width: 60)
+                        .accessibilityLabel("Hysteresis margin")
+                        .onChange(of: tapToneAnalyzer.hysteresisMargin) { _, newValue in
+                            SpectrumDisplaySettings.hysteresisMargin = newValue
+                        }
+                    Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.purple)
+                        .fixedSize()
+                }
+                .hint(HintText.hysteresis)
+                
+                Spacer()
+            }
+            
+            // Row 2: Action buttons
+            HStack(spacing: 8) {
+                // Tap sequence buttons
+                Button(action: {
+                    tapToneAnalyzer.startTapSequence()
+                }) {
+                    Label("New Tap", systemImage: "hand.tap")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!fftAnalyzer.isRunning ||
+                          !tapToneAnalyzer.isReadyForDetection ||
+                          tapToneAnalyzer.isDetecting)
+                .hint(HintText.newTap)
+                
+                // Cancel button - only enabled during active multi-tap detection
+                Button(action: {
+                    tapToneAnalyzer.cancelTapSequence()
+                }) {
+                    Label("Cancel", systemImage: "xmark.circle")
+                        .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!cancelButtonEnabled)
+                .hint(HintText.cancel)
+                
+                // Reset annotation positions button
+                Button(action: {
+                    tapToneAnalyzer.resetAllAnnotationOffsets()
+                }) {
+                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.bordered)
+                .disabled(tapToneAnalyzer.peakAnnotationOffsets.count == 0)
+                .hint(HintText.resetLabels)
+                
+                Spacer()
+            }
+        }
     }
     
     // Computed properties to explicitly depend on @Published properties
@@ -1919,6 +2059,7 @@ struct TapToneAnalysisView: View {
                 showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
                 guitarType: SpectrumDisplaySettings.guitarType,
                 measurementType: measurementType,
+                maxPeaks: self.tapToneAnalyzer.maxPeaks,
                 // Include material dimensions only for material measurements
                 materialLength: measurementType == .material ? SpectrumDisplaySettings.materialLength : nil,
                 materialWidth: measurementType == .material ? SpectrumDisplaySettings.materialWidth : nil,
