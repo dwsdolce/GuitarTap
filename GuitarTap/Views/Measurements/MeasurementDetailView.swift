@@ -164,14 +164,17 @@ struct MeasurementDetailView: View {
                     }
                     
                     // Peaks (filtered based on unknown mode setting)
+                    let hiddenIDs = Set(measurement.hiddenPeakIDs ?? [])
                     let filteredPeaks = measurement.peaks
                         .sorted(by: { $0.frequency < $1.frequency })
                         .filter { peak in
                             SpectrumDisplaySettings.showUnknownModes || 
                             GuitarMode.classify(frequency: peak.frequency).normalized != .unknown
                         }
+                    let visibleCount = filteredPeaks.filter { !hiddenIDs.contains($0.id) }.count
+                    let hiddenCount = filteredPeaks.filter { hiddenIDs.contains($0.id) }.count
                     
-                    GroupBox("Detected Peaks (\(filteredPeaks.count))") {
+                    GroupBox("Detected Peaks (\(visibleCount) visible\(hiddenCount > 0 ? ", \(hiddenCount) hidden" : ""))") {
                         if filteredPeaks.isEmpty {
                             Text("No peaks detected")
                                 .foregroundColor(.secondary)
@@ -181,7 +184,16 @@ struct MeasurementDetailView: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 ForEach(filteredPeaks) { peak in
                                     let mode = GuitarMode.classify(frequency: peak.frequency)
+                                    let isHidden = hiddenIDs.contains(peak.id)
                                     CombinedPeakModeRowView(peak: peak, mode: mode)
+                                        .opacity(isHidden ? 0.4 : 1.0)
+                                        .overlay(alignment: .trailing) {
+                                            if isHidden {
+                                                Image(systemName: "eye.slash")
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        }
                                 }
                             }
                         }

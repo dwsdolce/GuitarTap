@@ -183,6 +183,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     let spectrumSnapshot: SpectrumSnapshot?  // Full spectrum data for recreation
     let chartImageFilename: String?   // Filename of associated PNG image (e.g., "measurement-uuid.png")
     let peakAnnotationOffsets: [UUID: CGPoint]?  // Custom annotation positions
+    let hiddenPeakIDs: [UUID]?  // Peak IDs that were hidden from annotation display when saved
     
     // Analysis settings (added for export/import)
     let tapDetectionThreshold: Float?  // dB
@@ -202,6 +203,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case spectrumSnapshot, chartImageFilename, peakAnnotationOffsets
         case tapDetectionThreshold, hysteresisMargin, numberOfTaps
         case selectedLongitudinalPeakID, selectedCrossPeakID
+        case hiddenPeakIDs
     }
     
     init(peaks: [ResonantPeak], 
@@ -216,7 +218,8 @@ struct TapToneMeasurement: Identifiable, Codable {
          hysteresisMargin: Float? = nil,
          numberOfTaps: Int? = nil,
          selectedLongitudinalPeakID: UUID? = nil,
-         selectedCrossPeakID: UUID? = nil) {
+         selectedCrossPeakID: UUID? = nil,
+         hiddenPeakIDs: [UUID]? = nil) {
         self.id = UUID()
         self.timestamp = Date()
         self.peaks = peaks
@@ -232,6 +235,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.numberOfTaps = numberOfTaps
         self.selectedLongitudinalPeakID = selectedLongitudinalPeakID
         self.selectedCrossPeakID = selectedCrossPeakID
+        self.hiddenPeakIDs = hiddenPeakIDs
     }
     
     /// Get tap tone ratio (Top / Air)
@@ -1544,7 +1548,8 @@ final class TapToneAnalyzer: ObservableObject {
             numberOfTaps: numberOfTaps,
             // Include material peak selections only for material measurements
             selectedLongitudinalPeakID: measurementType == .material ? selectedLongitudinalPeakID : nil,
-            selectedCrossPeakID: measurementType == .material ? selectedCrossPeakID : nil
+            selectedCrossPeakID: measurementType == .material ? selectedCrossPeakID : nil,
+            hiddenPeakIDs: hiddenPeakIDs.isEmpty ? nil : Array(hiddenPeakIDs)
         )
         
         savedMeasurements.append(measurement)
@@ -1710,6 +1715,10 @@ final class TapToneAnalyzer: ObservableObject {
             peakAnnotationOffsets = offsets
             print("  🏷️ Restored \(offsets.count) annotation offsets")
         }
+        
+        // Restore hidden peak IDs
+        hiddenPeakIDs = Set(measurement.hiddenPeakIDs ?? [])
+        print("  👁️ Restored \(hiddenPeakIDs.count) hidden peaks")
         
         // Restore analysis settings if available - set both internal and published values
         if let threshold = measurement.tapDetectionThreshold {

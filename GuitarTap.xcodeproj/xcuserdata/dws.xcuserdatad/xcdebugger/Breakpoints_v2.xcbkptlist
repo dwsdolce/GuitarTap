@@ -167,7 +167,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1170"
             endingLineNumber = "1170"
-            landmarkName = "startDecayTracking()"
+            landmarkName = "handleMaterialTapDetection(magnitudes:frequencies:time:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
