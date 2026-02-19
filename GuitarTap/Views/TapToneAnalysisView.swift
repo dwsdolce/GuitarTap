@@ -629,8 +629,19 @@ struct TapToneAnalysisView: View {
             
             // Threshold
             VStack(alignment: .leading, spacing: 2) {
-                Text("Threshold: \(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
-                    .font(.caption)
+                HStack(spacing: 4) {
+                    Text("Threshold: \(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
+                        .font(.caption)
+                    Button(action: {
+                        tapToneAnalyzer.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                        SpectrumDisplaySettings.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
                 Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
                     .accessibilityLabel("Tap detection threshold")
                     .hint(HintText.threshold)
@@ -641,13 +652,46 @@ struct TapToneAnalysisView: View {
             
             // Hysteresis
             VStack(alignment: .leading, spacing: 2) {
-                Text("Hysteresis: \(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
-                    .font(.caption)
+                HStack(spacing: 4) {
+                    Text("Hysteresis: \(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
+                        .font(.caption)
+                    Button(action: {
+                        tapToneAnalyzer.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                        SpectrumDisplaySettings.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
                 Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
                     .accessibilityLabel("Hysteresis margin")
                     .hint(HintText.hysteresis)
                     .onChange(of: tapToneAnalyzer.hysteresisMargin) { _, newValue in
                         SpectrumDisplaySettings.hysteresisMargin = newValue
+                    }
+            }
+            
+            // Peak detection threshold
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text("Peak Min: \(Int(tapToneAnalyzer.peakThreshold)) dB")
+                        .font(.caption)
+                    Button(action: {
+                        tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                        SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                    .accessibilityLabel("Peak detection minimum threshold")
+                    .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
+                        SpectrumDisplaySettings.peakThreshold = newValue
                     }
             }
             
@@ -1374,6 +1418,15 @@ struct TapToneAnalysisView: View {
                         .fontWeight(.medium)
                         .foregroundColor(.blue)
                         .fixedSize()
+                    Button(action: {
+                        tapToneAnalyzer.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                        SpectrumDisplaySettings.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
                 
                 // Hysteresis slider
@@ -1393,6 +1446,42 @@ struct TapToneAnalysisView: View {
                         .fontWeight(.medium)
                         .foregroundColor(.purple)
                         .fixedSize()
+                    Button(action: {
+                        tapToneAnalyzer.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                        SpectrumDisplaySettings.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                // Peak detection threshold slider
+                HStack(spacing: 6) {
+                    Text("Peak Min:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize()
+                    Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                        .accessibilityLabel("Peak detection minimum threshold")
+                        .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
+                            SpectrumDisplaySettings.peakThreshold = newValue
+                        }
+                    Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.green)
+                        .fixedSize()
+                    Button(action: {
+                        tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                        SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             
@@ -1498,6 +1587,16 @@ struct TapToneAnalysisView: View {
                     .fontWeight(.medium)
                     .foregroundColor(.blue)
                     .fixedSize()
+                Button(action: {
+                    tapToneAnalyzer.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                    SpectrumDisplaySettings.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                }) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Reset to default")
             }
             .hint(HintText.threshold)
             
@@ -1521,8 +1620,50 @@ struct TapToneAnalysisView: View {
                     .fontWeight(.medium)
                     .foregroundColor(.purple)
                     .fixedSize()
+                Button(action: {
+                    tapToneAnalyzer.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                    SpectrumDisplaySettings.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                }) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Reset to default")
             }
             .hint(HintText.hysteresis)
+            
+            Divider()
+                .frame(height: 20)
+            
+            // Peak detection threshold slider
+            HStack(spacing: 4) {
+                Text("Peak Min:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize()
+                Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                    .frame(width: 80)
+                    .accessibilityLabel("Peak detection minimum threshold")
+                    .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
+                        SpectrumDisplaySettings.peakThreshold = newValue
+                    }
+                Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.green)
+                    .fixedSize()
+                Button(action: {
+                    tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                    SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                }) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Reset to default")
+            }
             
             Spacer()
             
@@ -1605,6 +1746,16 @@ struct TapToneAnalysisView: View {
                         .fontWeight(.medium)
                         .foregroundColor(.blue)
                         .fixedSize()
+                    Button(action: {
+                        tapToneAnalyzer.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                        SpectrumDisplaySettings.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset to default")
                 }
                 .hint(HintText.threshold)
                 
@@ -1628,8 +1779,50 @@ struct TapToneAnalysisView: View {
                         .fontWeight(.medium)
                         .foregroundColor(.purple)
                         .fixedSize()
+                    Button(action: {
+                        tapToneAnalyzer.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                        SpectrumDisplaySettings.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset to default")
                 }
                 .hint(HintText.hysteresis)
+                
+                Divider()
+                    .frame(height: 20)
+                
+                // Peak detection threshold slider
+                HStack(spacing: 4) {
+                    Text("Peak Min:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize()
+                    Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                        .frame(width: 80)
+                        .accessibilityLabel("Peak detection minimum threshold")
+                        .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
+                            SpectrumDisplaySettings.peakThreshold = newValue
+                        }
+                    Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.green)
+                        .fixedSize()
+                    Button(action: {
+                        tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                        SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset to default")
+                }
                 
                 Spacer()
             }
@@ -1713,6 +1906,18 @@ struct TapToneAnalysisView: View {
                             [3, 3]
                         ))
                     }
+                }
+                
+                // Peak detection threshold line
+                let peakThreshold = tapToneAnalyzer.peakThreshold
+                if peakThreshold > minDB && peakThreshold < maxDB {
+                    lines.append((
+                        peakThreshold,
+                        "Peak: \(Int(peakThreshold)) dB",
+                        .green.opacity(0.7),
+                        1.5,
+                        [8, 3]
+                    ))
                 }
                 
                 return lines

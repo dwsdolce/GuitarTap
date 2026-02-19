@@ -303,7 +303,7 @@ struct SpectrumView: View {
                         .foregroundStyle(threshold.color)
                         .lineStyle(StrokeStyle(lineWidth: threshold.lineWidth, dash: threshold.dash))
                         .annotation(
-                            position: index == 0 ? .top : .bottom,
+                            position: index == 1 ? .bottom : .top,
                             alignment: index == 0 ? .trailing : .leading
                         ) {
                             Text(threshold.label)
