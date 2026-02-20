@@ -367,6 +367,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// Detection state (disabled by default until user starts a tap sequence)
     @Published var isDetecting: Bool = false
     
+    /// Whether tap detection is temporarily paused mid-sequence (spectrum stays live)
+    @Published var isDetectionPaused: Bool = false
+    
     /// Whether the analyzer is ready for tap detection (false during audio route change reinitialization)
     @Published var isReadyForDetection: Bool = true
     
@@ -674,8 +677,8 @@ final class TapToneAnalyzer: ObservableObject {
             detectTap(peakMagnitude: peakMagnitude, magnitudes: magnitudes, frequencies: frequencies)
         }
         
-        // Only analyze peaks if detection is enabled OR we're in capture window
-        if isDetecting || captureTimer != nil {
+        // Analyze peaks if detection is enabled, paused (spectrum stays live), or in capture window
+        if isDetecting || isDetectionPaused || captureTimer != nil {
             // Find peaks in spectrum
             let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
             currentPeaks = peaks
@@ -1954,6 +1957,7 @@ final class TapToneAnalyzer: ObservableObject {
             self.currentTapCount = 0
             self.tapProgress = 0.0
             self.tapDetected = false
+            self.isDetectionPaused = false
             
             // Reset decay tracking
             self.currentDecayTime = nil
@@ -2017,6 +2021,37 @@ final class TapToneAnalyzer: ObservableObject {
         }
     }
     
+    /// Pause tap detection mid-sequence; spectrum stays live so the user can experiment
+    func pauseTapDetection() {
+        guard isDetecting && !isDetectionPaused else { return }
+        isDetecting = false
+        isDetectionPaused = true
+        statusMessage = "Detection paused – tap freely, then resume"
+        print("⏸️ Tap detection paused at \(currentTapCount)/\(numberOfTaps)")
+    }
+    
+    /// Resume tap detection after a pause, continuing the in-progress sequence
+    func resumeTapDetection() {
+        guard isDetectionPaused else { return }
+        isDetectionPaused = false
+        
+        // Reset warm-up timer so the first audio frame after resume doesn't trigger immediately
+        analyzerStartTime = Date()
+        isAboveThreshold = false
+        
+        isDetecting = true
+        
+        let isMaterialMode = SpectrumDisplaySettings.measurementType == .material
+        if isMaterialMode {
+            statusMessage = materialTapPhase == .capturingLongitudinal ? "Ready for L tap" : "Ready for C tap"
+        } else if currentTapCount == 0 {
+            statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
+        } else {
+            statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
+        }
+        print("▶️ Tap detection resumed at \(currentTapCount)/\(numberOfTaps)")
+    }
+    
     /// Cancel current tap sequence and restart detection
     func cancelTapSequence() {
         print("❌ Tap sequence cancelled")
@@ -2031,6 +2066,7 @@ final class TapToneAnalyzer: ObservableObject {
             self.currentTapCount = 0
             self.tapProgress = 0.0
             self.tapDetected = false
+            self.isDetectionPaused = false
             self.isDetecting = true
             
             // Reset material measurement state

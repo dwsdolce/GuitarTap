@@ -88,6 +88,12 @@ struct SpectrumView: View {
     /// Optional threshold lines to display (for tap detection visualization)
     var thresholdLines: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])]?
     
+    /// Optional callback to reset all peak annotation label positions
+    var onResetLabels: (() -> Void)?
+    
+    /// Whether there are annotation offsets that need resetting (controls enabled state of menu item)
+    var hasLabelsToReset: Bool = false
+    
     /// The current measurement type (guitar vs material) - affects which annotations are shown
     var measurementType: MeasurementType = .acoustic
     
@@ -441,6 +447,15 @@ struct SpectrumView: View {
                     
                     Button(action: resetMagnitudeAxis) {
                         Label("Reset Magnitude Axis", systemImage: "arrow.up.and.down")
+                    }
+                    
+                    if let onResetLabels = onResetLabels {
+                        Divider()
+                        
+                        Button(action: onResetLabels) {
+                            Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                        }
+                        .disabled(!hasLabelsToReset)
                     }
                 }
         }

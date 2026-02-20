@@ -666,6 +666,31 @@ struct SpectrumSettingsView: View {
                         .font(.caption)
                 }
 
+                // MARK: - About & Help
+                Section {
+                    HStack {
+                        Text("Version")
+                        Spacer()
+                        Text(appVersion)
+                            .foregroundColor(.secondary)
+                    }
+
+                    if let copyright = Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String {
+                        Text(copyright)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    NavigationLink {
+                        HelpView()
+                    } label: {
+                        Label("Help", systemImage: "questionmark.circle")
+                    }
+                } header: {
+                    Label("About & Help", systemImage: "info.circle")
+                        .font(.headline)
+                }
+
             }
             #if os(macOS)
             .formStyle(.grouped)

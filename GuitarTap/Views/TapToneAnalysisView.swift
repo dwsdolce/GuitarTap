@@ -93,6 +93,18 @@ struct TapToneAnalysisView: View {
         return true
     }
     
+    /// Pause/Resume button is enabled during any active multi-tap or material sequence
+    private var pauseResumeButtonEnabled: Bool {
+        let isMaterialMode = SpectrumDisplaySettings.measurementType == .material
+        // In material mode the sequence is always 2-phase (L + C tap)
+        if isMaterialMode {
+            return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
+        }
+        // In guitar mode, only enabled for multi-tap sequences
+        guard tapToneAnalyzer.numberOfTaps > 1 else { return false }
+        return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
+    }
+    
     init() {
         // Create a single FFT analyzer instance
         // Using 65,536 FFT size for maximum frequency resolution (0.67 Hz/bin @ 44.1kHz)
@@ -544,7 +556,7 @@ struct TapToneAnalysisView: View {
                 compactStatusBar
             }
         }
-        .navigationTitle("Tap Tone")
+        .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarLeading) {
@@ -710,6 +722,24 @@ struct TapToneAnalysisView: View {
                           tapToneAnalyzer.isDetecting)
                 .hint(HintText.newTap)
                 
+                Button(action: {
+                    if tapToneAnalyzer.isDetectionPaused {
+                        tapToneAnalyzer.resumeTapDetection()
+                    } else {
+                        tapToneAnalyzer.pauseTapDetection()
+                    }
+                }) {
+                    Label(
+                        tapToneAnalyzer.isDetectionPaused ? "Resume" : "Pause",
+                        systemImage: tapToneAnalyzer.isDetectionPaused ? "play.circle" : "pause.circle"
+                    )
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!pauseResumeButtonEnabled)
+                .hint(tapToneAnalyzer.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
+                
                 Button(action: { tapToneAnalyzer.cancelTapSequence() }) {
                     Label("Cancel", systemImage: "xmark.circle")
                         .font(.caption)
@@ -719,15 +749,6 @@ struct TapToneAnalysisView: View {
                 .buttonStyle(.bordered)
                 .disabled(!cancelButtonEnabled)
                 .hint(HintText.cancel)
-                
-                Button(action: { tapToneAnalyzer.resetAllAnnotationOffsets() }) {
-                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
-                        .font(.caption)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(tapToneAnalyzer.peakAnnotationOffsets.count == 0)
-                .hint(HintText.resetLabels)
             }
             
             // Progress
@@ -770,7 +791,7 @@ struct TapToneAnalysisView: View {
             statusBarView
         }
         #if os(iOS)
-        .navigationTitle("Tap Tone Analysis")
+        .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if useCompactLayout {
@@ -1500,6 +1521,24 @@ struct TapToneAnalysisView: View {
                           tapToneAnalyzer.isDetecting)
                 .hint(HintText.newTap)
                 
+                // Pause/Resume button - for multi-tap and material sequences
+                Button(action: {
+                    if tapToneAnalyzer.isDetectionPaused {
+                        tapToneAnalyzer.resumeTapDetection()
+                    } else {
+                        tapToneAnalyzer.pauseTapDetection()
+                    }
+                }) {
+                    Label(
+                        tapToneAnalyzer.isDetectionPaused ? "Resume" : "Pause",
+                        systemImage: tapToneAnalyzer.isDetectionPaused ? "play.circle" : "pause.circle"
+                    )
+                    .font(.subheadline)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!pauseResumeButtonEnabled)
+                .hint(tapToneAnalyzer.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
+                
                 // Cancel button - only enabled during active multi-tap detection
                 Button(action: {
                     tapToneAnalyzer.cancelTapSequence()
@@ -1511,17 +1550,6 @@ struct TapToneAnalysisView: View {
                 .buttonStyle(.bordered)
                 .disabled(!cancelButtonEnabled)
                 .hint(HintText.cancel)
-                
-                // Reset annotation positions button (always visible)
-                Button(action: {
-                    tapToneAnalyzer.resetAllAnnotationOffsets()
-                }) {
-                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
-                        .font(.subheadline)
-                }
-                .buttonStyle(.bordered)
-                .disabled(tapToneAnalyzer.peakAnnotationOffsets.count == 0)
-                .hint(HintText.resetLabels)
             }
         }
         .padding(12)
@@ -1679,6 +1707,23 @@ struct TapToneAnalysisView: View {
                       tapToneAnalyzer.isDetecting)
             .hint(HintText.newTap)
             
+            // Pause/Resume button - for multi-tap and material sequences
+            Button(action: {
+                if tapToneAnalyzer.isDetectionPaused {
+                    tapToneAnalyzer.resumeTapDetection()
+                } else {
+                    tapToneAnalyzer.pauseTapDetection()
+                }
+            }) {
+                Label(
+                    tapToneAnalyzer.isDetectionPaused ? "Resume" : "Pause",
+                    systemImage: tapToneAnalyzer.isDetectionPaused ? "play.circle" : "pause.circle"
+                )
+            }
+            .buttonStyle(.bordered)
+            .disabled(!pauseResumeButtonEnabled)
+            .hint(tapToneAnalyzer.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
+            
             // Cancel button - only enabled during active multi-tap detection
             Button(action: {
                 tapToneAnalyzer.cancelTapSequence()
@@ -1689,16 +1734,6 @@ struct TapToneAnalysisView: View {
             .buttonStyle(.bordered)
             .disabled(!cancelButtonEnabled)
             .hint(HintText.cancel)
-            
-            // Reset annotation positions button
-            Button(action: {
-                tapToneAnalyzer.resetAllAnnotationOffsets()
-            }) {
-                Label("Reset Labels", systemImage: "arrow.uturn.backward")
-            }
-            .buttonStyle(.bordered)
-            .disabled(tapToneAnalyzer.peakAnnotationOffsets.count == 0)
-            .hint(HintText.resetLabels)
         }
     }
     
@@ -1841,6 +1876,23 @@ struct TapToneAnalysisView: View {
                           tapToneAnalyzer.isDetecting)
                 .hint(HintText.newTap)
                 
+                // Pause/Resume button - for multi-tap and material sequences
+                Button(action: {
+                    if tapToneAnalyzer.isDetectionPaused {
+                        tapToneAnalyzer.resumeTapDetection()
+                    } else {
+                        tapToneAnalyzer.pauseTapDetection()
+                    }
+                }) {
+                    Label(
+                        tapToneAnalyzer.isDetectionPaused ? "Resume" : "Pause",
+                        systemImage: tapToneAnalyzer.isDetectionPaused ? "play.circle" : "pause.circle"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .disabled(!pauseResumeButtonEnabled)
+                .hint(tapToneAnalyzer.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
+                
                 // Cancel button - only enabled during active multi-tap detection
                 Button(action: {
                     tapToneAnalyzer.cancelTapSequence()
@@ -1851,16 +1903,6 @@ struct TapToneAnalysisView: View {
                 .buttonStyle(.bordered)
                 .disabled(!cancelButtonEnabled)
                 .hint(HintText.cancel)
-                
-                // Reset annotation positions button
-                Button(action: {
-                    tapToneAnalyzer.resetAllAnnotationOffsets()
-                }) {
-                    Label("Reset Labels", systemImage: "arrow.uturn.backward")
-                }
-                .buttonStyle(.bordered)
-                .disabled(tapToneAnalyzer.peakAnnotationOffsets.count == 0)
-                .hint(HintText.resetLabels)
                 
                 Spacer()
             }
@@ -1937,6 +1979,10 @@ struct TapToneAnalysisView: View {
                 onFrequencyRangeChanged: updateFrequencyInputFields,
                 annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
                 thresholdLines: thresholds,
+                onResetLabels: {
+                    tapToneAnalyzer.resetAllAnnotationOffsets()
+                },
+                hasLabelsToReset: !tapToneAnalyzer.peakAnnotationOffsets.isEmpty,
                 measurementType: SpectrumDisplaySettings.measurementType,
                 selectedLongitudinalPeakID: selectedLongitudinalPeakID,
                 selectedCrossPeakID: selectedCrossPeakID

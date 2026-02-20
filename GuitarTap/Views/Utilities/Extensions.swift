@@ -233,5 +233,7 @@ enum HintText {
     static let newTap = "Start a new tap sequence to detect and analyze resonance peaks"
     static let cancel = "Cancel the current tap sequence and start over"
     static let resetLabels = "Reset all peak label positions to their default locations"
+    static let pauseDetection = "Pause tap detection to experiment with taps without advancing the sequence; spectrum stays live"
+    static let resumeDetection = "Resume tap detection to continue the in-progress sequence"
 }
 

@@ -337,7 +337,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = GuitarTap/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = GuitarTap;
+				INFOPLIST_KEY_CFBundleDisplayName = "Guitar Tap";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "GuitarTap uses the microphone to analyze tap tones from your guitar.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -400,7 +400,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = GuitarTap/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = GuitarTap;
+				INFOPLIST_KEY_CFBundleDisplayName = "Guitar Tap";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "GuitarTap uses the microphone to analyze tap tones from your guitar.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
