@@ -135,13 +135,15 @@ enum GuitarMode: String, Codable {
 }
 
 /// Phase of material measurement tap sequence
-/// Material measurements require two separate taps with different support orientations
-/// to isolate longitudinal and cross-grain modes
+/// Material measurements require two or three separate tap orientations
+/// to isolate longitudinal, cross-grain, and optionally FLC (diagonal/shear) modes
 enum MaterialTapPhase: String {
     case notStarted = "Not Started"
     case capturingLongitudinal = "Capturing Longitudinal"
     case waitingForCrossTap = "Waiting for Cross-grain Tap"
     case capturingCross = "Capturing Cross-grain"
+    case waitingForFlcTap = "Waiting for FLC Tap"
+    case capturingFlc = "Capturing FLC"
     case complete = "Complete"
     
     /// User-friendly instruction for current phase
@@ -155,6 +157,10 @@ enum MaterialTapPhase: String {
             return "Now rotate plate 90° and tap again for cross-grain"
         case .capturingCross:
             return "Processing cross-grain tap..."
+        case .waitingForFlcTap:
+            return "Support plate at all 4 nodal points (~22% from each corner), tap the center"
+        case .capturingFlc:
+            return "Processing FLC tap..."
         case .complete:
             return "Material measurement complete"
         }
@@ -167,6 +173,8 @@ enum MaterialTapPhase: String {
         case .capturingLongitudinal: return "L tap..."
         case .waitingForCrossTap: return "Tap for C"
         case .capturingCross: return "C tap..."
+        case .waitingForFlcTap: return "Tap for FLC"
+        case .capturingFlc: return "FLC tap..."
         case .complete: return "Done"
         }
     }
@@ -193,6 +201,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     // Material measurement data (stored when measurementType is .material)
     let selectedLongitudinalPeakID: UUID?  // Peak selected as longitudinal mode
     let selectedCrossPeakID: UUID?         // Peak selected as cross-grain mode
+    let selectedFlcPeakID: UUID?           // Peak selected as FLC (diagonal/shear) mode
     
     // Transient property - not saved in JSON, used for runtime image handling
     var chartImageData: Data?
@@ -202,7 +211,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case id, timestamp, peaks, decayTime, tapLocation, notes
         case spectrumSnapshot, chartImageFilename, peakAnnotationOffsets
         case tapDetectionThreshold, hysteresisMargin, numberOfTaps
-        case selectedLongitudinalPeakID, selectedCrossPeakID
+        case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
         case hiddenPeakIDs
     }
     
@@ -219,6 +228,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          numberOfTaps: Int? = nil,
          selectedLongitudinalPeakID: UUID? = nil,
          selectedCrossPeakID: UUID? = nil,
+         selectedFlcPeakID: UUID? = nil,
          hiddenPeakIDs: [UUID]? = nil) {
         self.id = UUID()
         self.timestamp = Date()
@@ -235,6 +245,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.numberOfTaps = numberOfTaps
         self.selectedLongitudinalPeakID = selectedLongitudinalPeakID
         self.selectedCrossPeakID = selectedCrossPeakID
+        self.selectedFlcPeakID = selectedFlcPeakID
         self.hiddenPeakIDs = hiddenPeakIDs
     }
     
@@ -447,6 +458,15 @@ final class TapToneAnalyzer: ObservableObject {
     /// Auto-selected cross-grain peak ID (strongest peak from C tap)
     @Published var autoSelectedCrossPeakID: UUID?
     
+    /// Peaks detected from FLC (diagonal/shear) tap
+    @Published var flcPeaks: [ResonantPeak] = []
+    
+    /// Captured spectrum from FLC tap
+    @Published var flcSpectrum: (magnitudes: [Float], frequencies: [Float])?
+    
+    /// Auto-selected FLC peak ID (strongest peak from FLC tap)
+    @Published var autoSelectedFlcPeakID: UUID?
+    
     // MARK: - Private State
     
     private var cancellables = Set<AnyCancellable>()
@@ -461,8 +481,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// Warm-up period in seconds - ignore taps during this time to prevent false detections
     private let warmupPeriod: TimeInterval = 0.5
     
-    /// Storage for captured tap spectra (for averaging)
+    /// Storage for captured tap spectra (for averaging) - guitar mode
     private var capturedTaps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)] = []
+    
+    /// Storage for captured spectra within current material phase (for multi-tap averaging)
+    private var materialCapturedTaps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)] = []
     
     /// Storage for peaks from each tap (before averaging)
     private var tapsForAveraging: [[ResonantPeak]] = []
@@ -1001,9 +1024,10 @@ final class TapToneAnalyzer: ObservableObject {
         isDetecting = false
         
         let isMaterialMode = SpectrumDisplaySettings.measurementType == .material
+        let isBraceMode = SpectrumDisplaySettings.measurementType == .brace
         
-        // Handle material mode with two-phase capture
-        if isMaterialMode {
+        // Handle material/brace mode with phase-based capture
+        if isMaterialMode || isBraceMode {
             handleMaterialTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: time)
             return
         }
@@ -1072,112 +1096,209 @@ final class TapToneAnalyzer: ObservableObject {
         }
     }
     
-    /// Handle tap detection for material measurement mode (two-phase capture)
+    /// Total number of taps expected across all material/brace phases
+    private var totalMaterialTaps: Int {
+        if SpectrumDisplaySettings.measurementType == .brace {
+            return numberOfTaps  // Brace mode: only longitudinal phase
+        }
+        return numberOfTaps * (SpectrumDisplaySettings.measureFlc ? 3 : 2)
+    }
+    
+    /// Handle tap detection for material measurement mode (multi-phase, multi-tap capture)
     private func handleMaterialTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
+        // Accumulate this tap into the current phase buffer
+        materialCapturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: time))
+        currentTapCount += 1
+        tapProgress = Float(currentTapCount) / Float(totalMaterialTaps)
+        
         switch materialTapPhase {
         case .capturingLongitudinal:
-            // First tap: Longitudinal mode (support along short edges)
-            print("📊 Captured LONGITUDINAL tap")
-            
-            // Store the spectrum
-            longitudinalSpectrum = (magnitudes: magnitudes, frequencies: frequencies)
-            
-            // Find peaks for this tap
-            longitudinalPeaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
-            
-            // Auto-select the strongest peak as the longitudinal mode
-            if let strongestPeak = longitudinalPeaks.first {
-                autoSelectedLongitudinalPeakID = strongestPeak.id
-                print("🔵 Auto-selected longitudinal peak: \(strongestPeak.frequency) Hz")
-            }
-            
-            // Freeze spectrum to show the longitudinal tap result
-            frozenFrequencies = frequencies
-            frozenMagnitudes = magnitudes
-            isSpectrumFrozen = true
-            
-            // Update current peaks to show longitudinal results
-            currentPeaks = longitudinalPeaks
-            
-            // Move to next phase
-            materialTapPhase = .waitingForCrossTap
-            currentTapCount = 1
-            tapProgress = 0.5
-            statusMessage = "L captured - rotate 90° for C tap"
-            
-            // Re-enable detection after cooldown
-            DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
-                guard let self = self else { return }
-                
-                // Check if the signal has dropped below the falling threshold
-                let currentLevel = self.fftAnalyzer.peakMagnitude
-                let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
-                
-                if currentLevel <= fallingThreshold {
-                    // Signal has dropped - ready for cross-grain tap
-                    self.isAboveThreshold = false
-                    print("🔄 Ready for cross-grain tap - signal dropped to \(String(format: "%.1f", currentLevel)) dB")
-                } else {
-                    // Signal still elevated - set isAboveThreshold correctly
-                    self.isAboveThreshold = true
-                    print("🔄 Waiting for cross-grain tap - signal at \(String(format: "%.1f", currentLevel)) dB (waiting for settle)")
-                }
-                
-                self.isDetecting = true
-                self.tapDetected = false
-                self.materialTapPhase = .capturingCross
-                
-                // Unfreeze spectrum for the second tap
-                self.isSpectrumFrozen = false
-                self.frozenFrequencies = []
-                self.frozenMagnitudes = []
-                
-                // Reset warm-up timer
-                self.analyzerStartTime = Date()
-            }
+            handleLongitudinalTapProgress(magnitudes: magnitudes, frequencies: frequencies)
             
         case .capturingCross, .waitingForCrossTap:
-            // Second tap: Cross-grain mode (support along long edges)
-            print("📊 Captured CROSS-GRAIN tap")
+            handleCrossTapProgress(magnitudes: magnitudes, frequencies: frequencies)
             
-            // Store the spectrum
-            crossSpectrum = (magnitudes: magnitudes, frequencies: frequencies)
-            
-            // Find peaks for this tap
-            crossPeaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
-            
-            // Auto-select the strongest peak as the cross-grain mode
-            if let strongestPeak = crossPeaks.first {
-                autoSelectedCrossPeakID = strongestPeak.id
-                print("🟠 Auto-selected cross-grain peak: \(strongestPeak.frequency) Hz")
-            }
-            
-            // Combine peaks from both taps for display
-            // The user can then adjust selections in the results panel
-            currentPeaks = combineMaterialPeaks()
-            
-            // Create a combined spectrum view (average or overlay)
-            // For now, freeze the cross-grain spectrum
-            frozenFrequencies = frequencies
-            frozenMagnitudes = magnitudes
-            isSpectrumFrozen = true
-            
-            // Update phase and progress
-            materialTapPhase = .complete
-            currentTapCount = 2
-            tapProgress = 1.0
-            statusMessage = "Complete - check Results"
-            
-            print("✅ Material measurement complete: L=\(longitudinalPeaks.first?.frequency ?? 0) Hz, C=\(crossPeaks.first?.frequency ?? 0) Hz")
+        case .capturingFlc, .waitingForFlcTap:
+            handleFlcTapProgress(magnitudes: magnitudes, frequencies: frequencies)
             
         case .notStarted, .complete:
-            // Shouldn't happen, but handle gracefully
             print("⚠️ Unexpected tap in material phase: \(materialTapPhase)")
             isDetecting = false
         }
     }
     
-    /// Combine peaks from longitudinal and cross-grain taps for display
+    /// Process a tap captured during the longitudinal phase
+    private func handleLongitudinalTapProgress(magnitudes: [Float], frequencies: [Float]) {
+        let captured = materialCapturedTaps.count
+        let total = numberOfTaps
+        print("📊 Captured LONGITUDINAL tap \(captured)/\(total)")
+        
+        if captured < total {
+            // More taps needed - update status and re-enable detection
+            statusMessage = "L tap \(captured)/\(total) captured. Tap again..."
+            reEnableDetectionForNextMaterialTap()
+        } else {
+            // All L taps done - average spectra and transition to cross phase
+            let (avgMags, avgFreqs) = averageSpectra(from: materialCapturedTaps)
+            longitudinalSpectrum = (magnitudes: avgMags, frequencies: avgFreqs)
+            longitudinalPeaks = findPeaks(magnitudes: avgMags, frequencies: avgFreqs)
+            
+            if let strongestPeak = longitudinalPeaks.first {
+                autoSelectedLongitudinalPeakID = strongestPeak.id
+                print("🔵 Auto-selected longitudinal peak: \(strongestPeak.frequency) Hz")
+            }
+            
+            // Freeze averaged spectrum
+            frozenFrequencies = avgFreqs
+            frozenMagnitudes = avgMags
+            isSpectrumFrozen = true
+            currentPeaks = longitudinalPeaks
+            
+            materialCapturedTaps = []
+            
+            let isBraceMode = SpectrumDisplaySettings.measurementType == .brace
+            if isBraceMode {
+                // Brace mode: complete after longitudinal tap only
+                materialTapPhase = .complete
+                tapProgress = 1.0
+                let avgNote = total > 1 ? " (\(total) taps averaged)" : ""
+                statusMessage = "Complete\(avgNote) - check Results"
+                print("✅ Brace measurement complete: fL=\(longitudinalPeaks.first?.frequency ?? 0) Hz")
+            } else {
+                // Material mode: continue to cross-grain tap
+                materialTapPhase = .waitingForCrossTap
+                let avgNote = total > 1 ? " (\(total) taps averaged)" : ""
+                statusMessage = "L captured\(avgNote) - rotate 90° for C tap"
+                
+                // Re-enable for cross tap after cooldown
+                DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
+                    guard let self = self else { return }
+                    let currentLevel = self.fftAnalyzer.peakMagnitude
+                    let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
+                    self.isAboveThreshold = currentLevel > fallingThreshold
+                    self.isDetecting = true
+                    self.tapDetected = false
+                    self.materialTapPhase = .capturingCross
+                    self.isSpectrumFrozen = false
+                    self.frozenFrequencies = []
+                    self.frozenMagnitudes = []
+                    self.analyzerStartTime = Date()
+                    print("🔄 Ready for cross-grain tap")
+                }
+            }
+        }
+    }
+    
+    /// Process a tap captured during the cross-grain phase
+    private func handleCrossTapProgress(magnitudes: [Float], frequencies: [Float]) {
+        let captured = materialCapturedTaps.count
+        let total = numberOfTaps
+        print("📊 Captured CROSS-GRAIN tap \(captured)/\(total)")
+        
+        if captured < total {
+            statusMessage = "C tap \(captured)/\(total) captured. Tap again..."
+            reEnableDetectionForNextMaterialTap()
+        } else {
+            // All C taps done - average and decide next phase
+            let (avgMags, avgFreqs) = averageSpectra(from: materialCapturedTaps)
+            crossSpectrum = (magnitudes: avgMags, frequencies: avgFreqs)
+            crossPeaks = findPeaks(magnitudes: avgMags, frequencies: avgFreqs)
+            
+            if let strongestPeak = crossPeaks.first {
+                autoSelectedCrossPeakID = strongestPeak.id
+                print("🟠 Auto-selected cross-grain peak: \(strongestPeak.frequency) Hz")
+            }
+            
+            materialCapturedTaps = []
+            
+            let measureFlc = SpectrumDisplaySettings.measureFlc
+            if measureFlc {
+                // Move to FLC phase
+                currentPeaks = combineMaterialPeaks()
+                frozenFrequencies = avgFreqs
+                frozenMagnitudes = avgMags
+                isSpectrumFrozen = true
+                
+                materialTapPhase = .waitingForFlcTap
+                let avgNote = total > 1 ? " (\(total) taps averaged)" : ""
+                statusMessage = "C captured\(avgNote) - set up for FLC tap"
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
+                    guard let self = self else { return }
+                    let currentLevel = self.fftAnalyzer.peakMagnitude
+                    let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
+                    self.isAboveThreshold = currentLevel > fallingThreshold
+                    self.isDetecting = true
+                    self.tapDetected = false
+                    self.materialTapPhase = .capturingFlc
+                    self.isSpectrumFrozen = false
+                    self.frozenFrequencies = []
+                    self.frozenMagnitudes = []
+                    self.analyzerStartTime = Date()
+                    print("🔄 Ready for FLC tap")
+                }
+            } else {
+                // Complete - no FLC
+                currentPeaks = combineMaterialPeaks()
+                frozenFrequencies = avgFreqs
+                frozenMagnitudes = avgMags
+                isSpectrumFrozen = true
+                materialTapPhase = .complete
+                tapProgress = 1.0
+                let avgNote = total > 1 ? " (\(total) taps averaged each)" : ""
+                statusMessage = "Complete\(avgNote) - check Results"
+                print("✅ Material measurement complete: L=\(longitudinalPeaks.first?.frequency ?? 0) Hz, C=\(crossPeaks.first?.frequency ?? 0) Hz")
+            }
+        }
+    }
+    
+    /// Process a tap captured during the FLC phase
+    private func handleFlcTapProgress(magnitudes: [Float], frequencies: [Float]) {
+        let captured = materialCapturedTaps.count
+        let total = numberOfTaps
+        print("📊 Captured FLC tap \(captured)/\(total)")
+        
+        if captured < total {
+            statusMessage = "FLC tap \(captured)/\(total) captured. Tap again..."
+            reEnableDetectionForNextMaterialTap()
+        } else {
+            // All FLC taps done - average and complete
+            let (avgMags, avgFreqs) = averageSpectra(from: materialCapturedTaps)
+            flcSpectrum = (magnitudes: avgMags, frequencies: avgFreqs)
+            flcPeaks = findPeaks(magnitudes: avgMags, frequencies: avgFreqs)
+            
+            if let strongestPeak = flcPeaks.first {
+                autoSelectedFlcPeakID = strongestPeak.id
+                print("🟣 Auto-selected FLC peak: \(strongestPeak.frequency) Hz")
+            }
+            
+            materialCapturedTaps = []
+            currentPeaks = combineMaterialPeaks()
+            frozenFrequencies = avgFreqs
+            frozenMagnitudes = avgMags
+            isSpectrumFrozen = true
+            materialTapPhase = .complete
+            tapProgress = 1.0
+            let avgNote = total > 1 ? " (\(total) taps averaged each)" : ""
+            statusMessage = "Complete\(avgNote) - check Results"
+            print("✅ Material measurement complete: L=\(longitudinalPeaks.first?.frequency ?? 0) Hz, C=\(crossPeaks.first?.frequency ?? 0) Hz, FLC=\(flcPeaks.first?.frequency ?? 0) Hz")
+        }
+    }
+    
+    /// Re-enable tap detection for the next tap within the same material phase
+    private func reEnableDetectionForNextMaterialTap() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
+            guard let self = self else { return }
+            let currentLevel = self.fftAnalyzer.peakMagnitude
+            let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
+            self.isAboveThreshold = currentLevel > fallingThreshold
+            self.isDetecting = true
+            self.tapDetected = false
+            self.analyzerStartTime = Date()
+        }
+    }
+    
+    /// Combine peaks from longitudinal, cross-grain, and optionally FLC taps for display
     private func combineMaterialPeaks() -> [ResonantPeak] {
         var combined: [ResonantPeak] = []
         
@@ -1197,6 +1318,17 @@ final class TapToneAnalyzer: ObservableObject {
             
             if isAutoSelected || !isDuplicate {
                 combined.append(crossPeak)
+            }
+        }
+        
+        // Add FLC peaks if available, same deduplication logic
+        for flcPeak in flcPeaks {
+            let isAutoSelected = flcPeak.id == autoSelectedFlcPeakID
+            let isDuplicate = combined.contains { existingPeak in
+                abs(existingPeak.frequency - flcPeak.frequency) < frequencyTolerance
+            }
+            if isAutoSelected || !isDuplicate {
+                combined.append(flcPeak)
             }
         }
         
@@ -1497,7 +1629,8 @@ final class TapToneAnalyzer: ObservableObject {
         spectrumSnapshot: SpectrumSnapshot? = nil,
         annotationOffsets: [UUID: CGPoint]? = nil,
         selectedLongitudinalPeakID: UUID? = nil,
-        selectedCrossPeakID: UUID? = nil
+        selectedCrossPeakID: UUID? = nil,
+        selectedFlcPeakID: UUID? = nil
     ) {
         let measurementType = SpectrumDisplaySettings.measurementType
         
@@ -1515,11 +1648,15 @@ final class TapToneAnalyzer: ObservableObject {
                 guitarType: SpectrumDisplaySettings.guitarType,
                 measurementType: measurementType,
                 maxPeaks: maxPeaks,
-                // Include material dimensions only for material measurements
-                materialLength: measurementType == .material ? SpectrumDisplaySettings.materialLength : nil,
-                materialWidth: measurementType == .material ? SpectrumDisplaySettings.materialWidth : nil,
-                materialThickness: measurementType == .material ? SpectrumDisplaySettings.materialThickness : nil,
-                materialMass: measurementType == .material ? SpectrumDisplaySettings.materialMass : nil
+                // Include material dimensions for material and brace measurements
+                materialLength: measurementType == .material ? SpectrumDisplaySettings.materialLength
+                              : measurementType == .brace   ? SpectrumDisplaySettings.braceLength : nil,
+                materialWidth: measurementType == .material ? SpectrumDisplaySettings.materialWidth
+                             : measurementType == .brace   ? SpectrumDisplaySettings.braceWidth : nil,
+                materialThickness: measurementType == .material ? SpectrumDisplaySettings.materialThickness
+                                 : measurementType == .brace   ? SpectrumDisplaySettings.braceThickness : nil,
+                materialMass: measurementType == .material ? SpectrumDisplaySettings.materialMass
+                            : measurementType == .brace   ? SpectrumDisplaySettings.braceMass : nil
             )
         } else {
             snapshot = nil
@@ -1549,9 +1686,10 @@ final class TapToneAnalyzer: ObservableObject {
             tapDetectionThreshold: tapDetectionThreshold,
             hysteresisMargin: hysteresisMargin,
             numberOfTaps: numberOfTaps,
-            // Include material peak selections only for material measurements
-            selectedLongitudinalPeakID: measurementType == .material ? selectedLongitudinalPeakID : nil,
+            // Include peak selections for material and brace measurements
+            selectedLongitudinalPeakID: !measurementType.isGuitar ? selectedLongitudinalPeakID : nil,
             selectedCrossPeakID: measurementType == .material ? selectedCrossPeakID : nil,
+            selectedFlcPeakID: measurementType == .material ? selectedFlcPeakID : nil,
             hiddenPeakIDs: hiddenPeakIDs.isEmpty ? nil : Array(hiddenPeakIDs)
         )
         
@@ -1625,6 +1763,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Loaded material measurement data (used when restoring measurements)
     @Published var loadedSelectedLongitudinalPeakID: UUID?
     @Published var loadedSelectedCrossPeakID: UUID?
+    @Published var loadedSelectedFlcPeakID: UUID?
     @Published var loadedMaterialLength: Float?
     @Published var loadedMaterialWidth: Float?
     @Published var loadedMaterialThickness: Float?
@@ -1704,6 +1843,13 @@ final class TapToneAnalyzer: ObservableObject {
             loadedSelectedCrossPeakID = crossPeakID
         } else {
             loadedSelectedCrossPeakID = nil
+        }
+        
+        if let flcPeakID = measurement.selectedFlcPeakID {
+            print("  🟣 Publishing FLC peak ID: \(flcPeakID)")
+            loadedSelectedFlcPeakID = flcPeakID
+        } else {
+            loadedSelectedFlcPeakID = nil
         }
         
         // Stop tap detection when loading a measurement (frozen state)
@@ -1930,10 +2076,14 @@ final class TapToneAnalyzer: ObservableObject {
             self.materialTapPhase = .notStarted
             self.longitudinalSpectrum = nil
             self.crossSpectrum = nil
+            self.flcSpectrum = nil
             self.longitudinalPeaks = []
             self.crossPeaks = []
+            self.flcPeaks = []
             self.autoSelectedLongitudinalPeakID = nil
             self.autoSelectedCrossPeakID = nil
+            self.autoSelectedFlcPeakID = nil
+            self.materialCapturedTaps = []
             
             self.statusMessage = "Press 'New Tap' to begin"
         }
@@ -1942,8 +2092,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// Start a new tap detection sequence
     func startTapSequence() {
         let isMaterialMode = SpectrumDisplaySettings.measurementType == .material
+        let isBraceMode = SpectrumDisplaySettings.measurementType == .brace
         let currentPeakMagImmediate = fftAnalyzer.peakMagnitude
-        print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), material mode: \(isMaterialMode)")
+        print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), material mode: \(isMaterialMode), brace mode: \(isBraceMode)")
         print("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
         print("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
         
@@ -1966,15 +2117,19 @@ final class TapToneAnalyzer: ObservableObject {
             self.decayTrackingTimer?.invalidate()
             self.decayTrackingTimer = nil
             
-            // Reset material measurement state
-            if isMaterialMode {
+            // Reset material/brace measurement state
+            if isMaterialMode || isBraceMode {
                 self.materialTapPhase = .capturingLongitudinal
                 self.longitudinalSpectrum = nil
                 self.crossSpectrum = nil
+                self.flcSpectrum = nil
                 self.longitudinalPeaks = []
                 self.crossPeaks = []
+                self.flcPeaks = []
                 self.autoSelectedLongitudinalPeakID = nil
                 self.autoSelectedCrossPeakID = nil
+                self.autoSelectedFlcPeakID = nil
+                self.materialCapturedTaps = []
             } else {
                 self.materialTapPhase = .notStarted
             }
@@ -2009,8 +2164,16 @@ final class TapToneAnalyzer: ObservableObject {
             self.isDetecting = true
             
             // Set appropriate status message
-            if isMaterialMode {
-                self.statusMessage = "Ready for L tap"
+            if isBraceMode {
+                self.statusMessage = self.numberOfTaps > 1 ? "Ready for fL tap (×\(self.numberOfTaps))" : "Ready for fL tap"
+            } else if isMaterialMode {
+                let measureFlc = SpectrumDisplaySettings.measureFlc
+                if self.numberOfTaps > 1 {
+                    let phases = measureFlc ? "L, C, FLC" : "L, C"
+                    self.statusMessage = "Ready for L tap (×\(self.numberOfTaps) each for \(phases))"
+                } else {
+                    self.statusMessage = "Ready for L tap"
+                }
             } else {
                 self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."
             }
@@ -2042,8 +2205,13 @@ final class TapToneAnalyzer: ObservableObject {
         isDetecting = true
         
         let isMaterialMode = SpectrumDisplaySettings.measurementType == .material
-        if isMaterialMode {
-            statusMessage = materialTapPhase == .capturingLongitudinal ? "Ready for L tap" : "Ready for C tap"
+        let isBraceMode = SpectrumDisplaySettings.measurementType == .brace
+        if isMaterialMode || isBraceMode {
+            switch materialTapPhase {
+            case .capturingLongitudinal: statusMessage = isBraceMode ? "Ready for fL tap" : "Ready for L tap"
+            case .capturingFlc, .waitingForFlcTap: statusMessage = "Ready for FLC tap"
+            default: statusMessage = "Ready for C tap"
+            }
         } else if currentTapCount == 0 {
             statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
         } else {
@@ -2057,6 +2225,7 @@ final class TapToneAnalyzer: ObservableObject {
         print("❌ Tap sequence cancelled")
         
         let isMaterialMode = SpectrumDisplaySettings.measurementType == .material
+        let isBraceMode = SpectrumDisplaySettings.measurementType == .brace
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -2069,15 +2238,19 @@ final class TapToneAnalyzer: ObservableObject {
             self.isDetectionPaused = false
             self.isDetecting = true
             
-            // Reset material measurement state
-            if isMaterialMode {
+            // Reset material/brace measurement state
+            if isMaterialMode || isBraceMode {
                 self.materialTapPhase = .capturingLongitudinal
                 self.longitudinalSpectrum = nil
                 self.crossSpectrum = nil
+                self.flcSpectrum = nil
                 self.longitudinalPeaks = []
                 self.crossPeaks = []
+                self.flcPeaks = []
                 self.autoSelectedLongitudinalPeakID = nil
                 self.autoSelectedCrossPeakID = nil
+                self.autoSelectedFlcPeakID = nil
+                self.materialCapturedTaps = []
             }
             
             // Stop decay tracking
@@ -2100,7 +2273,9 @@ final class TapToneAnalyzer: ObservableObject {
             self.captureTimer = nil
             
             // Set appropriate status message
-            if isMaterialMode {
+            if isBraceMode {
+                self.statusMessage = "Ready for fL tap"
+            } else if isMaterialMode {
                 self.statusMessage = "Ready for L tap"
             } else {
                 self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."

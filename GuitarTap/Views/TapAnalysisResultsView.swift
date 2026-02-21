@@ -19,6 +19,7 @@ struct TapAnalysisResultsView: View {
     // Material mode selection state - exposed via bindings for parent view to use
     @Binding var selectedLongitudinalPeakID: UUID?
     @Binding var selectedCrossPeakID: UUID?
+    @Binding var selectedFlcPeakID: UUID?
     
     // Current measurement type
     private var measurementType: MeasurementType {
@@ -33,6 +34,16 @@ struct TapAnalysisResultsView: View {
     /// Effective cross-grain peak ID - uses binding value if set, otherwise falls back to auto-selected
     private var effectiveCrossPeakID: UUID? {
         selectedCrossPeakID ?? analyzer.autoSelectedCrossPeakID
+    }
+    
+    /// Effective FLC peak ID - uses binding value if set, otherwise falls back to auto-selected
+    private var effectiveFlcPeakID: UUID? {
+        selectedFlcPeakID ?? analyzer.autoSelectedFlcPeakID
+    }
+    
+    /// Whether FLC measurement was performed (has FLC peaks)
+    private var hasFlcMeasurement: Bool {
+        !analyzer.flcPeaks.isEmpty || analyzer.autoSelectedFlcPeakID != nil
     }
     
     var body: some View {
@@ -67,6 +78,9 @@ struct TapAnalysisResultsView: View {
                 if measurementType == .material {
                     Divider()
                     materialPropertiesSection
+                } else if measurementType == .brace {
+                    Divider()
+                    bracePropertiesSection
                 } else {
                     // Guitar-specific sections
                     Divider()
@@ -100,9 +114,9 @@ struct TapAnalysisResultsView: View {
                 (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
             }
             .filter { item in
-                // For material mode, show all peaks (don't filter by guitar mode)
+                // For material/brace mode, show all peaks (don't filter by guitar mode)
                 // For guitar mode, optionally filter out unknown modes
-                measurementType == .material || SpectrumDisplaySettings.showUnknownModes || item.mode.normalized != .unknown
+                !measurementType.isGuitar || SpectrumDisplaySettings.showUnknownModes || item.mode.normalized != .unknown
             }
             .sorted { $0.peak.frequency < $1.peak.frequency }
     }
@@ -114,7 +128,7 @@ struct TapAnalysisResultsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 // Header with visibility controls
                 HStack {
-                    Text(measurementType == .material ? "Detected Peaks" : "Detected Peaks & Modes")
+                    Text(!measurementType.isGuitar ? "Detected Peaks" : "Detected Peaks & Modes")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                     
@@ -165,32 +179,54 @@ struct TapAnalysisResultsView: View {
                                 peak: item.peak,
                                 isLongitudinal: effectiveLongitudinalPeakID == item.peak.id,
                                 isCross: effectiveCrossPeakID == item.peak.id,
+                                isFlc: effectiveFlcPeakID == item.peak.id,
+                                showFlcButton: hasFlcMeasurement,
                                 isVisible: !analyzer.hiddenPeakIDs.contains(item.peak.id),
                                 onSelectLongitudinal: {
                                     if effectiveLongitudinalPeakID == item.peak.id {
-                                        // Deselect - clear both binding and auto-selected
                                         selectedLongitudinalPeakID = nil
                                         analyzer.autoSelectedLongitudinalPeakID = nil
                                     } else {
                                         selectedLongitudinalPeakID = item.peak.id
-                                        // Can't be both
                                         if effectiveCrossPeakID == item.peak.id {
                                             selectedCrossPeakID = nil
                                             analyzer.autoSelectedCrossPeakID = nil
+                                        }
+                                        if effectiveFlcPeakID == item.peak.id {
+                                            selectedFlcPeakID = nil
+                                            analyzer.autoSelectedFlcPeakID = nil
                                         }
                                     }
                                 },
                                 onSelectCross: {
                                     if effectiveCrossPeakID == item.peak.id {
-                                        // Deselect - clear both binding and auto-selected
                                         selectedCrossPeakID = nil
                                         analyzer.autoSelectedCrossPeakID = nil
                                     } else {
                                         selectedCrossPeakID = item.peak.id
-                                        // Can't be both
                                         if effectiveLongitudinalPeakID == item.peak.id {
                                             selectedLongitudinalPeakID = nil
                                             analyzer.autoSelectedLongitudinalPeakID = nil
+                                        }
+                                        if effectiveFlcPeakID == item.peak.id {
+                                            selectedFlcPeakID = nil
+                                            analyzer.autoSelectedFlcPeakID = nil
+                                        }
+                                    }
+                                },
+                                onSelectFlc: {
+                                    if effectiveFlcPeakID == item.peak.id {
+                                        selectedFlcPeakID = nil
+                                        analyzer.autoSelectedFlcPeakID = nil
+                                    } else {
+                                        selectedFlcPeakID = item.peak.id
+                                        if effectiveLongitudinalPeakID == item.peak.id {
+                                            selectedLongitudinalPeakID = nil
+                                            analyzer.autoSelectedLongitudinalPeakID = nil
+                                        }
+                                        if effectiveCrossPeakID == item.peak.id {
+                                            selectedCrossPeakID = nil
+                                            analyzer.autoSelectedCrossPeakID = nil
                                         }
                                     }
                                 },
@@ -205,7 +241,7 @@ struct TapAnalysisResultsView: View {
                             Divider()
                                 .padding(.vertical, 4)
                             
-                            Text("Two-Tap Measurement Process:")
+                            Text(hasFlcMeasurement ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
                                 .font(.caption)
                                 .fontWeight(.semibold)
                             
@@ -237,9 +273,79 @@ struct TapAnalysisResultsView: View {
                                         .fill(Color.orange)
                                         .frame(width: 8, height: 8)
                                 }
+                                
+                                if hasFlcMeasurement {
+                                    Label {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("**3. FLC (Diagonal) Tap**")
+                                                .font(.caption2)
+                                            Text("Support at all 4 nodal points (~22% from each corner). Tap center. Measures shear-related stiffness.")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    } icon: {
+                                        Circle()
+                                            .fill(Color.purple)
+                                            .frame(width: 8, height: 8)
+                                    }
+                                }
                             }
                             
                             Text("The strongest peak from each tap is auto-selected. Adjust selections above if needed.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .italic()
+                                .padding(.top, 2)
+                        }
+                        .padding(.top, 4)
+                    } else if measurementType == .brace {
+                        // Brace mode — fL selection only
+                        ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
+                            MaterialPeakRowView(
+                                peak: item.peak,
+                                isLongitudinal: effectiveLongitudinalPeakID == item.peak.id,
+                                isCross: false,
+                                showCrossButton: false,
+                                isVisible: !analyzer.hiddenPeakIDs.contains(item.peak.id),
+                                onSelectLongitudinal: {
+                                    if effectiveLongitudinalPeakID == item.peak.id {
+                                        selectedLongitudinalPeakID = nil
+                                        analyzer.autoSelectedLongitudinalPeakID = nil
+                                    } else {
+                                        selectedLongitudinalPeakID = item.peak.id
+                                    }
+                                },
+                                onSelectCross: {},
+                                onToggleVisibility: {
+                                    analyzer.togglePeakVisibility(item.peak.id)
+                                }
+                            )
+                        }
+                        
+                        // Brace instructions
+                        VStack(alignment: .leading, spacing: 6) {
+                            Divider()
+                                .padding(.vertical, 4)
+                            
+                            Text("Single-Tap Measurement (fL only):")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                            
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("**1. Longitudinal (fL) Tap**")
+                                        .font(.caption2)
+                                    Text("Support the brace at ~22% from each end (nodal points). Tap the center. The brace vibrates along its length (grain direction).")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            } icon: {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 8, height: 8)
+                            }
+                            
+                            Text("The strongest peak is auto-selected. Adjust if needed.")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                                 .italic()
@@ -516,6 +622,111 @@ struct TapAnalysisResultsView: View {
         }
     }
     
+    // MARK: - Brace Properties Section
+    
+    /// Computed brace properties based on the selected fL peak and dimensions
+    private var calculatedBraceProperties: BraceProperties? {
+        guard let longPeakID = effectiveLongitudinalPeakID,
+              let longPeak = sortedPeaksWithModes.first(where: { $0.peak.id == longPeakID })?.peak else {
+            return nil
+        }
+        
+        let dimensions = MaterialDimensions(
+            lengthMM: SpectrumDisplaySettings.braceLength,
+            widthMM: SpectrumDisplaySettings.braceWidth,
+            thicknessMM: SpectrumDisplaySettings.braceThickness,
+            massGrams: SpectrumDisplaySettings.braceMass
+        )
+        
+        return BraceProperties(
+            dimensions: dimensions,
+            fundamentalFrequencyLong: longPeak.frequency
+        )
+    }
+    
+    private var bracePropertiesSection: some View {
+        GroupBox("Brace Properties") {
+            if let props = calculatedBraceProperties {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Frequency used
+                    HStack {
+                        Text("Longitudinal (fL): \(props.fundamentalFrequencyLong, specifier: "%.1f") Hz")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    
+                    Divider()
+                    
+                    // Speed of Sound
+                    HStack {
+                        Text("Speed of Sound:")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                        Text("\(Int(props.speedOfSoundLong)) m/s")
+                            .font(.subheadline)
+                    }
+                    
+                    // Young's Modulus
+                    HStack {
+                        Text("Young's Modulus (E):")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                        Text(String(format: "%.2f GPa", props.youngsModulusLongGPa))
+                            .font(.subheadline)
+                    }
+                    
+                    // Specific Modulus — highlighted as the key metric
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Specific Modulus (E/ρ)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(String(format: "%.1f", props.specificModulusLong))
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(qualityColor(for: props.spruceQuality))
+                            Text("GPa/(g/cm³)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Text(props.spruceQuality.rawValue)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(qualityColor(for: props.spruceQuality))
+                    }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(8)
+                    
+                    // Radiation Ratio
+                    HStack {
+                        Text("Radiation Ratio (R):")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                        Text(String(format: "%.1f", props.radiationRatioLong))
+                            .font(.subheadline)
+                    }
+                }
+            } else {
+                VStack(spacing: 12) {
+                    Text("Select the fL (L) peak above to calculate properties")
+                        .foregroundColor(.secondary)
+                    Text("Tip: The dominant peak is auto-selected after tapping")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            }
+        }
+    }
+    
     // MARK: - Helper Views
     
     private func propertyRow(title: String, longValue: String, crossValue: String) -> some View {
@@ -552,9 +763,13 @@ struct MaterialPeakRowView: View {
     let peak: ResonantPeak
     let isLongitudinal: Bool
     let isCross: Bool
+    var isFlc: Bool = false
+    var showCrossButton: Bool = true
+    var showFlcButton: Bool = false
     var isVisible: Bool = true
     let onSelectLongitudinal: () -> Void
     let onSelectCross: () -> Void
+    var onSelectFlc: (() -> Void)? = nil
     var onToggleVisibility: (() -> Void)? = nil
     
     var body: some View {
@@ -599,16 +814,31 @@ struct MaterialPeakRowView: View {
                 }
                 .buttonStyle(.plain)
                 
-                Button(action: onSelectCross) {
-                    Text("C")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .frame(width: 36, height: 36)
-                        .background(isCross ? Color.orange : Color.secondary.opacity(0.2))
-                        .foregroundColor(isCross ? .white : .primary)
-                        .cornerRadius(8)
+                if showCrossButton {
+                    Button(action: onSelectCross) {
+                        Text("C")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .frame(width: 36, height: 36)
+                            .background(isCross ? Color.orange : Color.secondary.opacity(0.2))
+                            .foregroundColor(isCross ? .white : .primary)
+                            .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                
+                if showFlcButton {
+                    Button(action: { onSelectFlc?() }) {
+                        Text("FLC")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .frame(width: 42, height: 36)
+                            .background(isFlc ? Color.purple : Color.secondary.opacity(0.2))
+                            .foregroundColor(isFlc ? .white : .primary)
+                            .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
         .padding(.vertical, 4)

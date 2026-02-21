@@ -65,26 +65,41 @@ struct MaterialProperties {
     
     // MARK: - Calculated Properties
     
+    /// Young's modulus along grain (E_long) in Pa
+    /// Formula: E = 48π²ρf²L⁴ / (22.37t)²
+    /// Derived from the first bending mode of a free-free beam (tap tone method).
+    /// The 22.37 constant is (βL)² for the first free-free beam mode.
+    var youngsModulusLong: Float {
+        let t = dimensions.thickness
+        guard t > 0, dimensions.density > 0 else { return 0 }
+        return 48 * .pi * .pi * dimensions.density
+            * fundamentalFrequencyLong * fundamentalFrequencyLong
+            * pow(dimensions.length, 4)
+            / pow(22.37 * t, 2)
+    }
+    
+    /// Young's modulus across grain (E_cross) in Pa
+    /// Uses width as the effective beam length for the cross-grain bending test.
+    var youngsModulusCross: Float {
+        let t = dimensions.thickness
+        guard t > 0, dimensions.density > 0 else { return 0 }
+        return 48 * .pi * .pi * dimensions.density
+            * fundamentalFrequencyCross * fundamentalFrequencyCross
+            * pow(dimensions.width, 4)
+            / pow(22.37 * t, 2)
+    }
+    
     /// Speed of sound along grain (longitudinal) in m/s
-    /// Formula: c = 2 * L * f₁ for a free-free bar
+    /// Derived from E_L: c = √(E/ρ)
     var speedOfSoundLong: Float {
-        2.0 * dimensions.length * fundamentalFrequencyLong
+        guard dimensions.density > 0 else { return 0 }
+        return sqrt(youngsModulusLong / dimensions.density)
     }
     
     /// Speed of sound across grain in m/s
     var speedOfSoundCross: Float {
-        2.0 * dimensions.width * fundamentalFrequencyCross
-    }
-    
-    /// Young's modulus along grain (E_long) in Pa
-    /// Formula: E = ρ * c²
-    var youngsModulusLong: Float {
-        dimensions.density * speedOfSoundLong * speedOfSoundLong
-    }
-    
-    /// Young's modulus across grain (E_cross) in Pa
-    var youngsModulusCross: Float {
-        dimensions.density * speedOfSoundCross * speedOfSoundCross
+        guard dimensions.density > 0 else { return 0 }
+        return sqrt(youngsModulusCross / dimensions.density)
     }
     
     /// Young's modulus along grain in GPa
@@ -112,17 +127,17 @@ struct MaterialProperties {
     }
     
     /// Radiation ratio (sound radiation coefficient) along grain
-    /// Formula: R = √E / ρ = c / ρ  (in appropriate units)
+    /// Formula: R = c_L / ρ = √(E/ρ) / ρ
     /// Higher values = more efficient sound production
     var radiationRatioLong: Float {
         guard dimensions.density > 0 else { return 0 }
-        return sqrt(youngsModulusLong) / dimensions.density
+        return speedOfSoundLong / dimensions.density
     }
     
     /// Radiation ratio across grain
     var radiationRatioCross: Float {
         guard dimensions.density > 0 else { return 0 }
-        return sqrt(youngsModulusCross) / dimensions.density
+        return speedOfSoundCross / dimensions.density
     }
     
     /// Cross-grain to long-grain stiffness ratio
@@ -234,6 +249,60 @@ enum WoodQuality: String, CaseIterable {
             if specificModulus >= 8 { return .fair }
             return .poor
         }
+    }
+}
+
+// MARK: - Brace Properties
+
+/// Calculated acoustic properties of a brace strip using only the longitudinal (fL) tap
+struct BraceProperties {
+    /// The dimensions used for calculation
+    let dimensions: MaterialDimensions
+    
+    /// Fundamental frequency along the length (longitudinal mode) in Hz
+    let fundamentalFrequencyLong: Float
+    
+    // MARK: - Calculated Properties
+    
+    /// Young's modulus along grain (EL) in Pa
+    /// Formula: E = 48π²ρf²L⁴ / (22.37t)²
+    /// Derived from the first bending mode of a free-free beam (tap tone method).
+    var youngsModulusLong: Float {
+        let t = dimensions.thickness
+        guard t > 0, dimensions.density > 0 else { return 0 }
+        return 48 * .pi * .pi * dimensions.density
+            * fundamentalFrequencyLong * fundamentalFrequencyLong
+            * pow(dimensions.length, 4)
+            / pow(22.37 * t, 2)
+    }
+    
+    /// Speed of sound along grain in m/s
+    /// Derived from E_L: c = √(E/ρ)
+    var speedOfSoundLong: Float {
+        guard dimensions.density > 0 else { return 0 }
+        return sqrt(youngsModulusLong / dimensions.density)
+    }
+    
+    /// Young's modulus along grain in GPa
+    var youngsModulusLongGPa: Float {
+        youngsModulusLong / 1e9
+    }
+    
+    /// Specific modulus (stiffness-to-weight ratio) along grain in GPa/(g/cm³)
+    var specificModulusLong: Float {
+        guard dimensions.densityGPerCm3 > 0 else { return 0 }
+        return youngsModulusLongGPa / dimensions.densityGPerCm3
+    }
+    
+    /// Radiation ratio along grain: R = c_L / ρ = √(E/ρ) / ρ
+    var radiationRatioLong: Float {
+        guard dimensions.density > 0 else { return 0 }
+        return speedOfSoundLong / dimensions.density
+    }
+    
+    /// Quality assessment based on longitudinal specific modulus
+    var spruceQuality: WoodQuality {
+        WoodQuality.evaluate(specificModulus: specificModulusLong, direction: .longitudinal, woodType: .spruce)
     }
 }
 

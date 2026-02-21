@@ -8,7 +8,6 @@
 
 /* Begin PBXFileReference section */
 		8965D5BC2F061CE300243E14 /* GuitarTap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GuitarTap.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		89CF7C9F2F272A7200243D73 /* GuitarTapMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GuitarTapMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -45,13 +44,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		89CF7C9C2F272A7200243D73 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -67,7 +59,6 @@
 			isa = PBXGroup;
 			children = (
 				8965D5BC2F061CE300243E14 /* GuitarTap.app */,
-				89CF7C9F2F272A7200243D73 /* GuitarTapMac.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -98,25 +89,6 @@
 			productReference = 8965D5BC2F061CE300243E14 /* GuitarTap.app */;
 			productType = "com.apple.product-type.application";
 		};
-		89CF7C9E2F272A7200243D73 /* GuitarTapMac */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 89CF7CA72F272A7400243D73 /* Build configuration list for PBXNativeTarget "GuitarTapMac" */;
-			buildPhases = (
-				89CF7C9B2F272A7200243D73 /* Sources */,
-				89CF7C9C2F272A7200243D73 /* Frameworks */,
-				89CF7C9D2F272A7200243D73 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = GuitarTapMac;
-			packageProductDependencies = (
-			);
-			productName = GuitarTapMac;
-			productReference = 89CF7C9F2F272A7200243D73 /* GuitarTapMac.app */;
-			productType = "com.apple.product-type.application";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -128,9 +100,6 @@
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					8965D5BB2F061CE300243E14 = {
-						CreatedOnToolsVersion = 26.2;
-					};
-					89CF7C9E2F272A7200243D73 = {
 						CreatedOnToolsVersion = 26.2;
 					};
 				};
@@ -150,20 +119,12 @@
 			projectRoot = "";
 			targets = (
 				8965D5BB2F061CE300243E14 /* GuitarTap */,
-				89CF7C9E2F272A7200243D73 /* GuitarTapMac */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		8965D5BA2F061CE300243E14 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		89CF7C9D2F272A7200243D73 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -196,13 +157,6 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		8965D5B82F061CE300243E14 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		89CF7C9B2F272A7200243D73 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -460,76 +414,6 @@
 			};
 			name = Release;
 		};
-		89CF7CA82F272A7400243D73 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 43QHHT3XK2;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dolcesfogato.GuitarTapMac;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
-		};
-		89CF7CA92F272A7400243D73 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 43QHHT3XK2;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dolcesfogato.GuitarTapMac;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -547,15 +431,6 @@
 			buildConfigurations = (
 				8965D5C82F061CE400243E14 /* Debug */,
 				8965D5C92F061CE400243E14 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		89CF7CA72F272A7400243D73 /* Build configuration list for PBXNativeTarget "GuitarTapMac" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				89CF7CA82F272A7400243D73 /* Debug */,
-				89CF7CA92F272A7400243D73 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

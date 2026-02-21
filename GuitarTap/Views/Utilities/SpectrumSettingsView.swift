@@ -54,6 +54,13 @@ struct SpectrumSettingsView: View {
     @State private var materialWidthInput: String = String(format: "%.1f", SpectrumDisplaySettings.materialWidth)
     @State private var materialThicknessInput: String = String(format: "%.2f", SpectrumDisplaySettings.materialThickness)
     @State private var materialMassInput: String = String(format: "%.1f", SpectrumDisplaySettings.materialMass)
+    @State private var measureFlc: Bool = SpectrumDisplaySettings.measureFlc
+    
+    // Brace dimensions (for Brace Material measurement type)
+    @State private var braceLengthInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceLength)
+    @State private var braceWidthInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceWidth)
+    @State private var braceThicknessInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceThickness)
+    @State private var braceMassInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceMass)
     
     // Validation states
     @State private var showValidationError = false
@@ -167,7 +174,7 @@ struct SpectrumSettingsView: View {
                         }
                     }
                     
-                    // Show material dimensions for material type
+                    // Show dimensions for material mode (plate)
                     if selectedMeasurementType == .material {
                         Divider()
                         
@@ -175,7 +182,6 @@ struct SpectrumSettingsView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                         
-                        // Length (along grain)
                         HStack {
                             Text("Length (along grain):")
                                 .font(.subheadline)
@@ -191,7 +197,6 @@ struct SpectrumSettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         
-                        // Width (cross grain)
                         HStack {
                             Text("Width (cross grain):")
                                 .font(.subheadline)
@@ -207,7 +212,6 @@ struct SpectrumSettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         
-                        // Thickness
                         HStack {
                             Text("Thickness:")
                                 .font(.subheadline)
@@ -223,7 +227,6 @@ struct SpectrumSettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         
-                        // Mass
                         HStack {
                             Text("Mass:")
                                 .font(.subheadline)
@@ -239,11 +242,112 @@ struct SpectrumSettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         
-                        // Show calculated density
+                        Divider()
+                        
+                        Toggle(isOn: $measureFlc) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Measure FLC (Diagonal Tap)")
+                                Text("Add a 3rd tap supporting plate at 4 corner nodal points to measure shear stiffness. Can be difficult to perform.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
                         if let length = Float(materialLengthInput),
                            let width = Float(materialWidthInput),
                            let thickness = Float(materialThicknessInput),
                            let mass = Float(materialMassInput),
+                           length > 0, width > 0, thickness > 0, mass > 0 {
+                            let dims = MaterialDimensions(lengthMM: length, widthMM: width, thicknessMM: thickness, massGrams: mass)
+                            HStack {
+                                Text("Calculated Density:")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(String(format: "%.3f g/cm³", dims.densityGPerCm3))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                        }
+                    }
+                    
+                    // Show dimensions for brace mode
+                    if selectedMeasurementType == .brace {
+                        Divider()
+                        
+                        Text("Brace Dimensions")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        HStack {
+                            Text("Length (along grain):")
+                                .font(.subheadline)
+                            Spacer()
+                            TextField("mm", text: $braceLengthInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("mm")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        HStack {
+                            Text("Width (breadth):")
+                                .font(.subheadline)
+                            Spacer()
+                            TextField("mm", text: $braceWidthInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("mm")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Height (tap direction):")
+                                    .font(.subheadline)
+                                Text("Brace height when lying flat — this is the t dimension in the stiffness formula")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            TextField("mm", text: $braceThicknessInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("mm")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        HStack {
+                            Text("Mass:")
+                                .font(.subheadline)
+                            Spacer()
+                            TextField("g", text: $braceMassInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("g")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        if let length = Float(braceLengthInput),
+                           let width = Float(braceWidthInput),
+                           let thickness = Float(braceThicknessInput),
+                           let mass = Float(braceMassInput),
                            length > 0, width > 0, thickness > 0, mass > 0 {
                             let dims = MaterialDimensions(lengthMM: length, widthMM: width, thicknessMM: thickness, massGrams: mass)
                             HStack {
@@ -913,8 +1017,9 @@ struct SpectrumSettingsView: View {
         // Save measurement type and unknown mode setting
         SpectrumDisplaySettings.measurementType = selectedMeasurementType
         SpectrumDisplaySettings.showUnknownModes = showUnknownModes
+        SpectrumDisplaySettings.measureFlc = measureFlc
         
-        // Save material dimensions if material type is selected
+        // Save material plate dimensions
         if selectedMeasurementType == .material {
             if let length = Float(materialLengthInput), length > 0 {
                 SpectrumDisplaySettings.materialLength = length
@@ -927,6 +1032,22 @@ struct SpectrumSettingsView: View {
             }
             if let mass = Float(materialMassInput), mass > 0 {
                 SpectrumDisplaySettings.materialMass = mass
+            }
+        }
+        
+        // Save brace dimensions (separate keys from plate)
+        if selectedMeasurementType == .brace {
+            if let length = Float(braceLengthInput), length > 0 {
+                SpectrumDisplaySettings.braceLength = length
+            }
+            if let width = Float(braceWidthInput), width > 0 {
+                SpectrumDisplaySettings.braceWidth = width
+            }
+            if let thickness = Float(braceThicknessInput), thickness > 0 {
+                SpectrumDisplaySettings.braceThickness = thickness
+            }
+            if let mass = Float(braceMassInput), mass > 0 {
+                SpectrumDisplaySettings.braceMass = mass
             }
         }
         

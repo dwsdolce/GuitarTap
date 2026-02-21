@@ -15,6 +15,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
     case flamenco = "Flamenco Guitar"
     case acoustic = "Acoustic Guitar"
     case material = "Material (Wood Plate)"
+    case brace = "Brace Material"
     
     var id: String { rawValue }
     
@@ -25,6 +26,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         case .flamenco: return "Flamenco"
         case .acoustic: return "Acoustic"
         case .material: return "Material"
+        case .brace: return "Brace"
         }
     }
     
@@ -39,6 +41,8 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
             return "Steel string, X-braced (Dreadnought, OM, etc.)"
         case .material:
             return "Rectangular wood plate for calculating stiffness and sound radiation"
+        case .brace:
+            return "Brace strip — measures longitudinal stiffness (fL only)"
         }
     }
     
@@ -47,7 +51,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .classical, .flamenco, .acoustic:
             return true
-        case .material:
+        case .material, .brace:
             return false
         }
     }
@@ -58,7 +62,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         case .classical: return .classical
         case .flamenco: return .flamenco
         case .acoustic: return .acoustic
-        case .material: return nil
+        case .material, .brace: return nil
         }
     }
     
@@ -224,6 +228,12 @@ struct SpectrumDisplaySettings {
     private static let materialWidthKey = "materialWidth"
     private static let materialThicknessKey = "materialThickness"
     private static let materialMassKey = "materialMass"
+    
+    // Brace measurement keys (separate from plate material)
+    private static let braceLengthKey = "braceLength"
+    private static let braceWidthKey = "braceWidth"
+    private static let braceThicknessKey = "braceThickness"
+    private static let braceMassKey = "braceMass"
     private static let displayMinFreqKey = "displayMinFreq"
     private static let displayMaxFreqKey = "displayMaxFreq"
     private static let displayMinDBKey = "displayMinDB"
@@ -235,6 +245,7 @@ struct SpectrumDisplaySettings {
     private static let hopSizeOverlapKey = "hopSizeOverlap"
     private static let tapDetectionThresholdKey = "tapDetectionThreshold"
     private static let hysteresisMarginKey = "hysteresisMargin"
+    private static let measureFlcKey = "measureFlc"
     
     // MARK: - Measurement Type Setting
     
@@ -320,6 +331,45 @@ struct SpectrumDisplaySettings {
         set {
             UserDefaults.standard.set(newValue, forKey: materialMassKey)
         }
+    }
+    
+    // MARK: - Brace Dimensions (for Brace Material measurement type)
+    
+    /// Brace length in mm (along grain direction)
+    static var braceLength: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: braceLengthKey)
+            return value > 0 ? value : 300.0  // Default 300mm
+        }
+        set { UserDefaults.standard.set(newValue, forKey: braceLengthKey) }
+    }
+    
+    /// Brace width in mm (across grain — the narrow horizontal cross-section when lying flat)
+    static var braceWidth: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: braceWidthKey)
+            return value > 0 ? value : 6.0  // Default 6mm
+        }
+        set { UserDefaults.standard.set(newValue, forKey: braceWidthKey) }
+    }
+    
+    /// Brace height in mm — the vertical cross-section dimension when the brace lies flat.
+    /// This is the dimension in the bending/vibration direction (t in the formula).
+    static var braceThickness: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: braceThicknessKey)
+            return value > 0 ? value : 12.0  // Default 12mm
+        }
+        set { UserDefaults.standard.set(newValue, forKey: braceThicknessKey) }
+    }
+    
+    /// Brace mass in grams
+    static var braceMass: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: braceMassKey)
+            return value > 0 ? value : 8.0  // Default 8g
+        }
+        set { UserDefaults.standard.set(newValue, forKey: braceMassKey) }
     }
     
     // MARK: - Unknown Mode Display Setting
@@ -509,6 +559,21 @@ struct SpectrumDisplaySettings {
         }
     }
     
+    /// Whether to perform the optional FLC (diagonal/shear) tap measurement
+    /// FLC tap requires supporting the plate at all 4 nodal points - can be difficult
+    /// Defaults to false since it's an advanced measurement
+    static var measureFlc: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: measureFlcKey) == nil {
+                return false
+            }
+            return UserDefaults.standard.bool(forKey: measureFlcKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: measureFlcKey)
+        }
+    }
+    
     /// Persisted hysteresis margin (dB)
     static var hysteresisMargin: Float {
         get {
@@ -540,6 +605,7 @@ struct SpectrumDisplaySettings {
         hopSizeOverlap = defaultHopSizeOverlap
         tapDetectionThreshold = defaultTapDetectionThreshold
         hysteresisMargin = defaultHysteresisMargin
+        measureFlc = false
     }
     
     // MARK: - Validation

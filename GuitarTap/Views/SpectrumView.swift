@@ -103,6 +103,9 @@ struct SpectrumView: View {
     /// ID of the peak selected as cross-grain mode (for material measurements)
     var selectedCrossPeakID: UUID?
     
+    /// ID of the peak selected as FLC (diagonal/shear) mode (for material measurements)
+    var selectedFlcPeakID: UUID?
+    
     // MARK: - Gesture State
     
     /// Tracks drag offset during pan gestures
@@ -289,11 +292,13 @@ struct SpectrumView: View {
         } else {
             // Material mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {
-                return .blue  // Longitudinal = blue
+                return .blue      // Longitudinal = blue
             } else if peak.id == selectedCrossPeakID {
-                return .orange  // Cross-grain = orange
+                return .orange    // Cross-grain = orange
+            } else if peak.id == selectedFlcPeakID {
+                return .purple    // FLC = purple
             } else {
-                return .secondary  // Unselected = gray
+                return .secondary // Unselected = gray
             }
         }
     }
@@ -416,7 +421,8 @@ struct SpectrumView: View {
                     isAnnotationDragging: $isAnnotationDragging,
                     measurementType: measurementType,
                     selectedLongitudinalPeakID: selectedLongitudinalPeakID,
-                    selectedCrossPeakID: selectedCrossPeakID
+                    selectedCrossPeakID: selectedCrossPeakID,
+                    selectedFlcPeakID: selectedFlcPeakID
                 )
             }
         }
@@ -922,6 +928,7 @@ private struct PeakAnnotationsOverlay: View {
     let measurementType: MeasurementType
     let selectedLongitudinalPeakID: UUID?
     let selectedCrossPeakID: UUID?
+    let selectedFlcPeakID: UUID?
     
     var body: some View {
         ZStack {
@@ -940,6 +947,7 @@ private struct PeakAnnotationsOverlay: View {
                     measurementType: measurementType,
                     selectedLongitudinalPeakID: selectedLongitudinalPeakID,
                     selectedCrossPeakID: selectedCrossPeakID,
+                    selectedFlcPeakID: selectedFlcPeakID,
                     onOffsetChange: { newOffset in
                         annotationOffsets.wrappedValue[peak.id] = newOffset
                     },
@@ -972,6 +980,7 @@ struct DraggablePeakAnnotation: View {
     let measurementType: MeasurementType
     let selectedLongitudinalPeakID: UUID?
     let selectedCrossPeakID: UUID?
+    let selectedFlcPeakID: UUID?
     
     let onOffsetChange: (CGPoint) -> Void
     let onReset: () -> Void
@@ -1001,11 +1010,13 @@ struct DraggablePeakAnnotation: View {
         } else {
             // Material mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {
-                return .blue  // Longitudinal = blue
+                return .blue      // Longitudinal = blue
             } else if peak.id == selectedCrossPeakID {
-                return .orange  // Cross-grain = orange
+                return .orange    // Cross-grain = orange
+            } else if peak.id == selectedFlcPeakID {
+                return .purple    // FLC = purple
             } else {
-                return .secondary  // Unselected = gray
+                return .secondary // Unselected = gray
             }
         }
     }
@@ -1101,7 +1112,8 @@ struct DraggablePeakAnnotation: View {
                 isMoved: isMoved,
                 measurementType: measurementType,
                 isLongitudinal: peak.id == selectedLongitudinalPeakID,
-                isCross: peak.id == selectedCrossPeakID
+                isCross: peak.id == selectedCrossPeakID,
+                isFlc: peak.id == selectedFlcPeakID
             )
             .position(finalPosition)
             .highPriorityGesture(
@@ -1248,8 +1260,9 @@ private struct PeakAnnotationLabel: View {
     let measurementType: MeasurementType
     let isLongitudinal: Bool
     let isCross: Bool
+    var isFlc: Bool = false
     
-    /// The mode label to display - guitar mode name or material mode (L/C)
+    /// The mode label to display - guitar mode name or material mode (L/C/FLC)
     private var modeLabel: String {
         if measurementType.isGuitar {
             return GuitarMode.classify(frequency: peak.frequency).displayName
@@ -1259,6 +1272,8 @@ private struct PeakAnnotationLabel: View {
                 return "Longitudinal"
             } else if isCross {
                 return "Cross-grain"
+            } else if isFlc {
+                return "FLC"
             } else {
                 return "Peak"  // Unselected peak
             }
@@ -1503,6 +1518,7 @@ struct ExportableSpectrumChart: View {
     var measurementType: MeasurementType = .acoustic
     var selectedLongitudinalPeakID: UUID?
     var selectedCrossPeakID: UUID?
+    var selectedFlcPeakID: UUID?
     
     private var chartData: [SpectrumDataPoint] {
         zip(frequencies, magnitudes)
@@ -1573,11 +1589,13 @@ struct ExportableSpectrumChart: View {
         if measurementType.isGuitar {
             return modeColor(for: GuitarMode.classify(frequency: peak.frequency))
         } else {
-            // Material mode: color by L/C selection
+            // Material mode: color by L/C/FLC selection
             if peak.id == selectedLongitudinalPeakID {
                 return .blue
             } else if peak.id == selectedCrossPeakID {
                 return .orange
+            } else if peak.id == selectedFlcPeakID {
+                return .purple
             } else {
                 return .secondary
             }
@@ -1593,6 +1611,8 @@ struct ExportableSpectrumChart: View {
                 return "Longitudinal"
             } else if peak.id == selectedCrossPeakID {
                 return "Cross-grain"
+            } else if peak.id == selectedFlcPeakID {
+                return "FLC"
             } else {
                 return "Peak"
             }
