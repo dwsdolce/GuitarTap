@@ -55,7 +55,13 @@ struct SpectrumSettingsView: View {
     @State private var materialThicknessInput: String = String(format: "%.2f", SpectrumDisplaySettings.materialThickness)
     @State private var materialMassInput: String = String(format: "%.1f", SpectrumDisplaySettings.materialMass)
     @State private var measureFlc: Bool = SpectrumDisplaySettings.measureFlc
-    
+
+    // Gore thicknessing settings
+    @State private var guitarBodyLengthInput: String = String(format: "%.0f", SpectrumDisplaySettings.guitarBodyLength)
+    @State private var guitarBodyWidthInput: String = String(format: "%.0f", SpectrumDisplaySettings.guitarBodyWidth)
+    @State private var plateStiffnessPreset: PlateStiffnessPreset = SpectrumDisplaySettings.plateStiffnessPreset
+    @State private var customPlateStiffnessInput: String = String(format: "%.0f", SpectrumDisplaySettings.customPlateStiffness)
+
     // Brace dimensions (for Brace Material measurement type)
     @State private var braceLengthInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceLength)
     @State private var braceWidthInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceWidth)
@@ -247,12 +253,12 @@ struct SpectrumSettingsView: View {
                         Toggle(isOn: $measureFlc) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Measure FLC (Diagonal Tap)")
-                                Text("Add a 3rd tap supporting plate at 4 corner nodal points to measure shear stiffness. Can be difficult to perform.")
+                                Text("Add a 3rd tap supporting plate at 4 corner nodal points to measure shear stiffness. Required for Gore target thickness.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                         }
-                        
+
                         if let length = Float(materialLengthInput),
                            let width = Float(materialWidthInput),
                            let thickness = Float(materialThicknessInput),
@@ -267,6 +273,75 @@ struct SpectrumSettingsView: View {
                                 Text(String(format: "%.3f g/cm³", dims.densityGPerCm3))
                                     .font(.subheadline)
                                     .fontWeight(.medium)
+                            }
+                        }
+
+                        Divider()
+
+                        Text("Gore Target Thickness — Body Dimensions")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Text("Finished guitar body dimensions used in Gore's Eq. 4.5-7 to calculate target plate thickness.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        HStack {
+                            Text("Body Length (a):")
+                                .font(.subheadline)
+                            Spacer()
+                            TextField("mm", text: $guitarBodyLengthInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("mm")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack {
+                            Text("Lower Bout Width (b):")
+                                .font(.subheadline)
+                            Spacer()
+                            TextField("mm", text: $guitarBodyWidthInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("mm")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Divider()
+
+                        Text("Plate Vibrational Stiffness (f_vs)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Picker("Panel Type", selection: $plateStiffnessPreset) {
+                            ForEach(PlateStiffnessPreset.allCases) { preset in
+                                Text(preset.shortName).tag(preset)
+                            }
+                        }
+                        #if os(iOS)
+                        .pickerStyle(.navigationLink)
+                        #endif
+
+                        if plateStiffnessPreset == .custom {
+                            HStack {
+                                Text("Custom f_vs value:")
+                                    .font(.subheadline)
+                                Spacer()
+                                TextField("value", text: $customPlateStiffnessInput)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 80)
+                                    #if os(iOS)
+                                    .keyboardType(.decimalPad)
+                                    #endif
                             }
                         }
                     }
@@ -1033,8 +1108,21 @@ struct SpectrumSettingsView: View {
             if let mass = Float(materialMassInput), mass > 0 {
                 SpectrumDisplaySettings.materialMass = mass
             }
+
+            // Save Gore thicknessing settings (always save regardless of FLC state)
+            if let bodyLength = Float(guitarBodyLengthInput), bodyLength > 0 {
+                SpectrumDisplaySettings.guitarBodyLength = bodyLength
+            }
+            if let bodyWidth = Float(guitarBodyWidthInput), bodyWidth > 0 {
+                SpectrumDisplaySettings.guitarBodyWidth = bodyWidth
+            }
+            SpectrumDisplaySettings.plateStiffnessPreset = plateStiffnessPreset
+            if plateStiffnessPreset == .custom,
+               let customVal = Float(customPlateStiffnessInput), customVal > 0 {
+                SpectrumDisplaySettings.customPlateStiffness = customVal
+            }
         }
-        
+
         // Save brace dimensions (separate keys from plate)
         if selectedMeasurementType == .brace {
             if let length = Float(braceLengthInput), length > 0 {

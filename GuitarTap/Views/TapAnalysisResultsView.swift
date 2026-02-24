@@ -464,18 +464,27 @@ struct TapAnalysisResultsView: View {
               let crossPeak = sortedPeaksWithModes.first(where: { $0.peak.id == crossPeakID })?.peak else {
             return nil
         }
-        
+
+        // Resolve FLC peak frequency: check flcPeaks first (from its own tap),
+        // then fall back to combined currentPeaks for saved measurements
+        let flcFreq: Float? = {
+            guard let flcPeakID = effectiveFlcPeakID else { return nil }
+            return analyzer.flcPeaks.first(where: { $0.id == flcPeakID })?.frequency
+                ?? sortedPeaksWithModes.first(where: { $0.peak.id == flcPeakID })?.peak.frequency
+        }()
+
         let dimensions = MaterialDimensions(
             lengthMM: SpectrumDisplaySettings.materialLength,
             widthMM: SpectrumDisplaySettings.materialWidth,
             thicknessMM: SpectrumDisplaySettings.materialThickness,
             massGrams: SpectrumDisplaySettings.materialMass
         )
-        
+
         return MaterialProperties(
             dimensions: dimensions,
             fundamentalFrequencyLong: longPeak.frequency,
-            fundamentalFrequencyCross: crossPeak.frequency
+            fundamentalFrequencyCross: crossPeak.frequency,
+            fundamentalFrequencyFlc: flcFreq
         )
     }
     
@@ -585,7 +594,7 @@ struct TapAnalysisResultsView: View {
                     }
                     
                     Divider()
-                    
+
                     // Overall Quality Assessment
                     HStack {
                         Text("Overall Quality:")
@@ -598,6 +607,9 @@ struct TapAnalysisResultsView: View {
                             .foregroundColor(qualityColor(for: props.overallQuality))
                     }
                     .padding(.vertical, 4)
+
+                    // Gore Target Thickness
+                    goreThicknessView(for: props)
                 }
             } else {
                 VStack(spacing: 12) {
@@ -727,6 +739,85 @@ struct TapAnalysisResultsView: View {
         }
     }
     
+    // MARK: - Gore Thickness View
+
+    /// Displays the Gore target thickness result
+    @ViewBuilder
+    private func goreThicknessView(for props: MaterialProperties) -> some View {
+        let bodyLength = SpectrumDisplaySettings.guitarBodyLength
+        let bodyWidth  = SpectrumDisplaySettings.guitarBodyWidth
+        let fvs        = SpectrumDisplaySettings.plateStiffness
+        let preset     = SpectrumDisplaySettings.plateStiffnessPreset
+
+        Divider()
+
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Gore Target Thickness")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+
+            if let hd = props.goreTargetThickness(
+                bodyLengthMm: bodyLength,
+                bodyWidthMm: bodyWidth,
+                vibrationalStiffness: fvs) {
+
+                // Prominent thickness display
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(String(format: "%.2f", hd))
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundColor(.accentColor)
+                    Text("mm")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+
+                // GLC shear modulus (or note that it was assumed zero)
+                if let glc = props.goreShearModulus {
+                    HStack {
+                        Text("Shear Modulus (GLC):")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(String(format: "%.3f GPa", glc / 1.0e9))
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                } else {
+                    Label {
+                        Text("GLC assumed 0 — enable FLC tap for a more accurate result")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    } icon: {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.secondary)
+                            .font(.caption2)
+                    }
+                }
+
+                // Parameters used
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Body: \(String(format: "%.0f", bodyLength)) × \(String(format: "%.0f", bodyWidth)) mm")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        let presetLabel = preset == .custom
+                            ? String(format: "f_vs = %.0f (custom)", fvs)
+                            : "f_vs = \(Int(fvs)) (\(preset.rawValue))"
+                        Text(presetLabel)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(Color.accentColor.opacity(0.08))
+        .cornerRadius(8)
+    }
+
     // MARK: - Helper Views
     
     private func propertyRow(title: String, longValue: String, crossValue: String) -> some View {

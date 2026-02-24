@@ -214,21 +214,61 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Plate Stiffness Preset
+
+/// Preset vibrational stiffness targets for different plate types (Gore Eq. 4.5-7)
+enum PlateStiffnessPreset: String, CaseIterable, Identifiable, Codable {
+    case steelStringTop = "Steel String Top"
+    case steelStringBack = "Steel String Back"
+    case classicalTop = "Classical Top"
+    case classicalBack = "Classical Back"
+    case custom = "Custom"
+
+    var id: String { rawValue }
+
+    /// The vibrational stiffness value (f_vs) for this preset
+    var value: Float {
+        switch self {
+        case .steelStringTop:  return 75
+        case .steelStringBack: return 55
+        case .classicalTop:    return 50
+        case .classicalBack:   return 50
+        case .custom:          return 0  // use customPlateStiffness
+        }
+    }
+
+    var shortName: String {
+        switch self {
+        case .steelStringTop:  return "SS Top (75)"
+        case .steelStringBack: return "SS Back (55)"
+        case .classicalTop:    return "Classical Top (50)"
+        case .classicalBack:   return "Classical Back (50)"
+        case .custom:          return "Custom"
+        }
+    }
+}
+
 /// Centralized settings for spectrum display ranges across the app
 struct SpectrumDisplaySettings {
-    
+
     // MARK: - UserDefaults Keys
-    
+
     private static let measurementTypeKey = "measurementType"
     private static let guitarTypeKey = "guitarType"
     private static let showUnknownModesKey = "showUnknownModes"
-    
+
     // Material measurement keys
     private static let materialLengthKey = "materialLength"
     private static let materialWidthKey = "materialWidth"
     private static let materialThicknessKey = "materialThickness"
     private static let materialMassKey = "materialMass"
-    
+
+    // Gore thicknessing keys
+    private static let guitarBodyLengthKey = "guitarBodyLength"
+    private static let guitarBodyWidthKey = "guitarBodyWidth"
+    private static let plateStiffnessPresetKey = "plateStiffnessPreset"
+    private static let customPlateStiffnessKey = "customPlateStiffness"
+
     // Brace measurement keys (separate from plate material)
     private static let braceLengthKey = "braceLength"
     private static let braceWidthKey = "braceWidth"
@@ -332,7 +372,62 @@ struct SpectrumDisplaySettings {
             UserDefaults.standard.set(newValue, forKey: materialMassKey)
         }
     }
-    
+
+    // MARK: - Gore Thicknessing Settings
+
+    /// Guitar body length (neck join to tail, finished dimensions) in mm
+    static var guitarBodyLength: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: guitarBodyLengthKey)
+            return value > 0 ? value : 490.0  // Default 490mm
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: guitarBodyLengthKey)
+        }
+    }
+
+    /// Guitar lower bout width (finished dimensions) in mm
+    static var guitarBodyWidth: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: guitarBodyWidthKey)
+            return value > 0 ? value : 390.0  // Default 390mm
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: guitarBodyWidthKey)
+        }
+    }
+
+    /// Selected plate vibrational stiffness preset
+    static var plateStiffnessPreset: PlateStiffnessPreset {
+        get {
+            if let raw = UserDefaults.standard.string(forKey: plateStiffnessPresetKey),
+               let preset = PlateStiffnessPreset(rawValue: raw) {
+                return preset
+            }
+            return .steelStringTop
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: plateStiffnessPresetKey)
+        }
+    }
+
+    /// Custom plate vibrational stiffness value (used when preset is .custom)
+    static var customPlateStiffness: Float {
+        get {
+            let value = UserDefaults.standard.float(forKey: customPlateStiffnessKey)
+            return value > 0 ? value : 75.0
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: customPlateStiffnessKey)
+        }
+    }
+
+    /// The effective plate vibrational stiffness value (preset or custom)
+    static var plateStiffness: Float {
+        let preset = plateStiffnessPreset
+        return preset == .custom ? customPlateStiffness : preset.value
+    }
+
     // MARK: - Brace Dimensions (for Brace Material measurement type)
     
     /// Brace length in mm (along grain direction)

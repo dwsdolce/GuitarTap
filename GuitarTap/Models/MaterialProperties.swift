@@ -56,13 +56,26 @@ struct MaterialDimensions {
 struct MaterialProperties {
     /// The dimensions used for calculation
     let dimensions: MaterialDimensions
-    
+
     /// Fundamental frequency along the length (longitudinal mode) in Hz
     let fundamentalFrequencyLong: Float
-    
+
     /// Fundamental frequency along the width (cross mode) in Hz
     let fundamentalFrequencyCross: Float
-    
+
+    /// Fundamental frequency from the FLC (diagonal/torsional) tap in Hz, optional
+    let fundamentalFrequencyFlc: Float?
+
+    init(dimensions: MaterialDimensions,
+         fundamentalFrequencyLong: Float,
+         fundamentalFrequencyCross: Float,
+         fundamentalFrequencyFlc: Float? = nil) {
+        self.dimensions = dimensions
+        self.fundamentalFrequencyLong = fundamentalFrequencyLong
+        self.fundamentalFrequencyCross = fundamentalFrequencyCross
+        self.fundamentalFrequencyFlc = fundamentalFrequencyFlc
+    }
+
     // MARK: - Calculated Properties
     
     /// Young's modulus along grain (E_long) in Pa
@@ -165,12 +178,125 @@ struct MaterialProperties {
         let longScore = spruceQualityLong.numericScore * 0.7
         let crossScore = spruceQualityCross.numericScore * 0.3
         let combined = longScore + crossScore
-        
+
         if combined >= 4.5 { return .excellent }
         if combined >= 3.5 { return .veryGood }
         if combined >= 2.5 { return .good }
         if combined >= 1.5 { return .fair }
         return .poor
+    }
+
+    // MARK: - Gore Plate Thicknessing (Eq. 4.5-7)
+
+    /// Poisson's ratio ν_CL — Gore's suggested average for softwoods
+    private static let vcl: Float = 0.05
+
+    /// Product ν_LC × ν_CL — Gore's suggested average
+    private static let vlcVcl: Float = 0.02
+
+    /// Gore coefficient 1: (1/((π/2)² × (3/2)⁴)) × 12 × (1 − ν_LC·ν_CL)
+    /// Used for EL and EC calculation from tap frequencies.
+    private var goreCoef1: Float {
+        let term = pow(Float.pi / 2.0, 2.0) * pow(1.5, 4.0)
+        return (1.0 / term) * 12.0 * (1.0 - MaterialProperties.vlcVcl)
+    }
+
+    /// Gore coefficient 2: π × √(12 × (1 − ν_LC·ν_CL) / 126)
+    /// Used in the target thickness numerator.
+    private var goreCoef2: Float {
+        return Float.pi * sqrt(12.0 * (1.0 - MaterialProperties.vlcVcl) / 126.0)
+    }
+
+    /// Gore coefficient 3: 4 × ν_CL / 7
+    /// Poisson correction for the EL term in the denominator.
+    private var goreCoef3: Float {
+        return 4.0 * MaterialProperties.vcl / 7.0
+    }
+
+    /// Gore coefficient 4: 4 × 12 × (1 − ν_LC·ν_CL) / 42
+    /// Shear term scaling in the denominator.
+    private var goreCoef4: Float {
+        return 4.0 * 12.0 * (1.0 - MaterialProperties.vlcVcl) / 42.0
+    }
+
+    /// Young's modulus along grain using Gore's plate formula (Pa)
+    /// Formula: EL = Coef_1 × ρ × l⁴ × fL² / t²
+    var goreYoungsModulusLong: Float {
+        let t = dimensions.thickness
+        guard t > 0, dimensions.density > 0 else { return 0 }
+        return goreCoef1 * dimensions.density
+            * pow(dimensions.length, 4.0)
+            * fundamentalFrequencyLong * fundamentalFrequencyLong
+            / (t * t)
+    }
+
+    /// Young's modulus across grain using Gore's plate formula (Pa)
+    /// Formula: EC = Coef_1 × ρ × w⁴ × fC² / t²
+    var goreYoungsModulusCross: Float {
+        let t = dimensions.thickness
+        guard t > 0, dimensions.density > 0 else { return 0 }
+        return goreCoef1 * dimensions.density
+            * pow(dimensions.width, 4.0)
+            * fundamentalFrequencyCross * fundamentalFrequencyCross
+            / (t * t)
+    }
+
+    /// Shear modulus GLC using Gore's formula (Pa), nil if FLC frequency unavailable
+    /// Formula: GLC = (12/π²) × ρ × l² × w² × fLC² / t²
+    var goreShearModulus: Float? {
+        guard let fLC = fundamentalFrequencyFlc else { return nil }
+        let t = dimensions.thickness
+        guard t > 0, dimensions.density > 0 else { return nil }
+        let coef = 12.0 / (Float.pi * Float.pi)
+        return coef * dimensions.density
+            * pow(dimensions.length, 2.0)
+            * pow(dimensions.width, 2.0)
+            * fLC * fLC
+            / (t * t)
+    }
+
+    /// Gore target plate thickness in mm for a finished guitar body.
+    ///
+    /// Implements Gore Equation 4.5-7. Uses EL, EC, and GLC derived from the
+    /// test-plate tap tones to calculate the optimal thickness for the actual
+    /// guitar plate given the body geometry and desired vibrational stiffness.
+    /// When the FLC tap has not been performed, GLC is treated as 0, which
+    /// slightly over-estimates the target thickness (typically by ~5–7%).
+    ///
+    /// - Parameters:
+    ///   - bodyLengthMm: Guitar body length (neck join to tail) in mm
+    ///   - bodyWidthMm: Guitar lower bout width in mm
+    ///   - vibrationalStiffness: Target f_vs (75 = steel string top, 55 = SS back, 50 = classical)
+    /// - Returns: Target thickness in mm, or nil only if required inputs are missing/invalid
+    func goreTargetThickness(bodyLengthMm: Float, bodyWidthMm: Float, vibrationalStiffness: Float) -> Float? {
+        guard bodyLengthMm > 0, bodyWidthMm > 0, vibrationalStiffness > 0 else { return nil }
+        guard dimensions.density > 0 else { return nil }
+
+        let a = bodyLengthMm / 1000.0   // body length in metres
+        let b = bodyWidthMm / 1000.0    // lower bout width in metres
+        let rho = dimensions.density     // kg/m³
+
+        // Moduli in GPa (denominator calculation uses GPa, then × 10⁹ → Pa)
+        let elGPa  = goreYoungsModulusLong  / 1.0e9
+        let ecGPa  = goreYoungsModulusCross / 1.0e9
+        // Use measured GLC if available; fall back to 0 when FLC tap not performed
+        let glcGPa = (goreShearModulus ?? 0) / 1.0e9
+
+        // Numerator: Coef_2 × f_vs × a² × √ρ
+        let numerator = goreCoef2 * vibrationalStiffness * a * a * sqrt(rho)
+
+        // Denominator (GPa): EL + (a/b)⁴·EC + (a/b)²·(Coef_3·EL + Coef_4·GLC)
+        let aOverB  = a / b
+        let aOverB2 = aOverB * aOverB
+        let aOverB4 = aOverB2 * aOverB2
+        let denominatorGPa = elGPa
+            + aOverB4 * ecGPa
+            + aOverB2 * (goreCoef3 * elGPa + goreCoef4 * glcGPa)
+        guard denominatorGPa > 0 else { return nil }
+
+        // Convert denominator to Pa, compute thickness in mm
+        let denominatorPa = denominatorGPa * 1.0e9
+        return numerator / sqrt(denominatorPa) * 1000.0
     }
 }
 
