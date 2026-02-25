@@ -18,6 +18,7 @@ struct MeasurementsListView: View {
     @State private var showingExport = false
     @State private var exportText = ""
     @State private var isExporting = false  // Track export progress
+    @State private var isGeneratingReport = false
     @State private var showingImportPicker = false
     @State private var importError: String?
     @State private var importSuccess: String?
@@ -65,6 +66,8 @@ struct MeasurementsListView: View {
             .overlay {
                 if isExporting {
                     LoadingOverlay(message: "Exporting measurements...")
+                } else if isGeneratingReport {
+                    LoadingOverlay(message: "Generating PDF report...")
                 }
             }
         #else
@@ -99,6 +102,8 @@ struct MeasurementsListView: View {
                 .overlay {
                     if isExporting {
                         LoadingOverlay(message: "Exporting measurements...")
+                    } else if isGeneratingReport {
+                        LoadingOverlay(message: "Generating PDF report...")
                     }
                 }
         }
@@ -152,7 +157,13 @@ struct MeasurementsListView: View {
                             }) {
                                 Label("Export as JSON/image", systemImage: "square.and.arrow.up")
                             }
-                            
+
+                            Button(action: {
+                                exportPDFReport(for: measurement)
+                            }) {
+                                Label("Export PDF Report", systemImage: "doc.richtext")
+                            }
+
                             Divider()
                             
                             Button(role: .destructive, action: {
@@ -216,6 +227,20 @@ struct MeasurementsListView: View {
             MeasurementFileExporter.exportJSONAndImage(json: json, measurement: measurement) {
                 self.isExporting = false
             }
+        }
+    }
+
+    @MainActor
+    private func exportPDFReport(for measurement: TapToneMeasurement) {
+        isGeneratingReport = true
+        let reportData = PDFReportData.from(measurement: measurement)
+        guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
+            print("❌ Failed to generate PDF report")
+            isGeneratingReport = false
+            return
+        }
+        MeasurementFileExporter.exportPDF(data: pdfData, basename: reportData.baseFilename) {
+            self.isGeneratingReport = false
         }
     }
     

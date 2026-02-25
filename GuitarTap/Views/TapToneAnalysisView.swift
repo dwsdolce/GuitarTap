@@ -32,6 +32,7 @@ struct TapToneAnalysisView: View {
     @State private var showingSettings = false
     @State private var isExportingSpectrum = false
     @State private var isSavingMeasurement = false
+    @State private var isGeneratingReport = false
     
     // Spectrum display state (loaded from persisted settings)
     @State private var minFreq: Float = SpectrumDisplaySettings.minFrequency
@@ -397,7 +398,8 @@ struct TapToneAnalysisView: View {
                     maxFreq: maxFreq,
                     selectedLongitudinalPeakID: $selectedLongitudinalPeakID,
                     selectedCrossPeakID: $selectedCrossPeakID,
-                    selectedFlcPeakID: $selectedFlcPeakID
+                    selectedFlcPeakID: $selectedFlcPeakID,
+                    onExportPDFReport: { exportPDFReport() }
                 )
                 .navigationTitle("Analysis Results")
                 .toolbar {
@@ -444,6 +446,8 @@ struct TapToneAnalysisView: View {
                 LoadingOverlay(message: "Exporting spectrum...")
             } else if isSavingMeasurement {
                 LoadingOverlay(message: "Saving measurement with chart image...")
+            } else if isGeneratingReport {
+                LoadingOverlay(message: "Generating PDF report...")
             }
         }
     }
@@ -478,7 +482,8 @@ struct TapToneAnalysisView: View {
                     maxFreq: maxFreq,
                     selectedLongitudinalPeakID: $selectedLongitudinalPeakID,
                     selectedCrossPeakID: $selectedCrossPeakID,
-                    selectedFlcPeakID: $selectedFlcPeakID
+                    selectedFlcPeakID: $selectedFlcPeakID,
+                    onExportPDFReport: { exportPDFReport() }
                 )
                 .navigationTitle("Analysis Results")
                 .navigationBarTitleDisplayMode(.inline)
@@ -541,6 +546,8 @@ struct TapToneAnalysisView: View {
                 LoadingOverlay(message: "Exporting spectrum...")
             } else if isSavingMeasurement {
                 LoadingOverlay(message: "Saving measurement with chart image...")
+            } else if isGeneratingReport {
+                LoadingOverlay(message: "Generating PDF report...")
             }
         }
     }
@@ -2520,6 +2527,111 @@ struct TapToneAnalysisView: View {
         }
     }
     
+    // MARK: - PDF Report Export
+
+    /// Renders the current spectrum as PNG, builds report data, generates a PDF, and exports it.
+    @MainActor
+    private func exportPDFReport() {
+        isGeneratingReport = true
+
+        // Render current spectrum to PNG data (same technique as save/exportSpectrum)
+        let spectrumView = createExportableSpectrumView()
+        let imageRenderer = ImageRenderer(content: spectrumView)
+        imageRenderer.scale = displayScale
+
+        var spectrumImageData: Data?
+        #if os(iOS)
+        if let uiImage = imageRenderer.uiImage {
+            spectrumImageData = uiImage.pngData()
+        }
+        #elseif os(macOS)
+        if let nsImage = imageRenderer.nsImage,
+           let tiffData = nsImage.tiffRepresentation,
+           let bitmap = NSBitmapImageRep(data: tiffData) {
+            spectrumImageData = bitmap.representation(using: .png, properties: [:])
+        }
+        #endif
+
+        // Compute material properties if applicable
+        let measurementType = SpectrumDisplaySettings.measurementType
+        var materialProps: MaterialProperties? = nil
+        if measurementType == .material {
+            let effLong = selectedLongitudinalPeakID ?? tapToneAnalyzer.autoSelectedLongitudinalPeakID
+            let effCross = selectedCrossPeakID ?? tapToneAnalyzer.autoSelectedCrossPeakID
+            let effFlc = selectedFlcPeakID ?? tapToneAnalyzer.autoSelectedFlcPeakID
+            if let longPeak = tapToneAnalyzer.currentPeaks.first(where: { $0.id == effLong }),
+               let crossPeak = tapToneAnalyzer.currentPeaks.first(where: { $0.id == effCross }) {
+                let flcFreq: Float? = tapToneAnalyzer.currentPeaks.first(where: { $0.id == effFlc })?.frequency
+                let dims = MaterialDimensions(
+                    lengthMM: SpectrumDisplaySettings.materialLength,
+                    widthMM: SpectrumDisplaySettings.materialWidth,
+                    thicknessMM: SpectrumDisplaySettings.materialThickness,
+                    massGrams: SpectrumDisplaySettings.materialMass
+                )
+                if dims.length > 0 && dims.mass > 0 {
+                    materialProps = MaterialProperties(
+                        dimensions: dims,
+                        fundamentalFrequencyLong: longPeak.frequency,
+                        fundamentalFrequencyCross: crossPeak.frequency,
+                        fundamentalFrequencyFlc: flcFreq
+                    )
+                }
+            }
+        } else if measurementType == .brace {
+            let effLong = selectedLongitudinalPeakID ?? tapToneAnalyzer.autoSelectedLongitudinalPeakID
+            if let longPeak = tapToneAnalyzer.currentPeaks.first(where: { $0.id == effLong }) {
+                let dims = MaterialDimensions(
+                    lengthMM: SpectrumDisplaySettings.braceLength,
+                    widthMM: SpectrumDisplaySettings.braceWidth,
+                    thicknessMM: SpectrumDisplaySettings.braceThickness,
+                    massGrams: SpectrumDisplaySettings.braceMass
+                )
+                if dims.length > 0 && dims.mass > 0 {
+                    materialProps = MaterialProperties(
+                        dimensions: dims,
+                        fundamentalFrequencyLong: longPeak.frequency,
+                        fundamentalFrequencyCross: longPeak.frequency,
+                        fundamentalFrequencyFlc: nil
+                    )
+                }
+            }
+        }
+
+        // Only include peaks within the currently displayed frequency range
+        let rangeFilteredPeaks = tapToneAnalyzer.currentPeaks.filter {
+            $0.frequency >= minFreq && $0.frequency <= maxFreq
+        }
+
+        let reportData = PDFReportData(
+            timestamp: Date(),
+            tapLocation: tapLocation.isEmpty ? nil : tapLocation,
+            notes: notes.isEmpty ? nil : notes,
+            measurementType: measurementType,
+            guitarType: SpectrumDisplaySettings.guitarType,
+            peaks: rangeFilteredPeaks,
+            hiddenPeakIDs: tapToneAnalyzer.hiddenPeakIDs,
+            decayTime: tapToneAnalyzer.currentDecayTime,
+            tapToneRatio: tapToneAnalyzer.calculateTapToneRatio(),
+            spectrumImageData: spectrumImageData,
+            minFreq: minFreq,
+            maxFreq: maxFreq,
+            materialProperties: materialProps,
+            selectedLongitudinalPeakID: selectedLongitudinalPeakID ?? tapToneAnalyzer.autoSelectedLongitudinalPeakID,
+            selectedCrossPeakID: selectedCrossPeakID ?? tapToneAnalyzer.autoSelectedCrossPeakID,
+            selectedFlcPeakID: selectedFlcPeakID ?? tapToneAnalyzer.autoSelectedFlcPeakID
+        )
+
+        guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
+            print("❌ Failed to generate PDF report")
+            isGeneratingReport = false
+            return
+        }
+
+        MeasurementFileExporter.exportPDF(data: pdfData, basename: reportData.baseFilename) {
+            self.isGeneratingReport = false
+        }
+    }
+
     @ViewBuilder
     private func createExportableSpectrumView() -> some View {
         VStack(alignment: .leading, spacing: 16) {

@@ -20,6 +20,10 @@ struct TapAnalysisResultsView: View {
     @Binding var selectedLongitudinalPeakID: UUID?
     @Binding var selectedCrossPeakID: UUID?
     @Binding var selectedFlcPeakID: UUID?
+
+    /// Optional callback invoked when the user requests a PDF report export.
+    /// When nil, the PDF export button is not shown.
+    var onExportPDFReport: (() -> Void)? = nil
     
     // Current measurement type
     private var measurementType: MeasurementType {
@@ -96,6 +100,18 @@ struct TapAnalysisResultsView: View {
                 
                 // Status indicator
                 statusIndicator
+
+                // PDF Report export button
+                if let exportPDF = onExportPDFReport {
+                    Divider()
+                    Button {
+                        exportPDF()
+                    } label: {
+                        Label("Export PDF Report", systemImage: "doc.richtext")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
+                }
             }
             .padding()
         }

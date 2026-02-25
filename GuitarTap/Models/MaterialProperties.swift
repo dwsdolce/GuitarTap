@@ -391,7 +391,7 @@ struct BraceProperties {
     // MARK: - Calculated Properties
     
     /// Young's modulus along grain (EL) in Pa
-    /// Formula: E = 48π²ρf²L⁴ / (22.37t)²
+    /// Formula: E = 48π²ρf²L⁴ / (22.37332t)²
     /// Derived from the first bending mode of a free-free beam (tap tone method).
     var youngsModulusLong: Float {
         let t = dimensions.thickness
@@ -399,7 +399,7 @@ struct BraceProperties {
         return 48 * .pi * .pi * dimensions.density
             * fundamentalFrequencyLong * fundamentalFrequencyLong
             * pow(dimensions.length, 4)
-            / pow(22.37 * t, 2)
+            / pow(22.37332 * t, 2)
     }
     
     /// Speed of sound along grain in m/s

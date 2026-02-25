@@ -13,6 +13,7 @@ struct MeasurementDetailView: View {
     @State private var showingExport = false
     @State private var exportText = ""
     @State private var isExporting = false
+    @State private var isGeneratingReport = false
     @State private var chartImage: Image?
     @State private var showingLoadConfirmation = false
     
@@ -35,6 +36,13 @@ struct MeasurementDetailView: View {
                     }
                     .help("Export measurement data (JSON) and chart image")
                 }
+
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: { generatePDFReport() }) {
+                        Label("PDF Report", systemImage: "doc.richtext")
+                    }
+                    .help("Export a PDF analysis report including the spectrum chart")
+                }
             }
             .sheet(isPresented: $showingExport) {
                 ExportView(text: exportText)
@@ -54,6 +62,8 @@ struct MeasurementDetailView: View {
             .overlay {
                 if isExporting {
                     LoadingOverlay(message: "Exporting...")
+                } else if isGeneratingReport {
+                    LoadingOverlay(message: "Generating PDF report...")
                 }
             }
         #else
@@ -73,7 +83,14 @@ struct MeasurementDetailView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { exportMeasurement() }) {
+                    Menu {
+                        Button(action: { exportMeasurement() }) {
+                            Label("Export Data (JSON)", systemImage: "square.and.arrow.up")
+                        }
+                        Button(action: { generatePDFReport() }) {
+                            Label("Export PDF Report", systemImage: "doc.richtext")
+                        }
+                    } label: {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
                 }
@@ -93,6 +110,8 @@ struct MeasurementDetailView: View {
             .overlay {
                 if isExporting {
                     LoadingOverlay(message: "Exporting...")
+                } else if isGeneratingReport {
+                    LoadingOverlay(message: "Generating PDF report...")
                 }
             }
         #endif
@@ -213,6 +232,20 @@ struct MeasurementDetailView: View {
             MeasurementFileExporter.exportJSONAndImage(json: json, measurement: measurement) {
                 self.isExporting = false
             }
+        }
+    }
+
+    @MainActor
+    private func generatePDFReport() {
+        isGeneratingReport = true
+        let reportData = PDFReportData.from(measurement: measurement)
+        guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
+            print("❌ Failed to generate PDF report")
+            isGeneratingReport = false
+            return
+        }
+        MeasurementFileExporter.exportPDF(data: pdfData, basename: reportData.baseFilename) {
+            self.isGeneratingReport = false
         }
     }
 }
