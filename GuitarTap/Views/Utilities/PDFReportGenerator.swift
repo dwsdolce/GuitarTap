@@ -35,6 +35,12 @@ struct PDFReportData {
     let selectedCrossPeakID: UUID?
     let selectedFlcPeakID: UUID?
 
+    // Gore thicknessing inputs (for plate material measurements)
+    let guitarBodyLength: Float
+    let guitarBodyWidth: Float
+    let plateStiffness: Float
+    let plateStiffnessPreset: PlateStiffnessPreset
+
     /// Build report data from a saved TapToneMeasurement
     static func from(measurement: TapToneMeasurement) -> PDFReportData {
         let snapshot = measurement.spectrumSnapshot
@@ -109,7 +115,11 @@ struct PDFReportData {
             materialProperties: materialProps,
             selectedLongitudinalPeakID: measurement.selectedLongitudinalPeakID,
             selectedCrossPeakID: measurement.selectedCrossPeakID,
-            selectedFlcPeakID: measurement.selectedFlcPeakID
+            selectedFlcPeakID: measurement.selectedFlcPeakID,
+            guitarBodyLength: SpectrumDisplaySettings.guitarBodyLength,
+            guitarBodyWidth: SpectrumDisplaySettings.guitarBodyWidth,
+            plateStiffness: SpectrumDisplaySettings.plateStiffness,
+            plateStiffnessPreset: SpectrumDisplaySettings.plateStiffnessPreset
         )
     }
 
@@ -497,6 +507,8 @@ private struct PDFReportContentView: View {
             Text("Material Properties")
                 .font(.system(size: 13, weight: .semibold))
 
+            dimensionsSubsection(dims: props.dimensions)
+
             HStack(alignment: .top, spacing: 0) {
                 // Left column
                 VStack(alignment: .leading, spacing: 6) {
@@ -534,6 +546,8 @@ private struct PDFReportContentView: View {
                 materialPropRow("Overall Quality",
                                props.overallQuality.rawValue)
             }
+
+            goreThicknessPDFSection(props)
         }
     }
 
@@ -541,6 +555,8 @@ private struct PDFReportContentView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Brace Properties")
                 .font(.system(size: 13, weight: .semibold))
+
+            dimensionsSubsection(dims: props.dimensions)
 
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -560,6 +576,70 @@ private struct PDFReportContentView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+    }
+
+    /// Renders a compact row of sample input dimensions.
+    private func dimensionsSubsection(dims: MaterialDimensions) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Sample Dimensions")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.secondary)
+            HStack(spacing: 0) {
+                materialPropRow("Length", String(format: "%.1f mm", dims.length * 1000))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                materialPropRow("Width", String(format: "%.1f mm", dims.width * 1000))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                materialPropRow("Thickness", String(format: "%.2f mm", dims.thickness * 1000))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                materialPropRow("Mass", String(format: "%.1f g", dims.mass * 1000))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                materialPropRow("Density", String(format: "%.3f g/cm³", dims.densityGPerCm3))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(6)
+        .background(Color.gray.opacity(0.06))
+        .cornerRadius(4)
+    }
+
+    /// Renders the Gore target thickness result (plate measurements only).
+    @ViewBuilder
+    private func goreThicknessPDFSection(_ props: MaterialProperties) -> some View {
+        if let hd = props.goreTargetThickness(
+            bodyLengthMm: data.guitarBodyLength,
+            bodyWidthMm: data.guitarBodyWidth,
+            vibrationalStiffness: data.plateStiffness) {
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Gore Target Thickness")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary)
+
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(String(format: "%.2f mm", hd))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Color(red: 0.15, green: 0.35, blue: 0.75))
+                    Spacer()
+                }
+
+                let presetLabel = data.plateStiffnessPreset == .custom
+                    ? String(format: "f_vs = %.0f (custom)", data.plateStiffness)
+                    : "f_vs = \(Int(data.plateStiffness)) (\(data.plateStiffnessPreset.rawValue))"
+                Text("Body: \(String(format: "%.0f", data.guitarBodyLength)) × \(String(format: "%.0f", data.guitarBodyWidth)) mm · \(presetLabel)")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+
+                if props.goreShearModulus == nil {
+                    Text("GLC assumed 0 — FLC tap not performed")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+            }
+            .padding(6)
+            .background(Color(red: 0.15, green: 0.35, blue: 0.75).opacity(0.07))
+            .cornerRadius(4)
         }
     }
 

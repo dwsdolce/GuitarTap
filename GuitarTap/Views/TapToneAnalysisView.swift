@@ -2618,7 +2618,11 @@ struct TapToneAnalysisView: View {
             materialProperties: materialProps,
             selectedLongitudinalPeakID: selectedLongitudinalPeakID ?? tapToneAnalyzer.autoSelectedLongitudinalPeakID,
             selectedCrossPeakID: selectedCrossPeakID ?? tapToneAnalyzer.autoSelectedCrossPeakID,
-            selectedFlcPeakID: selectedFlcPeakID ?? tapToneAnalyzer.autoSelectedFlcPeakID
+            selectedFlcPeakID: selectedFlcPeakID ?? tapToneAnalyzer.autoSelectedFlcPeakID,
+            guitarBodyLength: SpectrumDisplaySettings.guitarBodyLength,
+            guitarBodyWidth: SpectrumDisplaySettings.guitarBodyWidth,
+            plateStiffness: SpectrumDisplaySettings.plateStiffness,
+            plateStiffnessPreset: SpectrumDisplaySettings.plateStiffnessPreset
         )
 
         guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
