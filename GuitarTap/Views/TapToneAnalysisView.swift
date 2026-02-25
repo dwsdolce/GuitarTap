@@ -2402,7 +2402,10 @@ struct TapToneAnalysisView: View {
                 annotationOffsets: self.tapToneAnalyzer.peakAnnotationOffsets,
                 selectedLongitudinalPeakID: self.selectedLongitudinalPeakID,
                 selectedCrossPeakID: self.selectedCrossPeakID,
-                selectedFlcPeakID: self.selectedFlcPeakID
+                selectedFlcPeakID: self.selectedFlcPeakID,
+                microphoneName: self.fftAnalyzer.selectedInputDevice?.name,
+                microphoneUID: self.fftAnalyzer.selectedInputDevice?.uid,
+                calibrationName: self.fftAnalyzer.activeCalibration?.name
             )
             
             self.tapLocation = ""
@@ -2619,6 +2622,8 @@ struct TapToneAnalysisView: View {
             selectedLongitudinalPeakID: selectedLongitudinalPeakID ?? tapToneAnalyzer.autoSelectedLongitudinalPeakID,
             selectedCrossPeakID: selectedCrossPeakID ?? tapToneAnalyzer.autoSelectedCrossPeakID,
             selectedFlcPeakID: selectedFlcPeakID ?? tapToneAnalyzer.autoSelectedFlcPeakID,
+            microphoneName: fftAnalyzer.selectedInputDevice?.name,
+            calibrationName: fftAnalyzer.activeCalibration?.name,
             guitarBodyLength: SpectrumDisplaySettings.guitarBodyLength,
             guitarBodyWidth: SpectrumDisplaySettings.guitarBodyWidth,
             plateStiffness: SpectrumDisplaySettings.plateStiffness,

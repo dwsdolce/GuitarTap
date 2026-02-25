@@ -194,6 +194,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     /// Flag to prevent re-saving device mapping when loading device-specific calibration
     private var isLoadingDeviceCalibration = false
+
+    #if os(macOS)
+    /// Retained block for the CoreAudio hardware device-list change listener
+    private var hardwareListenerBlock: AudioObjectPropertyListenerBlock?
+    #endif
     
     /// Sets calibration without updating the device mapping (used when auto-loading device calibration)
     private func setCalibrationWithoutSavingDeviceMapping(_ calibration: MicrophoneCalibration?) {
@@ -295,7 +300,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         // Load available audio input devices
         // Note: This will trigger selectedInputDevice didSet which loads device-specific calibration
         loadAvailableInputDevices()
-        
+
+        #if os(macOS)
+        // Register CoreAudio listener for device connect/disconnect on macOS
+        registerMacOSHardwareListener()
+        #endif
+
         #if os(iOS)
         // Observe audio route changes on iOS
         NotificationCenter.default.addObserver(
@@ -313,7 +323,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         if let setup = fftSetup {
             vDSP_DFT_DestroySetup(setup)
         }
-        
+
+        #if os(macOS)
+        unregisterMacOSHardwareListener()
+        #endif
+
         #if os(iOS)
         // Remove audio session observers
         NotificationCenter.default.removeObserver(self)
@@ -1270,21 +1284,19 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
         
         DispatchQueue.main.async {
+            let previousDevices = self.availableInputDevices
             self.availableInputDevices = devices
-            
-            // Auto-select audio input device on first launch
-            // Note: This happens before start() is called, so we're just setting
-            // the preference. The actual device will be configured in start().
-            if self.selectedInputDevice == nil && !devices.isEmpty {
-                // Strategy: Always prefer the built-in microphone as it's most reliable
-                // and doesn't require special permissions or drivers.
-                
-                // Priority 1: Built-in microphone (most reliable)
+
+            if previousDevices.isEmpty {
+                // ── Initial load: priority-based auto-selection ──────────────────
+                guard !devices.isEmpty else { return }
+
+                // Priority 1: Built-in microphone
                 if let builtInMic = devices.first(where: { $0.uid.contains("BuiltInMicrophone") }) {
                     self.selectedInputDevice = builtInMic
                     print("🎤 Auto-selected built-in mic: \(builtInMic.name)")
                 } else {
-                    // Priority 2: Try system default if no built-in mic found
+                    // Priority 2: System default input device
                     var defaultDeviceID: AudioDeviceID = 0
                     var defaultDeviceIDSize = UInt32(MemoryLayout<AudioDeviceID>.size)
                     var defaultDeviceAddress = AudioObjectPropertyAddress(
@@ -1292,7 +1304,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                         mScope: kAudioObjectPropertyScopeGlobal,
                         mElement: kAudioObjectPropertyElementMain
                     )
-                    
                     let status = AudioObjectGetPropertyData(
                         AudioObjectID(kAudioObjectSystemObject),
                         &defaultDeviceAddress,
@@ -1301,21 +1312,85 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                         &defaultDeviceIDSize,
                         &defaultDeviceID
                     )
-                    
                     if status == noErr, defaultDeviceID != 0,
                        let defaultDevice = devices.first(where: { $0.deviceID == defaultDeviceID }) {
                         self.selectedInputDevice = defaultDevice
                         print("🎤 Auto-selected system default: \(defaultDevice.name) (ID: \(defaultDeviceID))")
                     } else {
-                        // Priority 3: First available device as last resort
+                        // Priority 3: First available device
                         self.selectedInputDevice = devices.first
                         print("🎤 Auto-selected first device: \(devices.first!.name)")
                     }
                 }
+            } else {
+                // ── Device list changed (connect or disconnect) ──────────────────
+                let newlyConnected = devices.filter { newDev in
+                    !previousDevices.contains(where: { $0.uid == newDev.uid })
+                }
+
+                if let firstNew = newlyConnected.first {
+                    // New device plugged in — switch to it automatically
+                    self.selectedInputDevice = firstNew
+                    print("🎤 New device connected, auto-selected: \(firstNew.name)")
+                } else if let current = self.selectedInputDevice,
+                          !devices.contains(where: { $0.uid == current.uid }) {
+                    // Currently selected device was unplugged — fall back
+                    if let builtIn = devices.first(where: { $0.uid.contains("BuiltInMicrophone") }) {
+                        self.selectedInputDevice = builtIn
+                        print("🎤 '\(current.name)' disconnected, switched to built-in: \(builtIn.name)")
+                    } else {
+                        self.selectedInputDevice = devices.first
+                        print("🎤 '\(current.name)' disconnected, switched to: \(devices.first?.name ?? "none")")
+                    }
+                }
+                // If selected device is still present, no change needed
             }
         }
         
         print("🎤 Found \(devices.count) audio input device(s) total")
+    }
+
+    /// Registers a CoreAudio listener so the device list refreshes when hardware changes.
+    private func registerMacOSHardwareListener() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            // CoreAudio may call this on any thread; loadAvailableInputDevicesMacOS
+            // dispatches to main internally for all @Published updates.
+            self?.loadAvailableInputDevices()
+        }
+        hardwareListenerBlock = block
+        let status = AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            nil,
+            block
+        )
+        if status != noErr {
+            print("⚠️ Failed to register CoreAudio device change listener: \(status)")
+        } else {
+            print("✅ Registered CoreAudio device change listener")
+        }
+    }
+
+    /// Removes the CoreAudio hardware change listener.
+    private func unregisterMacOSHardwareListener() {
+        guard let block = hardwareListenerBlock else { return }
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectRemovePropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            nil,
+            block
+        )
+        hardwareListenerBlock = nil
     }
     #endif
     

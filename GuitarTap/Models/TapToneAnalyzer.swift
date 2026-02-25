@@ -202,6 +202,11 @@ struct TapToneMeasurement: Identifiable, Codable {
     let selectedLongitudinalPeakID: UUID?  // Peak selected as longitudinal mode
     let selectedCrossPeakID: UUID?         // Peak selected as cross-grain mode
     let selectedFlcPeakID: UUID?           // Peak selected as FLC (diagonal/shear) mode
+
+    // Microphone info at time of recording
+    let microphoneName: String?   // Human-readable device name
+    let microphoneUID: String?    // Unique device identifier for matching
+    let calibrationName: String?  // Active calibration profile name, if any
     
     // Transient property - not saved in JSON, used for runtime image handling
     var chartImageData: Data?
@@ -213,6 +218,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case tapDetectionThreshold, hysteresisMargin, numberOfTaps
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
         case hiddenPeakIDs
+        case microphoneName, microphoneUID, calibrationName
     }
     
     init(peaks: [ResonantPeak], 
@@ -229,7 +235,10 @@ struct TapToneMeasurement: Identifiable, Codable {
          selectedLongitudinalPeakID: UUID? = nil,
          selectedCrossPeakID: UUID? = nil,
          selectedFlcPeakID: UUID? = nil,
-         hiddenPeakIDs: [UUID]? = nil) {
+         hiddenPeakIDs: [UUID]? = nil,
+         microphoneName: String? = nil,
+         microphoneUID: String? = nil,
+         calibrationName: String? = nil) {
         self.id = UUID()
         self.timestamp = Date()
         self.peaks = peaks
@@ -247,6 +256,9 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.selectedCrossPeakID = selectedCrossPeakID
         self.selectedFlcPeakID = selectedFlcPeakID
         self.hiddenPeakIDs = hiddenPeakIDs
+        self.microphoneName = microphoneName
+        self.microphoneUID = microphoneUID
+        self.calibrationName = calibrationName
     }
     
     /// Get tap tone ratio (Top / Air)
@@ -1630,7 +1642,10 @@ final class TapToneAnalyzer: ObservableObject {
         annotationOffsets: [UUID: CGPoint]? = nil,
         selectedLongitudinalPeakID: UUID? = nil,
         selectedCrossPeakID: UUID? = nil,
-        selectedFlcPeakID: UUID? = nil
+        selectedFlcPeakID: UUID? = nil,
+        microphoneName: String? = nil,
+        microphoneUID: String? = nil,
+        calibrationName: String? = nil
     ) {
         let measurementType = SpectrumDisplaySettings.measurementType
         
@@ -1690,7 +1705,10 @@ final class TapToneAnalyzer: ObservableObject {
             selectedLongitudinalPeakID: !measurementType.isGuitar ? selectedLongitudinalPeakID : nil,
             selectedCrossPeakID: measurementType == .material ? selectedCrossPeakID : nil,
             selectedFlcPeakID: measurementType == .material ? selectedFlcPeakID : nil,
-            hiddenPeakIDs: hiddenPeakIDs.isEmpty ? nil : Array(hiddenPeakIDs)
+            hiddenPeakIDs: hiddenPeakIDs.isEmpty ? nil : Array(hiddenPeakIDs),
+            microphoneName: microphoneName,
+            microphoneUID: microphoneUID,
+            calibrationName: calibrationName
         )
         
         savedMeasurements.append(measurement)
@@ -1741,7 +1759,23 @@ final class TapToneAnalyzer: ObservableObject {
         
         // Persist to disk
         persistMeasurements()
-        
+
+        // Warn if any imported measurement's microphone is not currently available
+        let available = Set(fftAnalyzer.availableInputDevices.map(\.uid))
+        var missingNames: [String] = []
+        for m in measurements {
+            if let uid = m.microphoneUID, !available.contains(uid) {
+                let name = m.microphoneName ?? uid
+                if !missingNames.contains(name) {
+                    missingNames.append(name)
+                }
+            }
+        }
+        if !missingNames.isEmpty {
+            let list = missingNames.joined(separator: ", ")
+            microphoneWarning = "Recorded with \(list), which is not currently connected. Attach it and select it in the microphone settings for accurate analysis."
+        }
+
         print("📥 Imported \(measurements.count) measurements")
         return measurements
     }
@@ -1760,6 +1794,9 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var loadedGuitarType: GuitarType?
     @Published var loadedMeasurementType: MeasurementType?
     
+    /// Warning shown when a loaded/imported measurement's microphone is unavailable
+    @Published var microphoneWarning: String?
+
     /// Loaded material measurement data (used when restoring measurements)
     @Published var loadedSelectedLongitudinalPeakID: UUID?
     @Published var loadedSelectedCrossPeakID: UUID?
@@ -1894,9 +1931,24 @@ final class TapToneAnalyzer: ObservableObject {
             print("  ⚠️ No number of taps in measurement")
         }
         
+        // Auto-select the recorded microphone if it is connected; warn if it is not.
+        if let uid = measurement.microphoneUID {
+            let name = measurement.microphoneName ?? uid
+            if let match = fftAnalyzer.availableInputDevices.first(where: { $0.uid == uid }) {
+                // Device is connected — switch to it; its paired calibration loads automatically.
+                if fftAnalyzer.selectedInputDevice?.uid != uid {
+                    try? fftAnalyzer.setInputDevice(match)
+                    print("🎤 Auto-selected microphone '\(name)' for loaded measurement")
+                }
+                microphoneWarning = nil
+            } else {
+                microphoneWarning = "This measurement was recorded with '\(name)', which is not currently connected. Attach it and select it in the microphone settings for accurate analysis."
+            }
+        }
+
         print("✅ Loaded measurement with \(measurement.peaks.count) peaks (frozen)")
     }
-    
+
     /// Export a single measurement as JSON with image (calls completion with JSON and measurement)
     func exportMeasurement(_ measurement: TapToneMeasurement, completion: @escaping (String, TapToneMeasurement) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {

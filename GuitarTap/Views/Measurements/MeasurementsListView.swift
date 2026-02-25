@@ -63,6 +63,14 @@ struct MeasurementsListView: View {
                     Text(success)
                 }
             }
+            .alert("Microphone Not Connected", isPresented: Binding(
+                get: { analyzer.microphoneWarning != nil },
+                set: { if !$0 { analyzer.microphoneWarning = nil } }
+            )) {
+                Button("OK") { analyzer.microphoneWarning = nil }
+            } message: {
+                Text(analyzer.microphoneWarning ?? "")
+            }
             .overlay {
                 if isExporting {
                     LoadingOverlay(message: "Exporting measurements...")
@@ -98,6 +106,14 @@ struct MeasurementsListView: View {
                     if let success = importSuccess {
                         Text(success)
                     }
+                }
+                .alert("Microphone Not Connected", isPresented: Binding(
+                    get: { analyzer.microphoneWarning != nil },
+                    set: { if !$0 { analyzer.microphoneWarning = nil } }
+                )) {
+                    Button("OK") { analyzer.microphoneWarning = nil }
+                } message: {
+                    Text(analyzer.microphoneWarning ?? "")
                 }
                 .overlay {
                     if isExporting {
@@ -287,12 +303,20 @@ struct MeasurementsListView: View {
             let importedMeasurements = try analyzer.importMeasurements(from: data, baseURL: url)
             
             // If only 1 measurement was imported, automatically load it into the view
+            var successMsg: String
             if importedMeasurements.count == 1, let measurement = importedMeasurements.first {
                 analyzer.loadMeasurement(measurement)
-                importSuccess = "Successfully imported and loaded 1 measurement"
+                successMsg = "Successfully imported and loaded 1 measurement"
             } else {
-                importSuccess = "Successfully imported \(importedMeasurements.count) measurements"
+                successMsg = "Successfully imported \(importedMeasurements.count) measurements"
             }
+
+            // Fold any microphone warning into the success message so only one alert fires
+            if let warning = analyzer.microphoneWarning {
+                successMsg += "\n\n⚠️ " + warning
+                analyzer.microphoneWarning = nil
+            }
+            importSuccess = successMsg
         } catch {
             importError = "Failed to import: \(error.localizedDescription)"
         }
