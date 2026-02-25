@@ -16,7 +16,7 @@ extension Float {
         if self >= 1000 {
             return String(format: "%.1f kHz", self / 1000)
         } else {
-            return String(format: "%.0f Hz", self)
+            return String(format: "%.1f Hz", self)
         }
     }
     

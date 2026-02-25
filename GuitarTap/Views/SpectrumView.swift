@@ -1306,7 +1306,7 @@ private struct PeakAnnotationLabel: View {
                     .foregroundColor(.purple.opacity(0.8))
             }
             
-            Text("\(peak.frequency, specifier: "%.1f") Hz")
+            Text(peak.frequency.formattedAsFrequency())
                 .font(.caption2)
                 .fontWeight(.medium)
                 .foregroundColor(.primary)
@@ -1778,7 +1778,7 @@ struct ExportableSpectrumChart: View {
                                             }
                                         }
                                         
-                                        Text("\(peak.frequency, specifier: "%.1f") Hz")
+                                        Text(peak.frequency.formattedAsFrequency())
                                             .font(.system(size: 14, weight: .medium))
                                             .foregroundColor(.primary)
                                         
