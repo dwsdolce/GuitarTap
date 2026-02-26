@@ -137,6 +137,11 @@ struct SpectrumSettingsView: View {
                     #if os(iOS)
                     .pickerStyle(.navigationLink)
                     #endif
+                    .onChange(of: selectedMeasurementType) { _, newType in
+                        // Load the stored frequency range for the new type (falls back to type defaults)
+                        minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.minFrequency(for: newType))
+                        maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.maxFrequency(for: newType))
+                    }
                     
                     // Show description for selected type
                     Text(selectedMeasurementType.description)
@@ -1193,9 +1198,9 @@ struct SpectrumSettingsView: View {
         analysisMaxFreq = validatedAnalysisFreq.max
         peakThreshold = clampedThreshold
         
-        // Persist all settings to UserDefaults
-        SpectrumDisplaySettings.minFrequency = validatedFreq.min
-        SpectrumDisplaySettings.maxFrequency = validatedFreq.max
+        // Persist all settings to UserDefaults (frequency range is stored per measurement type)
+        SpectrumDisplaySettings.setMinFrequency(validatedFreq.min, for: selectedMeasurementType)
+        SpectrumDisplaySettings.setMaxFrequency(validatedFreq.max, for: selectedMeasurementType)
         SpectrumDisplaySettings.minMagnitude = validatedDB.min
         SpectrumDisplaySettings.maxMagnitude = validatedDB.max
         SpectrumDisplaySettings.analysisMinFrequency = validatedAnalysisFreq.min
@@ -1217,9 +1222,9 @@ struct SpectrumSettingsView: View {
     }
     
     private func resetDisplaySettings() {
-        // Reset display settings to defaults
-        minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMinFrequency)
-        maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMaxFrequency)
+        // Reset display settings to defaults (frequency defaults vary by measurement type)
+        minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMinFrequency(for: selectedMeasurementType))
+        maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMaxFrequency(for: selectedMeasurementType))
         minDBInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMinMagnitude)
         maxDBInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMaxMagnitude)
     }

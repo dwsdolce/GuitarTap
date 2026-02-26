@@ -274,10 +274,20 @@ struct SpectrumDisplaySettings {
     private static let braceWidthKey = "braceWidth"
     private static let braceThicknessKey = "braceThickness"
     private static let braceMassKey = "braceMass"
-    private static let displayMinFreqKey = "displayMinFreq"
-    private static let displayMaxFreqKey = "displayMaxFreq"
+    private static let displayMinFreqKey = "displayMinFreq"   // legacy / shared fallback
+    private static let displayMaxFreqKey = "displayMaxFreq"   // legacy / shared fallback
     private static let displayMinDBKey = "displayMinDB"
     private static let displayMaxDBKey = "displayMaxDB"
+    
+    /// Returns the UserDefaults key for the display minimum frequency for a given measurement type
+    private static func displayMinFreqKey(for type: MeasurementType) -> String {
+        "displayMinFreq_\(type.rawValue)"
+    }
+    
+    /// Returns the UserDefaults key for the display maximum frequency for a given measurement type
+    private static func displayMaxFreqKey(for type: MeasurementType) -> String {
+        "displayMaxFreq_\(type.rawValue)"
+    }
     private static let analysisMinFreqKey = "analysisMinFreq"
     private static let analysisMaxFreqKey = "analysisMaxFreq"
     private static let peakThresholdKey = "peakThreshold"
@@ -485,11 +495,27 @@ struct SpectrumDisplaySettings {
     
     // MARK: - Display Ranges (Persisted)
     
-    /// Default minimum frequency for guitar tap tone spectrum display (Hz)
+    /// Default minimum frequency for guitar/plate spectrum display (Hz)
     static let defaultMinFrequency: Float = 75
     
-    /// Default maximum frequency for guitar tap tone spectrum display (Hz)
+    /// Default maximum frequency for guitar/plate spectrum display (Hz)
     static let defaultMaxFrequency: Float = 350
+    
+    /// Default minimum frequency for brace spectrum display (Hz)
+    static let defaultBraceMinFrequency: Float = 75
+    
+    /// Default maximum frequency for brace spectrum display (Hz)
+    static let defaultBraceMaxFrequency: Float = 1000
+    
+    /// Returns the default minimum display frequency for the given measurement type
+    static func defaultMinFrequency(for type: MeasurementType) -> Float {
+        type == .brace ? defaultBraceMinFrequency : defaultMinFrequency
+    }
+    
+    /// Returns the default maximum display frequency for the given measurement type
+    static func defaultMaxFrequency(for type: MeasurementType) -> Float {
+        type == .brace ? defaultBraceMaxFrequency : defaultMaxFrequency
+    }
     
     /// Default minimum magnitude for spectrum display (dB)
     static let defaultMinMagnitude: Float = -100
@@ -497,26 +523,48 @@ struct SpectrumDisplaySettings {
     /// Default maximum magnitude for spectrum display (dB)
     static let defaultMaxMagnitude: Float = 0
     
-    /// Persisted minimum frequency for display (Hz)
-    static var minFrequency: Float {
-        get {
-            let value = UserDefaults.standard.float(forKey: displayMinFreqKey)
-            return value != 0 ? value : defaultMinFrequency
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: displayMinFreqKey)
-        }
+    /// Persisted minimum frequency for display for a specific measurement type (Hz)
+    static func minFrequency(for type: MeasurementType) -> Float {
+        let key = displayMinFreqKey(for: type)
+        let value = UserDefaults.standard.float(forKey: key)
+        if value != 0 { return value }
+        // Migrate legacy single-key value if present
+        let legacy = UserDefaults.standard.float(forKey: displayMinFreqKey)
+        return legacy != 0 ? legacy : defaultMinFrequency(for: type)
     }
     
-    /// Persisted maximum frequency for display (Hz)
+    static func setMinFrequency(_ value: Float, for type: MeasurementType) {
+        UserDefaults.standard.set(value, forKey: displayMinFreqKey(for: type))
+    }
+    
+    /// Persisted maximum frequency for display for a specific measurement type (Hz)
+    static func maxFrequency(for type: MeasurementType) -> Float {
+        let key = displayMaxFreqKey(for: type)
+        let value = UserDefaults.standard.float(forKey: key)
+        if value != 0 { return value }
+        // Migrate legacy single-key value if present, but only for non-brace types
+        // (brace has a different default and shouldn't inherit an old guitar setting)
+        if type != .brace {
+            let legacy = UserDefaults.standard.float(forKey: displayMaxFreqKey)
+            if legacy != 0 { return legacy }
+        }
+        return defaultMaxFrequency(for: type)
+    }
+    
+    static func setMaxFrequency(_ value: Float, for type: MeasurementType) {
+        UserDefaults.standard.set(value, forKey: displayMaxFreqKey(for: type))
+    }
+    
+    /// Persisted minimum frequency for display using the current measurement type (Hz)
+    static var minFrequency: Float {
+        get { minFrequency(for: measurementType) }
+        set { setMinFrequency(newValue, for: measurementType) }
+    }
+    
+    /// Persisted maximum frequency for display using the current measurement type (Hz)
     static var maxFrequency: Float {
-        get {
-            let value = UserDefaults.standard.float(forKey: displayMaxFreqKey)
-            return value != 0 ? value : defaultMaxFrequency
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: displayMaxFreqKey)
-        }
+        get { maxFrequency(for: measurementType) }
+        set { setMaxFrequency(newValue, for: measurementType) }
     }
     
     /// Persisted minimum magnitude for display (dB)
