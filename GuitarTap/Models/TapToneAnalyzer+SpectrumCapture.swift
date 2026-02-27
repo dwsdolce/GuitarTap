@@ -167,86 +167,98 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Find the fundamental resonance peak in the gated FFT spectrum using
-    /// Harmonic Product Spectrum (HPS) analysis.
+    /// Find the dominant resonance peak in the gated FFT spectrum.
     ///
-    /// Plain magnitude-picking fails when a harmonic is louder than the fundamental.
-    /// HPS works by multiplying the spectrum by decimated copies of itself (×½, ×⅓, ×¼).
-    /// The fundamental is the only frequency where all copies align and reinforce;
-    /// harmonics cancel because their sub-harmonic copies land in noise.
-    ///
-    /// This requires no frequency-range assumptions — the tap orientation selects
-    /// the mode and HPS finds its fundamental without needing to know what to expect.
+    /// Strategy: the tap orientation physically selects the resonant mode, so the
+    /// highest-magnitude local peak in the expected frequency range is the right answer
+    /// for plate/brace measurements.  HPS is applied as a secondary score to break ties
+    /// between closely-matched peaks and to prefer the fundamental over a louder harmonic
+    /// when the magnitude difference is small (< 6 dB).
     func findDominantPeak(magnitudes: [Float],
                           frequencies: [Float],
                           minHz: Float = 20,
                           maxHz: Float = 2000) -> ResonantPeak? {
         guard magnitudes.count == frequencies.count, magnitudes.count > 10 else { return nil }
 
-        // Work in linear amplitude (convert from dB).
-        // HPS multiplication is meaningful in linear scale.
-        let linear = magnitudes.map { (m: Float) -> Float in
-            let clamped = max(m, -160)
-            return pow(10.0, clamped / 20.0)
-        }
-
-        let n = linear.count
-        // Limit HPS to the caller-supplied frequency range.
-        // minHz excludes low-frequency impact thuds; maxHz avoids looking for
-        // fundamentals whose harmonics would fall outside the spectrum.
+        let n = magnitudes.count
         let startIdx = frequencies.firstIndex(where: { $0 >= minHz }) ?? 0
         let endIdx   = frequencies.firstIndex(where: { $0 > maxHz }) ?? n
+        guard startIdx < endIdx else { return nil }
 
-        // Number of harmonics to include in the product (2–4 is typical).
-        // Using 4 gives strong discrimination; reduce to 3 if spectrum is noisy.
-        let hpsOrder = 4
+        // --- Step 1: find all local maxima in the search range ---
+        // Use a window of ±5 bins (wider than HPS windowSize=3) to avoid picking
+        // shoulders of broad low-frequency peaks.
+        let windowSize = 5
 
-        // Only compute HPS up to endIdx / hpsOrder so decimated copies stay in bounds
-        let hpsEnd = min(endIdx, n / hpsOrder)
-        guard startIdx < hpsEnd else { return nil }
+        // Compute an adaptive noise floor from the median of the search range so
+        // that very quiet gated captures aren't dominated by DC/noise bins.
+        let searchMags = Array(magnitudes[startIdx..<endIdx])
+        let sortedMags = searchMags.sorted()
+        let noiseFloor: Float = sortedMags[sortedMags.count / 2]  // median
 
-        // Build the HPS array: hps[i] = linear[i] * linear[2i] * linear[3i] * linear[4i]
-        var hps = [Float](repeating: 0, count: hpsEnd)
-        for i in startIdx..<hpsEnd {
-            var product = linear[i]
-            for k in 2...hpsOrder {
-                let harmIdx = i * k
-                if harmIdx < n {
-                    product *= linear[harmIdx]
-                }
-            }
-            hps[i] = product
+        struct Candidate {
+            let index: Int
+            let magnitude: Float
+            let hpsScore: Float
         }
+        var candidates: [Candidate] = []
 
-        // Find the strongest local maximum in the HPS array
-        let windowSize = 3
-        var best: (index: Int, hpsValue: Float)? = nil
+        // Pre-compute linear amplitudes for HPS scoring
+        let linear = magnitudes.map { pow(10.0, max($0, -160) / 20.0) }
 
-        for i in (startIdx + windowSize)..<(hpsEnd - windowSize) {
-            let val = hps[i]
-            // Require the original spectrum also has a real peak here (not just HPS noise)
-            guard magnitudes[i] > peakThreshold else { continue }
+        for i in (startIdx + windowSize)..<(endIdx - windowSize) {
+            let mag = magnitudes[i]
+            guard mag > noiseFloor else { continue }
+
+            // Local maximum check
             var isLocal = true
-            for j in (i - windowSize)...(i + windowSize) where j != i {
-                if hps[j] >= val { isLocal = false; break }
+            for offset in -windowSize...windowSize where offset != 0 {
+                if magnitudes[i + offset] >= mag { isLocal = false; break }
             }
             guard isLocal else { continue }
-            if best == nil || val > best!.hpsValue {
-                best = (index: i, hpsValue: val)
+
+            // HPS score: product of fundamental and up to 3 harmonics (order 3 to
+            // avoid the n/hpsOrder constraint cutting off low-frequency candidates).
+            var hpsScore = linear[i]
+            for k in 2...3 {
+                let harmIdx = i * k
+                if harmIdx < n { hpsScore *= linear[harmIdx] }
+            }
+
+            candidates.append(Candidate(index: i, magnitude: mag, hpsScore: hpsScore))
+        }
+
+        guard !candidates.isEmpty else { return nil }
+
+        // --- Step 2: pick the best candidate ---
+        // Sort by magnitude descending; the strongest peak wins unless a lower-frequency
+        // candidate has an HPS score within 1 order of magnitude AND is more than 6 dB
+        // quieter — in that case prefer the lower-frequency fundamental.
+        let byMagnitude = candidates.sorted { $0.magnitude > $1.magnitude }
+        let strongest = byMagnitude[0]
+
+        var best = strongest
+        for candidate in byMagnitude.dropFirst() {
+            // Only consider candidates lower in frequency than the current best
+            guard candidate.index < best.index else { continue }
+            let magDiff = best.magnitude - candidate.magnitude  // positive = best is louder
+            // Prefer the lower-frequency candidate if it's within 6 dB AND has a
+            // comparable or better HPS score (within one order of magnitude)
+            if magDiff < 6.0 && candidate.hpsScore >= best.hpsScore * 0.1 {
+                best = candidate
             }
         }
 
-        guard let b = best else { return nil }
-        let freq = frequencies[b.index]
-        let mag  = magnitudes[b.index]
+        let freq = frequencies[best.index]
+        let mag  = magnitudes[best.index]
         let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes,
                                                     frequencies: frequencies,
-                                                    peakIndex: b.index,
+                                                    peakIndex: best.index,
                                                     peakMagnitude: mag)
         let pitchNote  = pitchCalculator.note(frequency: Double(freq))
         let pitchCents = pitchCalculator.cents(frequency: Double(freq))
         let pitchFreq  = pitchCalculator.freq0(frequency: Double(freq))
-        print("🎯 HPS dominant peak: \(String(format: "%.1f", freq)) Hz @ \(String(format: "%.1f", mag)) dB (HPS score: \(String(format: "%.3e", b.hpsValue)))")
+        print("🎯 Dominant peak: \(String(format: "%.1f", freq)) Hz @ \(String(format: "%.1f", mag)) dB (HPS score: \(String(format: "%.3e", best.hpsScore)))")
         return ResonantPeak(frequency: freq, magnitude: mag,
                             quality: quality, bandwidth: bandwidth,
                             pitchNote: pitchNote, pitchCents: pitchCents,

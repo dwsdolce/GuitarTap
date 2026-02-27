@@ -544,10 +544,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
         #endif
         
-        // IMPORTANT: Ensure we have the latest input node reference after any restarts
-        inputNode = audioEngine.inputNode
-        
-        // Get hardware format AFTER engine starts and input node is refreshed
+        // Get hardware format AFTER engine starts
         let hardwareFormat = inputNode.inputFormat(forBus: 0)
         actualSampleRate = hardwareFormat.sampleRate
         
@@ -615,39 +612,34 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         print("Requested buffer size: \(requestedBufferSize) samples (max safe: \(maxSafeBufferSize))")
         print("Will accumulate to: \(fftSize) samples for FFT")
         
-        // Check if the input node is actually receiving data
+        // Verify the audio unit is still running before installing the tap (macOS diagnostic).
+        // It can stop between engine.start() and here if inputNode was accessed unexpectedly.
         #if os(macOS)
         if let audioUnit = inputNode.audioUnit {
-            // Check if the audio unit is running
             var isRunning: UInt32 = 0
             var isRunningSize = UInt32(MemoryLayout<UInt32>.size)
-            let isRunningStatus = AudioUnitGetProperty(
-                audioUnit,
-                kAudioOutputUnitProperty_IsRunning,
-                kAudioUnitScope_Global,
-                0,
-                &isRunning,
-                &isRunningSize
-            )
-            
-            if isRunningStatus == noErr {
-                print("🔍 Audio unit running status: \(isRunning == 1 ? "YES" : "NO")")
-            } else {
-                print("⚠️ Could not check audio unit running status: \(isRunningStatus)")
+            AudioUnitGetProperty(audioUnit, kAudioOutputUnitProperty_IsRunning,
+                                 kAudioUnitScope_Global, 0, &isRunning, &isRunningSize)
+            print("🔍 Audio unit running status: \(isRunning == 1 ? "YES" : "NO")")
+
+            // If the audio unit stopped between engine.start() and here, restart it before
+            // installing the tap, otherwise no audio buffers will arrive.
+            if isRunning == 0 {
+                print("⚠️ Audio unit stopped before tap install — restarting...")
+                AudioUnitInitialize(audioUnit)
+                let restartStatus = AudioOutputUnitStart(audioUnit)
+                if restartStatus == noErr {
+                    print("✅ Audio unit restarted successfully")
+                } else {
+                    print("❌ Audio unit restart failed (\(restartStatus)) — audio may not work")
+                }
             }
-            
-            // Check the input sample rate
+
             var inputSampleRate: Float64 = 0
             var inputSampleRateSize = UInt32(MemoryLayout<Float64>.size)
-            let sampleRateStatus = AudioUnitGetProperty(
-                audioUnit,
-                kAudioUnitProperty_SampleRate,
-                kAudioUnitScope_Input,
-                1,  // Input element
-                &inputSampleRate,
-                &inputSampleRateSize
-            )
-            
+            let sampleRateStatus = AudioUnitGetProperty(audioUnit, kAudioUnitProperty_SampleRate,
+                                                        kAudioUnitScope_Input, 1,
+                                                        &inputSampleRate, &inputSampleRateSize)
             if sampleRateStatus == noErr {
                 print("🔍 Audio unit input sample rate: \(inputSampleRate) Hz")
             }

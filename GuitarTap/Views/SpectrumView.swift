@@ -1106,9 +1106,12 @@ struct DraggablePeakAnnotation: View {
         }
         let x = plotFrame.minX + freqNormalized * chartWidth
         
-        // Calculate Y position (magnitude) - inverted because chart Y goes down
+        // Calculate Y position (magnitude) - inverted because chart Y goes down.
+        // Clamp magnitude to the visible range so the label tracks the visible
+        // peak marker even when the peak is near the edge of the displayed dB range.
+        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
         let dbRange = maxDB - minDB
-        let dbNormalized = CGFloat((peak.magnitude - minDB) / dbRange)
+        let dbNormalized = CGFloat((clampedMag - minDB) / dbRange)
         let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
         
         return CGPoint(x: x, y: y - 70) // Offset up by 70 to place above peak
@@ -1133,9 +1136,11 @@ struct DraggablePeakAnnotation: View {
         }
         let x = plotFrame.minX + freqNormalized * chartWidth
         
-        // Calculate Y position (magnitude) - inverted because chart Y goes down
+        // Calculate Y position (magnitude) - inverted because chart Y goes down.
+        // Clamp magnitude to the visible range to match how the chart clips the PointMark.
+        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
         let dbRange = maxDB - minDB
-        let dbNormalized = CGFloat((peak.magnitude - minDB) / dbRange)
+        let dbNormalized = CGFloat((clampedMag - minDB) / dbRange)
         let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
         
         return CGPoint(x: x, y: y) // No offset - this is the actual peak position
@@ -1285,6 +1290,20 @@ struct DraggablePeakAnnotation: View {
                     cachedChartPosition = calculateChartPosition()
                     cachedPeakPosition = calculatePeakPosition()
                 }
+            }
+        }
+        .onChange(of: peak.id) { _, _ in
+            // Update cached positions when the peak itself changes (e.g., after a new measurement)
+            if !isDragging {
+                cachedChartPosition = calculateChartPosition()
+                cachedPeakPosition = calculatePeakPosition()
+            }
+        }
+        .onChange(of: peak.magnitude) { _, _ in
+            // Update Y position when peak magnitude changes
+            if !isDragging {
+                cachedChartPosition = calculateChartPosition()
+                cachedPeakPosition = calculatePeakPosition()
             }
         }
     }
