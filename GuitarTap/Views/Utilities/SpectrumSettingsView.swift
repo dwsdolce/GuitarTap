@@ -186,7 +186,7 @@ struct SpectrumSettingsView: View {
                     }
                     
                     // Show dimensions for material mode (plate)
-                    if selectedMeasurementType == .material || selectedMeasurementType == .plateMPM {
+                    if selectedMeasurementType == .material {
                         Divider()
                         
                         Text("Sample Dimensions")
@@ -352,7 +352,7 @@ struct SpectrumSettingsView: View {
                     }
                     
                     // Show dimensions for brace mode (both FFT and MPM variants)
-                    if selectedMeasurementType == .brace || selectedMeasurementType == .braceMPM {
+                    if selectedMeasurementType == .brace {
                         Divider()
                         
                         Text("Brace Dimensions")
@@ -1100,7 +1100,7 @@ struct SpectrumSettingsView: View {
         SpectrumDisplaySettings.measureFlc = measureFlc
         
         // Save material plate dimensions
-        if selectedMeasurementType == .material || selectedMeasurementType == .plateMPM {
+        if selectedMeasurementType == .material {
             if let length = Float(materialLengthInput), length > 0 {
                 SpectrumDisplaySettings.materialLength = length
             }
@@ -1129,7 +1129,7 @@ struct SpectrumSettingsView: View {
         }
 
         // Save brace dimensions (separate keys from plate)
-        if selectedMeasurementType == .brace || selectedMeasurementType == .braceMPM {
+        if selectedMeasurementType == .brace {
             if let length = Float(braceLengthInput), length > 0 {
                 SpectrumDisplaySettings.braceLength = length
             }

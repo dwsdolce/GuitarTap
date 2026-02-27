@@ -15,7 +15,45 @@ extension TapToneAnalyzer {
     /// Detect tap events using rising edge detection with hysteresis
     func detectTap(peakMagnitude: Float, magnitudes: [Float], frequencies: [Float]) {
         let now = Date()
-        
+
+        // For material/brace modes, use relative spike detection: compare the
+        // instantaneous level against a tracked noise floor rather than an absolute
+        // threshold.  This keeps detection working when ambient noise is elevated.
+        let useRelativeDetection: Bool = {
+            let t = SpectrumDisplaySettings.measurementType
+            return t == .material || t == .brace
+        }()
+
+        // Update the noise floor estimate (EMA) whenever the signal is at background level.
+        // We update during warm-up as well — this is the most valuable time to build an
+        // accurate noise floor since no taps have occurred yet.
+        // Only update while not above threshold so tap energy doesn't inflate the estimate.
+        if useRelativeDetection && !isAboveThreshold {
+            noiseFloorEstimate = noiseFloorAlpha * peakMagnitude + (1 - noiseFloorAlpha) * noiseFloorEstimate
+        }
+
+        // Compute effective thresholds.
+        // Guitar mode:          absolute threshold (original behaviour).
+        // Material/brace mode:  noise floor + headroom derived from the threshold slider.
+        //                       The slider value is absolute dB (-80…-20); we use it as
+        //                       the target "tap above noise floor" margin by computing
+        //                       headroom = tapDetectionThreshold - noiseFloorEstimate,
+        //                       clamped to at least 6 dB so there is always a gap to cross.
+        let effectiveRisingThreshold: Float
+        let effectiveFallingThreshold: Float
+        if useRelativeDetection {
+            // Minimum 10 dB above noise floor — rejects small ambient spikes (typically
+            // 1–4 dB above floor) while catching real taps (typically 12–30 dB above floor).
+            // The tapDetectionThreshold slider sets the absolute upper bound; for quiet
+            // environments with an elevated noise floor the relative headroom takes over.
+            let headroom = max(tapDetectionThreshold - noiseFloorEstimate, 10.0)
+            effectiveRisingThreshold  = noiseFloorEstimate + headroom
+            effectiveFallingThreshold = noiseFloorEstimate + max(headroom - hysteresisMargin, 4.0)
+        } else {
+            effectiveRisingThreshold  = tapDetectionThreshold
+            effectiveFallingThreshold = tapDetectionThreshold - hysteresisMargin
+        }
+
         // Check if we're still in warm-up period (prevents false detections on startup)
         if let startTime = analyzerStartTime, now.timeIntervalSince(startTime) < warmupPeriod {
             tapDetected = false
@@ -23,43 +61,55 @@ extension TapToneAnalyzer {
             justExitedWarmup = true  // Mark that next frame is first after warm-up
             return
         }
-        
-        // First frame after warm-up: sync isAboveThreshold with actual signal level
-        // This prevents false triggers if ambient noise is above threshold when warm-up ends
+
+        // First frame after warm-up: re-anchor noise floor and sync threshold state.
+        // The noise floor EMA may have converged to a bad value if inputLevelDB was
+        // -100 dB before the first audio buffer arrived (e.g. at app launch).  Now
+        // that we have real audio data, snap the noise floor to the current level so
+        // the headroom calculation starts from an accurate baseline.
         if justExitedWarmup {
             justExitedWarmup = false
-            let risingThreshold = tapDetectionThreshold
-            isAboveThreshold = peakMagnitude > risingThreshold
-            print("🎬 Warm-up complete - syncing threshold state: signal at \(String(format: "%.1f", peakMagnitude)) dB, threshold \(String(format: "%.1f", risingThreshold)) dB, isAboveThreshold = \(isAboveThreshold)")
+            if useRelativeDetection {
+                // Re-anchor to current signal level; EMA will track from here.
+                noiseFloorEstimate = peakMagnitude
+                // Recompute rising threshold with the corrected noise floor.
+                let h = max(tapDetectionThreshold - noiseFloorEstimate, 10.0)
+                let risingAnchored = noiseFloorEstimate + h
+                isAboveThreshold = peakMagnitude > risingAnchored
+                print("🎬 Warm-up complete - signal at \(String(format: "%.1f", peakMagnitude)) dB, noise floor (re-anchored) \(String(format: "%.1f", noiseFloorEstimate)) dB, rising threshold \(String(format: "%.1f", risingAnchored)) dB, isAboveThreshold = \(isAboveThreshold)")
+            } else {
+                isAboveThreshold = peakMagnitude > effectiveRisingThreshold
+                print("🎬 Warm-up complete - signal at \(String(format: "%.1f", peakMagnitude)) dB, rising threshold \(String(format: "%.1f", effectiveRisingThreshold)) dB, isAboveThreshold = \(isAboveThreshold)")
+            }
             // Don't detect on this frame - just sync the state
             tapDetected = false
             statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
             return
         }
-        
+
         // Check cooldown
         if let lastTap = lastTapTime, now.timeIntervalSince(lastTap) < tapCooldown {
             tapDetected = false
             return
         }
-        
+
         // Update status message if ready and waiting for tap
         if currentTapCount == 0 && statusMessage.contains("Initializing") {
             statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
         }
-        
-        // Update the detection level for UI display (shows rising threshold)
-        tapDetectionLevel = tapDetectionThreshold
-        
+
+        // Update the detection level for UI display
+        tapDetectionLevel = effectiveRisingThreshold
+
         // Hysteresis: Use different thresholds for rising vs falling edges
-        let risingThreshold = tapDetectionThreshold
-        let fallingThreshold = tapDetectionThreshold - hysteresisMargin
-        
+        let risingThreshold  = effectiveRisingThreshold
+        let fallingThreshold = effectiveFallingThreshold
+
         // Determine if currently above threshold (with hysteresis)
         let currentlyAboveThreshold = isAboveThreshold ?
             (peakMagnitude > fallingThreshold) :  // When above: use lower threshold to stay "above"
             (peakMagnitude > risingThreshold)     // When below: use higher threshold to go "above"
-        
+
         // Debug: Log state transitions
         if currentlyAboveThreshold != isAboveThreshold {
             print("🔄 Threshold crossing: \(isAboveThreshold ? "ABOVE→BELOW" : "BELOW→ABOVE") at \(peakMagnitude) dB (rising: \(risingThreshold), falling: \(fallingThreshold))")
@@ -100,12 +150,6 @@ extension TapToneAnalyzer {
         let measurementType = SpectrumDisplaySettings.measurementType
         let isMaterialMode = measurementType == .material
         let isBraceMode = measurementType == .brace
-        
-        // Handle MPM modes with ring-buffer capture
-        if measurementType.isMPM {
-            handleMPMTapDetection(time: time)
-            return
-        }
         
         // Handle material/brace mode with phase-based capture
         if isMaterialMode || isBraceMode {
@@ -177,14 +221,11 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Total number of taps expected across all material/brace/MPM phases
+    /// Total number of taps expected across all material/brace phases
     var totalMaterialTaps: Int {
         let type = SpectrumDisplaySettings.measurementType
-        if type == .brace || type == .braceMPM {
-            return numberOfTaps  // Brace/BraceMPM mode: only longitudinal phase
-        }
-        if type == .plateMPM {
-            return 2  // Plate MPM: 2 phases (L and C), 1 tap each
+        if type == .brace {
+            return numberOfTaps  // Brace mode: only longitudinal phase
         }
         return numberOfTaps * (SpectrumDisplaySettings.measureFlc ? 3 : 2)
     }
@@ -452,12 +493,13 @@ extension TapToneAnalyzer {
     func reEnableDetectionForNextMaterialTap() {
         DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
             guard let self = self else { return }
-            let currentLevel = self.fftAnalyzer.peakMagnitude
+            let currentLevel = self.fftAnalyzer.inputLevelDB
             let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
             self.isAboveThreshold = currentLevel > fallingThreshold
             self.isDetecting = true
             self.tapDetected = false
-            self.analyzerStartTime = Date()
+            // Do NOT reset analyzerStartTime here — that would restart warmup and
+            // destabilise isAboveThreshold via the justExitedWarmup sync path.
         }
     }
     

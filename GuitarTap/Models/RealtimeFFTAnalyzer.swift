@@ -48,6 +48,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// The currently selected audio input device
     @Published var selectedInputDevice: AVAudioDevice? {
         didSet {
+            // Persist the selected device UID so it can be restored on next launch
+            if let deviceUID = selectedInputDevice?.uid {
+                UserDefaults.standard.set(deviceUID, forKey: "selectedInputDeviceUID")
+            }
+
             // Automatically load device-specific calibration when device changes
             if let deviceUID = selectedInputDevice?.uid {
                 if let deviceCalibration = CalibrationStorage.shared.calibration(forDeviceUID: deviceUID) {
@@ -192,10 +197,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// This avoids interpolation overhead during real-time FFT processing
     private var calibrationCorrections: [Float] = []
 
-    // MARK: - Raw Sample Callback (for MPM)
+    // MARK: - Raw Sample Callback (for gated FFT)
 
     /// Optional callback that receives raw PCM samples on the audio processing queue.
-    /// Used by MPMAnalyzer to get raw audio without a second audio engine.
+    /// Used by the gated FFT capture to accumulate raw audio for material/brace analysis.
     /// Called on the audioProcessingQueue — do not update UI directly.
     var rawSampleHandler: (([Float], Double) -> Void)?
     
@@ -427,8 +432,31 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
         #endif
         
+        #if os(macOS)
+        // Set the input device on the AUHAL unit before starting the engine.
+        // AVAudioEngine does not expose a device-selection API directly; we must
+        // reach into the underlying AudioUnit and set kAudioOutputUnitProperty_CurrentDevice.
+        // This MUST happen after audioEngine.reset() (which re-creates the input node's
+        // audio unit) but BEFORE audioEngine.start().
+        if let device = selectedInputDevice, let audioUnit = inputNode.audioUnit {
+            var deviceID = device.deviceID
+            let setStatus = AudioUnitSetProperty(
+                audioUnit,
+                kAudioOutputUnitProperty_CurrentDevice,
+                kAudioUnitScope_Global,
+                0,
+                &deviceID,
+                UInt32(MemoryLayout<AudioDeviceID>.size)
+            )
+            if setStatus == noErr {
+                print("🎤 Set input device to: \(device.name) (ID: \(device.deviceID))")
+            } else {
+                print("⚠️ Failed to set input device '\(device.name)': error \(setStatus) — will use system default")
+            }
+        }
+        #endif
+
         // Start the audio engine
-        // On macOS, device should already be configured above
         print("🎤 Starting audio engine...")
         try audioEngine.start()
         print("✅ Audio engine started")
@@ -1401,6 +1429,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                 // ── Initial load: priority-based auto-selection ──────────────────
                 guard !devices.isEmpty else { return }
 
+                // Priority 0: Restore previously selected device (persisted across launches)
+                if let savedUID = UserDefaults.standard.string(forKey: "selectedInputDeviceUID"),
+                   let savedDevice = devices.first(where: { $0.uid == savedUID }) {
+                    self.selectedInputDevice = savedDevice
+                    print("🎤 Restored previously selected mic: \(savedDevice.name)")
+                } else
                 // Priority 1: Built-in microphone
                 if let builtInMic = devices.first(where: { $0.uid.contains("BuiltInMicrophone") }) {
                     self.selectedInputDevice = builtInMic

@@ -94,7 +94,6 @@ extension TapToneAnalyzer {
         let measurementType = SpectrumDisplaySettings.measurementType
         let isMaterialMode = measurementType == .material
         let isBraceMode = measurementType == .brace
-        let isMPMMode = measurementType.isMPM
         let currentPeakMagImmediate = fftAnalyzer.peakMagnitude
         print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), material mode: \(isMaterialMode), brace mode: \(isBraceMode)")
         print("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
@@ -111,6 +110,8 @@ extension TapToneAnalyzer {
             self.tapProgress = 0.0
             self.tapDetected = false
             self.isDetectionPaused = false
+            // Reset noise floor estimate so it adapts to the current environment
+            self.noiseFloorEstimate = self.fftAnalyzer.inputLevelDB
             
             // Reset decay tracking
             self.currentDecayTime = nil
@@ -119,8 +120,8 @@ extension TapToneAnalyzer {
             self.decayTrackingTimer?.invalidate()
             self.decayTrackingTimer = nil
             
-            // Reset material/brace/MPM measurement state
-            if isMaterialMode || isBraceMode || isMPMMode {
+            // Reset material/brace measurement state
+            if isMaterialMode || isBraceMode {
                 self.materialTapPhase = .capturingLongitudinal
                 self.longitudinalSpectrum = nil
                 self.crossSpectrum = nil
@@ -138,12 +139,6 @@ extension TapToneAnalyzer {
                 self.userSelectedCrossPeakID = nil
                 self.userSelectedFlcPeakID = nil
                 self.materialCapturedTaps = []
-                // Reset MPM state
-                self.mpmDetectedFrequency = nil
-                self.mpmLongitudinalFrequency = nil
-                self.mpmCrossFrequency = nil
-                self.mpmConfidence = 0
-                self.mpmIsCapturing = false
                 // Cancel any in-flight gated FFT capture
                 self.gatedCaptureActive = false
                 self.mpmLock.lock()
@@ -185,8 +180,6 @@ extension TapToneAnalyzer {
             // Set appropriate status message
             if isBraceMode {
                 self.statusMessage = self.numberOfTaps > 1 ? "Ready for fL tap (×\(self.numberOfTaps))" : "Ready for fL tap"
-            } else if isMPMMode {
-                self.statusMessage = measurementType == .braceMPM ? "Ready for fL tap" : "Ready for longitudinal tap"
             } else if isMaterialMode {
                 let measureFlc = SpectrumDisplaySettings.measureFlc
                 if self.numberOfTaps > 1 {
@@ -228,10 +221,9 @@ extension TapToneAnalyzer {
         let resumeType = SpectrumDisplaySettings.measurementType
         let isMaterialMode = resumeType == .material
         let isBraceMode = resumeType == .brace
-        let isMPMMode = resumeType.isMPM
-        if isMaterialMode || isBraceMode || isMPMMode {
+        if isMaterialMode || isBraceMode {
             switch materialTapPhase {
-            case .capturingLongitudinal: statusMessage = (isBraceMode || resumeType == .braceMPM) ? "Ready for fL tap" : "Ready for L tap"
+            case .capturingLongitudinal: statusMessage = isBraceMode ? "Ready for fL tap" : "Ready for L tap"
             case .capturingFlc, .waitingForFlcTap: statusMessage = "Ready for FLC tap"
             default: statusMessage = "Ready for C tap"
             }
@@ -250,7 +242,6 @@ extension TapToneAnalyzer {
         let measurementType = SpectrumDisplaySettings.measurementType
         let isMaterialMode = measurementType == .material
         let isBraceMode = measurementType == .brace
-        let isMPMMode = measurementType.isMPM
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -263,8 +254,8 @@ extension TapToneAnalyzer {
             self.isDetectionPaused = false
             self.isDetecting = true
             
-            // Reset material/brace/MPM measurement state
-            if isMaterialMode || isBraceMode || isMPMMode {
+            // Reset material/brace measurement state
+            if isMaterialMode || isBraceMode {
                 self.materialTapPhase = .capturingLongitudinal
                 self.longitudinalSpectrum = nil
                 self.crossSpectrum = nil
@@ -282,13 +273,6 @@ extension TapToneAnalyzer {
                 self.userSelectedCrossPeakID = nil
                 self.userSelectedFlcPeakID = nil
                 self.materialCapturedTaps = []
-                if isMPMMode {
-                    self.mpmDetectedFrequency = nil
-                    self.mpmLongitudinalFrequency = nil
-                    self.mpmCrossFrequency = nil
-                    self.mpmConfidence = 0
-                    self.mpmIsCapturing = false
-                }
                 // Cancel any in-flight gated FFT capture
                 self.gatedCaptureActive = false
                 self.mpmLock.lock()
@@ -318,8 +302,6 @@ extension TapToneAnalyzer {
             // Set appropriate status message
             if isBraceMode {
                 self.statusMessage = "Ready for fL tap"
-            } else if isMPMMode {
-                self.statusMessage = measurementType == .braceMPM ? "Ready for fL tap" : "Ready for longitudinal tap"
             } else if isMaterialMode {
                 self.statusMessage = "Ready for L tap"
             } else {

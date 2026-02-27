@@ -146,12 +146,11 @@ extension TapToneAnalyzer {
             tapDetectionThreshold: tapDetectionThreshold,
             hysteresisMargin: hysteresisMargin,
             numberOfTaps: numberOfTaps,
-            // Include peak selections for material, brace, and MPM measurements
+            // Include peak selections for material and brace measurements
             selectedLongitudinalPeakID: !measurementType.isGuitar ? selectedLongitudinalPeakID : nil,
-            selectedCrossPeakID: (measurementType == .material || measurementType == .plateMPM) ? selectedCrossPeakID : nil,
+            selectedCrossPeakID: measurementType == .material ? selectedCrossPeakID : nil,
             selectedFlcPeakID: measurementType == .material ? selectedFlcPeakID : nil,
-            // No spectrum snapshots for MPM measurements (frequencies come from MPM, not FFT)
-            longitudinalSnapshot: (!measurementType.isGuitar && !measurementType.isMPM) ? longitudinalSnapshot : nil,
+            longitudinalSnapshot: !measurementType.isGuitar ? longitudinalSnapshot : nil,
             crossSnapshot: measurementType == .material ? crossSnapshot : nil,
             flcSnapshot: measurementType == .material ? flcSnapshot : nil,
             hiddenPeakIDs: hiddenPeakIDs.isEmpty ? nil : Array(hiddenPeakIDs),

@@ -230,48 +230,15 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var loadedMaterialThickness: Float?
     @Published var loadedMaterialMass: Float?
 
-    // MARK: - MPM State (McLeod Pitch Method)
-
-    /// Last MPM-detected frequency (held after each tap until the next tap)
-    @Published var mpmDetectedFrequency: Float?
-
-    /// MPM-detected longitudinal frequency (held after L tap)
-    @Published var mpmLongitudinalFrequency: Float?
-
-    /// MPM-detected cross-grain frequency (held after C tap, plate MPM only)
-    @Published var mpmCrossFrequency: Float?
-
-    /// Confidence of last MPM estimate (NSDF peak value, 0–1)
-    @Published var mpmConfidence: Float = 0
-
-    /// True while the MPM capture window is active (ring buffer being filled)
-    @Published var mpmIsCapturing: Bool = false
-
-    // MARK: - MPM Private State
-
-    /// Lock protecting mpmAccumBuffer (accessed from both audio and main queue)
-    let mpmLock = NSLock()
-
-    /// Accumulated samples for the current MPM capture window
-    var mpmAccumBuffer: [Float] = []
-
-    /// Target capture duration in seconds for the MPM ring-out window.
-    static let mpmCaptureDuration: Double = 0.400
-
-    /// Capture size in samples, derived from the actual hardware sample rate.
-    var mpmCaptureSamples: Int { Int(mpmSampleRate * TapToneAnalyzer.mpmCaptureDuration) }
-
-    /// Whether the MPM capture window is currently open
-    var mpmCaptureActive: Bool = false
-
     // MARK: - Gated FFT Private State
 
+    /// Lock protecting gatedAccumBuffer (accessed from both audio and main queue)
+    let mpmLock = NSLock()
+
     /// Whether the gated-FFT capture window is currently open.
-    /// Mutually exclusive with `mpmCaptureActive` — only one fires per tap.
     var gatedCaptureActive: Bool = false
 
     /// Accumulated raw samples for the current gated FFT capture window.
-    /// Protected by `mpmLock` (shared with MPM state, safe because they are mutually exclusive).
     var gatedAccumBuffer: [Float] = []
 
     /// Target capture duration for the gated FFT window (seconds).
@@ -292,11 +259,41 @@ final class TapToneAnalyzer: ObservableObject {
     /// Most recent hardware sample rate (set on the audio queue)
     var mpmSampleRate: Double = 48000
 
-    /// The shared MPM analyser instance
-    var mpmAnalyzerInstance = MPMAnalyzer()
+    // MARK: - Pre-roll Ring Buffer
+    //
+    // The tap detection subscriber runs on the main thread, while raw audio buffers
+    // arrive on the audio processing queue.  By the time detectTap fires and
+    // startGatedCapture sets gatedCaptureActive=true, several buffers carrying the
+    // tap transient have already passed through accumulateGatedSamples and been
+    // discarded — so the gated window captures only the decaying tail or silence.
+    //
+    // Solution: continuously keep the last `preRollSamples` worth of raw audio in a
+    // circular buffer (preRollBuffer).  When startGatedCapture is called it seeds
+    // gatedAccumBuffer with the ring buffer contents so the tap attack is included.
+
+    /// Duration of the pre-roll look-back in seconds (200 ms catches the tap attack).
+    static let preRollDuration: Double = 0.200
+
+    /// Number of pre-roll samples at the current sample rate.
+    var preRollSamples: Int { Int(mpmSampleRate * TapToneAnalyzer.preRollDuration) }
+
+    /// Circular pre-roll buffer — always holds the last `preRollSamples` raw samples.
+    var preRollBuffer: [Float] = []
+
+    // MARK: - Noise Floor Estimation (material/brace modes)
+
+    /// Exponential moving average of inputLevelDB, used as the noise floor estimate for
+    /// relative tap detection in material/brace modes.  Updated only when not detecting
+    /// a tap (i.e. when the signal is at its background level).
+    var noiseFloorEstimate: Float = -60
+
+    /// EMA alpha for noise floor tracking — slower rise to avoid including tap energy,
+    /// faster fall so the estimate recovers quickly between taps.
+    /// α ≈ 1 - exp(-dt/τ).  At ~10 ms buffer updates, α=0.05 gives τ ≈ 190 ms.
+    let noiseFloorAlpha: Float = 0.05
 
     // MARK: - Private State
-    
+
     var cancellables = Set<AnyCancellable>()
     var peakMagnitudeHistory: [(time: Date, magnitude: Float)] = []
     var lastTapTime: Date?
@@ -356,9 +353,9 @@ final class TapToneAnalyzer: ObservableObject {
     // MARK: - Setup
     
     func setupSubscriptions() {
-        // Set up raw sample handler for MPM — accumulates samples into the ring buffer
+        // Set up raw sample handler for gated FFT capture — accumulates samples into the buffer
         fftAnalyzer.rawSampleHandler = { [weak self] samples, sampleRate in
-            self?.accumulateMPMSamples(samples, sampleRate: sampleRate)
+            self?.accumulateGatedSamples(samples, sampleRate: sampleRate)
         }
 
         // Subscribe to FFT updates (slow - only updates per FFT frame)
@@ -382,18 +379,17 @@ final class TapToneAnalyzer: ObservableObject {
         //
         // The long-window FFT (65536 samples ≈ 1.5 s) dilutes a short tap impact by
         // ~15 dB, making the FFT peakMagnitude an unreliable trigger for transient taps.
-        // recentPeakLevelDB updates every audio buffer (~10 ms) so it captures the full
-        // tap level immediately.  Guitar/classical mode continues to use the FFT path
-        // so that the magnitudes array at tap time is the one that gets analyzed.
-        fftAnalyzer.$recentPeakLevelDB
+        // inputLevelDB updates every audio buffer (~10 ms) with the instantaneous RMS level,
+        // allowing the hysteresis logic to see the signal fall after a tap so that the
+        // next rising edge can be detected correctly.  Guitar/classical mode continues
+        // to use the FFT path so that the magnitudes array at tap time is analyzed.
+        fftAnalyzer.$inputLevelDB
             .receive(on: DispatchQueue.main)
             .sink { [weak self] levelDB in
                 guard let self = self else { return }
                 let type = SpectrumDisplaySettings.measurementType
                 guard type == .material || type == .brace else { return }
                 guard self.isDetecting && !self.isDetectionPaused else { return }
-                // Pass current (slightly stale) FFT arrays — only used for non-MPM
-                // material/brace mode which immediately starts gated capture anyway.
                 self.detectTap(peakMagnitude: levelDB,
                                magnitudes: self.fftAnalyzer.magnitudes,
                                frequencies: self.fftAnalyzer.frequencies)

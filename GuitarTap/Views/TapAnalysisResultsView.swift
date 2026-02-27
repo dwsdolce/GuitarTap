@@ -74,10 +74,10 @@ struct TapAnalysisResultsView: View {
                 peaksAndModesSection
                 
                 // Material-specific sections
-                if measurementType == .material || measurementType == .plateMPM {
+                if measurementType == .material {
                     Divider()
                     materialPropertiesSection
-                } else if measurementType == .brace || measurementType == .braceMPM {
+                } else if measurementType == .brace {
                     Divider()
                     bracePropertiesSection
                 } else {
@@ -189,7 +189,7 @@ struct TapAnalysisResultsView: View {
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     // For material measurements, show selectable peaks
-                    if measurementType == .material || measurementType == .plateMPM {
+                    if measurementType == .material {
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
                             MaterialPeakRowView(
                                 peak: item.peak,
@@ -314,7 +314,7 @@ struct TapAnalysisResultsView: View {
                                 .padding(.top, 2)
                         }
                         .padding(.top, 4)
-                    } else if measurementType == .brace || measurementType == .braceMPM {
+                    } else if measurementType == .brace {
                         // Brace mode — fL selection only
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
                             MaterialPeakRowView(
