@@ -48,12 +48,15 @@ struct PDFReportData {
     /// Build report data from a saved TapToneMeasurement
     static func from(measurement: TapToneMeasurement) -> PDFReportData {
         let snapshot = measurement.spectrumSnapshot
-        let measurementType = snapshot?.measurementType ?? .classical
-        let guitarType = snapshot?.guitarType ?? .classical
+        // For MPM measurements there is no spectrumSnapshot; fall back to longitudinal/cross snapshots
+        let anySnapshot = snapshot ?? measurement.longitudinalSnapshot ?? measurement.crossSnapshot
+        let measurementType = anySnapshot?.measurementType ?? .classical
+        let guitarType = anySnapshot?.guitarType ?? .classical
 
         // Compute material properties if applicable
         var materialProps: MaterialProperties? = nil
-        if measurementType == .material || measurementType == .brace {
+        if measurementType == .material || measurementType == .plateMPM
+            || measurementType == .brace || measurementType == .braceMPM {
             let longID = measurement.selectedLongitudinalPeakID
             let crossID = measurement.selectedCrossPeakID
             let flcID = measurement.selectedFlcPeakID
@@ -62,12 +65,12 @@ struct PDFReportData {
                 let crossPeak = measurement.peaks.first(where: { $0.id == crossID })
                 let flcPeak = measurement.peaks.first(where: { $0.id == flcID })
 
-                if measurementType == .brace {
+                if measurementType == .brace || measurementType == .braceMPM {
                     let dims = MaterialDimensions(
-                        lengthMM: snapshot?.materialLength ?? 0,
-                        widthMM: snapshot?.materialWidth ?? 0,
-                        thicknessMM: snapshot?.materialThickness ?? 0,
-                        massGrams: snapshot?.materialMass ?? 0
+                        lengthMM: anySnapshot?.materialLength ?? 0,
+                        widthMM: anySnapshot?.materialWidth ?? 0,
+                        thicknessMM: anySnapshot?.materialThickness ?? 0,
+                        massGrams: anySnapshot?.materialMass ?? 0
                     )
                     if dims.length > 0 && dims.mass > 0 {
                         materialProps = MaterialProperties(
@@ -79,10 +82,10 @@ struct PDFReportData {
                     }
                 } else if let crossPeak = crossPeak {
                     let dims = MaterialDimensions(
-                        lengthMM: snapshot?.materialLength ?? 0,
-                        widthMM: snapshot?.materialWidth ?? 0,
-                        thicknessMM: snapshot?.materialThickness ?? 0,
-                        massGrams: snapshot?.materialMass ?? 0
+                        lengthMM: anySnapshot?.materialLength ?? 0,
+                        widthMM: anySnapshot?.materialWidth ?? 0,
+                        thicknessMM: anySnapshot?.materialThickness ?? 0,
+                        massGrams: anySnapshot?.materialMass ?? 0
                     )
                     if dims.length > 0 && dims.mass > 0 {
                         materialProps = MaterialProperties(
@@ -357,12 +360,8 @@ private struct PDFReportContentView: View {
 
     @ViewBuilder
     private var peakRoleHeader: some View {
-        if data.measurementType == .material {
-            Text("Role")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.secondary)
-        } else if data.measurementType == .brace {
+        if data.measurementType == .material || data.measurementType == .plateMPM
+            || data.measurementType == .brace || data.measurementType == .braceMPM {
             Text("Role")
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .font(.system(size: 10, weight: .semibold))
@@ -397,7 +396,7 @@ private struct PDFReportContentView: View {
 
     @ViewBuilder
     private func peakRoleCell(for peak: ResonantPeak) -> some View {
-        if data.measurementType == .material {
+        if data.measurementType == .material || data.measurementType == .plateMPM {
             let isLong = peak.id == data.selectedLongitudinalPeakID
             let isCross = peak.id == data.selectedCrossPeakID
             let isFlc = peak.id == data.selectedFlcPeakID
@@ -417,7 +416,7 @@ private struct PDFReportContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        } else if data.measurementType == .brace {
+        } else if data.measurementType == .brace || data.measurementType == .braceMPM {
             let isLong = peak.id == data.selectedLongitudinalPeakID
             Group {
                 if isLong {
@@ -448,11 +447,11 @@ private struct PDFReportContentView: View {
     @ViewBuilder
     private var analysisSection: some View {
         switch data.measurementType {
-        case .material:
+        case .material, .plateMPM:
             if let props = data.materialProperties {
                 materialSection(props)
             }
-        case .brace:
+        case .brace, .braceMPM:
             if let props = data.materialProperties {
                 braceSection(props)
             }

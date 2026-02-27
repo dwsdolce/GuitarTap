@@ -85,6 +85,10 @@ struct SpectrumView: View {
     /// Optional binding to annotation offsets for draggable labels
     var annotationOffsets: Binding<[UUID: CGPoint]>?
     
+    /// Optional per-phase spectra to overlay (material/brace measurements: L, C, FLC)
+    /// Each entry has its own colour and label for the legend
+    var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
+    
     /// Optional threshold lines to display (for tap detection visualization)
     var thresholdLines: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])]?
     
@@ -303,6 +307,26 @@ struct SpectrumView: View {
         }
     }
     
+    /// Per-phase spectrum overlay chart content (material/brace measurements)
+    @ChartContentBuilder
+    private var materialSpectraContent: some ChartContent {
+        ForEach(Array(materialSpectra.enumerated()), id: \.offset) { seriesIndex, series in
+            ForEach(
+                zip(series.frequencies, series.magnitudes)
+                    .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
+                    .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
+            ) { dataPoint in
+                let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
+                LineMark(
+                    x: .value("Frequency", dataPoint.frequency),
+                    y: .value("Magnitude", clampedMagnitude)
+                )
+                .foregroundStyle(by: .value("Series", series.label))
+                .lineStyle(StrokeStyle(lineWidth: 1.5))
+            }
+        }
+    }
+    
     /// Threshold lines chart content (for tap detection visualization)
     @ChartContentBuilder
     private var thresholdLinesContent: some ChartContent {
@@ -367,7 +391,34 @@ struct SpectrumView: View {
             }
             .padding(.bottom, 8)
             
-            chartView
+            ZStack(alignment: .topTrailing) {
+                chartView
+                materialSpectraLegend
+                    .padding(.top, 8)
+                    .padding(.trailing, 12)
+            }
+        }
+    }
+    
+    /// Legend overlay for per-phase material spectra
+    @ViewBuilder
+    private var materialSpectraLegend: some View {
+        if !materialSpectra.isEmpty {
+            HStack(spacing: 12) {
+                ForEach(Array(materialSpectra.enumerated()), id: \.offset) { _, series in
+                    HStack(spacing: 4) {
+                        Rectangle()
+                            .fill(series.color)
+                            .frame(width: 16, height: 2)
+                        Text(series.label)
+                            .font(.caption2)
+                            .foregroundColor(series.color)
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
         }
     }
     
@@ -431,11 +482,21 @@ struct SpectrumView: View {
     /// The base chart with plot style and scales
     private var baseChart: some View {
         Chart {
-            spectrumLineContent
+            // Show per-phase spectra overlay when available, otherwise show the single spectrum
+            if !materialSpectra.isEmpty {
+                materialSpectraContent
+            } else {
+                spectrumLineContent
+            }
             modeBoundaryContent
             peakAnnotationContent
             thresholdLinesContent
         }
+        .chartForegroundStyleScale(
+            domain: materialSpectra.map { $0.label },
+            range: materialSpectra.map { $0.color }
+        )
+        .chartLegend(.hidden)
         .chartPlotStyle { plotArea in
             plotArea
                 .border(Color.gray, width: 1)
@@ -1520,6 +1581,9 @@ struct ExportableSpectrumChart: View {
     var selectedCrossPeakID: UUID?
     var selectedFlcPeakID: UUID?
     
+    /// Per-phase spectra overlay for material/brace measurements
+    var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
+    
     private var chartData: [SpectrumDataPoint] {
         zip(frequencies, magnitudes)
             .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
@@ -1636,6 +1700,13 @@ struct ExportableSpectrumChart: View {
         return abs(frequency - mode.idealRange.lowerBound) < 0.1
     }
     
+    /// Build filtered chart data for a single material spectrum series
+    private func seriesData(frequencies: [Float], magnitudes: [Float]) -> [SpectrumDataPoint] {
+        zip(frequencies, magnitudes)
+            .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
+            .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -1648,15 +1719,31 @@ struct ExportableSpectrumChart: View {
             ZStack(alignment: .topLeading) {
                 // The chart
                 Chart {
-                    // Spectrum line
-                    ForEach(chartData) { dataPoint in
-                        let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
-                        LineMark(
-                            x: .value("Frequency", dataPoint.frequency),
-                            y: .value("Magnitude", clampedMagnitude)
-                        )
-                        .foregroundStyle(.red)
-                        .lineStyle(StrokeStyle(lineWidth: 2))
+                    // Per-phase spectra overlay (material/brace) or single spectrum (guitar)
+                    if !materialSpectra.isEmpty {
+                        ForEach(Array(materialSpectra.enumerated()), id: \.offset) { index, series in
+                            let data = seriesData(frequencies: series.frequencies, magnitudes: series.magnitudes)
+                            ForEach(data) { dataPoint in
+                                let clamped = max(minDB, min(maxDB, dataPoint.magnitude))
+                                LineMark(
+                                    x: .value("Frequency", dataPoint.frequency),
+                                    y: .value("Magnitude", clamped)
+                                )
+                                .foregroundStyle(by: .value("Series", series.label))
+                                .lineStyle(StrokeStyle(lineWidth: 2))
+                            }
+                        }
+                    } else {
+                        // Spectrum line
+                        ForEach(chartData) { dataPoint in
+                            let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
+                            LineMark(
+                                x: .value("Frequency", dataPoint.frequency),
+                                y: .value("Magnitude", clampedMagnitude)
+                            )
+                            .foregroundStyle(.red)
+                            .lineStyle(StrokeStyle(lineWidth: 2))
+                        }
                     }
                     
                     // Mode boundaries
@@ -1689,6 +1776,11 @@ struct ExportableSpectrumChart: View {
                         .symbolSize(200)
                     }
                 }
+                .chartForegroundStyleScale(
+                    domain: materialSpectra.map { $0.label },
+                    range: materialSpectra.map { $0.color }
+                )
+                .chartLegend(.hidden)
                 .chartPlotStyle { plotArea in
                     plotArea.border(Color.gray, width: 1)
                 }

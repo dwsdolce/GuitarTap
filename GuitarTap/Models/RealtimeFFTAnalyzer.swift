@@ -191,6 +191,13 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Pre-computed calibration corrections for each frequency bin
     /// This avoids interpolation overhead during real-time FFT processing
     private var calibrationCorrections: [Float] = []
+
+    // MARK: - Raw Sample Callback (for MPM)
+
+    /// Optional callback that receives raw PCM samples on the audio processing queue.
+    /// Used by MPMAnalyzer to get raw audio without a second audio engine.
+    /// Called on the audioProcessingQueue — do not update UI directly.
+    var rawSampleHandler: (([Float], Double) -> Void)?
     
     /// Flag to prevent re-saving device mapping when loading device-specific calibration
     private var isLoadingDeviceCalibration = false
@@ -839,6 +846,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             print("🎤 Sample values (first 5): \(samples.prefix(5).map { String(format: "%.4f", $0) }.joined(separator: ", "))")
             firstBufferReceived = true
         }
+
+        // Deliver raw samples to MPM or other consumers (runs on audioProcessingQueue)
+        rawSampleHandler?(samples, actualSampleRate)
         
         // Calculate fast input level (RMS) for decay tracking
         // This updates on every audio buffer (~10Hz with 4096 buffer) instead of per FFT frame
@@ -1098,6 +1108,106 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
     }
     
+    // MARK: - Gated FFT (for material/brace tap measurement)
+
+    /// Run a one-shot FFT on a pre-captured sample buffer and return linear
+    /// magnitudes and a matching frequency axis.
+    ///
+    /// Unlike `performFFT(on:)` this method:
+    ///  - Accepts an arbitrary-length buffer (zero-padded to the next power of
+    ///    two, capped at 32 768 samples for ~0.74 Hz/bin resolution at 44.1 kHz)
+    ///  - Creates a temporary DFT setup rather than reusing the continuous one
+    ///  - Returns raw values rather than publishing them
+    ///  - Applies `activeCalibration` corrections at the bin frequencies
+    ///
+    /// - Parameters:
+    ///   - samples:    PCM samples captured immediately after tap detection.
+    ///   - sampleRate: The hardware sample rate at the time of capture.
+    /// - Returns: A tuple of `(magnitudes, frequencies)` in dB and Hz respectively.
+    func computeGatedFFT(samples: [Float], sampleRate: Double) -> (magnitudes: [Float], frequencies: [Float]) {
+        // Choose FFT size: next power-of-two >= sample count, capped at 32768.
+        // 32768 samples @ 44100 Hz ≈ 743 ms window, freq resolution ≈ 1.35 Hz/bin.
+        let targetSize = 32768
+        let paddedSize = min(targetSize, nextPowerOfTwo(samples.count))
+
+        guard let setup = vDSP_DFT_zrop_CreateSetup(
+            nil,
+            vDSP_Length(paddedSize),
+            vDSP_DFT_Direction.FORWARD
+        ) else {
+            print("⚠️ computeGatedFFT: failed to create DFT setup for size \(paddedSize)")
+            return ([], [])
+        }
+        defer { vDSP_DFT_DestroySetup(setup) }
+
+        // Zero-pad (or truncate) to paddedSize and apply a Hann window
+        var padded = [Float](repeating: 0, count: paddedSize)
+        let copyCount = min(samples.count, paddedSize)
+        padded[0..<copyCount] = samples[0..<copyCount]
+
+        var hannWindow = [Float](repeating: 0, count: paddedSize)
+        vDSP_hann_window(&hannWindow, vDSP_Length(paddedSize), Int32(vDSP_HANN_NORM))
+        vDSP_vmul(padded, 1, hannWindow, 1, &padded, 1, vDSP_Length(paddedSize))
+
+        // Deinterleave into split-complex format required by vDSP_DFT_zrop
+        var realParts = [Float](repeating: 0, count: paddedSize / 2)
+        var imagParts = [Float](repeating: 0, count: paddedSize / 2)
+        for i in 0..<(paddedSize / 2) {
+            realParts[i] = padded[i * 2]
+            imagParts[i] = padded[i * 2 + 1]
+        }
+
+        realParts.withUnsafeMutableBufferPointer { rp in
+            imagParts.withUnsafeMutableBufferPointer { ip in
+                vDSP_DFT_Execute(setup,
+                                 rp.baseAddress!, ip.baseAddress!,
+                                 rp.baseAddress!, ip.baseAddress!)
+            }
+        }
+
+        // Compute magnitudes, normalise, convert to dB
+        var mags = [Float](repeating: 0, count: paddedSize / 2)
+        realParts.withUnsafeBufferPointer { rp in
+            imagParts.withUnsafeBufferPointer { ip in
+                var sc = DSPSplitComplex(
+                    realp: UnsafeMutablePointer(mutating: rp.baseAddress!),
+                    imagp: UnsafeMutablePointer(mutating: ip.baseAddress!)
+                )
+                var scale: Float = 1.0 / Float(paddedSize)
+                vDSP_vsmul(sc.realp, 1, &scale, sc.realp, 1, vDSP_Length(paddedSize / 2))
+                vDSP_vsmul(sc.imagp, 1, &scale, sc.imagp, 1, vDSP_Length(paddedSize / 2))
+                vDSP_zvabs(&sc, 1, &mags, 1, vDSP_Length(paddedSize / 2))
+            }
+        }
+
+        var db = [Float](repeating: -160, count: paddedSize / 2)
+        var ref: Float = 1.0
+        vDSP_vdbcon(mags, 1, &ref, &db, 1, vDSP_Length(paddedSize / 2), 1)
+
+        // Build frequency axis
+        let binWidth = Float(sampleRate) / Float(paddedSize)
+        let freqs = (0..<(paddedSize / 2)).map { Float($0) * binWidth }
+
+        // Apply microphone calibration at our bin frequencies using the same
+        // bulk-interpolation helper used by the continuous FFT path.
+        if let cal = activeCalibration {
+            let corrections = cal.corrections(for: freqs)
+            if corrections.count == db.count {
+                vDSP_vadd(db, 1, corrections, 1, &db, 1, vDSP_Length(db.count))
+            }
+        }
+
+        return (magnitudes: db, frequencies: freqs)
+    }
+
+    /// Returns the smallest power of two that is >= n (minimum 2).
+    private func nextPowerOfTwo(_ n: Int) -> Int {
+        guard n > 1 else { return 2 }
+        var p = 2
+        while p < n { p <<= 1 }
+        return p
+    }
+
     // MARK: - Audio Device Selection
     
     /// Loads the list of available audio input devices

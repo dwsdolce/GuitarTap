@@ -260,7 +260,7 @@ struct TapToneAnalysisView: View {
         .onReceive(tapToneAnalyzer.$loadedMaterialLength) { length in
             if let length = length {
                 print("  ⬇️ View received loadedMaterialLength: \(length)mm")
-                if SpectrumDisplaySettings.measurementType == .brace {
+                if SpectrumDisplaySettings.measurementType.isBrace {
                     SpectrumDisplaySettings.braceLength = length
                 } else {
                     SpectrumDisplaySettings.materialLength = length
@@ -272,7 +272,7 @@ struct TapToneAnalysisView: View {
         }
         .onReceive(tapToneAnalyzer.$loadedMaterialWidth) { width in
             if let width = width {
-                if SpectrumDisplaySettings.measurementType == .brace {
+                if SpectrumDisplaySettings.measurementType.isBrace {
                     SpectrumDisplaySettings.braceWidth = width
                 } else {
                     SpectrumDisplaySettings.materialWidth = width
@@ -284,7 +284,7 @@ struct TapToneAnalysisView: View {
         }
         .onReceive(tapToneAnalyzer.$loadedMaterialThickness) { thickness in
             if let thickness = thickness {
-                if SpectrumDisplaySettings.measurementType == .brace {
+                if SpectrumDisplaySettings.measurementType.isBrace {
                     SpectrumDisplaySettings.braceThickness = thickness
                 } else {
                     SpectrumDisplaySettings.materialThickness = thickness
@@ -296,7 +296,7 @@ struct TapToneAnalysisView: View {
         }
         .onReceive(tapToneAnalyzer.$loadedMaterialMass) { mass in
             if let mass = mass {
-                if SpectrumDisplaySettings.measurementType == .brace {
+                if SpectrumDisplaySettings.measurementType.isBrace {
                     SpectrumDisplaySettings.braceMass = mass
                 } else {
                     SpectrumDisplaySettings.materialMass = mass
@@ -309,22 +309,31 @@ struct TapToneAnalysisView: View {
         .onReceive(tapToneAnalyzer.$autoSelectedLongitudinalPeakID) { peakID in
             // When material measurement auto-selects a longitudinal peak, update the view state
             if let peakID = peakID {
-                print("  🔵 Auto-selected longitudinal peak: \(peakID)")
                 self.selectedLongitudinalPeakID = peakID
+                // Expand display range to include this peak
+                if let peak = tapToneAnalyzer.longitudinalPeaks.first(where: { $0.id == peakID }) {
+                    expandFreqRangeToInclude(peak.frequency)
+                }
             }
         }
         .onReceive(tapToneAnalyzer.$autoSelectedCrossPeakID) { peakID in
             // When material measurement auto-selects a cross-grain peak, update the view state
             if let peakID = peakID {
-                print("  🟠 Auto-selected cross-grain peak: \(peakID)")
                 self.selectedCrossPeakID = peakID
+                // Expand display range to include this peak
+                if let peak = tapToneAnalyzer.crossPeaks.first(where: { $0.id == peakID }) {
+                    expandFreqRangeToInclude(peak.frequency)
+                }
             }
         }
         .onReceive(tapToneAnalyzer.$autoSelectedFlcPeakID) { peakID in
             // When material measurement auto-selects an FLC peak, update the view state
             if let peakID = peakID {
-                print("  🟣 Auto-selected FLC peak: \(peakID)")
                 self.selectedFlcPeakID = peakID
+                // Expand display range to include this peak
+                if let peak = tapToneAnalyzer.flcPeaks.first(where: { $0.id == peakID }) {
+                    expandFreqRangeToInclude(peak.frequency)
+                }
             }
         }
         .onReceive(fftAnalyzer.$magnitudes) { newMagnitudes in
@@ -396,9 +405,6 @@ struct TapToneAnalysisView: View {
                     fftAnalyzer: fftAnalyzer,
                     minFreq: minFreq,
                     maxFreq: maxFreq,
-                    selectedLongitudinalPeakID: $selectedLongitudinalPeakID,
-                    selectedCrossPeakID: $selectedCrossPeakID,
-                    selectedFlcPeakID: $selectedFlcPeakID,
                     onExportPDFReport: { exportPDFReport() }
                 )
                 .navigationTitle("Analysis Results")
@@ -480,9 +486,6 @@ struct TapToneAnalysisView: View {
                     fftAnalyzer: fftAnalyzer,
                     minFreq: minFreq,
                     maxFreq: maxFreq,
-                    selectedLongitudinalPeakID: $selectedLongitudinalPeakID,
-                    selectedCrossPeakID: $selectedCrossPeakID,
-                    selectedFlcPeakID: $selectedFlcPeakID,
                     onExportPDFReport: { exportPDFReport() }
                 )
                 .navigationTitle("Analysis Results")
@@ -556,16 +559,81 @@ struct TapToneAnalysisView: View {
     /// Main content view shared across platforms
     @ViewBuilder
     private var mainContentView: some View {
-        #if os(iOS)
-        if isPhoneLandscape {
-            // iPhone landscape: horizontal layout with controls on left
-            phoneLandscapeLayout
+        if SpectrumDisplaySettings.measurementType.isMPM {
+            mpmContentView
         } else {
-            // iPhone portrait, iPad, and macOS: vertical layout
+            #if os(iOS)
+            if isPhoneLandscape {
+                // iPhone landscape: horizontal layout with controls on left
+                phoneLandscapeLayout
+            } else {
+                // iPhone portrait, iPad, and macOS: vertical layout
+                standardVerticalLayout
+            }
+            #else
             standardVerticalLayout
+            #endif
         }
-        #else
-        standardVerticalLayout
+    }
+
+    /// Content view for MPM (frequency meter) measurement types.
+    /// Reuses the same header/status-bar structure as standardVerticalLayout so
+    /// Start/Stop, Save, Settings, Results, and Measurements all work identically.
+    @ViewBuilder
+    private var mpmContentView: some View {
+        VStack(spacing: 0) {
+            // Header with controls — same as spectrum layout
+            headerView
+
+            Divider()
+
+            // Frequency meter fills available space
+            FrequencyMeterView(
+                tapToneAnalyzer: tapToneAnalyzer,
+                fftAnalyzer: fftAnalyzer
+            )
+
+            // Fixed status bar at bottom
+            Divider()
+
+            statusBarView
+        }
+        #if os(iOS)
+        .navigationTitle(appTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if useCompactLayout {
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button(action: toggleAnalyzer) {
+                        Image(systemName: fftAnalyzer.isRunning ? "stop.circle.fill" : "play.circle.fill")
+                            .foregroundColor(fftAnalyzer.isRunning ? .red : .green)
+                    }
+                    .accessibilityLabel(fftAnalyzer.isRunning ? "Stop" : "Start")
+
+                    Button(action: { showingSaveSheet = true }) {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    .disabled(tapToneAnalyzer.mpmLongitudinalFrequency == nil)
+                    .accessibilityLabel("Save")
+                }
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: { showingResults = true }) {
+                        Image(systemName: "doc.text")
+                    }
+                    .accessibilityLabel("Results")
+
+                    Button(action: { showingMeasurements = true }) {
+                        Image(systemName: "list.bullet.clipboard")
+                    }
+                    .accessibilityLabel("Measurements")
+
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                }
+            }
+        }
         #endif
     }
     
@@ -1520,34 +1588,36 @@ struct TapToneAnalysisView: View {
                     .buttonStyle(.plain)
                 }
                 
-                // Peak detection threshold slider
-                HStack(spacing: 6) {
-                    Text("Peak Min:")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .fixedSize()
-                    Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
-                        .accessibilityLabel("Peak detection minimum threshold")
-                        .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
-                            SpectrumDisplaySettings.peakThreshold = newValue
-                        }
-                    Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.green)
-                        .fixedSize()
-                    Button(action: {
-                        tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                        SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
+                // Peak detection threshold slider — not used by MPM modes
+                if !SpectrumDisplaySettings.measurementType.isMPM {
+                    HStack(spacing: 6) {
+                        Text("Peak Min:")
+                            .font(.caption)
                             .foregroundColor(.secondary)
+                            .fixedSize()
+                        Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                            .accessibilityLabel("Peak detection minimum threshold")
+                            .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
+                                SpectrumDisplaySettings.peakThreshold = newValue
+                            }
+                        Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.green)
+                            .fixedSize()
+                        Button(action: {
+                            tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                            SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                        }) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            
+
             // Row 2: Action buttons - all buttons always visible to prevent layout shifts
             HStack(spacing: 8) {
                 // New Tap button
@@ -1703,40 +1773,42 @@ struct TapToneAnalysisView: View {
             }
             .hint(HintText.hysteresis)
             
-            Divider()
-                .frame(height: 20)
-            
-            // Peak detection threshold slider
-            HStack(spacing: 4) {
-                Text("Peak Min:")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize()
-                Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
-                    .frame(width: 80)
-                    .accessibilityLabel("Peak detection minimum threshold")
-                    .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
-                        SpectrumDisplaySettings.peakThreshold = newValue
-                    }
-                Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.green)
-                    .fixedSize()
-                Button(action: {
-                    tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                    SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                }) {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.caption2)
+            // Peak detection threshold slider — not used by MPM modes
+            if !SpectrumDisplaySettings.measurementType.isMPM {
+                Divider()
+                    .frame(height: 20)
+
+                HStack(spacing: 4) {
+                    Text("Peak Min:")
+                        .font(.caption)
                         .foregroundColor(.secondary)
+                        .fixedSize()
+                    Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                        .frame(width: 80)
+                        .accessibilityLabel("Peak detection minimum threshold")
+                        .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
+                            SpectrumDisplaySettings.peakThreshold = newValue
+                        }
+                    Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.green)
+                        .fixedSize()
+                    Button(action: {
+                        tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                        SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset to default")
                 }
-                .buttonStyle(.plain)
-                .help("Reset to default")
             }
-            
+
             Spacer()
-            
+
             // Tap sequence buttons
             Button(action: {
                 tapToneAnalyzer.startTapSequence()
@@ -1869,38 +1941,40 @@ struct TapToneAnalysisView: View {
                 }
                 .hint(HintText.hysteresis)
                 
-                Divider()
-                    .frame(height: 20)
-                
-                // Peak detection threshold slider
-                HStack(spacing: 4) {
-                    Text("Peak Min:")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .fixedSize()
-                    Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
-                        .frame(width: 80)
-                        .accessibilityLabel("Peak detection minimum threshold")
-                        .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
-                            SpectrumDisplaySettings.peakThreshold = newValue
-                        }
-                    Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.green)
-                        .fixedSize()
-                    Button(action: {
-                        tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                        SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
+                // Peak detection threshold slider — not used by MPM modes
+                if !SpectrumDisplaySettings.measurementType.isMPM {
+                    Divider()
+                        .frame(height: 20)
+
+                    HStack(spacing: 4) {
+                        Text("Peak Min:")
+                            .font(.caption)
                             .foregroundColor(.secondary)
+                            .fixedSize()
+                        Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                            .frame(width: 80)
+                            .accessibilityLabel("Peak detection minimum threshold")
+                            .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
+                                SpectrumDisplaySettings.peakThreshold = newValue
+                            }
+                        Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.green)
+                            .fixedSize()
+                        Button(action: {
+                            tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                            SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                        }) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Reset to default")
                     }
-                    .buttonStyle(.plain)
-                    .help("Reset to default")
                 }
-                
+
                 Spacer()
             }
             
@@ -1958,6 +2032,23 @@ struct TapToneAnalysisView: View {
     
     private var displayMagnitudes: [Float] {
         tapToneAnalyzer.isSpectrumFrozen ? tapToneAnalyzer.frozenMagnitudes : fftAnalyzer.magnitudes
+    }
+    
+    /// Per-phase spectra for material/brace measurements, formatted for SpectrumView overlay
+    private var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] {
+        let measurementType = SpectrumDisplaySettings.measurementType
+        guard !measurementType.isGuitar else { return [] }
+        var result: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
+        if let spec = tapToneAnalyzer.longitudinalSpectrum {
+            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .blue, label: "Longitudinal (L)"))
+        }
+        if measurementType == .material, let spec = tapToneAnalyzer.crossSpectrum {
+            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .orange, label: "Cross-grain (C)"))
+        }
+        if measurementType == .material, let spec = tapToneAnalyzer.flcSpectrum {
+            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .purple, label: "FLC"))
+        }
+        return result
     }
     
     private var realTimeSpectrumView: some View {
@@ -2020,15 +2111,16 @@ struct TapToneAnalysisView: View {
                 showModeBoundaries: true,
                 onFrequencyRangeChanged: updateFrequencyInputFields,
                 annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
+                materialSpectra: materialSpectra,
                 thresholdLines: thresholds,
                 onResetLabels: {
                     tapToneAnalyzer.resetAllAnnotationOffsets()
                 },
                 hasLabelsToReset: !tapToneAnalyzer.peakAnnotationOffsets.isEmpty,
                 measurementType: SpectrumDisplaySettings.measurementType,
-                selectedLongitudinalPeakID: selectedLongitudinalPeakID,
-                selectedCrossPeakID: selectedCrossPeakID,
-                selectedFlcPeakID: selectedFlcPeakID
+                selectedLongitudinalPeakID: tapToneAnalyzer.effectiveLongitudinalPeakID,
+                selectedCrossPeakID: tapToneAnalyzer.effectiveCrossPeakID,
+                selectedFlcPeakID: tapToneAnalyzer.effectiveFlcPeakID
             )
             // Force view to update when any relevant state changes
             .id("\(tapToneAnalyzer.isSpectrumFrozen)-\(fftAnalyzer.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
@@ -2339,6 +2431,22 @@ struct TapToneAnalysisView: View {
     }
     
     private func saveMeasurement() {
+        // MPM measurements have no spectrum to capture — save directly
+        if SpectrumDisplaySettings.measurementType.isMPM {
+            tapToneAnalyzer.saveMeasurement(
+                tapLocation: tapLocation.isEmpty ? nil : tapLocation,
+                notes: notes.isEmpty ? nil : notes,
+                includeSpectrum: false,
+                microphoneName: fftAnalyzer.selectedInputDevice?.name,
+                microphoneUID: fftAnalyzer.selectedInputDevice?.uid,
+                calibrationName: fftAnalyzer.activeCalibration?.name
+            )
+            tapLocation = ""
+            notes = ""
+            showingSaveSheet = false
+            return
+        }
+
         isSavingMeasurement = true
         
         // Capture the spectrum image
@@ -2365,32 +2473,49 @@ struct TapToneAnalysisView: View {
             }
             #endif
             
-            // Create spectrum snapshot
             let measurementType = SpectrumDisplaySettings.measurementType
-            let snapshot = SpectrumSnapshot(
-                frequencies: self.tapToneAnalyzer.isSpectrumFrozen ? 
-                    self.tapToneAnalyzer.frozenFrequencies : self.fftAnalyzer.frequencies,
-                magnitudes: self.tapToneAnalyzer.isSpectrumFrozen ? 
-                    self.tapToneAnalyzer.frozenMagnitudes : self.fftAnalyzer.magnitudes,
-                minFreq: self.minFreq,
-                maxFreq: self.maxFreq,
-                minDB: self.minDB,
-                maxDB: self.maxDB,
-                isLogarithmic: false,
-                showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
-                guitarType: SpectrumDisplaySettings.guitarType,
-                measurementType: measurementType,
-                maxPeaks: self.tapToneAnalyzer.maxPeaks,
-                // Include material dimensions for material and brace measurements
-                materialLength: measurementType == .material ? SpectrumDisplaySettings.materialLength
-                              : measurementType == .brace   ? SpectrumDisplaySettings.braceLength : nil,
-                materialWidth: measurementType == .material ? SpectrumDisplaySettings.materialWidth
-                             : measurementType == .brace   ? SpectrumDisplaySettings.braceWidth : nil,
-                materialThickness: measurementType == .material ? SpectrumDisplaySettings.materialThickness
-                                 : measurementType == .brace   ? SpectrumDisplaySettings.braceThickness : nil,
-                materialMass: measurementType == .material ? SpectrumDisplaySettings.materialMass
-                            : measurementType == .brace   ? SpectrumDisplaySettings.braceMass : nil
-            )
+            
+            // Build a helper to create a SpectrumSnapshot from a phase spectrum
+            func makePhaseSnapshot(magnitudes: [Float], frequencies: [Float]) -> SpectrumSnapshot {
+                SpectrumSnapshot(
+                    frequencies: frequencies,
+                    magnitudes: magnitudes,
+                    minFreq: self.minFreq,
+                    maxFreq: self.maxFreq,
+                    minDB: self.minDB,
+                    maxDB: self.maxDB,
+                    isLogarithmic: false,
+                    showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
+                    guitarType: SpectrumDisplaySettings.guitarType,
+                    measurementType: measurementType,
+                    maxPeaks: self.tapToneAnalyzer.maxPeaks,
+                    materialLength: measurementType == .material ? SpectrumDisplaySettings.materialLength
+                                  : measurementType == .brace   ? SpectrumDisplaySettings.braceLength : nil,
+                    materialWidth: measurementType == .material ? SpectrumDisplaySettings.materialWidth
+                                 : measurementType == .brace   ? SpectrumDisplaySettings.braceWidth : nil,
+                    materialThickness: measurementType == .material ? SpectrumDisplaySettings.materialThickness
+                                     : measurementType == .brace   ? SpectrumDisplaySettings.braceThickness : nil,
+                    materialMass: measurementType == .material ? SpectrumDisplaySettings.materialMass
+                                : measurementType == .brace   ? SpectrumDisplaySettings.braceMass : nil
+                )
+            }
+            
+            // For material/brace: build per-phase snapshots. For guitar: build a single snapshot.
+            let longSnap: SpectrumSnapshot? = {
+                guard !measurementType.isGuitar,
+                      let spec = self.tapToneAnalyzer.longitudinalSpectrum else { return nil }
+                return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies)
+            }()
+            let crossSnap: SpectrumSnapshot? = {
+                guard measurementType == .material,
+                      let spec = self.tapToneAnalyzer.crossSpectrum else { return nil }
+                return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies)
+            }()
+            let flcSnap: SpectrumSnapshot? = {
+                guard measurementType == .material,
+                      let spec = self.tapToneAnalyzer.flcSpectrum else { return nil }
+                return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies)
+            }()
             
             // Save with all data
             self.tapToneAnalyzer.saveMeasurement(
@@ -2398,11 +2523,13 @@ struct TapToneAnalysisView: View {
                 notes: self.notes.isEmpty ? nil : self.notes,
                 includeSpectrum: true,
                 chartImageData: imageData,
-                spectrumSnapshot: snapshot,
+                longitudinalSnapshot: longSnap,
+                crossSnapshot: crossSnap,
+                flcSnapshot: flcSnap,
                 annotationOffsets: self.tapToneAnalyzer.peakAnnotationOffsets,
-                selectedLongitudinalPeakID: self.selectedLongitudinalPeakID,
-                selectedCrossPeakID: self.selectedCrossPeakID,
-                selectedFlcPeakID: self.selectedFlcPeakID,
+                selectedLongitudinalPeakID: self.tapToneAnalyzer.effectiveLongitudinalPeakID,
+                selectedCrossPeakID: self.tapToneAnalyzer.effectiveCrossPeakID,
+                selectedFlcPeakID: self.tapToneAnalyzer.effectiveFlcPeakID,
                 microphoneName: self.fftAnalyzer.selectedInputDevice?.name,
                 microphoneUID: self.fftAnalyzer.selectedInputDevice?.uid,
                 calibrationName: self.fftAnalyzer.activeCalibration?.name
@@ -2420,6 +2547,22 @@ struct TapToneAnalysisView: View {
     private func updateFrequencyInputFields() {
         minFreqInput = String(format: "%.0f", minFreq)
         maxFreqInput = String(format: "%.0f", maxFreq)
+    }
+    
+    /// Expand the frequency display range to ensure the given frequency is visible.
+    /// Adds 10% padding above/below. Used when material/brace peaks are auto-selected
+    /// to ensure they're always in view even if outside the persisted default range.
+    private func expandFreqRangeToInclude(_ frequency: Float) {
+        guard !SpectrumDisplaySettings.measurementType.isGuitar else { return }
+        let padding = frequency * 0.10
+        if frequency > maxFreq {
+            maxFreq = frequency + padding
+            maxFreqInput = String(format: "%.0f", maxFreq)
+        }
+        if frequency < minFreq {
+            minFreq = max(1, frequency - padding)
+            minFreqInput = String(format: "%.0f", minFreq)
+        }
     }
     
     private func formatFrequency(_ freq: Float) -> String {
@@ -2558,13 +2701,14 @@ struct TapToneAnalysisView: View {
         // Compute material properties if applicable
         let measurementType = SpectrumDisplaySettings.measurementType
         var materialProps: MaterialProperties? = nil
-        if measurementType == .material {
-            let effLong = selectedLongitudinalPeakID ?? tapToneAnalyzer.autoSelectedLongitudinalPeakID
-            let effCross = selectedCrossPeakID ?? tapToneAnalyzer.autoSelectedCrossPeakID
-            let effFlc = selectedFlcPeakID ?? tapToneAnalyzer.autoSelectedFlcPeakID
-            if let longPeak = tapToneAnalyzer.currentPeaks.first(where: { $0.id == effLong }),
-               let crossPeak = tapToneAnalyzer.currentPeaks.first(where: { $0.id == effCross }) {
-                let flcFreq: Float? = tapToneAnalyzer.currentPeaks.first(where: { $0.id == effFlc })?.frequency
+        if measurementType == .material || measurementType == .plateMPM {
+            let effLong = tapToneAnalyzer.effectiveLongitudinalPeakID
+            let effCross = tapToneAnalyzer.effectiveCrossPeakID
+            let effFlc = tapToneAnalyzer.effectiveFlcPeakID
+            let allMaterialPeaks = tapToneAnalyzer.longitudinalPeaks + tapToneAnalyzer.crossPeaks + tapToneAnalyzer.flcPeaks + tapToneAnalyzer.currentPeaks
+            if let longPeak = allMaterialPeaks.first(where: { $0.id == effLong }),
+               let crossPeak = allMaterialPeaks.first(where: { $0.id == effCross }) {
+                let flcFreq: Float? = allMaterialPeaks.first(where: { $0.id == effFlc })?.frequency
                 let dims = MaterialDimensions(
                     lengthMM: SpectrumDisplaySettings.materialLength,
                     widthMM: SpectrumDisplaySettings.materialWidth,
@@ -2580,9 +2724,10 @@ struct TapToneAnalysisView: View {
                     )
                 }
             }
-        } else if measurementType == .brace {
-            let effLong = selectedLongitudinalPeakID ?? tapToneAnalyzer.autoSelectedLongitudinalPeakID
-            if let longPeak = tapToneAnalyzer.currentPeaks.first(where: { $0.id == effLong }) {
+        } else if measurementType == .brace || measurementType == .braceMPM {
+            let effLong = tapToneAnalyzer.effectiveLongitudinalPeakID
+            let allBracePeaks = tapToneAnalyzer.longitudinalPeaks + tapToneAnalyzer.currentPeaks
+            if let longPeak = allBracePeaks.first(where: { $0.id == effLong }) {
                 let dims = MaterialDimensions(
                     lengthMM: SpectrumDisplaySettings.braceLength,
                     widthMM: SpectrumDisplaySettings.braceWidth,
@@ -2619,9 +2764,9 @@ struct TapToneAnalysisView: View {
             minFreq: minFreq,
             maxFreq: maxFreq,
             materialProperties: materialProps,
-            selectedLongitudinalPeakID: selectedLongitudinalPeakID ?? tapToneAnalyzer.autoSelectedLongitudinalPeakID,
-            selectedCrossPeakID: selectedCrossPeakID ?? tapToneAnalyzer.autoSelectedCrossPeakID,
-            selectedFlcPeakID: selectedFlcPeakID ?? tapToneAnalyzer.autoSelectedFlcPeakID,
+            selectedLongitudinalPeakID: tapToneAnalyzer.effectiveLongitudinalPeakID,
+            selectedCrossPeakID: tapToneAnalyzer.effectiveCrossPeakID,
+            selectedFlcPeakID: tapToneAnalyzer.effectiveFlcPeakID,
             microphoneName: fftAnalyzer.selectedInputDevice?.name,
             calibrationName: fftAnalyzer.activeCalibration?.name,
             guitarBodyLength: SpectrumDisplaySettings.guitarBodyLength,
@@ -2693,9 +2838,10 @@ struct TapToneAnalysisView: View {
                 annotationOffsets: tapToneAnalyzer.peakAnnotationOffsets,
                 showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
                 measurementType: SpectrumDisplaySettings.measurementType,
-                selectedLongitudinalPeakID: selectedLongitudinalPeakID,
-                selectedCrossPeakID: selectedCrossPeakID,
-                selectedFlcPeakID: selectedFlcPeakID
+                selectedLongitudinalPeakID: tapToneAnalyzer.effectiveLongitudinalPeakID,
+                selectedCrossPeakID: tapToneAnalyzer.effectiveCrossPeakID,
+                selectedFlcPeakID: tapToneAnalyzer.effectiveFlcPeakID,
+                materialSpectra: materialSpectra
             )
             .frame(width: 1400, height: 800)
             .padding()

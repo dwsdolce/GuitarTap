@@ -16,11 +16,6 @@ struct TapAnalysisResultsView: View {
     var minFreq: Float
     var maxFreq: Float
     
-    // Material mode selection state - exposed via bindings for parent view to use
-    @Binding var selectedLongitudinalPeakID: UUID?
-    @Binding var selectedCrossPeakID: UUID?
-    @Binding var selectedFlcPeakID: UUID?
-
     /// Optional callback invoked when the user requests a PDF report export.
     /// When nil, the PDF export button is not shown.
     var onExportPDFReport: (() -> Void)? = nil
@@ -30,19 +25,19 @@ struct TapAnalysisResultsView: View {
         SpectrumDisplaySettings.measurementType
     }
     
-    /// Effective longitudinal peak ID - uses binding value if set, otherwise falls back to auto-selected
+    /// Effective longitudinal peak ID — reads directly from the analyzer model
     private var effectiveLongitudinalPeakID: UUID? {
-        selectedLongitudinalPeakID ?? analyzer.autoSelectedLongitudinalPeakID
+        analyzer.effectiveLongitudinalPeakID
     }
     
-    /// Effective cross-grain peak ID - uses binding value if set, otherwise falls back to auto-selected
+    /// Effective cross-grain peak ID — reads directly from the analyzer model
     private var effectiveCrossPeakID: UUID? {
-        selectedCrossPeakID ?? analyzer.autoSelectedCrossPeakID
+        analyzer.effectiveCrossPeakID
     }
     
-    /// Effective FLC peak ID - uses binding value if set, otherwise falls back to auto-selected
+    /// Effective FLC peak ID — reads directly from the analyzer model
     private var effectiveFlcPeakID: UUID? {
-        selectedFlcPeakID ?? analyzer.autoSelectedFlcPeakID
+        analyzer.effectiveFlcPeakID
     }
     
     /// Whether FLC measurement was performed (has FLC peaks)
@@ -79,10 +74,10 @@ struct TapAnalysisResultsView: View {
                 peaksAndModesSection
                 
                 // Material-specific sections
-                if measurementType == .material {
+                if measurementType == .material || measurementType == .plateMPM {
                     Divider()
                     materialPropertiesSection
-                } else if measurementType == .brace {
+                } else if measurementType == .brace || measurementType == .braceMPM {
                     Divider()
                     bracePropertiesSection
                 } else {
@@ -124,7 +119,12 @@ struct TapAnalysisResultsView: View {
     private var sortedPeaksWithModes: [(peak: ResonantPeak, mode: GuitarMode)] {
         analyzer.currentPeaks
             .filter { peak in
-                peak.frequency >= minFreq && peak.frequency <= maxFreq
+                // For material/brace mode, don't filter by display range — the selected peaks
+                // must always appear in results regardless of the current zoom level.
+                // For guitar mode, filter to the displayed frequency range.
+                measurementType.isGuitar
+                    ? (peak.frequency >= minFreq && peak.frequency <= maxFreq)
+                    : true
             }
             .map { peak in
                 (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
@@ -189,7 +189,7 @@ struct TapAnalysisResultsView: View {
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     // For material measurements, show selectable peaks
-                    if measurementType == .material {
+                    if measurementType == .material || measurementType == .plateMPM {
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
                             MaterialPeakRowView(
                                 peak: item.peak,
@@ -200,49 +200,49 @@ struct TapAnalysisResultsView: View {
                                 isVisible: !analyzer.hiddenPeakIDs.contains(item.peak.id),
                                 onSelectLongitudinal: {
                                     if effectiveLongitudinalPeakID == item.peak.id {
-                                        selectedLongitudinalPeakID = nil
-                                        analyzer.autoSelectedLongitudinalPeakID = nil
+                                        analyzer.userSelectedLongitudinalPeakID = nil
+                                        analyzer.selectedLongitudinalPeak = nil
                                     } else {
-                                        selectedLongitudinalPeakID = item.peak.id
+                                        analyzer.userSelectedLongitudinalPeakID = item.peak.id
                                         if effectiveCrossPeakID == item.peak.id {
-                                            selectedCrossPeakID = nil
-                                            analyzer.autoSelectedCrossPeakID = nil
+                                            analyzer.userSelectedCrossPeakID = nil
+                                            analyzer.selectedCrossPeak = nil
                                         }
                                         if effectiveFlcPeakID == item.peak.id {
-                                            selectedFlcPeakID = nil
-                                            analyzer.autoSelectedFlcPeakID = nil
+                                            analyzer.userSelectedFlcPeakID = nil
+                                            analyzer.selectedFlcPeak = nil
                                         }
                                     }
                                 },
                                 onSelectCross: {
                                     if effectiveCrossPeakID == item.peak.id {
-                                        selectedCrossPeakID = nil
-                                        analyzer.autoSelectedCrossPeakID = nil
+                                        analyzer.userSelectedCrossPeakID = nil
+                                        analyzer.selectedCrossPeak = nil
                                     } else {
-                                        selectedCrossPeakID = item.peak.id
+                                        analyzer.userSelectedCrossPeakID = item.peak.id
                                         if effectiveLongitudinalPeakID == item.peak.id {
-                                            selectedLongitudinalPeakID = nil
-                                            analyzer.autoSelectedLongitudinalPeakID = nil
+                                            analyzer.userSelectedLongitudinalPeakID = nil
+                                            analyzer.selectedLongitudinalPeak = nil
                                         }
                                         if effectiveFlcPeakID == item.peak.id {
-                                            selectedFlcPeakID = nil
-                                            analyzer.autoSelectedFlcPeakID = nil
+                                            analyzer.userSelectedFlcPeakID = nil
+                                            analyzer.selectedFlcPeak = nil
                                         }
                                     }
                                 },
                                 onSelectFlc: {
                                     if effectiveFlcPeakID == item.peak.id {
-                                        selectedFlcPeakID = nil
-                                        analyzer.autoSelectedFlcPeakID = nil
+                                        analyzer.userSelectedFlcPeakID = nil
+                                        analyzer.selectedFlcPeak = nil
                                     } else {
-                                        selectedFlcPeakID = item.peak.id
+                                        analyzer.userSelectedFlcPeakID = item.peak.id
                                         if effectiveLongitudinalPeakID == item.peak.id {
-                                            selectedLongitudinalPeakID = nil
-                                            analyzer.autoSelectedLongitudinalPeakID = nil
+                                            analyzer.userSelectedLongitudinalPeakID = nil
+                                            analyzer.selectedLongitudinalPeak = nil
                                         }
                                         if effectiveCrossPeakID == item.peak.id {
-                                            selectedCrossPeakID = nil
-                                            analyzer.autoSelectedCrossPeakID = nil
+                                            analyzer.userSelectedCrossPeakID = nil
+                                            analyzer.selectedCrossPeak = nil
                                         }
                                     }
                                 },
@@ -314,7 +314,7 @@ struct TapAnalysisResultsView: View {
                                 .padding(.top, 2)
                         }
                         .padding(.top, 4)
-                    } else if measurementType == .brace {
+                    } else if measurementType == .brace || measurementType == .braceMPM {
                         // Brace mode — fL selection only
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
                             MaterialPeakRowView(
@@ -325,10 +325,10 @@ struct TapAnalysisResultsView: View {
                                 isVisible: !analyzer.hiddenPeakIDs.contains(item.peak.id),
                                 onSelectLongitudinal: {
                                     if effectiveLongitudinalPeakID == item.peak.id {
-                                        selectedLongitudinalPeakID = nil
-                                        analyzer.autoSelectedLongitudinalPeakID = nil
+                                        analyzer.userSelectedLongitudinalPeakID = nil
+                                        analyzer.selectedLongitudinalPeak = nil
                                     } else {
-                                        selectedLongitudinalPeakID = item.peak.id
+                                        analyzer.userSelectedLongitudinalPeakID = item.peak.id
                                     }
                                 },
                                 onSelectCross: {},
@@ -475,11 +475,21 @@ struct TapAnalysisResultsView: View {
     /// Computed material properties based on selected peaks and dimensions
     private var calculatedMaterialProperties: MaterialProperties? {
         guard let longPeakID = effectiveLongitudinalPeakID,
-              let crossPeakID = effectiveCrossPeakID,
-              let longPeak = sortedPeaksWithModes.first(where: { $0.peak.id == longPeakID })?.peak,
-              let crossPeak = sortedPeaksWithModes.first(where: { $0.peak.id == crossPeakID })?.peak else {
+              let crossPeakID = effectiveCrossPeakID else {
             return nil
         }
+
+        // Search phase-specific arrays first (live measurement), then fall back to
+        // currentPeaks (loaded/saved measurements where phase arrays are not populated).
+        let longPeak: ResonantPeak? =
+            analyzer.longitudinalPeaks.first(where: { $0.id == longPeakID })
+            ?? sortedPeaksWithModes.first(where: { $0.peak.id == longPeakID })?.peak
+
+        let crossPeak: ResonantPeak? =
+            analyzer.crossPeaks.first(where: { $0.id == crossPeakID })
+            ?? sortedPeaksWithModes.first(where: { $0.peak.id == crossPeakID })?.peak
+
+        guard let longPeak, let crossPeak else { return nil }
 
         // Resolve FLC peak frequency: check flcPeaks first (from its own tap),
         // then fall back to combined currentPeaks for saved measurements
@@ -511,10 +521,14 @@ struct TapAnalysisResultsView: View {
                     // Frequencies used
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Longitudinal: \(props.fundamentalFrequencyLong, specifier: "%.1f") Hz")
+                            Text("fL (Longitudinal): \(props.fundamentalFrequencyLong, specifier: "%.1f") Hz")
                                 .font(.caption)
-                            Text("Cross-grain: \(props.fundamentalFrequencyCross, specifier: "%.1f") Hz")
+                            Text("fC (Cross-grain): \(props.fundamentalFrequencyCross, specifier: "%.1f") Hz")
                                 .font(.caption)
+                            if let fLC = props.fundamentalFrequencyFlc {
+                                Text("fLC (Diagonal): \(fLC, specifier: "%.1f") Hz")
+                                    .font(.caption)
+                            }
                         }
                         .foregroundColor(.secondary)
                         Spacer()
@@ -529,12 +543,28 @@ struct TapAnalysisResultsView: View {
                         crossValue: "\(Int(props.speedOfSoundCross)) m/s"
                     )
                     
-                    // Young's Modulus
-                    propertyRow(
-                        title: "Young's Modulus (E)",
-                        longValue: String(format: "%.2f GPa", props.youngsModulusLongGPa),
-                        crossValue: String(format: "%.2f GPa", props.youngsModulusCrossGPa)
-                    )
+                    // Young's Modulus (E_L and E_C) plus shear modulus GLC if available
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Young's Modulus (E)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        HStack {
+                            Text("L: \(String(format: "%.2f GPa", props.youngsModulusLongGPa))")
+                                .font(.caption)
+                            Spacer()
+                            Text("C: \(String(format: "%.2f GPa", props.youngsModulusCrossGPa))")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.secondary)
+                        if let glc = props.goreShearModulus {
+                            HStack {
+                                Text("GLC (Shear): \(String(format: "%.3f GPa", glc / 1.0e9))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                        }
+                    }
                     
                     // Specific Modulus (E/ρ) - the key metric
                     VStack(alignment: .leading, spacing: 8) {
@@ -629,10 +659,10 @@ struct TapAnalysisResultsView: View {
                 }
             } else {
                 VStack(spacing: 12) {
-                    if selectedLongitudinalPeakID == nil && selectedCrossPeakID == nil {
+                    if effectiveLongitudinalPeakID == nil && effectiveCrossPeakID == nil {
                         Text("Select peaks above to calculate properties")
                             .foregroundColor(.secondary)
-                    } else if selectedLongitudinalPeakID == nil {
+                    } else if effectiveLongitudinalPeakID == nil {
                         Text("Select a longitudinal (L) peak")
                             .foregroundColor(.orange)
                     } else {

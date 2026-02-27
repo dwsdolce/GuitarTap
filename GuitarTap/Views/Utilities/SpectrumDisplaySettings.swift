@@ -16,6 +16,8 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
     case acoustic = "Acoustic Guitar"
     case material = "Material (Wood Plate)"
     case brace = "Brace Material"
+    case plateMPM = "Plate (MPM)"
+    case braceMPM = "Brace (MPM)"
     
     var id: String { rawValue }
     
@@ -27,6 +29,8 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         case .acoustic: return "Acoustic"
         case .material: return "Material"
         case .brace: return "Brace"
+        case .plateMPM: return "Plate MPM"
+        case .braceMPM: return "Brace MPM"
         }
     }
     
@@ -43,6 +47,10 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
             return "Rectangular wood plate for calculating stiffness and sound radiation"
         case .brace:
             return "Brace strip — measures longitudinal stiffness (fL only)"
+        case .plateMPM:
+            return "Wood plate — MPM frequency meter (more accurate than FFT)"
+        case .braceMPM:
+            return "Brace strip — MPM frequency meter, longitudinal stiffness (fL only)"
         }
     }
     
@@ -51,8 +59,24 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .classical, .flamenco, .acoustic:
             return true
-        case .material, .brace:
+        case .material, .brace, .plateMPM, .braceMPM:
             return false
+        }
+    }
+    
+    /// Whether this is an MPM (McLeod Pitch Method) measurement
+    var isMPM: Bool {
+        switch self {
+        case .plateMPM, .braceMPM: return true
+        default: return false
+        }
+    }
+    
+    /// Whether this is a brace measurement (single longitudinal tap only)
+    var isBrace: Bool {
+        switch self {
+        case .brace, .braceMPM: return true
+        default: return false
         }
     }
     
@@ -62,7 +86,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         case .classical: return .classical
         case .flamenco: return .flamenco
         case .acoustic: return .acoustic
-        case .material, .brace: return nil
+        case .material, .brace, .plateMPM, .braceMPM: return nil
         }
     }
     
@@ -495,26 +519,41 @@ struct SpectrumDisplaySettings {
     
     // MARK: - Display Ranges (Persisted)
     
-    /// Default minimum frequency for guitar/plate spectrum display (Hz)
+    /// Default minimum frequency for guitar spectrum display (Hz)
     static let defaultMinFrequency: Float = 75
     
-    /// Default maximum frequency for guitar/plate spectrum display (Hz)
+    /// Default maximum frequency for guitar spectrum display (Hz)
     static let defaultMaxFrequency: Float = 350
     
+    /// Default minimum frequency for material plate spectrum display (Hz)
+    /// Plate resonances (fL, fC, fLC) typically start in the 30–80 Hz range
+    static let defaultPlateMinFrequency: Float = 30
+    
+    /// Default maximum frequency for material plate spectrum display (Hz)
+    static let defaultPlateMaxFrequency: Float = 600
+    
     /// Default minimum frequency for brace spectrum display (Hz)
-    static let defaultBraceMinFrequency: Float = 75
+    static let defaultBraceMinFrequency: Float = 30
     
     /// Default maximum frequency for brace spectrum display (Hz)
     static let defaultBraceMaxFrequency: Float = 1000
     
     /// Returns the default minimum display frequency for the given measurement type
     static func defaultMinFrequency(for type: MeasurementType) -> Float {
-        type == .brace ? defaultBraceMinFrequency : defaultMinFrequency
+        switch type {
+        case .material, .plateMPM: return defaultPlateMinFrequency
+        case .brace, .braceMPM:    return defaultBraceMinFrequency
+        default:                   return defaultMinFrequency
+        }
     }
     
     /// Returns the default maximum display frequency for the given measurement type
     static func defaultMaxFrequency(for type: MeasurementType) -> Float {
-        type == .brace ? defaultBraceMaxFrequency : defaultMaxFrequency
+        switch type {
+        case .material, .plateMPM: return defaultPlateMaxFrequency
+        case .brace, .braceMPM:    return defaultBraceMaxFrequency
+        default:                   return defaultMaxFrequency
+        }
     }
     
     /// Default minimum magnitude for spectrum display (dB)
@@ -543,8 +582,8 @@ struct SpectrumDisplaySettings {
         let value = UserDefaults.standard.float(forKey: key)
         if value != 0 { return value }
         // Migrate legacy single-key value if present, but only for non-brace types
-        // (brace has a different default and shouldn't inherit an old guitar setting)
-        if type != .brace {
+        // (brace/braceMPM have a different default and shouldn't inherit an old guitar setting)
+        if type != .brace && type != .braceMPM {
             let legacy = UserDefaults.standard.float(forKey: displayMaxFreqKey)
             if legacy != 0 { return legacy }
         }
@@ -598,7 +637,7 @@ struct SpectrumDisplaySettings {
     // MARK: - Analysis Settings (Persisted)
     
     /// Default minimum frequency for peak detection and analysis (Hz)
-    static let defaultAnalysisMinFrequency: Float = 50
+    static let defaultAnalysisMinFrequency: Float = 30
     
     /// Default maximum frequency for peak detection and analysis (Hz)
     static let defaultAnalysisMaxFrequency: Float = 2000
