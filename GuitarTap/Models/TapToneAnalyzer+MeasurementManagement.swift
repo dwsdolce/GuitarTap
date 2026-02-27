@@ -231,7 +231,10 @@ extension TapToneAnalyzer {
     /// Load a measurement's data into the current view (recreate the plot)
     func loadMeasurement(_ measurement: TapToneMeasurement) {
         print("🔄 Loading measurement...")
-        
+
+        // Track the original timestamp so the Results-panel PDF can use it
+        sourceMeasurementTimestamp = measurement.timestamp
+
         // Restore peaks
         currentPeaks = measurement.peaks
         

@@ -539,8 +539,8 @@ struct TapAnalysisResultsView: View {
                     // Speed of Sound
                     propertyRow(
                         title: "Speed of Sound",
-                        longValue: "\(Int(props.speedOfSoundLong)) m/s",
-                        crossValue: "\(Int(props.speedOfSoundCross)) m/s"
+                        longValue: String(format: "%.0f m/s", props.speedOfSoundLong),
+                        crossValue: String(format: "%.0f m/s", props.speedOfSoundCross)
                     )
                     
                     // Young's Modulus (E_L and E_C) plus shear modulus GLC if available
@@ -599,7 +599,7 @@ struct TapAnalysisResultsView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                    Text(String(format: "%.2f", props.specificModulusCross))
+                                    Text(String(format: "%.1f", props.specificModulusCross))
                                         .font(.title2)
                                         .fontWeight(.bold)
                                         .foregroundColor(qualityColor(for: props.spruceQualityCross))
@@ -722,7 +722,7 @@ struct TapAnalysisResultsView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                         Spacer()
-                        Text("\(Int(props.speedOfSoundLong)) m/s")
+                        Text(String(format: "%.0f m/s", props.speedOfSoundLong))
                             .font(.subheadline)
                     }
                     

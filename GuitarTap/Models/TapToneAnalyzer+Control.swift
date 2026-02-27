@@ -34,6 +34,7 @@ extension TapToneAnalyzer {
             self.currentPeaks = []
             self.identifiedModes = []
             self.currentDecayTime = nil
+            self.sourceMeasurementTimestamp = nil  // No longer viewing a saved measurement
             self.peakMagnitudeHistory = []
             self.lastTapTime = nil
             self.tapDetected = false

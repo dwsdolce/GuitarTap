@@ -622,16 +622,45 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                                  kAudioUnitScope_Global, 0, &isRunning, &isRunningSize)
             print("🔍 Audio unit running status: \(isRunning == 1 ? "YES" : "NO")")
 
-            // If the audio unit stopped between engine.start() and here, restart it before
-            // installing the tap, otherwise no audio buffers will arrive.
+            // If the audio unit stopped between engine.start() and here, manually
+            // restarting the AUHAL is insufficient — AVAudioEngine's internal render
+            // graph is already broken and the tap will never deliver buffers.
+            // The only reliable recovery is a full engine teardown and restart.
             if isRunning == 0 {
-                print("⚠️ Audio unit stopped before tap install — restarting...")
-                AudioUnitInitialize(audioUnit)
-                let restartStatus = AudioOutputUnitStart(audioUnit)
-                if restartStatus == noErr {
-                    print("✅ Audio unit restarted successfully")
-                } else {
-                    print("❌ Audio unit restart failed (\(restartStatus)) — audio may not work")
+                print("⚠️ Audio unit stopped before tap install — performing full engine restart...")
+                inputNode.removeTap(onBus: 0)   // remove any stale tap first
+                audioEngine.stop()
+                audioEngine.reset()
+                inputNode = audioEngine.inputNode
+
+                // Re-apply device selection after reset (reset recreates the input node AU).
+                if let device = selectedInputDevice, let freshAU = inputNode.audioUnit {
+                    var deviceID = device.deviceID
+                    let setStatus = AudioUnitSetProperty(
+                        freshAU,
+                        kAudioOutputUnitProperty_CurrentDevice,
+                        kAudioUnitScope_Global,
+                        0,
+                        &deviceID,
+                        UInt32(MemoryLayout<AudioDeviceID>.size)
+                    )
+                    print(setStatus == noErr
+                          ? "🎤 Re-applied device '\(device.name)' after engine reset"
+                          : "⚠️ Failed to re-apply device '\(device.name)' (error \(setStatus))")
+                }
+
+                print("🔄 Restarting audio engine after reset...")
+                try audioEngine.start()
+                print("✅ Audio engine restarted")
+
+                // Refresh inputNode and verify the AU is now running.
+                inputNode = audioEngine.inputNode
+                if let freshAU = inputNode.audioUnit {
+                    var runCheck: UInt32 = 0
+                    var runCheckSize = UInt32(MemoryLayout<UInt32>.size)
+                    AudioUnitGetProperty(freshAU, kAudioOutputUnitProperty_IsRunning,
+                                        kAudioUnitScope_Global, 0, &runCheck, &runCheckSize)
+                    print("🔍 Audio unit running after restart: \(runCheck == 1 ? "YES" : "NO")")
                 }
             }
 

@@ -97,9 +97,13 @@ struct PDFReportData {
             }
         }
 
+        // For guitar measurements snapshot holds the display range; for material/brace
+        // measurements spectrumSnapshot is nil and the range lives in the per-phase snapshots.
+        let displaySnapshot = snapshot ?? anySnapshot
+        let minFreq = displaySnapshot?.minFreq ?? 50
+        let maxFreq = displaySnapshot?.maxFreq ?? 1000
+
         // Filter peaks to those within the saved display frequency range
-        let minFreq = snapshot?.minFreq ?? 0
-        let maxFreq = snapshot?.maxFreq ?? Float.greatestFiniteMagnitude
         let rangeFilteredPeaks = measurement.peaks.filter {
             $0.frequency >= minFreq && $0.frequency <= maxFreq
         }
@@ -115,8 +119,8 @@ struct PDFReportData {
             decayTime: measurement.decayTime,
             tapToneRatio: measurement.tapToneRatio,
             spectrumImageData: measurement.chartImageData,
-            minFreq: snapshot?.minFreq ?? 50,
-            maxFreq: snapshot?.maxFreq ?? 1000,
+            minFreq: minFreq,
+            maxFreq: maxFreq,
             materialProperties: materialProps,
             selectedLongitudinalPeakID: measurement.selectedLongitudinalPeakID,
             selectedCrossPeakID: measurement.selectedCrossPeakID,
@@ -543,6 +547,17 @@ private struct PDFReportContentView: View {
                                    String(format: "%.1f", props.radiationRatioCross))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            // GLC shear modulus (if FLC tap was performed)
+            if let glc = props.goreShearModulus {
+                materialPropRow("GLC (Shear Modulus)",
+                               String(format: "%.3f GPa", glc / 1.0e9))
+            } else {
+                Text("GLC assumed 0 — FLC tap not performed")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .italic()
             }
 
             // Cross/Long ratio and overall quality

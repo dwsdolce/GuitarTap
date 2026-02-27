@@ -230,6 +230,10 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var loadedMaterialThickness: Float?
     @Published var loadedMaterialMass: Float?
 
+    /// Timestamp of the measurement that was most recently loaded into the results panel.
+    /// nil when the current results are from a fresh (unsaved) measurement.
+    @Published var sourceMeasurementTimestamp: Date? = nil
+
     // MARK: - Gated FFT Private State
 
     /// Lock protecting gatedAccumBuffer (accessed from both audio and main queue)

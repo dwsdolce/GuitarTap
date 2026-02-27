@@ -2661,7 +2661,7 @@ struct TapToneAnalysisView: View {
         }
 
         let reportData = PDFReportData(
-            timestamp: Date(),
+            timestamp: tapToneAnalyzer.sourceMeasurementTimestamp ?? Date(),
             tapLocation: tapLocation.isEmpty ? nil : tapLocation,
             notes: notes.isEmpty ? nil : notes,
             measurementType: measurementType,
