@@ -106,18 +106,21 @@ extension TapToneAnalyzer {
                 
                 guard isLocalMax else { continue }
                 
-                // Calculate Q factor (sharpness) and bandwidth
-                let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i, peakMagnitude: magnitude)
+                // Refine peak location and magnitude with parabolic interpolation
+                let (interpFreq, interpMag) = parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i)
                 
-                // Calculate pitch information
-                let freq = Double(frequencies[i])
+                // Calculate Q factor using interpolated peak magnitude for accurate -3 dB threshold
+                let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i, peakMagnitude: interpMag)
+                
+                // Calculate pitch information from interpolated frequency
+                let freq = Double(interpFreq)
                 let pitchNote = pitchCalculator.note(frequency: freq)
                 let pitchCents = pitchCalculator.cents(frequency: freq)
                 let pitchFreq = pitchCalculator.freq0(frequency: freq)
                 
                 let peak = ResonantPeak(
-                    frequency: frequencies[i],
-                    magnitude: magnitude,
+                    frequency: interpFreq,
+                    magnitude: interpMag,
                     quality: quality,
                     bandwidth: bandwidth,
                     pitchNote: pitchNote,
@@ -164,18 +167,21 @@ extension TapToneAnalyzer {
             
             guard isLocalMax else { continue }
             
-            // Calculate Q factor (sharpness) and bandwidth
-            let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i, peakMagnitude: magnitude)
+            // Refine peak location and magnitude with parabolic interpolation
+            let (interpFreq, interpMag) = parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i)
             
-            // Calculate pitch information
-            let freq = Double(frequencies[i])
+            // Calculate Q factor using interpolated peak magnitude for accurate -3 dB threshold
+            let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i, peakMagnitude: interpMag)
+            
+            // Calculate pitch information from interpolated frequency
+            let freq = Double(interpFreq)
             let pitchNote = pitchCalculator.note(frequency: freq)
             let pitchCents = pitchCalculator.cents(frequency: freq)
             let pitchFreq = pitchCalculator.freq0(frequency: freq)
             
             let peak = ResonantPeak(
-                frequency: frequencies[i],
-                magnitude: magnitude,
+                frequency: interpFreq,
+                magnitude: interpMag,
                 quality: quality,
                 bandwidth: bandwidth,
                 pitchNote: pitchNote,
@@ -247,6 +253,40 @@ extension TapToneAnalyzer {
         return uniquePeaks
     }
     
+    /// Refine a bin-level peak location using parabolic interpolation.
+    ///
+    /// Fits a parabola through the peak bin and its two neighbours to estimate
+    /// where the true spectral peak sits between bins.  This improves frequency
+    /// accuracy by roughly one order of magnitude over the raw bin spacing,
+    /// and corrects the magnitude estimate so it reflects the true peak rather
+    /// than the sample at the nearest bin centre.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: dB magnitude spectrum.
+    ///   - frequencies: Frequency axis matching `magnitudes`.
+    ///   - peakIndex: Index of the local maximum bin.
+    /// - Returns: `(frequency, magnitude)` of the interpolated peak.
+    ///            Falls back to the raw bin values if interpolation cannot be applied.
+    func parabolicInterpolate(magnitudes: [Float], frequencies: [Float], peakIndex i: Int) -> (frequency: Float, magnitude: Float) {
+        guard i > 0, i < magnitudes.count - 1 else {
+            return (frequencies[i], magnitudes[i])
+        }
+        let val  = magnitudes[i]
+        let lval = magnitudes[i - 1]
+        let rval = magnitudes[i + 1]
+        let denom = lval - 2 * val + rval
+        // Avoid division by near-zero (flat top — bin is already accurate)
+        guard abs(denom) > 1e-6 else {
+            return (frequencies[i], val)
+        }
+        // Sub-bin offset δ ∈ (-0.5, 0.5)
+        let delta = 0.5 * (lval - rval) / denom
+        let binWidth = frequencies[i] - frequencies[i - 1]
+        let interpFreq = frequencies[i] + delta * binWidth
+        let interpMag  = val - 0.25 * (lval - rval) * delta
+        return (interpFreq, interpMag)
+    }
+
     /// Calculate Q factor and bandwidth for a peak.
     ///
     /// - Parameters:

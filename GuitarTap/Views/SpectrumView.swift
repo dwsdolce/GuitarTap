@@ -121,6 +121,17 @@ struct SpectrumView: View {
     /// Tracks whether an annotation is currently being dragged
     @State private var isAnnotationDragging: Bool = false
     
+    #if os(macOS)
+    /// Current cursor position in data coordinates (frequency Hz, magnitude dB), nil when not hovering
+    @State private var cursorPosition: (frequency: Double, magnitude: Double)? = nil
+    
+    /// Whether the cursor readout is currently visible
+    @State private var isCursorVisible: Bool = false
+    #else
+    /// Whether the iOS axis-reset confirmation dialog is showing
+    @State private var showingResetDialog: Bool = false
+    #endif
+    
     // MARK: - Computed Properties
     
     /// Filters and converts the frequency/magnitude arrays into chart data points.
@@ -451,6 +462,21 @@ struct SpectrumView: View {
             // Only allow chart gestures when not dragging annotations
             .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
             .simultaneousGesture(isAnnotationDragging ? nil : panGesture)
+            #if !os(macOS)
+            .onTapGesture(count: 2) {
+                showingResetDialog = true
+            }
+            .confirmationDialog("Reset Axes", isPresented: $showingResetDialog) {
+                Button("Reset Both Axes") { resetBothAxes() }
+                Button("Reset Frequency Axis") { resetFrequencyAxis() }
+                Button("Reset Magnitude Axis") { resetMagnitudeAxis() }
+                if let onResetLabels = onResetLabels {
+                    Button("Reset Labels", action: onResetLabels)
+                        .disabled(!hasLabelsToReset)
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            #endif
     }
     
     /// Helper to create GeometryReader wrapper for annotations
@@ -479,6 +505,105 @@ struct SpectrumView: View {
         }
     }
     
+    #if os(macOS)
+    /// Overlay that tracks mouse position and displays frequency+dB readout (macOS only)
+    @ViewBuilder
+    private func cursorOverlay(proxy: ChartProxy) -> some View {
+        GeometryReader { geometry in
+            let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? .zero
+            
+            ZStack(alignment: .topLeading) {
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
+                    .frame(width: plotFrame.width, height: plotFrame.height)
+                    .offset(x: plotFrame.minX, y: plotFrame.minY)
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let location):
+                            guard plotFrame.contains(location) else {
+                                isCursorVisible = false
+                                cursorPosition = nil
+                                break
+                            }
+                            let plotLocal = CGPoint(
+                                x: location.x - plotFrame.minX,
+                                y: location.y - plotFrame.minY
+                            )
+                            if let freq = proxy.value(atX: plotLocal.x, as: Double.self),
+                               let db = proxy.value(atY: plotLocal.y, as: Double.self) {
+                                cursorPosition = (frequency: freq, magnitude: db)
+                                isCursorVisible = true
+                            }
+                        case .ended:
+                            isCursorVisible = false
+                            cursorPosition = nil
+                        }
+                    }
+                
+                if isCursorVisible, let pos = cursorPosition {
+                    cursorReadout(pos: pos, plotFrame: plotFrame, proxy: proxy)
+                }
+            }
+        }
+    }
+    
+    /// Formats a frequency value for the cursor readout
+    private func formatCursorFrequency(_ hz: Double) -> String {
+        if hz >= 1000 {
+            return String(format: "%.2f kHz", hz / 1000)
+        } else {
+            return String(format: "%.1f Hz", hz)
+        }
+    }
+    
+    /// Cursor readout label showing frequency and dB values at the current position
+    @ViewBuilder
+    private func cursorReadout(pos: (frequency: Double, magnitude: Double), plotFrame: CGRect, proxy: ChartProxy) -> some View {
+        let labelWidth: CGFloat = 130
+        let labelHeight: CGFloat = 40
+        let margin: CGFloat = 8
+        
+        let cursorX = proxy.position(forX: pos.frequency) ?? 0
+        let cursorY = proxy.position(forY: pos.magnitude) ?? 0
+        
+        let labelX: CGFloat = {
+            let right = plotFrame.minX + cursorX + margin
+            if right + labelWidth > plotFrame.maxX {
+                return plotFrame.minX + cursorX - labelWidth - margin
+            }
+            return right
+        }()
+        
+        let labelY: CGFloat = {
+            let above = plotFrame.minY + cursorY - labelHeight - margin
+            if above < plotFrame.minY {
+                return plotFrame.minY + cursorY + margin
+            }
+            return above
+        }()
+        
+        VStack(alignment: .leading, spacing: 2) {
+            Text(formatCursorFrequency(pos.frequency))
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+            Text(String(format: "%.1f dB", pos.magnitude))
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .shadow(radius: 2)
+        .frame(width: labelWidth, height: labelHeight)
+        .offset(x: labelX, y: labelY)
+        .allowsHitTesting(false)
+    }
+    #endif
+    
+
+    
     /// The base chart with plot style and scales
     private var baseChart: some View {
         Chart {
@@ -501,6 +626,7 @@ struct SpectrumView: View {
             plotArea
                 .border(Color.gray, width: 1)
                 .contentShape(Rectangle())
+                #if os(macOS)
                 .contextMenu {
                     Button(action: resetBothAxes) {
                         Label("Reset Both Axes", systemImage: "arrow.counterclockwise")
@@ -525,10 +651,16 @@ struct SpectrumView: View {
                         .disabled(!hasLabelsToReset)
                     }
                 }
+                #endif
         }
         .chartOverlay { proxy in
             annotationGeometryWrapper(proxy: proxy)
         }
+        #if os(macOS)
+        .chartOverlay { proxy in
+            cursorOverlay(proxy: proxy)
+        }
+        #endif
         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
         .chartYScale(domain: Double(minDB)...Double(maxDB))
         #if os(macOS)
@@ -587,30 +719,24 @@ struct SpectrumView: View {
     
     /// Resets both frequency and magnitude axes to their default values
     private func resetBothAxes() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            minFreq = TapDisplaySettings.minFrequency
-            maxFreq = TapDisplaySettings.maxFrequency
-            minDB = TapDisplaySettings.minMagnitude
-            maxDB = TapDisplaySettings.maxMagnitude
-        }
+        minFreq = TapDisplaySettings.minFrequency
+        maxFreq = TapDisplaySettings.maxFrequency
+        minDB = TapDisplaySettings.minMagnitude
+        maxDB = TapDisplaySettings.maxMagnitude
         onFrequencyRangeChanged?()
     }
     
     /// Resets the frequency axis to its default range
     private func resetFrequencyAxis() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            minFreq = TapDisplaySettings.minFrequency
-            maxFreq = TapDisplaySettings.maxFrequency
-        }
+        minFreq = TapDisplaySettings.minFrequency
+        maxFreq = TapDisplaySettings.maxFrequency
         onFrequencyRangeChanged?()
     }
     
     /// Resets the magnitude axis to its default range
     private func resetMagnitudeAxis() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            minDB = TapDisplaySettings.minMagnitude
-            maxDB = TapDisplaySettings.maxMagnitude
-        }
+        minDB = TapDisplaySettings.minMagnitude
+        maxDB = TapDisplaySettings.maxMagnitude
     }
     
     /// Returns the color associated with a guitar mode
@@ -1092,6 +1218,7 @@ struct DraggablePeakAnnotation: View {
         // Use the plot frame dimensions for accurate positioning
         let chartWidth = plotFrame.width
         let chartHeight = plotFrame.height
+        guard chartWidth > 0, chartHeight > 0 else { return .zero }
         
         // Calculate X position (frequency)
         let freqRange = maxFreq - minFreq
@@ -1099,18 +1226,20 @@ struct DraggablePeakAnnotation: View {
         if isLogarithmic {
             let logMin = log10(Double(minFreq))
             let logMax = log10(Double(maxFreq))
+            let logRange = logMax - logMin
+            guard logRange > 0, minFreq > 0, maxFreq > 0 else { return .zero }
             let logFreq = log10(Double(peak.frequency))
-            freqNormalized = CGFloat((logFreq - logMin) / (logMax - logMin))
+            freqNormalized = CGFloat((logFreq - logMin) / logRange)
         } else {
+            guard freqRange > 0 else { return .zero }
             freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
         }
         let x = plotFrame.minX + freqNormalized * chartWidth
         
-        // Calculate Y position (magnitude) - inverted because chart Y goes down.
-        // Clamp magnitude to the visible range so the label tracks the visible
-        // peak marker even when the peak is near the edge of the displayed dB range.
-        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
+        // Calculate Y position (magnitude)
         let dbRange = maxDB - minDB
+        guard dbRange > 0 else { return .zero }
+        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
         let dbNormalized = CGFloat((clampedMag - minDB) / dbRange)
         let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
         
@@ -1119,9 +1248,9 @@ struct DraggablePeakAnnotation: View {
     
     /// Position of the actual peak marker (without the label offset)
     private func calculatePeakPosition() -> CGPoint {
-        // Use the plot frame dimensions for accurate positioning
         let chartWidth = plotFrame.width
         let chartHeight = plotFrame.height
+        guard chartWidth > 0, chartHeight > 0 else { return .zero }
         
         // Calculate X position (frequency)
         let freqRange = maxFreq - minFreq
@@ -1129,21 +1258,24 @@ struct DraggablePeakAnnotation: View {
         if isLogarithmic {
             let logMin = log10(Double(minFreq))
             let logMax = log10(Double(maxFreq))
+            let logRange = logMax - logMin
+            guard logRange > 0, minFreq > 0, maxFreq > 0 else { return .zero }
             let logFreq = log10(Double(peak.frequency))
-            freqNormalized = CGFloat((logFreq - logMin) / (logMax - logMin))
+            freqNormalized = CGFloat((logFreq - logMin) / logRange)
         } else {
+            guard freqRange > 0 else { return .zero }
             freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
         }
         let x = plotFrame.minX + freqNormalized * chartWidth
         
-        // Calculate Y position (magnitude) - inverted because chart Y goes down.
-        // Clamp magnitude to the visible range to match how the chart clips the PointMark.
-        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
+        // Calculate Y position (magnitude)
         let dbRange = maxDB - minDB
+        guard dbRange > 0 else { return .zero }
+        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
         let dbNormalized = CGFloat((clampedMag - minDB) / dbRange)
         let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
         
-        return CGPoint(x: x, y: y) // No offset - this is the actual peak position
+        return CGPoint(x: x, y: y)
     }
     
     /// Final position including user offset and drag
@@ -1158,7 +1290,9 @@ struct DraggablePeakAnnotation: View {
         // Separate the connection line and label into distinct layers
         ZStack(alignment: .topLeading) {
             // Connection line layer - always show when we have valid positions
-            if cachedPeakPosition != .zero && cachedChartPosition != .zero {
+            if cachedPeakPosition.x.isFinite && cachedPeakPosition.y.isFinite &&
+               cachedChartPosition.x.isFinite && cachedChartPosition.y.isFinite &&
+               cachedChartPosition != .zero {
                 ConnectionLine(
                     from: cachedPeakPosition,
                     to: CGPoint(
@@ -1318,11 +1452,13 @@ private struct ConnectionLine: View {
     let color: Color
     
     var body: some View {
-        Path { path in
-            path.move(to: from)
-            path.addLine(to: to)
+        if from.x.isFinite && from.y.isFinite && to.x.isFinite && to.y.isFinite {
+            Path { path in
+                path.move(to: from)
+                path.addLine(to: to)
+            }
+            .stroke(color.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
         }
-        .stroke(color.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
     }
 }
 

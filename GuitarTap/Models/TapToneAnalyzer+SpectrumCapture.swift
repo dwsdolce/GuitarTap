@@ -249,8 +249,8 @@ extension TapToneAnalyzer {
             }
         }
 
-        let freq = frequencies[best.index]
-        let mag  = magnitudes[best.index]
+        // Refine the winning candidate's frequency and magnitude with parabolic interpolation
+        let (freq, mag) = parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: best.index)
         let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes,
                                                     frequencies: frequencies,
                                                     peakIndex: best.index,
