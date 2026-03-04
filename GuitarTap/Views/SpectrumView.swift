@@ -1112,24 +1112,26 @@ struct SpectrumView: View {
     
     /// Resets both frequency and magnitude axes to their default values
     private func resetBothAxes() {
-        minFreq = TapDisplaySettings.minFrequency
-        maxFreq = TapDisplaySettings.maxFrequency
-        minDB = TapDisplaySettings.minMagnitude
-        maxDB = TapDisplaySettings.maxMagnitude
+        let type = TapDisplaySettings.measurementType
+        minFreq = TapDisplaySettings.defaultMinFrequency(for: type)
+        maxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
+        minDB = TapDisplaySettings.defaultMinMagnitude
+        maxDB = TapDisplaySettings.defaultMaxMagnitude
         onFrequencyRangeChanged?()
     }
     
     /// Resets the frequency axis to its default range
     private func resetFrequencyAxis() {
-        minFreq = TapDisplaySettings.minFrequency
-        maxFreq = TapDisplaySettings.maxFrequency
+        let type = TapDisplaySettings.measurementType
+        minFreq = TapDisplaySettings.defaultMinFrequency(for: type)
+        maxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
         onFrequencyRangeChanged?()
     }
     
     /// Resets the magnitude axis to its default range
     private func resetMagnitudeAxis() {
-        minDB = TapDisplaySettings.minMagnitude
-        maxDB = TapDisplaySettings.maxMagnitude
+        minDB = TapDisplaySettings.defaultMinMagnitude
+        maxDB = TapDisplaySettings.defaultMaxMagnitude
     }
     
     /// Returns the color associated with a guitar mode
