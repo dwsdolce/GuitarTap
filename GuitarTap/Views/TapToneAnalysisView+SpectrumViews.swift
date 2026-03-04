@@ -101,6 +101,8 @@ extension TapToneAnalysisView {
                         tapToneAnalyzer.resetAllAnnotationOffsets()
                     },
                     hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
+                    isSpectrumFrozen: tap.isSpectrumFrozen,
+                    primaryCurveColor: .red,
                     measurementType: TapDisplaySettings.measurementType,
                     selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
                     selectedCrossPeakID: tap.effectiveCrossPeakID,
@@ -125,6 +127,8 @@ extension TapToneAnalysisView {
                         tapToneAnalyzer.resetAllAnnotationOffsets()
                     },
                     hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
+                    isSpectrumFrozen: tap.isSpectrumFrozen,
+                    primaryCurveColor: .red,
                     measurementType: TapDisplaySettings.measurementType,
                     selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
                     selectedCrossPeakID: tap.effectiveCrossPeakID,

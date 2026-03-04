@@ -29,6 +29,21 @@ struct SpectrumDataPoint: Identifiable {
     let magnitude: Float
 }
 
+// MARK: - Cursor Snap State
+
+/// The position the cursor/crosshair has snapped to on a waveform, including
+/// the identity of the series being tracked.
+struct CursorSnapState {
+    /// Interpolated frequency in Hz at the snapped position
+    let frequency: Double
+    /// Interpolated magnitude in dB at the snapped position
+    let magnitude: Double
+    /// Index into `materialSpectra`, or nil when tracking the primary spectrum
+    let seriesIndex: Int?
+    /// Display color matching the tracked curve (.primary in single-curve mode)
+    let curveColor: Color
+}
+
 // MARK: - Spectrum View
 
 /// A SwiftUI view that displays a frequency spectrum chart with interactive zoom and pan capabilities.
@@ -97,6 +112,14 @@ struct SpectrumView: View {
     
     /// Whether there are annotation offsets that need resetting (controls enabled state of menu item)
     var hasLabelsToReset: Bool = false
+
+    /// When true the cursor/crosshair snaps to the nearest waveform point instead of floating freely.
+    /// Should be set to true when the spectrum is frozen (post-tap capture).
+    var isSpectrumFrozen: Bool = false
+
+    /// Color of the primary (single) spectrum line. Used to tint the cursor readout label
+    /// so it matches the waveform. Only relevant when `materialSpectra` is empty.
+    var primaryCurveColor: Color = .red
     
     /// The current measurement type (guitar vs material) - affects which annotations are shown
     var measurementType: MeasurementType = .acoustic
@@ -121,9 +144,13 @@ struct SpectrumView: View {
     /// Tracks whether an annotation is currently being dragged
     @State private var isAnnotationDragging: Bool = false
     
+    /// Index of the waveform series the cursor is currently locked to.
+    /// -1 = primary spectrum, 0+ = index into materialSpectra. Reset to -1 on cursor exit/drag end.
+    @State private var lockedSeriesIndex: Int = -1
+
     #if os(macOS)
-    /// Current cursor position in data coordinates (frequency Hz, magnitude dB), nil when not hovering
-    @State private var cursorPosition: (frequency: Double, magnitude: Double)? = nil
+    /// Snapped cursor position in data coordinates, including series identity. Nil when not hovering.
+    @State private var cursorSnapState: CursorSnapState? = nil
     
     /// Whether the cursor readout is currently visible
     @State private var isCursorVisible: Bool = false
@@ -138,8 +165,8 @@ struct SpectrumView: View {
     /// Whether crosshair tracking mode is active (iOS only). Defaults to false when not provided.
     var crosshairMode: Binding<Bool> = .constant(false)
     
-    /// Current crosshair position in data coordinates, nil when not active
-    @State private var crosshairPosition: (frequency: Double, magnitude: Double)? = nil
+    /// Snapped crosshair position in data coordinates, including series identity. Nil when not active.
+    @State private var crosshairSnapState: CursorSnapState? = nil
     #endif
     
     // MARK: - Computed Properties
@@ -518,7 +545,10 @@ struct SpectrumView: View {
                 Button("Cancel", role: .cancel) {}
             }
             .onChange(of: crosshairMode.wrappedValue) { _, newValue in
-                if !newValue { crosshairPosition = nil }
+                if !newValue {
+                    crosshairSnapState = nil
+                    lockedSeriesIndex = -1
+                }
             }
             #endif
     }
@@ -567,21 +597,20 @@ struct SpectrumView: View {
                         case .active(let location):
                             guard plotFrame.contains(location) else {
                                 isCursorVisible = false
-                                cursorPosition = nil
+                                cursorSnapState = nil
+                                lockedSeriesIndex = -1
                                 break
                             }
-                            let plotLocal = CGPoint(
-                                x: location.x - plotFrame.minX,
-                                y: location.y - plotFrame.minY
-                            )
-                            if let freq = proxy.value(atX: plotLocal.x, as: Double.self),
-                               let db = proxy.value(atY: plotLocal.y, as: Double.self) {
-                                cursorPosition = (frequency: freq, magnitude: db)
-                                isCursorVisible = true
-                            }
+                            cursorSnapState = resolveSnapState(
+                                location: location,
+                                plotFrame: plotFrame,
+                                proxy: proxy,
+                                lockedSeriesIndex: &lockedSeriesIndex)
+                            isCursorVisible = cursorSnapState != nil
                         case .ended:
                             isCursorVisible = false
-                            cursorPosition = nil
+                            cursorSnapState = nil
+                            lockedSeriesIndex = -1
                         }
                     }
                     // Context menu on the overlay rectangle so right-click isn't silently consumed
@@ -605,8 +634,8 @@ struct SpectrumView: View {
                         }
                     }
                 
-                if isCursorVisible, let pos = cursorPosition {
-                    cursorReadout(pos: pos, plotFrame: plotFrame, proxy: proxy)
+                if isCursorVisible, let snap = cursorSnapState {
+                    cursorReadout(snap: snap, plotFrame: plotFrame, proxy: proxy)
                 }
             }
         }
@@ -623,13 +652,13 @@ struct SpectrumView: View {
     
     /// Cursor readout label + crosshair lines showing frequency and dB values at the current position
     @ViewBuilder
-    private func cursorReadout(pos: (frequency: Double, magnitude: Double), plotFrame: CGRect, proxy: ChartProxy) -> some View {
+    private func cursorReadout(snap: CursorSnapState, plotFrame: CGRect, proxy: ChartProxy) -> some View {
         let labelWidth: CGFloat = 130
         let labelHeight: CGFloat = 40
         let margin: CGFloat = 8
         
-        let cursorX = plotFrame.minX + (proxy.position(forX: pos.frequency) ?? 0)
-        let cursorY = plotFrame.minY + (proxy.position(forY: pos.magnitude) ?? 0)
+        let cursorX = plotFrame.minX + (proxy.position(forX: snap.frequency) ?? 0)
+        let cursorY = plotFrame.minY + (proxy.position(forY: snap.magnitude) ?? 0)
         
         // Vertical crosshair line
         Path { path in
@@ -664,11 +693,11 @@ struct SpectrumView: View {
         }()
         
         VStack(alignment: .leading, spacing: 2) {
-            Text(formatCursorFrequency(pos.frequency))
+            Text(formatCursorFrequency(snap.frequency))
                 .font(.caption2)
                 .fontWeight(.semibold)
-                .foregroundColor(.primary)
-            Text(String(format: "%.1f dB", pos.magnitude))
+                .foregroundColor(snap.curveColor)  // Colored to match the tracked curve
+            Text(String(format: "%.1f dB", snap.magnitude))
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
@@ -700,25 +729,23 @@ struct SpectrumView: View {
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
                                 guard crosshairMode.wrappedValue else { return }
-                                let plotLocal = CGPoint(
-                                    x: value.location.x - plotFrame.minX,
-                                    y: value.location.y - plotFrame.minY
-                                )
                                 guard plotFrame.contains(value.location) else { return }
-                                if let freq = proxy.value(atX: plotLocal.x, as: Double.self),
-                                   let db = proxy.value(atY: plotLocal.y, as: Double.self) {
-                                    crosshairPosition = (frequency: freq, magnitude: db)
-                                }
+                                crosshairSnapState = resolveSnapState(
+                                    location: value.location,
+                                    plotFrame: plotFrame,
+                                    proxy: proxy,
+                                    lockedSeriesIndex: &lockedSeriesIndex)
                             }
                             .onEnded { _ in
                                 if !crosshairMode.wrappedValue {
-                                    crosshairPosition = nil
+                                    crosshairSnapState = nil
+                                    lockedSeriesIndex = -1
                                 }
                             }
                     )
                 
-                if crosshairMode.wrappedValue, let pos = crosshairPosition {
-                    crosshairReadout(pos: pos, plotFrame: plotFrame, proxy: proxy)
+                if crosshairMode.wrappedValue, let snap = crosshairSnapState {
+                    crosshairReadout(snap: snap, plotFrame: plotFrame, proxy: proxy)
                 }
             }
         }
@@ -735,13 +762,13 @@ struct SpectrumView: View {
     
     /// Crosshair readout label + crosshair lines showing frequency and dB at the tracked position
     @ViewBuilder
-    private func crosshairReadout(pos: (frequency: Double, magnitude: Double), plotFrame: CGRect, proxy: ChartProxy) -> some View {
+    private func crosshairReadout(snap: CursorSnapState, plotFrame: CGRect, proxy: ChartProxy) -> some View {
         let labelWidth: CGFloat = 130
         let labelHeight: CGFloat = 40
         let margin: CGFloat = 8
         
-        let cursorX = (proxy.position(forX: pos.frequency) ?? 0) + plotFrame.minX
-        let cursorY = (proxy.position(forY: pos.magnitude) ?? 0) + plotFrame.minY
+        let cursorX = (proxy.position(forX: snap.frequency) ?? 0) + plotFrame.minX
+        let cursorY = (proxy.position(forY: snap.magnitude) ?? 0) + plotFrame.minY
         
         // Vertical crosshair line
         Path { path in
@@ -777,11 +804,11 @@ struct SpectrumView: View {
         }()
         
         VStack(alignment: .leading, spacing: 2) {
-            Text(formatCrosshairFrequency(pos.frequency))
+            Text(formatCrosshairFrequency(snap.frequency))
                 .font(.caption2)
                 .fontWeight(.semibold)
-                .foregroundColor(.primary)
-            Text(String(format: "%.1f dB", pos.magnitude))
+                .foregroundColor(snap.curveColor)  // Colored to match the tracked curve
+            Text(String(format: "%.1f dB", snap.magnitude))
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
@@ -910,6 +937,177 @@ struct SpectrumView: View {
             }
     }
     
+    // MARK: - Spectral Interpolation Utilities
+
+    /// Refines a bin-level peak using parabolic interpolation.
+    /// Mirrors `TapToneAnalyzer.parabolicInterpolate` for use in the view layer.
+    /// Returns the raw bin values if interpolation cannot be safely applied.
+    private static func parabolicInterpolate(
+        magnitudes: [Float],
+        frequencies: [Float],
+        peakIndex i: Int
+    ) -> (frequency: Float, magnitude: Float) {
+        guard i > 0, i < magnitudes.count - 1 else { return (frequencies[i], magnitudes[i]) }
+        let val  = magnitudes[i]
+        let lval = magnitudes[i - 1]
+        let rval = magnitudes[i + 1]
+        let denom = lval - 2 * val + rval
+        guard abs(denom) > 1e-6 else { return (frequencies[i], val) }
+        let delta    = 0.5 * (lval - rval) / denom
+        let binWidth = frequencies[i] - frequencies[i - 1]
+        return (frequencies[i] + delta * binWidth, val - 0.25 * (lval - rval) * delta)
+    }
+
+    /// Snaps a raw cursor frequency to the waveform of a single series.
+    ///
+    /// Algorithm:
+    /// 1. Binary search for the bin closest to `targetHz`.
+    /// 2. Check ±2 bins for a local maximum.
+    ///    - Found: apply parabolic interpolation for sub-bin accuracy.
+    ///    - Not found: linearly interpolate between the two bracketing bins.
+    private static func snapToWaveform(
+        targetHz: Float,
+        magnitudes: [Float],
+        frequencies: [Float]
+    ) -> (frequency: Float, magnitude: Float)? {
+        guard magnitudes.count == frequencies.count, !frequencies.isEmpty else { return nil }
+
+        // Binary search for the bin closest to targetHz
+        var lo = 0
+        var hi = frequencies.count - 1
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if frequencies[mid] < targetHz { lo = mid + 1 } else { hi = mid }
+        }
+        let nearIdx: Int
+        if lo > 0 && abs(frequencies[lo - 1] - targetHz) < abs(frequencies[lo] - targetHz) {
+            nearIdx = lo - 1
+        } else {
+            nearIdx = lo
+        }
+
+        // Look for a local maximum within ±2 bins
+        let start = max(1, nearIdx - 2)
+        let end   = min(magnitudes.count - 2, nearIdx + 2)
+        var bestPeakIdx: Int? = nil
+        for i in start...end {
+            if magnitudes[i] >= magnitudes[i - 1] && magnitudes[i] >= magnitudes[i + 1] {
+                if let prev = bestPeakIdx {
+                    if magnitudes[i] > magnitudes[prev] { bestPeakIdx = i }
+                } else {
+                    bestPeakIdx = i
+                }
+            }
+        }
+        if let pi = bestPeakIdx {
+            return parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: pi)
+        }
+
+        // Linear interpolation between bracketing bins
+        let l = max(0, nearIdx - 1)
+        let r = min(frequencies.count - 1, nearIdx)
+        guard l != r else { return (frequencies[nearIdx], magnitudes[nearIdx]) }
+        let t = (targetHz - frequencies[l]) / (frequencies[r] - frequencies[l])
+        return (frequencies[l] + t * (frequencies[r] - frequencies[l]),
+                magnitudes[l]  + t * (magnitudes[r]  - magnitudes[l]))
+    }
+
+    /// Screen-distance gravity threshold (points). A locked curve is only abandoned when
+    /// a competitor curve is at least this many points closer on screen.
+    private static let curveGravityThreshold: CGFloat = 12.0
+
+    /// Returns the materialSpectra index to lock to (-1 = primary spectrum).
+    /// Switches away from `lockedIndex` only when a competitor is at least
+    /// `curveGravityThreshold` screen points closer.
+    private static func nearestSeriesIndex(
+        targetHz: Float,
+        cursorScreenY: CGFloat,
+        proxy: ChartProxy,
+        plotFrame: CGRect,
+        materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)],
+        lockedIndex: Int
+    ) -> Int {
+        guard !materialSpectra.isEmpty else { return -1 }
+        var candidates: [(index: Int, dist: CGFloat)] = []
+        for (i, series) in materialSpectra.enumerated() {
+            guard let snapped = snapToWaveform(targetHz: targetHz,
+                                               magnitudes: series.magnitudes,
+                                               frequencies: series.frequencies),
+                  let screenY = proxy.position(forY: Double(snapped.magnitude))
+            else { continue }
+            let absoluteY = plotFrame.minY + screenY
+            candidates.append((index: i, dist: abs(absoluteY - cursorScreenY)))
+        }
+        guard !candidates.isEmpty else { return lockedIndex }
+        let best = candidates.min(by: { $0.dist < $1.dist })!
+        guard best.index != lockedIndex else { return lockedIndex }
+        let lockedDist = candidates.first(where: { $0.index == lockedIndex })?.dist
+        if let ld = lockedDist, ld - best.dist < curveGravityThreshold { return lockedIndex }
+        return best.index
+    }
+
+    /// Resolves a raw screen location into a `CursorSnapState`.
+    ///
+    /// When `isSpectrumFrozen` is false, returns the raw data-coordinate position
+    /// with no series lock (free-floating cursor). When frozen, snaps the Y position
+    /// to the nearest waveform and applies gravity-based curve locking.
+    private func resolveSnapState(
+        location: CGPoint,
+        plotFrame: CGRect,
+        proxy: ChartProxy,
+        lockedSeriesIndex: inout Int
+    ) -> CursorSnapState? {
+        let plotLocal = CGPoint(x: location.x - plotFrame.minX,
+                                y: location.y - plotFrame.minY)
+        guard let rawFreq = proxy.value(atX: plotLocal.x, as: Double.self),
+              let rawDB   = proxy.value(atY: plotLocal.y, as: Double.self) else { return nil }
+
+        guard isSpectrumFrozen else {
+            return CursorSnapState(frequency: rawFreq, magnitude: rawDB,
+                                   seriesIndex: nil, curveColor: primaryCurveColor)
+        }
+
+        let targetHz = Float(rawFreq)
+        let newLock = Self.nearestSeriesIndex(
+            targetHz: targetHz,
+            cursorScreenY: location.y,
+            proxy: proxy,
+            plotFrame: plotFrame,
+            materialSpectra: materialSpectra,
+            lockedIndex: lockedSeriesIndex)
+        lockedSeriesIndex = newLock
+
+        let snapMags: [Float]
+        let snapFreqs: [Float]
+        let curveColor: Color
+        let seriesIdx: Int?
+
+        if !materialSpectra.isEmpty, newLock >= 0, newLock < materialSpectra.count {
+            let s = materialSpectra[newLock]
+            snapMags  = s.magnitudes
+            snapFreqs = s.frequencies
+            curveColor = s.color
+            seriesIdx  = newLock
+        } else {
+            snapMags   = magnitudes
+            snapFreqs  = frequencies
+            curveColor = primaryCurveColor
+            seriesIdx  = nil
+        }
+
+        guard let snapped = Self.snapToWaveform(targetHz: targetHz,
+                                                magnitudes: snapMags,
+                                                frequencies: snapFreqs)
+        else {
+            return CursorSnapState(frequency: rawFreq, magnitude: rawDB,
+                                   seriesIndex: seriesIdx, curveColor: curveColor)
+        }
+        return CursorSnapState(frequency: Double(snapped.frequency),
+                               magnitude: Double(snapped.magnitude),
+                               seriesIndex: seriesIdx,
+                               curveColor: curveColor)
+    }
+
     // MARK: - Helper Functions
     
     /// Resets both frequency and magnitude axes to their default values
