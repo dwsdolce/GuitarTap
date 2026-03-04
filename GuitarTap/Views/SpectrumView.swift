@@ -127,6 +127,10 @@ struct SpectrumView: View {
     
     /// Whether the cursor readout is currently visible
     @State private var isCursorVisible: Bool = false
+    
+    /// Whether the zoom/pan controls help popover is showing
+    @State private var showingControlsHelp: Bool = false
+    
     #else
     /// Whether the iOS axis-reset confirmation dialog is showing
     @State private var showingResetDialog: Bool = false
@@ -383,17 +387,23 @@ struct SpectrumView: View {
                 Spacer()
                 
                 #if os(macOS)
-                Image(systemName: "info.circle")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .onHover { hovering in
-                        if hovering {
-                            NSCursor.pointingHand.push()
-                        } else {
-                            NSCursor.pop()
+                Button {
+                    showingControlsHelp.toggle()
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .contentShape(Rectangle())
+                        .onHover { hovering in
+                            if hovering {
+                                NSCursor.pointingHand.push()
+                            } else {
+                                NSCursor.pop()
+                            }
                         }
-                    }
-                    .help("""
+                }
+                .buttonStyle(.plain)
+                .help("""
                     Zoom & Pan Controls:
                     • Scroll: Pan vertically (magnitude)
                     • ⇧ + Scroll: Pan horizontally (frequency)
@@ -404,6 +414,26 @@ struct SpectrumView: View {
                     • Drag: Pan view (both axes)
                     • Right-click: Reset axes
                     """)
+                .popover(isPresented: $showingControlsHelp, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Zoom & Pan Controls")
+                            .font(.headline)
+                            .padding(.bottom, 2)
+                        Group {
+                            Text("Scroll") + Text(": Pan vertically (magnitude)").foregroundColor(.secondary)
+                            Text("⇧ + Scroll") + Text(": Pan horizontally (frequency)").foregroundColor(.secondary)
+                            Text("⌘ + Scroll") + Text(": Zoom both axes").foregroundColor(.secondary)
+                            Text("⌥ + Scroll") + Text(": Zoom frequency (horizontal)").foregroundColor(.secondary)
+                            Text("⌃ + Scroll") + Text(": Zoom magnitude (vertical)").foregroundColor(.secondary)
+                            Text("Pinch") + Text(": Zoom (trackpad)").foregroundColor(.secondary)
+                            Text("Drag") + Text(": Pan view (both axes)").foregroundColor(.secondary)
+                            Text("Right-click") + Text(": Reset axes").foregroundColor(.secondary)
+                        }
+                        .font(.callout)
+                    }
+                    .padding()
+                    .frame(minWidth: 280)
+                }
                 #endif
             }
             .padding(.bottom, 8)
@@ -554,6 +584,26 @@ struct SpectrumView: View {
                             cursorPosition = nil
                         }
                     }
+                    // Context menu on the overlay rectangle so right-click isn't silently consumed
+                    .contextMenu {
+                        Button(action: resetBothAxes) {
+                            Label("Reset Both Axes", systemImage: "arrow.counterclockwise")
+                        }
+                        Divider()
+                        Button(action: resetFrequencyAxis) {
+                            Label("Reset Frequency Axis", systemImage: "arrow.clockwise")
+                        }
+                        Button(action: resetMagnitudeAxis) {
+                            Label("Reset Magnitude Axis", systemImage: "arrow.up.and.down")
+                        }
+                        if let onResetLabels = onResetLabels {
+                            Divider()
+                            Button(action: onResetLabels) {
+                                Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                            }
+                            .disabled(!hasLabelsToReset)
+                        }
+                    }
                 
                 if isCursorVisible, let pos = cursorPosition {
                     cursorReadout(pos: pos, plotFrame: plotFrame, proxy: proxy)
@@ -571,28 +621,44 @@ struct SpectrumView: View {
         }
     }
     
-    /// Cursor readout label showing frequency and dB values at the current position
+    /// Cursor readout label + crosshair lines showing frequency and dB values at the current position
     @ViewBuilder
     private func cursorReadout(pos: (frequency: Double, magnitude: Double), plotFrame: CGRect, proxy: ChartProxy) -> some View {
         let labelWidth: CGFloat = 130
         let labelHeight: CGFloat = 40
         let margin: CGFloat = 8
         
-        let cursorX = proxy.position(forX: pos.frequency) ?? 0
-        let cursorY = proxy.position(forY: pos.magnitude) ?? 0
+        let cursorX = plotFrame.minX + (proxy.position(forX: pos.frequency) ?? 0)
+        let cursorY = plotFrame.minY + (proxy.position(forY: pos.magnitude) ?? 0)
+        
+        // Vertical crosshair line
+        Path { path in
+            path.move(to: CGPoint(x: cursorX, y: plotFrame.minY))
+            path.addLine(to: CGPoint(x: cursorX, y: plotFrame.maxY))
+        }
+        .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        .allowsHitTesting(false)
+        
+        // Horizontal crosshair line
+        Path { path in
+            path.move(to: CGPoint(x: plotFrame.minX, y: cursorY))
+            path.addLine(to: CGPoint(x: plotFrame.maxX, y: cursorY))
+        }
+        .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        .allowsHitTesting(false)
         
         let labelX: CGFloat = {
-            let right = plotFrame.minX + cursorX + margin
+            let right = cursorX + margin
             if right + labelWidth > plotFrame.maxX {
-                return plotFrame.minX + cursorX - labelWidth - margin
+                return cursorX - labelWidth - margin
             }
             return right
         }()
         
         let labelY: CGFloat = {
-            let above = plotFrame.minY + cursorY - labelHeight - margin
+            let above = cursorY - labelHeight - margin
             if above < plotFrame.minY {
-                return plotFrame.minY + cursorY + margin
+                return cursorY + margin
             }
             return above
         }()
