@@ -130,6 +130,12 @@ struct SpectrumView: View {
     #else
     /// Whether the iOS axis-reset confirmation dialog is showing
     @State private var showingResetDialog: Bool = false
+    
+    /// Whether crosshair tracking mode is active (iOS only). Defaults to false when not provided.
+    var crosshairMode: Binding<Bool> = .constant(false)
+    
+    /// Current crosshair position in data coordinates, nil when not active
+    @State private var crosshairPosition: (frequency: Double, magnitude: Double)? = nil
     #endif
     
     // MARK: - Computed Properties
@@ -459,13 +465,18 @@ struct SpectrumView: View {
                         }
                     }
             }
-            // Only allow chart gestures when not dragging annotations
+            // Only allow chart gestures when not dragging annotations and not in crosshair mode
+            #if os(macOS)
             .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
             .simultaneousGesture(isAnnotationDragging ? nil : panGesture)
+            #else
+            .simultaneousGesture(isAnnotationDragging || crosshairMode.wrappedValue ? nil : zoomGesture)
+            .simultaneousGesture(isAnnotationDragging || crosshairMode.wrappedValue ? nil : panGesture)
+            #endif
             #if !os(macOS)
-            .onTapGesture(count: 2) {
+            .highPriorityGesture(TapGesture(count: 2).onEnded {
                 showingResetDialog = true
-            }
+            })
             .confirmationDialog("Reset Axes", isPresented: $showingResetDialog) {
                 Button("Reset Both Axes") { resetBothAxes() }
                 Button("Reset Frequency Axis") { resetFrequencyAxis() }
@@ -475,6 +486,9 @@ struct SpectrumView: View {
                         .disabled(!hasLabelsToReset)
                 }
                 Button("Cancel", role: .cancel) {}
+            }
+            .onChange(of: crosshairMode.wrappedValue) { _, newValue in
+                if !newValue { crosshairPosition = nil }
             }
             #endif
     }
@@ -602,7 +616,118 @@ struct SpectrumView: View {
     }
     #endif
     
-
+    #if !os(macOS)
+    /// Overlay that tracks finger drag and displays frequency+dB crosshair readout (iOS only, active when crosshairMode is on)
+    @ViewBuilder
+    private func crosshairOverlay(proxy: ChartProxy) -> some View {
+        GeometryReader { geometry in
+            let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? .zero
+            
+            ZStack(alignment: .topLeading) {
+                // Invisible hit-testing rect covering the plot area
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
+                    .frame(width: plotFrame.width, height: plotFrame.height)
+                    .offset(x: plotFrame.minX, y: plotFrame.minY)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                guard crosshairMode.wrappedValue else { return }
+                                let plotLocal = CGPoint(
+                                    x: value.location.x - plotFrame.minX,
+                                    y: value.location.y - plotFrame.minY
+                                )
+                                guard plotFrame.contains(value.location) else { return }
+                                if let freq = proxy.value(atX: plotLocal.x, as: Double.self),
+                                   let db = proxy.value(atY: plotLocal.y, as: Double.self) {
+                                    crosshairPosition = (frequency: freq, magnitude: db)
+                                }
+                            }
+                            .onEnded { _ in
+                                if !crosshairMode.wrappedValue {
+                                    crosshairPosition = nil
+                                }
+                            }
+                    )
+                
+                if crosshairMode.wrappedValue, let pos = crosshairPosition {
+                    crosshairReadout(pos: pos, plotFrame: plotFrame, proxy: proxy)
+                }
+            }
+        }
+    }
+    
+    /// Formats a frequency value for the crosshair readout
+    private func formatCrosshairFrequency(_ hz: Double) -> String {
+        if hz >= 1000 {
+            return String(format: "%.2f kHz", hz / 1000)
+        } else {
+            return String(format: "%.1f Hz", hz)
+        }
+    }
+    
+    /// Crosshair readout label + crosshair lines showing frequency and dB at the tracked position
+    @ViewBuilder
+    private func crosshairReadout(pos: (frequency: Double, magnitude: Double), plotFrame: CGRect, proxy: ChartProxy) -> some View {
+        let labelWidth: CGFloat = 130
+        let labelHeight: CGFloat = 40
+        let margin: CGFloat = 8
+        
+        let cursorX = (proxy.position(forX: pos.frequency) ?? 0) + plotFrame.minX
+        let cursorY = (proxy.position(forY: pos.magnitude) ?? 0) + plotFrame.minY
+        
+        // Vertical crosshair line
+        Path { path in
+            path.move(to: CGPoint(x: cursorX, y: plotFrame.minY))
+            path.addLine(to: CGPoint(x: cursorX, y: plotFrame.maxY))
+        }
+        .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        .allowsHitTesting(false)
+        
+        // Horizontal crosshair line
+        Path { path in
+            path.move(to: CGPoint(x: plotFrame.minX, y: cursorY))
+            path.addLine(to: CGPoint(x: plotFrame.maxX, y: cursorY))
+        }
+        .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        .allowsHitTesting(false)
+        
+        // Readout label — positioned to stay inside the plot
+        let labelX: CGFloat = {
+            let right = cursorX + margin
+            if right + labelWidth > plotFrame.maxX {
+                return cursorX - labelWidth - margin
+            }
+            return right
+        }()
+        
+        let labelY: CGFloat = {
+            let above = cursorY - labelHeight - margin
+            if above < plotFrame.minY {
+                return cursorY + margin
+            }
+            return above
+        }()
+        
+        VStack(alignment: .leading, spacing: 2) {
+            Text(formatCrosshairFrequency(pos.frequency))
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+            Text(String(format: "%.1f dB", pos.magnitude))
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .shadow(radius: 2)
+        .frame(width: labelWidth, height: labelHeight)
+        .offset(x: labelX, y: labelY)
+        .allowsHitTesting(false)
+    }
+    #endif
     
     /// The base chart with plot style and scales
     private var baseChart: some View {
@@ -659,6 +784,10 @@ struct SpectrumView: View {
         #if os(macOS)
         .chartOverlay { proxy in
             cursorOverlay(proxy: proxy)
+        }
+        #else
+        .chartOverlay { proxy in
+            crosshairOverlay(proxy: proxy)
         }
         #endif
         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)

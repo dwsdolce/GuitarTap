@@ -47,6 +47,11 @@ struct TapToneAnalysisView: View {
     // Auto-scale dB state
     @State private var isAutoScaleEnabled = false
     
+    #if os(iOS)
+    // Crosshair cursor mode (iOS only)
+    @State private var crosshairMode = false
+    #endif
+    
     // Material measurement mode state
     @State private var selectedLongitudinalPeakID: UUID?
     @State private var selectedCrossPeakID: UUID?
@@ -921,6 +926,14 @@ struct TapToneAnalysisView: View {
                     .tint(isAutoScaleEnabled ? .blue : .gray)
                     .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
                     .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
+                    
+                    // Crosshair mode toggle button
+                    Button(action: { crosshairMode.toggle() }) {
+                        Label("Crosshair", systemImage: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(crosshairMode ? .blue : .gray)
                 }
             } else {
                 // Regular layout for iPad
@@ -1027,6 +1040,13 @@ struct TapToneAnalysisView: View {
                 .tint(isAutoScaleEnabled ? .blue : .gray)
                 .disabled(!fftAnalyzer.isRunning || displayMagnitudes.isEmpty)
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
+                
+                // Crosshair mode toggle button (iPad)
+                Button(action: { crosshairMode.toggle() }) {
+                    Label("Crosshair", systemImage: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
+                }
+                .buttonStyle(.bordered)
+                .tint(crosshairMode ? .blue : .gray)
                 
                 Spacer()
             }
@@ -2025,29 +2045,58 @@ struct TapToneAnalysisView: View {
             }()
             
             // Spectrum Chart
-            SpectrumView(
-                frequencies: displayFrequencies,
-                magnitudes: displayMagnitudes,
-                minFreq: $minFreq,
-                maxFreq: $maxFreq,
-                minDB: $minDB,
-                maxDB: $maxDB,
-                isLogarithmic: .constant(false),
-                peaks: tapToneAnalyzer.visiblePeaks,
-                showModeBoundaries: true,
-                onFrequencyRangeChanged: updateFrequencyInputFields,
-                annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
-                materialSpectra: materialSpectra,
-                thresholdLines: thresholds,
-                onResetLabels: {
-                    tapToneAnalyzer.resetAllAnnotationOffsets()
-                },
-                hasLabelsToReset: !tapToneAnalyzer.peakAnnotationOffsets.isEmpty,
-                measurementType: TapDisplaySettings.measurementType,
-                selectedLongitudinalPeakID: tapToneAnalyzer.effectiveLongitudinalPeakID,
-                selectedCrossPeakID: tapToneAnalyzer.effectiveCrossPeakID,
-                selectedFlcPeakID: tapToneAnalyzer.effectiveFlcPeakID
-            )
+            Group {
+                #if os(macOS)
+                SpectrumView(
+                    frequencies: displayFrequencies,
+                    magnitudes: displayMagnitudes,
+                    minFreq: $minFreq,
+                    maxFreq: $maxFreq,
+                    minDB: $minDB,
+                    maxDB: $maxDB,
+                    isLogarithmic: .constant(false),
+                    peaks: tapToneAnalyzer.visiblePeaks,
+                    showModeBoundaries: true,
+                    onFrequencyRangeChanged: updateFrequencyInputFields,
+                    annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
+                    materialSpectra: materialSpectra,
+                    thresholdLines: thresholds,
+                    onResetLabels: {
+                        tapToneAnalyzer.resetAllAnnotationOffsets()
+                    },
+                    hasLabelsToReset: !tapToneAnalyzer.peakAnnotationOffsets.isEmpty,
+                    measurementType: TapDisplaySettings.measurementType,
+                    selectedLongitudinalPeakID: tapToneAnalyzer.effectiveLongitudinalPeakID,
+                    selectedCrossPeakID: tapToneAnalyzer.effectiveCrossPeakID,
+                    selectedFlcPeakID: tapToneAnalyzer.effectiveFlcPeakID
+                )
+                #else
+                SpectrumView(
+                    frequencies: displayFrequencies,
+                    magnitudes: displayMagnitudes,
+                    minFreq: $minFreq,
+                    maxFreq: $maxFreq,
+                    minDB: $minDB,
+                    maxDB: $maxDB,
+                    isLogarithmic: .constant(false),
+                    peaks: tapToneAnalyzer.visiblePeaks,
+                    showModeBoundaries: true,
+                    onFrequencyRangeChanged: updateFrequencyInputFields,
+                    annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
+                    materialSpectra: materialSpectra,
+                    thresholdLines: thresholds,
+                    onResetLabels: {
+                        tapToneAnalyzer.resetAllAnnotationOffsets()
+                    },
+                    hasLabelsToReset: !tapToneAnalyzer.peakAnnotationOffsets.isEmpty,
+                    measurementType: TapDisplaySettings.measurementType,
+                    selectedLongitudinalPeakID: tapToneAnalyzer.effectiveLongitudinalPeakID,
+                    selectedCrossPeakID: tapToneAnalyzer.effectiveCrossPeakID,
+                    selectedFlcPeakID: tapToneAnalyzer.effectiveFlcPeakID,
+                    crosshairMode: $crosshairMode
+                )
+                #endif
+            }
             // Force view to update when any relevant state changes
             .id("\(tapToneAnalyzer.isSpectrumFrozen)-\(fftAnalyzer.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
             .frame(minHeight: 250, maxHeight: .infinity)  // Allow to expand vertically
