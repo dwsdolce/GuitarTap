@@ -26,7 +26,7 @@ extension Float {
     /// - Taps with open strings ringing decay in 0.3-1.5s+
     /// Classical guitars typically have longer sustain than acoustic  guitars
     var decayQuality: String {
-        return decayQuality(for: SpectrumDisplaySettings.guitarType)
+        return decayQuality(for: TapDisplaySettings.guitarType)
     }
     
     /// Evaluates the quality of a decay time for a specific guitar type
@@ -50,7 +50,7 @@ extension Float {
     
     /// Color indicator for decay quality (uses current guitar type setting)
     var decayQualityColor: Color {
-        return decayQualityColor(for: SpectrumDisplaySettings.guitarType)
+        return decayQualityColor(for: TapDisplaySettings.guitarType)
     }
     
     /// Color indicator for decay quality for a specific guitar type

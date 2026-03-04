@@ -114,7 +114,7 @@ extension TapToneAnalyzer {
         // Determine the frequency search window for this measurement type.
         // Using the known physical range rejects low-frequency impact thuds (20–80 Hz)
         // that are present in every tap but are not resonances of the workpiece.
-        let mType = SpectrumDisplaySettings.measurementType
+        let mType = TapDisplaySettings.measurementType
         let hpsMinHz: Float
         let hpsMaxHz: Float
         switch mType {
@@ -298,7 +298,7 @@ extension TapToneAnalyzer {
         currentPeaks      = longitudinalPeaks
         materialCapturedTaps = []
 
-        let isBrace = SpectrumDisplaySettings.measurementType == .brace
+        let isBrace = TapDisplaySettings.measurementType == .brace
         if isBrace {
             if let selPeak = longitudinalPeaks.first(where: { $0.id == dominantPeak.id }) {
                 currentPeaks = [selPeak]
@@ -346,7 +346,7 @@ extension TapToneAnalyzer {
         print("🟠 Auto-selected cross-grain peak: \(dominantPeak.frequency) Hz")
         materialCapturedTaps = []
 
-        if SpectrumDisplaySettings.measureFlc {
+        if TapDisplaySettings.measureFlc {
             currentPeaks = combineMaterialPeaks()
             frozenFrequencies = avgFreqs; frozenMagnitudes = avgMags; isSpectrumFrozen = true
             materialTapPhase = .waitingForFlcTap

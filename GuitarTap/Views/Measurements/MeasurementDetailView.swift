@@ -187,7 +187,7 @@ struct MeasurementDetailView: View {
                     let filteredPeaks = measurement.peaks
                         .sorted(by: { $0.frequency < $1.frequency })
                         .filter { peak in
-                            SpectrumDisplaySettings.showUnknownModes || 
+                            TapDisplaySettings.showUnknownModes || 
                             GuitarMode.classify(frequency: peak.frequency).normalized != .unknown
                         }
                     let visibleCount = filteredPeaks.filter { !hiddenIDs.contains($0.id) }.count

@@ -99,7 +99,7 @@ extension TapToneAnalyzer {
         microphoneUID: String? = nil,
         calibrationName: String? = nil
     ) {
-        let measurementType = SpectrumDisplaySettings.measurementType
+        let measurementType = TapDisplaySettings.measurementType
         
         // For guitar measurements: save a single spectrum snapshot as before.
         // For material/brace: per-phase snapshots are used instead; no combined snapshot needed.
@@ -108,13 +108,13 @@ extension TapToneAnalyzer {
             snapshot = spectrumSnapshot ?? SpectrumSnapshot(
                 frequencies: isSpectrumFrozen ? frozenFrequencies : fftAnalyzer.frequencies,
                 magnitudes: isSpectrumFrozen ? frozenMagnitudes : fftAnalyzer.magnitudes,
-                minFreq: SpectrumDisplaySettings.minFrequency,
-                maxFreq: SpectrumDisplaySettings.maxFrequency,
-                minDB: SpectrumDisplaySettings.minMagnitude,
-                maxDB: SpectrumDisplaySettings.maxMagnitude,
+                minFreq: TapDisplaySettings.minFrequency,
+                maxFreq: TapDisplaySettings.maxFrequency,
+                minDB: TapDisplaySettings.minMagnitude,
+                maxDB: TapDisplaySettings.maxMagnitude,
                 isLogarithmic: false,
-                showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
-                guitarType: SpectrumDisplaySettings.guitarType,
+                showUnknownModes: TapDisplaySettings.showUnknownModes,
+                guitarType: TapDisplaySettings.guitarType,
                 measurementType: measurementType,
                 maxPeaks: maxPeaks
             )

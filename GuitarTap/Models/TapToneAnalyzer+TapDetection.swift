@@ -20,7 +20,7 @@ extension TapToneAnalyzer {
         // instantaneous level against a tracked noise floor rather than an absolute
         // threshold.  This keeps detection working when ambient noise is elevated.
         let useRelativeDetection: Bool = {
-            let t = SpectrumDisplaySettings.measurementType
+            let t = TapDisplaySettings.measurementType
             return t == .material || t == .brace
         }()
 
@@ -147,7 +147,7 @@ extension TapToneAnalyzer {
         // Stop detection temporarily
         isDetecting = false
         
-        let measurementType = SpectrumDisplaySettings.measurementType
+        let measurementType = TapDisplaySettings.measurementType
         let isMaterialMode = measurementType == .material
         let isBraceMode = measurementType == .brace
         
@@ -223,11 +223,11 @@ extension TapToneAnalyzer {
     
     /// Total number of taps expected across all material/brace phases
     var totalMaterialTaps: Int {
-        let type = SpectrumDisplaySettings.measurementType
+        let type = TapDisplaySettings.measurementType
         if type == .brace {
             return numberOfTaps  // Brace mode: only longitudinal phase
         }
-        return numberOfTaps * (SpectrumDisplaySettings.measureFlc ? 3 : 2)
+        return numberOfTaps * (TapDisplaySettings.measureFlc ? 3 : 2)
     }
     
     /// Handle tap detection for material measurement mode (multi-phase, multi-tap capture).
@@ -269,9 +269,9 @@ extension TapToneAnalyzer {
             // For brace mode the relevant range is 100–1000 Hz; for material/plate it is
             // 30–600 Hz. Prefer a peak in that window over a louder low-frequency noise
             // peak (e.g. 78 Hz table vibration excited by the tap impact).
-            let mType = SpectrumDisplaySettings.measurementType
+            let mType = TapDisplaySettings.measurementType
             let loSel: Float = (mType == .brace) ? 100 : 30
-            let hiSel: Float = SpectrumDisplaySettings.defaultMaxFrequency(for: mType)
+            let hiSel: Float = TapDisplaySettings.defaultMaxFrequency(for: mType)
             let rangedPeak = longitudinalPeaks.first(where: { $0.frequency >= loSel && $0.frequency <= hiSel })
             let bestPeak = rangedPeak ?? longitudinalPeaks.first
             if let peak = bestPeak {
@@ -288,7 +288,7 @@ extension TapToneAnalyzer {
             
             materialCapturedTaps = []
             
-            let isBraceMode = SpectrumDisplaySettings.measurementType == .brace
+            let isBraceMode = TapDisplaySettings.measurementType == .brace
             if isBraceMode {
                 // Brace mode: complete after longitudinal tap only
                 // Restrict currentPeaks to only the auto-selected longitudinal peak
@@ -377,7 +377,7 @@ extension TapToneAnalyzer {
             
             materialCapturedTaps = []
             
-            let measureFlc = SpectrumDisplaySettings.measureFlc
+            let measureFlc = TapDisplaySettings.measureFlc
             if measureFlc {
                 // Move to FLC phase
                 currentPeaks = combineMaterialPeaks()

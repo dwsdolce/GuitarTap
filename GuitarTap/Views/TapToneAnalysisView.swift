@@ -35,14 +35,14 @@ struct TapToneAnalysisView: View {
     @State private var isGeneratingReport = false
     
     // Spectrum display state (loaded from persisted settings)
-    @State private var minFreq: Float = SpectrumDisplaySettings.minFrequency
-    @State private var maxFreq: Float = SpectrumDisplaySettings.maxFrequency
-    @State private var minDB: Float = SpectrumDisplaySettings.minMagnitude
-    @State private var maxDB: Float = SpectrumDisplaySettings.maxMagnitude
-    @State private var minFreqInput: String = String(format: "%.0f", SpectrumDisplaySettings.minFrequency)
-    @State private var maxFreqInput: String = String(format: "%.0f", SpectrumDisplaySettings.maxFrequency)
-    @State private var minDBInput: String = String(format: "%.0f", SpectrumDisplaySettings.minMagnitude)
-    @State private var maxDBInput: String = String(format: "%.0f", SpectrumDisplaySettings.maxMagnitude)
+    @State private var minFreq: Float = TapDisplaySettings.minFrequency
+    @State private var maxFreq: Float = TapDisplaySettings.maxFrequency
+    @State private var minDB: Float = TapDisplaySettings.minMagnitude
+    @State private var maxDB: Float = TapDisplaySettings.maxMagnitude
+    @State private var minFreqInput: String = String(format: "%.0f", TapDisplaySettings.minFrequency)
+    @State private var maxFreqInput: String = String(format: "%.0f", TapDisplaySettings.maxFrequency)
+    @State private var minDBInput: String = String(format: "%.0f", TapDisplaySettings.minMagnitude)
+    @State private var maxDBInput: String = String(format: "%.0f", TapDisplaySettings.maxMagnitude)
     
     // Auto-scale dB state
     @State private var isAutoScaleEnabled = false
@@ -98,7 +98,7 @@ struct TapToneAnalysisView: View {
     /// Pause/Resume button is enabled during any active multi-tap, material, or brace sequence
     private var pauseResumeButtonEnabled: Bool {
         // In material/brace mode, detection management is always relevant
-        if !SpectrumDisplaySettings.measurementType.isGuitar {
+        if !TapDisplaySettings.measurementType.isGuitar {
             return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
         }
         // In guitar mode, only enabled for multi-tap sequences
@@ -200,7 +200,7 @@ struct TapToneAnalysisView: View {
         .onReceive(tapToneAnalyzer.$loadedShowUnknownModes) { showUnknown in
             if let showUnknown = showUnknown {
                 print("  ⬇️ View received loadedShowUnknownModes: \(showUnknown)")
-                SpectrumDisplaySettings.showUnknownModes = showUnknown
+                TapDisplaySettings.showUnknownModes = showUnknown
                 // Clear the loaded value after a small delay to ensure UI updates
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.tapToneAnalyzer.loadedShowUnknownModes = nil
@@ -210,7 +210,7 @@ struct TapToneAnalysisView: View {
         .onReceive(tapToneAnalyzer.$loadedGuitarType) { guitarType in
             if let guitarType = guitarType {
                 print("  ⬇️ View received loadedGuitarType: \(guitarType.rawValue)")
-                SpectrumDisplaySettings.guitarType = guitarType
+                TapDisplaySettings.guitarType = guitarType
                 // Clear the loaded value after a small delay to ensure UI updates
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.tapToneAnalyzer.loadedGuitarType = nil
@@ -220,7 +220,7 @@ struct TapToneAnalysisView: View {
         .onReceive(tapToneAnalyzer.$loadedMeasurementType) { measurementType in
             if let measurementType = measurementType {
                 print("  ⬇️ View received loadedMeasurementType: \(measurementType.shortName)")
-                SpectrumDisplaySettings.measurementType = measurementType
+                TapDisplaySettings.measurementType = measurementType
                 // Clear the loaded value after a small delay to ensure UI updates
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.tapToneAnalyzer.loadedMeasurementType = nil
@@ -260,10 +260,10 @@ struct TapToneAnalysisView: View {
         .onReceive(tapToneAnalyzer.$loadedMaterialLength) { length in
             if let length = length {
                 print("  ⬇️ View received loadedMaterialLength: \(length)mm")
-                if SpectrumDisplaySettings.measurementType.isBrace {
-                    SpectrumDisplaySettings.braceLength = length
+                if TapDisplaySettings.measurementType.isBrace {
+                    TapDisplaySettings.braceLength = length
                 } else {
-                    SpectrumDisplaySettings.materialLength = length
+                    TapDisplaySettings.materialLength = length
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.tapToneAnalyzer.loadedMaterialLength = nil
@@ -272,10 +272,10 @@ struct TapToneAnalysisView: View {
         }
         .onReceive(tapToneAnalyzer.$loadedMaterialWidth) { width in
             if let width = width {
-                if SpectrumDisplaySettings.measurementType.isBrace {
-                    SpectrumDisplaySettings.braceWidth = width
+                if TapDisplaySettings.measurementType.isBrace {
+                    TapDisplaySettings.braceWidth = width
                 } else {
-                    SpectrumDisplaySettings.materialWidth = width
+                    TapDisplaySettings.materialWidth = width
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.tapToneAnalyzer.loadedMaterialWidth = nil
@@ -284,10 +284,10 @@ struct TapToneAnalysisView: View {
         }
         .onReceive(tapToneAnalyzer.$loadedMaterialThickness) { thickness in
             if let thickness = thickness {
-                if SpectrumDisplaySettings.measurementType.isBrace {
-                    SpectrumDisplaySettings.braceThickness = thickness
+                if TapDisplaySettings.measurementType.isBrace {
+                    TapDisplaySettings.braceThickness = thickness
                 } else {
-                    SpectrumDisplaySettings.materialThickness = thickness
+                    TapDisplaySettings.materialThickness = thickness
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.tapToneAnalyzer.loadedMaterialThickness = nil
@@ -296,10 +296,10 @@ struct TapToneAnalysisView: View {
         }
         .onReceive(tapToneAnalyzer.$loadedMaterialMass) { mass in
             if let mass = mass {
-                if SpectrumDisplaySettings.measurementType.isBrace {
-                    SpectrumDisplaySettings.braceMass = mass
+                if TapDisplaySettings.measurementType.isBrace {
+                    TapDisplaySettings.braceMass = mass
                 } else {
-                    SpectrumDisplaySettings.materialMass = mass
+                    TapDisplaySettings.materialMass = mass
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.tapToneAnalyzer.loadedMaterialMass = nil
@@ -385,7 +385,7 @@ struct TapToneAnalysisView: View {
             .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingSettings) {
-            SpectrumSettingsView(
+            TapSettingsView(
                 minFreq: $minFreq,
                 maxFreq: $maxFreq,
                 minDB: $minDB,
@@ -519,7 +519,7 @@ struct TapToneAnalysisView: View {
             .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingSettings) {
-            SpectrumSettingsView(
+            TapSettingsView(
                 minFreq: $minFreq,
                 maxFreq: $maxFreq,
                 minDB: $minDB,
@@ -690,8 +690,8 @@ struct TapToneAnalysisView: View {
                     Text("Threshold: \(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
                         .font(.caption)
                     Button(action: {
-                        tapToneAnalyzer.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
-                        SpectrumDisplaySettings.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                        tapToneAnalyzer.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
+                        TapDisplaySettings.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.caption2)
@@ -703,7 +703,7 @@ struct TapToneAnalysisView: View {
                     .accessibilityLabel("Tap detection threshold")
                     .hint(HintText.threshold)
                     .onChange(of: tapToneAnalyzer.tapDetectionThreshold) { _, newValue in
-                        SpectrumDisplaySettings.tapDetectionThreshold = newValue
+                        TapDisplaySettings.tapDetectionThreshold = newValue
                     }
             }
             
@@ -713,8 +713,8 @@ struct TapToneAnalysisView: View {
                     Text("Hysteresis: \(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
                         .font(.caption)
                     Button(action: {
-                        tapToneAnalyzer.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
-                        SpectrumDisplaySettings.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                        tapToneAnalyzer.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
+                        TapDisplaySettings.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.caption2)
@@ -726,7 +726,7 @@ struct TapToneAnalysisView: View {
                     .accessibilityLabel("Hysteresis margin")
                     .hint(HintText.hysteresis)
                     .onChange(of: tapToneAnalyzer.hysteresisMargin) { _, newValue in
-                        SpectrumDisplaySettings.hysteresisMargin = newValue
+                        TapDisplaySettings.hysteresisMargin = newValue
                     }
             }
             
@@ -736,8 +736,8 @@ struct TapToneAnalysisView: View {
                     Text("Peak Min: \(Int(tapToneAnalyzer.peakThreshold)) dB")
                         .font(.caption)
                     Button(action: {
-                        tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                        SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                        tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
+                        TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.caption2)
@@ -748,7 +748,7 @@ struct TapToneAnalysisView: View {
                 Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
                     .accessibilityLabel("Peak detection minimum threshold")
                     .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
-                        SpectrumDisplaySettings.peakThreshold = newValue
+                        TapDisplaySettings.peakThreshold = newValue
                     }
             }
             
@@ -1477,7 +1477,7 @@ struct TapToneAnalysisView: View {
                         .accessibilityLabel("Tap detection threshold")
                         .hint(HintText.threshold)
                         .onChange(of: tapToneAnalyzer.tapDetectionThreshold) { _, newValue in
-                            SpectrumDisplaySettings.tapDetectionThreshold = newValue
+                            TapDisplaySettings.tapDetectionThreshold = newValue
                         }
                     Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
                         .font(.caption)
@@ -1485,8 +1485,8 @@ struct TapToneAnalysisView: View {
                         .foregroundColor(.blue)
                         .fixedSize()
                     Button(action: {
-                        tapToneAnalyzer.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
-                        SpectrumDisplaySettings.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                        tapToneAnalyzer.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
+                        TapDisplaySettings.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.caption2)
@@ -1505,7 +1505,7 @@ struct TapToneAnalysisView: View {
                         .accessibilityLabel("Hysteresis margin")
                         .hint(HintText.hysteresis)
                         .onChange(of: tapToneAnalyzer.hysteresisMargin) { _, newValue in
-                            SpectrumDisplaySettings.hysteresisMargin = newValue
+                            TapDisplaySettings.hysteresisMargin = newValue
                         }
                     Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
                         .font(.caption)
@@ -1513,8 +1513,8 @@ struct TapToneAnalysisView: View {
                         .foregroundColor(.purple)
                         .fixedSize()
                     Button(action: {
-                        tapToneAnalyzer.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
-                        SpectrumDisplaySettings.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                        tapToneAnalyzer.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
+                        TapDisplaySettings.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.caption2)
@@ -1531,7 +1531,7 @@ struct TapToneAnalysisView: View {
                     Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
                         .accessibilityLabel("Peak detection minimum threshold")
                         .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
-                            SpectrumDisplaySettings.peakThreshold = newValue
+                            TapDisplaySettings.peakThreshold = newValue
                         }
                     Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
                         .font(.caption)
@@ -1539,8 +1539,8 @@ struct TapToneAnalysisView: View {
                         .foregroundColor(.green)
                         .fixedSize()
                     Button(action: {
-                        tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                        SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                        tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
+                        TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.caption2)
@@ -1652,7 +1652,7 @@ struct TapToneAnalysisView: View {
                     .frame(width: 80)
                     .accessibilityLabel("Tap detection threshold")
                     .onChange(of: tapToneAnalyzer.tapDetectionThreshold) { _, newValue in
-                        SpectrumDisplaySettings.tapDetectionThreshold = newValue
+                        TapDisplaySettings.tapDetectionThreshold = newValue
                     }
                 Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
                     .font(.caption)
@@ -1660,8 +1660,8 @@ struct TapToneAnalysisView: View {
                     .foregroundColor(.blue)
                     .fixedSize()
                 Button(action: {
-                    tapToneAnalyzer.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
-                    SpectrumDisplaySettings.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                    tapToneAnalyzer.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
+                    TapDisplaySettings.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
                 }) {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.caption2)
@@ -1685,7 +1685,7 @@ struct TapToneAnalysisView: View {
                     .frame(width: 60)
                     .accessibilityLabel("Hysteresis margin")
                     .onChange(of: tapToneAnalyzer.hysteresisMargin) { _, newValue in
-                        SpectrumDisplaySettings.hysteresisMargin = newValue
+                        TapDisplaySettings.hysteresisMargin = newValue
                     }
                 Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
                     .font(.caption)
@@ -1693,8 +1693,8 @@ struct TapToneAnalysisView: View {
                     .foregroundColor(.purple)
                     .fixedSize()
                 Button(action: {
-                    tapToneAnalyzer.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
-                    SpectrumDisplaySettings.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                    tapToneAnalyzer.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
+                    TapDisplaySettings.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
                 }) {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.caption2)
@@ -1717,7 +1717,7 @@ struct TapToneAnalysisView: View {
                     .frame(width: 80)
                     .accessibilityLabel("Peak detection minimum threshold")
                     .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
-                        SpectrumDisplaySettings.peakThreshold = newValue
+                        TapDisplaySettings.peakThreshold = newValue
                     }
                 Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
                     .font(.caption)
@@ -1725,8 +1725,8 @@ struct TapToneAnalysisView: View {
                     .foregroundColor(.green)
                     .fixedSize()
                 Button(action: {
-                    tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                    SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                    tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
+                    TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
                 }) {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.caption2)
@@ -1817,7 +1817,7 @@ struct TapToneAnalysisView: View {
                         .frame(width: 80)
                         .accessibilityLabel("Tap detection threshold")
                         .onChange(of: tapToneAnalyzer.tapDetectionThreshold) { _, newValue in
-                            SpectrumDisplaySettings.tapDetectionThreshold = newValue
+                            TapDisplaySettings.tapDetectionThreshold = newValue
                         }
                     Text("\(Int(tapToneAnalyzer.tapDetectionThreshold)) dB")
                         .font(.caption)
@@ -1825,8 +1825,8 @@ struct TapToneAnalysisView: View {
                         .foregroundColor(.blue)
                         .fixedSize()
                     Button(action: {
-                        tapToneAnalyzer.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
-                        SpectrumDisplaySettings.tapDetectionThreshold = SpectrumDisplaySettings.defaultTapDetectionThreshold
+                        tapToneAnalyzer.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
+                        TapDisplaySettings.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.caption2)
@@ -1850,7 +1850,7 @@ struct TapToneAnalysisView: View {
                         .frame(width: 60)
                         .accessibilityLabel("Hysteresis margin")
                         .onChange(of: tapToneAnalyzer.hysteresisMargin) { _, newValue in
-                            SpectrumDisplaySettings.hysteresisMargin = newValue
+                            TapDisplaySettings.hysteresisMargin = newValue
                         }
                     Text("\(tapToneAnalyzer.hysteresisMargin, specifier: "%.1f") dB")
                         .font(.caption)
@@ -1858,8 +1858,8 @@ struct TapToneAnalysisView: View {
                         .foregroundColor(.purple)
                         .fixedSize()
                     Button(action: {
-                        tapToneAnalyzer.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
-                        SpectrumDisplaySettings.hysteresisMargin = SpectrumDisplaySettings.defaultHysteresisMargin
+                        tapToneAnalyzer.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
+                        TapDisplaySettings.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.caption2)
@@ -1882,7 +1882,7 @@ struct TapToneAnalysisView: View {
                         .frame(width: 80)
                         .accessibilityLabel("Peak detection minimum threshold")
                         .onChange(of: tapToneAnalyzer.peakThreshold) { _, newValue in
-                            SpectrumDisplaySettings.peakThreshold = newValue
+                            TapDisplaySettings.peakThreshold = newValue
                         }
                     Text("\(Int(tapToneAnalyzer.peakThreshold)) dB")
                         .font(.caption)
@@ -1890,8 +1890,8 @@ struct TapToneAnalysisView: View {
                         .foregroundColor(.green)
                         .fixedSize()
                     Button(action: {
-                        tapToneAnalyzer.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
-                        SpectrumDisplaySettings.peakThreshold = SpectrumDisplaySettings.defaultPeakThreshold
+                        tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
+                        TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.caption2)
@@ -1962,7 +1962,7 @@ struct TapToneAnalysisView: View {
     
     /// Per-phase spectra for material/brace measurements, formatted for SpectrumView overlay
     private var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] {
-        let measurementType = SpectrumDisplaySettings.measurementType
+        let measurementType = TapDisplaySettings.measurementType
         guard !measurementType.isGuitar else { return [] }
         var result: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
         if let spec = tapToneAnalyzer.longitudinalSpectrum {
@@ -2043,7 +2043,7 @@ struct TapToneAnalysisView: View {
                     tapToneAnalyzer.resetAllAnnotationOffsets()
                 },
                 hasLabelsToReset: !tapToneAnalyzer.peakAnnotationOffsets.isEmpty,
-                measurementType: SpectrumDisplaySettings.measurementType,
+                measurementType: TapDisplaySettings.measurementType,
                 selectedLongitudinalPeakID: tapToneAnalyzer.effectiveLongitudinalPeakID,
                 selectedCrossPeakID: tapToneAnalyzer.effectiveCrossPeakID,
                 selectedFlcPeakID: tapToneAnalyzer.effectiveFlcPeakID
@@ -2092,7 +2092,7 @@ struct TapToneAnalysisView: View {
     
     private var decayTimeView: some View {
         Group {
-            if !SpectrumDisplaySettings.measurementType.isGuitar {
+            if !TapDisplaySettings.measurementType.isGuitar {
                 // Material/brace measurement instructions
                 materialInstructionsView
             } else {
@@ -2116,7 +2116,7 @@ struct TapToneAnalysisView: View {
                         .fontWeight(.semibold)
                         .foregroundColor(materialPhaseColor)
                     Spacer()
-                    Text("Step \(materialPhaseStep)/\(SpectrumDisplaySettings.measurementType == .brace ? 1 : (SpectrumDisplaySettings.measureFlc ? 3 : 2))")
+                    Text("Step \(materialPhaseStep)/\(TapDisplaySettings.measurementType == .brace ? 1 : (TapDisplaySettings.measureFlc ? 3 : 2))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -2165,7 +2165,7 @@ struct TapToneAnalysisView: View {
         case .notStarted, .capturingLongitudinal: return 1
         case .waitingForCrossTap, .capturingCross: return 2
         case .waitingForFlcTap, .capturingFlc: return 3
-        case .complete: return SpectrumDisplaySettings.measureFlc ? 3 : 2
+        case .complete: return TapDisplaySettings.measureFlc ? 3 : 2
         }
     }
     
@@ -2184,7 +2184,7 @@ struct TapToneAnalysisView: View {
     
     /// Title for current material/brace measurement phase
     private var materialPhaseTitle: String {
-        let isBrace = SpectrumDisplaySettings.measurementType == .brace
+        let isBrace = TapDisplaySettings.measurementType == .brace
         switch tapToneAnalyzer.materialTapPhase {
         case .notStarted:
             return "Press 'New Tap' to Begin"
@@ -2205,13 +2205,13 @@ struct TapToneAnalysisView: View {
     
     /// Description for current material/brace measurement phase
     private var materialPhaseDescription: String {
-        let isBrace = SpectrumDisplaySettings.measurementType == .brace
+        let isBrace = TapDisplaySettings.measurementType == .brace
         switch tapToneAnalyzer.materialTapPhase {
         case .notStarted:
             if isBrace {
                 return "Press 'New Tap' to begin the brace fL measurement."
             }
-            let tapWord = SpectrumDisplaySettings.measureFlc ? "three-tap" : "two-tap"
+            let tapWord = TapDisplaySettings.measureFlc ? "three-tap" : "two-tap"
             return "Press 'New Tap' to begin the \(tapWord) material measurement process."
         case .capturingLongitudinal:
             if isBrace {
@@ -2230,7 +2230,7 @@ struct TapToneAnalysisView: View {
             if isBrace {
                 return "fL captured! Review the fL (blue) peak selection in the Results panel. Adjust if the auto-selection isn't correct."
             }
-            let flcPart = SpectrumDisplaySettings.measureFlc ? ", and FLC (purple)" : ""
+            let flcPart = TapDisplaySettings.measureFlc ? ", and FLC (purple)" : ""
             return "All modes captured! Review the L (blue), C (orange)\(flcPart) peak selections in the Results panel. Adjust if the auto-selection isn't correct."
         }
     }
@@ -2383,7 +2383,7 @@ struct TapToneAnalysisView: View {
             }
             #endif
             
-            let measurementType = SpectrumDisplaySettings.measurementType
+            let measurementType = TapDisplaySettings.measurementType
             
             // Build a helper to create a SpectrumSnapshot from a phase spectrum
             func makePhaseSnapshot(magnitudes: [Float], frequencies: [Float]) -> SpectrumSnapshot {
@@ -2395,18 +2395,18 @@ struct TapToneAnalysisView: View {
                     minDB: self.minDB,
                     maxDB: self.maxDB,
                     isLogarithmic: false,
-                    showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
-                    guitarType: SpectrumDisplaySettings.guitarType,
+                    showUnknownModes: TapDisplaySettings.showUnknownModes,
+                    guitarType: TapDisplaySettings.guitarType,
                     measurementType: measurementType,
                     maxPeaks: self.tapToneAnalyzer.maxPeaks,
-                    materialLength: measurementType == .material ? SpectrumDisplaySettings.materialLength
-                                  : measurementType == .brace   ? SpectrumDisplaySettings.braceLength : nil,
-                    materialWidth: measurementType == .material ? SpectrumDisplaySettings.materialWidth
-                                 : measurementType == .brace   ? SpectrumDisplaySettings.braceWidth : nil,
-                    materialThickness: measurementType == .material ? SpectrumDisplaySettings.materialThickness
-                                     : measurementType == .brace   ? SpectrumDisplaySettings.braceThickness : nil,
-                    materialMass: measurementType == .material ? SpectrumDisplaySettings.materialMass
-                                : measurementType == .brace   ? SpectrumDisplaySettings.braceMass : nil
+                    materialLength: measurementType == .material ? TapDisplaySettings.materialLength
+                                  : measurementType == .brace   ? TapDisplaySettings.braceLength : nil,
+                    materialWidth: measurementType == .material ? TapDisplaySettings.materialWidth
+                                 : measurementType == .brace   ? TapDisplaySettings.braceWidth : nil,
+                    materialThickness: measurementType == .material ? TapDisplaySettings.materialThickness
+                                     : measurementType == .brace   ? TapDisplaySettings.braceThickness : nil,
+                    materialMass: measurementType == .material ? TapDisplaySettings.materialMass
+                                : measurementType == .brace   ? TapDisplaySettings.braceMass : nil
                 )
             }
             
@@ -2463,7 +2463,7 @@ struct TapToneAnalysisView: View {
     /// Adds 10% padding above/below. Used when material/brace peaks are auto-selected
     /// to ensure they're always in view even if outside the persisted default range.
     private func expandFreqRangeToInclude(_ frequency: Float) {
-        guard !SpectrumDisplaySettings.measurementType.isGuitar else { return }
+        guard !TapDisplaySettings.measurementType.isGuitar else { return }
         let padding = frequency * 0.10
         if frequency > maxFreq {
             maxFreq = frequency + padding
@@ -2535,8 +2535,8 @@ struct TapToneAnalysisView: View {
     
     /// Resets the dB range to default settings
     private func resetDBToDefaults() {
-        minDB = SpectrumDisplaySettings.minMagnitude
-        maxDB = SpectrumDisplaySettings.maxMagnitude
+        minDB = TapDisplaySettings.minMagnitude
+        maxDB = TapDisplaySettings.maxMagnitude
         minDBInput = String(format: "%.0f", minDB)
         maxDBInput = String(format: "%.0f", maxDB)
         print("↩️ Reset dB range to defaults: \(minDB) to \(maxDB) dB")
@@ -2609,7 +2609,7 @@ struct TapToneAnalysisView: View {
         #endif
 
         // Compute material properties if applicable
-        let measurementType = SpectrumDisplaySettings.measurementType
+        let measurementType = TapDisplaySettings.measurementType
         var materialProps: MaterialProperties? = nil
         if measurementType == .material {
             let effLong = tapToneAnalyzer.effectiveLongitudinalPeakID
@@ -2620,10 +2620,10 @@ struct TapToneAnalysisView: View {
                let crossPeak = allMaterialPeaks.first(where: { $0.id == effCross }) {
                 let flcFreq: Float? = allMaterialPeaks.first(where: { $0.id == effFlc })?.frequency
                 let dims = MaterialDimensions(
-                    lengthMM: SpectrumDisplaySettings.materialLength,
-                    widthMM: SpectrumDisplaySettings.materialWidth,
-                    thicknessMM: SpectrumDisplaySettings.materialThickness,
-                    massGrams: SpectrumDisplaySettings.materialMass
+                    lengthMM: TapDisplaySettings.materialLength,
+                    widthMM: TapDisplaySettings.materialWidth,
+                    thicknessMM: TapDisplaySettings.materialThickness,
+                    massGrams: TapDisplaySettings.materialMass
                 )
                 if dims.length > 0 && dims.mass > 0 {
                     materialProps = MaterialProperties(
@@ -2639,10 +2639,10 @@ struct TapToneAnalysisView: View {
             let allBracePeaks = tapToneAnalyzer.longitudinalPeaks + tapToneAnalyzer.currentPeaks
             if let longPeak = allBracePeaks.first(where: { $0.id == effLong }) {
                 let dims = MaterialDimensions(
-                    lengthMM: SpectrumDisplaySettings.braceLength,
-                    widthMM: SpectrumDisplaySettings.braceWidth,
-                    thicknessMM: SpectrumDisplaySettings.braceThickness,
-                    massGrams: SpectrumDisplaySettings.braceMass
+                    lengthMM: TapDisplaySettings.braceLength,
+                    widthMM: TapDisplaySettings.braceWidth,
+                    thicknessMM: TapDisplaySettings.braceThickness,
+                    massGrams: TapDisplaySettings.braceMass
                 )
                 if dims.length > 0 && dims.mass > 0 {
                     materialProps = MaterialProperties(
@@ -2665,7 +2665,7 @@ struct TapToneAnalysisView: View {
             tapLocation: tapLocation.isEmpty ? nil : tapLocation,
             notes: notes.isEmpty ? nil : notes,
             measurementType: measurementType,
-            guitarType: SpectrumDisplaySettings.guitarType,
+            guitarType: TapDisplaySettings.guitarType,
             peaks: rangeFilteredPeaks,
             hiddenPeakIDs: tapToneAnalyzer.hiddenPeakIDs,
             decayTime: tapToneAnalyzer.currentDecayTime,
@@ -2679,10 +2679,10 @@ struct TapToneAnalysisView: View {
             selectedFlcPeakID: tapToneAnalyzer.effectiveFlcPeakID,
             microphoneName: fftAnalyzer.selectedInputDevice?.name,
             calibrationName: fftAnalyzer.activeCalibration?.name,
-            guitarBodyLength: SpectrumDisplaySettings.guitarBodyLength,
-            guitarBodyWidth: SpectrumDisplaySettings.guitarBodyWidth,
-            plateStiffness: SpectrumDisplaySettings.plateStiffness,
-            plateStiffnessPreset: SpectrumDisplaySettings.plateStiffnessPreset
+            guitarBodyLength: TapDisplaySettings.guitarBodyLength,
+            guitarBodyWidth: TapDisplaySettings.guitarBodyWidth,
+            plateStiffness: TapDisplaySettings.plateStiffness,
+            plateStiffnessPreset: TapDisplaySettings.plateStiffnessPreset
         )
 
         guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
@@ -2746,8 +2746,8 @@ struct TapToneAnalysisView: View {
                 peaks: tapToneAnalyzer.visiblePeaks,
                 showModeBoundaries: true,
                 annotationOffsets: tapToneAnalyzer.peakAnnotationOffsets,
-                showUnknownModes: SpectrumDisplaySettings.showUnknownModes,
-                measurementType: SpectrumDisplaySettings.measurementType,
+                showUnknownModes: TapDisplaySettings.showUnknownModes,
+                measurementType: TapDisplaySettings.measurementType,
                 selectedLongitudinalPeakID: tapToneAnalyzer.effectiveLongitudinalPeakID,
                 selectedCrossPeakID: tapToneAnalyzer.effectiveCrossPeakID,
                 selectedFlcPeakID: tapToneAnalyzer.effectiveFlcPeakID,

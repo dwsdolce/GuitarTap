@@ -28,7 +28,7 @@ extension TapToneAnalyzer {
         // Only detect taps if detection is enabled.
         // Material/brace modes use the fast recentPeakLevelDB subscription instead of
         // this slow FFT path — the long-window FFT dilutes transient tap energy by ~15 dB.
-        let mType = SpectrumDisplaySettings.measurementType
+        let mType = TapDisplaySettings.measurementType
         let usesFastTapDetection = (mType == .material || mType == .brace)
         if isDetecting && !usesFastTapDetection {
             detectTap(peakMagnitude: peakMagnitude, magnitudes: magnitudes, frequencies: frequencies)

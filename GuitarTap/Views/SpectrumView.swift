@@ -164,7 +164,7 @@ struct SpectrumView: View {
         }
         
         // Filter out unknown modes if setting is disabled (guitar mode only)
-        if SpectrumDisplaySettings.showUnknownModes {
+        if TapDisplaySettings.showUnknownModes {
             return filtered
         } else {
             return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
@@ -588,10 +588,10 @@ struct SpectrumView: View {
     /// Resets both frequency and magnitude axes to their default values
     private func resetBothAxes() {
         withAnimation(.easeInOut(duration: 0.3)) {
-            minFreq = SpectrumDisplaySettings.minFrequency
-            maxFreq = SpectrumDisplaySettings.maxFrequency
-            minDB = SpectrumDisplaySettings.minMagnitude
-            maxDB = SpectrumDisplaySettings.maxMagnitude
+            minFreq = TapDisplaySettings.minFrequency
+            maxFreq = TapDisplaySettings.maxFrequency
+            minDB = TapDisplaySettings.minMagnitude
+            maxDB = TapDisplaySettings.maxMagnitude
         }
         onFrequencyRangeChanged?()
     }
@@ -599,8 +599,8 @@ struct SpectrumView: View {
     /// Resets the frequency axis to its default range
     private func resetFrequencyAxis() {
         withAnimation(.easeInOut(duration: 0.3)) {
-            minFreq = SpectrumDisplaySettings.minFrequency
-            maxFreq = SpectrumDisplaySettings.maxFrequency
+            minFreq = TapDisplaySettings.minFrequency
+            maxFreq = TapDisplaySettings.maxFrequency
         }
         onFrequencyRangeChanged?()
     }
@@ -608,8 +608,8 @@ struct SpectrumView: View {
     /// Resets the magnitude axis to its default range
     private func resetMagnitudeAxis() {
         withAnimation(.easeInOut(duration: 0.3)) {
-            minDB = SpectrumDisplaySettings.minMagnitude
-            maxDB = SpectrumDisplaySettings.maxMagnitude
+            minDB = TapDisplaySettings.minMagnitude
+            maxDB = TapDisplaySettings.maxMagnitude
         }
     }
     
@@ -1638,7 +1638,7 @@ struct ExportableSpectrumChart: View {
         }
         
         // Use explicit parameter if provided, otherwise fall back to global setting
-        let shouldShowUnknown = showUnknownModes ?? SpectrumDisplaySettings.showUnknownModes
+        let shouldShowUnknown = showUnknownModes ?? TapDisplaySettings.showUnknownModes
         if shouldShowUnknown {
             return filtered
         } else {

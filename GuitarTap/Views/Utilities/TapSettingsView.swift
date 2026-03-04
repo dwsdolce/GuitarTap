@@ -1,5 +1,5 @@
 //
-//  SpectrumSettingsView.swift
+//  TapSettingsView.swift
 //  GuitarTap
 //
 //  Created on 2/12/26.
@@ -9,7 +9,7 @@ import SwiftUI
 internal import UniformTypeIdentifiers
 
 /// Settings view for spectrum display and analysis parameters
-struct SpectrumSettingsView: View {
+struct TapSettingsView: View {
     // Display settings
     @Binding var minFreq: Float
     @Binding var maxFreq: Float
@@ -44,29 +44,29 @@ struct SpectrumSettingsView: View {
     @State private var captureAllPeaks: Bool
     
     // Measurement type setting
-    @State private var selectedMeasurementType: MeasurementType = SpectrumDisplaySettings.measurementType
+    @State private var selectedMeasurementType: MeasurementType = TapDisplaySettings.measurementType
     
     // Unknown mode display setting
-    @State private var showUnknownModes: Bool = SpectrumDisplaySettings.showUnknownModes
+    @State private var showUnknownModes: Bool = TapDisplaySettings.showUnknownModes
     
     // Material dimensions (for Material measurement type)
-    @State private var materialLengthInput: String = String(format: "%.1f", SpectrumDisplaySettings.materialLength)
-    @State private var materialWidthInput: String = String(format: "%.1f", SpectrumDisplaySettings.materialWidth)
-    @State private var materialThicknessInput: String = String(format: "%.2f", SpectrumDisplaySettings.materialThickness)
-    @State private var materialMassInput: String = String(format: "%.1f", SpectrumDisplaySettings.materialMass)
-    @State private var measureFlc: Bool = SpectrumDisplaySettings.measureFlc
+    @State private var materialLengthInput: String = String(format: "%.1f", TapDisplaySettings.materialLength)
+    @State private var materialWidthInput: String = String(format: "%.1f", TapDisplaySettings.materialWidth)
+    @State private var materialThicknessInput: String = String(format: "%.2f", TapDisplaySettings.materialThickness)
+    @State private var materialMassInput: String = String(format: "%.1f", TapDisplaySettings.materialMass)
+    @State private var measureFlc: Bool = TapDisplaySettings.measureFlc
 
     // Gore thicknessing settings
-    @State private var guitarBodyLengthInput: String = String(format: "%.0f", SpectrumDisplaySettings.guitarBodyLength)
-    @State private var guitarBodyWidthInput: String = String(format: "%.0f", SpectrumDisplaySettings.guitarBodyWidth)
-    @State private var plateStiffnessPreset: PlateStiffnessPreset = SpectrumDisplaySettings.plateStiffnessPreset
-    @State private var customPlateStiffnessInput: String = String(format: "%.0f", SpectrumDisplaySettings.customPlateStiffness)
+    @State private var guitarBodyLengthInput: String = String(format: "%.0f", TapDisplaySettings.guitarBodyLength)
+    @State private var guitarBodyWidthInput: String = String(format: "%.0f", TapDisplaySettings.guitarBodyWidth)
+    @State private var plateStiffnessPreset: PlateStiffnessPreset = TapDisplaySettings.plateStiffnessPreset
+    @State private var customPlateStiffnessInput: String = String(format: "%.0f", TapDisplaySettings.customPlateStiffness)
 
     // Brace dimensions (for Brace Material measurement type)
-    @State private var braceLengthInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceLength)
-    @State private var braceWidthInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceWidth)
-    @State private var braceThicknessInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceThickness)
-    @State private var braceMassInput: String = String(format: "%.1f", SpectrumDisplaySettings.braceMass)
+    @State private var braceLengthInput: String = String(format: "%.1f", TapDisplaySettings.braceLength)
+    @State private var braceWidthInput: String = String(format: "%.1f", TapDisplaySettings.braceWidth)
+    @State private var braceThicknessInput: String = String(format: "%.1f", TapDisplaySettings.braceThickness)
+    @State private var braceMassInput: String = String(format: "%.1f", TapDisplaySettings.braceMass)
     
     // Validation states
     @State private var showValidationError = false
@@ -139,8 +139,8 @@ struct SpectrumSettingsView: View {
                     #endif
                     .onChange(of: selectedMeasurementType) { _, newType in
                         // Load the stored frequency range for the new type (falls back to type defaults)
-                        minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.minFrequency(for: newType))
-                        maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.maxFrequency(for: newType))
+                        minFreqInput = String(format: "%.0f", TapDisplaySettings.minFrequency(for: newType))
+                        maxFreqInput = String(format: "%.0f", TapDisplaySettings.maxFrequency(for: newType))
                     }
                     
                     // Show description for selected type
@@ -594,7 +594,7 @@ struct SpectrumSettingsView: View {
                             
                             // Stepper for increment/decrement (only when not in "all" mode)
                             Stepper("", value: Binding(
-                                get: { maxPeaks == 0 ? SpectrumDisplaySettings.defaultMaxPeaks : maxPeaks },
+                                get: { maxPeaks == 0 ? TapDisplaySettings.defaultMaxPeaks : maxPeaks },
                                 set: { newValue in
                                     maxPeaks = newValue
                                     maxPeaksInput = "\(newValue)"
@@ -616,7 +616,7 @@ struct SpectrumSettingsView: View {
                                     maxPeaksInput = "All"
                                 } else {
                                     // Restore default when turning off
-                                    maxPeaks = SpectrumDisplaySettings.defaultMaxPeaks
+                                    maxPeaks = TapDisplaySettings.defaultMaxPeaks
                                     maxPeaksInput = "\(maxPeaks)"
                                 }
                             }
@@ -880,7 +880,7 @@ struct SpectrumSettingsView: View {
             .formStyle(.grouped)
             .frame(minWidth: 500, minHeight: 600)
             #endif
-            .navigationTitle("Spectrum Settings")
+            .navigationTitle("Tap Settings")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -1095,52 +1095,52 @@ struct SpectrumSettingsView: View {
     
     private func applySettings() {
         // Save measurement type and unknown mode setting
-        SpectrumDisplaySettings.measurementType = selectedMeasurementType
-        SpectrumDisplaySettings.showUnknownModes = showUnknownModes
-        SpectrumDisplaySettings.measureFlc = measureFlc
+        TapDisplaySettings.measurementType = selectedMeasurementType
+        TapDisplaySettings.showUnknownModes = showUnknownModes
+        TapDisplaySettings.measureFlc = measureFlc
         
         // Save material plate dimensions
         if selectedMeasurementType == .material {
             if let length = Float(materialLengthInput), length > 0 {
-                SpectrumDisplaySettings.materialLength = length
+                TapDisplaySettings.materialLength = length
             }
             if let width = Float(materialWidthInput), width > 0 {
-                SpectrumDisplaySettings.materialWidth = width
+                TapDisplaySettings.materialWidth = width
             }
             if let thickness = Float(materialThicknessInput), thickness > 0 {
-                SpectrumDisplaySettings.materialThickness = thickness
+                TapDisplaySettings.materialThickness = thickness
             }
             if let mass = Float(materialMassInput), mass > 0 {
-                SpectrumDisplaySettings.materialMass = mass
+                TapDisplaySettings.materialMass = mass
             }
 
             // Save Gore thicknessing settings (always save regardless of FLC state)
             if let bodyLength = Float(guitarBodyLengthInput), bodyLength > 0 {
-                SpectrumDisplaySettings.guitarBodyLength = bodyLength
+                TapDisplaySettings.guitarBodyLength = bodyLength
             }
             if let bodyWidth = Float(guitarBodyWidthInput), bodyWidth > 0 {
-                SpectrumDisplaySettings.guitarBodyWidth = bodyWidth
+                TapDisplaySettings.guitarBodyWidth = bodyWidth
             }
-            SpectrumDisplaySettings.plateStiffnessPreset = plateStiffnessPreset
+            TapDisplaySettings.plateStiffnessPreset = plateStiffnessPreset
             if plateStiffnessPreset == .custom,
                let customVal = Float(customPlateStiffnessInput), customVal > 0 {
-                SpectrumDisplaySettings.customPlateStiffness = customVal
+                TapDisplaySettings.customPlateStiffness = customVal
             }
         }
 
         // Save brace dimensions (separate keys from plate)
         if selectedMeasurementType == .brace {
             if let length = Float(braceLengthInput), length > 0 {
-                SpectrumDisplaySettings.braceLength = length
+                TapDisplaySettings.braceLength = length
             }
             if let width = Float(braceWidthInput), width > 0 {
-                SpectrumDisplaySettings.braceWidth = width
+                TapDisplaySettings.braceWidth = width
             }
             if let thickness = Float(braceThicknessInput), thickness > 0 {
-                SpectrumDisplaySettings.braceThickness = thickness
+                TapDisplaySettings.braceThickness = thickness
             }
             if let mass = Float(braceMassInput), mass > 0 {
-                SpectrumDisplaySettings.braceMass = mass
+                TapDisplaySettings.braceMass = mass
             }
         }
         
@@ -1151,7 +1151,7 @@ struct SpectrumSettingsView: View {
             return
         }
         
-        let validatedFreq = SpectrumDisplaySettings.validateFrequencyRange(
+        let validatedFreq = TapDisplaySettings.validateFrequencyRange(
             minFreq: newMinFreq,
             maxFreq: newMaxFreq
         )
@@ -1163,7 +1163,7 @@ struct SpectrumSettingsView: View {
             return
         }
         
-        let validatedDB = SpectrumDisplaySettings.validateMagnitudeRange(
+        let validatedDB = TapDisplaySettings.validateMagnitudeRange(
             minDB: newMinDB,
             maxDB: newMaxDB
         )
@@ -1175,7 +1175,7 @@ struct SpectrumSettingsView: View {
             return
         }
         
-        let validatedAnalysisFreq = SpectrumDisplaySettings.validateFrequencyRange(
+        let validatedAnalysisFreq = TapDisplaySettings.validateFrequencyRange(
             minFreq: newAnalysisMinFreq,
             maxFreq: newAnalysisMaxFreq
         )
@@ -1199,15 +1199,15 @@ struct SpectrumSettingsView: View {
         peakThreshold = clampedThreshold
         
         // Persist all settings to UserDefaults (frequency range is stored per measurement type)
-        SpectrumDisplaySettings.setMinFrequency(validatedFreq.min, for: selectedMeasurementType)
-        SpectrumDisplaySettings.setMaxFrequency(validatedFreq.max, for: selectedMeasurementType)
-        SpectrumDisplaySettings.minMagnitude = validatedDB.min
-        SpectrumDisplaySettings.maxMagnitude = validatedDB.max
-        SpectrumDisplaySettings.analysisMinFrequency = validatedAnalysisFreq.min
-        SpectrumDisplaySettings.analysisMaxFrequency = validatedAnalysisFreq.max
-        SpectrumDisplaySettings.peakThreshold = clampedThreshold
-        SpectrumDisplaySettings.maxPeaks = maxPeaks
-        SpectrumDisplaySettings.hopSizeOverlap = fftAnalyzer.hopSizeOverlap
+        TapDisplaySettings.setMinFrequency(validatedFreq.min, for: selectedMeasurementType)
+        TapDisplaySettings.setMaxFrequency(validatedFreq.max, for: selectedMeasurementType)
+        TapDisplaySettings.minMagnitude = validatedDB.min
+        TapDisplaySettings.maxMagnitude = validatedDB.max
+        TapDisplaySettings.analysisMinFrequency = validatedAnalysisFreq.min
+        TapDisplaySettings.analysisMaxFrequency = validatedAnalysisFreq.max
+        TapDisplaySettings.peakThreshold = clampedThreshold
+        TapDisplaySettings.maxPeaks = maxPeaks
+        TapDisplaySettings.hopSizeOverlap = fftAnalyzer.hopSizeOverlap
         
         // Update input fields with validated values (in case they were clamped)
         minFreqInput = String(format: "%.0f", validatedFreq.min)
@@ -1223,19 +1223,19 @@ struct SpectrumSettingsView: View {
     
     private func resetDisplaySettings() {
         // Reset display settings to defaults (frequency defaults vary by measurement type)
-        minFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMinFrequency(for: selectedMeasurementType))
-        maxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMaxFrequency(for: selectedMeasurementType))
-        minDBInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMinMagnitude)
-        maxDBInput = String(format: "%.0f", SpectrumDisplaySettings.defaultMaxMagnitude)
+        minFreqInput = String(format: "%.0f", TapDisplaySettings.defaultMinFrequency(for: selectedMeasurementType))
+        maxFreqInput = String(format: "%.0f", TapDisplaySettings.defaultMaxFrequency(for: selectedMeasurementType))
+        minDBInput = String(format: "%.0f", TapDisplaySettings.defaultMinMagnitude)
+        maxDBInput = String(format: "%.0f", TapDisplaySettings.defaultMaxMagnitude)
     }
     
     private func resetAnalysisSettings() {
         // Reset analysis settings to defaults
-        analysisMinFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultAnalysisMinFrequency)
-        analysisMaxFreqInput = String(format: "%.0f", SpectrumDisplaySettings.defaultAnalysisMaxFrequency)
-        peakThresholdInput = String(format: "%.0f", SpectrumDisplaySettings.defaultPeakThreshold)
-        maxPeaks = SpectrumDisplaySettings.defaultMaxPeaks
-        maxPeaksInput = "\(SpectrumDisplaySettings.defaultMaxPeaks)"
+        analysisMinFreqInput = String(format: "%.0f", TapDisplaySettings.defaultAnalysisMinFrequency)
+        analysisMaxFreqInput = String(format: "%.0f", TapDisplaySettings.defaultAnalysisMaxFrequency)
+        peakThresholdInput = String(format: "%.0f", TapDisplaySettings.defaultPeakThreshold)
+        maxPeaks = TapDisplaySettings.defaultMaxPeaks
+        maxPeaksInput = "\(TapDisplaySettings.defaultMaxPeaks)"
         captureAllPeaks = false
     }
     
@@ -1248,7 +1248,7 @@ struct SpectrumSettingsView: View {
 // MARK: - Preview
 
 #Preview {
-    SpectrumSettingsView(
+    TapSettingsView(
         minFreq: .constant(75),
         maxFreq: .constant(350),
         minDB: .constant(-100),

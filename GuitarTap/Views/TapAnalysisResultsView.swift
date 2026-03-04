@@ -22,7 +22,7 @@ struct TapAnalysisResultsView: View {
     
     // Current measurement type
     private var measurementType: MeasurementType {
-        SpectrumDisplaySettings.measurementType
+        TapDisplaySettings.measurementType
     }
     
     /// Effective longitudinal peak ID — reads directly from the analyzer model
@@ -132,7 +132,7 @@ struct TapAnalysisResultsView: View {
             .filter { item in
                 // For material/brace mode, show all peaks (don't filter by guitar mode)
                 // For guitar mode, optionally filter out unknown modes
-                !measurementType.isGuitar || SpectrumDisplaySettings.showUnknownModes || item.mode.normalized != .unknown
+                !measurementType.isGuitar || TapDisplaySettings.showUnknownModes || item.mode.normalized != .unknown
             }
             .sorted { $0.peak.frequency < $1.peak.frequency }
     }
@@ -500,10 +500,10 @@ struct TapAnalysisResultsView: View {
         }()
 
         let dimensions = MaterialDimensions(
-            lengthMM: SpectrumDisplaySettings.materialLength,
-            widthMM: SpectrumDisplaySettings.materialWidth,
-            thicknessMM: SpectrumDisplaySettings.materialThickness,
-            massGrams: SpectrumDisplaySettings.materialMass
+            lengthMM: TapDisplaySettings.materialLength,
+            widthMM: TapDisplaySettings.materialWidth,
+            thicknessMM: TapDisplaySettings.materialThickness,
+            massGrams: TapDisplaySettings.materialMass
         )
 
         return MaterialProperties(
@@ -690,10 +690,10 @@ struct TapAnalysisResultsView: View {
         }
         
         let dimensions = MaterialDimensions(
-            lengthMM: SpectrumDisplaySettings.braceLength,
-            widthMM: SpectrumDisplaySettings.braceWidth,
-            thicknessMM: SpectrumDisplaySettings.braceThickness,
-            massGrams: SpectrumDisplaySettings.braceMass
+            lengthMM: TapDisplaySettings.braceLength,
+            widthMM: TapDisplaySettings.braceWidth,
+            thicknessMM: TapDisplaySettings.braceThickness,
+            massGrams: TapDisplaySettings.braceMass
         )
         
         return BraceProperties(
@@ -790,10 +790,10 @@ struct TapAnalysisResultsView: View {
     /// Displays the Gore target thickness result
     @ViewBuilder
     private func goreThicknessView(for props: MaterialProperties) -> some View {
-        let bodyLength = SpectrumDisplaySettings.guitarBodyLength
-        let bodyWidth  = SpectrumDisplaySettings.guitarBodyWidth
-        let fvs        = SpectrumDisplaySettings.plateStiffness
-        let preset     = SpectrumDisplaySettings.plateStiffnessPreset
+        let bodyLength = TapDisplaySettings.guitarBodyLength
+        let bodyWidth  = TapDisplaySettings.guitarBodyWidth
+        let fvs        = TapDisplaySettings.plateStiffness
+        let preset     = TapDisplaySettings.plateStiffnessPreset
 
         Divider()
 

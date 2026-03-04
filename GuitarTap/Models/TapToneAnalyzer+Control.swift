@@ -92,7 +92,7 @@ extension TapToneAnalyzer {
     
     /// Start a new tap detection sequence
     func startTapSequence() {
-        let measurementType = SpectrumDisplaySettings.measurementType
+        let measurementType = TapDisplaySettings.measurementType
         let isMaterialMode = measurementType == .material
         let isBraceMode = measurementType == .brace
         let currentPeakMagImmediate = fftAnalyzer.peakMagnitude
@@ -182,7 +182,7 @@ extension TapToneAnalyzer {
             if isBraceMode {
                 self.statusMessage = self.numberOfTaps > 1 ? "Ready for fL tap (×\(self.numberOfTaps))" : "Ready for fL tap"
             } else if isMaterialMode {
-                let measureFlc = SpectrumDisplaySettings.measureFlc
+                let measureFlc = TapDisplaySettings.measureFlc
                 if self.numberOfTaps > 1 {
                     let phases = measureFlc ? "L, C, FLC" : "L, C"
                     self.statusMessage = "Ready for L tap (×\(self.numberOfTaps) each for \(phases))"
@@ -219,7 +219,7 @@ extension TapToneAnalyzer {
         
         isDetecting = true
         
-        let resumeType = SpectrumDisplaySettings.measurementType
+        let resumeType = TapDisplaySettings.measurementType
         let isMaterialMode = resumeType == .material
         let isBraceMode = resumeType == .brace
         if isMaterialMode || isBraceMode {
@@ -240,7 +240,7 @@ extension TapToneAnalyzer {
     func cancelTapSequence() {
         print("❌ Tap sequence cancelled")
         
-        let measurementType = SpectrumDisplaySettings.measurementType
+        let measurementType = TapDisplaySettings.measurementType
         let isMaterialMode = measurementType == .material
         let isBraceMode = measurementType == .brace
         

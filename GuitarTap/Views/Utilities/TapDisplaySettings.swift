@@ -1,5 +1,5 @@
 //
-//  SpectrumDisplaySettings.swift
+//  TapDisplaySettings.swift
 //  GuitarTap
 //
 //  Created on 2/12/26.
@@ -257,7 +257,7 @@ enum PlateStiffnessPreset: String, CaseIterable, Identifiable, Codable {
 }
 
 /// Centralized settings for spectrum display ranges across the app
-struct SpectrumDisplaySettings {
+struct TapDisplaySettings {
 
     // MARK: - UserDefaults Keys
 

@@ -26,7 +26,7 @@ enum GuitarMode: String, Codable {
     
     /// Classify a frequency into a guitar mode using the current guitar type setting
     static func classify(frequency: Float) -> GuitarMode {
-        return classify(frequency: frequency, guitarType: SpectrumDisplaySettings.guitarType)
+        return classify(frequency: frequency, guitarType: TapDisplaySettings.guitarType)
     }
     
     /// Classify a frequency into a guitar mode for a specific guitar type
@@ -53,7 +53,7 @@ enum GuitarMode: String, Codable {
     
     /// Ideal frequency range for this mode (uses current guitar type setting)
     var idealRange: ClosedRange<Float> {
-        return idealRange(for: SpectrumDisplaySettings.guitarType)
+        return idealRange(for: TapDisplaySettings.guitarType)
     }
     
     /// Ideal frequency range for this mode for a specific guitar type

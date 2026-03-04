@@ -127,10 +127,10 @@ struct PDFReportData {
             selectedFlcPeakID: measurement.selectedFlcPeakID,
             microphoneName: measurement.microphoneName,
             calibrationName: measurement.calibrationName,
-            guitarBodyLength: SpectrumDisplaySettings.guitarBodyLength,
-            guitarBodyWidth: SpectrumDisplaySettings.guitarBodyWidth,
-            plateStiffness: SpectrumDisplaySettings.plateStiffness,
-            plateStiffnessPreset: SpectrumDisplaySettings.plateStiffnessPreset
+            guitarBodyLength: TapDisplaySettings.guitarBodyLength,
+            guitarBodyWidth: TapDisplaySettings.guitarBodyWidth,
+            plateStiffness: TapDisplaySettings.plateStiffness,
+            plateStiffnessPreset: TapDisplaySettings.plateStiffnessPreset
         )
     }
 
