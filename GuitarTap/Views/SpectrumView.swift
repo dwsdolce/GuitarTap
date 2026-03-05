@@ -961,32 +961,11 @@ struct SpectrumView: View {
     
     // MARK: - Spectral Interpolation Utilities
 
-    /// Refines a bin-level peak using parabolic interpolation.
-    /// Mirrors `TapToneAnalyzer.parabolicInterpolate` for use in the view layer.
-    /// Returns the raw bin values if interpolation cannot be safely applied.
-    private static func parabolicInterpolate(
-        magnitudes: [Float],
-        frequencies: [Float],
-        peakIndex i: Int
-    ) -> (frequency: Float, magnitude: Float) {
-        guard i > 0, i < magnitudes.count - 1 else { return (frequencies[i], magnitudes[i]) }
-        let val  = magnitudes[i]
-        let lval = magnitudes[i - 1]
-        let rval = magnitudes[i + 1]
-        let denom = lval - 2 * val + rval
-        guard abs(denom) > 1e-6 else { return (frequencies[i], val) }
-        let delta    = 0.5 * (lval - rval) / denom
-        let binWidth = frequencies[i] - frequencies[i - 1]
-        return (frequencies[i] + delta * binWidth, val - 0.25 * (lval - rval) * delta)
-    }
-
     /// Snaps a raw cursor frequency to the waveform of a single series.
     ///
     /// Algorithm:
     /// 1. Binary search for the bin closest to `targetHz`.
-    /// 2. Check ±2 bins for a local maximum.
-    ///    - Found: apply parabolic interpolation for sub-bin accuracy.
-    ///    - Not found: linearly interpolate between the two bracketing bins.
+    /// 2. Linearly interpolate between the two bracketing bins for smooth tracking.
     private static func snapToWaveform(
         targetHz: Float,
         magnitudes: [Float],
@@ -1008,28 +987,21 @@ struct SpectrumView: View {
             nearIdx = lo
         }
 
-        // Look for a local maximum within ±2 bins
-        let start = max(1, nearIdx - 2)
-        let end   = min(magnitudes.count - 2, nearIdx + 2)
-        var bestPeakIdx: Int? = nil
-        for i in start...end {
-            if magnitudes[i] >= magnitudes[i - 1] && magnitudes[i] >= magnitudes[i + 1] {
-                if let prev = bestPeakIdx {
-                    if magnitudes[i] > magnitudes[prev] { bestPeakIdx = i }
-                } else {
-                    bestPeakIdx = i
-                }
-            }
+        // Find the true bracketing pair: l <= targetHz <= r
+        let l: Int
+        let r: Int
+        if nearIdx < frequencies.count - 1 && frequencies[nearIdx] <= targetHz {
+            l = nearIdx
+            r = nearIdx + 1
+        } else if nearIdx > 0 {
+            l = nearIdx - 1
+            r = nearIdx
+        } else {
+            return (frequencies[nearIdx], magnitudes[nearIdx])
         }
-        if let pi = bestPeakIdx {
-            return parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: pi)
-        }
-
-        // Linear interpolation between bracketing bins
-        let l = max(0, nearIdx - 1)
-        let r = min(frequencies.count - 1, nearIdx)
-        guard l != r else { return (frequencies[nearIdx], magnitudes[nearIdx]) }
-        let t = (targetHz - frequencies[l]) / (frequencies[r] - frequencies[l])
+        let denom = frequencies[r] - frequencies[l]
+        guard denom > 0 else { return (frequencies[nearIdx], magnitudes[nearIdx]) }
+        let t = (targetHz - frequencies[l]) / denom
         return (frequencies[l] + t * (frequencies[r] - frequencies[l]),
                 magnitudes[l]  + t * (magnitudes[r]  - magnitudes[l]))
     }
