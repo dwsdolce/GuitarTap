@@ -141,14 +141,15 @@ struct SpectrumView: View {
     /// Tracks the previous frame's drag translation so incremental deltas can be computed
     @State private var lastDragTranslation: CGSize = .zero
     
-    /// Tracks magnification scale during pinch gestures (for live preview only)
-    @GestureState private var magnificationScale: CGFloat = 1.0
-
     /// Tracks the previous frame's pinch scale so incremental deltas can be computed
     @State private var lastMagnificationScale: CGFloat = 1.0
     
     /// Tracks whether an annotation is currently being dragged
     @State private var isAnnotationDragging: Bool = false
+
+    /// The most-recently resolved chart plot frame, stored so the pinch zoom gesture can convert
+    /// its UnitPoint anchor to data coordinates without needing a ChartProxy reference.
+    @State private var lastPlotFrame: CGRect = .zero
     
     /// Index of the waveform series the cursor is currently locked to.
     /// -1 = primary spectrum, 0+ = index into materialSpectra. Reset to -1 on cursor exit/drag end.
@@ -163,6 +164,10 @@ struct SpectrumView: View {
     
     /// Whether the zoom/pan controls help popover is showing
     @State private var showingControlsHelp: Bool = false
+
+    /// Raw screen-local position of the mouse within the chart overlay, updated on every hover tick.
+    /// Used by the scroll-wheel zoom handler to zoom around the cursor rather than the range midpoint.
+    @State private var lastCursorPosition: CGPoint? = nil
     
     #else
     /// Whether the iOS axis-reset confirmation dialog is showing
@@ -539,7 +544,7 @@ struct SpectrumView: View {
             .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
             .simultaneousGesture(isAnnotationDragging ? nil : panGesture)
             #else
-            // On iOS, zoom uses simultaneousGesture (MagnificationGesture doesn't conflict with
+            // On iOS, zoom uses simultaneousGesture (MagnifyGesture doesn't conflict with
             // annotation DragGestures). Pan/crosshair DragGesture lives in annotationGeometryWrapper
             // so annotation labels' highPriorityGesture can pre-empt it as a child-beats-parent.
             .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
@@ -577,6 +582,9 @@ struct SpectrumView: View {
         if annotationOffsets != nil, let plotAnchor = proxy.plotFrame {
             GeometryReader { geometry in
                 let resolvedPlotFrame = geometry[plotAnchor]
+                // Keep lastPlotFrame current so the pinch zoom gesture can convert its
+                // UnitPoint anchor to data coordinates without a ChartProxy reference.
+                let _ = { DispatchQueue.main.async { lastPlotFrame = resolvedPlotFrame } }()
                 ZStack {
                     // Non-hittable background so events reach annotation label children
                     Color.clear
@@ -620,6 +628,8 @@ struct SpectrumView: View {
                 .onContinuousHover { phase in
                     switch phase {
                     case .active(let location):
+                        // Always track raw position so scroll-wheel zoom can anchor to the cursor.
+                        lastCursorPosition = location
                         guard resolvedPlotFrame.contains(location) else {
                             isCursorVisible = false
                             cursorSnapState = nil
@@ -633,6 +643,7 @@ struct SpectrumView: View {
                             lockedSeriesIndex: &lockedSeriesIndex)
                         isCursorVisible = cursorSnapState != nil
                     case .ended:
+                        lastCursorPosition = nil
                         isCursorVisible = false
                         cursorSnapState = nil
                         lockedSeriesIndex = -1
@@ -700,6 +711,13 @@ struct SpectrumView: View {
                             }
                         }
                 )
+                #endif
+                #if os(macOS)
+                // Scroll-wheel zoom/pan — placed here so proxy and resolvedPlotFrame are in scope,
+                // allowing anchor-aware zoom around the cursor position.
+                .onScrollWheel { event in
+                    handleScrollWheel(event: event, plotFrame: resolvedPlotFrame, proxy: proxy)
+                }
                 #endif
             }
         }
@@ -880,11 +898,6 @@ struct SpectrumView: View {
         }
         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
         .chartYScale(domain: Double(minDB)...Double(maxDB))
-        #if os(macOS)
-        .onScrollWheel { event in
-            handleScrollWheel(event: event)
-        }
-        #endif
     }
     
     /// X-axis content builder
@@ -909,18 +922,18 @@ struct SpectrumView: View {
         }
     }
     
-    /// Pinch gesture for zooming
+    /// Pinch gesture for zooming, anchored to the pinch midpoint.
+    ///
+    /// Uses `MagnifyGesture` (iOS 17+ / macOS 14+) which provides `startAnchor`
+    /// — the unit-space centroid of the pinch within the view — so the chart zooms
+    /// around the pinch location rather than the center of the visible range.
     private var zoomGesture: some Gesture {
-        MagnificationGesture()
-            .updating($magnificationScale) { value, state, _ in
-                state = value
-            }
-            .onChanged { scale in
-                // Compute the per-frame delta so zoom accumulates incrementally,
-                // matching the behaviour of the macOS scroll wheel.
-                let delta = scale / lastMagnificationScale
-                lastMagnificationScale = scale
-                handleZoom(scale: delta)
+        MagnifyGesture()
+            .onChanged { value in
+                // Compute the per-frame delta so zoom accumulates incrementally.
+                let delta = value.magnification / lastMagnificationScale
+                lastMagnificationScale = value.magnification
+                handleZoom(scale: delta, pinchAnchor: value.startAnchor)
             }
             .onEnded { _ in
                 lastMagnificationScale = 1.0
@@ -1179,16 +1192,22 @@ struct SpectrumView: View {
     // MARK: - Gesture Handlers
     
     #if os(macOS)
-    /// Handles scroll wheel events for zooming and panning on macOS
+    /// Handles scroll wheel events for zooming and panning on macOS.
+    ///
+    /// Zoom operations anchor to the current cursor position so the point under the
+    /// cursor stays fixed as the range expands or contracts.
     ///
     /// - No modifiers: Pan view vertically (magnitude axis)
     /// - Shift key: Pan view horizontally (frequency axis)
-    /// - Command key: Zoom both axes
-    /// - Option key: Zoom frequency axis only (horizontal)
-    /// - Control key: Zoom magnitude axis only (vertical)
+    /// - Command key: Zoom both axes around cursor
+    /// - Option key: Zoom frequency axis only (horizontal) around cursor
+    /// - Control key: Zoom magnitude axis only (vertical) around cursor
     ///
-    /// - Parameter event: The scroll wheel event from AppKit
-    private func handleScrollWheel(event: NSEvent) {
+    /// - Parameters:
+    ///   - event: The scroll wheel event from AppKit
+    ///   - plotFrame: The resolved chart plot frame in overlay-local coordinates
+    ///   - proxy: The chart proxy for coordinate conversion
+    private func handleScrollWheel(event: NSEvent, plotFrame: CGRect, proxy: ChartProxy) {
         let scrollDeltaY = event.scrollingDeltaY
         let scrollDeltaX = event.scrollingDeltaX
         
@@ -1218,30 +1237,34 @@ struct SpectrumView: View {
         let zoomSensitivity: CGFloat = 0.02
         let zoomFactor = 1.0 + (effectiveDelta * zoomSensitivity)
         
+        // Resolve the cursor's data-space position for anchor-aware zoom.
+        // lastCursorPosition is kept current by the hover handler.
+        let anchor = lastCursorPosition
+        
         // Check in order of priority
         if hasCommand && !hasShift && !hasOption && !hasControl {
-            // Command only: Zoom both axes
+            // Command only: Zoom both axes around cursor
             #if DEBUG
             print("→ Zooming both axes")
             #endif
             withAnimation(.easeOut(duration: 0.1)) {
-                handleZoom(scale: zoomFactor)
+                handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             }
         } else if hasControl && !hasCommand && !hasOption && !hasShift {
-            // Control only: Zoom magnitude axis only
+            // Control only: Zoom magnitude axis only around cursor
             #if DEBUG
             print("→ Zooming magnitude axis (zoom factor: \(zoomFactor))")
             #endif
             withAnimation(.easeOut(duration: 0.1)) {
-                handleMagnitudeZoom(scale: zoomFactor)
+                handleMagnitudeZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             }
         } else if hasOption && !hasCommand && !hasShift && !hasControl {
-            // Option only: Zoom frequency axis only
+            // Option only: Zoom frequency axis only around cursor
             #if DEBUG
             print("→ Zooming frequency axis")
             #endif
             withAnimation(.easeOut(duration: 0.1)) {
-                handleFrequencyZoom(scale: zoomFactor)
+                handleFrequencyZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             }
         } else if hasShift && !hasCommand && !hasOption && !hasControl {
             // Shift only: Pan horizontally (frequency axis)
@@ -1270,36 +1293,52 @@ struct SpectrumView: View {
         }
         // Ignore any combination of modifiers
     }
+    #endif
     
-    /// Zooms only the frequency (X) axis
+    /// Zooms only the frequency (X) axis, anchoring to the cursor position when available.
+    ///
+    /// When `cursorPosition`, `plotFrame`, and `proxy` are all provided (macOS), the frequency
+    /// value under the cursor stays fixed. Falls back to range midpoint otherwise.
+    #if os(macOS)
+    private func handleFrequencyZoom(scale: CGFloat, cursorPosition: CGPoint? = nil, plotFrame: CGRect? = nil, proxy: ChartProxy? = nil) {
+        let anchorFreq: Float = {
+            if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
+                let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
+                if let hz = p.value(atX: plotLocal.x, as: Double.self) {
+                    return Float(hz).clamped(to: minFreq...maxFreq)
+                }
+            }
+            return (maxFreq + minFreq) / 2
+        }()
+        applyFrequencyZoom(scale: scale, anchorFreq: anchorFreq)
+    }
+    #else
     private func handleFrequencyZoom(scale: CGFloat) {
+        applyFrequencyZoom(scale: scale, anchorFreq: (maxFreq + minFreq) / 2)
+    }
+    #endif
+
+    private func applyFrequencyZoom(scale: CGFloat, anchorFreq: Float) {
         if isLogarithmic {
-            let freqLogCenter = (log10(Double(maxFreq)) + log10(Double(minFreq))) / 2
-            let freqLogRange = log10(Double(maxFreq)) - log10(Double(minFreq))
-            let newFreqLogRange = freqLogRange / Double(scale)
-            
-            var newMinFreq = Float(pow(10, freqLogCenter - newFreqLogRange / 2))
-            var newMaxFreq = Float(pow(10, freqLogCenter + newFreqLogRange / 2))
-            
+            let logAnchor = log10(Double(anchorFreq))
+            let logMin = log10(Double(minFreq))
+            let logMax = log10(Double(maxFreq))
+            let newLogMin = logAnchor - (logAnchor - logMin) / Double(scale)
+            let newLogMax = logAnchor + (logMax - logAnchor) / Double(scale)
+            var newMinFreq = Float(pow(10, newLogMin))
+            var newMaxFreq = Float(pow(10, newLogMax))
             newMinFreq = max(20, newMinFreq)
             newMaxFreq = min(20000, newMaxFreq)
-            
             if newMaxFreq > newMinFreq * 1.1 {
                 minFreq = newMinFreq
                 maxFreq = newMaxFreq
                 onFrequencyRangeChanged?()
             }
         } else {
-            let freqCenter = (maxFreq + minFreq) / 2
-            let freqRange = maxFreq - minFreq
-            let newFreqRange = freqRange / Float(scale)
-            
-            var newMinFreq = freqCenter - newFreqRange / 2
-            var newMaxFreq = freqCenter + newFreqRange / 2
-            
+            var newMinFreq = anchorFreq - (anchorFreq - minFreq) / Float(scale)
+            var newMaxFreq = anchorFreq + (maxFreq - anchorFreq) / Float(scale)
             newMinFreq = max(20, newMinFreq)
             newMaxFreq = min(20000, newMaxFreq)
-            
             if newMaxFreq > newMinFreq + 100 {
                 minFreq = newMinFreq
                 maxFreq = newMaxFreq
@@ -1307,29 +1346,42 @@ struct SpectrumView: View {
             }
         }
     }
-    
-    /// Zooms only the magnitude (Y) axis
-    private func handleMagnitudeZoom(scale: CGFloat) {
+
+    /// Zooms only the magnitude (Y) axis, anchoring to the cursor position when available.
+    ///
+    /// When `cursorPosition`, `plotFrame`, and `proxy` are all provided (macOS), the dB value
+    /// under the cursor stays fixed. Falls back to range midpoint otherwise.
+    #if os(macOS)
+    private func handleMagnitudeZoom(scale: CGFloat, cursorPosition: CGPoint? = nil, plotFrame: CGRect? = nil, proxy: ChartProxy? = nil) {
+        let anchorDB: Float = {
+            if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
+                let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
+                if let db = p.value(atY: plotLocal.y, as: Double.self) {
+                    return Float(db).clamped(to: minDB...maxDB)
+                }
+            }
+            return (maxDB + minDB) / 2
+        }()
+        applyMagnitudeZoom(scale: scale, anchorDB: anchorDB)
+    }
+    #endif
+
+    private func applyMagnitudeZoom(scale: CGFloat, anchorDB: Float) {
         #if DEBUG
         print("  handleMagnitudeZoom called with scale: \(scale)")
         print("  Current dB range: \(minDB) to \(maxDB)")
         #endif
-        
-        let dbCenter = (maxDB + minDB) / 2
-        let dbRange = maxDB - minDB
-        let newDBRange = dbRange / Float(scale)
-        
-        var newMinDB = dbCenter - newDBRange / 2
-        var newMaxDB = dbCenter + newDBRange / 2
-        
+
+        var newMinDB = anchorDB - (anchorDB - minDB) / Float(scale)
+        var newMaxDB = anchorDB + (maxDB - anchorDB) / Float(scale)
         newMinDB = max(-120, newMinDB)
         newMaxDB = min(20, newMaxDB)
-        
+
         #if DEBUG
         print("  Calculated new dB range: \(newMinDB) to \(newMaxDB)")
         print("  Condition check: \(newMaxDB) > \(newMinDB) + 10 = \(newMaxDB > newMinDB + 10)")
         #endif
-        
+
         if newMaxDB > newMinDB + 10 {
             minDB = newMinDB
             maxDB = newMaxDB
@@ -1342,77 +1394,76 @@ struct SpectrumView: View {
             #endif
         }
     }
-    #endif
-    
-    /// Handles pinch-to-zoom gestures on both frequency and dB axes.
+
+    /// Zooms both axes simultaneously, anchoring to the gesture/cursor location.
     ///
-    /// The zoom is centered on the midpoint of the current visible range.
-    /// Different zoom algorithms are used for logarithmic vs. linear frequency scales.
+    /// On macOS, `cursorPosition`/`plotFrame`/`proxy` provide the exact data-space anchor
+    /// via ChartProxy. On both platforms, `pinchAnchor` (from `MagnifyGesture.startAnchor`)
+    /// is converted to data coordinates using `lastPlotFrame`.
     ///
-    /// - Parameter scale: The magnification factor from the gesture (> 1 = zoom in, < 1 = zoom out)
+    /// Falls back to range-midpoint zoom when no anchor is resolvable.
     ///
     /// - Note: Zoom ranges are clamped to reasonable limits:
     ///   - Frequency: 20 Hz to 20 kHz with minimum visible range
     ///   - dB: -120 dB to +20 dB with minimum 10 dB range
-    private func handleZoom(scale: CGFloat) {
-        if isLogarithmic {
-            // Zoom on frequency axis (logarithmic scale)
-            // Work in log space for smooth zooming
-            let freqLogCenter = (log10(Double(maxFreq)) + log10(Double(minFreq))) / 2
-            let freqLogRange = log10(Double(maxFreq)) - log10(Double(minFreq))
-            let newFreqLogRange = freqLogRange / Double(scale)
-            
-            var newMinFreq = Float(pow(10, freqLogCenter - newFreqLogRange / 2))
-            var newMaxFreq = Float(pow(10, freqLogCenter + newFreqLogRange / 2))
-            
-            // Clamp frequency range to valid audio range
-            newMinFreq = max(20, newMinFreq)
-            newMaxFreq = min(20000, newMaxFreq)
-            
-            // Ensure minimum zoom (1.1x ratio between min and max)
-            if newMaxFreq > newMinFreq * 1.1 {
-                minFreq = newMinFreq
-                maxFreq = newMaxFreq
-                onFrequencyRangeChanged?()
+    private func handleZoom(scale: CGFloat,
+                            pinchAnchor: UnitPoint? = nil,
+                            cursorPosition: CGPoint? = nil,
+                            plotFrame: CGRect? = nil,
+                            proxy: ChartProxy? = nil) {
+        // --- Frequency axis anchor ---
+        let anchorFreq: Float = {
+            #if os(macOS)
+            // Scroll-wheel path: use ChartProxy for exact data coordinates.
+            if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
+                let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
+                if let hz = p.value(atX: plotLocal.x, as: Double.self) {
+                    return Float(hz).clamped(to: minFreq...maxFreq)
+                }
             }
-        } else {
-            // Zoom on frequency axis (linear scale)
-            let freqCenter = (maxFreq + minFreq) / 2
-            let freqRange = maxFreq - minFreq
-            let newFreqRange = freqRange / Float(scale)
-            
-            var newMinFreq = freqCenter - newFreqRange / 2
-            var newMaxFreq = freqCenter + newFreqRange / 2
-            
-            // Clamp frequency range
-            newMinFreq = max(20, newMinFreq)
-            newMaxFreq = min(20000, newMaxFreq)
-            
-            // Ensure minimum zoom (100 Hz minimum visible range)
-            if newMaxFreq > newMinFreq + 100 {
-                minFreq = newMinFreq
-                maxFreq = newMaxFreq
-                onFrequencyRangeChanged?()
+            #endif
+            // Pinch path: convert UnitPoint (relative to the whole overlay view) into
+            // a plot-area fraction, then interpolate in the data domain.
+            if let anchor = pinchAnchor, lastPlotFrame != .zero {
+                let viewWidth = lastPlotFrame.minX + lastPlotFrame.width
+                let screenX = anchor.x * viewWidth
+                let plotFraction = (screenX - lastPlotFrame.minX) / lastPlotFrame.width
+                let fraction = plotFraction.clamped(to: 0...1)
+                if isLogarithmic {
+                    let logMin = log10(Double(minFreq))
+                    let logMax = log10(Double(maxFreq))
+                    return Float(pow(10, logMin + fraction * (logMax - logMin)))
+                } else {
+                    return minFreq + Float(fraction) * (maxFreq - minFreq)
+                }
             }
-        }
-        
-        // Zoom on dB axis (always linear)
-        let dbCenter = (maxDB + minDB) / 2
-        let dbRange = maxDB - minDB
-        let newDBRange = dbRange / Float(scale)
-        
-        var newMinDB = dbCenter - newDBRange / 2
-        var newMaxDB = dbCenter + newDBRange / 2
-        
-        // Clamp dB range to reasonable values
-        newMinDB = max(-120, newMinDB)
-        newMaxDB = min(20, newMaxDB)
-        
-        // Ensure minimum zoom (10 dB minimum visible range)
-        if newMaxDB > newMinDB + 10 {
-            minDB = newMinDB
-            maxDB = newMaxDB
-        }
+            return (maxFreq + minFreq) / 2
+        }()
+
+        applyFrequencyZoom(scale: scale, anchorFreq: anchorFreq)
+
+        // --- dB axis anchor ---
+        let anchorDB: Float = {
+            #if os(macOS)
+            if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
+                let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
+                if let db = p.value(atY: plotLocal.y, as: Double.self) {
+                    return Float(db).clamped(to: minDB...maxDB)
+                }
+            }
+            #endif
+            if let anchor = pinchAnchor, lastPlotFrame != .zero {
+                // UnitPoint.y = 0 is the view top (= maxDB), 1 is the bottom (= minDB).
+                let viewHeight = lastPlotFrame.minY + lastPlotFrame.height
+                let screenY = anchor.y * viewHeight
+                let plotFraction = (screenY - lastPlotFrame.minY) / lastPlotFrame.height
+                let fraction = plotFraction.clamped(to: 0...1)
+                return maxDB - Float(fraction) * (maxDB - minDB)
+            }
+            return (maxDB + minDB) / 2
+        }()
+
+        applyMagnitudeZoom(scale: scale, anchorDB: anchorDB)
     }
     
     /// Handles drag gestures for panning the view.

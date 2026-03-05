@@ -7,6 +7,15 @@
 
 import SwiftUI
 
+// MARK: - Comparable Clamping
+
+extension Comparable {
+    /// Returns this value clamped to the given closed range.
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        return min(max(self, range.lowerBound), range.upperBound)
+    }
+}
+
 // MARK: - Float Extensions
 
 extension Float {
