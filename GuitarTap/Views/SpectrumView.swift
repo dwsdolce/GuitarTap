@@ -559,7 +559,6 @@ struct SpectrumView: View {
                 Button("Reset Both Axes to Defaults") { resetBothAxesToDefaults() }
                 Button("Reset Frequency Axis to Defaults") { resetFrequencyAxisToDefaults() }
                 Button("Reset Magnitude Axis to Defaults") { resetMagnitudeAxisToDefaults() }
-                Button("Cancel", role: .cancel) {}
             }
             .onChange(of: crosshairMode.wrappedValue) { _, newValue in
                 if !newValue {
