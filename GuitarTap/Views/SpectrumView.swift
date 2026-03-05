@@ -511,8 +511,11 @@ struct SpectrumView: View {
                     .padding(4)
                     .contentShape(Rectangle())
                     .contextMenu {
-                        Button(action: resetFrequencyAxis) {
-                            Label("Reset Frequency Axis", systemImage: "arrow.counterclockwise")
+                        Button(action: resetFrequencyAxisToSaved) {
+                            Label("Reset to Saved", systemImage: "arrow.counterclockwise")
+                        }
+                        Button(action: resetFrequencyAxisToDefaults) {
+                            Label("Reset to Defaults", systemImage: "arrow.counterclockwise.circle")
                         }
                     }
             }
@@ -523,8 +526,11 @@ struct SpectrumView: View {
                     .padding(4)
                     .contentShape(Rectangle())
                     .contextMenu {
-                        Button(action: resetMagnitudeAxis) {
-                            Label("Reset Magnitude Axis", systemImage: "arrow.counterclockwise")
+                        Button(action: resetMagnitudeAxisToSaved) {
+                            Label("Reset to Saved", systemImage: "arrow.counterclockwise")
+                        }
+                        Button(action: resetMagnitudeAxisToDefaults) {
+                            Label("Reset to Defaults", systemImage: "arrow.counterclockwise.circle")
                         }
                     }
             }
@@ -543,13 +549,16 @@ struct SpectrumView: View {
                 showingResetDialog = true
             })
             .confirmationDialog("Reset Axes", isPresented: $showingResetDialog) {
-                Button("Reset Both Axes") { resetBothAxes() }
-                Button("Reset Frequency Axis") { resetFrequencyAxis() }
-                Button("Reset Magnitude Axis") { resetMagnitudeAxis() }
+                Button("Reset Both Axes to Saved") { resetBothAxesToSaved() }
+                Button("Reset Frequency Axis to Saved") { resetFrequencyAxisToSaved() }
+                Button("Reset Magnitude Axis to Saved") { resetMagnitudeAxisToSaved() }
                 if let onResetLabels = onResetLabels {
                     Button("Reset Labels", action: onResetLabels)
                         .disabled(!hasLabelsToReset)
                 }
+                Button("Reset Both Axes to Defaults") { resetBothAxesToDefaults() }
+                Button("Reset Frequency Axis to Defaults") { resetFrequencyAxisToDefaults() }
+                Button("Reset Magnitude Axis to Defaults") { resetMagnitudeAxisToDefaults() }
                 Button("Cancel", role: .cancel) {}
             }
             .onChange(of: crosshairMode.wrappedValue) { _, newValue in
@@ -631,15 +640,24 @@ struct SpectrumView: View {
                     }
                 }
                 .contextMenu {
-                    Button(action: resetBothAxes) {
-                        Label("Reset Both Axes", systemImage: "arrow.counterclockwise")
+                    Button(action: resetBothAxesToSaved) {
+                        Label("Reset Both Axes to Saved", systemImage: "arrow.counterclockwise")
+                    }
+                    Button(action: resetFrequencyAxisToSaved) {
+                        Label("Reset Frequency Axis to Saved", systemImage: "arrow.counterclockwise")
+                    }
+                    Button(action: resetMagnitudeAxisToSaved) {
+                        Label("Reset Magnitude Axis to Saved", systemImage: "arrow.counterclockwise")
                     }
                     Divider()
-                    Button(action: resetFrequencyAxis) {
-                        Label("Reset Frequency Axis", systemImage: "arrow.clockwise")
+                    Button(action: resetBothAxesToDefaults) {
+                        Label("Reset Both Axes to Defaults", systemImage: "arrow.counterclockwise.circle")
                     }
-                    Button(action: resetMagnitudeAxis) {
-                        Label("Reset Magnitude Axis", systemImage: "arrow.up.and.down")
+                    Button(action: resetFrequencyAxisToDefaults) {
+                        Label("Reset Frequency Axis to Defaults", systemImage: "arrow.counterclockwise.circle")
+                    }
+                    Button(action: resetMagnitudeAxisToDefaults) {
+                        Label("Reset Magnitude Axis to Defaults", systemImage: "arrow.counterclockwise.circle")
                     }
                     if let onResetLabels = onResetLabels {
                         Divider()
@@ -853,32 +871,7 @@ struct SpectrumView: View {
             plotArea
                 .border(Color.gray, width: 1)
                 .contentShape(Rectangle())
-                #if os(macOS)
-                .contextMenu {
-                    Button(action: resetBothAxes) {
-                        Label("Reset Both Axes", systemImage: "arrow.counterclockwise")
-                    }
-                    
-                    Divider()
-                    
-                    Button(action: resetFrequencyAxis) {
-                        Label("Reset Frequency Axis", systemImage: "arrow.clockwise")
-                    }
-                    
-                    Button(action: resetMagnitudeAxis) {
-                        Label("Reset Magnitude Axis", systemImage: "arrow.up.and.down")
-                    }
-                    
-                    if let onResetLabels = onResetLabels {
-                        Divider()
-                        
-                        Button(action: onResetLabels) {
-                            Label("Reset Labels", systemImage: "arrow.uturn.backward")
-                        }
-                        .disabled(!hasLabelsToReset)
-                    }
-                }
-                #endif
+                
         }
         // Single chartOverlay on both platforms: annotations, cursor/crosshair readout, and
         // background gestures all share one view tree so highPriorityGesture on annotation
@@ -1104,8 +1097,30 @@ struct SpectrumView: View {
 
     // MARK: - Helper Functions
     
-    /// Resets both frequency and magnitude axes to their default values
-    private func resetBothAxes() {
+    /// Resets both axes to the saved (persisted) display settings
+    private func resetBothAxesToSaved() {
+        minFreq = TapDisplaySettings.minFrequency
+        maxFreq = TapDisplaySettings.maxFrequency
+        minDB = TapDisplaySettings.minMagnitude
+        maxDB = TapDisplaySettings.maxMagnitude
+        onFrequencyRangeChanged?()
+    }
+    
+    /// Resets the frequency axis to the saved (persisted) display settings
+    private func resetFrequencyAxisToSaved() {
+        minFreq = TapDisplaySettings.minFrequency
+        maxFreq = TapDisplaySettings.maxFrequency
+        onFrequencyRangeChanged?()
+    }
+    
+    /// Resets the magnitude axis to the saved (persisted) display settings
+    private func resetMagnitudeAxisToSaved() {
+        minDB = TapDisplaySettings.minMagnitude
+        maxDB = TapDisplaySettings.maxMagnitude
+    }
+    
+    /// Resets both axes to factory default values
+    private func resetBothAxesToDefaults() {
         let type = TapDisplaySettings.measurementType
         minFreq = TapDisplaySettings.defaultMinFrequency(for: type)
         maxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
@@ -1114,16 +1129,16 @@ struct SpectrumView: View {
         onFrequencyRangeChanged?()
     }
     
-    /// Resets the frequency axis to its default range
-    private func resetFrequencyAxis() {
+    /// Resets the frequency axis to factory default values
+    private func resetFrequencyAxisToDefaults() {
         let type = TapDisplaySettings.measurementType
         minFreq = TapDisplaySettings.defaultMinFrequency(for: type)
         maxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
         onFrequencyRangeChanged?()
     }
     
-    /// Resets the magnitude axis to its default range
-    private func resetMagnitudeAxis() {
+    /// Resets the magnitude axis to factory default values
+    private func resetMagnitudeAxisToDefaults() {
         minDB = TapDisplaySettings.defaultMinMagnitude
         maxDB = TapDisplaySettings.defaultMaxMagnitude
     }

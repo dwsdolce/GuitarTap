@@ -108,11 +108,11 @@ struct TapSettingsView: View {
         self._maxPeaks = maxPeaks
         self.fftAnalyzer = fftAnalyzer
         
-        // Initialize text inputs with current values
-        self._minFreqInput = State(initialValue: String(format: "%.0f", minFreq.wrappedValue))
-        self._maxFreqInput = State(initialValue: String(format: "%.0f", maxFreq.wrappedValue))
-        self._minDBInput = State(initialValue: String(format: "%.0f", minDB.wrappedValue))
-        self._maxDBInput = State(initialValue: String(format: "%.0f", maxDB.wrappedValue))
+        // Initialize display range inputs from persisted settings, not the current pan/zoomed session state
+        self._minFreqInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.minFrequency))
+        self._maxFreqInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.maxFrequency))
+        self._minDBInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.minMagnitude))
+        self._maxDBInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.maxMagnitude))
         self._analysisMinFreqInput = State(initialValue: String(format: "%.0f", analysisMinFreq.wrappedValue))
         self._analysisMaxFreqInput = State(initialValue: String(format: "%.0f", analysisMaxFreq.wrappedValue))
         self._peakThresholdInput = State(initialValue: String(format: "%.0f", peakThreshold.wrappedValue))
@@ -495,17 +495,28 @@ struct TapSettingsView: View {
                     }
                     
                     Button {
-                        resetDisplaySettings()
+                        saveCurrentView()
                     } label: {
                         HStack {
                             Spacer()
-                            Image(systemName: "arrow.counterclockwise")
-                            Text("Reset Display Settings")
+                            Image(systemName: "square.and.arrow.down")
+                            Text("Save Current View")
                             Spacer()
                         }
                         .font(.subheadline)
                     }
                     .padding(.top, 8)
+                    Button(role: .destructive) {
+                        resetDisplaySettingsToDefaults()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "arrow.counterclockwise.circle")
+                            Text("Reset to Defaults")
+                            Spacer()
+                        }
+                        .font(.subheadline)
+                    }
                 } header: {
                     Label("Display Settings", systemImage: "chart.xyaxis.line")
                         .font(.headline)
@@ -1221,8 +1232,21 @@ struct TapSettingsView: View {
         dismiss()
     }
     
-    private func resetDisplaySettings() {
-        // Reset display settings to defaults (frequency defaults vary by measurement type)
+    private func saveCurrentView() {
+        // Persist the current session axis range to UserDefaults
+        TapDisplaySettings.setMinFrequency(minFreq, for: selectedMeasurementType)
+        TapDisplaySettings.setMaxFrequency(maxFreq, for: selectedMeasurementType)
+        TapDisplaySettings.minMagnitude = minDB
+        TapDisplaySettings.maxMagnitude = maxDB
+        // Reflect the saved values in the input fields
+        minFreqInput = String(format: "%.0f", minFreq)
+        maxFreqInput = String(format: "%.0f", maxFreq)
+        minDBInput = String(format: "%.0f", minDB)
+        maxDBInput = String(format: "%.0f", maxDB)
+    }
+    
+    private func resetDisplaySettingsToDefaults() {
+        // Reset display settings to factory defaults (frequency defaults vary by measurement type)
         minFreqInput = String(format: "%.0f", TapDisplaySettings.defaultMinFrequency(for: selectedMeasurementType))
         maxFreqInput = String(format: "%.0f", TapDisplaySettings.defaultMaxFrequency(for: selectedMeasurementType))
         minDBInput = String(format: "%.0f", TapDisplaySettings.defaultMinMagnitude)
