@@ -41,7 +41,9 @@ extension TapToneAnalyzer {
             // Find peaks in spectrum
             let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
             currentPeaks = peaks
-            
+            // Auto-select all newly detected peaks so visibility mode "selected" shows everything by default
+            selectedPeakIDs = Set(peaks.map { $0.id })
+
             // Classify modes
             identifiedModes = peaks.map { peak in
                 (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))

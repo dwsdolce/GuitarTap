@@ -287,6 +287,7 @@ extension TapToneAnalyzer {
         frozenMagnitudes  = avgMags
         isSpectrumFrozen  = true
         currentPeaks      = longitudinalPeaks
+        selectedPeakIDs   = Set(longitudinalPeaks.map { $0.id })
         materialCapturedTaps = []
 
         let isBrace = TapDisplaySettings.measurementType == .brace
@@ -356,6 +357,7 @@ extension TapToneAnalyzer {
             else if let p = longitudinalPeaks.first { sel.append(p) }
             sel.append(selectedCrossPeak ?? dominantPeak)
             currentPeaks = sel
+            selectedPeakIDs = Set(sel.map { $0.id })
             isSpectrumFrozen = false; frozenFrequencies = []; frozenMagnitudes = []
             materialTapPhase = .complete; tapProgress = 1.0
             let fLStr = selectedLongitudinalPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
@@ -393,6 +395,7 @@ extension TapToneAnalyzer {
         else if let p = crossPeaks.first { sel.append(p) }
         sel.append(selectedFlcPeak ?? dominantPeak)
         currentPeaks = sel
+        selectedPeakIDs = Set(sel.map { $0.id })
         isSpectrumFrozen = false; frozenFrequencies = []; frozenMagnitudes = []
         materialTapPhase = .complete; tapProgress = 1.0
         statusMessage = "Complete - check Results"
@@ -448,6 +451,7 @@ extension TapToneAnalyzer {
         
         // Update current peaks with peaks from averaged spectrum
         currentPeaks = peaksFromAveragedSpectrum
+        selectedPeakIDs = Set(peaksFromAveragedSpectrum.map { $0.id })
         
         // Classify modes based on peaks
         identifiedModes = peaksFromAveragedSpectrum.map { peak in

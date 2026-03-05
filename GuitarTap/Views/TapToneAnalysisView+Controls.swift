@@ -14,28 +14,25 @@ extension TapToneAnalysisView {
             // Top row: Main controls - adaptive for iOS
             #if os(iOS)
             if useCompactLayout {
-                // Compact layout for iPhone - secondary buttons only (primary buttons are in toolbar)
+                // Compact layout for iPhone - icon-only secondary buttons (primary buttons are in toolbar)
                 HStack(spacing: 8) {
                     // Results button
                     Button(action: { showingResults.toggle() }) {
-                        Label("Results", systemImage: showingResults ? "doc.text.fill" : "doc.text")
-                            .font(.caption)
+                        Image(systemName: showingResults ? "doc.text.fill" : "doc.text")
                     }
                     .buttonStyle(.bordered)
                     .hint(HintText.showResults)
 
                     // Metrics button
                     Button(action: { showingMetrics.toggle() }) {
-                        Label("Metrics", systemImage: showingMetrics ? "chart.bar.fill" : "chart.bar")
-                            .font(.caption)
+                        Image(systemName: showingMetrics ? "chart.bar.fill" : "chart.bar")
                     }
                     .buttonStyle(.bordered)
                     .hint(HintText.showMetrics)
 
                     // Export Spectrum button
                     Button(action: { exportCurrentSpectrum() }) {
-                        Label("Export", systemImage: "chart.line.uptrend.xyaxis")
-                            .font(.caption)
+                        Image(systemName: "chart.line.uptrend.xyaxis")
                     }
                     .buttonStyle(.bordered)
                     .disabled(!fft.isRunning || fft.frequencies.isEmpty)
@@ -43,8 +40,7 @@ extension TapToneAnalysisView {
 
                     // Auto-scale dB toggle button
                     Button(action: { toggleAutoScale() }) {
-                        Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
-                            .font(.caption)
+                        Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                     }
                     .buttonStyle(.bordered)
                     .tint(isAutoScaleEnabled ? .blue : .gray)
@@ -53,11 +49,19 @@ extension TapToneAnalysisView {
 
                     // Crosshair mode toggle button
                     Button(action: { crosshairMode.toggle() }) {
-                        Label("Crosshair", systemImage: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
-                            .font(.caption)
+                        Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                     }
                     .buttonStyle(.bordered)
                     .tint(crosshairMode ? .blue : .gray)
+
+                    // Annotation visibility cycling button
+                    Button(action: { tap.cycleAnnotationVisibility() }) {
+                        Image(systemName: tap.annotationVisibilityMode.iconName)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+                    .disabled(tap.currentPeaks.isEmpty)
+                    .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
                 }
             } else {
                 // Regular layout for iPad
@@ -172,6 +176,15 @@ extension TapToneAnalysisView {
                 .buttonStyle(.bordered)
                 .tint(crosshairMode ? .blue : .gray)
 
+                // Annotation visibility cycling button (iPad)
+                Button(action: { tap.cycleAnnotationVisibility() }) {
+                    Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
+                }
+                .buttonStyle(.bordered)
+                .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+                .disabled(tap.currentPeaks.isEmpty)
+                .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
+
                 Spacer()
             }
         }
@@ -249,6 +262,15 @@ extension TapToneAnalysisView {
             .tint(isAutoScaleEnabled ? .blue : .gray)
             .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
             .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
+
+            // Annotation visibility cycling button (macOS wide)
+            Button(action: { tap.cycleAnnotationVisibility() }) {
+                Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
+            }
+            .buttonStyle(.bordered)
+            .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+            .disabled(tap.currentPeaks.isEmpty)
+            .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
             // Measurements button
             Button(action: { showingMeasurements = true }) {
@@ -337,6 +359,15 @@ extension TapToneAnalysisView {
                 .tint(isAutoScaleEnabled ? .blue : .gray)
                 .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
+
+                // Annotation visibility cycling button (macOS medium)
+                Button(action: { tap.cycleAnnotationVisibility() }) {
+                    Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
+                }
+                .buttonStyle(.bordered)
+                .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+                .disabled(tap.currentPeaks.isEmpty)
+                .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 // Measurements button
                 Button(action: { showingMeasurements = true }) {
@@ -431,6 +462,15 @@ extension TapToneAnalysisView {
                 .tint(isAutoScaleEnabled ? .blue : .gray)
                 .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
+
+                // Annotation visibility cycling button (macOS narrow)
+                Button(action: { tap.cycleAnnotationVisibility() }) {
+                    Image(systemName: tap.annotationVisibilityMode.iconName)
+                }
+                .buttonStyle(.bordered)
+                .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+                .disabled(tap.currentPeaks.isEmpty)
+                .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 Spacer()
             }

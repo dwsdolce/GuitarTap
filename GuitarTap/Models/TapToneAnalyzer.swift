@@ -8,6 +8,44 @@
 import SwiftUI
 import Combine
 
+// MARK: - Annotation Visibility Mode
+
+/// Controls which peak annotations are rendered on the spectrum chart.
+/// This is a transient display preference — it does not affect which peaks are selected.
+enum AnnotationVisibilityMode: String, Codable, CaseIterable {
+    /// Render annotations for all detected peaks
+    case all
+    /// Render annotations only for peaks the user has marked as selected results
+    case selected
+    /// Render no annotations
+    case none
+
+    /// Advance to the next mode in the cycle: all → selected → none → all
+    var next: AnnotationVisibilityMode {
+        switch self {
+        case .all:      return .selected
+        case .selected: return .none
+        case .none:     return .all
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .all:      return "eye"
+        case .selected: return "star.fill"
+        case .none:     return "eye.slash"
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .all:      return "All"
+        case .selected: return "Selected"
+        case .none:     return "None"
+        }
+    }
+}
+
 // MARK: - Tap Tone Analyzer
 
 /// Advanced tap tone analysis for guitar lutherie
@@ -102,37 +140,44 @@ final class TapToneAnalyzer: ObservableObject {
     
     /// Custom offsets for peak annotations (keyed by peak ID) to prevent overlap
     @Published var peakAnnotationOffsets: [UUID: CGPoint] = [:]
-    
-    /// Set of peak IDs that should be hidden from annotation display
-    @Published var hiddenPeakIDs: Set<UUID> = []
-    
-    /// Whether all peak annotations are currently visible (convenience for UI toggle)
-    var areAllPeaksVisible: Bool {
-        hiddenPeakIDs.isEmpty
-    }
-    
-    /// Toggle visibility of a specific peak
-    func togglePeakVisibility(_ peakID: UUID) {
-        if hiddenPeakIDs.contains(peakID) {
-            hiddenPeakIDs.remove(peakID)
+
+    /// Set of peak IDs the user has marked as significant results
+    @Published var selectedPeakIDs: Set<UUID> = []
+
+    /// Controls which annotations are rendered on the spectrum chart
+    @Published var annotationVisibilityMode: AnnotationVisibilityMode = .all
+
+    /// Toggle selection of a specific peak
+    func togglePeakSelection(_ peakID: UUID) {
+        if selectedPeakIDs.contains(peakID) {
+            selectedPeakIDs.remove(peakID)
         } else {
-            hiddenPeakIDs.insert(peakID)
+            selectedPeakIDs.insert(peakID)
         }
     }
-    
-    /// Show all peak annotations
-    func showAllPeaks() {
-        hiddenPeakIDs.removeAll()
+
+    /// Select all peaks
+    func selectAllPeaks() {
+        selectedPeakIDs = Set(currentPeaks.map { $0.id })
     }
-    
-    /// Hide all peak annotations
-    func hideAllPeaks() {
-        hiddenPeakIDs = Set(currentPeaks.map { $0.id })
+
+    /// Deselect all peaks
+    func selectNoPeaks() {
+        selectedPeakIDs.removeAll()
     }
-    
-    /// Get visible peaks (filtered by hiddenPeakIDs)
+
+    /// Advance annotation visibility to the next mode in the cycle: all → selected → none → all
+    func cycleAnnotationVisibility() {
+        annotationVisibilityMode = annotationVisibilityMode.next
+    }
+
+    /// Get peaks that should be rendered as annotations given the current visibility mode
     var visiblePeaks: [ResonantPeak] {
-        currentPeaks.filter { !hiddenPeakIDs.contains($0.id) }
+        switch annotationVisibilityMode {
+        case .all:      return currentPeaks
+        case .selected: return currentPeaks.filter { selectedPeakIDs.contains($0.id) }
+        case .none:     return []
+        }
     }
     
     // MARK: - Material Measurement State

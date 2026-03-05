@@ -153,7 +153,8 @@ extension TapToneAnalyzer {
             longitudinalSnapshot: !measurementType.isGuitar ? longitudinalSnapshot : nil,
             crossSnapshot: measurementType == .material ? crossSnapshot : nil,
             flcSnapshot: measurementType == .material ? flcSnapshot : nil,
-            hiddenPeakIDs: hiddenPeakIDs.isEmpty ? nil : Array(hiddenPeakIDs),
+            selectedPeakIDs: selectedPeakIDs.isEmpty ? nil : Array(selectedPeakIDs),
+            annotationVisibilityMode: annotationVisibilityMode,
             microphoneName: microphoneName,
             microphoneUID: microphoneUID,
             calibrationName: calibrationName
@@ -356,9 +357,17 @@ extension TapToneAnalyzer {
             print("  🏷️ Restored \(offsets.count) annotation offsets")
         }
         
-        // Restore hidden peak IDs
-        hiddenPeakIDs = Set(measurement.hiddenPeakIDs ?? [])
-        print("  👁️ Restored \(hiddenPeakIDs.count) hidden peaks")
+        // Restore selected peak IDs; if none saved, default to selecting all peaks
+        if let saved = measurement.selectedPeakIDs {
+            selectedPeakIDs = Set(saved)
+        } else {
+            selectedPeakIDs = Set(measurement.peaks.map { $0.id })
+        }
+        print("  ⭐ Restored \(selectedPeakIDs.count) selected peaks")
+
+        // Restore annotation visibility mode; default to .all if not saved
+        annotationVisibilityMode = measurement.annotationVisibilityMode ?? .all
+        print("  👁️ Restored annotation visibility: \(annotationVisibilityMode.label)")
         
         // Restore analysis settings if available - set both internal and published values
         if let threshold = measurement.tapDetectionThreshold {

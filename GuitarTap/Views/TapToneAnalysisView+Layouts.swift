@@ -285,6 +285,14 @@ extension TapToneAnalysisView {
                 .tint(crosshairMode ? .blue : nil)
                 .accessibilityLabel("Crosshair")
 
+                // Annotation visibility cycling button
+                Button(action: { tap.cycleAnnotationVisibility() }) {
+                    Image(systemName: tap.annotationVisibilityMode.iconName)
+                }
+                .tint(tap.annotationVisibilityMode == .none ? nil : .blue)
+                .disabled(tap.currentPeaks.isEmpty)
+                .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
+
                 Button(action: { showingResults.toggle() }) {
                     Image(systemName: "doc.text")
                 }

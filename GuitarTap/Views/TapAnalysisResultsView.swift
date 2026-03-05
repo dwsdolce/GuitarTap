@@ -150,30 +150,30 @@ struct TapAnalysisResultsView: View {
                     
                     Spacer()
                     
-                    // Show/Hide All buttons
+                    // Select All / Select None buttons
                     if !sortedPeaksWithModes.isEmpty {
                         HStack(spacing: 8) {
                             Button {
-                                analyzer.showAllPeaks()
+                                analyzer.selectAllPeaks()
                             } label: {
-                                Image(systemName: "eye")
+                                Image(systemName: "checkmark.circle")
                                     .font(.caption)
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.mini)
-                            .disabled(analyzer.areAllPeaksVisible)
-                            .help("Show all peak annotations")
-                            
+                            .disabled(analyzer.selectedPeakIDs.count == analyzer.currentPeaks.count)
+                            .help("Select all peaks")
+
                             Button {
-                                analyzer.hideAllPeaks()
+                                analyzer.selectNoPeaks()
                             } label: {
-                                Image(systemName: "eye.slash")
+                                Image(systemName: "xmark.circle")
                                     .font(.caption)
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.mini)
-                            .disabled(analyzer.hiddenPeakIDs.count == analyzer.currentPeaks.count)
-                            .help("Hide all peak annotations")
+                            .disabled(analyzer.selectedPeakIDs.isEmpty)
+                            .help("Deselect all peaks")
                         }
                     }
                 }
@@ -197,7 +197,7 @@ struct TapAnalysisResultsView: View {
                                 isCross: effectiveCrossPeakID == item.peak.id,
                                 isFlc: effectiveFlcPeakID == item.peak.id,
                                 showFlcButton: hasFlcMeasurement,
-                                isVisible: !analyzer.hiddenPeakIDs.contains(item.peak.id),
+                                isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
                                 onSelectLongitudinal: {
                                     if effectiveLongitudinalPeakID == item.peak.id {
                                         analyzer.userSelectedLongitudinalPeakID = nil
@@ -246,8 +246,8 @@ struct TapAnalysisResultsView: View {
                                         }
                                     }
                                 },
-                                onToggleVisibility: {
-                                    analyzer.togglePeakVisibility(item.peak.id)
+                                onToggleSelection: {
+                                    analyzer.togglePeakSelection(item.peak.id)
                                 }
                             )
                         }
@@ -322,7 +322,7 @@ struct TapAnalysisResultsView: View {
                                 isLongitudinal: effectiveLongitudinalPeakID == item.peak.id,
                                 isCross: false,
                                 showCrossButton: false,
-                                isVisible: !analyzer.hiddenPeakIDs.contains(item.peak.id),
+                                isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
                                 onSelectLongitudinal: {
                                     if effectiveLongitudinalPeakID == item.peak.id {
                                         analyzer.userSelectedLongitudinalPeakID = nil
@@ -332,8 +332,8 @@ struct TapAnalysisResultsView: View {
                                     }
                                 },
                                 onSelectCross: {},
-                                onToggleVisibility: {
-                                    analyzer.togglePeakVisibility(item.peak.id)
+                                onToggleSelection: {
+                                    analyzer.togglePeakSelection(item.peak.id)
                                 }
                             )
                         }
@@ -374,9 +374,9 @@ struct TapAnalysisResultsView: View {
                             CombinedPeakModeRowView(
                                 peak: item.peak,
                                 mode: item.mode,
-                                isVisible: !analyzer.hiddenPeakIDs.contains(item.peak.id),
-                                onToggleVisibility: {
-                                    analyzer.togglePeakVisibility(item.peak.id)
+                                isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
+                                onToggleSelection: {
+                                    analyzer.togglePeakSelection(item.peak.id)
                                 }
                             )
                         }
@@ -903,26 +903,26 @@ struct MaterialPeakRowView: View {
     var isFlc: Bool = false
     var showCrossButton: Bool = true
     var showFlcButton: Bool = false
-    var isVisible: Bool = true
+    var isSelected: Bool = true
     let onSelectLongitudinal: () -> Void
     let onSelectCross: () -> Void
     var onSelectFlc: (() -> Void)? = nil
-    var onToggleVisibility: (() -> Void)? = nil
-    
+    var onToggleSelection: (() -> Void)? = nil
+
     var body: some View {
         HStack(spacing: 12) {
-            // Visibility toggle button
-            if let toggleAction = onToggleVisibility {
+            // Selection toggle button
+            if let toggleAction = onToggleSelection {
                 Button {
                     toggleAction()
                 } label: {
-                    Image(systemName: isVisible ? "eye.fill" : "eye.slash")
-                        .foregroundColor(isVisible ? .blue : .secondary)
+                    Image(systemName: isSelected ? "star.fill" : "star")
+                        .foregroundColor(isSelected ? .blue : .secondary)
                         .font(.body)
                         .frame(width: 24, height: 24)
                 }
                 .buttonStyle(.plain)
-                .help(isVisible ? "Hide annotation" : "Show annotation")
+                .help(isSelected ? "Deselect peak" : "Select peak")
             }
             
             // Frequency and magnitude

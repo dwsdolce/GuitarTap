@@ -95,7 +95,7 @@ extension TapToneAnalysisView {
             measurementType: measurementType,
             guitarType: TapDisplaySettings.guitarType,
             peaks: rangeFilteredPeaks,
-            hiddenPeakIDs: tap.hiddenPeakIDs,
+            selectedPeakIDs: tap.selectedPeakIDs,
             decayTime: tap.currentDecayTime,
             tapToneRatio: tap.calculateTapToneRatio(),
             spectrumImageData: spectrumImageData,

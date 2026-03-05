@@ -18,7 +18,8 @@ struct TapToneMeasurement: Identifiable, Codable {
     let spectrumSnapshot: SpectrumSnapshot?  // Full spectrum data for guitar measurements
     let chartImageFilename: String?   // Filename of associated PNG image (e.g., "measurement-uuid.png")
     let peakAnnotationOffsets: [UUID: CGPoint]?  // Custom annotation positions
-    let hiddenPeakIDs: [UUID]?  // Peak IDs that were hidden from annotation display when saved
+    let selectedPeakIDs: [UUID]?  // Peak IDs marked as significant results
+    let annotationVisibilityMode: AnnotationVisibilityMode?  // Which annotations were visible when saved
     
     // Analysis settings (added for export/import)
     let tapDetectionThreshold: Float?  // dB
@@ -50,7 +51,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case tapDetectionThreshold, hysteresisMargin, numberOfTaps
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
         case longitudinalSnapshot, crossSnapshot, flcSnapshot
-        case hiddenPeakIDs
+        case selectedPeakIDs, annotationVisibilityMode
         case microphoneName, microphoneUID, calibrationName
     }
     
@@ -71,7 +72,8 @@ struct TapToneMeasurement: Identifiable, Codable {
          longitudinalSnapshot: SpectrumSnapshot? = nil,
          crossSnapshot: SpectrumSnapshot? = nil,
          flcSnapshot: SpectrumSnapshot? = nil,
-         hiddenPeakIDs: [UUID]? = nil,
+         selectedPeakIDs: [UUID]? = nil,
+         annotationVisibilityMode: AnnotationVisibilityMode? = nil,
          microphoneName: String? = nil,
          microphoneUID: String? = nil,
          calibrationName: String? = nil) {
@@ -94,7 +96,8 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.longitudinalSnapshot = longitudinalSnapshot
         self.crossSnapshot = crossSnapshot
         self.flcSnapshot = flcSnapshot
-        self.hiddenPeakIDs = hiddenPeakIDs
+        self.selectedPeakIDs = selectedPeakIDs
+        self.annotationVisibilityMode = annotationVisibilityMode
         self.microphoneName = microphoneName
         self.microphoneUID = microphoneUID
         self.calibrationName = calibrationName

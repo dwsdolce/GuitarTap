@@ -24,7 +24,7 @@ struct PDFReportData {
     let measurementType: MeasurementType
     let guitarType: GuitarType
     let peaks: [ResonantPeak]
-    let hiddenPeakIDs: Set<UUID>
+    let selectedPeakIDs: Set<UUID>
     let decayTime: Float?
     let tapToneRatio: Float?
     let spectrumImageData: Data?
@@ -115,7 +115,7 @@ struct PDFReportData {
             measurementType: measurementType,
             guitarType: guitarType,
             peaks: rangeFilteredPeaks,
-            hiddenPeakIDs: Set(measurement.hiddenPeakIDs ?? []),
+            selectedPeakIDs: Set(measurement.selectedPeakIDs ?? measurement.peaks.map { $0.id }),
             decayTime: measurement.decayTime,
             tapToneRatio: measurement.tapToneRatio,
             spectrumImageData: measurement.chartImageData,
@@ -309,7 +309,7 @@ private struct PDFReportContentView: View {
 
     private var visibleSortedPeaks: [ResonantPeak] {
         data.peaks
-            .filter { !data.hiddenPeakIDs.contains($0.id) }
+            .filter { data.selectedPeakIDs.contains($0.id) }
             .sorted { $0.frequency < $1.frequency }
     }
 
