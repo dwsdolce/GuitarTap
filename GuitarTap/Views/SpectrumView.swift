@@ -561,13 +561,19 @@ struct SpectrumView: View {
             #endif
     }
     
-    /// Helper to create GeometryReader wrapper for annotations
+    /// Helper to create GeometryReader wrapper for annotations (and cursor/crosshair on each platform).
+    /// All interactive gestures live here so annotation labels' highPriorityGesture can pre-empt
+    /// the background pan/hover as a child-beats-parent — no sibling overlay conflicts.
     @ViewBuilder
     private func annotationGeometryWrapper(proxy: ChartProxy) -> some View {
         if annotationOffsets != nil, let plotAnchor = proxy.plotFrame {
             GeometryReader { geometry in
                 let resolvedPlotFrame = geometry[plotAnchor]
                 ZStack {
+                    // Non-hittable background so events reach annotation label children
+                    Color.clear
+                        .allowsHitTesting(false)
+
                     PeakAnnotationsOverlay(
                         peaks: visiblePeaks,
                         annotationOffsets: annotationOffsets!,
@@ -584,12 +590,67 @@ struct SpectrumView: View {
                         selectedCrossPeakID: selectedCrossPeakID,
                         selectedFlcPeakID: selectedFlcPeakID
                     )
+
+                    #if os(macOS)
+                    // macOS cursor readout — display only, no hit testing
+                    if isCursorVisible, let snap = cursorSnapState {
+                        cursorReadout(snap: snap, plotFrame: resolvedPlotFrame, proxy: proxy)
+                            .allowsHitTesting(false)
+                    }
+                    #else
+                    // iOS crosshair readout — display only, no hit testing
+                    if crosshairMode.wrappedValue, let snap = crosshairSnapState {
+                        crosshairReadout(snap: snap, plotFrame: resolvedPlotFrame, proxy: proxy)
+                            .allowsHitTesting(false)
+                    }
+                    #endif
                 }
-                #if !os(macOS)
-                // The pan/crosshair DragGesture lives on this ZStack so that annotation
-                // labels' highPriorityGesture (children of the ZStack) pre-empts it.
-                // highPriorityGesture on a child always beats .gesture on a parent/ancestor.
+                // contentShape makes the ZStack hittable so gestures below fire on empty areas
                 .contentShape(Rectangle())
+                #if os(macOS)
+                // Hover tracking: annotation highPriorityGestures pre-empt this as children
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        guard resolvedPlotFrame.contains(location) else {
+                            isCursorVisible = false
+                            cursorSnapState = nil
+                            lockedSeriesIndex = -1
+                            break
+                        }
+                        cursorSnapState = resolveSnapState(
+                            location: location,
+                            plotFrame: resolvedPlotFrame,
+                            proxy: proxy,
+                            lockedSeriesIndex: &lockedSeriesIndex)
+                        isCursorVisible = cursorSnapState != nil
+                    case .ended:
+                        isCursorVisible = false
+                        cursorSnapState = nil
+                        lockedSeriesIndex = -1
+                    }
+                }
+                .contextMenu {
+                    Button(action: resetBothAxes) {
+                        Label("Reset Both Axes", systemImage: "arrow.counterclockwise")
+                    }
+                    Divider()
+                    Button(action: resetFrequencyAxis) {
+                        Label("Reset Frequency Axis", systemImage: "arrow.clockwise")
+                    }
+                    Button(action: resetMagnitudeAxis) {
+                        Label("Reset Magnitude Axis", systemImage: "arrow.up.and.down")
+                    }
+                    if let onResetLabels = onResetLabels {
+                        Divider()
+                        Button(action: onResetLabels) {
+                            Label("Reset Labels", systemImage: "arrow.uturn.backward")
+                        }
+                        .disabled(!hasLabelsToReset)
+                    }
+                }
+                #else
+                // Pan/crosshair DragGesture: annotation highPriorityGestures pre-empt this as children
                 .gesture(
                     DragGesture(minimumDistance: crosshairMode.wrappedValue ? 0 : 10)
                         .onChanged { value in
@@ -628,67 +689,6 @@ struct SpectrumView: View {
     }
     
     #if os(macOS)
-    /// Overlay that tracks mouse position and displays frequency+dB readout (macOS only)
-    @ViewBuilder
-    private func cursorOverlay(proxy: ChartProxy) -> some View {
-        GeometryReader { geometry in
-            let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? .zero
-            
-            ZStack(alignment: .topLeading) {
-                Rectangle()
-                    .fill(Color.clear)
-                    .contentShape(Rectangle())
-                    .frame(width: plotFrame.width, height: plotFrame.height)
-                    .offset(x: plotFrame.minX, y: plotFrame.minY)
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case .active(let location):
-                            guard plotFrame.contains(location) else {
-                                isCursorVisible = false
-                                cursorSnapState = nil
-                                lockedSeriesIndex = -1
-                                break
-                            }
-                            cursorSnapState = resolveSnapState(
-                                location: location,
-                                plotFrame: plotFrame,
-                                proxy: proxy,
-                                lockedSeriesIndex: &lockedSeriesIndex)
-                            isCursorVisible = cursorSnapState != nil
-                        case .ended:
-                            isCursorVisible = false
-                            cursorSnapState = nil
-                            lockedSeriesIndex = -1
-                        }
-                    }
-                    // Context menu on the overlay rectangle so right-click isn't silently consumed
-                    .contextMenu {
-                        Button(action: resetBothAxes) {
-                            Label("Reset Both Axes", systemImage: "arrow.counterclockwise")
-                        }
-                        Divider()
-                        Button(action: resetFrequencyAxis) {
-                            Label("Reset Frequency Axis", systemImage: "arrow.clockwise")
-                        }
-                        Button(action: resetMagnitudeAxis) {
-                            Label("Reset Magnitude Axis", systemImage: "arrow.up.and.down")
-                        }
-                        if let onResetLabels = onResetLabels {
-                            Divider()
-                            Button(action: onResetLabels) {
-                                Label("Reset Labels", systemImage: "arrow.uturn.backward")
-                            }
-                            .disabled(!hasLabelsToReset)
-                        }
-                    }
-                
-                if isCursorVisible, let snap = cursorSnapState {
-                    cursorReadout(snap: snap, plotFrame: plotFrame, proxy: proxy)
-                }
-            }
-        }
-    }
-    
     /// Formats a frequency value for the cursor readout
     private func formatCursorFrequency(_ hz: Double) -> String {
         if hz >= 1000 {
@@ -760,20 +760,6 @@ struct SpectrumView: View {
     #endif
     
     #if !os(macOS)
-    /// Display-only overlay that renders the crosshair lines and readout label (iOS only).
-    /// Gesture handling is in annotationGeometryWrapper so that annotation highPriorityGestures
-    /// can pre-empt the pan/crosshair drag.
-    @ViewBuilder
-    private func crosshairOverlay(proxy: ChartProxy) -> some View {
-        if crosshairMode.wrappedValue, let snap = crosshairSnapState {
-            GeometryReader { geometry in
-                let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? .zero
-                crosshairReadout(snap: snap, plotFrame: plotFrame, proxy: proxy)
-            }
-            .allowsHitTesting(false)
-        }
-    }
-    
     /// Formats a frequency value for the crosshair readout
     private func formatCrosshairFrequency(_ hz: Double) -> String {
         if hz >= 1000 {
@@ -894,23 +880,12 @@ struct SpectrumView: View {
                 }
                 #endif
         }
-        #if os(macOS)
+        // Single chartOverlay on both platforms: annotations, cursor/crosshair readout, and
+        // background gestures all share one view tree so highPriorityGesture on annotation
+        // labels correctly pre-empts the parent pan/hover gesture.
         .chartOverlay { proxy in
             annotationGeometryWrapper(proxy: proxy)
         }
-        .chartOverlay { proxy in
-            cursorOverlay(proxy: proxy)
-        }
-        #else
-        // On iOS, annotations and the pan/crosshair gesture are merged into one overlay
-        // so there is only a single gesture tree — avoiding system gesture gate conflicts.
-        .chartOverlay { proxy in
-            ZStack {
-                annotationGeometryWrapper(proxy: proxy)
-                crosshairOverlay(proxy: proxy)
-            }
-        }
-        #endif
         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
         .chartYScale(domain: Double(minDB)...Double(maxDB))
         #if os(macOS)
