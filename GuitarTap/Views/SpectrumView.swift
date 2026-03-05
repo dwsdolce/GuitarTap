@@ -135,11 +135,17 @@ struct SpectrumView: View {
     
     // MARK: - Gesture State
     
-    /// Tracks drag offset during pan gestures
+    /// Tracks drag offset during pan gestures (for live preview only)
     @State private var dragOffset: CGSize = .zero
+
+    /// Tracks the previous frame's drag translation so incremental deltas can be computed
+    @State private var lastDragTranslation: CGSize = .zero
     
-    /// Tracks magnification scale during pinch gestures
+    /// Tracks magnification scale during pinch gestures (for live preview only)
     @GestureState private var magnificationScale: CGFloat = 1.0
+
+    /// Tracks the previous frame's pinch scale so incremental deltas can be computed
+    @State private var lastMagnificationScale: CGFloat = 1.0
     
     /// Tracks whether an annotation is currently being dragged
     @State private var isAnnotationDragging: Bool = false
@@ -920,8 +926,15 @@ struct SpectrumView: View {
             .updating($magnificationScale) { value, state, _ in
                 state = value
             }
-            .onEnded { scale in
-                handleZoom(scale: scale)
+            .onChanged { scale in
+                // Compute the per-frame delta so zoom accumulates incrementally,
+                // matching the behaviour of the macOS scroll wheel.
+                let delta = scale / lastMagnificationScale
+                lastMagnificationScale = scale
+                handleZoom(scale: delta)
+            }
+            .onEnded { _ in
+                lastMagnificationScale = 1.0
             }
     }
     
@@ -930,10 +943,18 @@ struct SpectrumView: View {
         DragGesture()
             .onChanged { value in
                 dragOffset = value.translation
+                // Compute the per-frame delta so pan accumulates incrementally,
+                // matching the behaviour of the macOS scroll wheel.
+                let delta = CGSize(
+                    width:  value.translation.width  - lastDragTranslation.width,
+                    height: value.translation.height - lastDragTranslation.height
+                )
+                lastDragTranslation = value.translation
+                handlePan(translation: delta)
             }
-            .onEnded { value in
-                handlePan(translation: value.translation)
+            .onEnded { _ in
                 dragOffset = .zero
+                lastDragTranslation = .zero
             }
     }
     
