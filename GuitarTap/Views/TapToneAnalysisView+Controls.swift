@@ -502,9 +502,12 @@ extension TapToneAnalysisView {
                 .frame(width: 8, height: 8)
         }
         .padding(.horizontal)
-        .padding(.vertical, 8)
-        .frame(height: 36) // Fixed height
-        .background(Color.secondary.opacity(0.1))
+        .padding(.vertical, 4)
+        .frame(height: 28) // Fixed height
+        .background {
+            Color.secondary.opacity(0.1)
+                .ignoresSafeArea(edges: .bottom)
+        }
     }
 
     /// Full status bar for iPad and macOS

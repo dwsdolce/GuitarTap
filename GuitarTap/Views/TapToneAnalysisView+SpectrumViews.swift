@@ -140,7 +140,11 @@ extension TapToneAnalysisView {
             // Force view to update when any relevant state changes
             .id("\(tap.isSpectrumFrozen)-\(fft.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
             .frame(minHeight: 250, maxHeight: .infinity)  // Allow to expand vertically
+            #if os(iOS)
+            .padding(isPhoneLandscape ? .horizontal : .all)
+            #else
             .padding()
+            #endif
             .background(Color.gray.opacity(0.05))
             .cornerRadius(10)
             .overlay(

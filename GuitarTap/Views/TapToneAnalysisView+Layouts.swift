@@ -236,7 +236,7 @@ extension TapToneAnalysisView {
             VStack(spacing: 0) {
                 // Spectrum view - fills available space
                 realTimeSpectrumView
-                    .padding(8)
+                    .padding(.horizontal, 4)
 
                 // Compact status bar
                 Divider()
