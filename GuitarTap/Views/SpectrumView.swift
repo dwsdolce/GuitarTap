@@ -1049,7 +1049,8 @@ struct SpectrumView: View {
         guard let rawFreq = proxy.value(atX: plotLocal.x, as: Double.self),
               let rawDB   = proxy.value(atY: plotLocal.y, as: Double.self) else { return nil }
 
-        guard isSpectrumFrozen else {
+        // Snap when the spectrum is frozen (guitar) or when material spectra are loaded
+        guard isSpectrumFrozen || !materialSpectra.isEmpty else {
             return CursorSnapState(frequency: rawFreq, magnitude: rawDB,
                                    seriesIndex: nil, curveColor: primaryCurveColor)
         }
