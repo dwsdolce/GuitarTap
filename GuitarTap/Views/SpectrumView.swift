@@ -754,7 +754,7 @@ struct SpectrumView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
         .shadow(radius: 2)
         .frame(width: labelWidth, height: labelHeight)
-        .offset(x: labelX, y: labelY)
+        .position(x: labelX + labelWidth / 2, y: labelY + labelHeight / 2)
         .allowsHitTesting(false)
     }
     #endif
@@ -826,7 +826,7 @@ struct SpectrumView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
         .shadow(radius: 2)
         .frame(width: labelWidth, height: labelHeight)
-        .offset(x: labelX, y: labelY)
+        .position(x: labelX + labelWidth / 2, y: labelY + labelHeight / 2)
         .allowsHitTesting(false)
     }
     #endif

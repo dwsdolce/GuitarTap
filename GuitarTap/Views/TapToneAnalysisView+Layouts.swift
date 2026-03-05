@@ -279,6 +279,12 @@ extension TapToneAnalysisView {
             }
 
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Button(action: { crosshairMode.toggle() }) {
+                    Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
+                }
+                .tint(crosshairMode ? .blue : nil)
+                .accessibilityLabel("Crosshair")
+
                 Button(action: { showingResults.toggle() }) {
                     Image(systemName: "doc.text")
                 }
