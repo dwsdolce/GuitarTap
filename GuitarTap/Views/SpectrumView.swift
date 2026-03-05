@@ -533,8 +533,10 @@ struct SpectrumView: View {
             .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
             .simultaneousGesture(isAnnotationDragging ? nil : panGesture)
             #else
-            .simultaneousGesture(isAnnotationDragging || crosshairMode.wrappedValue ? nil : zoomGesture)
-            .simultaneousGesture(isAnnotationDragging || crosshairMode.wrappedValue ? nil : panGesture)
+            // On iOS, zoom uses simultaneousGesture (MagnificationGesture doesn't conflict with
+            // annotation DragGestures). Pan/crosshair DragGesture lives in annotationGeometryWrapper
+            // so annotation labels' highPriorityGesture can pre-empt it as a child-beats-parent.
+            .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
             #endif
             #if !os(macOS)
             .highPriorityGesture(TapGesture(count: 2).onEnded {
@@ -565,22 +567,62 @@ struct SpectrumView: View {
         if annotationOffsets != nil, let plotAnchor = proxy.plotFrame {
             GeometryReader { geometry in
                 let resolvedPlotFrame = geometry[plotAnchor]
-                PeakAnnotationsOverlay(
-                    peaks: visiblePeaks,
-                    annotationOffsets: annotationOffsets!,
-                    geometry: geometry,
-                    plotFrame: resolvedPlotFrame,
-                    minFreq: minFreq,
-                    maxFreq: maxFreq,
-                    minDB: minDB,
-                    maxDB: maxDB,
-                    isLogarithmic: isLogarithmic,
-                    isAnnotationDragging: $isAnnotationDragging,
-                    measurementType: measurementType,
-                    selectedLongitudinalPeakID: selectedLongitudinalPeakID,
-                    selectedCrossPeakID: selectedCrossPeakID,
-                    selectedFlcPeakID: selectedFlcPeakID
+                ZStack {
+                    PeakAnnotationsOverlay(
+                        peaks: visiblePeaks,
+                        annotationOffsets: annotationOffsets!,
+                        geometry: geometry,
+                        plotFrame: resolvedPlotFrame,
+                        minFreq: minFreq,
+                        maxFreq: maxFreq,
+                        minDB: minDB,
+                        maxDB: maxDB,
+                        isLogarithmic: isLogarithmic,
+                        isAnnotationDragging: $isAnnotationDragging,
+                        measurementType: measurementType,
+                        selectedLongitudinalPeakID: selectedLongitudinalPeakID,
+                        selectedCrossPeakID: selectedCrossPeakID,
+                        selectedFlcPeakID: selectedFlcPeakID
+                    )
+                }
+                #if !os(macOS)
+                // The pan/crosshair DragGesture lives on this ZStack so that annotation
+                // labels' highPriorityGesture (children of the ZStack) pre-empts it.
+                // highPriorityGesture on a child always beats .gesture on a parent/ancestor.
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: crosshairMode.wrappedValue ? 0 : 10)
+                        .onChanged { value in
+                            guard resolvedPlotFrame.contains(value.location) else { return }
+                            if crosshairMode.wrappedValue {
+                                crosshairSnapState = resolveSnapState(
+                                    location: value.location,
+                                    plotFrame: resolvedPlotFrame,
+                                    proxy: proxy,
+                                    lockedSeriesIndex: &lockedSeriesIndex)
+                            } else {
+                                guard !isAnnotationDragging else {
+                                    lastDragTranslation = .zero
+                                    return
+                                }
+                                let delta = CGSize(
+                                    width:  value.translation.width  - lastDragTranslation.width,
+                                    height: value.translation.height - lastDragTranslation.height
+                                )
+                                lastDragTranslation = value.translation
+                                handlePan(translation: delta)
+                            }
+                        }
+                        .onEnded { _ in
+                            if crosshairMode.wrappedValue {
+                                crosshairSnapState = nil
+                                lockedSeriesIndex = -1
+                            } else {
+                                lastDragTranslation = .zero
+                            }
+                        }
                 )
+                #endif
             }
         }
     }
@@ -718,42 +760,17 @@ struct SpectrumView: View {
     #endif
     
     #if !os(macOS)
-    /// Overlay that tracks finger drag and displays frequency+dB crosshair readout (iOS only, active when crosshairMode is on)
+    /// Display-only overlay that renders the crosshair lines and readout label (iOS only).
+    /// Gesture handling is in annotationGeometryWrapper so that annotation highPriorityGestures
+    /// can pre-empt the pan/crosshair drag.
     @ViewBuilder
     private func crosshairOverlay(proxy: ChartProxy) -> some View {
-        GeometryReader { geometry in
-            let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? .zero
-            
-            ZStack(alignment: .topLeading) {
-                // Invisible hit-testing rect covering the plot area
-                Rectangle()
-                    .fill(Color.clear)
-                    .contentShape(Rectangle())
-                    .frame(width: plotFrame.width, height: plotFrame.height)
-                    .offset(x: plotFrame.minX, y: plotFrame.minY)
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                guard crosshairMode.wrappedValue else { return }
-                                guard plotFrame.contains(value.location) else { return }
-                                crosshairSnapState = resolveSnapState(
-                                    location: value.location,
-                                    plotFrame: plotFrame,
-                                    proxy: proxy,
-                                    lockedSeriesIndex: &lockedSeriesIndex)
-                            }
-                            .onEnded { _ in
-                                if !crosshairMode.wrappedValue {
-                                    crosshairSnapState = nil
-                                    lockedSeriesIndex = -1
-                                }
-                            }
-                    )
-                
-                if crosshairMode.wrappedValue, let snap = crosshairSnapState {
-                    crosshairReadout(snap: snap, plotFrame: plotFrame, proxy: proxy)
-                }
+        if crosshairMode.wrappedValue, let snap = crosshairSnapState {
+            GeometryReader { geometry in
+                let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? .zero
+                crosshairReadout(snap: snap, plotFrame: plotFrame, proxy: proxy)
             }
+            .allowsHitTesting(false)
         }
     }
     
@@ -877,16 +894,21 @@ struct SpectrumView: View {
                 }
                 #endif
         }
+        #if os(macOS)
         .chartOverlay { proxy in
             annotationGeometryWrapper(proxy: proxy)
         }
-        #if os(macOS)
         .chartOverlay { proxy in
             cursorOverlay(proxy: proxy)
         }
         #else
+        // On iOS, annotations and the pan/crosshair gesture are merged into one overlay
+        // so there is only a single gesture tree — avoiding system gesture gate conflicts.
         .chartOverlay { proxy in
-            crosshairOverlay(proxy: proxy)
+            ZStack {
+                annotationGeometryWrapper(proxy: proxy)
+                crosshairOverlay(proxy: proxy)
+            }
         }
         #endif
         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
@@ -940,9 +962,13 @@ struct SpectrumView: View {
     
     /// Drag gesture for panning
     private var panGesture: some Gesture {
-        DragGesture()
+        DragGesture(minimumDistance: 8)
             .onChanged { value in
                 dragOffset = value.translation
+                guard !isAnnotationDragging else {
+                    lastDragTranslation = .zero
+                    return
+                }
                 // Compute the per-frame delta so pan accumulates incrementally,
                 // matching the behaviour of the macOS scroll wheel.
                 let delta = CGSize(
