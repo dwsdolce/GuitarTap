@@ -102,15 +102,6 @@ extension TapToneAnalyzer {
             return
         }
 
-        // Check that the captured signal has meaningful energy
-        let peakDb = magnitudes.max() ?? -160
-        guard peakDb > -60 else {
-            print("⚠️ Gated FFT peak is only \(String(format: "%.1f", peakDb)) dB — signal too quiet, tap again")
-            statusMessage = "Signal too quiet — tap firmer"
-            reEnableDetectionForNextMaterialTap()
-            return
-        }
-
         // Determine the frequency search window for this measurement type.
         // Using the known physical range rejects low-frequency impact thuds (20–80 Hz)
         // that are present in every tap but are not resonances of the workpiece.

@@ -21,10 +21,10 @@ import AppKit
 struct SpectrumDataPoint: Identifiable {
     /// Unique identifier for SwiftUI's identity system
     let id = UUID()
-    
+
     /// The frequency of this bin in Hz
     let frequency: Float
-    
+
     /// The magnitude at this frequency in dB (typically -100 to 0 dB)
     let magnitude: Float
 }
@@ -66,50 +66,50 @@ struct CursorSnapState {
 /// - **Drag**: Pan the view horizontally (frequency) and vertically (dB)
 struct SpectrumView: View {
     // MARK: - Properties
-    
+
     /// Array of frequency values in Hz for each FFT bin
     let frequencies: [Float]
-    
+
     /// Array of magnitude values in dB for each FFT bin
     let magnitudes: [Float]
-    
+
     /// The minimum frequency to display on the x-axis, in Hz
     @Binding var minFreq: Float
-    
+
     /// The maximum frequency to display on the x-axis, in Hz
     @Binding var maxFreq: Float
-    
+
     /// The minimum magnitude to display on the y-axis, in dB
     @Binding var minDB: Float
-    
+
     /// The maximum magnitude to display on the y-axis, in dB
     @Binding var maxDB: Float
-    
+
     /// Whether to use logarithmic scale for the frequency axis
     @Binding var isLogarithmic: Bool
-    
+
     /// Optional array of peaks to annotate on the chart
     var peaks: [ResonantPeak]?
-    
+
     /// Whether to show mode boundary markers
     var showModeBoundaries: Bool = true
-    
+
     /// Callback invoked when the frequency range changes due to zoom/pan gestures
     var onFrequencyRangeChanged: (() -> Void)?
-    
+
     /// Optional binding to annotation offsets for draggable labels
     var annotationOffsets: Binding<[UUID: CGPoint]>?
-    
+
     /// Optional per-phase spectra to overlay (material/brace measurements: L, C, FLC)
     /// Each entry has its own colour and label for the legend
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
-    
+
     /// Optional threshold lines to display (for tap detection visualization)
     var thresholdLines: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])]?
-    
+
     /// Optional callback to reset all peak annotation label positions
     var onResetLabels: (() -> Void)?
-    
+
     /// Whether there are annotation offsets that need resetting (controls enabled state of menu item)
     var hasLabelsToReset: Bool = false
 
@@ -120,37 +120,37 @@ struct SpectrumView: View {
     /// Color of the primary (single) spectrum line. Used to tint the cursor readout label
     /// so it matches the waveform. Only relevant when `materialSpectra` is empty.
     var primaryCurveColor: Color = .red
-    
+
     /// The current measurement type (guitar vs material) - affects which annotations are shown
     var measurementType: MeasurementType = .acoustic
-    
+
     /// ID of the peak selected as longitudinal mode (for material measurements)
     var selectedLongitudinalPeakID: UUID?
-    
+
     /// ID of the peak selected as cross-grain mode (for material measurements)
     var selectedCrossPeakID: UUID?
-    
+
     /// ID of the peak selected as FLC (diagonal/shear) mode (for material measurements)
     var selectedFlcPeakID: UUID?
-    
+
     // MARK: - Gesture State
-    
+
     /// Tracks drag offset during pan gestures (for live preview only)
     @State private var dragOffset: CGSize = .zero
 
     /// Tracks the previous frame's drag translation so incremental deltas can be computed
     @State private var lastDragTranslation: CGSize = .zero
-    
+
     /// Tracks the previous frame's pinch scale so incremental deltas can be computed
     @State private var lastMagnificationScale: CGFloat = 1.0
-    
+
     /// Tracks whether an annotation is currently being dragged
     @State private var isAnnotationDragging: Bool = false
 
     /// The most-recently resolved chart plot frame, stored so the pinch zoom gesture can convert
     /// its UnitPoint anchor to data coordinates without needing a ChartProxy reference.
-    @State private var lastPlotFrame: CGRect = .zero
-    
+    @State var lastPlotFrame: CGRect = .zero
+
     /// Index of the waveform series the cursor is currently locked to.
     /// -1 = primary spectrum, 0+ = index into materialSpectra. Reset to -1 on cursor exit/drag end.
     @State private var lockedSeriesIndex: Int = -1
@@ -158,45 +158,45 @@ struct SpectrumView: View {
     #if os(macOS)
     /// Snapped cursor position in data coordinates, including series identity. Nil when not hovering.
     @State private var cursorSnapState: CursorSnapState? = nil
-    
+
     /// Whether the cursor readout is currently visible
     @State private var isCursorVisible: Bool = false
-    
+
     /// Whether the zoom/pan controls help popover is showing
     @State private var showingControlsHelp: Bool = false
 
     /// Raw screen-local position of the mouse within the chart overlay, updated on every hover tick.
     /// Used by the scroll-wheel zoom handler to zoom around the cursor rather than the range midpoint.
-    @State private var lastCursorPosition: CGPoint? = nil
-    
+    @State var lastCursorPosition: CGPoint? = nil
+
     #else
     /// Whether the iOS axis-reset confirmation dialog is showing
     @State private var showingResetDialog: Bool = false
-    
+
     /// Whether crosshair tracking mode is active (iOS only). Defaults to false when not provided.
     var crosshairMode: Binding<Bool> = .constant(false)
-    
+
     /// Snapped crosshair position in data coordinates, including series identity. Nil when not active.
     @State private var crosshairSnapState: CursorSnapState? = nil
     #endif
-    
+
     // MARK: - Computed Properties
-    
+
     /// Filters and converts the frequency/magnitude arrays into chart data points.
     ///
     /// Only includes data points within the current visible frequency range.
     /// This improves rendering performance for large FFT sizes.
-    private var chartData: [SpectrumDataPoint] {
+    var chartData: [SpectrumDataPoint] {
         zip(frequencies, magnitudes)
             .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
             .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
     }
-    
+
     /// Returns the mode boundaries that are visible in the current frequency range
-    private var visibleModeBoundaries: [(frequency: Float, mode: GuitarMode)] {
+    var visibleModeBoundaries: [(frequency: Float, mode: GuitarMode)] {
         let allModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
         var boundaries: [(Float, GuitarMode)] = []
-        
+
         for mode in allModes {
             let range = mode.idealRange
             // Add lower boundary if visible
@@ -208,20 +208,20 @@ struct SpectrumView: View {
                 boundaries.append((range.upperBound, mode))
             }
         }
-        
+
         return boundaries
     }
-    
+
     /// Returns peaks that are visible in the current frequency range
     /// Optionally filters out unknown modes based on user setting (guitar mode only)
-    private var visiblePeaks: [ResonantPeak] {
+    var visiblePeaks: [ResonantPeak] {
         let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
-        
+
         // In material mode, show all peaks (no guitar mode filtering)
         if !measurementType.isGuitar {
             return filtered
         }
-        
+
         // Filter out unknown modes if setting is disabled (guitar mode only)
         if TapDisplaySettings.showUnknownModes {
             return filtered
@@ -229,7 +229,7 @@ struct SpectrumView: View {
             return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
         }
     }
-    
+
     /// Calculates appropriate frequency values for axis labels based on the current zoom level.
     ///
     /// The values are chosen to provide clear, readable labels that adjust to the visible range:
@@ -243,187 +243,18 @@ struct SpectrumView: View {
         } else {
             return AxisTickGenerator.generateTicks(min: Double(minFreq), max: Double(maxFreq), maxTicks: 8, scale: AxisScale.linear)
         }
-//        if isLogarithmic {
-//            // Use standard logarithmic frequency markers for audio
-//            let range = log10(Double(maxFreq)) - log10(Double(minFreq))
-//            if range > 3 {
-//                // Full range: use major frequency milestones
-//                return [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
-//            } else if range > 2 {
-//                // Medium zoom: use moderate spacing
-//                return stride(from: Int(minFreq), through: Int(maxFreq), by: max(100, Int(minFreq / 5))).map { Double($0) }
-//            } else {
-//                // High zoom: use fine spacing
-//                return stride(from: Int(minFreq), through: Int(maxFreq), by: max(50, Int(minFreq / 10))).map { Double($0) }
-//            }
-//        } else {
-//            // Linear scale: use even spacing based on range
-//            let range = Int(maxFreq - minFreq)
-//            let step: Int
-//            if range > 10000 {
-//                step = 2000
-//            } else if range > 5000 {
-//                step = 1000
-//            } else if range > 2000 {
-//                step = 500
-//            } else if range > 1000 {
-//                step = 200
-//            } else {
-//                step = 100
-//            }
-//            return stride(from: Int(minFreq), through: Int(maxFreq), by: step).map { Double($0) }
-//        }
     }
 
-    // MARK: - Chart Content Builders
-    
-    /// Spectrum line chart content
-    @ChartContentBuilder
-    private var spectrumLineContent: some ChartContent {
-        ForEach(chartData) { dataPoint in
-            // Clamp the magnitude to the currently displayed min and max DB values
-            let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
-            
-            // Line mark shows the precise spectrum shape
-            LineMark(
-                x: .value("Frequency", dataPoint.frequency),
-                y: .value("Magnitude", clampedMagnitude)
-            )
-            .foregroundStyle(.red)
-            .lineStyle(StrokeStyle(lineWidth: 1))
-        }
-    }
-    
-    /// Mode boundary markers chart content (guitar mode only)
-    @ChartContentBuilder
-    private var modeBoundaryContent: some ChartContent {
-        // Only show guitar mode boundaries when in guitar measurement mode
-        if showModeBoundaries && measurementType.isGuitar {
-            ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
-                RuleMark(x: .value("Boundary", boundary.frequency))
-                    .foregroundStyle(modeColor(for: boundary.mode).opacity(0.3))
-                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
-                    .annotation(position: .top, alignment: .center) {
-                        // Only show mode name at start of range (lower boundary)
-                        if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
-                            Text(modeAbbreviation(for: boundary.mode))
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(modeColor(for: boundary.mode))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(modeColor(for: boundary.mode).opacity(0.15))
-                                .cornerRadius(4)
-                        }
-                    }
-            }
-        }
-    }
-    
-    /// Peak annotations chart content
-    @ChartContentBuilder
-    private var peakAnnotationContent: some ChartContent {
-        ForEach(visiblePeaks) { peak in
-            // Peak marker - color depends on measurement type
-            PointMark(
-                x: .value("Frequency", peak.frequency),
-                y: .value("Magnitude", peak.magnitude)
-            )
-            .foregroundStyle(peakColor(for: peak))
-            .symbolSize(100)
-            
-            // Static annotation (for positioning reference only)
-            PointMark(
-                x: .value("Frequency", peak.frequency),
-                y: .value("Magnitude", peak.magnitude)
-            )
-            .foregroundStyle(.clear)
-            .annotation(position: .top, alignment: .center, spacing: 4) {
-                // Non-interactive placeholder
-                Color.clear
-                    .frame(width: 80, height: 60)
-                    .id("placeholder-\(peak.id)")
-            }
-        }
-    }
-    
-    /// Returns the appropriate color for a peak based on measurement type and selection
-    private func peakColor(for peak: ResonantPeak) -> Color {
-        if measurementType.isGuitar {
-            // Guitar mode: color by guitar mode classification
-            return modeColor(for: GuitarMode.classify(frequency: peak.frequency))
-        } else {
-            // Material mode: color by L/C selection
-            if peak.id == selectedLongitudinalPeakID {
-                return .blue      // Longitudinal = blue
-            } else if peak.id == selectedCrossPeakID {
-                return .orange    // Cross-grain = orange
-            } else if peak.id == selectedFlcPeakID {
-                return .purple    // FLC = purple
-            } else {
-                return .secondary // Unselected = gray
-            }
-        }
-    }
-    
-    /// Per-phase spectrum overlay chart content (material/brace measurements)
-    @ChartContentBuilder
-    private var materialSpectraContent: some ChartContent {
-        ForEach(Array(materialSpectra.enumerated()), id: \.offset) { seriesIndex, series in
-            ForEach(
-                zip(series.frequencies, series.magnitudes)
-                    .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-                    .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
-            ) { dataPoint in
-                let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
-                LineMark(
-                    x: .value("Frequency", dataPoint.frequency),
-                    y: .value("Magnitude", clampedMagnitude)
-                )
-                .foregroundStyle(by: .value("Series", series.label))
-                .lineStyle(StrokeStyle(lineWidth: 1.5))
-            }
-        }
-    }
-    
-    /// Threshold lines chart content (for tap detection visualization)
-    @ChartContentBuilder
-    private var thresholdLinesContent: some ChartContent {
-        if let thresholds = thresholdLines {
-            ForEach(Array(thresholds.enumerated()), id: \.offset) { index, threshold in
-                // Only show threshold if it's within the visible dB range
-                if threshold.value >= minDB && threshold.value <= maxDB {
-                    RuleMark(y: .value("Threshold", threshold.value))
-                        .foregroundStyle(threshold.color)
-                        .lineStyle(StrokeStyle(lineWidth: threshold.lineWidth, dash: threshold.dash))
-                        .annotation(
-                            position: index == 1 ? .bottom : .top,
-                            alignment: index == 0 ? .trailing : .leading
-                        ) {
-                            Text(threshold.label)
-                                .font(.caption2)
-                                .fontWeight(index == 0 ? .medium : .regular)
-                                .foregroundColor(threshold.color)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.9))
-                                .cornerRadius(4)
-                        }
-                }
-            }
-        }
-    }
-    
     // MARK: - Body
-    
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Text("FFT Peaks")
                     .font(.headline)
-                
+
                 Spacer()
-                
+
                 #if os(macOS)
                 Button {
                     showingControlsHelp.toggle()
@@ -475,7 +306,7 @@ struct SpectrumView: View {
                 #endif
             }
             .padding(.bottom, 8)
-            
+
             ZStack(alignment: .topTrailing) {
                 chartView
                 materialSpectraLegend
@@ -484,7 +315,7 @@ struct SpectrumView: View {
             }
         }
     }
-    
+
     /// Legend overlay for per-phase material spectra
     @ViewBuilder
     private var materialSpectraLegend: some View {
@@ -506,7 +337,7 @@ struct SpectrumView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
         }
     }
-    
+
     /// The main chart view with all configurations applied
     private var chartView: some View {
         baseChart
@@ -573,7 +404,7 @@ struct SpectrumView: View {
             }
             #endif
     }
-    
+
     /// Helper to create GeometryReader wrapper for annotations (and cursor/crosshair on each platform).
     /// All interactive gestures live here so annotation labels' highPriorityGesture can pre-empt
     /// the background pan/hover as a child-beats-parent — no sibling overlay conflicts.
@@ -722,7 +553,7 @@ struct SpectrumView: View {
             }
         }
     }
-    
+
     #if os(macOS)
     /// Formats a frequency value for the cursor readout
     private func formatCursorFrequency(_ hz: Double) -> String {
@@ -732,17 +563,17 @@ struct SpectrumView: View {
             return String(format: "%.1f Hz", hz)
         }
     }
-    
+
     /// Cursor readout label + crosshair lines showing frequency and dB values at the current position
     @ViewBuilder
     private func cursorReadout(snap: CursorSnapState, plotFrame: CGRect, proxy: ChartProxy) -> some View {
         let labelWidth: CGFloat = 130
         let labelHeight: CGFloat = 40
         let margin: CGFloat = 8
-        
+
         let cursorX = plotFrame.minX + (proxy.position(forX: snap.frequency) ?? 0)
         let cursorY = plotFrame.minY + (proxy.position(forY: snap.magnitude) ?? 0)
-        
+
         // Vertical crosshair line
         Path { path in
             path.move(to: CGPoint(x: cursorX, y: plotFrame.minY))
@@ -750,7 +581,7 @@ struct SpectrumView: View {
         }
         .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         .allowsHitTesting(false)
-        
+
         // Horizontal crosshair line
         Path { path in
             path.move(to: CGPoint(x: plotFrame.minX, y: cursorY))
@@ -758,7 +589,7 @@ struct SpectrumView: View {
         }
         .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         .allowsHitTesting(false)
-        
+
         let labelX: CGFloat = {
             let right = cursorX + margin
             if right + labelWidth > plotFrame.maxX {
@@ -766,7 +597,7 @@ struct SpectrumView: View {
             }
             return right
         }()
-        
+
         let labelY: CGFloat = {
             let above = cursorY - labelHeight - margin
             if above < plotFrame.minY {
@@ -774,7 +605,7 @@ struct SpectrumView: View {
             }
             return above
         }()
-        
+
         VStack(alignment: .leading, spacing: 2) {
             Text(formatCursorFrequency(snap.frequency))
                 .font(.caption2)
@@ -793,7 +624,7 @@ struct SpectrumView: View {
         .allowsHitTesting(false)
     }
     #endif
-    
+
     #if !os(macOS)
     /// Formats a frequency value for the crosshair readout
     private func formatCrosshairFrequency(_ hz: Double) -> String {
@@ -803,17 +634,17 @@ struct SpectrumView: View {
             return String(format: "%.1f Hz", hz)
         }
     }
-    
+
     /// Crosshair readout label + crosshair lines showing frequency and dB at the tracked position
     @ViewBuilder
     private func crosshairReadout(snap: CursorSnapState, plotFrame: CGRect, proxy: ChartProxy) -> some View {
         let labelWidth: CGFloat = 130
         let labelHeight: CGFloat = 40
         let margin: CGFloat = 8
-        
+
         let cursorX = (proxy.position(forX: snap.frequency) ?? 0) + plotFrame.minX
         let cursorY = (proxy.position(forY: snap.magnitude) ?? 0) + plotFrame.minY
-        
+
         // Vertical crosshair line
         Path { path in
             path.move(to: CGPoint(x: cursorX, y: plotFrame.minY))
@@ -821,7 +652,7 @@ struct SpectrumView: View {
         }
         .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         .allowsHitTesting(false)
-        
+
         // Horizontal crosshair line
         Path { path in
             path.move(to: CGPoint(x: plotFrame.minX, y: cursorY))
@@ -829,7 +660,7 @@ struct SpectrumView: View {
         }
         .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         .allowsHitTesting(false)
-        
+
         // Readout label — positioned to stay inside the plot
         let labelX: CGFloat = {
             let right = cursorX + margin
@@ -838,7 +669,7 @@ struct SpectrumView: View {
             }
             return right
         }()
-        
+
         let labelY: CGFloat = {
             let above = cursorY - labelHeight - margin
             if above < plotFrame.minY {
@@ -846,7 +677,7 @@ struct SpectrumView: View {
             }
             return above
         }()
-        
+
         VStack(alignment: .leading, spacing: 2) {
             Text(formatCrosshairFrequency(snap.frequency))
                 .font(.caption2)
@@ -865,7 +696,7 @@ struct SpectrumView: View {
         .allowsHitTesting(false)
     }
     #endif
-    
+
     /// The base chart with plot style and scales
     private var baseChart: some View {
         Chart {
@@ -888,7 +719,7 @@ struct SpectrumView: View {
             plotArea
                 .border(Color.gray, width: 1)
                 .contentShape(Rectangle())
-                
+
         }
         // Single chartOverlay on both platforms: annotations, cursor/crosshair readout, and
         // background gestures all share one view tree so highPriorityGesture on annotation
@@ -899,7 +730,7 @@ struct SpectrumView: View {
         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
         .chartYScale(domain: Double(minDB)...Double(maxDB))
     }
-    
+
     /// X-axis content builder
     @AxisContentBuilder
     private var xAxisContent: some AxisContent {
@@ -912,7 +743,7 @@ struct SpectrumView: View {
             AxisGridLine()
         }
     }
-    
+
     /// Y-axis content builder
     @AxisContentBuilder
     private var yAxisContent: some AxisContent {
@@ -921,7 +752,7 @@ struct SpectrumView: View {
             AxisGridLine()
         }
     }
-    
+
     /// Pinch gesture for zooming, anchored to the pinch midpoint.
     ///
     /// Uses `MagnifyGesture` (iOS 17+ / macOS 14+) which provides `startAnchor`
@@ -939,7 +770,7 @@ struct SpectrumView: View {
                 lastMagnificationScale = 1.0
             }
     }
-    
+
     /// Drag gesture for panning
     private var panGesture: some Gesture {
         DragGesture(minimumDistance: 8)
@@ -963,1152 +794,7 @@ struct SpectrumView: View {
                 lastDragTranslation = .zero
             }
     }
-    
-    // MARK: - Spectral Interpolation Utilities
-
-    /// Snaps a raw cursor frequency to the waveform of a single series.
-    ///
-    /// Algorithm:
-    /// 1. Binary search for the bin closest to `targetHz`.
-    /// 2. Linearly interpolate between the two bracketing bins for smooth tracking.
-    private static func snapToWaveform(
-        targetHz: Float,
-        magnitudes: [Float],
-        frequencies: [Float]
-    ) -> (frequency: Float, magnitude: Float)? {
-        guard magnitudes.count == frequencies.count, !frequencies.isEmpty else { return nil }
-
-        // Binary search for the bin closest to targetHz
-        var lo = 0
-        var hi = frequencies.count - 1
-        while lo < hi {
-            let mid = (lo + hi) / 2
-            if frequencies[mid] < targetHz { lo = mid + 1 } else { hi = mid }
-        }
-        let nearIdx: Int
-        if lo > 0 && abs(frequencies[lo - 1] - targetHz) < abs(frequencies[lo] - targetHz) {
-            nearIdx = lo - 1
-        } else {
-            nearIdx = lo
-        }
-
-        // Find the true bracketing pair: l <= targetHz <= r
-        let l: Int
-        let r: Int
-        if nearIdx < frequencies.count - 1 && frequencies[nearIdx] <= targetHz {
-            l = nearIdx
-            r = nearIdx + 1
-        } else if nearIdx > 0 {
-            l = nearIdx - 1
-            r = nearIdx
-        } else {
-            return (frequencies[nearIdx], magnitudes[nearIdx])
-        }
-        let denom = frequencies[r] - frequencies[l]
-        guard denom > 0 else { return (frequencies[nearIdx], magnitudes[nearIdx]) }
-        let t = (targetHz - frequencies[l]) / denom
-        return (frequencies[l] + t * (frequencies[r] - frequencies[l]),
-                magnitudes[l]  + t * (magnitudes[r]  - magnitudes[l]))
-    }
-
-    /// Screen-distance gravity threshold (points). A locked curve is only abandoned when
-    /// a competitor curve is at least this many points closer on screen.
-    private static let curveGravityThreshold: CGFloat = 12.0
-
-    /// Returns the materialSpectra index to lock to (-1 = primary spectrum).
-    /// Switches away from `lockedIndex` only when a competitor is at least
-    /// `curveGravityThreshold` screen points closer.
-    private static func nearestSeriesIndex(
-        targetHz: Float,
-        cursorScreenY: CGFloat,
-        proxy: ChartProxy,
-        plotFrame: CGRect,
-        materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)],
-        lockedIndex: Int
-    ) -> Int {
-        guard !materialSpectra.isEmpty else { return -1 }
-        var candidates: [(index: Int, dist: CGFloat)] = []
-        for (i, series) in materialSpectra.enumerated() {
-            guard let snapped = snapToWaveform(targetHz: targetHz,
-                                               magnitudes: series.magnitudes,
-                                               frequencies: series.frequencies),
-                  let screenY = proxy.position(forY: Double(snapped.magnitude))
-            else { continue }
-            let absoluteY = plotFrame.minY + screenY
-            candidates.append((index: i, dist: abs(absoluteY - cursorScreenY)))
-        }
-        guard !candidates.isEmpty else { return lockedIndex }
-        let best = candidates.min(by: { $0.dist < $1.dist })!
-        guard best.index != lockedIndex else { return lockedIndex }
-        let lockedDist = candidates.first(where: { $0.index == lockedIndex })?.dist
-        if let ld = lockedDist, ld - best.dist < curveGravityThreshold { return lockedIndex }
-        return best.index
-    }
-
-    /// Resolves a raw screen location into a `CursorSnapState`.
-    ///
-    /// When `isSpectrumFrozen` is false, returns the raw data-coordinate position
-    /// with no series lock (free-floating cursor). When frozen, snaps the Y position
-    /// to the nearest waveform and applies gravity-based curve locking.
-    private func resolveSnapState(
-        location: CGPoint,
-        plotFrame: CGRect,
-        proxy: ChartProxy,
-        lockedSeriesIndex: inout Int
-    ) -> CursorSnapState? {
-        let plotLocal = CGPoint(x: location.x - plotFrame.minX,
-                                y: location.y - plotFrame.minY)
-        guard let rawFreq = proxy.value(atX: plotLocal.x, as: Double.self),
-              let rawDB   = proxy.value(atY: plotLocal.y, as: Double.self) else { return nil }
-
-        // Snap when the spectrum is frozen (guitar) or when material spectra are loaded
-        guard isSpectrumFrozen || !materialSpectra.isEmpty else {
-            return CursorSnapState(frequency: rawFreq, magnitude: rawDB,
-                                   seriesIndex: nil, curveColor: primaryCurveColor)
-        }
-
-        let targetHz = Float(rawFreq)
-        let newLock = Self.nearestSeriesIndex(
-            targetHz: targetHz,
-            cursorScreenY: location.y,
-            proxy: proxy,
-            plotFrame: plotFrame,
-            materialSpectra: materialSpectra,
-            lockedIndex: lockedSeriesIndex)
-        lockedSeriesIndex = newLock
-
-        let snapMags: [Float]
-        let snapFreqs: [Float]
-        let curveColor: Color
-        let seriesIdx: Int?
-
-        if !materialSpectra.isEmpty, newLock >= 0, newLock < materialSpectra.count {
-            let s = materialSpectra[newLock]
-            snapMags  = s.magnitudes
-            snapFreqs = s.frequencies
-            curveColor = s.color
-            seriesIdx  = newLock
-        } else {
-            snapMags   = magnitudes
-            snapFreqs  = frequencies
-            curveColor = primaryCurveColor
-            seriesIdx  = nil
-        }
-
-        guard let snapped = Self.snapToWaveform(targetHz: targetHz,
-                                                magnitudes: snapMags,
-                                                frequencies: snapFreqs)
-        else {
-            return CursorSnapState(frequency: rawFreq, magnitude: rawDB,
-                                   seriesIndex: seriesIdx, curveColor: curveColor)
-        }
-        return CursorSnapState(frequency: Double(snapped.frequency),
-                               magnitude: Double(snapped.magnitude),
-                               seriesIndex: seriesIdx,
-                               curveColor: curveColor)
-    }
-
-    // MARK: - Helper Functions
-    
-    /// Resets both axes to the saved (persisted) display settings
-    private func resetBothAxesToSaved() {
-        minFreq = TapDisplaySettings.minFrequency
-        maxFreq = TapDisplaySettings.maxFrequency
-        minDB = TapDisplaySettings.minMagnitude
-        maxDB = TapDisplaySettings.maxMagnitude
-        onFrequencyRangeChanged?()
-    }
-    
-    /// Resets the frequency axis to the saved (persisted) display settings
-    private func resetFrequencyAxisToSaved() {
-        minFreq = TapDisplaySettings.minFrequency
-        maxFreq = TapDisplaySettings.maxFrequency
-        onFrequencyRangeChanged?()
-    }
-    
-    /// Resets the magnitude axis to the saved (persisted) display settings
-    private func resetMagnitudeAxisToSaved() {
-        minDB = TapDisplaySettings.minMagnitude
-        maxDB = TapDisplaySettings.maxMagnitude
-    }
-    
-    /// Resets both axes to factory default values
-    private func resetBothAxesToDefaults() {
-        let type = TapDisplaySettings.measurementType
-        minFreq = TapDisplaySettings.defaultMinFrequency(for: type)
-        maxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
-        minDB = TapDisplaySettings.defaultMinMagnitude
-        maxDB = TapDisplaySettings.defaultMaxMagnitude
-        onFrequencyRangeChanged?()
-    }
-    
-    /// Resets the frequency axis to factory default values
-    private func resetFrequencyAxisToDefaults() {
-        let type = TapDisplaySettings.measurementType
-        minFreq = TapDisplaySettings.defaultMinFrequency(for: type)
-        maxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
-        onFrequencyRangeChanged?()
-    }
-    
-    /// Resets the magnitude axis to factory default values
-    private func resetMagnitudeAxisToDefaults() {
-        minDB = TapDisplaySettings.defaultMinMagnitude
-        maxDB = TapDisplaySettings.defaultMaxMagnitude
-    }
-    
-    /// Returns the color associated with a guitar mode
-    private func modeColor(for mode: GuitarMode) -> Color {
-        switch mode.normalized {
-        case .air: return .cyan
-        case .top: return .green
-        case .back: return .orange
-        case .dipole: return .red
-        case .ringMode: return .purple
-        case .upperModes: return .gray
-        case .unknown: return .secondary
-        default: return .secondary
-        }
-    }
-    
-    /// Returns abbreviated mode name for boundary labels
-    private func modeAbbreviation(for mode: GuitarMode) -> String {
-        switch mode.normalized {
-        case .air: return "Air"
-        case .top: return "Top"
-        case .back: return "Back"
-        case .dipole: return "DP"
-        case .ringMode: return "Ring"
-        case .upperModes: return "Upper"
-        case .unknown: return "?"
-        default: return "?"
-        }
-    }
-    
-    /// Determines if this boundary frequency is the start (lower bound) of a mode range
-    private func isStartOfModeRange(_ frequency: Float, for mode: GuitarMode) -> Bool {
-        return abs(frequency - mode.idealRange.lowerBound) < 0.1
-    }
-    
-    // MARK: - Gesture Handlers
-    
-    #if os(macOS)
-    /// Handles scroll wheel events for zooming and panning on macOS.
-    ///
-    /// Zoom operations anchor to the current cursor position so the point under the
-    /// cursor stays fixed as the range expands or contracts.
-    ///
-    /// - No modifiers: Pan view vertically (magnitude axis)
-    /// - Shift key: Pan view horizontally (frequency axis)
-    /// - Command key: Zoom both axes around cursor
-    /// - Option key: Zoom frequency axis only (horizontal) around cursor
-    /// - Control key: Zoom magnitude axis only (vertical) around cursor
-    ///
-    /// - Parameters:
-    ///   - event: The scroll wheel event from AppKit
-    ///   - plotFrame: The resolved chart plot frame in overlay-local coordinates
-    ///   - proxy: The chart proxy for coordinate conversion
-    private func handleScrollWheel(event: NSEvent, plotFrame: CGRect, proxy: ChartProxy) {
-        let scrollDeltaY = event.scrollingDeltaY
-        let scrollDeltaX = event.scrollingDeltaX
-        
-        // Check modifiers - be explicit about checking individual flags
-        let modifiers = event.modifierFlags
-        let hasCommand = modifiers.contains(.command)
-        let hasShift = modifiers.contains(.shift)
-        let hasOption = modifiers.contains(.option)
-        let hasControl = modifiers.contains(.control)
-        
-        // Debug: Print scroll deltas and modifiers
-        #if DEBUG
-        if hasCommand || hasShift || hasOption || hasControl {
-            print("Scroll - deltaY: \(scrollDeltaY), deltaX: \(scrollDeltaX)")
-            print("Modifiers - Command: \(hasCommand), Shift: \(hasShift), Option: \(hasOption), Control: \(hasControl)")
-        }
-        #endif
-        
-        // Skip very small deltas (noise from trackpad)
-        guard abs(scrollDeltaY) > 0.1 || abs(scrollDeltaX) > 0.1 else { return }
-        
-        // When Control is pressed, use whichever delta is larger for zooming
-        // (Some systems may convert scroll directions with modifiers)
-        let effectiveDelta = abs(scrollDeltaY) > abs(scrollDeltaX) ? scrollDeltaY : scrollDeltaX
-        
-        // Determine zoom factor from scroll delta (smaller changes for smoother zoom)
-        let zoomSensitivity: CGFloat = 0.02
-        let zoomFactor = 1.0 + (effectiveDelta * zoomSensitivity)
-        
-        // Resolve the cursor's data-space position for anchor-aware zoom.
-        // lastCursorPosition is kept current by the hover handler.
-        let anchor = lastCursorPosition
-        
-        // Check in order of priority
-        if hasCommand && !hasShift && !hasOption && !hasControl {
-            // Command only: Zoom both axes around cursor
-            #if DEBUG
-            print("→ Zooming both axes")
-            #endif
-            withAnimation(.easeOut(duration: 0.1)) {
-                handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
-            }
-        } else if hasControl && !hasCommand && !hasOption && !hasShift {
-            // Control only: Zoom magnitude axis only around cursor
-            #if DEBUG
-            print("→ Zooming magnitude axis (zoom factor: \(zoomFactor))")
-            #endif
-            withAnimation(.easeOut(duration: 0.1)) {
-                handleMagnitudeZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
-            }
-        } else if hasOption && !hasCommand && !hasShift && !hasControl {
-            // Option only: Zoom frequency axis only around cursor
-            #if DEBUG
-            print("→ Zooming frequency axis")
-            #endif
-            withAnimation(.easeOut(duration: 0.1)) {
-                handleFrequencyZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
-            }
-        } else if hasShift && !hasCommand && !hasOption && !hasControl {
-            // Shift only: Pan horizontally (frequency axis)
-            // Shift often converts vertical scroll to horizontal, so check both deltas
-            #if DEBUG
-            print("→ Panning horizontally")
-            #endif
-            let effectiveScroll = abs(scrollDeltaX) > abs(scrollDeltaY) ? scrollDeltaX : scrollDeltaY
-            let translation = CGSize(width: effectiveScroll, height: 0)
-            withAnimation(.easeOut(duration: 0.1)) {
-                handlePan(translation: translation)
-            }
-        } else if !hasCommand && !hasShift && !hasOption && !hasControl {
-            // No modifiers: Pan vertically (magnitude axis)
-            #if DEBUG
-            print("→ Panning vertically")
-            #endif
-            let translation = CGSize(width: 0, height: scrollDeltaY)  // Pan only vertically
-            withAnimation(.easeOut(duration: 0.1)) {
-                handlePan(translation: translation)
-            }
-        } else {
-            #if DEBUG
-            print("→ Ignoring modifier combination")
-            #endif
-        }
-        // Ignore any combination of modifiers
-    }
-    #endif
-    
-    /// Zooms only the frequency (X) axis, anchoring to the cursor position when available.
-    ///
-    /// When `cursorPosition`, `plotFrame`, and `proxy` are all provided (macOS), the frequency
-    /// value under the cursor stays fixed. Falls back to range midpoint otherwise.
-    #if os(macOS)
-    private func handleFrequencyZoom(scale: CGFloat, cursorPosition: CGPoint? = nil, plotFrame: CGRect? = nil, proxy: ChartProxy? = nil) {
-        let anchorFreq: Float = {
-            if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
-                let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
-                if let hz = p.value(atX: plotLocal.x, as: Double.self) {
-                    return Float(hz).clamped(to: minFreq...maxFreq)
-                }
-            }
-            return (maxFreq + minFreq) / 2
-        }()
-        applyFrequencyZoom(scale: scale, anchorFreq: anchorFreq)
-    }
-    #else
-    private func handleFrequencyZoom(scale: CGFloat) {
-        applyFrequencyZoom(scale: scale, anchorFreq: (maxFreq + minFreq) / 2)
-    }
-    #endif
-
-    private func applyFrequencyZoom(scale: CGFloat, anchorFreq: Float) {
-        if isLogarithmic {
-            let logAnchor = log10(Double(anchorFreq))
-            let logMin = log10(Double(minFreq))
-            let logMax = log10(Double(maxFreq))
-            let newLogMin = logAnchor - (logAnchor - logMin) / Double(scale)
-            let newLogMax = logAnchor + (logMax - logAnchor) / Double(scale)
-            var newMinFreq = Float(pow(10, newLogMin))
-            var newMaxFreq = Float(pow(10, newLogMax))
-            newMinFreq = max(20, newMinFreq)
-            newMaxFreq = min(20000, newMaxFreq)
-            if newMaxFreq > newMinFreq * 1.1 {
-                minFreq = newMinFreq
-                maxFreq = newMaxFreq
-                onFrequencyRangeChanged?()
-            }
-        } else {
-            var newMinFreq = anchorFreq - (anchorFreq - minFreq) / Float(scale)
-            var newMaxFreq = anchorFreq + (maxFreq - anchorFreq) / Float(scale)
-            newMinFreq = max(20, newMinFreq)
-            newMaxFreq = min(20000, newMaxFreq)
-            if newMaxFreq > newMinFreq + 100 {
-                minFreq = newMinFreq
-                maxFreq = newMaxFreq
-                onFrequencyRangeChanged?()
-            }
-        }
-    }
-
-    /// Zooms only the magnitude (Y) axis, anchoring to the cursor position when available.
-    ///
-    /// When `cursorPosition`, `plotFrame`, and `proxy` are all provided (macOS), the dB value
-    /// under the cursor stays fixed. Falls back to range midpoint otherwise.
-    #if os(macOS)
-    private func handleMagnitudeZoom(scale: CGFloat, cursorPosition: CGPoint? = nil, plotFrame: CGRect? = nil, proxy: ChartProxy? = nil) {
-        let anchorDB: Float = {
-            if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
-                let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
-                if let db = p.value(atY: plotLocal.y, as: Double.self) {
-                    return Float(db).clamped(to: minDB...maxDB)
-                }
-            }
-            return (maxDB + minDB) / 2
-        }()
-        applyMagnitudeZoom(scale: scale, anchorDB: anchorDB)
-    }
-    #endif
-
-    private func applyMagnitudeZoom(scale: CGFloat, anchorDB: Float) {
-        #if DEBUG
-        print("  handleMagnitudeZoom called with scale: \(scale)")
-        print("  Current dB range: \(minDB) to \(maxDB)")
-        #endif
-
-        var newMinDB = anchorDB - (anchorDB - minDB) / Float(scale)
-        var newMaxDB = anchorDB + (maxDB - anchorDB) / Float(scale)
-        newMinDB = max(-120, newMinDB)
-        newMaxDB = min(20, newMaxDB)
-
-        #if DEBUG
-        print("  Calculated new dB range: \(newMinDB) to \(newMaxDB)")
-        print("  Condition check: \(newMaxDB) > \(newMinDB) + 10 = \(newMaxDB > newMinDB + 10)")
-        #endif
-
-        if newMaxDB > newMinDB + 10 {
-            minDB = newMinDB
-            maxDB = newMaxDB
-            #if DEBUG
-            print("  ✓ Updated dB range to: \(minDB) to \(maxDB)")
-            #endif
-        } else {
-            #if DEBUG
-            print("  ✗ Did not update (minimum range not met)")
-            #endif
-        }
-    }
-
-    /// Zooms both axes simultaneously, anchoring to the gesture/cursor location.
-    ///
-    /// On macOS, `cursorPosition`/`plotFrame`/`proxy` provide the exact data-space anchor
-    /// via ChartProxy. On both platforms, `pinchAnchor` (from `MagnifyGesture.startAnchor`)
-    /// is converted to data coordinates using `lastPlotFrame`.
-    ///
-    /// Falls back to range-midpoint zoom when no anchor is resolvable.
-    ///
-    /// - Note: Zoom ranges are clamped to reasonable limits:
-    ///   - Frequency: 20 Hz to 20 kHz with minimum visible range
-    ///   - dB: -120 dB to +20 dB with minimum 10 dB range
-    private func handleZoom(scale: CGFloat,
-                            pinchAnchor: UnitPoint? = nil,
-                            cursorPosition: CGPoint? = nil,
-                            plotFrame: CGRect? = nil,
-                            proxy: ChartProxy? = nil) {
-        // --- Frequency axis anchor ---
-        let anchorFreq: Float = {
-            #if os(macOS)
-            // Scroll-wheel path: use ChartProxy for exact data coordinates.
-            if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
-                let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
-                if let hz = p.value(atX: plotLocal.x, as: Double.self) {
-                    return Float(hz).clamped(to: minFreq...maxFreq)
-                }
-            }
-            #endif
-            // Pinch path: convert UnitPoint (relative to the whole overlay view) into
-            // a plot-area fraction, then interpolate in the data domain.
-            if let anchor = pinchAnchor, lastPlotFrame != .zero {
-                let viewWidth = lastPlotFrame.minX + lastPlotFrame.width
-                let screenX = anchor.x * viewWidth
-                let plotFraction = (screenX - lastPlotFrame.minX) / lastPlotFrame.width
-                let fraction = plotFraction.clamped(to: 0...1)
-                if isLogarithmic {
-                    let logMin = log10(Double(minFreq))
-                    let logMax = log10(Double(maxFreq))
-                    return Float(pow(10, logMin + fraction * (logMax - logMin)))
-                } else {
-                    return minFreq + Float(fraction) * (maxFreq - minFreq)
-                }
-            }
-            return (maxFreq + minFreq) / 2
-        }()
-
-        applyFrequencyZoom(scale: scale, anchorFreq: anchorFreq)
-
-        // --- dB axis anchor ---
-        let anchorDB: Float = {
-            #if os(macOS)
-            if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
-                let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
-                if let db = p.value(atY: plotLocal.y, as: Double.self) {
-                    return Float(db).clamped(to: minDB...maxDB)
-                }
-            }
-            #endif
-            if let anchor = pinchAnchor, lastPlotFrame != .zero {
-                // UnitPoint.y = 0 is the view top (= maxDB), 1 is the bottom (= minDB).
-                let viewHeight = lastPlotFrame.minY + lastPlotFrame.height
-                let screenY = anchor.y * viewHeight
-                let plotFraction = (screenY - lastPlotFrame.minY) / lastPlotFrame.height
-                let fraction = plotFraction.clamped(to: 0...1)
-                return maxDB - Float(fraction) * (maxDB - minDB)
-            }
-            return (maxDB + minDB) / 2
-        }()
-
-        applyMagnitudeZoom(scale: scale, anchorDB: anchorDB)
-    }
-    
-    /// Handles drag gestures for panning the view.
-    ///
-    /// Pan sensitivity is adjusted based on the current visible range.
-    /// Different panning algorithms are used for logarithmic vs. linear frequency scales.
-    ///
-    /// - Parameter translation: The drag translation from the gesture
-    ///
-    /// - Note: Panning is constrained to keep the view within valid bounds
-    private func handlePan(translation: CGSize) {
-        if isLogarithmic {
-            // Pan on frequency axis (logarithmic scale)
-            // Work in log space for natural panning behavior
-            let freqLogRange = log10(Double(maxFreq)) - log10(Double(minFreq))
-            let freqPanFactor = Double(translation.width) / 400.0 // Adjust sensitivity
-            let freqLogShift = freqLogRange * freqPanFactor
-            
-            var newMinFreq = Float(pow(10, log10(Double(minFreq)) - freqLogShift))
-            var newMaxFreq = Float(pow(10, log10(Double(maxFreq)) - freqLogShift))
-            
-            // Clamp to boundaries and adjust both values to maintain range
-            if newMinFreq < 20 {
-                let shift = 20 - newMinFreq
-                newMinFreq = 20
-                newMaxFreq += shift
-            }
-            if newMaxFreq > 20000 {
-                let shift = newMaxFreq - 20000
-                newMaxFreq = 20000
-                newMinFreq -= shift
-            }
-            
-            minFreq = max(20, newMinFreq)
-            maxFreq = min(20000, newMaxFreq)
-            onFrequencyRangeChanged?()
-        } else {
-            // Pan on frequency axis (linear scale)
-            let freqRange = maxFreq - minFreq
-            let freqPanFactor = Float(translation.width) / 400.0 // Adjust sensitivity
-            let freqShift = freqRange * freqPanFactor
-            
-            var newMinFreq = minFreq - freqShift
-            var newMaxFreq = maxFreq - freqShift
-            
-            // Clamp to boundaries
-            if newMinFreq < 20 {
-                let shift = 20 - newMinFreq
-                newMinFreq = 20
-                newMaxFreq += shift
-            }
-            if newMaxFreq > 20000 {
-                let shift = newMaxFreq - 20000
-                newMaxFreq = 20000
-                newMinFreq -= shift
-            }
-            
-            minFreq = max(20, newMinFreq)
-            maxFreq = min(20000, newMaxFreq)
-            onFrequencyRangeChanged?()
-        }
-        
-        // Pan on dB axis (always linear)
-        let dbRange = maxDB - minDB
-        let dbPanFactor = Float(translation.height) / 300.0 // Adjust sensitivity
-        let dbShift = dbRange * dbPanFactor
-        
-        var newMinDB = minDB + dbShift
-        var newMaxDB = maxDB + dbShift
-        
-        // Clamp to boundaries
-        if newMinDB < -120 {
-            let shift = -120 - newMinDB
-            newMinDB = -120
-            newMaxDB += shift
-        }
-        if newMaxDB > 20 {
-            let shift = newMaxDB - 20
-            newMaxDB = 20
-            newMinDB -= shift
-        }
-        
-        minDB = max(-120, newMinDB)
-        maxDB = min(20, newMaxDB)
-    }
 }
-
-// MARK: - Peak Annotations Overlay
-
-/// A container view for all peak annotations
-private struct PeakAnnotationsOverlay: View {
-    let peaks: [ResonantPeak]
-    let annotationOffsets: Binding<[UUID: CGPoint]>
-    let geometry: GeometryProxy
-    let plotFrame: CGRect
-    let minFreq: Float
-    let maxFreq: Float
-    let minDB: Float
-    let maxDB: Float
-    let isLogarithmic: Bool
-    @Binding var isAnnotationDragging: Bool
-    
-    // Material measurement mode support
-    let measurementType: MeasurementType
-    let selectedLongitudinalPeakID: UUID?
-    let selectedCrossPeakID: UUID?
-    let selectedFlcPeakID: UUID?
-    
-    var body: some View {
-        ZStack {
-            ForEach(peaks) { peak in
-                DraggablePeakAnnotation(
-                    peak: peak,
-                    offset: annotationOffsets.wrappedValue[peak.id] ?? .zero,
-                    chartGeometry: geometry,
-                    plotFrame: plotFrame,
-                    minFreq: minFreq,
-                    maxFreq: maxFreq,
-                    minDB: minDB,
-                    maxDB: maxDB,
-                    isLogarithmic: isLogarithmic,
-                    isAnnotationDragging: $isAnnotationDragging,
-                    measurementType: measurementType,
-                    selectedLongitudinalPeakID: selectedLongitudinalPeakID,
-                    selectedCrossPeakID: selectedCrossPeakID,
-                    selectedFlcPeakID: selectedFlcPeakID,
-                    onOffsetChange: { newOffset in
-                        annotationOffsets.wrappedValue[peak.id] = newOffset
-                    },
-                    onReset: {
-                        annotationOffsets.wrappedValue.removeValue(forKey: peak.id)
-                    }
-                )
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-}
-
-// MARK: - Draggable Peak Annotation
-
-/// A draggable annotation view for peak labels that can be repositioned to prevent overlap
-struct DraggablePeakAnnotation: View {
-    let peak: ResonantPeak
-    let offset: CGPoint
-    let chartGeometry: GeometryProxy
-    let plotFrame: CGRect
-    let minFreq: Float
-    let maxFreq: Float
-    let minDB: Float
-    let maxDB: Float
-    let isLogarithmic: Bool
-    @Binding var isAnnotationDragging: Bool
-    
-    // Material measurement mode support
-    let measurementType: MeasurementType
-    let selectedLongitudinalPeakID: UUID?
-    let selectedCrossPeakID: UUID?
-    let selectedFlcPeakID: UUID?
-    
-    let onOffsetChange: (CGPoint) -> Void
-    let onReset: () -> Void
-    
-    @State private var dragOffset: CGSize = .zero
-    @State private var isHovering: Bool = false
-    @State private var isDragging: Bool = false
-    
-    // Cache computed positions to reduce calculation overhead
-    @State private var cachedChartPosition: CGPoint = .zero
-    @State private var cachedPeakPosition: CGPoint = .zero
-    
-    private var modeColor: Color {
-        if measurementType.isGuitar {
-            // Guitar mode: color by guitar mode classification
-            let mode = GuitarMode.classify(frequency: peak.frequency).normalized
-            switch mode {
-            case .air: return .cyan
-            case .top: return .green
-            case .back: return .orange
-            case .dipole: return .red
-            case .ringMode: return .purple
-            case .upperModes: return .gray
-            case .unknown: return .secondary
-            default: return .secondary
-            }
-        } else {
-            // Material mode: color by L/C selection
-            if peak.id == selectedLongitudinalPeakID {
-                return .blue      // Longitudinal = blue
-            } else if peak.id == selectedCrossPeakID {
-                return .orange    // Cross-grain = orange
-            } else if peak.id == selectedFlcPeakID {
-                return .purple    // FLC = purple
-            } else {
-                return .secondary // Unselected = gray
-            }
-        }
-    }
-    
-    /// Whether the annotation has been moved from its default position
-    private var isMoved: Bool {
-        offset.x != 0 || offset.y != 0
-    }
-    
-    /// Calculate position in chart coordinates
-    private func calculateChartPosition() -> CGPoint {
-        // Use the plot frame dimensions for accurate positioning
-        let chartWidth = plotFrame.width
-        let chartHeight = plotFrame.height
-        guard chartWidth > 0, chartHeight > 0 else { return .zero }
-        
-        // Calculate X position (frequency)
-        let freqRange = maxFreq - minFreq
-        let freqNormalized: CGFloat
-        if isLogarithmic {
-            let logMin = log10(Double(minFreq))
-            let logMax = log10(Double(maxFreq))
-            let logRange = logMax - logMin
-            guard logRange > 0, minFreq > 0, maxFreq > 0 else { return .zero }
-            let logFreq = log10(Double(peak.frequency))
-            freqNormalized = CGFloat((logFreq - logMin) / logRange)
-        } else {
-            guard freqRange > 0 else { return .zero }
-            freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
-        }
-        let x = plotFrame.minX + freqNormalized * chartWidth
-        
-        // Calculate Y position (magnitude)
-        let dbRange = maxDB - minDB
-        guard dbRange > 0 else { return .zero }
-        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
-        let dbNormalized = CGFloat((clampedMag - minDB) / dbRange)
-        let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
-        
-        return CGPoint(x: x, y: y - 70) // Offset up by 70 to place above peak
-    }
-    
-    /// Position of the actual peak marker (without the label offset)
-    private func calculatePeakPosition() -> CGPoint {
-        let chartWidth = plotFrame.width
-        let chartHeight = plotFrame.height
-        guard chartWidth > 0, chartHeight > 0 else { return .zero }
-        
-        // Calculate X position (frequency)
-        let freqRange = maxFreq - minFreq
-        let freqNormalized: CGFloat
-        if isLogarithmic {
-            let logMin = log10(Double(minFreq))
-            let logMax = log10(Double(maxFreq))
-            let logRange = logMax - logMin
-            guard logRange > 0, minFreq > 0, maxFreq > 0 else { return .zero }
-            let logFreq = log10(Double(peak.frequency))
-            freqNormalized = CGFloat((logFreq - logMin) / logRange)
-        } else {
-            guard freqRange > 0 else { return .zero }
-            freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
-        }
-        let x = plotFrame.minX + freqNormalized * chartWidth
-        
-        // Calculate Y position (magnitude)
-        let dbRange = maxDB - minDB
-        guard dbRange > 0 else { return .zero }
-        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
-        let dbNormalized = CGFloat((clampedMag - minDB) / dbRange)
-        let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
-        
-        return CGPoint(x: x, y: y)
-    }
-    
-    /// Final position including user offset and drag
-    private var finalPosition: CGPoint {
-        CGPoint(
-            x: cachedChartPosition.x + offset.x + dragOffset.width,
-            y: cachedChartPosition.y + offset.y + dragOffset.height
-        )
-    }
-    
-    var body: some View {
-        // Separate the connection line and label into distinct layers
-        ZStack(alignment: .topLeading) {
-            // Connection line layer - always show when we have valid positions
-            if cachedPeakPosition.x.isFinite && cachedPeakPosition.y.isFinite &&
-               cachedChartPosition.x.isFinite && cachedChartPosition.y.isFinite &&
-               cachedChartPosition != .zero {
-                ConnectionLine(
-                    from: cachedPeakPosition,
-                    to: CGPoint(
-                        x: cachedChartPosition.x + offset.x + dragOffset.width,
-                        y: cachedChartPosition.y + offset.y + dragOffset.height + 30
-                    ),
-                    color: modeColor
-                )
-            }
-            
-            // The annotation content - positioned independently
-            PeakAnnotationLabel(
-                peak: peak,
-                modeColor: modeColor,
-                isHovering: isHovering,
-                isDragging: isDragging,
-                isMoved: isMoved,
-                measurementType: measurementType,
-                isLongitudinal: peak.id == selectedLongitudinalPeakID,
-                isCross: peak.id == selectedCrossPeakID,
-                isFlc: peak.id == selectedFlcPeakID
-            )
-            .position(finalPosition)
-            .highPriorityGesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { value in
-                        if !isDragging {
-                            isDragging = true
-                            isAnnotationDragging = true
-                            // Cache positions at start of drag
-                            cachedChartPosition = calculateChartPosition()
-                            cachedPeakPosition = calculatePeakPosition()
-                        }
-                        dragOffset = value.translation
-                    }
-                    .onEnded { value in
-                        let newOffset = CGPoint(
-                            x: offset.x + value.translation.width,
-                            y: offset.y + value.translation.height
-                        )
-                        // Disable animation for smoother dragging
-                        var transaction = Transaction()
-                        transaction.disablesAnimations = true
-                        withTransaction(transaction) {
-                            onOffsetChange(newOffset)
-                            isDragging = false
-                            isAnnotationDragging = false
-                        }
-                        dragOffset = .zero
-                        // Update cache after drag completes
-                        cachedChartPosition = calculateChartPosition()
-                        cachedPeakPosition = calculatePeakPosition()
-                    }
-            )
-            .onHover { hovering in
-                withAnimation(.none) {
-                    isHovering = hovering
-                }
-            }
-            #if os(macOS)
-            .cursor(NSCursor.openHand)
-            #endif
-            .contextMenu {
-                Button(action: onReset) {
-                    Label("Reset Position", systemImage: "arrow.counterclockwise")
-                }
-                .disabled(!isMoved)
-            }
-            #if os(macOS)
-            .help(isMoved ? "Drag to adjust • Right-click to reset position" : "Drag to reposition label")
-            #endif
-        }
-        .onAppear {
-            // Initialize cached positions immediately on appear
-            cachedChartPosition = calculateChartPosition()
-            cachedPeakPosition = calculatePeakPosition()
-        }
-        .task {
-            // Also calculate on initial render to ensure we have positions ASAP
-            if cachedChartPosition == .zero {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
-            }
-        }
-        .onChange(of: minFreq) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: maxFreq) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: minDB) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: maxDB) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: isLogarithmic) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: plotFrame) { _, _ in
-            // Update cached positions when the chart geometry changes (e.g., during device rotation)
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: peak.id) { _, _ in
-            // Update cached positions when the peak itself changes (e.g., after a new measurement)
-            if !isDragging {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
-            }
-        }
-        .onChange(of: peak.magnitude) { _, _ in
-            // Update Y position when peak magnitude changes
-            if !isDragging {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
-            }
-        }
-    }
-}
-
-// MARK: - Connection Line
-
-/// A simple view that draws a connection line between two points
-private struct ConnectionLine: View {
-    let from: CGPoint
-    let to: CGPoint
-    let color: Color
-    
-    var body: some View {
-        if from.x.isFinite && from.y.isFinite && to.x.isFinite && to.y.isFinite {
-            Path { path in
-                path.move(to: from)
-                path.addLine(to: to)
-            }
-            .stroke(color.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-        }
-    }
-}
-
-// MARK: - Peak Annotation Label
-
-/// The visual label component for a peak annotation
-private struct PeakAnnotationLabel: View {
-    let peak: ResonantPeak
-    let modeColor: Color
-    let isHovering: Bool
-    let isDragging: Bool
-    let isMoved: Bool
-    
-    // Material measurement mode support
-    let measurementType: MeasurementType
-    let isLongitudinal: Bool
-    let isCross: Bool
-    var isFlc: Bool = false
-    
-    /// The mode label to display - guitar mode name or material mode (L/C/FLC)
-    private var modeLabel: String {
-        if measurementType.isGuitar {
-            return GuitarMode.classify(frequency: peak.frequency).displayName
-        } else {
-            // Material mode labels
-            if isLongitudinal {
-                return "Longitudinal"
-            } else if isCross {
-                return "Cross-grain"
-            } else if isFlc {
-                return "FLC"
-            } else {
-                return "Peak"  // Unselected peak
-            }
-        }
-    }
-    
-    var body: some View {
-        VStack(spacing: 2) {
-            // Mode label (guitar mode or material L/C)
-            Text(modeLabel)
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(modeColor)
-            
-            // Pitch information if available (only show for guitar mode)
-            if measurementType.isGuitar, let pitchNote = peak.pitchNote, let pitchCents = peak.pitchCents {
-                HStack(spacing: 2) {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 8))
-                        .foregroundColor(.purple)
-                    Text(pitchNote)
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.purple)
-                }
-                
-                let sign = pitchCents >= 0 ? "+" : ""
-                Text("\(sign)\(Int(round(pitchCents))) ¢")
-                    .font(.caption2)
-                    .foregroundColor(.purple.opacity(0.8))
-            }
-            
-            Text(peak.frequency.formattedAsFrequency())
-                .font(.caption2)
-                .fontWeight(.medium)
-                .foregroundColor(.primary)
-            
-            Text("\(peak.magnitude, specifier: "%.1f") dB")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(white: 0.95))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(modeColor, lineWidth: isDragging ? 2.5 : (isHovering ? 2 : 1.5))
-        )
-        .shadow(color: .black.opacity(0.15), radius: 4)
-        .contentShape(Rectangle())
-    }
-}
-
-// MARK: - macOS Scroll Wheel Support
-
-#if os(macOS)
-/// A view modifier that captures scroll wheel events using event monitoring
-private struct ScrollWheelModifier: ViewModifier {
-    let onScrollWheel: (NSEvent) -> Void
-    
-    func body(content: Content) -> some View {
-        content.background(
-            ScrollWheelMonitorView(onScrollWheel: onScrollWheel)
-        )
-    }
-}
-
-/// NSView that uses local event monitoring to capture scroll wheel events
-private struct ScrollWheelMonitorView: NSViewRepresentable {
-    let onScrollWheel: (NSEvent) -> Void
-    
-    func makeNSView(context: Context) -> ScrollWheelHostView {
-        let view = ScrollWheelHostView()
-        view.scrollHandler = onScrollWheel
-        return view
-    }
-    
-    func updateNSView(_ nsView: ScrollWheelHostView, context: Context) {
-        nsView.scrollHandler = onScrollWheel
-    }
-}
-
-/// Host view that monitors scroll events when mouse is within its bounds
-private class ScrollWheelHostView: NSView {
-    var scrollHandler: ((NSEvent) -> Void)?
-    private var eventMonitor: Any?
-    private var isMouseInside = false
-    
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        setupEventMonitor()
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    private func setupEventMonitor() {
-        // Monitor scroll wheel events at the application level
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-            guard let self = self, self.isMouseInside else {
-                return event  // Pass through if mouse not in our view
-            }
-            
-            // Check if the event's window is our window
-            guard event.window == self.window else {
-                return event
-            }
-            
-            // Handle the scroll event
-            self.scrollHandler?(event)
-            
-            // Return nil to prevent further propagation (consume the event)
-            return nil
-        }
-    }
-    
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        
-        // Remove old tracking areas
-        trackingAreas.forEach { removeTrackingArea($0) }
-        
-        // Add new tracking area
-        let trackingArea = NSTrackingArea(
-            rect: bounds,
-            options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(trackingArea)
-    }
-    
-    override func mouseEntered(with event: NSEvent) {
-        isMouseInside = true
-    }
-    
-    override func mouseExited(with event: NSEvent) {
-        isMouseInside = false
-    }
-    
-    // Return nil to be transparent to hit testing (allows SwiftUI gestures to work)
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        return nil
-    }
-    
-    deinit {
-        if let monitor = eventMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
-    }
-}
-
-extension View {
-    /// Adds scroll wheel event handling on macOS
-    fileprivate func onScrollWheel(_ handler: @escaping (NSEvent) -> Void) -> some View {
-        self.modifier(ScrollWheelModifier(onScrollWheel: handler))
-    }
-}
-
-#endif
 
 // MARK: - Preview
 
@@ -2119,7 +805,7 @@ extension View {
     @Previewable @State var maxDB: Float = 0
     @Previewable @State var isLogarithmic = false
     @Previewable @State var annotationOffsets: [UUID: CGPoint] = [:]
-    
+
     let sampleFrequencies = stride(from: Float(20), through: Float(20000), by: Float(10)).map { $0 }
     let sampleMagnitudes = sampleFrequencies.map { freq in
         // Simulate a spectrum with peaks at 100 Hz, 440 Hz, and 1000 Hz
@@ -2128,14 +814,14 @@ extension View {
         let peak3 = -25.0 * abs(freq - 1000) / 200
         return max(peak1, peak2, peak3, -80)
     }
-    
+
     // Sample peaks for annotation
     let samplePeaks = [
         ResonantPeak(frequency: 100, magnitude: -20, quality: 15, bandwidth: 6.7),
         ResonantPeak(frequency: 200, magnitude: -35, quality: 12, bandwidth: 16.7),
         ResonantPeak(frequency: 240, magnitude: -40, quality: 10, bandwidth: 24)
     ]
-    
+
     return SpectrumView(
         frequencies: sampleFrequencies,
         magnitudes: sampleMagnitudes,
@@ -2151,355 +837,3 @@ extension View {
     .frame(height: 300)
     .padding()
 }
-// MARK: - Connection Line Shape for Export
-
-/// A simple Shape that draws a line between two points
-/// Used in ExportableSpectrumChart where Path views don't render correctly in ZStack
-private struct ConnectionLineShape: Shape {
-    let from: CGPoint
-    let to: CGPoint
-    
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: from)
-        path.addLine(to: to)
-        return path
-    }
-}
-
-// MARK: - Static Export Spectrum View
-
-/// A simplified, static version of SpectrumView designed for ImageRenderer export.
-/// This view removes all interactive elements (gestures, hover effects, context menus)
-/// that can cause ImageRenderer to fail.
-struct ExportableSpectrumChart: View {
-    let frequencies: [Float]
-    let magnitudes: [Float]
-    let minFreq: Float
-    let maxFreq: Float
-    let minDB: Float
-    let maxDB: Float
-    let isLogarithmic: Bool
-    var peaks: [ResonantPeak]?
-    var showModeBoundaries: Bool = true
-    var annotationOffsets: [UUID: CGPoint] = [:]
-    var showUnknownModes: Bool? = nil  // If nil, uses global setting
-    
-    // Material measurement mode support
-    var measurementType: MeasurementType = .acoustic
-    var selectedLongitudinalPeakID: UUID?
-    var selectedCrossPeakID: UUID?
-    var selectedFlcPeakID: UUID?
-    
-    /// Per-phase spectra overlay for material/brace measurements
-    var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
-    
-    private var chartData: [SpectrumDataPoint] {
-        zip(frequencies, magnitudes)
-            .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-            .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
-    }
-    
-    private var visibleModeBoundaries: [(frequency: Float, mode: GuitarMode)] {
-        // Don't show guitar mode boundaries when in material mode
-        guard measurementType.isGuitar else { return [] }
-        
-        let allModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
-        var boundaries: [(Float, GuitarMode)] = []
-        
-        for mode in allModes {
-            let range = mode.idealRange
-            if range.lowerBound >= minFreq && range.lowerBound <= maxFreq {
-                boundaries.append((range.lowerBound, mode))
-            }
-            if range.upperBound >= minFreq && range.upperBound <= maxFreq {
-                boundaries.append((range.upperBound, mode))
-            }
-        }
-        
-        return boundaries
-    }
-    
-    private var visiblePeaks: [ResonantPeak] {
-        let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
-        
-        // In material mode, show all peaks (no guitar mode filtering)
-        if !measurementType.isGuitar {
-            return filtered
-        }
-        
-        // Use explicit parameter if provided, otherwise fall back to global setting
-        let shouldShowUnknown = showUnknownModes ?? TapDisplaySettings.showUnknownModes
-        if shouldShowUnknown {
-            return filtered
-        } else {
-            return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
-        }
-    }
-    
-    private var frequencyAxisValues: [Double] {
-        if isLogarithmic {
-            return AxisTickGenerator.generateTicks(min: Double(minFreq), max: Double(maxFreq), maxTicks: 8, scale: AxisScale.logarithmic())
-        } else {
-            return AxisTickGenerator.generateTicks(min: Double(minFreq), max: Double(maxFreq), maxTicks: 8, scale: AxisScale.linear)
-        }
-    }
-    
-    private func modeColor(for mode: GuitarMode) -> Color {
-        switch mode.normalized {
-        case .air: return .cyan
-        case .top: return .green
-        case .back: return .orange
-        case .dipole: return .red
-        case .ringMode: return .purple
-        case .upperModes: return .gray
-        case .unknown: return .secondary
-        default: return .secondary
-        }
-    }
-    
-    /// Returns the appropriate color for a peak based on measurement type and selection
-    private func peakColor(for peak: ResonantPeak) -> Color {
-        if measurementType.isGuitar {
-            return modeColor(for: GuitarMode.classify(frequency: peak.frequency))
-        } else {
-            // Material mode: color by L/C/FLC selection
-            if peak.id == selectedLongitudinalPeakID {
-                return .blue
-            } else if peak.id == selectedCrossPeakID {
-                return .orange
-            } else if peak.id == selectedFlcPeakID {
-                return .purple
-            } else {
-                return .secondary
-            }
-        }
-    }
-    
-    /// Returns the mode label for a peak based on measurement type
-    private func peakModeLabel(for peak: ResonantPeak) -> String {
-        if measurementType.isGuitar {
-            return GuitarMode.classify(frequency: peak.frequency).displayName
-        } else {
-            if peak.id == selectedLongitudinalPeakID {
-                return "Longitudinal"
-            } else if peak.id == selectedCrossPeakID {
-                return "Cross-grain"
-            } else if peak.id == selectedFlcPeakID {
-                return "FLC"
-            } else {
-                return "Peak"
-            }
-        }
-    }
-    
-    private func modeAbbreviation(for mode: GuitarMode) -> String {
-        switch mode.normalized {
-        case .air: return "Air"
-        case .top: return "Top"
-        case .back: return "Back"
-        case .dipole: return "DP"
-        case .ringMode: return "Ring"
-        case .upperModes: return "Upper"
-        case .unknown: return "?"
-        default: return "?"
-        }
-    }
-    
-    private func isStartOfModeRange(_ frequency: Float, for mode: GuitarMode) -> Bool {
-        return abs(frequency - mode.idealRange.lowerBound) < 0.1
-    }
-    
-    /// Build filtered chart data for a single material spectrum series
-    private func seriesData(frequencies: [Float], magnitudes: [Float]) -> [SpectrumDataPoint] {
-        zip(frequencies, magnitudes)
-            .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-            .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
-    }
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("FFT Peaks")
-                    .font(.system(size: 24, weight: .semibold))
-                Spacer()
-            }
-            .padding(.bottom, 16)
-            
-            ZStack(alignment: .topLeading) {
-                // The chart
-                Chart {
-                    // Per-phase spectra overlay (material/brace) or single spectrum (guitar)
-                    if !materialSpectra.isEmpty {
-                        ForEach(Array(materialSpectra.enumerated()), id: \.offset) { index, series in
-                            let data = seriesData(frequencies: series.frequencies, magnitudes: series.magnitudes)
-                            ForEach(data) { dataPoint in
-                                let clamped = max(minDB, min(maxDB, dataPoint.magnitude))
-                                LineMark(
-                                    x: .value("Frequency", dataPoint.frequency),
-                                    y: .value("Magnitude", clamped)
-                                )
-                                .foregroundStyle(by: .value("Series", series.label))
-                                .lineStyle(StrokeStyle(lineWidth: 2))
-                            }
-                        }
-                    } else {
-                        // Spectrum line
-                        ForEach(chartData) { dataPoint in
-                            let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
-                            LineMark(
-                                x: .value("Frequency", dataPoint.frequency),
-                                y: .value("Magnitude", clampedMagnitude)
-                            )
-                            .foregroundStyle(.red)
-                            .lineStyle(StrokeStyle(lineWidth: 2))
-                        }
-                    }
-                    
-                    // Mode boundaries
-                    if showModeBoundaries {
-                        ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
-                            RuleMark(x: .value("Boundary", boundary.frequency))
-                                .foregroundStyle(modeColor(for: boundary.mode).opacity(0.3))
-                                .lineStyle(StrokeStyle(lineWidth: 2, dash: [8, 8]))
-                                .annotation(position: .top, alignment: .center) {
-                                    if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
-                                        Text(modeAbbreviation(for: boundary.mode))
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(modeColor(for: boundary.mode))
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .background(modeColor(for: boundary.mode).opacity(0.15))
-                                            .cornerRadius(6)
-                                    }
-                                }
-                        }
-                    }
-                    
-                    // Peak markers only (no inline annotations)
-                    ForEach(visiblePeaks) { peak in
-                        PointMark(
-                            x: .value("Frequency", peak.frequency),
-                            y: .value("Magnitude", peak.magnitude)
-                        )
-                        .foregroundStyle(peakColor(for: peak))
-                        .symbolSize(200)
-                    }
-                }
-                .chartForegroundStyleScale(
-                    domain: materialSpectra.map { $0.label },
-                    range: materialSpectra.map { $0.color }
-                )
-                .chartLegend(.hidden)
-                .chartPlotStyle { plotArea in
-                    plotArea.border(Color.gray, width: 1)
-                }
-                .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
-                .chartYScale(domain: Double(minDB)...Double(maxDB))
-                .chartXAxis {
-                    AxisMarks(values: frequencyAxisValues) { value in
-                        AxisValueLabel {
-                            if let doubleValue = value.as(Double.self) {
-                                Text(AxisTickGenerator.formatTickLabel(doubleValue))
-                                    .font(.system(size: 12))
-                            }
-                        }
-                        AxisGridLine()
-                    }
-                }
-                .chartXAxisLabel(alignment: .center) {
-                    Text("Frequency (Hz)")
-                        .font(.system(size: 16, weight: .medium))
-                        .padding(8)
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: .stride(by: 20)) { _ in
-                        AxisValueLabel()
-                            .font(.system(size: 12))
-                        AxisGridLine()
-                    }
-                }
-                .chartYAxisLabel(position: .leading, alignment: .center) {
-                    Text("FFT Magnitude (dB)")
-                        .font(.system(size: 16, weight: .medium))
-                        .rotationEffect(.degrees(180))
-                        .padding(8)
-                }
-                .chartOverlay { proxy in
-                    // Use ChartProxy for accurate positioning
-                    GeometryReader { geometry in
-                        if let plotFrame = proxy.plotFrame {
-                            let frame = geometry[plotFrame]
-                            
-                            // Connection lines layer
-                            ForEach(visiblePeaks) { peak in
-                                if let peakX = proxy.position(forX: peak.frequency),
-                                   let peakY = proxy.position(forY: Double(peak.magnitude)) {
-                                    let peakPosition = CGPoint(
-                                        x: frame.minX + peakX,
-                                        y: frame.minY + peakY
-                                    )
-                                    let offset = annotationOffsets[peak.id] ?? .zero
-                                    let annotationX = peakPosition.x + offset.x
-                                    let annotationY = peakPosition.y - 70 + offset.y
-                                    
-                                    ConnectionLineShape(
-                                        from: CGPoint(x: annotationX, y: annotationY + 50),
-                                        to: peakPosition
-                                    )
-                                    .stroke(peakColor(for: peak).opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
-                                }
-                            }
-                            
-                            // Annotations layer
-                            ForEach(visiblePeaks) { peak in
-                                if let peakX = proxy.position(forX: peak.frequency),
-                                   let peakY = proxy.position(forY: Double(peak.magnitude)) {
-                                    let peakPosition = CGPoint(
-                                        x: frame.minX + peakX,
-                                        y: frame.minY + peakY
-                                    )
-                                    let offset = annotationOffsets[peak.id] ?? .zero
-                                    let annotationX = peakPosition.x + offset.x
-                                    let annotationY = peakPosition.y - 70 + offset.y
-                                    
-                                    VStack(spacing: 6) {
-                                        Text(peakModeLabel(for: peak))
-                                            .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(peakColor(for: peak))
-                                        
-                                        // Only show pitch info for guitar mode
-                                        if measurementType.isGuitar, let pitchNote = peak.pitchNote {
-                                            HStack(spacing: 4) {
-                                                Image(systemName: "music.note")
-                                                    .font(.system(size: 14))
-                                                    .foregroundColor(.purple)
-                                                Text(pitchNote)
-                                                    .font(.system(size: 16, weight: .bold))
-                                                    .foregroundColor(.purple)
-                                            }
-                                        }
-                                        
-                                        Text(peak.frequency.formattedAsFrequency())
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(.primary)
-                                        
-                                        Text("\(peak.magnitude, specifier: "%.1f") dB")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .padding(10)
-                                    .background(Color.white.opacity(0.95))
-                                    .cornerRadius(10)
-                                    .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
-                                    .position(x: annotationX, y: annotationY)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
