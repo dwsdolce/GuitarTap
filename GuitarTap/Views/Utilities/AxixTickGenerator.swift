@@ -215,7 +215,7 @@ struct AxisTickGenerator {
     }
     
     // MARK: - Formatting
-    
+
     static func formatTickLabel(
         _ value: Double,
         scale: AxisScale = .linear,
@@ -226,6 +226,51 @@ struct AxisTickGenerator {
             return formatLinearLabel(value, precision: precision)
         case .logarithmic(let base):
             return formatLogLabel(value, base: base, precision: precision)
+        }
+    }
+
+    /// Formats a set of tick values together, automatically increasing precision
+    /// when the default formatting produces duplicate labels (e.g. two ticks both
+    /// showing "1.2 kHz" in a narrow zoom window).
+    ///
+    /// - Parameters:
+    ///   - values: The tick values to format, in Hz.
+    ///   - scale: The axis scale (linear or logarithmic).
+    /// - Returns: A dictionary mapping each tick value to its label string.
+    static func formatTickLabels(_ values: [Double], scale: AxisScale = .linear) -> [Double: String] {
+        guard !values.isEmpty else { return [:] }
+
+        // Try formatting with increasing decimal places until all labels are unique.
+        // For values < 1000 Hz we use plain Hz; for >= 1000 Hz we use kHz.
+        // The precision parameter here controls decimal places in the kHz representation.
+        for extraDecimals in 0...3 {
+            var labels: [Double: String] = [:]
+            for value in values {
+                labels[value] = formatFrequencyLabel(value, kHzDecimals: 1 + extraDecimals)
+            }
+            // Accept this precision if all labels are unique
+            let labelValues = Array(labels.values)
+            if Set(labelValues).count == labelValues.count {
+                return labels
+            }
+        }
+
+        // Fallback: use raw Hz with no rounding
+        var labels: [Double: String] = [:]
+        for value in values {
+            labels[value] = String(format: "%.1f Hz", value)
+        }
+        return labels
+    }
+
+    /// Formats a single frequency value (Hz) with the specified number of decimal
+    /// places for the kHz representation (e.g. kHzDecimals=1 → "1.2 kHz").
+    /// Values below 1000 Hz are always shown in whole Hz.
+    private static func formatFrequencyLabel(_ value: Double, kHzDecimals: Int) -> String {
+        if value >= 1000 {
+            return String(format: "%.\(kHzDecimals)f kHz", value / 1000)
+        } else {
+            return String(format: "%.0f Hz", value)
         }
     }
     

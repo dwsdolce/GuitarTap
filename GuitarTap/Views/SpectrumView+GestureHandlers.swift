@@ -164,7 +164,7 @@ extension SpectrumView {
             var newMaxFreq = anchorFreq + (maxFreq - anchorFreq) / Float(scale)
             newMinFreq = max(20, newMinFreq)
             newMaxFreq = min(20000, newMaxFreq)
-            if newMaxFreq > newMinFreq + 100 {
+            if newMaxFreq > newMinFreq + 50 {
                 minFreq = newMinFreq
                 maxFreq = newMaxFreq
                 onFrequencyRangeChanged?()

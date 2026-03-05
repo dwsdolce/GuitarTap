@@ -245,6 +245,12 @@ struct SpectrumView: View {
         }
     }
 
+    /// Labels for frequency axis ticks, with precision automatically increased
+    /// when the default formatting would produce duplicate labels.
+    private var frequencyAxisLabels: [Double: String] {
+        AxisTickGenerator.formatTickLabels(frequencyAxisValues)
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -734,10 +740,11 @@ struct SpectrumView: View {
     /// X-axis content builder
     @AxisContentBuilder
     private var xAxisContent: some AxisContent {
+        let labels = frequencyAxisLabels
         AxisMarks(values: frequencyAxisValues) { value in
             AxisValueLabel {
                 if let doubleValue = value.as(Double.self) {
-                    Text(AxisTickGenerator.formatTickLabel(doubleValue))
+                    Text(labels[doubleValue] ?? AxisTickGenerator.formatTickLabel(doubleValue))
                 }
             }
             AxisGridLine()
@@ -747,10 +754,22 @@ struct SpectrumView: View {
     /// Y-axis content builder
     @AxisContentBuilder
     private var yAxisContent: some AxisContent {
-        AxisMarks(position: .leading, values: .stride(by: 20)) { value in
+        AxisMarks(position: .leading, values: .stride(by: yAxisStride)) { value in
             AxisValueLabel()
             AxisGridLine()
         }
+    }
+
+    /// Computes a "nice" dB stride that yields roughly 4–6 ticks for the current visible range.
+    private var yAxisStride: Double {
+        let range = Double(maxDB - minDB)
+        // Pick the smallest stride from this set that produces no more than ~8 ticks.
+        for stride in [1.0, 2.0, 5.0, 10.0, 20.0, 50.0] {
+            if range / stride <= 8 {
+                return stride
+            }
+        }
+        return 50.0
     }
 
     /// Pinch gesture for zooming, anchored to the pinch midpoint.
