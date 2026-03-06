@@ -296,12 +296,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         self.magnitudes = [Float](repeating: -100, count: fftSize / 2)
         self.frequencies = [Float](repeating: 0, count: fftSize / 2)
         
-        // Create Hann window for reducing spectral leakage
-        // The Hann window tapers the edges of each audio frame to zero,
-        // which reduces artifacts in the frequency domain
+        // Boxcar (rectangular) window for the continuous real-time display path.
+        // A Hann window would reduce spectral leakage, but for a live monitoring
+        // display "good enough" frequency resolution is acceptable and the boxcar
+        // avoids the ~50% amplitude reduction that Hann applies to samples near the
+        // frame edges. The gated FFT path (computeGatedFFT) uses Hann instead,
+        // because that result is what gets saved and analysed.
         self.window = [Float](repeating: 0, count: fftSize)
 //        vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
-        // Use a Boxcar window instead of Hann window
         var one: Float = 1.0
         vDSP_vfill(&one, &window, 1, vDSP_Length(fftSize))
         
@@ -1012,7 +1014,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Performs a Fast Fourier Transform on audio samples and updates published magnitude data.
     ///
     /// This method:
-    /// 1. Applies a Hann window to reduce spectral leakage
+    /// 1. Applies a boxcar (rectangular) window to audio samples
     /// 2. Converts samples to split complex format (real/imaginary parts)
     /// 3. Executes the FFT using vDSP
     /// 4. Calculates magnitude spectrum
@@ -1033,9 +1035,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         
         var samples = samples
         
-        // Apply Hann window to reduce spectral leakage
-        // Spectral leakage occurs when the signal's frequency doesn't align perfectly
-        // with the FFT bin centers. Windowing reduces this artifact.
+        // Apply boxcar window (all ones — effectively no windowing) to audio samples.
+        // This is intentional for the live display path: we favour flat amplitude
+        // response over sidelobe suppression since the result is only used visually.
         vDSP_vmul(samples, 1, window, 1, &samples, 1, vDSP_Length(fftSize))
         
         // Prepare for FFT - convert to split complex format
@@ -1189,7 +1191,15 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
         defer { vDSP_DFT_DestroySetup(setup) }
 
-        // Zero-pad (or truncate) to paddedSize and apply a Hann window
+        // Zero-pad (or truncate) to paddedSize, then apply a Hann window.
+        // Unlike the live display path (which uses boxcar for simplicity), this
+        // result is what gets saved and analysed: peak frequencies feed mode
+        // classification, Q-factor calculation, and material property formulas.
+        // The Hann window suppresses spectral sidelobes by ~31 dB compared to
+        // boxcar, giving sharper, cleaner peaks and therefore more accurate
+        // frequency and Q readings. The amplitude roll-off at the frame edges is
+        // not a concern here because the captured buffer naturally starts and ends
+        // near silence (pre-roll silence → tap transient → decaying ring → silence).
         var padded = [Float](repeating: 0, count: paddedSize)
         let copyCount = min(samples.count, paddedSize)
         padded[0..<copyCount] = samples[0..<copyCount]
