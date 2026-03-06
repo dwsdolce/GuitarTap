@@ -430,13 +430,21 @@ extension TapToneAnalyzer {
         captureTimer = nil
     }
     
-    /// Process multiple captured taps and average the results
+    /// Process multiple captured taps using frequency-domain magnitude averaging.
+    ///
+    /// Each tap has already been independently transformed into a magnitude spectrum
+    /// by `computeGatedFFT`. This function averages those spectra bin-by-bin in the
+    /// linear power domain (see `averageSpectra`), then runs peak detection once on
+    /// the averaged result. Averaging in the frequency domain after discarding phase
+    /// is the correct approach for non-periodic impulse responses: there is no
+    /// meaningful inter-tap phase relationship to preserve, and power averaging
+    /// reduces random noise while keeping consistent resonance peaks.
     func processMultipleTaps() {
         guard !capturedTaps.isEmpty else { return }
         
         print("🔬 Processing \(capturedTaps.count) taps for averaging...")
         
-        // Average the raw FFT spectrum across all taps FIRST
+        // Average the per-tap magnitude spectra in the frequency domain
         let (avgMagnitudes, avgFrequencies) = averageSpectra(from: capturedTaps)
         
         // Freeze the averaged spectrum for display
@@ -465,113 +473,20 @@ extension TapToneAnalyzer {
         print("✅ Found \(peaksFromAveragedSpectrum.count) peaks in averaged spectrum from \(capturedTaps.count) taps")
     }
     
-    /// Average peaks across multiple taps
-    /// Maintains mode priority: strongest peak for each known mode is guaranteed,
-    /// then fills remaining slots with additional peaks by magnitude
-    func averagePeaks(from tapPeaks: [[ResonantPeak]]) -> [ResonantPeak] {
-        guard !tapPeaks.isEmpty else { return [] }
-        
-        // If only one tap, return its peaks
-        if tapPeaks.count == 1 {
-            return tapPeaks[0]
-        }
-        
-        // Collect all unique peak frequencies (with tolerance)
-        var peakGroups: [[ResonantPeak]] = []
-        let frequencyTolerance: Float = 5.0  // Hz
-        
-        // Group similar peaks across taps
-        for tapIndex in 0..<tapPeaks.count {
-            for peak in tapPeaks[tapIndex] {
-                // Try to find existing group
-                var foundGroup = false
-                for groupIndex in 0..<peakGroups.count {
-                    let groupAvgFreq = peakGroups[groupIndex].map({ $0.frequency }).reduce(0, +) / Float(peakGroups[groupIndex].count)
-                    if abs(peak.frequency - groupAvgFreq) < frequencyTolerance {
-                        peakGroups[groupIndex].append(peak)
-                        foundGroup = true
-                        break
-                    }
-                }
-                
-                // Create new group if no match found
-                if !foundGroup {
-                    peakGroups.append([peak])
-                }
-            }
-        }
-        
-        // Average each group
-        var averagedPeaks: [ResonantPeak] = []
-        for group in peakGroups {
-            let avgFreq = group.map({ $0.frequency }).reduce(0, +) / Float(group.count)
-            let avgMag = group.map({ $0.magnitude }).reduce(0, +) / Float(group.count)
-            let avgQuality = group.map({ $0.quality }).reduce(0, +) / Float(group.count)
-            let avgBandwidth = group.map({ $0.bandwidth }).reduce(0, +) / Float(group.count)
-            
-            let averagedPeak = ResonantPeak(
-                frequency: avgFreq,
-                magnitude: avgMag,
-                quality: avgQuality,
-                bandwidth: avgBandwidth
-            )
-            averagedPeaks.append(averagedPeak)
-        }
-        
-        // Apply mode-priority selection (same logic as findPeaks)
-        // Define known modes to search for
-        let knownModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
-        
-        // Find strongest peak for each mode
-        var strongestPeakPerMode: [GuitarMode: ResonantPeak] = [:]
-        for peak in averagedPeaks {
-            let mode = GuitarMode.classify(frequency: peak.frequency).normalized
-            if mode != .unknown {
-                if let existing = strongestPeakPerMode[mode] {
-                    if peak.magnitude > existing.magnitude {
-                        strongestPeakPerMode[mode] = peak
-                    }
-                } else {
-                    strongestPeakPerMode[mode] = peak
-                }
-            }
-        }
-        
-        // Build final list: mode peaks first, then fill remaining by magnitude
-        var finalPeaks: [ResonantPeak] = []
-        var includedPeakIDs = Set<UUID>()
-        
-        for mode in knownModes {
-            if let peak = strongestPeakPerMode[mode] {
-                finalPeaks.append(peak)
-                includedPeakIDs.insert(peak.id)
-            }
-        }
-        
-        // Fill remaining slots
-        // maxPeaks == 0 means "capture all peaks"
-        if maxPeaks == 0 {
-            // Add all remaining peaks (no limit)
-            let otherPeaks = averagedPeaks
-                .filter { !includedPeakIDs.contains($0.id) }
-                .sorted { $0.magnitude > $1.magnitude }
-            finalPeaks.append(contentsOf: otherPeaks)
-        } else {
-            let remainingSlots = maxPeaks - finalPeaks.count
-            if remainingSlots > 0 {
-                let otherPeaks = averagedPeaks
-                    .filter { !includedPeakIDs.contains($0.id) }
-                    .sorted { $0.magnitude > $1.magnitude }
-                    .prefix(remainingSlots)
-                finalPeaks.append(contentsOf: otherPeaks)
-            }
-        }
-        
-        // Sort final result by magnitude descending
-        return finalPeaks.sorted { $0.magnitude > $1.magnitude }
-    }
-    
-    /// Average raw FFT spectra across multiple taps
+    /// Average per-tap FFT magnitude spectra in the linear power domain.
+    ///
+    /// Each entry in `taps` contains a magnitude spectrum (in dB) already produced
+    /// by `computeGatedFFT` for a single tap. Averaging is done bin-by-bin:
+    ///
+    ///   1. Convert each bin from dB to linear power:  p = 10^(dB / 10)
+    ///   2. Average the linear powers across all taps
+    ///   3. Convert the average back to dB:  dB = 10 · log10(avg_power)
+    ///
+    /// Averaging power (rather than amplitude or dB directly) is the physically
+    /// correct approach — it preserves energy relationships between taps.
+    /// Phase is implicitly discarded because each tap's magnitude spectrum was
+    /// computed independently; this is appropriate for non-periodic impulse
+    /// responses where inter-tap phase alignment cannot be guaranteed.
     func averageSpectra(from taps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)]) -> (magnitudes: [Float], frequencies: [Float]) {
         guard !taps.isEmpty else { return ([], []) }
         

@@ -33,8 +33,8 @@ This document compares the two implementations of GuitarTap:
 
 ### Multi-Tap Averaging
 
-- **Time-domain multi-tap averaging** (1–N taps) — raw PCM samples from each tap are summed, then a single FFT is run on the result — `TapToneAnalyzer.swift`, `TapToneAnalyzer.numberOfTaps`
-- Taps are approximately registered by the threshold-trigger point (pre-roll buffer), so the attack transient lands at roughly the same sample offset in each capture; resonant frequencies therefore add constructively
+- **Frequency-domain magnitude averaging** across 1–N taps — each tap produces a separate gated FFT spectrum; spectra are averaged bin-by-bin in the linear power domain (10^(dB/10)) and converted back to dB — `TapToneAnalyzer+SpectrumCapture.swift`, `averageSpectra()`
+- Phase is implicitly discarded by computing per-tap magnitude spectra independently before averaging, which is correct for non-periodic impulse responses where inter-tap phase alignment cannot be guaranteed
 - **Cancellable multi-tap sequence** with progress tracking — `TapToneAnalysisView+Controls.swift`
 
 ### Decay Time Measurement
