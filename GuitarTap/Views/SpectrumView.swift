@@ -173,8 +173,8 @@ struct SpectrumView: View {
     @State var lastCursorPosition: CGPoint? = nil
 
     #else
-    /// Whether the iOS axis-reset confirmation dialog is showing
-    @State private var showingResetDialog: Bool = false
+    /// Whether the iOS chart options sheet is showing
+    @State private var showingChartOptions: Bool = false
 
     /// Whether crosshair tracking mode is active (iOS only). Defaults to false when not provided.
     var crosshairMode: Binding<Bool> = .constant(false)
@@ -290,7 +290,7 @@ struct SpectrumView: View {
                     • ⌃ + Scroll: Zoom magnitude (vertical)
                     • Pinch: Zoom (trackpad)
                     • Drag: Pan view (both axes)
-                    • Right-click: Reset axes
+                    • Right-click: Reset axes & labels
                     """)
                 .popover(isPresented: $showingControlsHelp, arrowEdge: .bottom) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -305,12 +305,35 @@ struct SpectrumView: View {
                             Text("⌃ + Scroll") + Text(": Zoom magnitude (vertical)").foregroundColor(.secondary)
                             Text("Pinch") + Text(": Zoom (trackpad)").foregroundColor(.secondary)
                             Text("Drag") + Text(": Pan view (both axes)").foregroundColor(.secondary)
-                            Text("Right-click") + Text(": Reset axes").foregroundColor(.secondary)
+                            Text("Right-click") + Text(": Reset axes & labels").foregroundColor(.secondary)
                         }
                         .font(.callout)
                     }
                     .padding()
                     .frame(minWidth: 280)
+                }
+                #else
+                // iOS: plain button opens a sheet — avoids UIContextMenuInteraction conflicts
+                // with the chart's gesture recognizers that a Menu would cause.
+                Button {
+                    showingChartOptions = true
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showingChartOptions) {
+                    ChartOptionsSheet(
+                        hasLabelsToReset: hasLabelsToReset,
+                        onResetBothToSaved: { resetBothAxesToSaved(); showingChartOptions = false },
+                        onResetFreqToSaved: { resetFrequencyAxisToSaved(); showingChartOptions = false },
+                        onResetMagToSaved: { resetMagnitudeAxisToSaved(); showingChartOptions = false },
+                        onResetBothToDefaults: { resetBothAxesToDefaults(); showingChartOptions = false },
+                        onResetFreqToDefaults: { resetFrequencyAxisToDefaults(); showingChartOptions = false },
+                        onResetMagToDefaults: { resetMagnitudeAxisToDefaults(); showingChartOptions = false },
+                        onResetLabels: onResetLabels.map { action in { action(); showingChartOptions = false } }
+                    )
                 }
                 #endif
             }
@@ -390,21 +413,6 @@ struct SpectrumView: View {
             .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
             #endif
             #if !os(macOS)
-            .highPriorityGesture(TapGesture(count: 2).onEnded {
-                showingResetDialog = true
-            })
-            .confirmationDialog("Reset Axes", isPresented: $showingResetDialog) {
-                Button("Reset Both Axes to Saved") { resetBothAxesToSaved() }
-                Button("Reset Frequency Axis to Saved") { resetFrequencyAxisToSaved() }
-                Button("Reset Magnitude Axis to Saved") { resetMagnitudeAxisToSaved() }
-                if let onResetLabels = onResetLabels {
-                    Button("Reset Labels", action: onResetLabels)
-                        .disabled(!hasLabelsToReset)
-                }
-                Button("Reset Both Axes to Defaults") { resetBothAxesToDefaults() }
-                Button("Reset Frequency Axis to Defaults") { resetFrequencyAxisToDefaults() }
-                Button("Reset Magnitude Axis to Defaults") { resetMagnitudeAxisToDefaults() }
-            }
             .onChange(of: crosshairMode.wrappedValue) { _, newValue in
                 if !newValue {
                     crosshairSnapState = nil
@@ -860,3 +868,78 @@ struct SpectrumView: View {
     .frame(height: 300)
     .padding()
 }
+
+// MARK: - iOS Chart Options Sheet
+
+#if !os(macOS)
+/// A sheet presenting axis-reset and label-reset options for the spectrum chart on iOS.
+/// Using a sheet instead of a Menu avoids UIContextMenuInteraction conflicts with
+/// the chart's gesture recognizers.
+private struct ChartOptionsSheet: View {
+    let hasLabelsToReset: Bool
+    let onResetBothToSaved: () -> Void
+    let onResetFreqToSaved: () -> Void
+    let onResetMagToSaved: () -> Void
+    let onResetBothToDefaults: () -> Void
+    let onResetFreqToDefaults: () -> Void
+    let onResetMagToDefaults: () -> Void
+    let onResetLabels: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Chart Options")
+                .font(.headline)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+            Divider()
+
+            Group {
+                sectionHeader("Reset to Saved")
+                optionButton("Reset Both Axes", icon: "arrow.uturn.backward", action: onResetBothToSaved)
+                optionButton("Reset Frequency Axis", icon: "arrow.uturn.backward", action: onResetFreqToSaved)
+                optionButton("Reset Magnitude Axis", icon: "arrow.uturn.backward", action: onResetMagToSaved)
+            }
+
+            Divider().padding(.vertical, 4)
+
+            Group {
+                sectionHeader("Reset to Defaults")
+                optionButton("Reset Both Axes", icon: "arrow.counterclockwise.circle", action: onResetBothToDefaults)
+                optionButton("Reset Frequency Axis", icon: "arrow.counterclockwise.circle", action: onResetFreqToDefaults)
+                optionButton("Reset Magnitude Axis", icon: "arrow.counterclockwise.circle", action: onResetMagToDefaults)
+            }
+
+            if let onResetLabels {
+                Divider().padding(.vertical, 4)
+                optionButton("Reset Labels", icon: "arrow.uturn.backward.circle", action: onResetLabels)
+                    .disabled(!hasLabelsToReset)
+            }
+        }
+        .padding(.bottom, 8)
+        .frame(minWidth: 280)
+        .presentationDetents([.height(460), .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 2)
+    }
+
+    private func optionButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+#endif
