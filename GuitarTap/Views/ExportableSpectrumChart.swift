@@ -48,6 +48,9 @@ struct ExportableSpectrumChart: View {
     var selectedCrossPeakID: UUID?
     var selectedFlcPeakID: UUID?
 
+    // Per-peak user mode overrides (empty = all peaks use auto-classification)
+    var modeOverrides: [UUID: UserAssignedMode] = [:]
+
     /// Per-phase spectra overlay for material/brace measurements
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
 
@@ -133,10 +136,15 @@ struct ExportableSpectrumChart: View {
         }
     }
 
-    /// Returns the mode label for a peak based on measurement type
+    /// Returns the mode label for a peak, respecting user overrides for guitar measurements.
     private func peakModeLabel(for peak: ResonantPeak) -> String {
         if measurementType.isGuitar {
-            return GuitarMode.classify(frequency: peak.frequency).displayName
+            switch modeOverrides[peak.id] ?? .auto {
+            case .auto:
+                return GuitarMode.classify(frequency: peak.frequency).displayName
+            case .assigned(let label):
+                return label
+            }
         } else {
             if peak.id == selectedLongitudinalPeakID {
                 return "Longitudinal"

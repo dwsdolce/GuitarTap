@@ -106,7 +106,8 @@ extension TapToneAnalysisView {
                     measurementType: TapDisplaySettings.measurementType,
                     selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
                     selectedCrossPeakID: tap.effectiveCrossPeakID,
-                    selectedFlcPeakID: tap.effectiveFlcPeakID
+                    selectedFlcPeakID: tap.effectiveFlcPeakID,
+                    modeOverrides: tap.peakModeOverrides
                 )
                 #else
                 SpectrumView(
@@ -133,6 +134,7 @@ extension TapToneAnalysisView {
                     selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
                     selectedCrossPeakID: tap.effectiveCrossPeakID,
                     selectedFlcPeakID: tap.effectiveFlcPeakID,
+                    modeOverrides: tap.peakModeOverrides,
                     crosshairMode: $crosshairMode
                 )
                 #endif

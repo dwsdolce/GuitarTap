@@ -155,6 +155,7 @@ extension TapToneAnalyzer {
             flcSnapshot: measurementType == .material ? flcSnapshot : nil,
             selectedPeakIDs: selectedPeakIDs.isEmpty ? nil : Array(selectedPeakIDs),
             annotationVisibilityMode: annotationVisibilityMode,
+            peakModeOverrides: peakModeOverrides.isEmpty ? nil : peakModeOverrides,
             microphoneName: microphoneName,
             microphoneUID: microphoneUID,
             calibrationName: calibrationName
@@ -368,6 +369,14 @@ extension TapToneAnalyzer {
         // Restore annotation visibility mode; default to .all if not saved
         annotationVisibilityMode = measurement.annotationVisibilityMode ?? .all
         print("  👁️ Restored annotation visibility: \(annotationVisibilityMode.label)")
+
+        // Restore per-peak mode overrides; nil / empty → all peaks auto-classify
+        if let overrides = measurement.peakModeOverrides, !overrides.isEmpty {
+            applyModeOverrides(overrides)
+            print("  🏷️ Restored \(overrides.count) mode overrides")
+        } else {
+            peakModeOverrides = [:]
+        }
         
         // Restore analysis settings if available - set both internal and published values
         if let threshold = measurement.tapDetectionThreshold {

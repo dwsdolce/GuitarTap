@@ -133,6 +133,9 @@ struct SpectrumView: View {
     /// ID of the peak selected as FLC (diagonal/shear) mode (for material measurements)
     var selectedFlcPeakID: UUID?
 
+    /// Per-peak user mode overrides — passed through to annotation labels (guitar mode only)
+    var modeOverrides: [UUID: UserAssignedMode] = [:]
+
     // MARK: - Gesture State
 
     /// Tracks drag offset during pan gestures (for live preview only)
@@ -441,7 +444,8 @@ struct SpectrumView: View {
                         measurementType: measurementType,
                         selectedLongitudinalPeakID: selectedLongitudinalPeakID,
                         selectedCrossPeakID: selectedCrossPeakID,
-                        selectedFlcPeakID: selectedFlcPeakID
+                        selectedFlcPeakID: selectedFlcPeakID,
+                        modeOverrides: modeOverrides
                     )
 
                     #if os(macOS)

@@ -35,6 +35,9 @@ struct PDFReportData {
     let selectedCrossPeakID: UUID?
     let selectedFlcPeakID: UUID?
 
+    // Per-peak user mode overrides (empty = all peaks use auto-classification)
+    var peakModeOverrides: [UUID: UserAssignedMode] = [:]
+
     // Microphone info
     let microphoneName: String?
     let calibrationName: String?
@@ -125,6 +128,7 @@ struct PDFReportData {
             selectedLongitudinalPeakID: measurement.selectedLongitudinalPeakID,
             selectedCrossPeakID: measurement.selectedCrossPeakID,
             selectedFlcPeakID: measurement.selectedFlcPeakID,
+            peakModeOverrides: measurement.peakModeOverrides ?? [:],
             microphoneName: measurement.microphoneName,
             calibrationName: measurement.calibrationName,
             guitarBodyLength: TapDisplaySettings.guitarBodyLength,
@@ -370,8 +374,23 @@ private struct PDFReportContentView: View {
         }
     }
 
+    /// Returns the effective mode label for a guitar peak, applying user overrides.
+    /// Overridden labels are returned with a " *" suffix so readers can identify them.
+    private func effectiveModeLabel(for peak: ResonantPeak) -> (label: String, isOverridden: Bool) {
+        switch data.peakModeOverrides[peak.id] ?? .auto {
+        case .auto:
+            let mode = GuitarMode.classify(frequency: peak.frequency, guitarType: data.guitarType)
+            return (mode.displayName, false)
+        case .assigned(let label):
+            return (label + " *", true)
+        }
+    }
+
     private func peakRow(for peak: ResonantPeak) -> some View {
-        HStack(spacing: 0) {
+        let modeInfo = data.measurementType.isGuitar ? effectiveModeLabel(for: peak) : nil
+        let mode = GuitarMode.classify(frequency: peak.frequency, guitarType: data.guitarType)
+
+        return HStack(spacing: 0) {
             Text(String(format: "%.1f Hz", peak.frequency))
                 .frame(width: 90, alignment: .leading)
             Text(String(format: "%.1f dB", peak.magnitude))
@@ -379,8 +398,10 @@ private struct PDFReportContentView: View {
             Text(peak.pitchNote ?? "–")
                 .frame(width: 80, alignment: .leading)
             if data.measurementType.isGuitar {
-                let mode = GuitarMode.classify(frequency: peak.frequency, guitarType: data.guitarType)
-                Text(mode.displayName)
+                let label = modeInfo?.label ?? mode.displayName
+                let isOverridden = modeInfo?.isOverridden ?? false
+                Text(label)
+                    .font(isOverridden ? .system(size: 10).italic() : .system(size: 10))
                     .foregroundColor(modeColor(mode))
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {

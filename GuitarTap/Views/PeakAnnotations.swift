@@ -28,6 +28,9 @@ struct PeakAnnotationsOverlay: View {
     let selectedCrossPeakID: UUID?
     let selectedFlcPeakID: UUID?
 
+    // Per-peak user mode overrides (empty = all peaks use auto-classification)
+    var modeOverrides: [UUID: UserAssignedMode] = [:]
+
     var body: some View {
         ZStack {
             ForEach(peaks) { peak in
@@ -46,6 +49,7 @@ struct PeakAnnotationsOverlay: View {
                     selectedLongitudinalPeakID: selectedLongitudinalPeakID,
                     selectedCrossPeakID: selectedCrossPeakID,
                     selectedFlcPeakID: selectedFlcPeakID,
+                    modeOverrides: modeOverrides,
                     onOffsetChange: { newOffset in
                         annotationOffsets.wrappedValue[peak.id] = newOffset
                     },
@@ -79,6 +83,9 @@ struct DraggablePeakAnnotation: View {
     let selectedLongitudinalPeakID: UUID?
     let selectedCrossPeakID: UUID?
     let selectedFlcPeakID: UUID?
+
+    // Per-peak user mode overrides (empty = all peaks use auto-classification)
+    var modeOverrides: [UUID: UserAssignedMode] = [:]
 
     let onOffsetChange: (CGPoint) -> Void
     let onReset: () -> Void
@@ -224,7 +231,8 @@ struct DraggablePeakAnnotation: View {
                 measurementType: measurementType,
                 isLongitudinal: peak.id == selectedLongitudinalPeakID,
                 isCross: peak.id == selectedCrossPeakID,
-                isFlc: peak.id == selectedFlcPeakID
+                isFlc: peak.id == selectedFlcPeakID,
+                modeOverrides: modeOverrides
             )
             .position(finalPosition)
             .highPriorityGesture(
@@ -389,10 +397,24 @@ private struct PeakAnnotationLabel: View {
     let isCross: Bool
     var isFlc: Bool = false
 
-    /// The mode label to display - guitar mode name or material mode (L/C/FLC)
+    // Per-peak user mode overrides (empty = auto-classification)
+    var modeOverrides: [UUID: UserAssignedMode] = [:]
+
+    /// Whether this peak has a user-assigned label
+    private var isManualOverride: Bool {
+        if case .assigned = modeOverrides[peak.id] { return true }
+        return false
+    }
+
+    /// The mode label to display - user override, guitar mode name, or material mode (L/C/FLC)
     private var modeLabel: String {
         if measurementType.isGuitar {
-            return GuitarMode.classify(frequency: peak.frequency).displayName
+            switch modeOverrides[peak.id] ?? .auto {
+            case .auto:
+                return GuitarMode.classify(frequency: peak.frequency).displayName
+            case .assigned(let label):
+                return label
+            }
         } else {
             // Material mode labels
             if isLongitudinal {
@@ -409,11 +431,18 @@ private struct PeakAnnotationLabel: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            // Mode label (guitar mode or material L/C)
-            Text(modeLabel)
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(modeColor)
+            // Mode label (guitar mode or material L/C), italic when manually overridden
+            HStack(spacing: 3) {
+                Text(modeLabel)
+                    .font(isManualOverride ? .caption2.italic() : .caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(modeColor)
+                if isManualOverride {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.system(size: 7))
+                        .foregroundColor(modeColor.opacity(0.8))
+                }
+            }
 
             // Pitch information if available (only show for guitar mode)
             if measurementType.isGuitar, let pitchNote = peak.pitchNote, let pitchCents = peak.pitchCents {

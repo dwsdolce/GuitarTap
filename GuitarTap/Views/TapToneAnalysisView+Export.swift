@@ -105,6 +105,7 @@ extension TapToneAnalysisView {
             selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
             selectedCrossPeakID: tap.effectiveCrossPeakID,
             selectedFlcPeakID: tap.effectiveFlcPeakID,
+            peakModeOverrides: tap.peakModeOverrides,
             microphoneName: fft.selectedInputDevice?.name,
             calibrationName: fft.activeCalibration?.name,
             guitarBodyLength: TapDisplaySettings.guitarBodyLength,
@@ -179,6 +180,7 @@ extension TapToneAnalysisView {
                 selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
                 selectedCrossPeakID: tap.effectiveCrossPeakID,
                 selectedFlcPeakID: tap.effectiveFlcPeakID,
+                modeOverrides: tap.peakModeOverrides,
                 materialSpectra: materialSpectra
             )
             .frame(width: 1400, height: 800)

@@ -204,7 +204,23 @@ struct MeasurementDetailView: View {
                                 ForEach(filteredPeaks) { peak in
                                     let mode = GuitarMode.classify(frequency: peak.frequency)
                                     let isSelected = selectedIDs.contains(peak.id)
-                                    CombinedPeakModeRowView(peak: peak, mode: mode, isSelected: isSelected)
+                                    let overrideLabel: String = {
+                                        switch measurement.peakModeOverrides?[peak.id] ?? .auto {
+                                        case .auto: return mode.displayName
+                                        case .assigned(let label): return label
+                                        }
+                                    }()
+                                    let isOverridden = measurement.peakModeOverrides?[peak.id].flatMap {
+                                        if case .assigned = $0 { return $0 }
+                                        return nil
+                                    } != nil
+                                    CombinedPeakModeRowView(
+                                        peak: peak,
+                                        mode: mode,
+                                        effectiveModeLabel: overrideLabel,
+                                        isManualOverride: isOverridden,
+                                        isSelected: isSelected
+                                    )
                                         .opacity(isSelected ? 1.0 : 0.4)
                                         .overlay(alignment: .trailing) {
                                             if !isSelected {

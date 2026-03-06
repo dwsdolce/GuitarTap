@@ -374,9 +374,17 @@ struct TapAnalysisResultsView: View {
                             CombinedPeakModeRowView(
                                 peak: item.peak,
                                 mode: item.mode,
+                                effectiveModeLabel: analyzer.effectiveModeLabel(for: item.peak),
+                                isManualOverride: analyzer.hasManualOverride(for: item.peak.id),
                                 isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
                                 onToggleSelection: {
                                     analyzer.togglePeakSelection(item.peak.id)
+                                },
+                                onSetModeOverride: { label in
+                                    analyzer.setModeOverride(.assigned(label), for: item.peak.id)
+                                },
+                                onResetModeOverride: {
+                                    analyzer.resetModeOverride(for: item.peak.id)
                                 }
                             )
                         }

@@ -141,11 +141,44 @@ final class TapToneAnalyzer: ObservableObject {
     /// Custom offsets for peak annotations (keyed by peak ID) to prevent overlap
     @Published var peakAnnotationOffsets: [UUID: CGPoint] = [:]
 
+    /// Per-peak user mode overrides — empty dict means all peaks use auto-classification
+    @Published var peakModeOverrides: [UUID: UserAssignedMode] = [:]
+
     /// Set of peak IDs the user has marked as significant results
     @Published var selectedPeakIDs: Set<UUID> = []
 
     /// Controls which annotations are rendered on the spectrum chart
     @Published var annotationVisibilityMode: AnnotationVisibilityMode = .all
+
+    /// Returns the effective display label for a peak:
+    /// - `.auto` → auto-detected label from `GuitarMode.classify()`
+    /// - `.assigned(string)` → the user-supplied string
+    func effectiveModeLabel(for peak: ResonantPeak) -> String {
+        switch peakModeOverrides[peak.id] ?? .auto {
+        case .auto:
+            return GuitarMode.classify(frequency: peak.frequency).displayName
+        case .assigned(let label):
+            return label
+        }
+    }
+
+    /// Set (or clear) a mode override for a specific peak. Always called on main thread.
+    func setModeOverride(_ override: UserAssignedMode, for peakID: UUID) {
+        if Thread.isMainThread {
+            peakModeOverrides[peakID] = override
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.peakModeOverrides[peakID] = override
+            }
+        }
+    }
+
+    /// Returns true when the peak has a manually-assigned mode label.
+    func hasManualOverride(for peakID: UUID) -> Bool {
+        guard let override = peakModeOverrides[peakID] else { return false }
+        if case .assigned = override { return true }
+        return false
+    }
 
     /// Toggle selection of a specific peak
     func togglePeakSelection(_ peakID: UUID) {

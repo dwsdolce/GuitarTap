@@ -36,6 +36,9 @@ struct TapToneMeasurement: Identifiable, Codable {
     let crossSnapshot: SpectrumSnapshot?         // Spectrum from cross-grain (C) tap
     let flcSnapshot: SpectrumSnapshot?           // Spectrum from FLC (diagonal) tap
 
+    // Per-peak user mode overrides (nil means all peaks use auto-classification on load)
+    let peakModeOverrides: [UUID: UserAssignedMode]?
+
     // Microphone info at time of recording
     let microphoneName: String?   // Human-readable device name
     let microphoneUID: String?    // Unique device identifier for matching
@@ -52,6 +55,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
         case longitudinalSnapshot, crossSnapshot, flcSnapshot
         case selectedPeakIDs, annotationVisibilityMode
+        case peakModeOverrides
         case microphoneName, microphoneUID, calibrationName
     }
     
@@ -74,6 +78,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          flcSnapshot: SpectrumSnapshot? = nil,
          selectedPeakIDs: [UUID]? = nil,
          annotationVisibilityMode: AnnotationVisibilityMode? = nil,
+         peakModeOverrides: [UUID: UserAssignedMode]? = nil,
          microphoneName: String? = nil,
          microphoneUID: String? = nil,
          calibrationName: String? = nil) {
@@ -98,6 +103,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.flcSnapshot = flcSnapshot
         self.selectedPeakIDs = selectedPeakIDs
         self.annotationVisibilityMode = annotationVisibilityMode
+        self.peakModeOverrides = peakModeOverrides
         self.microphoneName = microphoneName
         self.microphoneUID = microphoneUID
         self.calibrationName = calibrationName
