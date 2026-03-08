@@ -91,7 +91,10 @@ extension TapToneAnalyzer {
             guard modeStartIdx < modeEndIdx, modeStartIdx >= startIdx, modeEndIdx <= endIdx else { continue }
             
             // Scan for local maxima within this mode's range
-            for i in max(modeStartIdx, startIdx + windowSize)..<min(modeEndIdx, endIdx - windowSize) {
+            let scanStart = max(modeStartIdx, startIdx + windowSize)
+            let scanEnd = min(modeEndIdx, endIdx - windowSize)
+            guard scanStart < scanEnd else { continue }
+            for i in scanStart..<scanEnd {
                 let magnitude = magnitudes[i]
                 
                 // Skip if below threshold
@@ -143,54 +146,58 @@ extension TapToneAnalyzer {
         }
         
         // Step 2: Search entire spectrum for peaks outside known mode ranges (unknown peaks)
-        for i in (startIdx + windowSize)..<(endIdx - windowSize) {
-            let magnitude = magnitudes[i]
-            let frequency = frequencies[i]
-            
-            // Skip if below threshold
-            guard magnitude > peakThreshold else { continue }
-            
-            // Check if this frequency is already covered by a known mode
-            let isInKnownMode = knownModes.contains { mode in
-                mode.idealRange.contains(frequency)
-            }
-            
-            // Only process if outside known mode ranges
-            guard !isInKnownMode else { continue }
-            
-            // Check if local maximum
-            var isLocalMax = true
-            for offset in -windowSize...windowSize where offset != 0 {
-                if magnitudes[i + offset] >= magnitude {
-                    isLocalMax = false
-                    break
+        let outerScanStart = startIdx + windowSize
+        let outerScanEnd = endIdx - windowSize
+        if outerScanStart < outerScanEnd {
+            for i in outerScanStart..<outerScanEnd {
+                let magnitude = magnitudes[i]
+                let frequency = frequencies[i]
+                
+                // Skip if below threshold
+                guard magnitude > peakThreshold else { continue }
+                
+                // Check if this frequency is already covered by a known mode
+                let isInKnownMode = knownModes.contains { mode in
+                    mode.idealRange.contains(frequency)
                 }
+                
+                // Only process if outside known mode ranges
+                guard !isInKnownMode else { continue }
+                
+                // Check if local maximum
+                var isLocalMax = true
+                for offset in -windowSize...windowSize where offset != 0 {
+                    if magnitudes[i + offset] >= magnitude {
+                        isLocalMax = false
+                        break
+                    }
+                }
+                
+                guard isLocalMax else { continue }
+                
+                // Refine peak location and magnitude with parabolic interpolation
+                let (interpFreq, interpMag) = parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i)
+                
+                // Calculate Q factor using interpolated peak magnitude for accurate -3 dB threshold
+                let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i, peakMagnitude: interpMag)
+                
+                // Calculate pitch information from interpolated frequency
+                let freq = Double(interpFreq)
+                let pitchNote = pitchCalculator.note(frequency: freq)
+                let pitchCents = pitchCalculator.cents(frequency: freq)
+                let pitchFreq = pitchCalculator.freq0(frequency: freq)
+                
+                let peak = ResonantPeak(
+                    frequency: interpFreq,
+                    magnitude: interpMag,
+                    quality: quality,
+                    bandwidth: bandwidth,
+                    pitchNote: pitchNote,
+                    pitchCents: pitchCents,
+                    pitchFrequency: pitchFreq
+                )
+                allPeaks.append(peak)
             }
-            
-            guard isLocalMax else { continue }
-            
-            // Refine peak location and magnitude with parabolic interpolation
-            let (interpFreq, interpMag) = parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i)
-            
-            // Calculate Q factor using interpolated peak magnitude for accurate -3 dB threshold
-            let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i, peakMagnitude: interpMag)
-            
-            // Calculate pitch information from interpolated frequency
-            let freq = Double(interpFreq)
-            let pitchNote = pitchCalculator.note(frequency: freq)
-            let pitchCents = pitchCalculator.cents(frequency: freq)
-            let pitchFreq = pitchCalculator.freq0(frequency: freq)
-            
-            let peak = ResonantPeak(
-                frequency: interpFreq,
-                magnitude: interpMag,
-                quality: quality,
-                bandwidth: bandwidth,
-                pitchNote: pitchNote,
-                pitchCents: pitchCents,
-                pitchFrequency: pitchFreq
-            )
-            allPeaks.append(peak)
         }
         
         // Remove duplicate peaks (in case of overlap)

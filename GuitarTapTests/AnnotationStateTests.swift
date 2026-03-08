@@ -1,0 +1,253 @@
+//
+//  AnnotationStateTests.swift
+//  GuitarTapTests
+//
+//  Tests for peak annotation state management:
+//  offset storage, peak selection, visibility filtering, and mode overrides.
+//
+//  All tests operate on TapToneAnalyzer's @Published state properties directly;
+//  no audio hardware or async timing is involved.
+//
+//  Test plan coverage: D1–D10
+//
+
+import Testing
+import Foundation
+@testable import GuitarTap
+
+// ---------------------------------------------------------------------------
+// MARK: - Helper
+// ---------------------------------------------------------------------------
+
+private func makeSUT() -> TapToneAnalyzer {
+    let fft = RealtimeFFTAnalyzer()
+    return TapToneAnalyzer(fftAnalyzer: fft)
+}
+
+private func makePeak(frequency: Float = 200, magnitude: Float = -20) -> ResonantPeak {
+    ResonantPeak(frequency: frequency, magnitude: magnitude)
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Annotation Offset Tests  (D1–D2)
+// ---------------------------------------------------------------------------
+
+@Suite("AnnotationOffsets")
+@MainActor
+struct AnnotationOffsetTests {
+
+    // D1: updateAnnotationOffset stores the CGPoint keyed by peak ID.
+    @Test func updateAnnotationOffset_storesOffsetByID() {
+        let sut = makeSUT()
+        let peak = makePeak()
+        let offset = CGPoint(x: 10, y: 20)
+
+        sut.updateAnnotationOffset(for: peak.id, offset: offset)
+
+        let stored = sut.peakAnnotationOffsets[peak.id]
+        #expect(stored != nil, "Offset should be stored for the peak ID")
+        #expect(stored?.x == 10 && stored?.y == 20, "Stored offset mismatch: \(String(describing: stored))")
+    }
+
+    // D1b: Updating an offset twice keeps the latest value.
+    @Test func updateAnnotationOffset_overwritesPrevious() {
+        let sut = makeSUT()
+        let peak = makePeak()
+        sut.updateAnnotationOffset(for: peak.id, offset: CGPoint(x: 1, y: 2))
+        sut.updateAnnotationOffset(for: peak.id, offset: CGPoint(x: 99, y: 88))
+
+        let stored = sut.peakAnnotationOffsets[peak.id]
+        #expect(stored?.x == 99 && stored?.y == 88)
+    }
+
+    // D2: applyAnnotationOffsets bulk-populates peakAnnotationOffsets.
+    @Test func applyAnnotationOffsets_populatesDictionary() {
+        let sut = makeSUT()
+        let id1 = UUID()
+        let id2 = UUID()
+        let offsets: [UUID: CGPoint] = [
+            id1: CGPoint(x: 5, y: 10),
+            id2: CGPoint(x: 15, y: 20)
+        ]
+
+        sut.applyAnnotationOffsets(offsets)
+
+        #expect(sut.peakAnnotationOffsets[id1] == CGPoint(x: 5, y: 10))
+        #expect(sut.peakAnnotationOffsets[id2] == CGPoint(x: 15, y: 20))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Peak Selection Tests  (D3)
+// ---------------------------------------------------------------------------
+
+@Suite("PeakSelection")
+struct PeakSelectionTests {
+
+    // D3: Toggling same peak ID twice results in empty selectedPeakIDs.
+    @Test func togglePeakSelection_insertsThenRemoves() {
+        let sut = makeSUT()
+        let id = UUID()
+
+        sut.togglePeakSelection(id)
+        #expect(sut.selectedPeakIDs.contains(id), "After first toggle, peak should be selected")
+
+        sut.togglePeakSelection(id)
+        #expect(!sut.selectedPeakIDs.contains(id), "After second toggle, peak should be deselected")
+    }
+
+    // selectAllPeaks populates selectedPeakIDs with all currentPeaks IDs.
+    @Test func selectAllPeaks_selectsAllCurrentPeaks() {
+        let sut = makeSUT()
+        let peaks = [makePeak(frequency: 100), makePeak(frequency: 200), makePeak(frequency: 300)]
+        sut.currentPeaks = peaks
+
+        sut.selectAllPeaks()
+
+        for peak in peaks {
+            #expect(sut.selectedPeakIDs.contains(peak.id),
+                    "Peak \(peak.frequency) Hz should be selected after selectAllPeaks")
+        }
+    }
+
+    // selectNoPeaks clears all selections.
+    @Test func selectNoPeaks_clearsAll() {
+        let sut = makeSUT()
+        let peaks = [makePeak(frequency: 100), makePeak(frequency: 200)]
+        sut.currentPeaks = peaks
+        sut.selectAllPeaks()
+
+        sut.selectNoPeaks()
+
+        #expect(sut.selectedPeakIDs.isEmpty, "selectedPeakIDs should be empty after selectNoPeaks")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Visible Peaks Tests  (D4–D6)
+// ---------------------------------------------------------------------------
+
+@Suite("VisiblePeaks")
+struct VisiblePeaksTests {
+
+    // D4: .all mode returns all currentPeaks.
+    @Test func allMode_returnsAllCurrentPeaks() {
+        let sut = makeSUT()
+        sut.annotationVisibilityMode = .all
+        let peaks = [makePeak(frequency: 100), makePeak(frequency: 200), makePeak(frequency: 300)]
+        sut.currentPeaks = peaks
+
+        #expect(sut.visiblePeaks.count == 3)
+    }
+
+    // D5: .selected mode returns only peaks whose IDs are in selectedPeakIDs.
+    @Test func selectedMode_filtersToSelectedPeaks() {
+        let sut = makeSUT()
+        sut.annotationVisibilityMode = .selected
+        let p1 = makePeak(frequency: 100)
+        let p2 = makePeak(frequency: 200)
+        let p3 = makePeak(frequency: 300)
+        sut.currentPeaks = [p1, p2, p3]
+        sut.selectedPeakIDs = [p1.id, p3.id]
+
+        let visible = sut.visiblePeaks
+        #expect(visible.count == 2)
+        #expect(visible.map(\.frequency).contains(100))
+        #expect(visible.map(\.frequency).contains(300))
+        #expect(!visible.map(\.frequency).contains(200))
+    }
+
+    // D6: .none mode returns empty array regardless of currentPeaks.
+    @Test func noneMode_returnsEmpty() {
+        let sut = makeSUT()
+        sut.annotationVisibilityMode = .none
+        sut.currentPeaks = [makePeak(), makePeak(frequency: 300)]
+        sut.selectAllPeaks()
+
+        #expect(sut.visiblePeaks.isEmpty, "None mode should suppress all annotations")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Mode Override / Label Tests  (D7–D8)
+// ---------------------------------------------------------------------------
+
+@Suite("ModeOverrides", .serialized)
+@MainActor
+struct ModeOverrideTests {
+
+    // D7: No override → label comes from GuitarMode.classify() displayName.
+    @Test func noOverride_returnsAutoLabel() {
+        let sut = makeSUT()
+        // Ensure acoustic guitar type (so 100 Hz → Air)
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .acoustic
+        defer { TapDisplaySettings.measurementType = savedType }
+        let peak = makePeak(frequency: 100)   // Air mode for acoustic
+
+        let label = sut.effectiveModeLabel(for: peak)
+
+        // GuitarMode.classify(frequency: 100, guitarType: .acoustic) == .air
+        #expect(label == "Air (Helmholtz)", "Expected 'Air (Helmholtz)' for 100 Hz in acoustic mode, got '\(label)'")
+    }
+
+    // D8: .assigned("Custom") override returns the custom string.
+    @Test func assignedOverride_returnsCustomLabel() {
+        let sut = makeSUT()
+        let peak = makePeak(frequency: 200)
+        sut.setModeOverride(.assigned("My Label"), for: peak.id)
+
+        let label = sut.effectiveModeLabel(for: peak)
+        #expect(label == "My Label", "Expected 'My Label', got '\(label)'")
+    }
+
+    // hasManualOverride returns true only for .assigned overrides.
+    @Test func hasManualOverride_trueForAssigned_falseForAuto() {
+        let sut = makeSUT()
+        let peak = makePeak()
+
+        sut.setModeOverride(.auto, for: peak.id)
+        #expect(!sut.hasManualOverride(for: peak.id), ".auto should not count as a manual override")
+
+        sut.setModeOverride(.assigned("Test"), for: peak.id)
+        #expect(sut.hasManualOverride(for: peak.id), ".assigned should be a manual override")
+    }
+
+    // Clearing an override (setting .auto) reverts to auto-classification.
+    @Test func clearOverride_revertsToAutoLabel() {
+        let sut = makeSUT()
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .acoustic
+        defer { TapDisplaySettings.measurementType = savedType }
+        let peak = makePeak(frequency: 100)  // Air mode
+
+        sut.setModeOverride(.assigned("Temp"), for: peak.id)
+        sut.setModeOverride(.auto, for: peak.id)
+
+        let label = sut.effectiveModeLabel(for: peak)
+        #expect(label == "Air (Helmholtz)")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Annotation Visibility Cycle  (CI5)
+// ---------------------------------------------------------------------------
+
+@Suite("AnnotationVisibilityCycle")
+struct AnnotationVisibilityCycleTests {
+
+    // CI5: Three calls to cycleAnnotationVisibility traverse all → selected → none → all.
+    @Test func cycleAnnotationVisibility_traversesAllModes() {
+        let sut = makeSUT()
+        sut.annotationVisibilityMode = .all
+
+        sut.cycleAnnotationVisibility()
+        #expect(sut.annotationVisibilityMode == .selected)
+
+        sut.cycleAnnotationVisibility()
+        #expect(sut.annotationVisibilityMode == .none)
+
+        sut.cycleAnnotationVisibility()
+        #expect(sut.annotationVisibilityMode == .all)
+    }
+}

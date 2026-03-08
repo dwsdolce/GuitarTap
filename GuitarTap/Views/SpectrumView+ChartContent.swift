@@ -86,11 +86,10 @@ extension SpectrumView {
     @ChartContentBuilder
     var materialSpectraContent: some ChartContent {
         ForEach(Array(materialSpectra.enumerated()), id: \.offset) { seriesIndex, series in
-            ForEach(
-                zip(series.frequencies, series.magnitudes)
-                    .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-                    .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
-            ) { dataPoint in
+            let dataPoints: [SpectrumDataPoint] = zip(series.frequencies, series.magnitudes)
+                .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
+                .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
+            ForEach(dataPoints) { dataPoint in
                 let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
                 LineMark(
                     x: .value("Frequency", dataPoint.frequency),

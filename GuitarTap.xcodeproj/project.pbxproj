@@ -6,8 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		9ED35BBE140962EB77FE2D2A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8965D5B42F061CE300243E14 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8965D5BB2F061CE300243E14;
+			remoteInfo = GuitarTap;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		318E0B252F15023665FFC71E /* GuitarTapTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GuitarTapTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8965D5BC2F061CE300243E14 /* GuitarTap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GuitarTap.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		89DA15642F5BFFFE004BF162 /* guitar_tap.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = guitar_tap.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -26,6 +38,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		0CBE6B61B2B84CE89B019FE4 /* GuitarTapTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = GuitarTapTests;
+			sourceTree = "<group>";
+		};
 		8902969A2F09D3F200B236AD /* GuitarTap */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -44,13 +61,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EE0015B00E8AD011B54F4FF4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		8965D5B32F061CE300243E14 = {
 			isa = PBXGroup;
 			children = (
+				89DA15642F5BFFFE004BF162 /* guitar_tap.xctestplan */,
 				8902969A2F09D3F200B236AD /* GuitarTap */,
+				0CBE6B61B2B84CE89B019FE4 /* GuitarTapTests */,
 				8965D5BD2F061CE300243E14 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -59,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				8965D5BC2F061CE300243E14 /* GuitarTap.app */,
+				318E0B252F15023665FFC71E /* GuitarTapTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -66,6 +93,27 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		84053B88C1088D72CB562C12 /* GuitarTapTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B19C1F21EBE5AD46B74E40E3 /* Build configuration list for PBXNativeTarget "GuitarTapTests" */;
+			buildPhases = (
+				15DE877521C2C83FFA2954D2 /* Sources */,
+				EE0015B00E8AD011B54F4FF4 /* Frameworks */,
+				F4DDF3BC34B163A5C0A18F10 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FE030847A6C1B0C8A34020AE /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				0CBE6B61B2B84CE89B019FE4 /* GuitarTapTests */,
+			);
+			name = GuitarTapTests;
+			productName = GuitarTapTests;
+			productReference = 318E0B252F15023665FFC71E /* GuitarTapTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		8965D5BB2F061CE300243E14 /* GuitarTap */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8965D5C72F061CE400243E14 /* Build configuration list for PBXNativeTarget "GuitarTap" */;
@@ -99,6 +147,9 @@
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
+					84053B88C1088D72CB562C12 = {
+						TestTargetID = 8965D5BB2F061CE300243E14;
+					};
 					8965D5BB2F061CE300243E14 = {
 						CreatedOnToolsVersion = 26.2;
 					};
@@ -165,12 +216,20 @@
 			projectRoot = "";
 			targets = (
 				8965D5BB2F061CE300243E14 /* GuitarTap */,
+				84053B88C1088D72CB562C12 /* GuitarTapTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		8965D5BA2F061CE300243E14 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F4DDF3BC34B163A5C0A18F10 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -202,6 +261,13 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		15DE877521C2C83FFA2954D2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8965D5B82F061CE300243E14 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -211,7 +277,51 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		FE030847A6C1B0C8A34020AE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8965D5BB2F061CE300243E14 /* GuitarTap */;
+			targetProxy = 9ED35BBE140962EB77FE2D2A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		32B0AEC9F25CDC53790926D6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 43QHHT3XK2;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dolcesfogato.GuitarTapTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GuitarTap.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GuitarTap";
+			};
+			name = Debug;
+		};
+		62B72AACAA0D415137FA878D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 43QHHT3XK2;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dolcesfogato.GuitarTapTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GuitarTap.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GuitarTap";
+			};
+			name = Release;
+		};
 		8965D5C52F061CE400243E14 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -477,6 +587,15 @@
 			buildConfigurations = (
 				8965D5C82F061CE400243E14 /* Debug */,
 				8965D5C92F061CE400243E14 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B19C1F21EBE5AD46B74E40E3 /* Build configuration list for PBXNativeTarget "GuitarTapTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				32B0AEC9F25CDC53790926D6 /* Debug */,
+				62B72AACAA0D415137FA878D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

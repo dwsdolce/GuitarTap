@@ -746,21 +746,21 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
         
         // Clear the input buffer on the buffer access queue (async to avoid blocking)
-        bufferAccessQueue.async {
-            self.inputBuffer.removeAll()
+        bufferAccessQueue.async { [weak self] in
+            self?.inputBuffer.removeAll()
         }
-        
+
         // Reset debug tracking
         firstBufferReceived = false
         fftCount = 0
         engineStartTime = nil
-        
+
         // ALWAYS update UI state on main thread, even if engine wasn't running
         // This ensures the UI is responsive even if the engine is in a bad state
-        DispatchQueue.main.async {
-            self.isRunning = false
-            self.peakMagnitude = -100  // Reset to silent state
-            self.peakFrequency = 0
+        DispatchQueue.main.async { [weak self] in
+            self?.isRunning = false
+            self?.peakMagnitude = -100  // Reset to silent state
+            self?.peakFrequency = 0
             print("✅ isRunning set to false on main thread")
         }
     }
