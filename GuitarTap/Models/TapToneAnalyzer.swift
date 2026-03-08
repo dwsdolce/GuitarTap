@@ -78,7 +78,14 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var decayThreshold: Float = 15
     
     /// Number of taps to average (1 = no averaging, 3-5 recommended)
-    @Published var numberOfTaps: Int = 1
+    @Published var numberOfTaps: Int = 1 {
+        didSet {
+            // If we're waiting for the first tap, update the prompt to reflect the new count
+            if isDetecting && currentTapCount == 0 {
+                statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
+            }
+        }
+    }
     
     /// Time window after tap to capture spectrum (seconds)
     @Published var captureWindow: TimeInterval = 0.2

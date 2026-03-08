@@ -18,7 +18,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm the display does not freeze permanently or show obviously stale data
 - [ ] Note: the low update rate is by design — the large FFT window needed for high frequency resolution requires ~1.5 s of audio per frame
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -32,7 +32,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm the noise floor is visible and stable near −70 to −90 dB
 - [ ] Confirm the floor is not jumping or showing false peaks
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -45,7 +45,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Play a 220 Hz tone near the device microphone
 - [ ] Verify a peak appears in the spectrum chart near 220 Hz (within ±5 Hz)
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -54,7 +54,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 ### T9 — Tap detected on physical knock
 **Platforms:** iOS · iPadOS · macOS    **Priority:** High
 
-**Preconditions:** App running and recording. Tap count set to 1. Acoustic measurement mode. Device held or placed on guitar body.
+**Preconditions:** App running and recording. Tap count set to 1. Acoustic measurement mode. Microphone (built-in or external) positioned close to the guitar body.
 
 - [ ] Tap **Start** and confirm spectrum is animating
 - [ ] Knock the guitar top firmly once
@@ -62,7 +62,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify `Tap count: 1/1` appears in the status bar
 - [ ] Verify the spectrum freezes and displays the captured response
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -75,7 +75,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify only one tap is counted
 - [ ] Confirm the second knock within the cooldown window is silently rejected
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -84,11 +84,11 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App running and recording. Tap count set to 1. Device in a quiet room with no intentional taps.
 
-- [ ] Leave the device recording with no intentional taps for 30 s
-- [ ] Verify tap count remains at 0
+- [ ] Leave recording with no intentional taps for 30 s
+- [ ] Confirm the status message remains "Tap the guitar..." throughout
 - [ ] Confirm the indicator does not flash green
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -97,13 +97,12 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App running. Default threshold value set in Settings.
 
-- [ ] Note the current threshold value in Settings
 - [ ] Perform a light tap — confirm it is **not** detected at the default threshold
-- [ ] Reduce the threshold by 10 dB in Settings
+- [ ] Reduce the threshold using the Threshold slider until the threshold line on the chart is below the peak of the previous tap
 - [ ] Perform the same light tap — confirm it **is** now detected
-- [ ] Restore the threshold to the original value — confirm light taps are missed again
+- [ ] Raise the threshold back above the tap peak — confirm light taps are missed again
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -119,7 +118,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Knock a third time; verify progress bar reaches 3/3
 - [ ] Confirm the averaged spectrum is displayed after the third tap
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -133,7 +132,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Set tap count to 5; capture five taps of the same note
 - [ ] Compare the two spectra — confirm the 5-tap version is visibly smoother (less high-frequency noise)
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -147,7 +146,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify tap count returns to 0
 - [ ] Verify the progress bar disappears
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -164,7 +163,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm the app does not crash
 - [ ] Confirm the app does not start recording before the user responds
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -178,7 +177,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify recording does not start (`isRunning` indicator stays red)
 - [ ] Confirm the app remains in a usable state
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -193,7 +192,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify recording begins and the spectrum starts animating
 - [ ] Verify the green running indicator appears
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -206,7 +205,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Look at the iOS status bar
 - [ ] Confirm the orange microphone indicator appears, confirming the `.record` session category is active
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -222,7 +221,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] After declining, verify the app is in a stopped state
 - [ ] Tap **Start** again and verify recording can be restarted
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -238,7 +237,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify GuitarTap is in a stopped state
 - [ ] Tap **Start** to confirm recording can be restarted
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -252,7 +251,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Within 2 s, verify the spectrum updates to reflect audio from the new device
 - [ ] Confirm no crash occurs
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -269,7 +268,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify the device list updates
 - [ ] Verify recording either falls back to the built-in mic or stops cleanly
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -283,7 +282,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify a sample rate is shown (e.g. "48000 Hz")
 - [ ] Confirm the value is not "0 Hz" or empty
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -299,7 +298,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm the app does not crash or show an error
 - [ ] Note: the displayed sample rate may still read 48000 Hz (the engine's internal rate) — this is expected
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -315,7 +314,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify the frequency axis zooms in and the visible range narrows
 - [ ] Confirm axis tick labels update accordingly
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -329,7 +328,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify the frequency axis zooms out and the range widens
 - [ ] Confirm the range cannot exceed 20–20000 Hz
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -342,7 +341,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Release; confirm position is maintained and zoom span has not changed
 - [ ] Drag back to the right; verify frequency axis shifts right
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -356,7 +355,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify dB axis shifts upward (higher dB values come into view)
 - [ ] Confirm frequency axis does not change
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -369,7 +368,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify frequency axis pans left or right
 - [ ] Confirm dB axis does not change
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -382,7 +381,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify both frequency and dB axes zoom in simultaneously
 - [ ] Confirm the point under the cursor remains approximately fixed
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -395,7 +394,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify frequency axis zooms in
 - [ ] Confirm dB axis does not change
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -408,7 +407,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify dB axis zooms in
 - [ ] Confirm frequency axis does not change
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -421,7 +420,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Hold **Cmd** and scroll in to zoom
 - [ ] Verify the 500 Hz peak remains under the cursor as the axes zoom in
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -433,7 +432,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Double-tap the chart area
 - [ ] Verify both axes return to the saved default values (as stored in Settings)
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -449,7 +448,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify the scale toggle is in the same state as when the app was quit
 - [ ] Confirm the chart renders using that scale immediately on launch
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -465,7 +464,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Release
 - [ ] Verify the label is at the new position and stays there
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -479,7 +478,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify the annotation label stays attached to its peak at the correct chart position
 - [ ] Confirm the label does not jump back to the default position
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -491,7 +490,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Double-tap the label
 - [ ] Verify the label snaps back to its default (zero-offset) position relative to the peak marker
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -503,7 +502,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Tap the **Annotations** button until the icon/tooltip indicates "None"
 - [ ] Verify all peak annotation labels disappear from the chart
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -516,7 +515,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Tap one annotation label
 - [ ] Verify only the tapped label is visible and all others are hidden
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -533,7 +532,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Open **Measurements**
 - [ ] Verify the saved measurement appears in the list with the correct name and date
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -549,7 +548,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm the file opens without parse errors
 - [ ] Verify the file contains fields: `timestamp`, `peaks`, `annotationOffsets`, `guitarType`
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -566,7 +565,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify the PDF contains measurement metadata (name, date, guitar type)
 - [ ] Confirm there are no blank pages or missing images
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -580,7 +579,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Open Measurements on the iPad
 - [ ] Verify the measurement saved on the iPhone appears in the list on the iPad
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -596,7 +595,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify secondary controls are accessible: Export Spectrum, Auto dB, Crosshair, Annotations
 - [ ] Confirm no required button is clipped, hidden under another element, or missing
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -610,7 +609,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm both rows are fully visible without horizontal scrolling
 - [ ] Confirm all buttons have text labels
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -623,7 +622,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify the single-row button layout shows: Start, Results, Metrics, Save, Export Spectrum, Auto dB, Annotations, Measurements, Settings
 - [ ] Confirm all buttons have full text labels and are visible in one row
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -637,7 +636,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm no button labels are truncated
 - [ ] Confirm no button falls off-screen
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -651,7 +650,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify it shows the dB reading
 - [ ] Verify it shows the running dot indicator
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -666,7 +665,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify it shows the bin count
 - [ ] Verify it shows the frozen indicator
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -681,7 +680,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Reopen **Settings**
 - [ ] Verify the threshold value matches what was entered
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -695,7 +694,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Dismiss the sheet
 - [ ] Confirm the sheet closes cleanly
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -710,7 +709,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Open **Measurements**
 - [ ] Verify the new measurement appears in the list
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -722,7 +721,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Open **Measurements**
 - [ ] Verify saved items are listed with name and date
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -739,7 +738,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm chart axis labels and peak annotations remain readable
 - [ ] Confirm no white-on-white or black-on-black combinations
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -755,7 +754,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify all labels and controls remain usable
 - [ ] Confirm the layout may reflow but must not hide or overlap any interactive element
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -771,7 +770,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm no crash occurs
 - [ ] Confirm no "GuitarTap quit unexpectedly" dialog appears
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -785,7 +784,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify the spectrum chart renders with peaks annotated
 - [ ] Confirm no blank chart or decode error
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -800,7 +799,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Verify indicator goes green on Start and red on Stop
 - [ ] Confirm the app does not freeze or crash
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -817,7 +816,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm there is no unbounded growth over the 2-minute period
 - [ ] Confirm net growth is less than 10 MB from the plateau
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -834,7 +833,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Confirm the UI is not frozen
 - [ ] Confirm no crash has occurred
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
@@ -850,7 +849,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Rotate back to portrait
 - [ ] Verify the layout is still correct
 
-**Pass / Fail:** _______    Notes: _______________________________________
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 

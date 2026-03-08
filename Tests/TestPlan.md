@@ -72,7 +72,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | T8 | `justExitedWarmup_syncsThenSkips` | U | iOS iPadOS mac | Medium | First frame after warmup syncs state but does not fire a tap |
 | T9 | Tap detected on physical knock | M | iOS iPadOS mac | High | Tap guitar top firmly once; verify green indicator flashes and tap count increments |
 | T10 | Minimum inter-tap interval enforced | M | iOS iPadOS mac | High | Knock twice in rapid succession (<0.3 s apart); verify only one tap is counted |
-| T11 | Background noise does not false-trigger | M | iOS iPadOS mac | High | With quiet ambient audio, verify tap count stays at 0 for ≥30 s |
+| T11 | Background noise does not false-trigger | M | iOS iPadOS mac | High | With quiet ambient audio, verify status message remains "Tap the guitar..." and indicator does not flash for ≥30 s |
 | T12 | Threshold setting affects sensitivity | M | iOS iPadOS mac | Medium | Reduce threshold in Settings; verify softer taps are now detected |
 
 ---
@@ -525,10 +525,9 @@ Each procedure follows the format:
 
 #### T9 — Tap detected on physical knock
 **Platforms:** iOS · iPadOS · macOS · **Priority:** High · **Part 1 ref:** T9
-**Preconditions:** App running and recording. Tap count set to 1. Acoustic measurement mode.
+**Preconditions:** App running and recording. Tap count set to 1. Acoustic measurement mode. Microphone (built-in or external) positioned close to the guitar body.
 **Steps:**
-1. Hold the device or place it on the guitar body.
-2. Knock the guitar top firmly once.
+1. Knock the guitar top firmly once.
 
 **Expected result:** The tap indicator flashes green. `Tap count: 1/1` appears in the status bar. The spectrum freezes and displays the captured response.
 
@@ -550,7 +549,7 @@ Each procedure follows the format:
 **Steps:**
 1. Leave the device recording with no intentional taps for 30 s.
 
-**Expected result:** Tap count remains at 0. The indicator does not flash green.
+**Expected result:** The status message remains "Tap the guitar..." throughout. The indicator does not flash green.
 
 ---
 
@@ -558,9 +557,9 @@ Each procedure follows the format:
 **Platforms:** iOS · iPadOS · macOS · **Priority:** Medium · **Part 1 ref:** T12
 **Preconditions:** App running. Default threshold in Settings.
 **Steps:**
-1. Note current threshold value in Settings.
-2. Reduce the threshold by 10 dB.
-3. Try a light tap that previously was not detected.
+1. Perform a light tap and confirm it is not detected at the default threshold.
+2. Reduce the threshold using the Threshold slider until the threshold line on the chart is below the peak of the previous tap.
+3. Perform the same light tap again.
 
 **Expected result:** The lighter tap is now detected with the lower threshold. Increasing the threshold back to the original value causes light taps to be missed again.
 
