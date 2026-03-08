@@ -84,7 +84,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | A1 | `powerDomainAveraging_correctResult` (= F17) | U | iOS iPadOS mac | High | (see F17) |
 | A2 | `reset_clearsCapturedTapsAndCount` | U | iOS iPadOS mac | High | `reset()` empties `capturedTaps` and zeroes `currentTapCount` |
 | A3 | Multi-tap accumulation visible | M | iOS iPadOS mac | High | Set tap count to 3; perform 3 taps; verify progress bar advances 1/3, 2/3, 3/3 |
-| A4 | Averaged spectrum is smoother than single tap | M | iOS iPadOS mac | Medium | Compare 1-tap and 5-tap spectra of the same note; 5-tap should show less noise |
+| A4 | Averaged spectrum is more consistent than single tap | M | iOS iPadOS mac | Medium | Capture 1-tap then 5-tap spectra varying position and force; verify prominent peaks align at the same frequencies — averaging reduces variation, not spectral smoothness |
 | A5 | Reset clears display | M | iOS iPadOS mac | High | After capturing taps, tap "Reset"; verify spectrum clears and count returns to 0 |
 
 ---
@@ -406,23 +406,29 @@ Each procedure follows the format:
 ### Audio Stack
 
 #### S1 — First launch: microphone permission prompt
-**Platforms:** iOS · iPadOS · **Priority:** High · **Part 1 ref:** S1
-**Preconditions:** Fresh install (or permissions reset via Settings → Privacy → Microphone → GuitarTap → remove). Device: iPhone or iPad. iOS 16+.
-**Steps:**
-1. Launch GuitarTap for the first time.
-2. Tap **Start**.
+**Platforms:** iOS · iPadOS · macOS · **Priority:** High · **Part 1 ref:** S1
+**Preconditions:** Permission must be in the "not determined" state. Toggling the microphone switch off in System Settings is **not** sufficient — that sets the status to "denied" and does not re-trigger the system prompt. To reset to "not determined":
+- **iOS/iPadOS:** Delete and reinstall the app, or use **System Settings → General → Transfer or Reset iPhone → Reset → Reset Location & Privacy**.
+- **macOS:** Run `tccutil reset Microphone` in Terminal (resets all apps), then relaunch GuitarTap.
 
-**Expected result:** iOS permission dialog "GuitarTap would like to access the microphone" appears. The app does not crash and does not start recording before the user responds.
+**Steps:**
+1. Launch GuitarTap.
+2. Tap/click **Start**.
+
+**Expected result:** The OS permission dialog "GuitarTap would like to access the microphone" appears. The app does not crash and does not start recording before the user responds.
 
 ---
 
 #### S2 — Permission denied: graceful degradation
-**Platforms:** iOS · iPadOS · **Priority:** High · **Part 1 ref:** S2
-**Preconditions:** Microphone permission denied (via Settings or by tapping "Don't Allow" in S1). App running.
-**Steps:**
-1. Tap **Start**.
+**Platforms:** iOS · iPadOS · macOS · **Priority:** High · **Part 1 ref:** S2
+**Preconditions:** Microphone permission previously denied (by tapping "Don't Allow" in S1, or by toggling off in System Settings). App running.
 
-**Expected result:** No crash. No recording starts (`isRunning` indicator stays red). No error alert is required, but the app should remain in a usable state. The spectrum chart may be empty or frozen.
+**Note (macOS):** When the microphone slider is toggled off in System Settings, macOS prompts to restart GuitarTap and then force-relaunches it. The app checks permission status on launch, so the alert appears immediately without needing to press Start.
+
+**Steps:**
+1. Tap/click **Start** (on iOS/iPadOS). On macOS, the alert may appear automatically on launch after a permission revocation restart — pressing Start is also sufficient to trigger it.
+
+**Expected result:** No crash. No recording starts. An alert titled "Microphone Access Required" appears with an **Open Settings** button that navigates to System Settings → Privacy & Security → Microphone.
 
 ---
 
@@ -581,25 +587,25 @@ Each procedure follows the format:
 
 ---
 
-#### A4 — Averaged spectrum is smoother than a single tap
+#### A4 — Averaged spectrum is more consistent than a single tap
 **Platforms:** iOS · iPadOS · macOS · **Priority:** Medium · **Part 1 ref:** A4
 **Preconditions:** App running. A real guitar is available.
 **Steps:**
-1. Set tap count to 1. Capture one tap. Note the spectrum.
+1. Set tap count to 1. Capture one tap. Note the positions of the prominent peaks.
 2. Tap **Reset**.
-3. Set tap count to 5. Capture five taps of the same note.
+3. Set tap count to 5. Capture five taps, deliberately varying tap position and force slightly between each.
 
-**Expected result:** The 5-tap averaged spectrum is visibly smoother (less high-frequency noise) than the single-tap spectrum.
+**Expected result:** The prominent peaks in the 5-tap averaged spectrum appear at the same frequencies as in the single-tap spectrum. The purpose of averaging is to reduce variation caused by differences in tap position and force — the overall spectral shape may look similar to a single tap.
 
 ---
 
-#### A5 — Reset clears display
+#### A5 — New Tap clears previous capture
 **Platforms:** iOS · iPadOS · macOS · **Priority:** High · **Part 1 ref:** A5
-**Preconditions:** App running. One or more taps captured.
+**Preconditions:** App running and recording. One or more taps have been captured (spectrum is frozen).
 **Steps:**
-1. Tap the **Reset** button (or the equivalent control in the tap controls row).
+1. Tap the **New Tap** button.
 
-**Expected result:** The spectrum clears to noise floor. Tap count returns to 0. The progress bar disappears.
+**Expected result:** The frozen spectrum clears and the status message returns to "Tap the guitar..." ready for a fresh capture sequence. If a multi-tap sequence was in progress, the progress bar also disappears.
 
 ---
 

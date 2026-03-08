@@ -1,0 +1,66 @@
+{
+    NSNavPanelExpandedSizeForOpenMode = "{883, 448}";
+    NSOSPLastRootDirectory = {length = 680, bytes = 0x626f6f6b a8020000 00000510 40000000 ... 04000000 00000000 };
+    "NSSplitView Subview Frames GuitarTap.TapToneAnalysisView-1-AppWindow-1, SidebarNavigationView" =     (
+        "0.000000, 0.000000, 1210.000000, 887.000000, NO, NO",
+        "0.000000, 0.000000, 1512.000000, 887.000000, NO, NO"
+    );
+    "NSSplitView Subview Frames GuitarTap.TapToneAnalysisView-1-AppWindow-2, SidebarNavigationView" =     (
+        "0.000000, 0.000000, 757.000000, 886.000000, NO, NO",
+        "0.000000, 0.000000, 1512.000000, 886.000000, NO, NO"
+    );
+    "NSSplitView Subview Frames GuitarTap.TapToneAnalysisView-1-AppWindow-3, SidebarNavigationView" =     (
+        "0.000000, 0.000000, 900.000000, 887.000000, NO, NO",
+        "0.000000, 0.000000, 1512.000000, 887.000000, NO, NO"
+    );
+    "NSSplitView Subview Frames main, SidebarNavigationView" =     (
+        "0.000000, 0.000000, 492.000000, 501.000000, NO, NO",
+        "0.000000, 0.000000, 600.000000, 501.000000, NO, NO"
+    );
+    "NSWindow Frame GuitarTap.ContentView-1-AppWindow-1" = "261 233 901 635 0 0 1512 949 ";
+    "NSWindow Frame GuitarTap.TapToneAnalysisView-1-AppWindow-1" = "416 38 1262 886 0 0 1512 949 ";
+    "NSWindow Frame SwiftUI.ModifiedContent<GuitarTap.ContentView, SwiftUI._FlexFrameLayout>-1-AppWindow-1" = "502 130 1163 819 0 0 1512 949 ";
+    "NSWindow Frame help" = "0 158 893 620 0 0 1512 949 ";
+    "NSWindow Frame main" = "448 62 1154 887 0 0 1512 949 ";
+    "NSWindowTabbingShoudShowTabBarKey-SwiftUI-WindowGroup-GuitarTap.TapToneAnalysisView-1" = 1;
+    activeCalibrationID = "346262E0-633B-4610-9172-663B9DE285EF";
+    analysisMaxFreq = 2000;
+    analysisMinFreq = 25;
+    braceLength = 556;
+    braceMass = 128;
+    braceThickness = "29.4";
+    braceWidth = "20.4";
+    deviceCalibrationMap = {length = 100, bytes = 0x7b224170 706c6555 53424175 64696f45 ... 45323835 4546227d };
+    displayMaxDB = 0;
+    displayMaxFreq = 1000;
+    "displayMaxFreq_Brace (MPM)" = 1000;
+    "displayMaxFreq_Brace Material" = 1000;
+    "displayMaxFreq_Classical Guitar" = 350;
+    "displayMaxFreq_Material (Wood Plate)" = 600;
+    "displayMaxFreq_Plate (MPM)" = 1000;
+    displayMinDB = "-100";
+    displayMinFreq = 75;
+    "displayMinFreq_Brace (MPM)" = 75;
+    "displayMinFreq_Brace Material" = 30;
+    "displayMinFreq_Classical Guitar" = 75;
+    "displayMinFreq_Material (Wood Plate)" = 30;
+    "displayMinFreq_Plate (MPM)" = 75;
+    guitarBodyLength = 490;
+    guitarBodyWidth = 390;
+    guitarType = Classical;
+    hopSizeOverlap = 0;
+    hysteresisMargin = 3;
+    materialLength = "557.5";
+    materialMass = 208;
+    materialThickness = "4.85";
+    materialWidth = "220.5";
+    maxPeaks = 0;
+    measureFlc = 1;
+    measurementType = "Classical Guitar";
+    peakThreshold = "-73";
+    plateStiffnessPreset = "Classical Top";
+    selectedInputDeviceUID = BuiltInMicrophoneDevice;
+    showUnknownModes = 1;
+    storedCalibrations = {length = 26060, bytes = 0x5b7b2263 6f727265 6374696f 6e506f69 ... 2d302e35 32347d5d };
+    tapDetectionThreshold = "-32";
+}

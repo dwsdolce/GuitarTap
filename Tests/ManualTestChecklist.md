@@ -122,29 +122,29 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
-### A4 — Averaged spectrum is smoother than a single tap
+### A4 — Averaged spectrum is more consistent than a single tap
 **Platforms:** iOS · iPadOS · macOS    **Priority:** Medium
 
 **Preconditions:** App running. A real guitar is available.
 
-- [ ] Set tap count to 1; capture one tap; note the spectrum appearance
+- [ ] Set tap count to 1; capture one tap; note the positions of the prominent peaks
 - [ ] Tap **Reset**
-- [ ] Set tap count to 5; capture five taps of the same note
-- [ ] Compare the two spectra — confirm the 5-tap version is visibly smoother (less high-frequency noise)
+- [ ] Set tap count to 5; capture five taps, deliberately varying tap position and force slightly between each
+- [ ] Compare the two spectra — confirm the prominent peaks appear at the same frequencies (averaging reduces variation due to tap position and force, not spectral smoothness)
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
-### A5 — Reset clears display
+### A5 — New Tap clears previous capture
 **Platforms:** iOS · iPadOS · macOS    **Priority:** High
 
-**Preconditions:** App running with one or more taps captured.
+**Preconditions:** App running and recording. One or more taps have been captured (spectrum is frozen).
 
-- [ ] Tap the **Reset** button
-- [ ] Verify the spectrum clears to the noise floor
-- [ ] Verify tap count returns to 0
-- [ ] Verify the progress bar disappears
+- [ ] Tap the **New Tap** button
+- [ ] Verify the frozen spectrum clears
+- [ ] Verify the status message returns to "Tap the guitar..."
+- [ ] If a multi-tap sequence was in progress, confirm the progress bar also disappears
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
@@ -153,13 +153,15 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 ## S — Audio Stack (Manual)
 
 ### S1 — First launch: microphone permission prompt
-**Platforms:** iOS · iPadOS    **Priority:** High
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
 
-**Preconditions:** Fresh install or permissions reset via Settings → Privacy → Microphone → GuitarTap → remove. iOS 16+.
+**Preconditions:** Permission must be in the "not determined" state. Toggling the microphone switch off in System Settings is **not** sufficient — that sets the status to "denied" and does not re-trigger the system prompt. To reset to "not determined":
+- **iOS/iPadOS:** Delete and reinstall the app, or use **System Settings → General → Transfer or Reset iPhone → Reset → Reset Location & Privacy**.
+- **macOS:** Run `tccutil reset Microphone` in Terminal (resets all apps), then relaunch GuitarTap.
 
-- [ ] Launch GuitarTap for the first time
-- [ ] Tap **Start**
-- [ ] Verify the iOS permission dialog "GuitarTap would like to access the microphone" appears
+- [ ] Launch GuitarTap
+- [ ] Tap/click **Start**
+- [ ] Verify the OS permission dialog "GuitarTap would like to access the microphone" appears
 - [ ] Confirm the app does not crash
 - [ ] Confirm the app does not start recording before the user responds
 
@@ -168,14 +170,17 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 ---
 
 ### S2 — Permission denied: graceful degradation
-**Platforms:** iOS · iPadOS    **Priority:** High
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
 
-**Preconditions:** Microphone permission denied (via Settings or by tapping "Don't Allow" in S1). App running.
+**Preconditions:** Microphone permission previously denied (by tapping "Don't Allow" in S1, or by toggling off in System Settings). App running.
 
-- [ ] Tap **Start**
+**Note (macOS):** Toggling the slider off in System Settings causes macOS to force-restart GuitarTap. The app checks permission on launch, so the alert appears automatically on restart — no need to press Start first.
+
+- [ ] On iOS/iPadOS: tap **Start**. On macOS: launch the app (alert may appear immediately on the post-revocation restart, or tap **Start**)
 - [ ] Verify the app does not crash
-- [ ] Verify recording does not start (`isRunning` indicator stays red)
-- [ ] Confirm the app remains in a usable state
+- [ ] Verify recording does not start
+- [ ] Confirm an alert titled "Microphone Access Required" appears
+- [ ] Tap/click **Open Settings** and verify it navigates to System Settings → Privacy & Security → Microphone
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
