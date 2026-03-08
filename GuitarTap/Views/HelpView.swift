@@ -183,16 +183,12 @@ After all taps, tap Results to see:
                     body: "Aborts a multi-tap or material measurement sequence and discards the partial data."
                 )
                 helpRow(
-                    title: "Save",
-                    body: "Saves the current measurement — enabled only when peaks are detected. Enter a location label and optional notes."
-                )
-                helpRow(
                     title: "Results",
                     body: "Opens the analysis results panel: peak list, decay time, material properties, quality rating, and (for Material mode) the Gore target thickness."
                 )
                 helpRow(
-                    title: "Measurements",
-                    body: "Lists all saved measurements. From here you can load a measurement back into the main view, export as JSON, generate a PDF report, or delete."
+                    title: "Export Spectrum",
+                    body: "Saves the current spectrum as a CSV file (frequency/magnitude pairs) or a chart image."
                 )
                 helpRow(
                     title: "Auto dB",
@@ -203,25 +199,32 @@ After all taps, tap Results to see:
                     body: "Cycles through three label modes: All peaks annotated, Selected peaks only, or None."
                 )
                 helpRow(
-                    title: "Export Spectrum",
-                    body: "Saves the current spectrum as a CSV file (frequency/magnitude pairs) or a chart image."
+                    title: "Save",
+                    body: "Saves the current measurement — enabled only when peaks are detected. Enter a location label and optional notes."
                 )
                 helpRow(
-                    title: "Crosshair (iOS)",
-                    body: "Enables a draggable crosshair on the spectrum for reading the exact frequency and magnitude at any point."
+                    title: "Measurements",
+                    body: "Lists all saved measurements. From here you can load a measurement back into the main view, export as JSON, generate a PDF report, or delete."
                 )
                 helpRow(
                     title: "Metrics",
                     body: "Shows FFT engine statistics: frame rate, bin width (Hz/bin), sample rate, and buffer size."
                 )
+                #if os(iOS)
                 helpRow(
-                    title: "… Chart Options (iOS)",
+                    title: "Crosshair",
+                    body: "Enables a draggable crosshair on the spectrum for reading the exact frequency and magnitude at any point."
+                )
+                helpRow(
+                    title: "… Chart Options",
                     body: "The ellipsis button in the top-right corner of the spectrum opens the Chart Options sheet. From here you can reset either or both axes to the values you last saved in Settings (\"Reset to Saved\"), or restore the factory defaults (\"Reset to Defaults\"). If peak labels have been dragged from their auto-positions, \"Reset Labels\" moves them back."
                 )
+                #else
                 helpRow(
-                    title: "ⓘ Zoom & Pan Help (macOS)",
+                    title: "ⓘ Zoom & Pan Help",
                     body: "The info button in the top-right corner of the spectrum shows the keyboard and trackpad shortcuts for navigating the chart: Scroll — pan vertically (magnitude); ⇧ Scroll — pan horizontally (frequency); ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency axis; ⌃ Scroll — zoom magnitude axis; Pinch — zoom (trackpad); Drag — pan both axes; Right-click — reset axes and labels."
                 )
+                #endif
             } header: {
                 Label("Controls Reference", systemImage: "hand.tap")
             }

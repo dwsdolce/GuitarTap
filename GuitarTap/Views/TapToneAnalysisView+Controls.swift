@@ -116,42 +116,6 @@ extension TapToneAnalysisView {
                 .buttonStyle(.bordered)
                 .hint(HintText.showResults)
 
-                // Metrics button
-                Button(action: { showingMetrics = true }) {
-                    Label("Metrics", systemImage: "chart.bar")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.showMetrics)
-
-                // Save button
-                Button(action: { showingSaveSheet = true }) {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(tap.currentPeaks.isEmpty)
-                .hint(HintText.save)
-
-                // Measurements button
-                Button(action: { showingMeasurements = true }) {
-                    Label("Measurements", systemImage: "list.bullet.clipboard")
-                    if !tap.savedMeasurements.isEmpty {
-                        Text("(\(tap.savedMeasurements.count))")
-                            .font(.caption)
-                    }
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.measurements)
-
-                // Settings button
-                Button(action: { showingSettings = true }) {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.settings)
-            }
-
-            // Row 2: Secondary controls
-            HStack(spacing: 8) {
                 // Export Spectrum button
                 Button(action: { exportCurrentSpectrum() }) {
                     Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
@@ -184,6 +148,42 @@ extension TapToneAnalysisView {
                 .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
                 .disabled(tap.currentPeaks.isEmpty)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
+
+                // Save button
+                Button(action: { showingSaveSheet = true }) {
+                    Label("Save", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(tap.currentPeaks.isEmpty)
+                .hint(HintText.save)
+            }
+
+            // Row 2: Secondary controls
+            HStack(spacing: 8) {
+                // Measurements button
+                Button(action: { showingMeasurements = true }) {
+                    Label("Measurements", systemImage: "list.bullet.clipboard")
+                    if !tap.savedMeasurements.isEmpty {
+                        Text("(\(tap.savedMeasurements.count))")
+                            .font(.caption)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .hint(HintText.measurements)
+
+                // Metrics button
+                Button(action: { showingMetrics = true }) {
+                    Label("Metrics", systemImage: "chart.bar")
+                }
+                .buttonStyle(.bordered)
+                .hint(HintText.showMetrics)
+
+                // Settings button
+                Button(action: { showingSettings = true }) {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .buttonStyle(.bordered)
+                .hint(HintText.settings)
 
                 Spacer()
             }
@@ -231,21 +231,6 @@ extension TapToneAnalysisView {
             .buttonStyle(.bordered)
             .hint(HintText.showResults)
 
-            // Metrics button
-            Button(action: { showingMetrics = true }) {
-                Label("Metrics", systemImage: "chart.bar")
-            }
-            .buttonStyle(.bordered)
-            .hint(HintText.showMetrics)
-
-            // Save button
-            Button(action: { showingSaveSheet = true }) {
-                Label("Save", systemImage: "square.and.arrow.down")
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(tap.currentPeaks.isEmpty)
-            .hint(HintText.save)
-
             // Export Spectrum button
             Button(action: { exportCurrentSpectrum() }) {
                 Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
@@ -272,6 +257,14 @@ extension TapToneAnalysisView {
             .disabled(tap.currentPeaks.isEmpty)
             .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
+            // Save button
+            Button(action: { showingSaveSheet = true }) {
+                Label("Save", systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(tap.currentPeaks.isEmpty)
+            .hint(HintText.save)
+
             // Measurements button
             Button(action: { showingMeasurements = true }) {
                 Label("Measurements", systemImage: "list.bullet.clipboard")
@@ -282,6 +275,13 @@ extension TapToneAnalysisView {
             }
             .buttonStyle(.bordered)
             .hint(HintText.measurements)
+
+            // Metrics button
+            Button(action: { showingMetrics = true }) {
+                Label("Metrics", systemImage: "chart.bar")
+            }
+            .buttonStyle(.bordered)
+            .hint(HintText.showMetrics)
 
             // Settings button
             Button(action: { showingSettings = true }) {
@@ -318,31 +318,6 @@ extension TapToneAnalysisView {
                 .buttonStyle(.bordered)
                 .hint(HintText.showResults)
 
-                // Metrics button
-                Button(action: { showingMetrics = true }) {
-                    Label("Metrics", systemImage: "chart.bar")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.showMetrics)
-
-                // Save button
-                Button(action: { showingSaveSheet = true }) {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(tap.currentPeaks.isEmpty)
-                .hint(HintText.save)
-
-                // Settings button
-                Button(action: { showingSettings = true }) {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.settings)
-            }
-
-            // Row 2: Secondary controls
-            HStack(spacing: 8) {
                 // Export Spectrum button
                 Button(action: { exportCurrentSpectrum() }) {
                     Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
@@ -369,6 +344,17 @@ extension TapToneAnalysisView {
                 .disabled(tap.currentPeaks.isEmpty)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
+                // Save button
+                Button(action: { showingSaveSheet = true }) {
+                    Label("Save", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(tap.currentPeaks.isEmpty)
+                .hint(HintText.save)
+            }
+
+            // Row 2: Secondary controls
+            HStack(spacing: 8) {
                 // Measurements button
                 Button(action: { showingMeasurements = true }) {
                     Label("Measurements", systemImage: "list.bullet.clipboard")
@@ -379,6 +365,20 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.measurements)
+
+                // Metrics button
+                Button(action: { showingMetrics = true }) {
+                    Label("Metrics", systemImage: "chart.bar")
+                }
+                .buttonStyle(.bordered)
+                .hint(HintText.showMetrics)
+
+                // Settings button
+                Button(action: { showingSettings = true }) {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .buttonStyle(.bordered)
+                .hint(HintText.settings)
 
                 Spacer()
             }
@@ -408,44 +408,6 @@ extension TapToneAnalysisView {
                 .buttonStyle(.bordered)
                 .hint(HintText.showResults)
 
-                // Metrics button
-                Button(action: { showingMetrics = true }) {
-                    Image(systemName: "chart.bar")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.showMetrics)
-
-                // Save button
-                Button(action: { showingSaveSheet = true }) {
-                    Image(systemName: "square.and.arrow.down")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(tap.currentPeaks.isEmpty)
-                .hint(HintText.save)
-
-                // Measurements button
-                Button(action: { showingMeasurements = true }) {
-                    HStack(spacing: 2) {
-                        Image(systemName: "list.bullet.clipboard")
-                        if !tap.savedMeasurements.isEmpty {
-                            Text("\(tap.savedMeasurements.count)")
-                                .font(.caption2)
-                        }
-                    }
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.measurements)
-
-                // Settings button
-                Button(action: { showingSettings = true }) {
-                    Image(systemName: "gearshape")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.settings)
-            }
-
-            // Row 2: Secondary controls - icon only
-            HStack(spacing: 6) {
                 // Export Spectrum button
                 Button(action: { exportCurrentSpectrum() }) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
@@ -471,6 +433,44 @@ extension TapToneAnalysisView {
                 .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
                 .disabled(tap.currentPeaks.isEmpty)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
+
+                // Save button
+                Button(action: { showingSaveSheet = true }) {
+                    Image(systemName: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(tap.currentPeaks.isEmpty)
+                .hint(HintText.save)
+            }
+
+            // Row 2: Secondary controls - icon only
+            HStack(spacing: 6) {
+                // Measurements button
+                Button(action: { showingMeasurements = true }) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "list.bullet.clipboard")
+                        if !tap.savedMeasurements.isEmpty {
+                            Text("\(tap.savedMeasurements.count)")
+                                .font(.caption2)
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .hint(HintText.measurements)
+
+                // Metrics button
+                Button(action: { showingMetrics = true }) {
+                    Image(systemName: "chart.bar")
+                }
+                .buttonStyle(.bordered)
+                .hint(HintText.showMetrics)
+
+                // Settings button
+                Button(action: { showingSettings = true }) {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(.bordered)
+                .hint(HintText.settings)
 
                 Spacer()
             }
