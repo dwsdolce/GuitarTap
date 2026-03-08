@@ -187,13 +187,13 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 ---
 
 ### S3 — Permission granted after denial
-**Platforms:** iOS · iPadOS    **Priority:** Medium
+**Platforms:** iOS · iPadOS · macOS    **Priority:** Medium
 
 **Preconditions:** Microphone permission was previously denied.
 
-- [ ] Open **Settings → Privacy & Security → Microphone → GuitarTap** and enable it
-- [ ] Return to GuitarTap (no relaunch needed on iOS 14+)
-- [ ] Tap **Start**
+- [ ] Open **System Settings → Privacy & Security → Microphone → GuitarTap** and enable it
+- [ ] **iOS/iPadOS:** Return to GuitarTap (no relaunch needed on iOS 14+), then tap **Start**
+- [ ] **macOS:** GuitarTap is force-restarted automatically; click **Start** after it relaunches
 - [ ] Verify recording begins and the spectrum starts animating
 - [ ] Verify the green running indicator appears
 
@@ -201,14 +201,14 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
-### S4 — AVAudioSession category active
-**Platforms:** iOS · iPadOS    **Priority:** High
+### S4 — Microphone-in-use indicator active
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
 
-**Preconditions:** App running on a real iPhone or iPad.
+**Preconditions:** App running on a real device.
 
-- [ ] Tap **Start**
-- [ ] Look at the iOS status bar
-- [ ] Confirm the orange microphone indicator appears, confirming the `.record` session category is active
+- [ ] Tap/click **Start**
+- [ ] **iOS/iPadOS:** Confirm the orange microphone indicator appears in the status bar; stop the analyzer and confirm it disappears
+- [ ] **macOS:** Confirm the orange microphone indicator appears in the menu bar (top-right area); note that it persists until the app is quit — this is normal macOS behavior
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 

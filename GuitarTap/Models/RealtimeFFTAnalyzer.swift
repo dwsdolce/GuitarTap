@@ -10,11 +10,14 @@ import AVFoundation
 import Accelerate
 import Charts
 import Combine
+import OSLog
 
 #if os(macOS)
 import AudioToolbox
 import CoreAudio
 #endif
+
+private let micLog = Logger(subsystem: "com.dolcesfogato.GuitarTap", category: "Microphone")
 
 // MARK: - FFT Analyzer
 
@@ -42,8 +45,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// The main audio engine that manages audio processing graph and I/O
     private var audioEngine: AVAudioEngine
     
-    /// The audio input node representing the device's microphone
-    private var inputNode: AVAudioInputNode
+    /// The audio input node representing the device's microphone.
+    /// Not accessed until start() to avoid triggering the audio hardware before permission is confirmed.
+    private var inputNode: AVAudioInputNode!
     
     /// The currently selected audio input device
     @Published var selectedInputDevice: AVAudioDevice? {
@@ -223,7 +227,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     private let peakHoldDuration: TimeInterval = 2.0  // How long to hold the peak
     
     /// Indicates whether the analyzer is currently running and processing audio
-    @Published var isRunning: Bool = false // {
+    @Published var isRunning: Bool = false
+
+    /// Set to true when permission is confirmed denied after start (macOS TCC cache lag).
+    /// The view observes this to show the "Microphone Access Required" alert.
+    /// Reset to false after the alert has been handled.
+    @Published var microphonePermissionDenied: Bool = false
+
+    // {
 //        didSet {
 //            print("🔄 isRunning changed from \(oldValue) to \(isRunning) on thread: \(Thread.isMainThread ? "MAIN" : "BACKGROUND")")
 //        }
@@ -281,7 +292,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         self.targetSampleRate = targetSampleRate
         self.useHardwareSampleRate = useHardwareSampleRate
         self.audioEngine = AVAudioEngine()
-        self.inputNode = audioEngine.inputNode
+        // inputNode is intentionally not accessed here — accessing it in init touches the
+        // audio hardware and triggers -10877 (kAudioUnitErr_Unauthorized) on macOS when
+        // permission was recently revoked. It is assigned in start() after the permission check.
         
         // Initialize FFT setup using vDSP's optimized DFT functions
         // This setup object is reused for all FFT operations for performance
@@ -362,6 +375,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///
     /// - Note: Requires microphone permissions. Add `NSMicrophoneUsageDescription` to Info.plist
     func start() throws {
+        micLog.info("=== Starting Audio Engine ===")
         print("=== Starting Audio Engine ===")
         
         // CRITICAL: Always remove any existing tap to prevent "Tap already exists" error
@@ -370,12 +384,17 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         // 1. The tap can persist even after the engine stops
         // 2. Route changes can leave the engine in an inconsistent state
         // 3. removeTap() is safe to call even if no tap exists
+        // Remove any existing tap before teardown. Guard against nil on very first call
+        // (inputNode is not assigned in init to avoid touching the audio hardware before
+        // permission is confirmed).
         print("🔧 Removing any existing tap before restart...")
-        inputNode.removeTap(onBus: 0)
-        
-        // Reset the audio engine to ensure clean state
+        inputNode?.removeTap(onBus: 0)
+
+        // Fully replace the audio engine with a fresh instance rather than reusing it.
+        // After macOS force-restarts the app following a permission revocation, the existing
+        // AVAudioEngine is in an irrecoverably broken state — reset() is not sufficient.
         audioEngine.stop()
-        audioEngine.reset()
+        audioEngine = AVAudioEngine()
         inputNode = audioEngine.inputNode
         
         #if os(macOS)
@@ -384,8 +403,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         print("🔐 Checking microphone permission...")
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
+            micLog.info("Microphone permission: AUTHORIZED")
             print("✅ Microphone permission: AUTHORIZED")
         case .notDetermined:
+            micLog.info("Microphone permission: NOT DETERMINED - requesting now...")
             print("⚠️ Microphone permission: NOT DETERMINED - requesting now...")
             // Request permission synchronously (this will show system dialog)
             let semaphore = DispatchSemaphore(value: 0)
@@ -395,11 +416,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             }
             semaphore.wait()
         case .denied:
+            micLog.warning("Microphone permission: DENIED — throwing")
             print("❌ Microphone permission: DENIED")
-            print("   → Go to System Settings > Privacy & Security > Microphone")
-            print("   → Enable permission for this app")
+            throw NSError(domain: "RealtimeFFTAnalyzer", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Microphone access denied"])
         case .restricted:
             print("⚠️ Microphone permission: RESTRICTED (parental controls or MDM)")
+            throw NSError(domain: "RealtimeFFTAnalyzer", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "Microphone access restricted"])
         @unknown default:
             print("⚠️ Microphone permission: UNKNOWN STATUS")
         }
@@ -706,7 +730,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             self.loadAvailableInputDevices()
             #endif
             
-            // Set up a timeout to check if audio buffers are arriving
+            // Set up a timeout to check if audio buffers are arriving.
+            // Also re-checks TCC permission status — on macOS, authorizationStatus can briefly
+            // report .authorized after a forced restart even though the hardware is still
+            // blocked. By 3 seconds the cache will have settled to the true state.
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
                 guard let self = self else { return }
                 if self.isRunning && !self.firstBufferReceived {
@@ -715,8 +742,40 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                     print("   1. Microphone permission was denied (check System Settings > Privacy & Security > Microphone)")
                     print("   2. No input device is connected or selected")
                     print("   3. The input device is in use by another application")
-                    print("⚠️ Try stopping and restarting, or check your audio input settings.")
                 }
+                #if os(macOS)
+                // Detect permission denial even when TCC cache is stale.
+                //
+                // When macOS force-restarts the app after permission revocation, AVCaptureDevice
+                // .authorizationStatus can report .authorized for many seconds while the audio
+                // hardware is actually blocked. The hardware delivers a perfectly silent stream
+                // (all-zero samples), which produces -infinity dB from the FFT.
+                //
+                // Real audio from any microphone — even in a very quiet room — will never be
+                // exactly zero. So .isInfinite on peakMagnitude is a reliable signal that the
+                // hardware is muted by the OS, regardless of what TCC says.
+                //
+                // We also check TCC directly in case the magnitude is merely very low but not
+                // infinite (e.g. the engine delivered a handful of non-zero seed samples).
+                guard self.isRunning else { return }
+                let tccStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+                let tccDenied = (tccStatus == .denied || tccStatus == .restricted)
+                // -infinity dB means the FFT received a perfectly zero signal.
+                // Real mics always produce some thermal/quantisation noise, so a
+                // perfectly silent stream that is also receiving buffers (firstBufferReceived)
+                // is a definitive sign the OS is silently muting our input.
+                let perfectSilence = self.peakMagnitude.isInfinite
+                    && self.peakMagnitude < 0
+                    && self.firstBufferReceived
+                micLog.info("3s TCC check — status: \(tccStatus.rawValue, privacy: .public), peak: \(self.peakMagnitude, privacy: .public) dB, perfectSilence: \(perfectSilence, privacy: .public), buffersReceived: \(self.firstBufferReceived, privacy: .public)")
+                print("🔐 3s TCC check — status: \(tccStatus.rawValue), peak: \(self.peakMagnitude) dB, perfectSilence: \(perfectSilence), buffersReceived: \(self.firstBufferReceived)")
+                if tccDenied || perfectSilence {
+                    micLog.warning("Microphone permission confirmed DENIED after 3s — tccDenied=\(tccDenied, privacy: .public), perfectSilence=\(perfectSilence, privacy: .public)")
+                    print("❌ Microphone permission confirmed DENIED after 3s — signalling UI (tccDenied=\(tccDenied), perfectSilence=\(perfectSilence))")
+                    self.stop()
+                    self.microphonePermissionDenied = true
+                }
+                #endif
             }
         }
     }
@@ -1503,8 +1562,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                     !previousDevices.contains(where: { $0.uid == newDev.uid })
                 }
 
-                if let firstNew = newlyConnected.first {
-                    // New device plugged in — switch to it automatically
+                // Ignore transient aggregate devices that macOS creates internally during
+                // audio session setup (e.g. after a permission revocation restart).
+                // These have UIDs matching "CADefaultDeviceAggregate" and are not real
+                // user-facing microphones.
+                let realNewDevices = newlyConnected.filter { !$0.uid.contains("CADefaultDeviceAggregate") }
+
+                if let firstNew = realNewDevices.first {
+                    // New real device plugged in — switch to it automatically
                     self.selectedInputDevice = firstNew
                     print("🎤 New device connected, auto-selected: \(firstNew.name)")
                 } else if let current = self.selectedInputDevice,

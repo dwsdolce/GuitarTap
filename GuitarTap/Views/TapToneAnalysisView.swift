@@ -37,6 +37,7 @@ struct TapToneAnalysisView: View {
     @State var isExportingSpectrum = false
     @State var isSavingMeasurement = false
     @State var isGeneratingReport = false
+    @State var showingMicrophonePermissionAlert = false
 
     // Spectrum display state (loaded from persisted settings)
     @State var minFreq: Float = TapDisplaySettings.minFrequency
@@ -371,6 +372,43 @@ struct TapToneAnalysisView: View {
                 isAutoScaleEnabled = false
                 print("🔄 Auto-scale dB disabled - tap detected, spectrum frozen")
             }
+        }
+        #if os(macOS)
+        .onAppear {
+            // On macOS, System Settings can force-restart the app after revoking microphone
+            // access. Delay slightly so the window is fully presented before showing the alert.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                let status = AVCaptureDevice.authorizationStatus(for: .audio)
+                if status == .denied || status == .restricted {
+                    showingMicrophonePermissionAlert = true
+                }
+            }
+        }
+        .onChange(of: fftAnalyzer.microphonePermissionDenied) { _, isDenied in
+            // Fired when the 3-second post-start TCC check confirms permission is denied.
+            // This catches the macOS TCC cache lag case where authorizationStatus briefly
+            // reports .authorized after a forced restart even though the mic is still blocked.
+            if isDenied {
+                showingMicrophonePermissionAlert = true
+                fftAnalyzer.microphonePermissionDenied = false
+            }
+        }
+        #endif
+        .alert("Microphone Access Required", isPresented: $showingMicrophonePermissionAlert) {
+            Button("Open Settings") {
+                #if os(iOS)
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+                #elseif os(macOS)
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                    NSWorkspace.shared.open(url)
+                }
+                #endif
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("GuitarTap needs microphone access to analyse tap tones. Please enable it in System Settings → Privacy & Security → Microphone.")
         }
     }
 }

@@ -5,6 +5,35 @@
 //  Created by David Smith on 12/31/25.
 //
 import SwiftUI
+import Foundation
+
+#if os(macOS)
+/// Redirects stdout and stderr to a file so print() output is captured even when
+/// the app is force-restarted by macOS outside of Xcode's debugger.
+/// The log file is at ~/Library/Logs/GuitarTap/debug.log
+private func redirectOutputToFile() {
+    // The app is sandboxed — write inside the container's Library/Logs directory
+    guard let containerLibrary = FileManager.default
+        .urls(for: .libraryDirectory, in: .userDomainMask).first else { return }
+    let logDir = containerLibrary.appendingPathComponent("Logs")
+    try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
+    let logFile = logDir.appendingPathComponent("GuitarTap-debug.log")
+    // Append mode so successive restarts don't overwrite each other
+    if FileManager.default.fileExists(atPath: logFile.path) == false {
+        FileManager.default.createFile(atPath: logFile.path, contents: nil)
+    }
+    if let fd = fopen(logFile.path, "a") {
+        // Timestamp separator so restarts are easy to spot
+        let ts = ISO8601DateFormatter().string(from: Date())
+        fputs("\n\n=== GuitarTap launched \(ts) ===\n", fd)
+        fflush(fd)
+        dup2(fileno(fd), STDOUT_FILENO)
+        dup2(fileno(fd), STDERR_FILENO)
+        fclose(fd)
+        setbuf(stdout, nil)   // unbuffered so writes appear immediately
+    }
+}
+#endif
 
 let appVersion: String = {
     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -41,6 +70,12 @@ struct AppCommands: Commands {
 // MARK: - App Entry Point
 @main
 struct GuitarTapApp: App {
+    init() {
+        #if os(macOS)
+        redirectOutputToFile()
+        #endif
+    }
+
     var body: some Scene {
         #if os(macOS)
         // On macOS, use Window instead of WindowGroup to prevent multiple instances

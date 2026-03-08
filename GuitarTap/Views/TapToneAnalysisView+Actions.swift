@@ -15,14 +15,15 @@ extension TapToneAnalysisView {
             tap.stop()
         } else {
             #if os(iOS)
-            // On iOS, request microphone permission first
+            // On iOS, request microphone permission first.
+            // If already denied, requestRecordPermission returns false immediately without showing a dialog.
             if #available(iOS 17.0, *) {
                 AVAudioApplication.requestRecordPermission { granted in
                     DispatchQueue.main.async {
                         if granted {
                             self.startAnalyzer()
                         } else {
-                            print("❌ Microphone permission denied")
+                            self.showingMicrophonePermissionAlert = true
                         }
                     }
                 }
@@ -32,14 +33,19 @@ extension TapToneAnalysisView {
                         if granted {
                             self.startAnalyzer()
                         } else {
-                            print("❌ Microphone permission denied")
+                            self.showingMicrophonePermissionAlert = true
                         }
                     }
                 }
             }
             #else
-            // On macOS, start directly
-            startAnalyzer()
+            // On macOS, check permission before starting; show alert if denied.
+            let status = AVCaptureDevice.authorizationStatus(for: .audio)
+            if status == .denied || status == .restricted {
+                showingMicrophonePermissionAlert = true
+            } else {
+                startAnalyzer()
+            }
             #endif
         }
     }
@@ -59,6 +65,19 @@ extension TapToneAnalysisView {
             try self.tapToneAnalyzer.start()
         } catch {
             print("❌ Failed to start analyzer: \(error)")
+            #if os(macOS)
+            // Surface permission errors as an alert.
+            // kAudioUnitErr_Unauthorized (-10877) means the audio engine was denied by TCC —
+            // this happens when macOS restarts the app after revoking permission and the TCC
+            // cache hasn't yet updated, so authorizationStatus still reports .authorized.
+            // Our own domain codes 1/2 cover the cases where the status check fires correctly.
+            let nsError = error as NSError
+            let isPermissionError = (nsError.domain == "RealtimeFFTAnalyzer" && (nsError.code == 1 || nsError.code == 2))
+                                 || nsError.code == -10877
+            if isPermissionError {
+                showingMicrophonePermissionAlert = true
+            }
+            #endif
         }
     }
 
