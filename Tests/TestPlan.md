@@ -99,10 +99,10 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | S4 | Microphone-in-use indicator active | M | iOS iPadOS macOS | High | Start recording; verify orange mic indicator appears in status bar (iOS/iPadOS) or menu bar (macOS) |
 | S5 | Session interrupted by phone call (iOS) | M | iOS | High | Start recording; receive incoming call; verify recording stops cleanly; after call ends, verify app is in a consistent stopped state |
 | S6 | Session interrupted by another audio app | M | iOS iPadOS | Medium | Start recording; launch Spotify/Music and play; verify GuitarTap stops; return to GuitarTap; verify can restart |
-| S7 | Input device selection (macOS) | M | mac | High | Open Settings; change input device to a different microphone; verify spectrum updates to new device within 2 s |
+| S7 | Input device selection (macOS) | M | mac | High | Open GuitarTap Settings → Audio Input & Calibration → Audio Input Device; change to a different microphone; verify spectrum updates within 2 s |
 | S8 | External device plug/unplug (macOS) | M | mac | Medium | Plug in USB microphone while recording; verify device list updates; unplug; verify app does not crash |
-| S9 | 48 kHz sample rate accepted | M | iOS iPadOS mac | Medium | Start recording; open Metrics overlay; verify sample rate shown is 48000 Hz |
-| S10 | Non-48 kHz device — resampling transparent | M | mac | Low | Force a device at 44100 Hz via Audio MIDI Setup; start recording; verify spectrum still appears (resampler active) |
+| S9 | 48 kHz sample rate accepted | M | iOS iPadOS mac | Medium | Start recording; open Metrics overlay; verify Sample Rate shown is 48000 Hz |
+| S10 | Non-48 kHz device accepted | M | mac | Low | Set device to 44100 Hz in Audio MIDI Setup; start recording; verify spectrum appears and Sample Rate reads 44100 Hz; change back to 48000 Hz while running; verify auto-restart and Sample Rate updates |
 
 ---
 
@@ -477,6 +477,8 @@ Each procedure follows the format:
 
 **Expected result:** GuitarTap is in a stopped state when the other app takes the audio session. Tapping **Start** again restarts recording.
 
+**Note:** This test does not apply to macOS. On macOS, CoreAudio allows simultaneous audio access by multiple apps, so a playback app does not interrupt GuitarTap's microphone input.
+
 ---
 
 #### S7 — Input device selection (macOS)
@@ -484,7 +486,7 @@ Each procedure follows the format:
 **Preconditions:** Two microphone sources available on the Mac (e.g. built-in + USB headset).
 **Steps:**
 1. Launch GuitarTap and tap **Start**.
-2. Open **Settings → Input device** and select the alternative device.
+2. Open GuitarTap **Settings → Audio Input & Calibration → Audio Input Device** and select the alternative device.
 
 **Expected result:** Within 2 s the spectrum updates to reflect audio from the new device. No crash.
 
@@ -503,26 +505,31 @@ Each procedure follows the format:
 
 ---
 
-#### S9 — 48 kHz sample rate displayed
+#### S9 — 48 kHz sample rate accepted
 **Platforms:** iOS · iPadOS · macOS · **Priority:** Medium · **Part 1 ref:** S9
 **Preconditions:** App recording on any platform.
 **Steps:**
 1. Tap **Start**.
 2. Tap **Metrics** to open the metrics overlay.
 
-**Expected result:** "48000 Hz" (or the device's actual rate) is shown in the metrics. No "0 Hz" or empty value.
+**Expected result:** The **Sample Rate** field shows "48000 Hz" (or the device's actual rate). No "0 Hz", "—", or empty value.
 
 ---
 
-#### S10 — Non-48 kHz device: resampling transparent
+#### S10 — Non-48 kHz device accepted
 **Platforms:** macOS · **Priority:** Low · **Part 1 ref:** S10
-**Preconditions:** A microphone that reports a native sample rate of 44100 Hz is available. Use **Audio MIDI Setup** (Applications → Utilities) to confirm or force the rate.
+**Preconditions:** A microphone is available whose sample rate can be changed in **Audio MIDI Setup** (Applications → Utilities) — the built-in microphone works.
 **Steps:**
-1. Open Audio MIDI Setup and set the USB/built-in device to 44100 Hz.
-2. Launch GuitarTap and select that device in **Settings → Input device**.
+1. Open Audio MIDI Setup and set the device to 44100 Hz.
+2. Launch GuitarTap and select that device in **GuitarTap Settings → Audio Input & Calibration → Audio Input Device**.
 3. Tap **Start**.
+4. Verify the spectrum appears and the **Sample Rate** in Metrics reads "44100 Hz".
+5. While still recording, switch the device back to 48000 Hz in Audio MIDI Setup.
+6. Observe GuitarTap.
 
-**Expected result:** The spectrum chart appears and animates normally. The app does not crash or show an error. The resampler operates transparently; the displayed sample rate may still read 48000 Hz (the engine's internal rate).
+**Expected result:**
+- Steps 3–4: The spectrum chart appears and animates normally at 44100 Hz. The app does not crash.
+- Step 6: Recording stops briefly and restarts automatically. After restart, the spectrum resumes and **Sample Rate** in Metrics reads "48000 Hz". No crash or error dialog.
 
 ---
 

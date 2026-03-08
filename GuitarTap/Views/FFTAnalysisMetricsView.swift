@@ -41,6 +41,16 @@ struct FFTAnalysisMetricsView: View {
                     Divider()
                     
                     MetricRow(
+                        label: "Sample Rate",
+                        value: analyzer.actualSampleRate > 0
+                            ? String(format: "%.0f Hz", analyzer.actualSampleRate)
+                            : "—",
+                        subtitle: "Hardware capture rate"
+                    )
+
+                    Divider()
+
+                    MetricRow(
                         label: "Bandwidth",
                         value: formatFrequency(analyzer.bandwidth),
                         subtitle: "0 Hz to Nyquist"

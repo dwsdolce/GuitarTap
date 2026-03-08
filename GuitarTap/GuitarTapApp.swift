@@ -11,7 +11,20 @@ import Foundation
 /// Redirects stdout and stderr to a file so print() output is captured even when
 /// the app is force-restarted by macOS outside of Xcode's debugger.
 /// The log file is at ~/Library/Logs/GuitarTap/debug.log
+/// Returns true when a debugger (e.g. Xcode) is attached to this process.
+/// Used to skip file redirection so Xcode's console still receives output.
+private func isDebuggerAttached() -> Bool {
+    var info = kinfo_proc()
+    var size = MemoryLayout<kinfo_proc>.stride
+    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+    sysctl(&mib, 4, &info, &size, nil, 0)
+    return (info.kp_proc.p_flag & P_TRACED) != 0
+}
+
 private func redirectOutputToFile() {
+    // When running under Xcode, keep stdout/stderr on the console as normal.
+    guard !isDebuggerAttached() else { return }
+
     // The app is sandboxed — write inside the container's Library/Logs directory
     guard let containerLibrary = FileManager.default
         .urls(for: .libraryDirectory, in: .userDomainMask).first else { return }

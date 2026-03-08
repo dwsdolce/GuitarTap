@@ -70,8 +70,30 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                     print("📊 No calibration for device '\(selectedInputDevice?.name ?? "unknown")' - using uncalibrated mode")
                 }
             }
+
+            #if os(macOS)
+            // On macOS, if the engine is running and this change came from the user
+            // (not from setInputDevice's own assignment), restart the engine with the new device.
+            guard !isApplyingDeviceSwitch, isRunning, selectedInputDevice?.uid != oldValue?.uid else { return }
+            print("🔄 Device changed while running — restarting engine for: \(selectedInputDevice?.name ?? "unknown")")
+            isApplyingDeviceSwitch = true
+            stop()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self = self else { return }
+                do {
+                    try self.start()
+                    print("✅ Engine restarted with new device: \(self.selectedInputDevice?.name ?? "unknown")")
+                } catch {
+                    print("❌ Failed to restart engine after device change: \(error)")
+                }
+                self.isApplyingDeviceSwitch = false
+            }
+            #endif
         }
     }
+
+    /// Guards against re-entrant engine restarts when selectedInputDevice is set programmatically
+    private var isApplyingDeviceSwitch = false
     
     /// List of available audio input devices
     @Published var availableInputDevices: [AVAudioDevice] = []
@@ -113,9 +135,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// - Note: When true, targetSampleRate is ignored and hardware rate is used
     private let useHardwareSampleRate: Bool
     
-    /// The actual sample rate of the audio hardware
-    /// - Note: This is determined at runtime when the audio engine starts
-    private var actualSampleRate: Double = 0
+    /// The actual sample rate of the audio hardware in Hz.
+    /// - Note: This is determined at runtime when the audio engine starts; 0 when stopped.
+    @Published var actualSampleRate: Double = 0
     
     /// Hop size overlap percentage (0-75%)
     /// - Note: 0% = no overlap (hop size = fftSize), 75% = maximum overlap (hop size = fftSize/4)
@@ -214,6 +236,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     #if os(macOS)
     /// Retained block for the CoreAudio hardware device-list change listener
     private var hardwareListenerBlock: AudioObjectPropertyListenerBlock?
+    /// Retained block for the CoreAudio sample-rate change listener on the selected device
+    private var sampleRateListenerBlock: AudioObjectPropertyListenerBlock?
+    /// The AudioDeviceID the sample-rate listener is currently registered against
+    private var sampleRateListenerDeviceID: AudioDeviceID = 0
     #endif
     
     /// Sets calibration without updating the device mapping (used when auto-loading device calibration)
@@ -715,9 +741,15 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         
         // Update metrics based on actual configuration
         updateMetrics()
-        
-//        print("Audio engine started successfully")
-        
+
+        #if os(macOS)
+        // Register a sample-rate listener on the active device so a rate change
+        // in Audio MIDI Setup while running triggers an automatic engine restart.
+        if let device = selectedInputDevice {
+            registerSampleRateListener(for: device.deviceID)
+        }
+        #endif
+
         // Update UI state - set isRunning to true on main thread
         DispatchQueue.main.async {
             self.isRunning = true
@@ -791,7 +823,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// - Note: It's safe to call this method multiple times or when already stopped
     func stop() {
         print("🛑 Stop requested - engine running: \(audioEngine.isRunning), isRunning flag: \(isRunning)")
-        
+
+        #if os(macOS)
+        // Remove the sample-rate listener so it doesn't fire during the stop/restart cycle
+        unregisterSampleRateListener()
+        #endif
+
         // Always try to clean up, even if engine reports as not running
         // This handles cases where the engine started but never received audio
         if audioEngine.isRunning {
@@ -1631,6 +1668,60 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             block
         )
         hardwareListenerBlock = nil
+        unregisterSampleRateListener()
+    }
+
+    /// Registers a CoreAudio listener on a specific device that fires when its sample rate changes.
+    /// When the rate changes while the engine is running, the engine is restarted to adopt the new rate.
+    func registerSampleRateListener(for deviceID: AudioDeviceID) {
+        // Remove any previous registration before adding a new one
+        unregisterSampleRateListener()
+        guard deviceID != 0 else { return }
+
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            guard let self = self else { return }
+            print("🔄 Sample rate changed on device \(deviceID) — restarting engine if running")
+            DispatchQueue.main.async {
+                guard self.isRunning else { return }
+                self.stop()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                    guard let self = self else { return }
+                    do {
+                        try self.start()
+                        self.routeChangeRestartCount += 1
+                        print("✅ Engine restarted after sample rate change (restart #\(self.routeChangeRestartCount))")
+                    } catch {
+                        print("❌ Failed to restart engine after sample rate change: \(error)")
+                    }
+                }
+            }
+        }
+        sampleRateListenerBlock = block
+        sampleRateListenerDeviceID = deviceID
+        let status = AudioObjectAddPropertyListenerBlock(deviceID, &address, nil, block)
+        if status == noErr {
+            print("✅ Registered sample rate listener for device \(deviceID)")
+        } else {
+            print("⚠️ Failed to register sample rate listener for device \(deviceID): \(status)")
+        }
+    }
+
+    /// Removes the sample-rate change listener from the device it was registered against.
+    func unregisterSampleRateListener() {
+        guard let block = sampleRateListenerBlock, sampleRateListenerDeviceID != 0 else { return }
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectRemovePropertyListenerBlock(sampleRateListenerDeviceID, &address, nil, block)
+        sampleRateListenerBlock = nil
+        sampleRateListenerDeviceID = 0
     }
     #endif
     
@@ -1866,9 +1957,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
         #endif
         
-        // Update the selected device
+        // Update the selected device — set the guard flag so didSet does not
+        // trigger a second engine restart (setInputDevice manages restart itself).
         DispatchQueue.main.async {
+            self.isApplyingDeviceSwitch = true
             self.selectedInputDevice = device
+            self.isApplyingDeviceSwitch = false
         }
         
         #if os(macOS)
