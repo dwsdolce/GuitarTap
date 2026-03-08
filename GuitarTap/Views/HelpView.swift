@@ -214,6 +214,14 @@ After all taps, tap Results to see:
                     title: "Metrics",
                     body: "Shows FFT engine statistics: frame rate, bin width (Hz/bin), sample rate, and buffer size."
                 )
+                helpRow(
+                    title: "… Chart Options (iOS)",
+                    body: "The ellipsis button in the top-right corner of the spectrum opens the Chart Options sheet. From here you can reset either or both axes to the values you last saved in Settings (\"Reset to Saved\"), or restore the factory defaults (\"Reset to Defaults\"). If peak labels have been dragged from their auto-positions, \"Reset Labels\" moves them back."
+                )
+                helpRow(
+                    title: "ⓘ Zoom & Pan Help (macOS)",
+                    body: "The info button in the top-right corner of the spectrum shows the keyboard and trackpad shortcuts for navigating the chart: Scroll — pan vertically (magnitude); ⇧ Scroll — pan horizontally (frequency); ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency axis; ⌃ Scroll — zoom magnitude axis; Pinch — zoom (trackpad); Drag — pan both axes; Right-click — reset axes and labels."
+                )
             } header: {
                 Label("Controls Reference", systemImage: "hand.tap")
             }
@@ -381,6 +389,8 @@ After all taps, tap Results to see:
         .navigationTitle("Quick-Start Guide")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #else
+        .frame(minWidth: 500, minHeight: 600)
         #endif
     }
 
