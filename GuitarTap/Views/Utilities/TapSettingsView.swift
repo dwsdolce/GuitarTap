@@ -62,7 +62,7 @@ struct TapSettingsView: View {
     @State private var plateStiffnessPreset: PlateStiffnessPreset = TapDisplaySettings.plateStiffnessPreset
     @State private var customPlateStiffnessInput: String = String(format: "%.0f", TapDisplaySettings.customPlateStiffness)
 
-    // Brace dimensions (for Brace Material measurement type)
+    // Brace dimensions (for Material (Brace) measurement type)
     @State private var braceLengthInput: String = String(format: "%.1f", TapDisplaySettings.braceLength)
     @State private var braceWidthInput: String = String(format: "%.1f", TapDisplaySettings.braceWidth)
     @State private var braceThicknessInput: String = String(format: "%.1f", TapDisplaySettings.braceThickness)

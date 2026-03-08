@@ -35,7 +35,7 @@ Two main workflows are supported:
                 )
                 helpRow(
                     title: "Choose a Measurement Type",
-                    body: "Open Settings and pick Classical Guitar, Flamenco, Steel String, Material (Wood Plate), or Brace. The right choice determines which mode-frequency ranges are used and which measurements are calculated."
+                    body: "Open Settings and pick Classical Guitar, Flamenco, Steel String, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated."
                 )
                 helpRow(
                     title: "Quiet Environment",
@@ -87,7 +87,7 @@ Two main workflows are supported:
                 Label("Guitar Mode", systemImage: "guitars")
             }
 
-            // ── Material Mode (Wood Plate) ────────────────────────────────
+            // ── Material (Plate) Mode ────────────────────────────────────
             Section {
                 helpRow(
                     title: "Overview",
@@ -139,7 +139,7 @@ After all taps, tap Results to see:
                     body: "Enter the finished guitar body length and lower bout width in Settings (Material section). Choose the plate stiffness preset: Steel String Top (f_vs 75), Steel String Back (55), Classical (50), or Custom. The result is the plate thickness that hits the preset vibrational stiffness after bracing is factored in — a direct implementation of Gore Equation 4.5-7."
                 )
             } header: {
-                Label("Material Mode — Wood Plate", systemImage: "square.3.layers.3d")
+                Label("Material (Plate) Mode", systemImage: "square.3.layers.3d")
             }
 
             // ── Brace Mode ────────────────────────────────────────────────
@@ -259,7 +259,7 @@ After all taps, tap Results to see:
             Section {
                 helpRow(
                     title: "Measurement Type",
-                    body: "Classical Guitar, Flamenco, Acoustic/Steel String, Material (Wood Plate), or Brace. Determines which mode frequency windows are applied and which calculations appear in Results."
+                    body: "Classical Guitar, Flamenco, Acoustic/Steel String, Material (Plate), or Material (Brace). Determines which mode frequency windows are applied and which calculations appear in Results."
                 )
                 helpRow(
                     title: "Show Unknown Modes",

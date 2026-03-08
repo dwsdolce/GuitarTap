@@ -14,8 +14,9 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 **Preconditions:** App running with microphone permission granted.
 
 - [ ] Tap **Start** to begin recording
-- [ ] Verify the spectrum chart animates continuously
-- [ ] Confirm frame rate appears to be ≥10 fps (smooth, not choppy)
+- [ ] Verify the spectrum chart updates periodically (expected ~0.7 Hz — roughly once per 1.5 s)
+- [ ] Confirm the display does not freeze permanently or show obviously stale data
+- [ ] Note: the low update rate is by design — the large FFT window needed for high frequency resolution requires ~1.5 s of audio per frame
 
 **Pass / Fail:** _______    Notes: _______________________________________
 
@@ -38,11 +39,11 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 ### F23 — Pure tone visible at correct frequency
 **Platforms:** iOS · iPadOS · macOS    **Priority:** Medium
 
-**Preconditions:** A 440 Hz reference tone source is available (e.g. tuning app, online tone generator).
+**Preconditions:** A 220 Hz reference tone source is available (e.g. tuning app, online tone generator). In Settings, confirm the mode is set to a Guitar tap mode (not a Material tap mode), so that 220 Hz falls within the displayed frequency range.
 
 - [ ] Tap **Start** to begin recording
-- [ ] Play a 440 Hz tone near the device microphone
-- [ ] Verify a peak appears in the spectrum chart near 440 Hz (within ±5 Hz)
+- [ ] Play a 220 Hz tone near the device microphone
+- [ ] Verify a peak appears in the spectrum chart near 220 Hz (within ±5 Hz)
 
 **Pass / Fail:** _______    Notes: _______________________________________
 

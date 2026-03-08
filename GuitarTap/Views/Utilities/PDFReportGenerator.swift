@@ -248,7 +248,7 @@ private struct PDFReportContentView: View {
             if let location = data.tapLocation, !location.isEmpty {
                 metaRow(label: "Location", value: location)
             }
-            metaRow(label: "Type", value: data.measurementType.rawValue)
+            metaRow(label: "Type", value: data.measurementType.rawValue)  // rawValue is the display name
             if let notes = data.notes, !notes.isEmpty {
                 metaRow(label: "Notes", value: notes)
             }

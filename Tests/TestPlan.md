@@ -50,9 +50,9 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | F18 | `singleTap_returnsItself` | U | iOS iPadOS mac | Medium | Single-tap input → output equals input |
 | F19 | `emptyInput_returnsEmpty` | U | iOS iPadOS mac | Medium | Empty tap array → empty output |
 | F20 | `twoIdenticalSpectra_returnsIdentical` | U | iOS iPadOS mac | Medium | Two identical spectra → average equals input |
-| F21 | Live FFT renders in real time | M | iOS iPadOS mac | High | Start recording; verify spectrum animates smoothly at ≥10 fps |
+| F21 | Live FFT renders in real time | M | iOS iPadOS mac | High | Start recording; verify spectrum updates periodically (expected ~0.7 Hz; display does not freeze) |
 | F22 | Silence floor is plausible | M | iOS iPadOS mac | High | With no sound, noise floor is visible and stable near −70 to −90 dB |
-| F23 | Pure tone visible at correct frequency | M | iOS iPadOS mac | Medium | Play 440 Hz tone from reference; verify peak appears within ±5 Hz |
+| F23 | Pure tone visible at correct frequency | M | iOS iPadOS mac | Medium | Play 220 Hz tone from reference; verify peak appears within ±5 Hz |
 
 ---
 
@@ -377,7 +377,7 @@ Each procedure follows the format:
 1. Tap **Start** to begin recording.
 2. Observe the spectrum chart for several seconds.
 
-**Expected result:** The spectrum chart animates continuously at a visually smooth frame rate (≥10 fps). The display does not freeze or stutter.
+**Expected result:** The spectrum chart updates periodically. The update rate is intentionally low (~0.7 Hz) because the large FFT window required for high frequency resolution means each analysis takes ~1.5 seconds of audio. The display should not freeze permanently or show stale data; it should update at least once per 2 seconds under normal conditions.
 
 ---
 
@@ -394,12 +394,12 @@ Each procedure follows the format:
 
 #### F23 — Pure tone visible at correct frequency
 **Platforms:** iOS · iPadOS · macOS · **Priority:** Medium · **Part 1 ref:** F23
-**Preconditions:** A 440 Hz reference tone source is available (e.g. a tuning app or online tone generator).
+**Preconditions:** A 220 Hz reference tone source is available (e.g. a tuning app or online tone generator). In Settings, confirm the mode is set to a Guitar tap mode (not a Material tap mode), so that 220 Hz falls within the displayed frequency range.
 **Steps:**
 1. Tap **Start** to begin recording.
-2. Play a 440 Hz tone near the device microphone.
+2. Play a 220 Hz tone near the device microphone.
 
-**Expected result:** A clear peak appears in the spectrum chart within ±5 Hz of 440 Hz.
+**Expected result:** A clear peak appears in the spectrum chart within ±5 Hz of 220 Hz.
 
 ---
 

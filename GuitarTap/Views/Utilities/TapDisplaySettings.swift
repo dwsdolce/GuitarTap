@@ -14,8 +14,8 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
     case classical = "Classical Guitar"
     case flamenco = "Flamenco Guitar"
     case acoustic = "Acoustic Guitar"
-    case material = "Material (Wood Plate)"
-    case brace = "Brace Material"
+    case material = "Material (Plate)"
+    case brace = "Material (Brace)"
     
     var id: String { rawValue }
     
@@ -446,7 +446,7 @@ struct TapDisplaySettings {
         return preset == .custom ? customPlateStiffness : preset.value
     }
 
-    // MARK: - Brace Dimensions (for Brace Material measurement type)
+    // MARK: - Brace Dimensions (for Material (Brace) measurement type)
     
     /// Brace length in mm (along grain direction)
     static var braceLength: Float {
