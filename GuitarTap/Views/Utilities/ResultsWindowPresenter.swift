@@ -54,6 +54,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
         win.contentView = hostingView
         win.delegate = self
         win.isReleasedWhenClosed = false
+        win.isRestorable = false   // Prevent macOS from saving/restoring this window across launches
         win.minSize = NSSize(width: 400, height: 400)
 
         // Position near the main window

@@ -319,6 +319,78 @@ struct TapToneAnalysisView: View {
                 }
             }
         }
+        .onReceive(tapToneAnalyzer.$loadedGuitarBodyLength) { value in
+            if let value = value {
+                TapDisplaySettings.guitarBodyLength = value
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedGuitarBodyLength = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedGuitarBodyWidth) { value in
+            if let value = value {
+                TapDisplaySettings.guitarBodyWidth = value
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedGuitarBodyWidth = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedPlateStiffnessPreset) { preset in
+            if let preset = preset {
+                TapDisplaySettings.plateStiffnessPreset = preset
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedPlateStiffnessPreset = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedCustomPlateStiffness) { value in
+            if let value = value {
+                TapDisplaySettings.customPlateStiffness = value
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedCustomPlateStiffness = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedMeasureFlc) { value in
+            if let value = value {
+                TapDisplaySettings.measureFlc = value
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedMeasureFlc = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedBraceLength) { value in
+            if let value = value {
+                TapDisplaySettings.braceLength = value
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedBraceLength = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedBraceWidth) { value in
+            if let value = value {
+                TapDisplaySettings.braceWidth = value
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedBraceWidth = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedBraceThickness) { value in
+            if let value = value {
+                TapDisplaySettings.braceThickness = value
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedBraceThickness = nil
+                }
+            }
+        }
+        .onReceive(tapToneAnalyzer.$loadedBraceMass) { value in
+            if let value = value {
+                TapDisplaySettings.braceMass = value
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedBraceMass = nil
+                }
+            }
+        }
         .onReceive(tapToneAnalyzer.$autoSelectedLongitudinalPeakID) { peakID in
             // When material measurement auto-selects a longitudinal peak, update the view state
             if let peakID = peakID {

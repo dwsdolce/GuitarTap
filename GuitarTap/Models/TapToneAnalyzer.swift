@@ -314,6 +314,15 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var loadedMaterialWidth: Float?
     @Published var loadedMaterialThickness: Float?
     @Published var loadedMaterialMass: Float?
+    @Published var loadedGuitarBodyLength: Float?
+    @Published var loadedGuitarBodyWidth: Float?
+    @Published var loadedPlateStiffnessPreset: PlateStiffnessPreset?
+    @Published var loadedCustomPlateStiffness: Float?
+    @Published var loadedMeasureFlc: Bool?
+    @Published var loadedBraceLength: Float?
+    @Published var loadedBraceWidth: Float?
+    @Published var loadedBraceThickness: Float?
+    @Published var loadedBraceMass: Float?
 
     /// Timestamp of the measurement that was most recently loaded into the results panel.
     /// nil when the current results are from a fresh (unsaved) measurement.

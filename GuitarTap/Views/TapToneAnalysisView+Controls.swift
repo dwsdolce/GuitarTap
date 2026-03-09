@@ -110,7 +110,7 @@ extension TapToneAnalysisView {
                 Spacer()
 
                 // Results button
-                Button(action: { showingResults = true }) {
+                Button(action: { showResults() }) {
                     Label("Results", systemImage: "doc.text")
                 }
                 .buttonStyle(.bordered)
@@ -225,7 +225,7 @@ extension TapToneAnalysisView {
             Spacer()
 
             // Results button
-            Button(action: { showingResults = true }) {
+            Button(action: { showResults() }) {
                 Label("Results", systemImage: "doc.text")
             }
             .buttonStyle(.bordered)
@@ -312,7 +312,7 @@ extension TapToneAnalysisView {
                 Spacer()
 
                 // Results button
-                Button(action: { showingResults = true }) {
+                Button(action: { showResults() }) {
                     Label("Results", systemImage: "doc.text")
                 }
                 .buttonStyle(.bordered)
@@ -402,7 +402,7 @@ extension TapToneAnalysisView {
                 Spacer()
 
                 // Results button
-                Button(action: { showingResults = true }) {
+                Button(action: { showResults() }) {
                     Image(systemName: "doc.text")
                 }
                 .buttonStyle(.bordered)

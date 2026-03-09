@@ -239,7 +239,7 @@ enum PlateStiffnessPreset: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .steelStringTop:  return 75
         case .steelStringBack: return 55
-        case .classicalTop:    return 50
+        case .classicalTop:    return 60
         case .classicalBack:   return 50
         case .custom:          return 0  // use customPlateStiffness
         }
@@ -249,7 +249,7 @@ enum PlateStiffnessPreset: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .steelStringTop:  return "SS Top (75)"
         case .steelStringBack: return "SS Back (55)"
-        case .classicalTop:    return "Classical Top (50)"
+        case .classicalTop:    return "Classical Top (60)"
         case .classicalBack:   return "Classical Back (50)"
         case .custom:          return "Custom"
         }

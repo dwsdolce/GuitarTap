@@ -326,6 +326,38 @@ extension TapToneAnalyzer {
             if let materialMass = snapshot.materialMass {
                 loadedMaterialMass = materialMass
             }
+
+            // Restore Gore thicknessing / panel type settings (material mode)
+            if let bodyLength = snapshot.guitarBodyLength {
+                loadedGuitarBodyLength = bodyLength
+            }
+            if let bodyWidth = snapshot.guitarBodyWidth {
+                loadedGuitarBodyWidth = bodyWidth
+            }
+            if let preset = snapshot.plateStiffnessPreset {
+                print("  🪵 Publishing plateStiffnessPreset: \(preset.shortName)")
+                loadedPlateStiffnessPreset = preset
+            }
+            if let customStiffness = snapshot.customPlateStiffness {
+                loadedCustomPlateStiffness = customStiffness
+            }
+            if let flc = snapshot.measureFlc {
+                loadedMeasureFlc = flc
+            }
+
+            // Restore brace dimensions (brace mode)
+            if let braceLength = snapshot.braceLength {
+                loadedBraceLength = braceLength
+            }
+            if let braceWidth = snapshot.braceWidth {
+                loadedBraceWidth = braceWidth
+            }
+            if let braceThickness = snapshot.braceThickness {
+                loadedBraceThickness = braceThickness
+            }
+            if let braceMass = snapshot.braceMass {
+                loadedBraceMass = braceMass
+            }
         } else {
             print("  ⚠️ No spectrum snapshot in measurement")
         }

@@ -36,7 +36,8 @@ extension TapToneAnalysisView {
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakThreshold: $tapToneAnalyzer.peakThreshold,
                 maxPeaks: $tapToneAnalyzer.maxPeaks,
-                fftAnalyzer: fft
+                fftAnalyzer: fft,
+                onApply: { tapToneAnalyzer.reclassifyPeaks() }
             )
             .interactiveDismissDisabled()
         }
@@ -164,7 +165,8 @@ extension TapToneAnalysisView {
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakThreshold: $tapToneAnalyzer.peakThreshold,
                 maxPeaks: $tapToneAnalyzer.maxPeaks,
-                fftAnalyzer: fft
+                fftAnalyzer: fft,
+                onApply: { tapToneAnalyzer.reclassifyPeaks() }
             )
             .interactiveDismissDisabled()
         }

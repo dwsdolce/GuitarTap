@@ -131,7 +131,16 @@ extension TapToneAnalysisView {
                     materialThickness: measurementType == .material ? TapDisplaySettings.materialThickness
                                      : measurementType == .brace   ? TapDisplaySettings.braceThickness : nil,
                     materialMass: measurementType == .material ? TapDisplaySettings.materialMass
-                                : measurementType == .brace   ? TapDisplaySettings.braceMass : nil
+                                : measurementType == .brace   ? TapDisplaySettings.braceMass : nil,
+                    guitarBodyLength: measurementType == .material ? TapDisplaySettings.guitarBodyLength : nil,
+                    guitarBodyWidth: measurementType == .material ? TapDisplaySettings.guitarBodyWidth : nil,
+                    plateStiffnessPreset: measurementType == .material ? TapDisplaySettings.plateStiffnessPreset : nil,
+                    customPlateStiffness: measurementType == .material ? TapDisplaySettings.customPlateStiffness : nil,
+                    measureFlc: measurementType == .material ? TapDisplaySettings.measureFlc : nil,
+                    braceLength: measurementType == .brace ? TapDisplaySettings.braceLength : nil,
+                    braceWidth: measurementType == .brace ? TapDisplaySettings.braceWidth : nil,
+                    braceThickness: measurementType == .brace ? TapDisplaySettings.braceThickness : nil,
+                    braceMass: measurementType == .brace ? TapDisplaySettings.braceMass : nil
                 )
             }
 
@@ -305,5 +314,31 @@ extension TapToneAnalysisView {
                 }
             }
         }
+    }
+
+    // MARK: - Results Window
+
+    /// Opens the Results panel, refreshing it even if already open.
+    ///
+    /// On macOS the Results panel is a free-floating NSWindow managed by
+    /// `resultsWindowPresenter`. Setting `showingResults = true` triggers an
+    /// `onChange` that calls `show()` — but if `showingResults` is already
+    /// `true` (e.g. the window was open when the user changed settings), the
+    /// `onChange` never fires and the button appears to do nothing.
+    ///
+    /// This function always calls `show()` directly so that the window is
+    /// raised and its content is refreshed regardless of prior state.
+    func showResults() {
+        showingResults = true
+        #if os(macOS)
+        resultsWindowPresenter.onClose = { showingResults = false }
+        resultsWindowPresenter.show(
+            analyzer: tap,
+            fftAnalyzer: fft,
+            minFreq: minFreq,
+            maxFreq: maxFreq,
+            onExportPDFReport: { exportPDFReport() }
+        )
+        #endif
     }
 }

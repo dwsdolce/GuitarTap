@@ -236,6 +236,15 @@ extension TapToneAnalyzer {
         return finalPeaks.sorted(by: { $0.magnitude > $1.magnitude })
     }
     
+    /// Reclassify all current peaks using the current guitar type setting.
+    /// Call this after the guitar type changes to keep identifiedModes consistent
+    /// with the current mode ranges (e.g. when switching acoustic ↔ classical).
+    func reclassifyPeaks() {
+        identifiedModes = currentPeaks.map { peak in
+            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+        }
+    }
+
     /// Remove duplicate peaks that are too close in frequency
     func removeDuplicatePeaks(_ peaks: [ResonantPeak]) -> [ResonantPeak] {
         var uniquePeaks: [ResonantPeak] = []

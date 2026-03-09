@@ -88,6 +88,9 @@ struct TapSettingsView: View {
         #endif
     }
     
+    /// Called when the user presses Apply (not Cancel).
+    var onApply: (() -> Void)?
+
     init(minFreq: Binding<Float>,
          maxFreq: Binding<Float>,
          minDB: Binding<Float>,
@@ -96,7 +99,8 @@ struct TapSettingsView: View {
          analysisMaxFreq: Binding<Float>,
          peakThreshold: Binding<Float>,
          maxPeaks: Binding<Int>,
-         fftAnalyzer: RealtimeFFTAnalyzer) {
+         fftAnalyzer: RealtimeFFTAnalyzer,
+         onApply: (() -> Void)? = nil) {
         
         self._minFreq = minFreq
         self._maxFreq = maxFreq
@@ -107,6 +111,7 @@ struct TapSettingsView: View {
         self._peakThreshold = peakThreshold
         self._maxPeaks = maxPeaks
         self.fftAnalyzer = fftAnalyzer
+        self.onApply = onApply
         
         // Initialize display range inputs from persisted settings, not the current pan/zoomed session state
         self._minFreqInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.minFrequency))
@@ -1229,6 +1234,7 @@ struct TapSettingsView: View {
         analysisMaxFreqInput = String(format: "%.0f", validatedAnalysisFreq.max)
         peakThresholdInput = String(format: "%.0f", clampedThreshold)
         
+        onApply?()
         dismiss()
     }
     

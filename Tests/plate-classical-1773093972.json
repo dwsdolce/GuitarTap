@@ -1,8 +1,9 @@
 [
   {
     "annotationVisibilityMode" : "all",
-    "chartImageFilename" : "plate-classical-1773081297.png",
+    "chartImageFilename" : "plate-classical-1773093972.png",
     "crossSnapshot" : {
+      "customPlateStiffness" : 75,
       "frequencies" : [
         0,
         1.4648438,
@@ -16389,6 +16390,8 @@
         23997.07,
         23998.535
       ],
+      "guitarBodyLength" : 490,
+      "guitarBodyWidth" : 390,
       "guitarType" : "Acoustic",
       "isLogarithmic" : false,
       "magnitudes" : [
@@ -32784,12 +32787,15 @@
       "maxDB" : 0,
       "maxFreq" : 600,
       "maxPeaks" : 0,
+      "measureFlc" : true,
       "measurementType" : "Material (Plate)",
       "minDB" : -100,
       "minFreq" : 30,
+      "plateStiffnessPreset" : "Classical Top",
       "showUnknownModes" : false
     },
     "flcSnapshot" : {
+      "customPlateStiffness" : 75,
       "frequencies" : [
         0,
         1.4648438,
@@ -49176,6 +49182,8 @@
         23997.07,
         23998.535
       ],
+      "guitarBodyLength" : 490,
+      "guitarBodyWidth" : 390,
       "guitarType" : "Acoustic",
       "isLogarithmic" : false,
       "magnitudes" : [
@@ -65571,14 +65579,17 @@
       "maxDB" : 0,
       "maxFreq" : 600,
       "maxPeaks" : 0,
+      "measureFlc" : true,
       "measurementType" : "Material (Plate)",
       "minDB" : -100,
       "minFreq" : 30,
+      "plateStiffnessPreset" : "Classical Top",
       "showUnknownModes" : false
     },
     "hysteresisMargin" : 3,
-    "id" : "F39A2707-0C4A-4F54-BDDB-4991E7451901",
+    "id" : "C1AA5D42-7702-4669-B0E4-7A670C486F26",
     "longitudinalSnapshot" : {
+      "customPlateStiffness" : 75,
       "frequencies" : [
         0,
         1.4648438,
@@ -81965,6 +81976,8 @@
         23997.07,
         23998.535
       ],
+      "guitarBodyLength" : 490,
+      "guitarBodyWidth" : 390,
       "guitarType" : "Acoustic",
       "isLogarithmic" : false,
       "magnitudes" : [
@@ -98360,9 +98373,11 @@
       "maxDB" : 0,
       "maxFreq" : 600,
       "maxPeaks" : 0,
+      "measureFlc" : true,
       "measurementType" : "Material (Plate)",
       "minDB" : -100,
       "minFreq" : 30,
+      "plateStiffnessPreset" : "Classical Top",
       "showUnknownModes" : false
     },
     "microphoneName" : "Umik-1  Gain: 18dB",
@@ -98412,11 +98427,11 @@
     "selectedLongitudinalPeakID" : "74C3E16B-4244-4656-9FA4-7FB2200531E5",
     "selectedPeakIDs" : [
       "513E8662-A956-4C30-A59C-F154828FC415",
-      "74C3E16B-4244-4656-9FA4-7FB2200531E5",
-      "50D1D587-4A21-4DCB-BF79-EF541E342577"
+      "50D1D587-4A21-4DCB-BF79-EF541E342577",
+      "74C3E16B-4244-4656-9FA4-7FB2200531E5"
     ],
     "tapDetectionThreshold" : -56,
     "tapLocation" : "Plate Classical",
-    "timestamp" : "2026-03-09T18:34:57Z"
+    "timestamp" : "2026-03-09T22:06:12Z"
   }
 ]
