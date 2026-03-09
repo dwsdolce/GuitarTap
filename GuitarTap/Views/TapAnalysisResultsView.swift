@@ -268,7 +268,7 @@ struct TapAnalysisResultsView: View {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("**1. Longitudinal (L) Tap**")
                                             .font(.caption2)
-                                        Text("Support plate along SHORT edges (at ~22% from ends). Tap center. The plate bends along its length (grain direction).")
+                                        Text("Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                     }
@@ -282,7 +282,7 @@ struct TapAnalysisResultsView: View {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("**2. Cross-grain (C) Tap**")
                                             .font(.caption2)
-                                        Text("Rotate 90°, support along LONG edges. Tap center. The plate bends across its width (perpendicular to grain).")
+                                        Text("Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                     }
@@ -297,7 +297,7 @@ struct TapAnalysisResultsView: View {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text("**3. FLC (Diagonal) Tap**")
                                                 .font(.caption2)
-                                            Text("Support at all 4 nodal points (~22% from each corner). Tap center. Measures shear-related stiffness.")
+                                            Text("Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
                                                 .font(.caption2)
                                                 .foregroundColor(.secondary)
                                         }
@@ -353,7 +353,7 @@ struct TapAnalysisResultsView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("**1. Longitudinal (fL) Tap**")
                                         .font(.caption2)
-                                    Text("Support the brace at ~22% from each end (nodal points). Tap the center. The brace vibrates along its length (grain direction).")
+                                    Text("Hold brace at 22% from one end along the length. Tap center.")
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
@@ -648,7 +648,20 @@ struct TapAnalysisResultsView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    
+
+                    // Long/Cross Ratio
+                    HStack {
+                        Text("Long/Cross Ratio:")
+                            .font(.subheadline)
+                        Spacer()
+                        Text(String(format: "%.1f", props.longCrossRatio))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("(typical: 12-25)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
                     Divider()
 
                     // Overall Quality Assessment

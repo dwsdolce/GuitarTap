@@ -310,17 +310,17 @@ extension TapToneAnalysisView {
             return "Press 'New Tap' to begin the \(tapWord) material measurement process."
         case .capturingLongitudinal:
             if isBrace {
-                return "Support the brace at ~22% from each end (nodal points). Tap the CENTER. The brace will vibrate along its length (grain direction)."
+                return "Hold brace at 22% from one end along the length. Tap center."
             }
-            return "Support plate along SHORT edges at ~22% from each end. Tap the CENTER of the plate. The plate will bend along its length (grain direction)."
+            return "Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center."
         case .waitingForCrossTap:
-            return "Longitudinal mode captured! Now ROTATE the plate 90°, support along LONG edges at ~22% from each end. Tap the CENTER for cross-grain."
+            return "Longitudinal mode captured! Now ROTATE the plate 90°. Hold at 22% from one end along the width, near one short edge. Tap center for cross-grain."
         case .capturingCross:
-            return "Support plate along LONG edges at ~22% from each end. Tap the CENTER. The plate will bend across its width (perpendicular to grain)."
+            return "Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center."
         case .waitingForFlcTap:
-            return "Cross-grain mode captured! Now support the plate at all 4 CORNER nodal points (~22% from each corner). Tap the CENTER for FLC."
+            return "Cross-grain mode captured! Now hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both sides) for FLC."
         case .capturingFlc:
-            return "Support plate at all 4 nodal corner points (~22% from each corner). Tap the CENTER. Measures the plate's shear-related stiffness."
+            return "Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness."
         case .complete:
             if isBrace {
                 return "fL captured! Review the fL (blue) peak selection in the Results panel. Adjust if the auto-selection isn't correct."

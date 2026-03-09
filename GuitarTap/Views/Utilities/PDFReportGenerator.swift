@@ -201,6 +201,7 @@ private struct PDFReportContentView: View {
             Spacer().frame(height: 14)
             peaksSection
             Spacer().frame(height: 14)
+            tapInstructionsSection
             analysisSection
             footerSection
         }
@@ -464,6 +465,70 @@ private struct PDFReportContentView: View {
         }
     }
 
+    // MARK: - Tap Instructions
+
+    @ViewBuilder
+    private var tapInstructionsSection: some View {
+        if data.measurementType == .material {
+            let hasFlc = data.selectedFlcPeakID != nil
+            VStack(alignment: .leading, spacing: 6) {
+                sectionDivider
+                Spacer().frame(height: 6)
+                Text(hasFlc ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
+                    .font(.system(size: 10, weight: .semibold))
+
+                tapInstructionRow(color: .blue,
+                                  title: "1. Longitudinal (L) Tap",
+                                  detail: "Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
+                tapInstructionRow(color: .orange,
+                                  title: "2. Cross-grain (C) Tap",
+                                  detail: "Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
+                if hasFlc {
+                    tapInstructionRow(color: .purple,
+                                      title: "3. FLC (Diagonal) Tap",
+                                      detail: "Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
+                }
+                Text("The strongest peak from each tap is auto-selected.")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .italic()
+            }
+            Spacer().frame(height: 14)
+        } else if data.measurementType == .brace {
+            VStack(alignment: .leading, spacing: 6) {
+                sectionDivider
+                Spacer().frame(height: 6)
+                Text("Single-Tap Measurement (fL only):")
+                    .font(.system(size: 10, weight: .semibold))
+
+                tapInstructionRow(color: .blue,
+                                  title: "1. Longitudinal (fL) Tap",
+                                  detail: "Hold brace at 22% from one end along the length. Tap center.")
+                Text("The strongest peak is auto-selected.")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .italic()
+            }
+            Spacer().frame(height: 14)
+        }
+    }
+
+    private func tapInstructionRow(color: Color, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 10, weight: .semibold))
+                Text(detail)
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
     // MARK: - Analysis Results
 
     @ViewBuilder
@@ -496,7 +561,9 @@ private struct PDFReportContentView: View {
                     analysisBox(
                         title: "Ring-Out Time",
                         value: String(format: "%.2f s", decay),
+                        subtitle: "Time to decay 15 dB",
                         detail: decay.decayQuality,
+                        detailSubtitle: "Sustain quality",
                         detailColor: decay.decayQualityColor
                     )
                 }
@@ -506,24 +573,49 @@ private struct PDFReportContentView: View {
                     analysisBox(
                         title: "Tap Tone Ratio",
                         value: String(format: "%.2f : 1", ratio),
+                        subtitle: "Top / Air",
                         detail: ratio.tapToneRatioQuality,
-                        detailColor: ratio.tapToneRatioQualityColor
+                        detailColor: ratio.tapToneRatioQualityColor,
+                        hint: "Ideal: 1.9 – 2.1"
                     )
                 }
             }
         }
     }
 
-    private func analysisBox(title: String, value: String, detail: String, detailColor: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.secondary)
-            Text(value)
-                .font(.system(size: 18, weight: .bold))
-            Text(detail)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(detailColor)
+    private func analysisBox(title: String, value: String, subtitle: String? = nil,
+                             detail: String, detailSubtitle: String? = nil,
+                             detailColor: Color, hint: String? = nil) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary)
+                Text(value)
+                    .font(.system(size: 18, weight: .bold))
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(detail)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(detailColor)
+                if let detailSubtitle {
+                    Text(detailSubtitle)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+                if let hint {
+                    Text(hint)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+            }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -539,6 +631,24 @@ private struct PDFReportContentView: View {
                 .font(.system(size: 13, weight: .semibold))
 
             dimensionsSubsection(dims: props.dimensions)
+
+            // Frequencies used in calculation
+            HStack(spacing: 0) {
+                materialPropRow("fL", String(format: "%.1f Hz", props.fundamentalFrequencyLong))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                materialPropRow("fC", String(format: "%.1f Hz", props.fundamentalFrequencyCross))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let fLC = props.fundamentalFrequencyFlc {
+                    materialPropRow("fLC", String(format: "%.1f Hz", fLC))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Spacer()
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(6)
+            .background(Color.gray.opacity(0.06))
+            .cornerRadius(4)
 
             HStack(alignment: .top, spacing: 0) {
                 // Left column
@@ -581,13 +691,41 @@ private struct PDFReportContentView: View {
                     .italic()
             }
 
-            // Cross/Long ratio and overall quality
-            HStack(spacing: 12) {
-                materialPropRow("Cross/Long Ratio",
-                               String(format: "%.3f", props.crossLongRatio))
-                materialPropRow("Overall Quality",
-                               props.overallQuality.rawValue)
+            // Cross/Long ratio, Long/Cross ratio
+            HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
+                    materialPropRow("Cross/Long Ratio",
+                                   String(format: "%.3f", props.crossLongRatio))
+                    Text("typical: 0.04 – 0.08")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    materialPropRow("Long/Cross Ratio",
+                                   String(format: "%.1f", props.longCrossRatio))
+                    Text("typical: 12 – 25")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+
+            // Overall Quality — prominent row
+            HStack {
+                Text("Overall Quality:")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary)
+                Text(props.overallQuality.rawValue)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(qualityColor(for: props.overallQuality))
+                Spacer()
+            }
+            .padding(8)
+            .background(Color.gray.opacity(0.07))
+            .cornerRadius(4)
 
             goreThicknessPDFSection(props)
         }
@@ -599,6 +737,17 @@ private struct PDFReportContentView: View {
                 .font(.system(size: 13, weight: .semibold))
 
             dimensionsSubsection(dims: props.dimensions)
+
+            // Frequency used in calculation
+            HStack(spacing: 0) {
+                materialPropRow("fL", String(format: "%.1f Hz", props.fundamentalFrequencyLong))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer().frame(maxWidth: .infinity)
+                Spacer().frame(maxWidth: .infinity)
+            }
+            .padding(6)
+            .background(Color.gray.opacity(0.06))
+            .cornerRadius(4)
 
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -618,6 +767,20 @@ private struct PDFReportContentView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+
+            // Overall Quality — prominent row
+            HStack {
+                Text("Overall Quality:")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary)
+                Text(props.overallQuality.rawValue)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(qualityColor(for: props.overallQuality))
+                Spacer()
+            }
+            .padding(8)
+            .background(Color.gray.opacity(0.07))
+            .cornerRadius(4)
         }
     }
 
@@ -678,7 +841,11 @@ private struct PDFReportContentView: View {
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
 
-                if props.goreShearModulus == nil {
+                if let glc = props.goreShearModulus {
+                    Text("GLC (Shear Modulus): \(String(format: "%.3f GPa", glc / 1.0e9))")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                } else {
                     Text("GLC assumed 0 — FLC tap not performed")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)

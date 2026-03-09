@@ -159,6 +159,13 @@ struct MaterialProperties {
         guard youngsModulusLong > 0 else { return 0 }
         return youngsModulusCross / youngsModulusLong
     }
+
+    /// Long-grain to cross-grain stiffness ratio (inverse of crossLongRatio)
+    /// Typical values for spruce: 12-25
+    var longCrossRatio: Float {
+        guard youngsModulusCross > 0 else { return 0 }
+        return youngsModulusLong / youngsModulusCross
+    }
     
     // MARK: - Quality Assessment
     

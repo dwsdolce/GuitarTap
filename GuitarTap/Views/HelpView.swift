@@ -103,19 +103,19 @@ Two main workflows are supported:
                 )
                 helpRow(
                     title: "Suspension Technique",
-                    body: "For free-free boundary conditions, suspend the plate on two thin rubber bands or fingertips at the nodal lines, which are 22.4% from each end of the dimension being tapped. Alternatively, rest the plate on a soft cloth — the compliance of cloth approximates free ends adequately for field use."
+                    body: "Hold the plate at one point 22% from one end along the dimension being measured, positioned near one edge in the other dimension (not on that dimension's nodal line). This damps the unwanted resonance while approximating the free-free boundary condition. The other hand taps."
                 )
                 helpRow(
                     title: "Tap 1 — Longitudinal",
-                    body: "With the grain running left–right, support at the 22.4% nodal points along the length and tap the centre of one end face. Tap New Tap and follow the on-screen prompt \"Capturing Longitudinal\". The app selects the strongest peak as the longitudinal frequency."
+                    body: "With the grain running left–right, hold the plate at one point 22% from one end along the length, near one long edge (not at the width nodal line — this damps the cross-grain resonance). Tap center. Tap New Tap and follow the on-screen prompt \"Capturing Longitudinal\". The app selects the strongest peak as the longitudinal frequency."
                 )
                 helpRow(
                     title: "Tap 2 — Cross-Grain",
-                    body: "Rotate the plate 90° so the grain runs front–back. Support at the cross-grain nodal points and tap the centre of one end face. The app prompts \"Capturing Cross-Grain\" automatically after the longitudinal tap is accepted."
+                    body: "Rotate the plate 90° so the grain runs front–back. Hold at one point 22% from one end along the width, near one short edge (not at the length nodal line — this damps the longitudinal resonance). Tap center. The app prompts \"Capturing Cross-Grain\" automatically after the longitudinal tap is accepted."
                 )
                 helpRow(
                     title: "Tap 3 — FLC (Optional)",
-                    body: "Enable Measure FLC in Settings. Support the plate at its four corner nodal points (≈22% from each corner diagonally) and tap the centre of the top face. This adds a shear modulus measurement used in the Gore target-thickness calculation. Omitting it over-estimates target thickness by roughly 5–7%."
+                    body: "Enable Measure FLC in Settings. Hold the plate at the midpoint of one long edge and tap near the opposite corner (~22% from both the end and the side). This adds a shear modulus measurement used in the Gore target-thickness calculation. Omitting it over-estimates target thickness by roughly 5–7%."
                 )
                 helpRow(
                     title: "Reading the Results",
@@ -154,7 +154,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Technique",
-                    body: "Rest the brace on a soft surface. Tap the top face at the centre along the grain. Use the same nodal-support technique as Material mode for best results, though resting on soft foam is acceptable for comparative ranking."
+                    body: "Hold the brace at one point 22% from one end along the length, near one edge in the width direction (not on the width nodal line). Tap the top face at the center. The same one-point hold technique as Material mode."
                 )
                 helpRow(
                     title: "Results",
@@ -375,11 +375,11 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "FLC Tap",
-                    body: "A diagonal-mode tap that excites the torsional resonance of the plate. Used to calculate the shear modulus G_LC for the Gore thickness formula. The plate is supported at its four nodal points (≈22% from each corner along the diagonal)."
+                    body: "A diagonal-mode tap that excites the torsional resonance of the plate. Used to calculate the shear modulus G_LC for the Gore thickness formula. Hold the plate at the midpoint of one long edge and tap near the opposite corner (~22% from both the end and the side)."
                 )
                 helpRow(
                     title: "Free-Free Beam",
-                    body: "The boundary condition assumed by the tap-tone formula. The plate ends are unsupported (free), which is approximated by suspending the sample at its nodal lines. The formula constant 22.37 comes from the first mode shape of a free-free Euler–Bernoulli beam."
+                    body: "The boundary condition assumed by the tap-tone formula. The plate ends are unsupported (free), which is approximated by holding the sample at one nodal point (22% from one end along the dimension being measured). The formula constant 22.37 comes from the first mode shape of a free-free Euler–Bernoulli beam."
                 )
                 helpRow(
                     title: "FFT (Fast Fourier Transform)",

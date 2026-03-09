@@ -31,7 +31,7 @@ enum MaterialTapPhase: String {
         case .capturingCross:
             return "Processing cross-grain tap..."
         case .waitingForFlcTap:
-            return "Support plate at all 4 nodal points (~22% from each corner), tap the center"
+            return "Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side)"
         case .capturingFlc:
             return "Processing FLC tap..."
         case .complete:

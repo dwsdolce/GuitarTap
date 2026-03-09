@@ -263,7 +263,7 @@ struct TapSettingsView: View {
                         Toggle(isOn: $measureFlc) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Measure FLC (Diagonal Tap)")
-                                Text("Add a 3rd tap supporting plate at 4 corner nodal points to measure shear stiffness. Required for Gore target thickness.")
+                                Text("Add a 3rd tap: hold plate at midpoint of one long edge, tap near opposite corner. Measures shear stiffness for Gore target thickness.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
