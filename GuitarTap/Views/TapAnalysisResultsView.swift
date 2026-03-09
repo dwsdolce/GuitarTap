@@ -40,9 +40,11 @@ struct TapAnalysisResultsView: View {
         analyzer.effectiveFlcPeakID
     }
     
-    /// Whether FLC measurement was performed (has FLC peaks)
+    /// Whether FLC measurement was performed (live: has FLC peaks; loaded: has a restored FLC peak selection)
     private var hasFlcMeasurement: Bool {
-        !analyzer.flcPeaks.isEmpty || analyzer.autoSelectedFlcPeakID != nil
+        !analyzer.flcPeaks.isEmpty
+            || analyzer.autoSelectedFlcPeakID != nil
+            || analyzer.selectedFlcPeak != nil
     }
     
     var body: some View {
