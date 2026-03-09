@@ -18,9 +18,10 @@ you tap a guitar or wood sample. A 65,536-point FFT (≈0.67 Hz resolution) \
 reveals the resonant peaks that carry information about structural modes and \
 material stiffness.
 
-Two main workflows are supported:
+Three main workflows are supported:
 • Guitar mode — classify resonant modes of a completed instrument.
-• Material mode — measure Young's modulus and quality of a raw tonewood plate or brace.
+• Plate material mode — measure Young's modulus and quality of a raw tonewood plate.
+• Brace material mode — measure Young's modulus and quality of a brace strip (single longitudinal tap).
 """)
                 .font(.body)
             } header: {
@@ -91,7 +92,7 @@ Two main workflows are supported:
             Section {
                 helpRow(
                     title: "Overview",
-                    body: "Material mode measures the stiffness of a rectangular tonewood sample using three free-free beam bending taps: Longitudinal (along grain), Cross-grain, and optionally FLC (diagonal/torsional). From the tap frequencies it derives Young's modulus, speed of sound, specific modulus, radiation ratio, and a quality rating."
+                    body: "Plate material mode measures the stiffness of a rectangular tonewood sample using three free-free beam bending taps: Longitudinal (along grain), Cross-grain, and optionally FLC (diagonal/torsional). From the tap frequencies it derives Young's modulus, speed of sound, specific modulus, radiation ratio, and a quality rating."
                 )
                 helpRow(
                     title: "Prepare the Sample",
@@ -146,7 +147,7 @@ After all taps, tap Results to see:
             Section {
                 helpRow(
                     title: "Overview",
-                    body: "Brace mode is a fast single-tap variant of Material mode designed for brace strips. Only a longitudinal tap is needed; cross-grain and FLC are skipped."
+                    body: "Brace material mode is a fast single-tap variant of Plate material mode designed for brace strips. Only a longitudinal tap is needed; cross-grain and FLC are skipped."
                 )
                 helpRow(
                     title: "Brace Orientation",
@@ -154,7 +155,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Technique",
-                    body: "Hold the brace at one point 22% from one end along the length, near one edge in the width direction (not on the width nodal line). Tap the top face at the center. The same one-point hold technique as Material mode."
+                    body: "Hold the brace at one point 22% from one end along the length, near one edge in the width direction (not on the width nodal line). Tap the top face at the center. The same one-point hold technique as Plate material mode."
                 )
                 helpRow(
                     title: "Results",
@@ -184,7 +185,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Results",
-                    body: "Opens the analysis results panel: peak list, decay time, material properties, quality rating, and (for Material mode) the Gore target thickness."
+                    body: "Opens the analysis results panel: peak list, decay time, material properties, quality rating, and (for Plate material mode) the Gore target thickness."
                 )
                 helpRow(
                     title: "Export Spectrum",
@@ -301,7 +302,7 @@ After all taps, tap Results to see:
             Section {
                 helpRow(
                     title: "Tap Technique",
-                    body: "Use a short, crisp knuckle or fingertip tap. A slow, pressing contact excites fewer overtones and produces a cleaner fundamental. Avoid tapping near the edges — aim for the centre of the plate in material mode and near the bridge area for guitar-body mode surveys."
+                    body: "Use a short, crisp knuckle, fingertip tap, or a bouncy ball on a stick. A slow, pressing contact excites fewer overtones and produces a cleaner fundamental. Avoid tapping near the edges — aim for the centre of the plate or brace in Plate and Brace materials mode and near the bridge area for guitar-body mode surveys."
                 )
                 helpRow(
                     title: "Consistent Mic Position",
