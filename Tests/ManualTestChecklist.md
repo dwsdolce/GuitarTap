@@ -424,39 +424,46 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 ### C17 — Zoom anchors to cursor position (macOS)
 **Platforms:** macOS    **Priority:** Medium
 
-**Preconditions:** App with a visible peak at a known frequency (e.g. 500 Hz).
+**Preconditions:** App with a visible peak at a known frequency (e.g. 200 Hz).
 
-- [ ] Position the cursor exactly over the 500 Hz peak
+- [ ] Position the cursor exactly over the 200 Hz peak
 - [ ] Hold **Cmd** and scroll in to zoom
-- [ ] Verify the 500 Hz peak remains under the cursor as the axes zoom in
+- [ ] Verify the 200 Hz peak remains under the cursor as the axes zoom in
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
-### C18 — Double-tap resets axes
-**Platforms:** iOS · iPadOS    **Priority:** Medium
+### C18 — Reset axes to defaults (macOS/iOS/iPadOS)
+**Platforms:** macOS · iOS · iPadOS    **Priority:** Medium
 
 **Preconditions:** Frequency and/or dB axes have been panned or zoomed away from defaults.
 
-- [ ] Double-tap the chart area
+**macOS:**
+- [ ] Right-click the chart area to open the context menu
+- [ ] Select **Reset Axes to Defaults**
+- [ ] Verify both axes return to the saved default values (as stored in Settings)
+
+**iOS/iPadOS:**
+- [ ] Tap the **info icon** on the chart
+- [ ] Tap **Reset Axes to Defaults**
 - [ ] Verify both axes return to the saved default values (as stored in Settings)
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
 ---
 
-### C19 — Log/linear scale toggle preserved on restart
+### C19 — Settings axis ranges preserved on restart
 **Platforms:** iOS · iPadOS · macOS    **Priority:** Low
 
 **Preconditions:** App running on any platform.
 
-- [ ] Tap the log/linear scale toggle to change it from its current state
-- [ ] Note the new state
+- [ ] Open Settings and set non-default values for Min Frequency, Max Frequency, Min dB, and Max dB (e.g. 100–500 Hz, −100 to −20 dB)
+- [ ] Close Settings and confirm the chart reflects the new ranges
 - [ ] Quit the app fully (swipe up on iOS/iPadOS; Cmd+Q on macOS)
 - [ ] Relaunch GuitarTap
-- [ ] Verify the scale toggle is in the same state as when the app was quit
-- [ ] Confirm the chart renders using that scale immediately on launch
+- [ ] Verify the chart opens with the frequency and dB ranges set in Settings
+- [ ] Note: gesture-based pan/zoom is intentionally not persisted and will revert to Settings values on restart
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
