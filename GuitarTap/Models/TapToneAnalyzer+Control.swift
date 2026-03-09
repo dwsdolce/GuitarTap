@@ -16,9 +16,14 @@ extension TapToneAnalyzer {
         try fftAnalyzer.start()
         analyzerStartTime = Date()  // Record start time for warm-up period
         print("🎬 Analyzer started - warm-up period: \(warmupPeriod)s")
-        
-        // Automatically start tap detection when analyzer starts
-        startTapSequence()
+
+        // Only auto-start tap detection on the initial user-initiated start.
+        // Engine restarts due to device/route/sample-rate changes go through
+        // handleRouteChangeRestart() instead, which preserves frozen spectra
+        // and in-progress sequences.
+        if !isDetecting && !isSpectrumFrozen && !isDetectionPaused {
+            startTapSequence()
+        }
     }
     
     /// Stop analyzing
