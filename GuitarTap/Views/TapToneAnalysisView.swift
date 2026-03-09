@@ -33,6 +33,9 @@ struct TapToneAnalysisView: View {
     @State var showingMeasurements = false
     @State var showingMetrics = false
     @State var showingResults = false
+    #if os(macOS)
+    @State var resultsWindowPresenter = ResultsWindowPresenter()
+    #endif
     @State var showingSettings = false
     @State var isExportingSpectrum = false
     @State var isSavingMeasurement = false

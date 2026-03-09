@@ -40,25 +40,19 @@ extension TapToneAnalysisView {
             )
             .interactiveDismissDisabled()
         }
-        .sheet(isPresented: $showingResults) {
-            NavigationStack {
-                TapAnalysisResultsView(
+        .onChange(of: showingResults) { _, isShowing in
+            if isShowing {
+                resultsWindowPresenter.onClose = { showingResults = false }
+                resultsWindowPresenter.show(
                     analyzer: tap,
                     fftAnalyzer: fft,
                     minFreq: minFreq,
                     maxFreq: maxFreq,
                     onExportPDFReport: { exportPDFReport() }
                 )
-                .navigationTitle("Analysis Results")
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
-                            showingResults = false
-                        }
-                    }
-                }
+            } else {
+                resultsWindowPresenter.close()
             }
-            .frame(minWidth: 400, minHeight: 500)
         }
         .sheet(isPresented: $showingMetrics) {
             NavigationStack {
