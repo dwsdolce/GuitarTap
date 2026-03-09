@@ -480,10 +480,10 @@ struct TapAnalysisResultsView: View {
         }
     }
     
-    // MARK: - Material Properties Section
+    // MARK: - Plate Properties Section
     
-    /// Computed material properties based on selected peaks and dimensions
-    private var calculatedMaterialProperties: MaterialProperties? {
+    /// Computed plate properties based on selected peaks and dimensions
+    private var calculatedPlateProperties: PlateProperties? {
         guard let longPeakID = effectiveLongitudinalPeakID,
               let crossPeakID = effectiveCrossPeakID else {
             return nil
@@ -516,7 +516,7 @@ struct TapAnalysisResultsView: View {
             massGrams: TapDisplaySettings.materialMass
         )
 
-        return MaterialProperties(
+        return PlateProperties(
             dimensions: dimensions,
             fundamentalFrequencyLong: longPeak.frequency,
             fundamentalFrequencyCross: crossPeak.frequency,
@@ -525,8 +525,8 @@ struct TapAnalysisResultsView: View {
     }
     
     private var materialPropertiesSection: some View {
-        GroupBox("Material Properties") {
-            if let props = calculatedMaterialProperties {
+        GroupBox("Plate Properties") {
+            if let props = calculatedPlateProperties {
                 VStack(alignment: .leading, spacing: 16) {
                     // Frequencies used
                     HStack {
@@ -812,7 +812,7 @@ struct TapAnalysisResultsView: View {
 
     /// Displays the Gore target thickness result
     @ViewBuilder
-    private func goreThicknessView(for props: MaterialProperties) -> some View {
+    private func goreThicknessView(for props: PlateProperties) -> some View {
         let bodyLength = TapDisplaySettings.guitarBodyLength
         let bodyWidth  = TapDisplaySettings.guitarBodyWidth
         let fvs        = TapDisplaySettings.plateStiffness

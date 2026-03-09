@@ -1,5 +1,5 @@
 //
-//  MaterialProperties.swift
+//  PlateProperties.swift
 //  GuitarTap
 //
 //  Calculates acoustic properties of wood from tap test measurements on rectangular plates.
@@ -53,7 +53,7 @@ struct MaterialDimensions {
 }
 
 /// Calculated acoustic properties of a material
-struct MaterialProperties {
+struct PlateProperties {
     /// The dimensions used for calculation
     let dimensions: MaterialDimensions
 
@@ -205,25 +205,25 @@ struct MaterialProperties {
     /// Used for EL and EC calculation from tap frequencies.
     private var goreCoef1: Float {
         let term = pow(Float.pi / 2.0, 2.0) * pow(1.5, 4.0)
-        return (1.0 / term) * 12.0 * (1.0 - MaterialProperties.vlcVcl)
+        return (1.0 / term) * 12.0 * (1.0 - PlateProperties.vlcVcl)
     }
 
     /// Gore coefficient 2: π × √(12 × (1 − ν_LC·ν_CL) / 126)
     /// Used in the target thickness numerator.
     private var goreCoef2: Float {
-        return Float.pi * sqrt(12.0 * (1.0 - MaterialProperties.vlcVcl) / 126.0)
+        return Float.pi * sqrt(12.0 * (1.0 - PlateProperties.vlcVcl) / 126.0)
     }
 
     /// Gore coefficient 3: 4 × ν_CL / 7
     /// Poisson correction for the EL term in the denominator.
     private var goreCoef3: Float {
-        return 4.0 * MaterialProperties.vcl / 7.0
+        return 4.0 * PlateProperties.vcl / 7.0
     }
 
     /// Gore coefficient 4: 4 × 12 × (1 − ν_LC·ν_CL) / 42
     /// Shear term scaling in the denominator.
     private var goreCoef4: Float {
-        return 4.0 * 12.0 * (1.0 - MaterialProperties.vlcVcl) / 42.0
+        return 4.0 * 12.0 * (1.0 - PlateProperties.vlcVcl) / 42.0
     }
 
     /// Young's modulus along grain using Gore's plate formula (Pa)

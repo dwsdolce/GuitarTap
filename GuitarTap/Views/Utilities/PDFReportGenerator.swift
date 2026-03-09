@@ -30,7 +30,7 @@ struct PDFReportData {
     let spectrumImageData: Data?
     let minFreq: Float
     let maxFreq: Float
-    let materialProperties: MaterialProperties?
+    let materialProperties: PlateProperties?
     let selectedLongitudinalPeakID: UUID?
     let selectedCrossPeakID: UUID?
     let selectedFlcPeakID: UUID?
@@ -55,8 +55,8 @@ struct PDFReportData {
         let measurementType = anySnapshot?.measurementType ?? .classical
         let guitarType = anySnapshot?.guitarType ?? .classical
 
-        // Compute material properties if applicable
-        var materialProps: MaterialProperties? = nil
+        // Compute plate properties if applicable
+        var materialProps: PlateProperties? = nil
         if measurementType == .material || measurementType == .brace {
             let longID = measurement.selectedLongitudinalPeakID
             let crossID = measurement.selectedCrossPeakID
@@ -74,7 +74,7 @@ struct PDFReportData {
                         massGrams: anySnapshot?.materialMass ?? 0
                     )
                     if dims.length > 0 && dims.mass > 0 {
-                        materialProps = MaterialProperties(
+                        materialProps = PlateProperties(
                             dimensions: dims,
                             fundamentalFrequencyLong: longPeak.frequency,
                             fundamentalFrequencyCross: crossPeak?.frequency ?? longPeak.frequency,
@@ -89,7 +89,7 @@ struct PDFReportData {
                         massGrams: anySnapshot?.materialMass ?? 0
                     )
                     if dims.length > 0 && dims.mass > 0 {
-                        materialProps = MaterialProperties(
+                        materialProps = PlateProperties(
                             dimensions: dims,
                             fundamentalFrequencyLong: longPeak.frequency,
                             fundamentalFrequencyCross: crossPeak.frequency,
@@ -625,9 +625,9 @@ private struct PDFReportContentView: View {
 
     // MARK: Material Analysis
 
-    private func materialSection(_ props: MaterialProperties) -> some View {
+    private func materialSection(_ props: PlateProperties) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Material Properties")
+            Text("Plate Properties")
                 .font(.system(size: 13, weight: .semibold))
 
             dimensionsSubsection(dims: props.dimensions)
@@ -731,7 +731,7 @@ private struct PDFReportContentView: View {
         }
     }
 
-    private func braceSection(_ props: MaterialProperties) -> some View {
+    private func braceSection(_ props: PlateProperties) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Brace Properties")
                 .font(.system(size: 13, weight: .semibold))
@@ -816,7 +816,7 @@ private struct PDFReportContentView: View {
 
     /// Renders the Gore target thickness result (plate measurements only).
     @ViewBuilder
-    private func goreThicknessPDFSection(_ props: MaterialProperties) -> some View {
+    private func goreThicknessPDFSection(_ props: PlateProperties) -> some View {
         if let hd = props.goreTargetThickness(
             bodyLengthMm: data.guitarBodyLength,
             bodyWidthMm: data.guitarBodyWidth,

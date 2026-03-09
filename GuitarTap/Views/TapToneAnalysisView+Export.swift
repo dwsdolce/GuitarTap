@@ -36,9 +36,9 @@ extension TapToneAnalysisView {
         }
         #endif
 
-        // Compute material properties if applicable
+        // Compute Plate properties if applicable
         let measurementType = TapDisplaySettings.measurementType
-        var materialProps: MaterialProperties? = nil
+        var materialProps: PlateProperties? = nil
         if measurementType == .material {
             let effLong = tap.effectiveLongitudinalPeakID
             let effCross = tap.effectiveCrossPeakID
@@ -54,7 +54,7 @@ extension TapToneAnalysisView {
                     massGrams: TapDisplaySettings.materialMass
                 )
                 if dims.length > 0 && dims.mass > 0 {
-                    materialProps = MaterialProperties(
+                    materialProps = PlateProperties(
                         dimensions: dims,
                         fundamentalFrequencyLong: longPeak.frequency,
                         fundamentalFrequencyCross: crossPeak.frequency,
@@ -73,7 +73,7 @@ extension TapToneAnalysisView {
                     massGrams: TapDisplaySettings.braceMass
                 )
                 if dims.length > 0 && dims.mass > 0 {
-                    materialProps = MaterialProperties(
+                    materialProps = PlateProperties(
                         dimensions: dims,
                         fundamentalFrequencyLong: longPeak.frequency,
                         fundamentalFrequencyCross: longPeak.frequency,

@@ -1,8 +1,8 @@
 //
-//  MaterialPropertiesTests.swift
+//  PlatePropertiesTests.swift
 //  GuitarTapTests
 //
-//  Tests for MaterialProperties and MaterialDimensions calculations.
+//  Tests for PlateProperties and MaterialDimensions calculations.
 //  All computations are pure formulas on value types — no hardware required.
 //
 //  Reference values are derived from the published formula:
@@ -65,7 +65,7 @@ struct YoungModulusTests {
     //   E = 48π²·400·85²·0.5⁴ / (22.37·0.003)² ≈ 19 GPa  (within 5–20 GPa)
     @Test func youngsModulusLong_sprucePlate_physicallyPlausible() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 3, massGrams: 120)
-        let props = MaterialProperties(
+        let props = PlateProperties(
             dimensions: d,
             fundamentalFrequencyLong: 85,    // realistic tap-tone freq for 500 mm spruce
             fundamentalFrequencyCross: 50
@@ -79,7 +79,7 @@ struct YoungModulusTests {
     // Zero thickness → E = 0 (guard against division by zero).
     @Test func youngsModulusLong_zeroThickness_returnsZero() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 0, massGrams: 120)
-        let props = MaterialProperties(
+        let props = PlateProperties(
             dimensions: d,
             fundamentalFrequencyLong: 170,
             fundamentalFrequencyCross: 100
@@ -90,10 +90,10 @@ struct YoungModulusTests {
     // Higher frequency → stiffer material → higher E (direct proportionality with f²).
     @Test func youngsModulusLong_higherFrequency_higherModulus() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 3, massGrams: 120)
-        let propsLow = MaterialProperties(
+        let propsLow = PlateProperties(
             dimensions: d, fundamentalFrequencyLong: 100, fundamentalFrequencyCross: 80
         )
-        let propsHigh = MaterialProperties(
+        let propsHigh = PlateProperties(
             dimensions: d, fundamentalFrequencyLong: 200, fundamentalFrequencyCross: 80
         )
         // E ∝ f², so doubling f quadruples E
@@ -110,8 +110,8 @@ struct YoungModulusTests {
         // d2: L=500 mm, mass=120 g → density = 0.12 / (0.5×0.2×0.003)  = 400 kg/m³
         let d1 = MaterialDimensions(lengthMM: 250, widthMM: 200, thicknessMM: 3, massGrams: 60)
         let d2 = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 3, massGrams: 120)
-        let p1 = MaterialProperties(dimensions: d1, fundamentalFrequencyLong: 85, fundamentalFrequencyCross: 50)
-        let p2 = MaterialProperties(dimensions: d2, fundamentalFrequencyLong: 85, fundamentalFrequencyCross: 50)
+        let p1 = PlateProperties(dimensions: d1, fundamentalFrequencyLong: 85, fundamentalFrequencyCross: 50)
+        let p2 = PlateProperties(dimensions: d2, fundamentalFrequencyLong: 85, fundamentalFrequencyCross: 50)
         // E ∝ ρ·L⁴: with equal density, ratio = (L2/L1)⁴ = 16
         let ratio = p2.youngsModulusLong / p1.youngsModulusLong
         #expect(abs(ratio - 16.0) < 0.1,
@@ -130,7 +130,7 @@ struct SpeedOfSoundTests {
     // Using fL=85 Hz which gives EL ≈ 19 GPa, ρ = 400 kg/m³ → c = √(E/ρ) ≈ 6890 m/s.
     @Test func speedOfSoundLong_spruce_inExpectedRange() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 3, massGrams: 120)
-        let props = MaterialProperties(
+        let props = PlateProperties(
             dimensions: d, fundamentalFrequencyLong: 85, fundamentalFrequencyCross: 50
         )
         let c = props.speedOfSoundLong
@@ -141,8 +141,8 @@ struct SpeedOfSoundTests {
     // c = √(E/ρ): since E ∝ f², and c ∝ √E, c ∝ f.
     @Test func speedOfSoundLong_proportionalToFrequency() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 3, massGrams: 120)
-        let pLow  = MaterialProperties(dimensions: d, fundamentalFrequencyLong: 100, fundamentalFrequencyCross: 80)
-        let pHigh = MaterialProperties(dimensions: d, fundamentalFrequencyLong: 200, fundamentalFrequencyCross: 80)
+        let pLow  = PlateProperties(dimensions: d, fundamentalFrequencyLong: 100, fundamentalFrequencyCross: 80)
+        let pHigh = PlateProperties(dimensions: d, fundamentalFrequencyLong: 200, fundamentalFrequencyCross: 80)
         let ratio = pHigh.speedOfSoundLong / pLow.speedOfSoundLong
         // E ∝ f², c = √(E/ρ) ∝ f → ratio should be ≈ 2
         #expect(abs(ratio - 2.0) < 0.05,
@@ -160,7 +160,7 @@ struct SpecificModulusTests {
     // specificModulusLong = youngsModulusLong (GPa) / density (g/cm³)
     @Test func specificModulusLong_matchesManualCalc() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 3, massGrams: 120)
-        let props = MaterialProperties(
+        let props = PlateProperties(
             dimensions: d, fundamentalFrequencyLong: 170, fundamentalFrequencyCross: 100
         )
         let expected = props.youngsModulusLongGPa / d.densityGPerCm3
@@ -170,7 +170,7 @@ struct SpecificModulusTests {
     // Zero density → specific modulus = 0 (guard).
     @Test func specificModulusLong_zeroDensity_returnsZero() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 0, massGrams: 0)
-        let props = MaterialProperties(
+        let props = PlateProperties(
             dimensions: d, fundamentalFrequencyLong: 170, fundamentalFrequencyCross: 100
         )
         #expect(props.specificModulusLong == 0)
@@ -189,7 +189,7 @@ struct GoreTargetThicknessTests {
     // Using fL=85 Hz gives EL ≈ 19 GPa → Gore thickness ≈ 2.4 mm (within 1.5–6 mm).
     @Test func goreThickness_spruceTop_isPlausible() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 3, massGrams: 120)
-        let props = MaterialProperties(
+        let props = PlateProperties(
             dimensions: d, fundamentalFrequencyLong: 85, fundamentalFrequencyCross: 50
         )
         // Steel string top vibrational stiffness target = 75
@@ -204,7 +204,7 @@ struct GoreTargetThicknessTests {
     // Zero body length should return nil.
     @Test func goreThickness_zeroBodyLength_returnsNil() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 3, massGrams: 120)
-        let props = MaterialProperties(
+        let props = PlateProperties(
             dimensions: d, fundamentalFrequencyLong: 170, fundamentalFrequencyCross: 100
         )
         let t = props.goreTargetThickness(bodyLengthMm: 0, bodyWidthMm: 390, vibrationalStiffness: 75)
@@ -214,7 +214,7 @@ struct GoreTargetThicknessTests {
     // Higher vibrational stiffness target → thicker plate.
     @Test func goreThickness_higherTarget_thickerPlate() {
         let d = MaterialDimensions(lengthMM: 500, widthMM: 200, thicknessMM: 3, massGrams: 120)
-        let props = MaterialProperties(
+        let props = PlateProperties(
             dimensions: d, fundamentalFrequencyLong: 170, fundamentalFrequencyCross: 100
         )
         let t55 = props.goreTargetThickness(bodyLengthMm: 490, bodyWidthMm: 390, vibrationalStiffness: 55)
