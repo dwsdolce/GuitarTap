@@ -21,8 +21,17 @@ extension TapToneAnalyzer {
         // Engine restarts due to device/route/sample-rate changes go through
         // handleRouteChangeRestart() instead, which preserves frozen spectra
         // and in-progress sequences.
-        if !isDetecting && !isSpectrumFrozen && !isDetectionPaused {
-            startTapSequence()
+        //
+        // Evaluate the guard on the main queue so it runs after any pending
+        // state changes (e.g. a pause that was dispatched just before this
+        // restart) have settled. This prevents startTapSequence() from firing
+        // mid-sequence after a HALC overload restart.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if !self.isDetecting && !self.isSpectrumFrozen && !self.isDetectionPaused
+                && self.currentTapCount == 0 {
+                self.startTapSequence()
+            }
         }
     }
     

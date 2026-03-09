@@ -119,12 +119,18 @@ extension TapToneAnalyzer {
             hpsMinHz = 20; hpsMaxHz = 2000
         }
 
+        // For longitudinal and cross-grain taps the tap orientation physically selects
+        // the lowest resonant mode of the plate, so prefer the lowest significant peak.
+        // For FLC (diagonal) the loudest peak strategy is appropriate.
+        let preferLowest = (phase == .capturingLongitudinal || phase == .capturingCross)
+
         // Find the dominant peak using harmonic product spectrum analysis.
         // This finds the fundamental regardless of whether harmonics are louder.
         guard let dominantPeak = findDominantPeak(magnitudes: magnitudes,
                                                    frequencies: frequencies,
                                                    minHz: hpsMinHz,
-                                                   maxHz: hpsMaxHz) else {
+                                                   maxHz: hpsMaxHz,
+                                                   preferLowestSignificant: preferLowest) else {
             print("⚠️ Gated FFT: no peak found — tap again")
             statusMessage = "No resonance detected — tap again"
             reEnableDetectionForNextMaterialTap()
@@ -168,7 +174,8 @@ extension TapToneAnalyzer {
     func findDominantPeak(magnitudes: [Float],
                           frequencies: [Float],
                           minHz: Float = 20,
-                          maxHz: Float = 2000) -> ResonantPeak? {
+                          maxHz: Float = 2000,
+                          preferLowestSignificant: Bool = false) -> ResonantPeak? {
         guard magnitudes.count == frequencies.count, magnitudes.count > 10 else { return nil }
 
         let n = magnitudes.count
@@ -222,22 +229,31 @@ extension TapToneAnalyzer {
         guard !candidates.isEmpty else { return nil }
 
         // --- Step 2: pick the best candidate ---
-        // Sort by magnitude descending; the strongest peak wins unless a lower-frequency
-        // candidate has an HPS score within 1 order of magnitude AND is more than 6 dB
-        // quieter — in that case prefer the lower-frequency fundamental.
         let byMagnitude = candidates.sorted { $0.magnitude > $1.magnitude }
         let strongest = byMagnitude[0]
 
-        var best = strongest
-        for candidate in byMagnitude.dropFirst() {
-            // Only consider candidates lower in frequency than the current best
-            guard candidate.index < best.index else { continue }
-            let magDiff = best.magnitude - candidate.magnitude  // positive = best is louder
-            // Prefer the lower-frequency candidate if it's within 6 dB AND has a
-            // comparable or better HPS score (within one order of magnitude)
-            if magDiff < 6.0 && candidate.hpsScore >= best.hpsScore * 0.1 {
-                best = candidate
+        let best: Candidate
+        if preferLowestSignificant {
+            // For longitudinal and cross-grain taps the tap orientation physically
+            // selects the plate's fundamental (lowest) resonant mode. Pick the
+            // lowest-frequency candidate that is within 30 dB of the strongest peak.
+            // This tolerates a quiet fundamental being dominated by a louder harmonic
+            // while still excluding pure noise far below the signal.
+            let threshold30dB = strongest.magnitude - 30.0
+            let significant = candidates.filter { $0.magnitude >= threshold30dB }
+            best = significant.min(by: { $0.index < $1.index }) ?? strongest
+        } else {
+            // Default: strongest peak wins unless a lower-frequency candidate has a
+            // comparable HPS score (within one order of magnitude) AND is within 6 dB.
+            var current = strongest
+            for candidate in byMagnitude.dropFirst() {
+                guard candidate.index < current.index else { continue }
+                let magDiff = current.magnitude - candidate.magnitude
+                if magDiff < 6.0 && candidate.hpsScore >= current.hpsScore * 0.1 {
+                    current = candidate
+                }
             }
+            best = current
         }
 
         // Refine the winning candidate's frequency and magnitude with parabolic interpolation
