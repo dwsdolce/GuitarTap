@@ -25,6 +25,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     let tapDetectionThreshold: Float?  // dB
     let hysteresisMargin: Float?       // dB
     let numberOfTaps: Int?             // Number of taps averaged
+    let peakThreshold: Float?          // dB - minimum peak magnitude to detect
     
     // Material measurement data (stored when measurementType is .plate or .brace)
     let selectedLongitudinalPeakID: UUID?  // Peak selected as longitudinal mode
@@ -51,7 +52,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, timestamp, peaks, decayTime, tapLocation, notes
         case spectrumSnapshot, chartImageFilename, peakAnnotationOffsets
-        case tapDetectionThreshold, hysteresisMargin, numberOfTaps
+        case tapDetectionThreshold, hysteresisMargin, numberOfTaps, peakThreshold
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
         case longitudinalSnapshot, crossSnapshot, flcSnapshot
         case selectedPeakIDs, annotationVisibilityMode
@@ -70,6 +71,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          tapDetectionThreshold: Float? = nil,
          hysteresisMargin: Float? = nil,
          numberOfTaps: Int? = nil,
+         peakThreshold: Float? = nil,
          selectedLongitudinalPeakID: UUID? = nil,
          selectedCrossPeakID: UUID? = nil,
          selectedFlcPeakID: UUID? = nil,
@@ -95,6 +97,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.tapDetectionThreshold = tapDetectionThreshold
         self.hysteresisMargin = hysteresisMargin
         self.numberOfTaps = numberOfTaps
+        self.peakThreshold = peakThreshold
         self.selectedLongitudinalPeakID = selectedLongitudinalPeakID
         self.selectedCrossPeakID = selectedCrossPeakID
         self.selectedFlcPeakID = selectedFlcPeakID

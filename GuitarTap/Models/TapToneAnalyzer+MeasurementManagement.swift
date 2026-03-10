@@ -146,6 +146,7 @@ extension TapToneAnalyzer {
             tapDetectionThreshold: tapDetectionThreshold,
             hysteresisMargin: hysteresisMargin,
             numberOfTaps: numberOfTaps,
+            peakThreshold: peakThreshold,
             // Include peak selections for plate and brace measurements
             selectedLongitudinalPeakID: !measurementType.isGuitar ? selectedLongitudinalPeakID : nil,
             selectedCrossPeakID: measurementType == .plate ? selectedCrossPeakID : nil,
@@ -433,6 +434,14 @@ extension TapToneAnalyzer {
             loadedNumberOfTaps = taps
         } else {
             print("  ⚠️ No number of taps in measurement")
+        }
+
+        if let threshold = measurement.peakThreshold {
+            print("  📊 Publishing peak threshold: \(threshold) dB")
+            peakThreshold = threshold
+            loadedPeakThreshold = threshold
+        } else {
+            print("  ⚠️ No peak threshold in measurement")
         }
         
         // Auto-select the recorded microphone if it is connected; warn if it is not.

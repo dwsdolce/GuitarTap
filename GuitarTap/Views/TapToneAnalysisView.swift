@@ -210,6 +210,15 @@ struct TapToneAnalysisView: View {
                 }
             }
         }
+        .onReceive(tapToneAnalyzer.$loadedPeakThreshold) { threshold in
+            if let threshold = threshold {
+                print("  ⬇️ View received loadedPeakThreshold: \(threshold)")
+                TapDisplaySettings.peakThreshold = threshold
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedPeakThreshold = nil
+                }
+            }
+        }
         .onReceive(tapToneAnalyzer.$loadedShowUnknownModes) { showUnknown in
             if let showUnknown = showUnknown {
                 print("  ⬇️ View received loadedShowUnknownModes: \(showUnknown)")

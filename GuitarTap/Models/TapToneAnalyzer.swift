@@ -298,6 +298,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Loaded analysis settings (used when restoring measurements)
     @Published var loadedTapDetectionThreshold: Float?
     @Published var loadedHysteresisMargin: Float?
+    @Published var loadedPeakThreshold: Float?
     @Published var loadedNumberOfTaps: Int?
     @Published var loadedShowUnknownModes: Bool?
     @Published var loadedGuitarType: GuitarType?
