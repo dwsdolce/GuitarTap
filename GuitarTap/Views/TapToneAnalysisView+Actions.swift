@@ -124,14 +124,10 @@ extension TapToneAnalysisView {
                     guitarType: TapDisplaySettings.guitarType,
                     measurementType: measurementType,
                     maxPeaks: self.tap.maxPeaks,
-                    plateLength: measurementType == .plate ? TapDisplaySettings.plateLength
-                                  : measurementType == .brace   ? TapDisplaySettings.braceLength : nil,
-                    plateWidth: measurementType == .plate ? TapDisplaySettings.plateWidth
-                                 : measurementType == .brace   ? TapDisplaySettings.braceWidth : nil,
-                    plateThickness: measurementType == .plate ? TapDisplaySettings.plateThickness
-                                     : measurementType == .brace   ? TapDisplaySettings.braceThickness : nil,
-                    plateMass: measurementType == .plate ? TapDisplaySettings.plateMass
-                                : measurementType == .brace   ? TapDisplaySettings.braceMass : nil,
+                    plateLength: measurementType == .plate ? TapDisplaySettings.plateLength : nil,
+                    plateWidth: measurementType == .plate ? TapDisplaySettings.plateWidth : nil,
+                    plateThickness: measurementType == .plate ? TapDisplaySettings.plateThickness : nil,
+                    plateMass: measurementType == .plate ? TapDisplaySettings.plateMass : nil,
                     guitarBodyLength: measurementType == .plate ? TapDisplaySettings.guitarBodyLength : nil,
                     guitarBodyWidth: measurementType == .plate ? TapDisplaySettings.guitarBodyWidth : nil,
                     plateStiffnessPreset: measurementType == .plate ? TapDisplaySettings.plateStiffnessPreset : nil,

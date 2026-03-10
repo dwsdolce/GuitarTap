@@ -1,9 +1,9 @@
 [
   {
     "annotationVisibilityMode" : "all",
-    "chartImageFilename" : "brace-1773112839.png",
+    "chartImageFilename" : "brace-1773113277.png",
     "hysteresisMargin" : 3,
-    "id" : "69D64BA7-EA8B-4232-865B-04DCC2E24395",
+    "id" : "6B7F1141-4048-4909-8F82-4B576832BB66",
     "longitudinalSnapshot" : {
       "braceLength" : 556,
       "braceMass" : 128,
@@ -32789,10 +32789,6 @@
       "measurementType" : "Material (Brace)",
       "minDB" : -100,
       "minFreq" : 30,
-      "plateLength" : 556,
-      "plateMass" : 128,
-      "plateThickness" : 29.4,
-      "plateWidth" : 20.4,
       "showUnknownModes" : false
     },
     "microphoneName" : "Umik-1  Gain: 18dB",
@@ -32821,6 +32817,6 @@
     ],
     "tapDetectionThreshold" : -56,
     "tapLocation" : "Brace",
-    "timestamp" : "2026-03-10T03:20:39Z"
+    "timestamp" : "2026-03-10T03:27:57Z"
   }
 ]
