@@ -226,7 +226,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     // MARK: - Raw Sample Callback (for gated FFT)
 
     /// Optional callback that receives raw PCM samples on the audio processing queue.
-    /// Used by the gated FFT capture to accumulate raw audio for material/brace analysis.
+    /// Used by the gated FFT capture to accumulate raw audio for plate/brace analysis.
     /// Called on the audioProcessingQueue — do not update UI directly.
     var rawSampleHandler: (([Float], Double) -> Void)?
     
@@ -1255,7 +1255,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
     }
     
-    // MARK: - Gated FFT (for material/brace tap measurement)
+    // MARK: - Gated FFT (for plate/brace tap measurement)
 
     /// Run a one-shot FFT on a pre-captured sample buffer and return linear
     /// magnitudes and a matching frequency axis.
@@ -1290,7 +1290,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         // Zero-pad (or truncate) to paddedSize, then apply a Hann window.
         // Unlike the live display path (which uses boxcar for simplicity), this
         // result is what gets saved and analysed: peak frequencies feed mode
-        // classification, Q-factor calculation, and material property formulas.
+        // classification, Q-factor calculation, and plate/brace property formulas.
         // The Hann window suppresses spectral sidelobes by ~31 dB compared to
         // boxcar, giving sharper, cleaner peaks and therefore more accurate
         // frequency and Q readings. The amplitude roll-off at the frame edges is

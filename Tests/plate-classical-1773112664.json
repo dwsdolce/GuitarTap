@@ -1,7 +1,7 @@
 [
   {
     "annotationVisibilityMode" : "all",
-    "chartImageFilename" : "plate-classical-1773093972.png",
+    "chartImageFilename" : "plate-classical-1773112664.png",
     "crossSnapshot" : {
       "customPlateStiffness" : 75,
       "frequencies" : [
@@ -32780,10 +32780,6 @@
         -122.13021,
         -123.056915
       ],
-      "materialLength" : 557.5,
-      "materialMass" : 208,
-      "materialThickness" : 4.85,
-      "materialWidth" : 220.5,
       "maxDB" : 0,
       "maxFreq" : 600,
       "maxPeaks" : 0,
@@ -32791,7 +32787,11 @@
       "measurementType" : "Material (Plate)",
       "minDB" : -100,
       "minFreq" : 30,
+      "plateLength" : 557.5,
+      "plateMass" : 208,
       "plateStiffnessPreset" : "Classical Top",
+      "plateThickness" : 4.85,
+      "plateWidth" : 220.5,
       "showUnknownModes" : false
     },
     "flcSnapshot" : {
@@ -65572,10 +65572,6 @@
         -132.11768,
         -125.53514
       ],
-      "materialLength" : 557.5,
-      "materialMass" : 208,
-      "materialThickness" : 4.85,
-      "materialWidth" : 220.5,
       "maxDB" : 0,
       "maxFreq" : 600,
       "maxPeaks" : 0,
@@ -65583,11 +65579,15 @@
       "measurementType" : "Material (Plate)",
       "minDB" : -100,
       "minFreq" : 30,
+      "plateLength" : 557.5,
+      "plateMass" : 208,
       "plateStiffnessPreset" : "Classical Top",
+      "plateThickness" : 4.85,
+      "plateWidth" : 220.5,
       "showUnknownModes" : false
     },
     "hysteresisMargin" : 3,
-    "id" : "C1AA5D42-7702-4669-B0E4-7A670C486F26",
+    "id" : "093577CB-5236-4F18-952B-3234B1299AA5",
     "longitudinalSnapshot" : {
       "customPlateStiffness" : 75,
       "frequencies" : [
@@ -98366,10 +98366,6 @@
         -134.80669,
         -129.79558
       ],
-      "materialLength" : 557.5,
-      "materialMass" : 208,
-      "materialThickness" : 4.85,
-      "materialWidth" : 220.5,
       "maxDB" : 0,
       "maxFreq" : 600,
       "maxPeaks" : 0,
@@ -98377,7 +98373,11 @@
       "measurementType" : "Material (Plate)",
       "minDB" : -100,
       "minFreq" : 30,
+      "plateLength" : 557.5,
+      "plateMass" : 208,
       "plateStiffnessPreset" : "Classical Top",
+      "plateThickness" : 4.85,
+      "plateWidth" : 220.5,
       "showUnknownModes" : false
     },
     "microphoneName" : "Umik-1  Gain: 18dB",
@@ -98426,12 +98426,12 @@
     "selectedFlcPeakID" : "50D1D587-4A21-4DCB-BF79-EF541E342577",
     "selectedLongitudinalPeakID" : "74C3E16B-4244-4656-9FA4-7FB2200531E5",
     "selectedPeakIDs" : [
+      "74C3E16B-4244-4656-9FA4-7FB2200531E5",
       "513E8662-A956-4C30-A59C-F154828FC415",
-      "50D1D587-4A21-4DCB-BF79-EF541E342577",
-      "74C3E16B-4244-4656-9FA4-7FB2200531E5"
+      "50D1D587-4A21-4DCB-BF79-EF541E342577"
     ],
     "tapDetectionThreshold" : -56,
     "tapLocation" : "Plate Classical",
-    "timestamp" : "2026-03-09T22:06:12Z"
+    "timestamp" : "2026-03-10T03:17:44Z"
   }
 ]

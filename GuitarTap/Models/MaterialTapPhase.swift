@@ -8,8 +8,9 @@
 import Foundation
 
 /// Phase of material measurement tap sequence
-/// Material measurements require two or three separate tap orientations
-/// to isolate longitudinal, cross-grain, and optionally FLC (diagonal/shear) modes
+/// Plate measurements require two or three separate tap orientations
+/// to isolate longitudinal, cross-grain, and optionally FLC (diagonal/shear) modes.
+/// Brace measurements use only the longitudinal phase.
 enum MaterialTapPhase: String {
     case notStarted = "Not Started"
     case capturingLongitudinal = "Capturing Longitudinal"
@@ -23,7 +24,7 @@ enum MaterialTapPhase: String {
     var instruction: String {
         switch self {
         case .notStarted:
-            return "Press New Tap to begin material measurement"
+            return "Press New Tap to begin measurement"
         case .capturingLongitudinal:
             return "Processing longitudinal tap..."
         case .waitingForCrossTap:
@@ -35,7 +36,7 @@ enum MaterialTapPhase: String {
         case .capturingFlc:
             return "Processing FLC tap..."
         case .complete:
-            return "Material measurement complete"
+            return "Measurement complete"
         }
     }
     

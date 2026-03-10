@@ -16,7 +16,7 @@ extension TapToneAnalysisView {
         tap.isSpectrumFrozen ? tap.frozenMagnitudes : fft.magnitudes
     }
 
-    /// Per-phase spectra for material/brace measurements, formatted for SpectrumView overlay
+    /// Per-phase spectra for plate/brace measurements, formatted for SpectrumView overlay
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] {
         let measurementType = TapDisplaySettings.measurementType
         guard !measurementType.isGuitar else { return [] }
@@ -24,10 +24,10 @@ extension TapToneAnalysisView {
         if let spec = tap.longitudinalSpectrum {
             result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .blue, label: "Longitudinal (L)"))
         }
-        if measurementType == .material, let spec = tap.crossSpectrum {
+        if measurementType == .plate, let spec = tap.crossSpectrum {
             result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .orange, label: "Cross-grain (C)"))
         }
-        if measurementType == .material, let spec = tap.flcSpectrum {
+        if measurementType == .plate, let spec = tap.flcSpectrum {
             result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .purple, label: "FLC"))
         }
         return result
@@ -188,7 +188,7 @@ extension TapToneAnalysisView {
     var decayTimeView: some View {
         Group {
             if !TapDisplaySettings.measurementType.isGuitar {
-                // Material/brace measurement instructions
+                // Plate/brace measurement instructions
                 materialInstructionsView
             } else {
                 // Guitar mode: Ring-Out Time and Tap Tone Ratio
@@ -199,7 +199,7 @@ extension TapToneAnalysisView {
 
     /// Material measurement instructions panel
     var materialInstructionsView: some View {
-        GroupBox("Material Measurement") {
+        GroupBox(TapDisplaySettings.measurementType == .brace ? "Brace Measurement" : "Plate Measurement") {
             VStack(alignment: .leading, spacing: 8) {
                 // Current phase indicator
                 HStack {
@@ -277,7 +277,7 @@ extension TapToneAnalysisView {
         }
     }
 
-    /// Title for current material/brace measurement phase
+    /// Title for current plate/brace measurement phase
     var materialPhaseTitle: String {
         let isBrace = TapDisplaySettings.measurementType == .brace
         switch tap.materialTapPhase {
@@ -298,7 +298,7 @@ extension TapToneAnalysisView {
         }
     }
 
-    /// Description for current material/brace measurement phase
+    /// Description for current plate/brace measurement phase
     var materialPhaseDescription: String {
         let isBrace = TapDisplaySettings.measurementType == .brace
         switch tap.materialTapPhase {
@@ -307,7 +307,7 @@ extension TapToneAnalysisView {
                 return "Press 'New Tap' to begin the brace fL measurement."
             }
             let tapWord = TapDisplaySettings.measureFlc ? "three-tap" : "two-tap"
-            return "Press 'New Tap' to begin the \(tapWord) material measurement process."
+            return "Press 'New Tap' to begin the \(tapWord) plate measurement process."
         case .capturingLongitudinal:
             if isBrace {
                 return "Hold brace at 22% from one end along the length. Tap center."

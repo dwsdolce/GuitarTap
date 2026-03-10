@@ -22,7 +22,7 @@ struct PeakAnnotationsOverlay: View {
     let isLogarithmic: Bool
     @Binding var isAnnotationDragging: Bool
 
-    // Material measurement mode support
+    // Plate/brace measurement mode support
     let measurementType: MeasurementType
     let selectedLongitudinalPeakID: UUID?
     let selectedCrossPeakID: UUID?
@@ -78,7 +78,7 @@ struct DraggablePeakAnnotation: View {
     let isLogarithmic: Bool
     @Binding var isAnnotationDragging: Bool
 
-    // Material measurement mode support
+    // Plate/brace measurement mode support
     let measurementType: MeasurementType
     let selectedLongitudinalPeakID: UUID?
     let selectedCrossPeakID: UUID?
@@ -113,7 +113,7 @@ struct DraggablePeakAnnotation: View {
             default: return .secondary
             }
         } else {
-            // Material mode: color by L/C selection
+            // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {
                 return .blue      // Longitudinal = blue
             } else if peak.id == selectedCrossPeakID {
@@ -391,7 +391,7 @@ private struct PeakAnnotationLabel: View {
     let isDragging: Bool
     let isMoved: Bool
 
-    // Material measurement mode support
+    // Plate/brace measurement mode support
     let measurementType: MeasurementType
     let isLongitudinal: Bool
     let isCross: Bool
@@ -406,7 +406,7 @@ private struct PeakAnnotationLabel: View {
         return false
     }
 
-    /// The mode label to display - user override, guitar mode name, or material mode (L/C/FLC)
+    /// The mode label to display - user override, guitar mode name, or plate/brace mode (L/C/FLC)
     private var modeLabel: String {
         if measurementType.isGuitar {
             switch modeOverrides[peak.id] ?? .auto {
@@ -416,7 +416,7 @@ private struct PeakAnnotationLabel: View {
                 return label
             }
         } else {
-            // Material mode labels
+            // Plate/brace mode labels
             if isLongitudinal {
                 return "Longitudinal"
             } else if isCross {
@@ -431,7 +431,7 @@ private struct PeakAnnotationLabel: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            // Mode label (guitar mode or material L/C), italic when manually overridden
+            // Mode label (guitar mode or plate L/C), italic when manually overridden
             HStack(spacing: 3) {
                 Text(modeLabel)
                     .font(isManualOverride ? .caption2.italic() : .caption2)

@@ -102,7 +102,7 @@ extension TapToneAnalyzer {
         let measurementType = TapDisplaySettings.measurementType
         
         // For guitar measurements: save a single spectrum snapshot as before.
-        // For material/brace: per-phase snapshots are used instead; no combined snapshot needed.
+        // For plate/brace: per-phase snapshots are used instead; no combined snapshot needed.
         let snapshot: SpectrumSnapshot?
         if includeSpectrum && measurementType.isGuitar {
             snapshot = spectrumSnapshot ?? SpectrumSnapshot(
@@ -146,13 +146,13 @@ extension TapToneAnalyzer {
             tapDetectionThreshold: tapDetectionThreshold,
             hysteresisMargin: hysteresisMargin,
             numberOfTaps: numberOfTaps,
-            // Include peak selections for material and brace measurements
+            // Include peak selections for plate and brace measurements
             selectedLongitudinalPeakID: !measurementType.isGuitar ? selectedLongitudinalPeakID : nil,
-            selectedCrossPeakID: measurementType == .material ? selectedCrossPeakID : nil,
-            selectedFlcPeakID: measurementType == .material ? selectedFlcPeakID : nil,
+            selectedCrossPeakID: measurementType == .plate ? selectedCrossPeakID : nil,
+            selectedFlcPeakID: measurementType == .plate ? selectedFlcPeakID : nil,
             longitudinalSnapshot: !measurementType.isGuitar ? longitudinalSnapshot : nil,
-            crossSnapshot: measurementType == .material ? crossSnapshot : nil,
-            flcSnapshot: measurementType == .material ? flcSnapshot : nil,
+            crossSnapshot: measurementType == .plate ? crossSnapshot : nil,
+            flcSnapshot: measurementType == .plate ? flcSnapshot : nil,
             selectedPeakIDs: selectedPeakIDs.isEmpty ? nil : Array(selectedPeakIDs),
             annotationVisibilityMode: annotationVisibilityMode,
             peakModeOverrides: peakModeOverrides.isEmpty ? nil : peakModeOverrides,
@@ -243,10 +243,10 @@ extension TapToneAnalyzer {
         // Restore decay time
         currentDecayTime = measurement.decayTime
         
-        // Determine if this is a material/brace measurement with per-phase spectra
+        // Determine if this is a plate/brace measurement with per-phase spectra
         let hasMaterialSpectra = measurement.longitudinalSnapshot != nil
         
-        // Restore per-phase spectra for material/brace measurements
+        // Restore per-phase spectra for plate/brace measurements
         if let longSnap = measurement.longitudinalSnapshot {
             longitudinalSpectrum = (magnitudes: longSnap.magnitudes, frequencies: longSnap.frequencies)
             longitudinalPeaks = [] // peaks come from currentPeaks
@@ -269,7 +269,7 @@ extension TapToneAnalyzer {
             flcPeaks = []
         }
         
-        // For material/brace: use per-phase spectra for display (no frozen spectrum needed)
+        // For plate/brace: use per-phase spectra for display (no frozen spectrum needed)
         // For guitar: restore the single frozen spectrum as before
         if hasMaterialSpectra {
             isSpectrumFrozen = false
@@ -284,7 +284,7 @@ extension TapToneAnalyzer {
             isSpectrumFrozen = true
         }
         
-        // Restore display settings from any available snapshot (prefer longitudinal for material)
+        // Restore display settings from any available snapshot (prefer longitudinal for plate/brace)
         let settingsSnapshot = measurement.longitudinalSnapshot ?? measurement.spectrumSnapshot
         if let snapshot = settingsSnapshot {
             // Restore display ranges - publish these to trigger view updates
@@ -312,22 +312,22 @@ extension TapToneAnalyzer {
                 loadedMeasurementType = measurementType
             }
             
-            // Restore material dimensions if available (for material measurements)
-            if let materialLength = snapshot.materialLength {
-                print("  📏 Publishing material dimensions: L=\(materialLength)mm")
-                loadedMaterialLength = materialLength
+            // Restore plate dimensions if available (for plate measurements)
+            if let plateLength = snapshot.plateLength {
+                print("  📏 Publishing plate dimensions: L=\(plateLength)mm")
+                loadedPlateLength = plateLength
             }
-            if let materialWidth = snapshot.materialWidth {
-                loadedMaterialWidth = materialWidth
+            if let plateWidth = snapshot.plateWidth {
+                loadedPlateWidth = plateWidth
             }
-            if let materialThickness = snapshot.materialThickness {
-                loadedMaterialThickness = materialThickness
+            if let plateThickness = snapshot.plateThickness {
+                loadedPlateThickness = plateThickness
             }
-            if let materialMass = snapshot.materialMass {
-                loadedMaterialMass = materialMass
+            if let plateMass = snapshot.plateMass {
+                loadedPlateMass = plateMass
             }
 
-            // Restore Gore thicknessing / panel type settings (material mode)
+            // Restore Gore thicknessing / panel type settings (plate mode)
             if let bodyLength = snapshot.guitarBodyLength {
                 loadedGuitarBodyLength = bodyLength
             }
@@ -362,7 +362,7 @@ extension TapToneAnalyzer {
             print("  ⚠️ No spectrum snapshot in measurement")
         }
         
-        // Restore material peak selections directly into the model properties
+        // Restore plate/brace peak selections directly into the model properties
         // that effectiveLongitudinalPeakID etc. read from.
         selectedLongitudinalPeak = measurement.selectedLongitudinalPeakID
             .flatMap { id in currentPeaks.first(where: { $0.id == id }) }

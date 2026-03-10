@@ -1,5 +1,5 @@
 //
-//  PlateProperties.swift
+//  MaterialProperties.swift
 //  GuitarTap
 //
 //  Calculates acoustic properties of wood from tap test measurements on rectangular plates.
@@ -8,7 +8,7 @@
 
 import Foundation
 
-/// Represents the physical dimensions of a rectangular material sample
+/// Represents the physical dimensions of a rectangular material sample (plate or brace)
 struct MaterialDimensions {
     /// Length in meters (along grain for wood)
     let length: Float
@@ -52,7 +52,7 @@ struct MaterialDimensions {
     }
 }
 
-/// Calculated acoustic properties of a material
+/// Calculated acoustic properties of a plate or brace sample
 struct PlateProperties {
     /// The dimensions used for calculation
     let dimensions: MaterialDimensions

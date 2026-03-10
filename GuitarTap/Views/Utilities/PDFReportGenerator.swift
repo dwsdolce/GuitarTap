@@ -30,7 +30,8 @@ struct PDFReportData {
     let spectrumImageData: Data?
     let minFreq: Float
     let maxFreq: Float
-    let materialProperties: PlateProperties?
+    let plateProperties: PlateProperties?
+    let braceProperties: BraceProperties?
     let selectedLongitudinalPeakID: UUID?
     let selectedCrossPeakID: UUID?
     let selectedFlcPeakID: UUID?
@@ -42,7 +43,7 @@ struct PDFReportData {
     let microphoneName: String?
     let calibrationName: String?
 
-    // Gore thicknessing inputs (for plate material measurements)
+    // Gore thicknessing inputs (for plate measurements)
     let guitarBodyLength: Float
     let guitarBodyWidth: Float
     let plateStiffness: Float
@@ -55,52 +56,50 @@ struct PDFReportData {
         let measurementType = anySnapshot?.measurementType ?? .classical
         let guitarType = anySnapshot?.guitarType ?? .classical
 
-        // Compute plate properties if applicable
-        var materialProps: PlateProperties? = nil
-        if measurementType == .material || measurementType == .brace {
+        // Compute material properties if applicable
+        var plateProps: PlateProperties? = nil
+        var braceProps: BraceProperties? = nil
+        if measurementType == .plate {
             let longID = measurement.selectedLongitudinalPeakID
             let crossID = measurement.selectedCrossPeakID
             let flcID = measurement.selectedFlcPeakID
-
-            if let longPeak = measurement.peaks.first(where: { $0.id == longID }) {
-                let crossPeak = measurement.peaks.first(where: { $0.id == crossID })
+            if let longPeak = measurement.peaks.first(where: { $0.id == longID }),
+               let crossPeak = measurement.peaks.first(where: { $0.id == crossID }) {
                 let flcPeak = measurement.peaks.first(where: { $0.id == flcID })
-
-                if measurementType == .brace {
-                    let dims = MaterialDimensions(
-                        lengthMM: anySnapshot?.materialLength ?? 0,
-                        widthMM: anySnapshot?.materialWidth ?? 0,
-                        thicknessMM: anySnapshot?.materialThickness ?? 0,
-                        massGrams: anySnapshot?.materialMass ?? 0
+                let dims = MaterialDimensions(
+                    lengthMM: anySnapshot?.plateLength ?? 0,
+                    widthMM: anySnapshot?.plateWidth ?? 0,
+                    thicknessMM: anySnapshot?.plateThickness ?? 0,
+                    massGrams: anySnapshot?.plateMass ?? 0
+                )
+                if dims.length > 0 && dims.mass > 0 {
+                    plateProps = PlateProperties(
+                        dimensions: dims,
+                        fundamentalFrequencyLong: longPeak.frequency,
+                        fundamentalFrequencyCross: crossPeak.frequency,
+                        fundamentalFrequencyFlc: flcPeak?.frequency
                     )
-                    if dims.length > 0 && dims.mass > 0 {
-                        materialProps = PlateProperties(
-                            dimensions: dims,
-                            fundamentalFrequencyLong: longPeak.frequency,
-                            fundamentalFrequencyCross: crossPeak?.frequency ?? longPeak.frequency,
-                            fundamentalFrequencyFlc: nil
-                        )
-                    }
-                } else if let crossPeak = crossPeak {
-                    let dims = MaterialDimensions(
-                        lengthMM: anySnapshot?.materialLength ?? 0,
-                        widthMM: anySnapshot?.materialWidth ?? 0,
-                        thicknessMM: anySnapshot?.materialThickness ?? 0,
-                        massGrams: anySnapshot?.materialMass ?? 0
+                }
+            }
+        } else if measurementType == .brace {
+            let longID = measurement.selectedLongitudinalPeakID
+            if let longPeak = measurement.peaks.first(where: { $0.id == longID }) {
+                let dims = MaterialDimensions(
+                    lengthMM: anySnapshot?.braceLength ?? 0,
+                    widthMM: anySnapshot?.braceWidth ?? 0,
+                    thicknessMM: anySnapshot?.braceThickness ?? 0,
+                    massGrams: anySnapshot?.braceMass ?? 0
+                )
+                if dims.length > 0 && dims.mass > 0 {
+                    braceProps = BraceProperties(
+                        dimensions: dims,
+                        fundamentalFrequencyLong: longPeak.frequency
                     )
-                    if dims.length > 0 && dims.mass > 0 {
-                        materialProps = PlateProperties(
-                            dimensions: dims,
-                            fundamentalFrequencyLong: longPeak.frequency,
-                            fundamentalFrequencyCross: crossPeak.frequency,
-                            fundamentalFrequencyFlc: flcPeak?.frequency
-                        )
-                    }
                 }
             }
         }
 
-        // For guitar measurements snapshot holds the display range; for material/brace
+        // For guitar measurements snapshot holds the display range; for plate/brace
         // measurements spectrumSnapshot is nil and the range lives in the per-phase snapshots.
         let displaySnapshot = snapshot ?? anySnapshot
         let minFreq = displaySnapshot?.minFreq ?? 50
@@ -124,17 +123,24 @@ struct PDFReportData {
             spectrumImageData: measurement.chartImageData,
             minFreq: minFreq,
             maxFreq: maxFreq,
-            materialProperties: materialProps,
+            plateProperties: plateProps,
+            braceProperties: braceProps,
             selectedLongitudinalPeakID: measurement.selectedLongitudinalPeakID,
             selectedCrossPeakID: measurement.selectedCrossPeakID,
             selectedFlcPeakID: measurement.selectedFlcPeakID,
             peakModeOverrides: measurement.peakModeOverrides ?? [:],
             microphoneName: measurement.microphoneName,
             calibrationName: measurement.calibrationName,
-            guitarBodyLength: TapDisplaySettings.guitarBodyLength,
-            guitarBodyWidth: TapDisplaySettings.guitarBodyWidth,
-            plateStiffness: TapDisplaySettings.plateStiffness,
-            plateStiffnessPreset: TapDisplaySettings.plateStiffnessPreset
+            guitarBodyLength: anySnapshot?.guitarBodyLength ?? TapDisplaySettings.guitarBodyLength,
+            guitarBodyWidth: anySnapshot?.guitarBodyWidth ?? TapDisplaySettings.guitarBodyWidth,
+            plateStiffness: {
+                let preset = anySnapshot?.plateStiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset
+                if preset == .custom {
+                    return anySnapshot?.customPlateStiffness ?? TapDisplaySettings.customPlateStiffness
+                }
+                return preset.value
+            }(),
+            plateStiffnessPreset: anySnapshot?.plateStiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset
         )
     }
 
@@ -367,7 +373,7 @@ private struct PDFReportContentView: View {
 
     @ViewBuilder
     private var peakRoleHeader: some View {
-        if data.measurementType == .material || data.measurementType == .brace {
+        if data.measurementType == .plate || data.measurementType == .brace {
             Text("Role")
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .font(.system(size: 10, weight: .semibold))
@@ -419,7 +425,7 @@ private struct PDFReportContentView: View {
 
     @ViewBuilder
     private func peakRoleCell(for peak: ResonantPeak) -> some View {
-        if data.measurementType == .material {
+        if data.measurementType == .plate {
             let isLong = peak.id == data.selectedLongitudinalPeakID
             let isCross = peak.id == data.selectedCrossPeakID
             let isFlc = peak.id == data.selectedFlcPeakID
@@ -469,7 +475,7 @@ private struct PDFReportContentView: View {
 
     @ViewBuilder
     private var tapInstructionsSection: some View {
-        if data.measurementType == .material {
+        if data.measurementType == .plate {
             let hasFlc = data.selectedFlcPeakID != nil
             VStack(alignment: .leading, spacing: 6) {
                 sectionDivider
@@ -534,12 +540,12 @@ private struct PDFReportContentView: View {
     @ViewBuilder
     private var analysisSection: some View {
         switch data.measurementType {
-        case .material:
-            if let props = data.materialProperties {
-                materialSection(props)
+        case .plate:
+            if let props = data.plateProperties {
+                plateSection(props)
             }
         case .brace:
-            if let props = data.materialProperties {
+            if let props = data.braceProperties {
                 braceSection(props)
             }
         default:
@@ -623,9 +629,9 @@ private struct PDFReportContentView: View {
         .cornerRadius(6)
     }
 
-    // MARK: Material Analysis
+    // MARK: Plate Analysis
 
-    private func materialSection(_ props: PlateProperties) -> some View {
+    private func plateSection(_ props: PlateProperties) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Plate Properties")
                 .font(.system(size: 13, weight: .semibold))
@@ -634,12 +640,12 @@ private struct PDFReportContentView: View {
 
             // Frequencies used in calculation
             HStack(spacing: 0) {
-                materialPropRow("fL", String(format: "%.1f Hz", props.fundamentalFrequencyLong))
+                platePropRow("fL", String(format: "%.1f Hz", props.fundamentalFrequencyLong))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                materialPropRow("fC", String(format: "%.1f Hz", props.fundamentalFrequencyCross))
+                platePropRow("fC", String(format: "%.1f Hz", props.fundamentalFrequencyCross))
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if let fLC = props.fundamentalFrequencyFlc {
-                    materialPropRow("fLC", String(format: "%.1f Hz", fLC))
+                    platePropRow("fLC", String(format: "%.1f Hz", fLC))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Spacer()
@@ -653,13 +659,13 @@ private struct PDFReportContentView: View {
             HStack(alignment: .top, spacing: 0) {
                 // Left column
                 VStack(alignment: .leading, spacing: 6) {
-                    materialPropRow("Speed of Sound (L)",
+                    platePropRow("Speed of Sound (L)",
                                    String(format: "%.0f m/s", props.speedOfSoundLong))
-                    materialPropRow("Speed of Sound (C)",
+                    platePropRow("Speed of Sound (C)",
                                    String(format: "%.0f m/s", props.speedOfSoundCross))
-                    materialPropRow("Young's Modulus (L)",
+                    platePropRow("Young's Modulus (L)",
                                    String(format: "%.2f GPa", props.youngsModulusLongGPa))
-                    materialPropRow("Young's Modulus (C)",
+                    platePropRow("Young's Modulus (C)",
                                    String(format: "%.2f GPa", props.youngsModulusCrossGPa))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -672,9 +678,9 @@ private struct PDFReportContentView: View {
                     specificModulusRow("Specific Modulus (C)",
                                       value: props.specificModulusCross,
                                       quality: props.spruceQualityCross)
-                    materialPropRow("Radiation Ratio (L)",
+                    platePropRow("Radiation Ratio (L)",
                                    String(format: "%.1f", props.radiationRatioLong))
-                    materialPropRow("Radiation Ratio (C)",
+                    platePropRow("Radiation Ratio (C)",
                                    String(format: "%.1f", props.radiationRatioCross))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -682,7 +688,7 @@ private struct PDFReportContentView: View {
 
             // GLC shear modulus (if FLC tap was performed)
             if let glc = props.goreShearModulus {
-                materialPropRow("GLC (Shear Modulus)",
+                platePropRow("GLC (Shear Modulus)",
                                String(format: "%.3f GPa", glc / 1.0e9))
             } else {
                 Text("GLC assumed 0 — FLC tap not performed")
@@ -694,7 +700,7 @@ private struct PDFReportContentView: View {
             // Cross/Long ratio, Long/Cross ratio
             HStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 2) {
-                    materialPropRow("Cross/Long Ratio",
+                    platePropRow("Cross/Long Ratio",
                                    String(format: "%.3f", props.crossLongRatio))
                     Text("typical: 0.04 – 0.08")
                         .font(.system(size: 9))
@@ -703,7 +709,7 @@ private struct PDFReportContentView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .leading, spacing: 2) {
-                    materialPropRow("Long/Cross Ratio",
+                    platePropRow("Long/Cross Ratio",
                                    String(format: "%.1f", props.longCrossRatio))
                     Text("typical: 12 – 25")
                         .font(.system(size: 9))
@@ -731,7 +737,7 @@ private struct PDFReportContentView: View {
         }
     }
 
-    private func braceSection(_ props: PlateProperties) -> some View {
+    private func braceSection(_ props: BraceProperties) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Brace Properties")
                 .font(.system(size: 13, weight: .semibold))
@@ -740,7 +746,7 @@ private struct PDFReportContentView: View {
 
             // Frequency used in calculation
             HStack(spacing: 0) {
-                materialPropRow("fL", String(format: "%.1f Hz", props.fundamentalFrequencyLong))
+                platePropRow("fL", String(format: "%.1f Hz", props.fundamentalFrequencyLong))
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Spacer().frame(maxWidth: .infinity)
                 Spacer().frame(maxWidth: .infinity)
@@ -751,9 +757,9 @@ private struct PDFReportContentView: View {
 
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
-                    materialPropRow("Speed of Sound",
+                    platePropRow("Speed of Sound",
                                    String(format: "%.0f m/s", props.speedOfSoundLong))
-                    materialPropRow("Young's Modulus (E)",
+                    platePropRow("Young's Modulus (E)",
                                    String(format: "%.2f GPa", props.youngsModulusLongGPa))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -761,8 +767,8 @@ private struct PDFReportContentView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     specificModulusRow("Specific Modulus",
                                       value: props.specificModulusLong,
-                                      quality: props.spruceQualityLong)
-                    materialPropRow("Radiation Ratio",
+                                      quality: props.spruceQuality)
+                    platePropRow("Radiation Ratio",
                                    String(format: "%.1f", props.radiationRatioLong))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -773,9 +779,9 @@ private struct PDFReportContentView: View {
                 Text("Overall Quality:")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.secondary)
-                Text(props.overallQuality.rawValue)
+                Text(props.spruceQuality.rawValue)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(qualityColor(for: props.overallQuality))
+                    .foregroundColor(qualityColor(for: props.spruceQuality))
                 Spacer()
             }
             .padding(8)
@@ -792,18 +798,18 @@ private struct PDFReportContentView: View {
                 .foregroundColor(.secondary)
             // Geometry on first line
             HStack(spacing: 0) {
-                materialPropRow("Length", String(format: "%.1f mm", dims.length * 1000))
+                platePropRow("Length", String(format: "%.1f mm", dims.length * 1000))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                materialPropRow("Width", String(format: "%.1f mm", dims.width * 1000))
+                platePropRow("Width", String(format: "%.1f mm", dims.width * 1000))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                materialPropRow("Thickness", String(format: "%.2f mm", dims.thickness * 1000))
+                platePropRow("Thickness", String(format: "%.2f mm", dims.thickness * 1000))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             // Mass and density on second line
             HStack(spacing: 0) {
-                materialPropRow("Mass", String(format: "%.1f g", dims.mass * 1000))
+                platePropRow("Mass", String(format: "%.1f g", dims.mass * 1000))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                materialPropRow("Density", String(format: "%.3f g/cm³", dims.densityGPerCm3))
+                platePropRow("Density", String(format: "%.3f g/cm³", dims.densityGPerCm3))
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Spacer()
                     .frame(maxWidth: .infinity)
@@ -858,7 +864,7 @@ private struct PDFReportContentView: View {
         }
     }
 
-    private func materialPropRow(_ label: String, _ value: String) -> some View {
+    private func platePropRow(_ label: String, _ value: String) -> some View {
         HStack(spacing: 6) {
             Text(label + ":")
                 .font(.system(size: 10))

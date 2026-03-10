@@ -20,8 +20,8 @@ material stiffness.
 
 Three main workflows are supported:
 • Guitar mode — classify resonant modes of a completed instrument.
-• Plate material mode — measure Young's modulus and quality of a raw tonewood plate.
-• Brace material mode — measure Young's modulus and quality of a brace strip (single longitudinal tap).
+• Plate mode — measure Young's modulus and quality of a raw tonewood plate.
+• Brace mode — measure Young's modulus and quality of a brace strip (single longitudinal tap).
 """)
                 .font(.body)
             } header: {
@@ -88,7 +88,7 @@ Three main workflows are supported:
                 Label("Guitar Mode", systemImage: "guitars")
             }
 
-            // ── Material (Plate) Mode ────────────────────────────────────
+            // ── Plate Mode ───────────────────────────────────────────────
             Section {
                 helpRow(
                     title: "Overview",
@@ -140,14 +140,14 @@ After all taps, tap Results to see:
                     body: "Enter the finished guitar body length and lower bout width in Settings (Material section). Choose the plate stiffness preset: Steel String Top (f_vs 75), Steel String Back (55), Classical (50), or Custom. The result is the plate thickness that hits the preset vibrational stiffness after bracing is factored in — a direct implementation of Gore Equation 4.5-7."
                 )
             } header: {
-                Label("Material (Plate) Mode", systemImage: "square.3.layers.3d")
+                Label("Plate Mode", systemImage: "square.3.layers.3d")
             }
 
             // ── Brace Mode ────────────────────────────────────────────────
             Section {
                 helpRow(
                     title: "Overview",
-                    body: "Brace material mode is a fast single-tap variant of Plate material mode designed for brace strips. Only a longitudinal tap is needed; cross-grain and FLC are skipped."
+                    body: "Brace mode is a fast single-tap variant of Plate mode designed for brace strips. Only a longitudinal tap is needed; cross-grain and FLC are skipped."
                 )
                 helpRow(
                     title: "Brace Orientation",
@@ -155,7 +155,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Technique",
-                    body: "Hold the brace at one point 22% from one end along the length, near one edge in the width direction (not on the width nodal line). Tap the top face at the center. The same one-point hold technique as Plate material mode."
+                    body: "Hold the brace at one point 22% from one end along the length, near one edge in the width direction (not on the width nodal line). Tap the top face at the center. The same one-point hold technique as Plate mode."
                 )
                 helpRow(
                     title: "Results",
@@ -173,7 +173,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "New Tap",
-                    body: "Arms the detector for the next tap (or begins a material measurement sequence). A green indicator shows when a tap has been registered."
+                    body: "Arms the detector for the next tap (or begins a plate measurement sequence). A green indicator shows when a tap has been registered."
                 )
                 helpRow(
                     title: "Pause / Resume",
@@ -181,11 +181,11 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Cancel",
-                    body: "Aborts a multi-tap or material measurement sequence and discards the partial data."
+                    body: "Aborts a multi-tap or plate measurement sequence and discards the partial data."
                 )
                 helpRow(
                     title: "Results",
-                    body: "Opens the analysis results panel: peak list, decay time, material properties, quality rating, and (for Plate material mode) the Gore target thickness."
+                    body: "Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness."
                 )
                 helpRow(
                     title: "Export Spectrum",
@@ -302,7 +302,7 @@ After all taps, tap Results to see:
             Section {
                 helpRow(
                     title: "Tap Technique",
-                    body: "Use a short, crisp knuckle, fingertip tap, or a bouncy ball on a stick. A slow, pressing contact excites fewer overtones and produces a cleaner fundamental. Avoid tapping near the edges — aim for the centre of the plate or brace in Plate and Brace materials mode and near the bridge area for guitar-body mode surveys."
+                    body: "Use a short, crisp knuckle, fingertip tap, or a bouncy ball on a stick. A slow, pressing contact excites fewer overtones and produces a cleaner fundamental. Avoid tapping near the edges — aim for the centre of the plate or brace in Plate and Brace modes and near the bridge area for guitar-body mode surveys."
                 )
                 helpRow(
                     title: "Consistent Mic Position",

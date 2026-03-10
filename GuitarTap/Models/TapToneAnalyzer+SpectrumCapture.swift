@@ -9,7 +9,7 @@ import Foundation
 
 extension TapToneAnalyzer {
 
-    // MARK: - Gated FFT Capture (Material/Brace)
+    // MARK: - Gated FFT Capture (Plate/Brace)
 
     /// Called on the audioProcessingQueue for every incoming buffer of raw samples.
     /// Maintains the pre-roll ring buffer and accumulates samples for gated FFT capture.
@@ -51,7 +51,7 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Open a short raw-PCM capture window for the current material/brace phase.
+    /// Open a short raw-PCM capture window for the current plate/brace phase.
     ///
     /// `accumulateGatedSamples` routes incoming audio into `gatedAccumBuffer` while
     /// `gatedCaptureActive` is true.  When the window fills (400 ms by default)
@@ -81,7 +81,7 @@ extension TapToneAnalyzer {
             } else {
                 print("⚠️ Gated capture timeout with no samples — tap again")
                 self.statusMessage = "No signal detected — tap again"
-                self.reEnableDetectionForNextMaterialTap()
+                self.reEnableDetectionForNextPlateTap()
             }
         }
     }
@@ -98,7 +98,7 @@ extension TapToneAnalyzer {
         guard !magnitudes.isEmpty else {
             print("⚠️ Gated FFT returned empty spectrum — tap again")
             statusMessage = "No signal detected — tap again"
-            reEnableDetectionForNextMaterialTap()
+            reEnableDetectionForNextPlateTap()
             return
         }
 
@@ -112,8 +112,8 @@ extension TapToneAnalyzer {
         case .brace:
             // Brace bars resonate 100–1000 Hz; exclude sub-100 Hz table/impact thud
             hpsMinHz = 100; hpsMaxHz = 1200
-        case .material:
-            // Plate material modes: fL ~70–400 Hz, fC ~30–200 Hz, fLC ~20–150 Hz
+        case .plate:
+            // Plate modes: fL ~70–400 Hz, fC ~30–200 Hz, fLC ~20–150 Hz
             hpsMinHz = 20; hpsMaxHz = 600
         default:
             hpsMinHz = 20; hpsMaxHz = 2000
@@ -133,7 +133,7 @@ extension TapToneAnalyzer {
                                                    preferLowestSignificant: preferLowest) else {
             print("⚠️ Gated FFT: no peak found — tap again")
             statusMessage = "No resonance detected — tap again"
-            reEnableDetectionForNextMaterialTap()
+            reEnableDetectionForNextPlateTap()
             return
         }
 
@@ -142,7 +142,7 @@ extension TapToneAnalyzer {
         // Store spectrum so the UI can display it and the user can select alternate peaks
         materialCapturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: Date()))
         currentTapCount += 1
-        tapProgress = Float(currentTapCount) / Float(totalMaterialTaps)
+        tapProgress = Float(currentTapCount) / Float(totalPlateTaps)
 
         // Route to phase handler, passing the full spectrum for display and the
         // dominant peak for auto-selection.
@@ -283,7 +283,7 @@ extension TapToneAnalyzer {
 
         if captured < total {
             statusMessage = "L tap \(captured)/\(total) captured. Tap again..."
-            reEnableDetectionForNextMaterialTap()
+            reEnableDetectionForNextPlateTap()
             return
         }
 
@@ -342,7 +342,7 @@ extension TapToneAnalyzer {
 
         if captured < total {
             statusMessage = "C tap \(captured)/\(total) captured. Tap again..."
-            reEnableDetectionForNextMaterialTap()
+            reEnableDetectionForNextPlateTap()
             return
         }
 
@@ -355,7 +355,7 @@ extension TapToneAnalyzer {
         materialCapturedTaps = []
 
         if TapDisplaySettings.measureFlc {
-            currentPeaks = combineMaterialPeaks()
+            currentPeaks = combinePlatePeaks()
             frozenFrequencies = avgFreqs; frozenMagnitudes = avgMags; isSpectrumFrozen = true
             materialTapPhase = .waitingForFlcTap
             statusMessage = "fC: \(String(format: "%.1f", dominantPeak.frequency)) Hz — set up for FLC tap"
@@ -378,7 +378,7 @@ extension TapToneAnalyzer {
             materialTapPhase = .complete; tapProgress = 1.0
             let fLStr = selectedLongitudinalPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
             statusMessage = "Complete — fL: \(fLStr) Hz, fC: \(String(format: "%.1f", dominantPeak.frequency)) Hz"
-            print("✅ Material complete: fL=\(fLStr) Hz, fC=\(dominantPeak.frequency) Hz")
+            print("✅ Plate complete: fL=\(fLStr) Hz, fC=\(dominantPeak.frequency) Hz")
         }
     }
 
@@ -392,7 +392,7 @@ extension TapToneAnalyzer {
 
         if captured < total {
             statusMessage = "FLC tap \(captured)/\(total) captured. Tap again..."
-            reEnableDetectionForNextMaterialTap()
+            reEnableDetectionForNextPlateTap()
             return
         }
 
@@ -415,7 +415,7 @@ extension TapToneAnalyzer {
         isSpectrumFrozen = false; frozenFrequencies = []; frozenMagnitudes = []
         materialTapPhase = .complete; tapProgress = 1.0
         statusMessage = "Complete - check Results"
-        print("✅ Material complete: L=\(longitudinalPeaks.first?.frequency ?? 0) C=\(crossPeaks.first?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
+        print("✅ Plate complete: L=\(longitudinalPeaks.first?.frequency ?? 0) C=\(crossPeaks.first?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
     }
 
     /// Build a peak list for display from the averaged gated-FFT spectrum.

@@ -124,19 +124,19 @@ extension TapToneAnalysisView {
                     guitarType: TapDisplaySettings.guitarType,
                     measurementType: measurementType,
                     maxPeaks: self.tap.maxPeaks,
-                    materialLength: measurementType == .material ? TapDisplaySettings.materialLength
+                    plateLength: measurementType == .plate ? TapDisplaySettings.plateLength
                                   : measurementType == .brace   ? TapDisplaySettings.braceLength : nil,
-                    materialWidth: measurementType == .material ? TapDisplaySettings.materialWidth
+                    plateWidth: measurementType == .plate ? TapDisplaySettings.plateWidth
                                  : measurementType == .brace   ? TapDisplaySettings.braceWidth : nil,
-                    materialThickness: measurementType == .material ? TapDisplaySettings.materialThickness
+                    plateThickness: measurementType == .plate ? TapDisplaySettings.plateThickness
                                      : measurementType == .brace   ? TapDisplaySettings.braceThickness : nil,
-                    materialMass: measurementType == .material ? TapDisplaySettings.materialMass
+                    plateMass: measurementType == .plate ? TapDisplaySettings.plateMass
                                 : measurementType == .brace   ? TapDisplaySettings.braceMass : nil,
-                    guitarBodyLength: measurementType == .material ? TapDisplaySettings.guitarBodyLength : nil,
-                    guitarBodyWidth: measurementType == .material ? TapDisplaySettings.guitarBodyWidth : nil,
-                    plateStiffnessPreset: measurementType == .material ? TapDisplaySettings.plateStiffnessPreset : nil,
-                    customPlateStiffness: measurementType == .material ? TapDisplaySettings.customPlateStiffness : nil,
-                    measureFlc: measurementType == .material ? TapDisplaySettings.measureFlc : nil,
+                    guitarBodyLength: measurementType == .plate ? TapDisplaySettings.guitarBodyLength : nil,
+                    guitarBodyWidth: measurementType == .plate ? TapDisplaySettings.guitarBodyWidth : nil,
+                    plateStiffnessPreset: measurementType == .plate ? TapDisplaySettings.plateStiffnessPreset : nil,
+                    customPlateStiffness: measurementType == .plate ? TapDisplaySettings.customPlateStiffness : nil,
+                    measureFlc: measurementType == .plate ? TapDisplaySettings.measureFlc : nil,
                     braceLength: measurementType == .brace ? TapDisplaySettings.braceLength : nil,
                     braceWidth: measurementType == .brace ? TapDisplaySettings.braceWidth : nil,
                     braceThickness: measurementType == .brace ? TapDisplaySettings.braceThickness : nil,
@@ -144,19 +144,19 @@ extension TapToneAnalysisView {
                 )
             }
 
-            // For material/brace: build per-phase snapshots. For guitar: build a single snapshot.
+            // For plate/brace: build per-phase snapshots. For guitar: build a single snapshot.
             let longSnap: SpectrumSnapshot? = {
                 guard !measurementType.isGuitar,
                       let spec = self.tap.longitudinalSpectrum else { return nil }
                 return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies)
             }()
             let crossSnap: SpectrumSnapshot? = {
-                guard measurementType == .material,
+                guard measurementType == .plate,
                       let spec = self.tap.crossSpectrum else { return nil }
                 return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies)
             }()
             let flcSnap: SpectrumSnapshot? = {
-                guard measurementType == .material,
+                guard measurementType == .plate,
                       let spec = self.tap.flcSpectrum else { return nil }
                 return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies)
             }()
@@ -194,7 +194,7 @@ extension TapToneAnalysisView {
     }
 
     /// Expand the frequency display range to ensure the given frequency is visible.
-    /// Adds 10% padding above/below. Used when material/brace peaks are auto-selected
+    /// Adds 10% padding above/below. Used when plate/brace peaks are auto-selected
     /// to ensure they're always in view even if outside the persisted default range.
     func expandFreqRangeToInclude(_ frequency: Float) {
         guard !TapDisplaySettings.measurementType.isGuitar else { return }

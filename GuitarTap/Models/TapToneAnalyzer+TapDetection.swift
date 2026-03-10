@@ -16,12 +16,12 @@ extension TapToneAnalyzer {
     func detectTap(peakMagnitude: Float, magnitudes: [Float], frequencies: [Float]) {
         let now = Date()
 
-        // For material/brace modes, use relative spike detection: compare the
+        // For plate/brace modes, use relative spike detection: compare the
         // instantaneous level against a tracked noise floor rather than an absolute
         // threshold.  This keeps detection working when ambient noise is elevated.
         let useRelativeDetection: Bool = {
             let t = TapDisplaySettings.measurementType
-            return t == .material || t == .brace
+            return t == .plate || t == .brace
         }()
 
         // Update the noise floor estimate (EMA) whenever the signal is at background level.
@@ -34,7 +34,7 @@ extension TapToneAnalyzer {
 
         // Compute effective thresholds.
         // Guitar mode:          absolute threshold (original behaviour).
-        // Material/brace mode:  noise floor + headroom derived from the threshold slider.
+        // Plate/brace mode:     noise floor + headroom derived from the threshold slider.
         //                       The slider value is absolute dB (-80…-20); we use it as
         //                       the target "tap above noise floor" margin by computing
         //                       headroom = tapDetectionThreshold - noiseFloorEstimate,
@@ -148,12 +148,12 @@ extension TapToneAnalyzer {
         isDetecting = false
         
         let measurementType = TapDisplaySettings.measurementType
-        let isMaterialMode = measurementType == .material
+        let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
         
-        // Handle material/brace mode with phase-based capture
-        if isMaterialMode || isBraceMode {
-            handleMaterialTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: time)
+        // Handle plate/brace mode with phase-based capture
+        if isPlateMode || isBraceMode {
+            handlePlateTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: time)
             return
         }
         
@@ -221,8 +221,8 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Total number of taps expected across all material/brace phases
-    var totalMaterialTaps: Int {
+    /// Total number of taps expected across all plate/brace phases
+    var totalPlateTaps: Int {
         let type = TapDisplaySettings.measurementType
         if type == .brace {
             return numberOfTaps  // Brace mode: only longitudinal phase
@@ -230,12 +230,12 @@ extension TapToneAnalyzer {
         return numberOfTaps * (TapDisplaySettings.measureFlc ? 3 : 2)
     }
     
-    /// Handle tap detection for material measurement mode (multi-phase, multi-tap capture).
+    /// Handle tap detection for plate measurement mode (multi-phase, multi-tap capture).
     ///
     /// Instead of using the long-window FFT magnitudes (which become stale noise after
     /// ~200 ms), this opens a short gated PCM capture window so `computeGatedFFT`
     /// can produce a fresh spectrum from just the ring-out audio.
-    func handleMaterialTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
+    func handlePlateTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
         // Stop detection while we capture the ring-out window
         isDetecting = false
 
@@ -245,7 +245,7 @@ extension TapToneAnalyzer {
              .capturingFlc, .waitingForFlcTap:
             startGatedCapture(phase: phase)
         case .notStarted, .complete:
-            print("⚠️ Unexpected tap in material phase: \(phase)")
+            print("⚠️ Unexpected tap in plate phase: \(phase)")
         }
     }
     
@@ -258,7 +258,7 @@ extension TapToneAnalyzer {
         if captured < total {
             // More taps needed - update status and re-enable detection
             statusMessage = "L tap \(captured)/\(total) captured. Tap again..."
-            reEnableDetectionForNextMaterialTap()
+            reEnableDetectionForNextPlateTap()
         } else {
             // All L taps done - average spectra and transition to cross phase
             let (avgMags, avgFreqs) = averageSpectra(from: materialCapturedTaps)
@@ -266,7 +266,7 @@ extension TapToneAnalyzer {
             longitudinalPeaks = findPeaks(magnitudes: avgMags, frequencies: avgFreqs)
             
             // Auto-select the peak in the measurement-appropriate frequency range.
-            // For brace mode the relevant range is 100–1000 Hz; for material/plate it is
+            // For brace mode the relevant range is 100–1000 Hz; for plate it is
             // 30–600 Hz. Prefer a peak in that window over a louder low-frequency noise
             // peak (e.g. 78 Hz table vibration excited by the tap impact).
             let mType = TapDisplaySettings.measurementType
@@ -310,7 +310,7 @@ extension TapToneAnalyzer {
                 statusMessage = "Complete\(avgNote) - check Results"
                 print("✅ Brace measurement complete: fL=\(longitudinalPeaks.first?.frequency ?? 0) Hz")
             } else {
-                // Material mode: continue to cross-grain tap
+                // Plate mode: continue to cross-grain tap
                 materialTapPhase = .waitingForCrossTap
                 let avgNote = total > 1 ? " (\(total) taps averaged)" : ""
                 statusMessage = "L captured\(avgNote) - rotate 90° for C tap"
@@ -342,7 +342,7 @@ extension TapToneAnalyzer {
         
         if captured < total {
             statusMessage = "C tap \(captured)/\(total) captured. Tap again..."
-            reEnableDetectionForNextMaterialTap()
+            reEnableDetectionForNextPlateTap()
         } else {
             // All C taps done - average and decide next phase
             let (avgMags, avgFreqs) = averageSpectra(from: materialCapturedTaps)
@@ -350,7 +350,7 @@ extension TapToneAnalyzer {
             crossPeaks = findPeaks(magnitudes: avgMags, frequencies: avgFreqs)
             
             // Auto-select the best cross-grain peak.
-            // For plate/material measurements all resonances (fL, fC, fLC) are low-frequency
+            // For plate/brace measurements all resonances (fL, fC, fLC) are low-frequency
             // (typically 30–200 Hz). Prefer the lowest-frequency peak in that window so we
             // don't accidentally pick a louder higher-harmonic or body resonance.
             // If fL is already known, bound fC to a physically plausible range around it.
@@ -380,7 +380,7 @@ extension TapToneAnalyzer {
             let measureFlc = TapDisplaySettings.measureFlc
             if measureFlc {
                 // Move to FLC phase
-                currentPeaks = combineMaterialPeaks()
+                currentPeaks = combinePlatePeaks()
                 frozenFrequencies = avgFreqs
                 frozenMagnitudes = avgMags
                 isSpectrumFrozen = true
@@ -422,7 +422,7 @@ extension TapToneAnalyzer {
                 tapProgress = 1.0
                 let avgNote = total > 1 ? " (\(total) taps averaged each)" : ""
                 statusMessage = "Complete\(avgNote) - check Results"
-                print("✅ Material measurement complete: L=\(longitudinalPeaks.first?.frequency ?? 0) Hz, C=\(crossPeaks.first?.frequency ?? 0) Hz")
+                print("✅ Plate measurement complete: L=\(longitudinalPeaks.first?.frequency ?? 0) Hz, C=\(crossPeaks.first?.frequency ?? 0) Hz")
             }
         }
     }
@@ -435,7 +435,7 @@ extension TapToneAnalyzer {
         
         if captured < total {
             statusMessage = "FLC tap \(captured)/\(total) captured. Tap again..."
-            reEnableDetectionForNextMaterialTap()
+            reEnableDetectionForNextPlateTap()
         } else {
             // All FLC taps done - average and complete
             let (avgMags, avgFreqs) = averageSpectra(from: materialCapturedTaps)
@@ -485,12 +485,12 @@ extension TapToneAnalyzer {
             tapProgress = 1.0
             let avgNote = total > 1 ? " (\(total) taps averaged each)" : ""
             statusMessage = "Complete\(avgNote) - check Results"
-            print("✅ Material measurement complete: L=\(longitudinalPeaks.first?.frequency ?? 0) Hz, C=\(crossPeaks.first?.frequency ?? 0) Hz, FLC=\(flcPeaks.first?.frequency ?? 0) Hz")
+            print("✅ Plate measurement complete: L=\(longitudinalPeaks.first?.frequency ?? 0) Hz, C=\(crossPeaks.first?.frequency ?? 0) Hz, FLC=\(flcPeaks.first?.frequency ?? 0) Hz")
         }
     }
     
-    /// Re-enable tap detection for the next tap within the same material phase
-    func reEnableDetectionForNextMaterialTap() {
+    /// Re-enable tap detection for the next tap within the same plate phase
+    func reEnableDetectionForNextPlateTap() {
         DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
             guard let self = self else { return }
             let currentLevel = self.fftAnalyzer.inputLevelDB
@@ -503,8 +503,8 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Combine peaks from longitudinal, cross-grain, and optionally FLC taps for display
-    func combineMaterialPeaks() -> [ResonantPeak] {
+    /// Combine peaks from longitudinal, cross-grain, and optionally FLC taps for display (plate mode)
+    func combinePlatePeaks() -> [ResonantPeak] {
         var combined: [ResonantPeak] = []
         
         // Add longitudinal peaks (these will show as "L" in the UI)

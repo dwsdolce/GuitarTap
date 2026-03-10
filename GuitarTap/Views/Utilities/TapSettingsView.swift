@@ -49,11 +49,11 @@ struct TapSettingsView: View {
     // Unknown mode display setting
     @State private var showUnknownModes: Bool = TapDisplaySettings.showUnknownModes
     
-    // Material dimensions (for Material measurement type)
-    @State private var materialLengthInput: String = String(format: "%.1f", TapDisplaySettings.materialLength)
-    @State private var materialWidthInput: String = String(format: "%.1f", TapDisplaySettings.materialWidth)
-    @State private var materialThicknessInput: String = String(format: "%.2f", TapDisplaySettings.materialThickness)
-    @State private var materialMassInput: String = String(format: "%.1f", TapDisplaySettings.materialMass)
+    // Plate dimensions (for plate measurement type)
+    @State private var plateLengthInput: String = String(format: "%.1f", TapDisplaySettings.plateLength)
+    @State private var plateWidthInput: String = String(format: "%.1f", TapDisplaySettings.plateWidth)
+    @State private var plateThicknessInput: String = String(format: "%.2f", TapDisplaySettings.plateThickness)
+    @State private var plateMassInput: String = String(format: "%.1f", TapDisplaySettings.plateMass)
     @State private var measureFlc: Bool = TapDisplaySettings.measureFlc
 
     // Gore thicknessing settings
@@ -62,7 +62,7 @@ struct TapSettingsView: View {
     @State private var plateStiffnessPreset: PlateStiffnessPreset = TapDisplaySettings.plateStiffnessPreset
     @State private var customPlateStiffnessInput: String = String(format: "%.0f", TapDisplaySettings.customPlateStiffness)
 
-    // Brace dimensions (for Material (Brace) measurement type)
+    // Brace dimensions (for Brace measurement type)
     @State private var braceLengthInput: String = String(format: "%.1f", TapDisplaySettings.braceLength)
     @State private var braceWidthInput: String = String(format: "%.1f", TapDisplaySettings.braceWidth)
     @State private var braceThicknessInput: String = String(format: "%.1f", TapDisplaySettings.braceThickness)
@@ -190,8 +190,8 @@ struct TapSettingsView: View {
                         }
                     }
                     
-                    // Show dimensions for material mode (plate)
-                    if selectedMeasurementType == .material {
+                    // Show dimensions for plate mode
+                    if selectedMeasurementType == .plate {
                         Divider()
                         
                         Text("Sample Dimensions")
@@ -202,7 +202,7 @@ struct TapSettingsView: View {
                             Text("Length (along grain):")
                                 .font(.subheadline)
                             Spacer()
-                            TextField("", text: $materialLengthInput)
+                            TextField("", text: $plateLengthInput)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 80)
                                 #if os(iOS)
@@ -217,7 +217,7 @@ struct TapSettingsView: View {
                             Text("Width (cross grain):")
                                 .font(.subheadline)
                             Spacer()
-                            TextField("", text: $materialWidthInput)
+                            TextField("", text: $plateWidthInput)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 80)
                                 #if os(iOS)
@@ -232,7 +232,7 @@ struct TapSettingsView: View {
                             Text("Thickness:")
                                 .font(.subheadline)
                             Spacer()
-                            TextField("", text: $materialThicknessInput)
+                            TextField("", text: $plateThicknessInput)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 80)
                                 #if os(iOS)
@@ -247,7 +247,7 @@ struct TapSettingsView: View {
                             Text("Mass:")
                                 .font(.subheadline)
                             Spacer()
-                            TextField("", text: $materialMassInput)
+                            TextField("", text: $plateMassInput)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 80)
                                 #if os(iOS)
@@ -269,10 +269,10 @@ struct TapSettingsView: View {
                             }
                         }
 
-                        if let length = Float(materialLengthInput),
-                           let width = Float(materialWidthInput),
-                           let thickness = Float(materialThicknessInput),
-                           let mass = Float(materialMassInput),
+                        if let length = Float(plateLengthInput),
+                           let width = Float(plateWidthInput),
+                           let thickness = Float(plateThicknessInput),
+                           let mass = Float(plateMassInput),
                            length > 0, width > 0, thickness > 0, mass > 0 {
                             let dims = MaterialDimensions(lengthMM: length, widthMM: width, thicknessMM: thickness, massGrams: mass)
                             HStack {
@@ -1115,19 +1115,19 @@ struct TapSettingsView: View {
         TapDisplaySettings.showUnknownModes = showUnknownModes
         TapDisplaySettings.measureFlc = measureFlc
         
-        // Save material plate dimensions
-        if selectedMeasurementType == .material {
-            if let length = Float(materialLengthInput), length > 0 {
-                TapDisplaySettings.materialLength = length
+        // Save plate dimensions
+        if selectedMeasurementType == .plate {
+            if let length = Float(plateLengthInput), length > 0 {
+                TapDisplaySettings.plateLength = length
             }
-            if let width = Float(materialWidthInput), width > 0 {
-                TapDisplaySettings.materialWidth = width
+            if let width = Float(plateWidthInput), width > 0 {
+                TapDisplaySettings.plateWidth = width
             }
-            if let thickness = Float(materialThicknessInput), thickness > 0 {
-                TapDisplaySettings.materialThickness = thickness
+            if let thickness = Float(plateThicknessInput), thickness > 0 {
+                TapDisplaySettings.plateThickness = thickness
             }
-            if let mass = Float(materialMassInput), mass > 0 {
-                TapDisplaySettings.materialMass = mass
+            if let mass = Float(plateMassInput), mass > 0 {
+                TapDisplaySettings.plateMass = mass
             }
 
             // Save Gore thicknessing settings (always save regardless of FLC state)

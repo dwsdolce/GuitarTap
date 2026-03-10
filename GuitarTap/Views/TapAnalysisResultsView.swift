@@ -75,10 +75,10 @@ struct TapAnalysisResultsView: View {
                 // Current peaks display
                 peaksAndModesSection
                 
-                // Material-specific sections
-                if measurementType == .material {
+                // Plate/brace-specific sections
+                if measurementType == .plate {
                     Divider()
-                    materialPropertiesSection
+                    platePropertiesSection
                 } else if measurementType == .brace {
                     Divider()
                     bracePropertiesSection
@@ -121,7 +121,7 @@ struct TapAnalysisResultsView: View {
     private var sortedPeaksWithModes: [(peak: ResonantPeak, mode: GuitarMode)] {
         analyzer.currentPeaks
             .filter { peak in
-                // For material/brace mode, don't filter by display range — the selected peaks
+                // For plate/brace mode, don't filter by display range — the selected peaks
                 // must always appear in results regardless of the current zoom level.
                 // For guitar mode, filter to the displayed frequency range.
                 measurementType.isGuitar
@@ -132,7 +132,7 @@ struct TapAnalysisResultsView: View {
                 (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
             }
             .filter { item in
-                // For material/brace mode, show all peaks (don't filter by guitar mode)
+                // For plate/brace mode, show all peaks (don't filter by guitar mode)
                 // For guitar mode, optionally filter out unknown modes
                 !measurementType.isGuitar || TapDisplaySettings.showUnknownModes || item.mode.normalized != .unknown
             }
@@ -190,8 +190,8 @@ struct TapAnalysisResultsView: View {
                     .padding()
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    // For material measurements, show selectable peaks
-                    if measurementType == .material {
+                    // For plate measurements, show selectable peaks
+                    if measurementType == .plate {
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
                             MaterialPeakRowView(
                                 peak: item.peak,
@@ -510,10 +510,10 @@ struct TapAnalysisResultsView: View {
         }()
 
         let dimensions = MaterialDimensions(
-            lengthMM: TapDisplaySettings.materialLength,
-            widthMM: TapDisplaySettings.materialWidth,
-            thicknessMM: TapDisplaySettings.materialThickness,
-            massGrams: TapDisplaySettings.materialMass
+            lengthMM: TapDisplaySettings.plateLength,
+            widthMM: TapDisplaySettings.plateWidth,
+            thicknessMM: TapDisplaySettings.plateThickness,
+            massGrams: TapDisplaySettings.plateMass
         )
 
         return PlateProperties(
@@ -524,7 +524,7 @@ struct TapAnalysisResultsView: View {
         )
     }
     
-    private var materialPropertiesSection: some View {
+    private var platePropertiesSection: some View {
         GroupBox("Plate Properties") {
             if let props = calculatedPlateProperties {
                 VStack(alignment: .leading, spacing: 16) {
@@ -916,9 +916,9 @@ struct TapAnalysisResultsView: View {
     }
 }
 
-// MARK: - Material Peak Row View
+// MARK: - Plate/Brace Peak Row View
 
-/// A row view for displaying a peak with material mode selection buttons
+/// A row view for displaying a peak with plate/brace mode selection buttons
 struct MaterialPeakRowView: View {
     let peak: ResonantPeak
     let isLongitudinal: Bool

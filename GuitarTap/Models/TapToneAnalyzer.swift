@@ -220,9 +220,9 @@ final class TapToneAnalyzer: ObservableObject {
         }
     }
     
-    // MARK: - Material Measurement State
+    // MARK: - Plate Measurement State
     
-    /// Current phase of material tap sequence (two-tap process for L and C modes)
+    /// Current phase of plate tap sequence (two-tap process for L and C modes)
     @Published var materialTapPhase: MaterialTapPhase = .notStarted
     
     /// Captured spectrum from longitudinal tap (support along short edges, plate bends along length)
@@ -306,14 +306,14 @@ final class TapToneAnalyzer: ObservableObject {
     /// Warning shown when a loaded/imported measurement's microphone is unavailable
     @Published var microphoneWarning: String?
 
-    /// Loaded material measurement data (used when restoring measurements)
+    /// Loaded plate measurement data (used when restoring measurements)
     @Published var loadedSelectedLongitudinalPeakID: UUID?
     @Published var loadedSelectedCrossPeakID: UUID?
     @Published var loadedSelectedFlcPeakID: UUID?
-    @Published var loadedMaterialLength: Float?
-    @Published var loadedMaterialWidth: Float?
-    @Published var loadedMaterialThickness: Float?
-    @Published var loadedMaterialMass: Float?
+    @Published var loadedPlateLength: Float?
+    @Published var loadedPlateWidth: Float?
+    @Published var loadedPlateThickness: Float?
+    @Published var loadedPlateMass: Float?
     @Published var loadedGuitarBodyLength: Float?
     @Published var loadedGuitarBodyWidth: Float?
     @Published var loadedPlateStiffnessPreset: PlateStiffnessPreset?
@@ -351,7 +351,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// routes to the appropriate phase handler.
     var gatedCaptureCompletion: (([Float], Double, MaterialTapPhase) -> Void)?
 
-    /// The material phase that was active when gated capture started.
+    /// The plate phase that was active when gated capture started.
     var gatedCapturePhase: MaterialTapPhase = .notStarted
 
     /// Most recent hardware sample rate (set on the audio queue)
@@ -378,10 +378,10 @@ final class TapToneAnalyzer: ObservableObject {
     /// Circular pre-roll buffer — always holds the last `preRollSamples` raw samples.
     var preRollBuffer: [Float] = []
 
-    // MARK: - Noise Floor Estimation (material/brace modes)
+    // MARK: - Noise Floor Estimation (plate/brace modes)
 
     /// Exponential moving average of inputLevelDB, used as the noise floor estimate for
-    /// relative tap detection in material/brace modes.  Updated only when not detecting
+    /// relative tap detection in plate/brace modes.  Updated only when not detecting
     /// a tap (i.e. when the signal is at its background level).
     var noiseFloorEstimate: Float = -60
 
@@ -407,7 +407,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Storage for captured tap spectra (for averaging) - guitar mode
     var capturedTaps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)] = []
     
-    /// Storage for captured spectra within current material phase (for multi-tap averaging)
+    /// Storage for captured spectra within current plate phase (for multi-tap averaging)
     var materialCapturedTaps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)] = []
     
     /// Storage for peaks from each tap (before averaging)
@@ -473,7 +473,7 @@ final class TapToneAnalyzer: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Fast tap detection for material/brace modes using per-buffer RMS level.
+        // Fast tap detection for plate/brace modes using per-buffer RMS level.
         //
         // The long-window FFT (65536 samples ≈ 1.5 s) dilutes a short tap impact by
         // ~15 dB, making the FFT peakMagnitude an unreliable trigger for transient taps.
@@ -486,7 +486,7 @@ final class TapToneAnalyzer: ObservableObject {
             .sink { [weak self] levelDB in
                 guard let self = self else { return }
                 let type = TapDisplaySettings.measurementType
-                guard type == .material || type == .brace else { return }
+                guard type == .plate || type == .brace else { return }
                 guard self.isDetecting && !self.isDetectionPaused else { return }
                 self.detectTap(peakMagnitude: levelDB,
                                magnitudes: self.fftAnalyzer.magnitudes,

@@ -26,16 +26,16 @@ extension TapToneAnalyzer {
         averageMagnitude = validMags.isEmpty ? -100 : validMags.reduce(0, +) / Float(validMags.count)
         
         // Only detect taps if detection is enabled.
-        // Material/brace modes use the fast recentPeakLevelDB subscription instead of
+        // Plate/brace modes use the fast recentPeakLevelDB subscription instead of
         // this slow FFT path — the long-window FFT dilutes transient tap energy by ~15 dB.
         let mType = TapDisplaySettings.measurementType
-        let usesFastTapDetection = (mType == .material || mType == .brace)
+        let usesFastTapDetection = (mType == .plate || mType == .brace)
         if isDetecting && !usesFastTapDetection {
             detectTap(peakMagnitude: peakMagnitude, magnitudes: magnitudes, frequencies: frequencies)
         }
         
         // Analyze peaks if detection is enabled, paused (spectrum stays live), or in capture window
-        // But don't overwrite currentPeaks after a material/brace measurement is complete —
+        // But don't overwrite currentPeaks after a plate/brace measurement is complete —
         // those peaks are the final selected L/C/FLC peaks and must not be replaced by live audio.
         if (isDetecting || isDetectionPaused || captureTimer != nil) && materialTapPhase != .complete {
             // Find peaks in spectrum

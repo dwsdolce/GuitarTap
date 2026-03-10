@@ -18,16 +18,16 @@ struct SpectrumSnapshot: Codable {
     let isLogarithmic: Bool
     let showUnknownModes: Bool?  // Added for controlling unknown mode display in exports
     let guitarType: GuitarType?  // Added for storing guitar type setting
-    let measurementType: MeasurementType?  // Added for storing measurement type (guitar vs material)
+    let measurementType: MeasurementType?  // Added for storing measurement type (guitar vs plate/brace)
     let maxPeaks: Int?  // Maximum number of peaks to detect and store
 
-    // Material-specific settings (stored when measurementType is .material)
-    let materialLength: Float?      // mm - plate length (along grain)
-    let materialWidth: Float?       // mm - plate width (cross grain)
-    let materialThickness: Float?   // mm - plate thickness
-    let materialMass: Float?        // grams - plate mass
+    // Plate-specific settings (stored when measurementType is .plate)
+    let plateLength: Float?         // mm - plate length (along grain)
+    let plateWidth: Float?          // mm - plate width (cross grain)
+    let plateThickness: Float?      // mm - plate thickness
+    let plateMass: Float?           // grams - plate mass
 
-    // Gore thicknessing settings (stored when measurementType is .material)
+    // Gore thicknessing settings (stored when measurementType is .plate)
     let guitarBodyLength: Float?    // mm - guitar body length
     let guitarBodyWidth: Float?     // mm - guitar body width
     let plateStiffnessPreset: PlateStiffnessPreset?  // Panel Type selection
@@ -44,8 +44,8 @@ struct SpectrumSnapshot: Codable {
          minDB: Float, maxDB: Float, isLogarithmic: Bool,
          showUnknownModes: Bool? = nil, guitarType: GuitarType? = nil,
          measurementType: MeasurementType? = nil, maxPeaks: Int? = nil,
-         materialLength: Float? = nil, materialWidth: Float? = nil,
-         materialThickness: Float? = nil, materialMass: Float? = nil,
+         plateLength: Float? = nil, plateWidth: Float? = nil,
+         plateThickness: Float? = nil, plateMass: Float? = nil,
          guitarBodyLength: Float? = nil, guitarBodyWidth: Float? = nil,
          plateStiffnessPreset: PlateStiffnessPreset? = nil,
          customPlateStiffness: Float? = nil, measureFlc: Bool? = nil,
@@ -62,10 +62,10 @@ struct SpectrumSnapshot: Codable {
         self.guitarType = guitarType
         self.measurementType = measurementType
         self.maxPeaks = maxPeaks
-        self.materialLength = materialLength
-        self.materialWidth = materialWidth
-        self.materialThickness = materialThickness
-        self.materialMass = materialMass
+        self.plateLength = plateLength
+        self.plateWidth = plateWidth
+        self.plateThickness = plateThickness
+        self.plateMass = plateMass
         self.guitarBodyLength = guitarBodyLength
         self.guitarBodyWidth = guitarBodyWidth
         self.plateStiffnessPreset = plateStiffnessPreset

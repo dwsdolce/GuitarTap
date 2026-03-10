@@ -752,7 +752,7 @@ extension TapToneAnalysisView {
                           tap.isDetecting)
                 .hint(HintText.newTap)
 
-                // Pause/Resume button - for multi-tap and material sequences
+                // Pause/Resume button - for multi-tap and plate/brace sequences
                 Button(action: {
                     if tap.isDetectionPaused {
                         tapToneAnalyzer.resumeTapDetection()
@@ -937,7 +937,7 @@ extension TapToneAnalysisView {
                       tap.isDetecting)
             .hint(HintText.newTap)
 
-            // Pause/Resume button - for multi-tap and material sequences
+            // Pause/Resume button - for multi-tap and plate/brace sequences
             Button(action: {
                 if tap.isDetectionPaused {
                     tapToneAnalyzer.resumeTapDetection()
@@ -1105,7 +1105,7 @@ extension TapToneAnalysisView {
                           tap.isDetecting)
                 .hint(HintText.newTap)
 
-                // Pause/Resume button - for multi-tap and material sequences
+                // Pause/Resume button - for multi-tap and plate/brace sequences
                 Button(action: {
                     if tap.isDetectionPaused {
                         tapToneAnalyzer.resumeTapDetection()

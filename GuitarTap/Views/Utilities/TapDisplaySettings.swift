@@ -14,7 +14,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
     case classical = "Classical Guitar"
     case flamenco = "Flamenco Guitar"
     case acoustic = "Acoustic Guitar"
-    case material = "Material (Plate)"
+    case plate = "Material (Plate)"
     case brace = "Material (Brace)"
     
     var id: String { rawValue }
@@ -25,7 +25,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         case .classical: return "Classical"
         case .flamenco: return "Flamenco"
         case .acoustic: return "Acoustic"
-        case .material: return "Material"
+        case .plate: return "Plate"
         case .brace: return "Brace"
         }
     }
@@ -39,19 +39,19 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
             return "Nylon string, light bracing, shallow body"
         case .acoustic:
             return "Steel string, X-braced (Dreadnought, OM, etc.)"
-        case .material:
+        case .plate:
             return "Rectangular wood plate for calculating stiffness and sound radiation"
         case .brace:
             return "Brace strip — measures longitudinal stiffness (fL only)"
         }
     }
     
-    /// Whether this is a guitar measurement (vs material)
+    /// Whether this is a guitar measurement (vs plate/brace)
     var isGuitar: Bool {
         switch self {
         case .classical, .flamenco, .acoustic:
             return true
-        case .material, .brace:
+        case .plate, .brace:
             return false
         }
     }
@@ -70,7 +70,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         case .classical: return .classical
         case .flamenco: return .flamenco
         case .acoustic: return .acoustic
-        case .material, .brace: return nil
+        case .plate, .brace: return nil
         }
     }
     
@@ -265,11 +265,11 @@ struct TapDisplaySettings {
     private static let guitarTypeKey = "guitarType"
     private static let showUnknownModesKey = "showUnknownModes"
 
-    // Material measurement keys
-    private static let materialLengthKey = "materialLength"
-    private static let materialWidthKey = "materialWidth"
-    private static let materialThicknessKey = "materialThickness"
-    private static let materialMassKey = "materialMass"
+    // Plate measurement keys
+    private static let plateLengthKey = "plateLength"
+    private static let plateWidthKey = "plateWidth"
+    private static let plateThicknessKey = "plateThickness"
+    private static let plateMassKey = "plateMass"
 
     // Gore thicknessing keys
     private static let guitarBodyLengthKey = "guitarBodyLength"
@@ -277,7 +277,7 @@ struct TapDisplaySettings {
     private static let plateStiffnessPresetKey = "plateStiffnessPreset"
     private static let customPlateStiffnessKey = "customPlateStiffness"
 
-    // Brace measurement keys (separate from plate material)
+    // Brace measurement keys (separate from plate measurement)
     private static let braceLengthKey = "braceLength"
     private static let braceWidthKey = "braceWidth"
     private static let braceThicknessKey = "braceThickness"
@@ -345,49 +345,49 @@ struct TapDisplaySettings {
         }
     }
     
-    // MARK: - Material Dimensions (for Material measurement type)
+    // MARK: - Plate Dimensions (for Plate measurement type)
     
-    /// Material plate length in mm (along grain direction)
-    static var materialLength: Float {
+    /// Plate length in mm (along grain direction)
+    static var plateLength: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: materialLengthKey)
+            let value = UserDefaults.standard.float(forKey: plateLengthKey)
             return value > 0 ? value : 500.0  // Default 500mm
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: materialLengthKey)
+            UserDefaults.standard.set(newValue, forKey: plateLengthKey)
         }
     }
     
-    /// Material plate width in mm (cross grain direction)
-    static var materialWidth: Float {
+    /// Plate width in mm (cross grain direction)
+    static var plateWidth: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: materialWidthKey)
+            let value = UserDefaults.standard.float(forKey: plateWidthKey)
             return value > 0 ? value : 200.0  // Default 200mm
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: materialWidthKey)
+            UserDefaults.standard.set(newValue, forKey: plateWidthKey)
         }
     }
     
-    /// Material plate thickness in mm
-    static var materialThickness: Float {
+    /// Plate thickness in mm
+    static var plateThickness: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: materialThicknessKey)
+            let value = UserDefaults.standard.float(forKey: plateThicknessKey)
             return value > 0 ? value : 3.0  // Default 3mm
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: materialThicknessKey)
+            UserDefaults.standard.set(newValue, forKey: plateThicknessKey)
         }
     }
     
-    /// Material plate mass in grams
-    static var materialMass: Float {
+    /// Plate mass in grams
+    static var plateMass: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: materialMassKey)
+            let value = UserDefaults.standard.float(forKey: plateMassKey)
             return value > 0 ? value : 100.0  // Default 100g
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: materialMassKey)
+            UserDefaults.standard.set(newValue, forKey: plateMassKey)
         }
     }
 
@@ -446,7 +446,7 @@ struct TapDisplaySettings {
         return preset == .custom ? customPlateStiffness : preset.value
     }
 
-    // MARK: - Brace Dimensions (for Material (Brace) measurement type)
+    // MARK: - Brace Dimensions (for Brace measurement type)
     
     /// Brace length in mm (along grain direction)
     static var braceLength: Float {
@@ -509,11 +509,11 @@ struct TapDisplaySettings {
     /// Default maximum frequency for guitar spectrum display (Hz)
     static let defaultMaxFrequency: Float = 350
     
-    /// Default minimum frequency for material plate spectrum display (Hz)
+    /// Default minimum frequency for plate spectrum display (Hz)
     /// Plate resonances (fL, fC, fLC) typically start in the 30–80 Hz range
     static let defaultPlateMinFrequency: Float = 30
     
-    /// Default maximum frequency for material plate spectrum display (Hz)
+    /// Default maximum frequency for plate spectrum display (Hz)
     static let defaultPlateMaxFrequency: Float = 600
     
     /// Default minimum frequency for brace spectrum display (Hz)
@@ -525,7 +525,7 @@ struct TapDisplaySettings {
     /// Returns the default minimum display frequency for the given measurement type
     static func defaultMinFrequency(for type: MeasurementType) -> Float {
         switch type {
-        case .material: return defaultPlateMinFrequency
+        case .plate: return defaultPlateMinFrequency
         case .brace:    return defaultBraceMinFrequency
         default:        return defaultMinFrequency
         }
@@ -534,7 +534,7 @@ struct TapDisplaySettings {
     /// Returns the default maximum display frequency for the given measurement type
     static func defaultMaxFrequency(for type: MeasurementType) -> Float {
         switch type {
-        case .material: return defaultPlateMaxFrequency
+        case .plate: return defaultPlateMaxFrequency
         case .brace:    return defaultBraceMaxFrequency
         default:        return defaultMaxFrequency
         }

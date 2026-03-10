@@ -184,10 +184,10 @@ struct TapDetectionTests {
                 "justExitedWarmup flag should be cleared after sync frame")
     }
 
-    // T6: Material mode uses relative detection (noiseFloor + headroom), not the
+    // T6: Plate mode uses relative detection (noiseFloor + headroom), not the
     // absolute tapDetectionThreshold.
-    @Test func materialMode_usesRelativeNoiseFloor() {
-        TapDisplaySettings.measurementType = .material
+    @Test func plateMode_usesRelativeNoiseFloor() {
+        TapDisplaySettings.measurementType = .plate
         defer { TapDisplaySettings.measurementType = .acoustic }
 
         let fft = RealtimeFFTAnalyzer()
@@ -199,7 +199,7 @@ struct TapDetectionTests {
         sut.justExitedWarmup = false
         sut.isDetecting = true
         sut.isAboveThreshold = false
-        // Put the analyzer in the correct material phase so handleMaterialTapDetection
+        // Put the analyzer in the correct plate phase so handlePlateTapDetection
         // doesn't fall through to the .notStarted warning branch and discard the tap.
         sut.materialTapPhase = .capturingLongitudinal
         // Disconnect Combine subscriptions (same reason as makeSUT)
@@ -213,12 +213,12 @@ struct TapDetectionTests {
         sut.detectTap(peakMagnitude: -35, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         #expect(sut.tapDetected == true,
-                "Material mode: signal above noise floor + headroom should fire")
+                "Plate mode: signal above noise floor + headroom should fire")
     }
 
     // T7: Noise floor EMA converges toward signal when below threshold.
     @Test func noiseFloorEMA_convergesWithRepeatedBelowThresholdFrames() {
-        TapDisplaySettings.measurementType = .material
+        TapDisplaySettings.measurementType = .plate
         defer { TapDisplaySettings.measurementType = .acoustic }
 
         let fft = RealtimeFFTAnalyzer()

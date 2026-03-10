@@ -42,7 +42,7 @@ struct ExportableSpectrumChart: View {
     var annotationOffsets: [UUID: CGPoint] = [:]
     var showUnknownModes: Bool? = nil  // If nil, uses global setting
 
-    // Material measurement mode support
+    // Plate/brace measurement mode support
     var measurementType: MeasurementType = .acoustic
     var selectedLongitudinalPeakID: UUID?
     var selectedCrossPeakID: UUID?
@@ -51,7 +51,7 @@ struct ExportableSpectrumChart: View {
     // Per-peak user mode overrides (empty = all peaks use auto-classification)
     var modeOverrides: [UUID: UserAssignedMode] = [:]
 
-    /// Per-phase spectra overlay for material/brace measurements
+    /// Per-phase spectra overlay for plate/brace measurements
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
 
     private var chartData: [SpectrumDataPoint] {
@@ -61,7 +61,7 @@ struct ExportableSpectrumChart: View {
     }
 
     private var visibleModeBoundaries: [(frequency: Float, mode: GuitarMode)] {
-        // Don't show guitar mode boundaries when in material mode
+        // Don't show guitar mode boundaries when in plate/brace mode
         guard measurementType.isGuitar else { return [] }
 
         let allModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
@@ -83,7 +83,7 @@ struct ExportableSpectrumChart: View {
     private var visiblePeaks: [ResonantPeak] {
         let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
 
-        // In material mode, show all peaks (no guitar mode filtering)
+        // In plate/brace mode, show all peaks (no guitar mode filtering)
         if !measurementType.isGuitar {
             return filtered
         }
@@ -123,7 +123,7 @@ struct ExportableSpectrumChart: View {
         if measurementType.isGuitar {
             return modeColor(for: GuitarMode.classify(frequency: peak.frequency))
         } else {
-            // Material mode: color by L/C/FLC selection
+            // Plate/brace mode: color by L/C/FLC selection
             if peak.id == selectedLongitudinalPeakID {
                 return .blue
             } else if peak.id == selectedCrossPeakID {
@@ -175,7 +175,7 @@ struct ExportableSpectrumChart: View {
         return abs(frequency - mode.idealRange.lowerBound) < 0.1
     }
 
-    /// Build filtered chart data for a single material spectrum series
+    /// Build filtered chart data for a single plate/brace spectrum series
     private func seriesData(frequencies: [Float], magnitudes: [Float]) -> [SpectrumDataPoint] {
         zip(frequencies, magnitudes)
             .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
@@ -194,7 +194,7 @@ struct ExportableSpectrumChart: View {
             ZStack(alignment: .topLeading) {
                 // The chart
                 Chart {
-                    // Per-phase spectra overlay (material/brace) or single spectrum (guitar)
+                    // Per-phase spectra overlay (plate/brace) or single spectrum (guitar)
                     if !materialSpectra.isEmpty {
                         ForEach(Array(materialSpectra.enumerated()), id: \.offset) { index, series in
                             let data = seriesData(frequencies: series.frequencies, magnitudes: series.magnitudes)

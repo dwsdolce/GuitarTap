@@ -36,25 +36,26 @@ extension TapToneAnalysisView {
         }
         #endif
 
-        // Compute Plate properties if applicable
+        // Compute material properties if applicable
         let measurementType = TapDisplaySettings.measurementType
-        var materialProps: PlateProperties? = nil
-        if measurementType == .material {
+        var plateProps: PlateProperties? = nil
+        var braceProps: BraceProperties? = nil
+        if measurementType == .plate {
             let effLong = tap.effectiveLongitudinalPeakID
             let effCross = tap.effectiveCrossPeakID
             let effFlc = tap.effectiveFlcPeakID
-            let allMaterialPeaks = tap.longitudinalPeaks + tap.crossPeaks + tap.flcPeaks + tap.currentPeaks
-            if let longPeak = allMaterialPeaks.first(where: { $0.id == effLong }),
-               let crossPeak = allMaterialPeaks.first(where: { $0.id == effCross }) {
-                let flcFreq: Float? = allMaterialPeaks.first(where: { $0.id == effFlc })?.frequency
+            let allPlatePeaks = tap.longitudinalPeaks + tap.crossPeaks + tap.flcPeaks + tap.currentPeaks
+            if let longPeak = allPlatePeaks.first(where: { $0.id == effLong }),
+               let crossPeak = allPlatePeaks.first(where: { $0.id == effCross }) {
+                let flcFreq: Float? = allPlatePeaks.first(where: { $0.id == effFlc })?.frequency
                 let dims = MaterialDimensions(
-                    lengthMM: TapDisplaySettings.materialLength,
-                    widthMM: TapDisplaySettings.materialWidth,
-                    thicknessMM: TapDisplaySettings.materialThickness,
-                    massGrams: TapDisplaySettings.materialMass
+                    lengthMM: TapDisplaySettings.plateLength,
+                    widthMM: TapDisplaySettings.plateWidth,
+                    thicknessMM: TapDisplaySettings.plateThickness,
+                    massGrams: TapDisplaySettings.plateMass
                 )
                 if dims.length > 0 && dims.mass > 0 {
-                    materialProps = PlateProperties(
+                    plateProps = PlateProperties(
                         dimensions: dims,
                         fundamentalFrequencyLong: longPeak.frequency,
                         fundamentalFrequencyCross: crossPeak.frequency,
@@ -73,11 +74,9 @@ extension TapToneAnalysisView {
                     massGrams: TapDisplaySettings.braceMass
                 )
                 if dims.length > 0 && dims.mass > 0 {
-                    materialProps = PlateProperties(
+                    braceProps = BraceProperties(
                         dimensions: dims,
-                        fundamentalFrequencyLong: longPeak.frequency,
-                        fundamentalFrequencyCross: longPeak.frequency,
-                        fundamentalFrequencyFlc: nil
+                        fundamentalFrequencyLong: longPeak.frequency
                     )
                 }
             }
@@ -101,7 +100,8 @@ extension TapToneAnalysisView {
             spectrumImageData: spectrumImageData,
             minFreq: minFreq,
             maxFreq: maxFreq,
-            materialProperties: materialProps,
+            plateProperties: plateProps,
+            braceProperties: braceProps,
             selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
             selectedCrossPeakID: tap.effectiveCrossPeakID,
             selectedFlcPeakID: tap.effectiveFlcPeakID,

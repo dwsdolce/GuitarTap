@@ -60,7 +60,7 @@ struct TapToneAnalysisView: View {
     @State var crosshairMode = false
     #endif
 
-    // Material measurement mode state
+    // Plate/brace measurement mode state
     @State var selectedLongitudinalPeakID: UUID?
     @State var selectedCrossPeakID: UUID?
     @State var selectedFlcPeakID: UUID?
@@ -108,9 +108,9 @@ struct TapToneAnalysisView: View {
         return true
     }
 
-    /// Pause/Resume button is enabled during any active multi-tap, material, or brace sequence
+    /// Pause/Resume button is enabled during any active multi-tap, plate, or brace sequence
     var pauseResumeButtonEnabled: Bool {
-        // In material/brace mode, detection management is always relevant
+        // In plate/brace mode, detection management is always relevant
         if !TapDisplaySettings.measurementType.isGuitar {
             return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
         }
@@ -270,52 +270,52 @@ struct TapToneAnalysisView: View {
                 }
             }
         }
-        .onReceive(tapToneAnalyzer.$loadedMaterialLength) { length in
+        .onReceive(tapToneAnalyzer.$loadedPlateLength) { length in
             if let length = length {
-                print("  ⬇️ View received loadedMaterialLength: \(length)mm")
+                print("  ⬇️ View received loadedPlateLength: \(length)mm")
                 if TapDisplaySettings.measurementType.isBrace {
                     TapDisplaySettings.braceLength = length
                 } else {
-                    TapDisplaySettings.materialLength = length
+                    TapDisplaySettings.plateLength = length
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedMaterialLength = nil
+                    self.tapToneAnalyzer.loadedPlateLength = nil
                 }
             }
         }
-        .onReceive(tapToneAnalyzer.$loadedMaterialWidth) { width in
+        .onReceive(tapToneAnalyzer.$loadedPlateWidth) { width in
             if let width = width {
                 if TapDisplaySettings.measurementType.isBrace {
                     TapDisplaySettings.braceWidth = width
                 } else {
-                    TapDisplaySettings.materialWidth = width
+                    TapDisplaySettings.plateWidth = width
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedMaterialWidth = nil
+                    self.tapToneAnalyzer.loadedPlateWidth = nil
                 }
             }
         }
-        .onReceive(tapToneAnalyzer.$loadedMaterialThickness) { thickness in
+        .onReceive(tapToneAnalyzer.$loadedPlateThickness) { thickness in
             if let thickness = thickness {
                 if TapDisplaySettings.measurementType.isBrace {
                     TapDisplaySettings.braceThickness = thickness
                 } else {
-                    TapDisplaySettings.materialThickness = thickness
+                    TapDisplaySettings.plateThickness = thickness
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedMaterialThickness = nil
+                    self.tapToneAnalyzer.loadedPlateThickness = nil
                 }
             }
         }
-        .onReceive(tapToneAnalyzer.$loadedMaterialMass) { mass in
+        .onReceive(tapToneAnalyzer.$loadedPlateMass) { mass in
             if let mass = mass {
                 if TapDisplaySettings.measurementType.isBrace {
                     TapDisplaySettings.braceMass = mass
                 } else {
-                    TapDisplaySettings.materialMass = mass
+                    TapDisplaySettings.plateMass = mass
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedMaterialMass = nil
+                    self.tapToneAnalyzer.loadedPlateMass = nil
                 }
             }
         }
@@ -392,7 +392,7 @@ struct TapToneAnalysisView: View {
             }
         }
         .onReceive(tapToneAnalyzer.$autoSelectedLongitudinalPeakID) { peakID in
-            // When material measurement auto-selects a longitudinal peak, update the view state
+            // When plate measurement auto-selects a longitudinal peak, update the view state
             if let peakID = peakID {
                 self.selectedLongitudinalPeakID = peakID
                 // Expand display range to include this peak
@@ -402,7 +402,7 @@ struct TapToneAnalysisView: View {
             }
         }
         .onReceive(tapToneAnalyzer.$autoSelectedCrossPeakID) { peakID in
-            // When material measurement auto-selects a cross-grain peak, update the view state
+            // When plate measurement auto-selects a cross-grain peak, update the view state
             if let peakID = peakID {
                 self.selectedCrossPeakID = peakID
                 // Expand display range to include this peak
@@ -412,7 +412,7 @@ struct TapToneAnalysisView: View {
             }
         }
         .onReceive(tapToneAnalyzer.$autoSelectedFlcPeakID) { peakID in
-            // When material measurement auto-selects an FLC peak, update the view state
+            // When plate measurement auto-selects an FLC peak, update the view state
             if let peakID = peakID {
                 self.selectedFlcPeakID = peakID
                 // Expand display range to include this peak

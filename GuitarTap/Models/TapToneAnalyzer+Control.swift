@@ -75,7 +75,7 @@ extension TapToneAnalyzer {
             // Clear annotation offsets
             self.peakAnnotationOffsets = [:]
             
-            // Reset material measurement state
+            // Reset plate/brace measurement state
             self.materialTapPhase = .notStarted
             self.longitudinalSpectrum = nil
             self.crossSpectrum = nil
@@ -107,10 +107,10 @@ extension TapToneAnalyzer {
     /// Start a new tap detection sequence
     func startTapSequence() {
         let measurementType = TapDisplaySettings.measurementType
-        let isMaterialMode = measurementType == .material
+        let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
         let currentPeakMagImmediate = fftAnalyzer.peakMagnitude
-        print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), material mode: \(isMaterialMode), brace mode: \(isBraceMode)")
+        print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), plate mode: \(isPlateMode), brace mode: \(isBraceMode)")
         print("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
         print("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
         
@@ -135,8 +135,8 @@ extension TapToneAnalyzer {
             self.decayTrackingTimer?.invalidate()
             self.decayTrackingTimer = nil
             
-            // Reset material/brace measurement state
-            if isMaterialMode || isBraceMode {
+            // Reset plate/brace measurement state
+            if isPlateMode || isBraceMode {
                 self.materialTapPhase = .capturingLongitudinal
                 self.longitudinalSpectrum = nil
                 self.crossSpectrum = nil
@@ -195,7 +195,7 @@ extension TapToneAnalyzer {
             // Set appropriate status message
             if isBraceMode {
                 self.statusMessage = self.numberOfTaps > 1 ? "Ready for fL tap (×\(self.numberOfTaps))" : "Ready for fL tap"
-            } else if isMaterialMode {
+            } else if isPlateMode {
                 let measureFlc = TapDisplaySettings.measureFlc
                 if self.numberOfTaps > 1 {
                     let phases = measureFlc ? "L, C, FLC" : "L, C"
@@ -234,9 +234,9 @@ extension TapToneAnalyzer {
         isDetecting = true
         
         let resumeType = TapDisplaySettings.measurementType
-        let isMaterialMode = resumeType == .material
+        let isPlateMode = resumeType == .plate
         let isBraceMode = resumeType == .brace
-        if isMaterialMode || isBraceMode {
+        if isPlateMode || isBraceMode {
             switch materialTapPhase {
             case .capturingLongitudinal: statusMessage = isBraceMode ? "Ready for fL tap" : "Ready for L tap"
             case .capturingFlc, .waitingForFlcTap: statusMessage = "Ready for FLC tap"
@@ -255,7 +255,7 @@ extension TapToneAnalyzer {
         print("❌ Tap sequence cancelled")
         
         let measurementType = TapDisplaySettings.measurementType
-        let isMaterialMode = measurementType == .material
+        let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
         
         DispatchQueue.main.async { [weak self] in
@@ -269,8 +269,8 @@ extension TapToneAnalyzer {
             self.isDetectionPaused = false
             self.isDetecting = true
             
-            // Reset material/brace measurement state
-            if isMaterialMode || isBraceMode {
+            // Reset plate/brace measurement state
+            if isPlateMode || isBraceMode {
                 self.materialTapPhase = .capturingLongitudinal
                 self.longitudinalSpectrum = nil
                 self.crossSpectrum = nil
@@ -317,7 +317,7 @@ extension TapToneAnalyzer {
             // Set appropriate status message
             if isBraceMode {
                 self.statusMessage = "Ready for fL tap"
-            } else if isMaterialMode {
+            } else if isPlateMode {
                 self.statusMessage = "Ready for L tap"
             } else {
                 self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."

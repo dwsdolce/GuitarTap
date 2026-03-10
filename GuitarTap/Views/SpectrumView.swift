@@ -100,7 +100,7 @@ struct SpectrumView: View {
     /// Optional binding to annotation offsets for draggable labels
     var annotationOffsets: Binding<[UUID: CGPoint]>?
 
-    /// Optional per-phase spectra to overlay (material/brace measurements: L, C, FLC)
+    /// Optional per-phase spectra to overlay (plate/brace measurements: L, C, FLC)
     /// Each entry has its own colour and label for the legend
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
 
@@ -121,16 +121,16 @@ struct SpectrumView: View {
     /// so it matches the waveform. Only relevant when `materialSpectra` is empty.
     var primaryCurveColor: Color = .red
 
-    /// The current measurement type (guitar vs material) - affects which annotations are shown
+    /// The current measurement type (guitar vs plate/brace) - affects which annotations are shown
     var measurementType: MeasurementType = .acoustic
 
-    /// ID of the peak selected as longitudinal mode (for material measurements)
+    /// ID of the peak selected as longitudinal mode (for plate/brace measurements)
     var selectedLongitudinalPeakID: UUID?
 
-    /// ID of the peak selected as cross-grain mode (for material measurements)
+    /// ID of the peak selected as cross-grain mode (for plate measurements)
     var selectedCrossPeakID: UUID?
 
-    /// ID of the peak selected as FLC (diagonal/shear) mode (for material measurements)
+    /// ID of the peak selected as FLC (diagonal/shear) mode (for plate measurements)
     var selectedFlcPeakID: UUID?
 
     /// Per-peak user mode overrides — passed through to annotation labels (guitar mode only)
@@ -220,7 +220,7 @@ struct SpectrumView: View {
     var visiblePeaks: [ResonantPeak] {
         let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
 
-        // In material mode, show all peaks (no guitar mode filtering)
+        // In plate/brace mode, show all peaks (no guitar mode filtering)
         if !measurementType.isGuitar {
             return filtered
         }
@@ -348,7 +348,7 @@ struct SpectrumView: View {
         }
     }
 
-    /// Legend overlay for per-phase material spectra
+    /// Legend overlay for per-phase plate/brace spectra
     @ViewBuilder
     private var materialSpectraLegend: some View {
         if !materialSpectra.isEmpty {

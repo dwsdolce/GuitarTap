@@ -82,7 +82,7 @@ extension SpectrumView {
         }
     }
 
-    /// Per-phase spectrum overlay chart content (material/brace measurements)
+    /// Per-phase spectrum overlay chart content (plate/brace measurements)
     @ChartContentBuilder
     var materialSpectraContent: some ChartContent {
         ForEach(Array(materialSpectra.enumerated()), id: \.offset) { seriesIndex, series in
@@ -137,7 +137,7 @@ extension SpectrumView {
             // Guitar mode: color by guitar mode classification
             return modeColor(for: GuitarMode.classify(frequency: peak.frequency))
         } else {
-            // Material mode: color by L/C selection
+            // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {
                 return .blue      // Longitudinal = blue
             } else if peak.id == selectedCrossPeakID {

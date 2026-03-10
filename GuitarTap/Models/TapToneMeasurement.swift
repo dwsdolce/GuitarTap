@@ -26,12 +26,12 @@ struct TapToneMeasurement: Identifiable, Codable {
     let hysteresisMargin: Float?       // dB
     let numberOfTaps: Int?             // Number of taps averaged
     
-    // Material measurement data (stored when measurementType is .material or .brace)
+    // Material measurement data (stored when measurementType is .plate or .brace)
     let selectedLongitudinalPeakID: UUID?  // Peak selected as longitudinal mode
     let selectedCrossPeakID: UUID?         // Peak selected as cross-grain mode
     let selectedFlcPeakID: UUID?           // Peak selected as FLC (diagonal/shear) mode
 
-    // Per-phase spectra for material/brace measurements (each tap orientation's averaged spectrum)
+    // Per-phase spectra for plate/brace measurements (each tap orientation's averaged spectrum)
     let longitudinalSnapshot: SpectrumSnapshot?  // Spectrum from longitudinal (L) tap
     let crossSnapshot: SpectrumSnapshot?         // Spectrum from cross-grain (C) tap
     let flcSnapshot: SpectrumSnapshot?           // Spectrum from FLC (diagonal) tap
