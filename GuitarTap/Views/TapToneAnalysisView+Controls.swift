@@ -789,15 +789,22 @@ extension TapToneAnalysisView {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Regular tap controls for iPad and macOS
+    /// Regular tap controls for iPad and macOS.
+    /// Uses vertical size class to distinguish landscape (compact) from portrait (regular) on iPad.
     @ViewBuilder
     var regularTapControls: some View {
-        ViewThatFits(in: .horizontal) {
-            // Wide layout - all controls in one row
+        Group {
+            #if os(iOS)
+            // Wide single-row layout in landscape; narrow two-row in portrait.
+            // isLandscape is kept current via a GeometryReader at the call site.
+            if isLandscape || verticalSizeClass == .compact {
+                regularTapControlsWide
+            } else {
+                regularTapControlsNarrow
+            }
+            #else
             regularTapControlsWide
-
-            // Narrow layout - two rows
-            regularTapControlsNarrow
+            #endif
         }
         .padding(12)
         .background(Color.secondary.opacity(0.1))
@@ -1060,6 +1067,7 @@ extension TapToneAnalysisView {
                 Divider()
                     .frame(height: 20)
 
+                // Peak Min slider
                 HStack(spacing: 4) {
                     Text("Peak Min:")
                         .font(.caption)
@@ -1091,8 +1099,10 @@ extension TapToneAnalysisView {
                 Spacer()
             }
 
-            // Row 2: Action buttons
+            // Row 2: Action buttons (right-justified)
             HStack(spacing: 8) {
+                Spacer()
+
                 // Tap sequence buttons
                 Button(action: {
                     tap.startTapSequence()
@@ -1132,8 +1142,6 @@ extension TapToneAnalysisView {
                 .buttonStyle(.bordered)
                 .disabled(!cancelButtonEnabled)
                 .hint(HintText.cancel)
-
-                Spacer()
             }
         }
     }

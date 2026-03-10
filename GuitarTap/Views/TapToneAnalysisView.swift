@@ -29,6 +29,7 @@ struct TapToneAnalysisView: View {
 
     @State var tapLocation: String = ""
     @State var notes: String = ""
+    @State var isLandscape: Bool = true
     @State var showingSaveSheet = false
     @State var showingMeasurements = false
     @State var showingMetrics = false
@@ -138,6 +139,11 @@ struct TapToneAnalysisView: View {
             iOSLayout
             #endif
         }
+        .background(GeometryReader { geo in
+            Color.clear
+                .onAppear { isLandscape = geo.size.width > geo.size.height }
+                .onChange(of: geo.size) { _, size in isLandscape = size.width > size.height }
+        })
         .onReceive(tapToneAnalyzer.$loadedMinFreq) { minFreq in
             if let minFreq = minFreq {
                 print("  ⬇️ View received loadedMinFreq: \(minFreq)")
