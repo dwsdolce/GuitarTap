@@ -95,6 +95,7 @@ struct GuitarTapApp: App {
         Window(appTitle, id: "main") {
             TapToneAnalysisView()
         }
+        .defaultSize(width: 1200, height: 800)
         .commands { AppCommands() }
 
         // Help window - opened from the Help menu

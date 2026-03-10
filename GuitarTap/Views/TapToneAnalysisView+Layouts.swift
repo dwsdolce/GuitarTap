@@ -471,7 +471,17 @@ extension TapToneAnalysisView {
 
             Divider()
 
-            // Main content - allow spectrum to fill available space
+            // Main content - spectrum fills remaining space
+            #if os(macOS)
+            GeometryReader { _ in
+                VStack(spacing: 20) {
+                    realTimeSpectrumView
+                    decayTimeView
+                        .padding(.horizontal)
+                }
+                .padding(.vertical)
+            }
+            #else
             VStack(spacing: 20) {
                 // Real-time Frequency Response Display - expands to fill space
                 realTimeSpectrumView
@@ -481,6 +491,7 @@ extension TapToneAnalysisView {
                     .padding(.horizontal)
             }
             .padding(.vertical)
+            #endif
 
             // Fixed status bar at bottom
             Divider()
