@@ -189,13 +189,8 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Results",
-                    body: "Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness.",
+                    body: "Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons.",
                     systemImages: ["doc.text"]
-                )
-                helpRow(
-                    title: "Export Spectrum",
-                    body: "Saves the current spectrum as a CSV file (frequency/magnitude pairs) or a chart image.",
-                    systemImages: ["chart.line.uptrend.xyaxis"]
                 )
                 helpRow(
                     title: "Auto dB",
@@ -219,7 +214,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Measurements",
-                    body: "Lists all saved measurements. From here you can load a measurement back into the main view, export as JSON, generate a PDF report, or delete.",
+                    body: "Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (saves the measurement as a .guitartap file for import on another device), Export Spectrum (saves the saved chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device.",
                     systemImages: ["list.bullet.clipboard"]
                 )
                 helpRow(
@@ -337,7 +332,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Comparing Plates",
-                    body: "Save a measurement for each plate with a descriptive location label (wood species, dimensions, sequence number). Use the Measurements list to review and compare side by side, or export all measurements as JSON for spreadsheet analysis."
+                    body: "Save a measurement for each plate with a descriptive location label (wood species, dimensions, sequence number). Use the Measurements list to review and compare side by side, or export measurements as .guitartap files for transfer between devices."
                 )
                 helpRow(
                     title: "PDF Reports",

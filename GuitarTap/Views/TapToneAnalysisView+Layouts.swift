@@ -49,6 +49,7 @@ extension TapToneAnalysisView {
                     fftAnalyzer: fft,
                     minFreq: minFreq,
                     maxFreq: maxFreq,
+                    onExportSpectrum: { exportCurrentSpectrum() },
                     onExportPDFReport: { exportPDFReport() }
                 )
             } else {
@@ -123,6 +124,7 @@ extension TapToneAnalysisView {
                     fftAnalyzer: fft,
                     minFreq: minFreq,
                     maxFreq: maxFreq,
+                    onExportSpectrum: { exportCurrentSpectrum() },
                     onExportPDFReport: { exportPDFReport() }
                 )
                 .navigationTitle("Analysis Results")

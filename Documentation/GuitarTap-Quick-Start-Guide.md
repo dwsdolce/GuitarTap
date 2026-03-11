@@ -148,11 +148,7 @@ Aborts a multi-tap or plate measurement sequence and discards the partial data.
 
 ### ![](/tmp/guitar-tap-symbols/doc.text.png){height=14pt width=14pt} Results
 
-Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness.
-
-### ![](/tmp/guitar-tap-symbols/chart.line.uptrend.xyaxis.png){height=14pt width=14pt} Export Spectrum
-
-Saves the current spectrum as a CSV file (frequency/magnitude pairs) or a chart image.
+Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons.
 
 ### ![](/tmp/guitar-tap-symbols/arrow.up.arrow.down.circle.png){height=14pt width=14pt} Auto dB
 
@@ -172,7 +168,7 @@ Saves the current measurement — enabled only when peaks are detected. Enter a 
 
 ### ![](/tmp/guitar-tap-symbols/list.bullet.clipboard.png){height=14pt width=14pt} Measurements
 
-Lists all saved measurements. From here you can load a measurement back into the main view, export as JSON, generate a PDF report, or delete.
+Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (saves the measurement as a .guitartap file for import on another device), Export Spectrum (saves the saved chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device.
 
 ### ![](/tmp/guitar-tap-symbols/chart.bar.png){height=14pt width=14pt} Metrics
 
@@ -270,7 +266,7 @@ The Helmholtz air resonance is easily produced by holding the assembled body nea
 
 ### Comparing Plates
 
-Save a measurement for each plate with a descriptive location label (wood species, dimensions, sequence number). Use the Measurements list to review and compare side by side, or export all measurements as JSON for spreadsheet analysis.
+Save a measurement for each plate with a descriptive location label (wood species, dimensions, sequence number). Use the Measurements list to review and compare side by side, or export measurements as .guitartap files for transfer between devices.
 
 ### PDF Reports
 

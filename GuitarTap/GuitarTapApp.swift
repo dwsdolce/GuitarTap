@@ -7,6 +7,12 @@
 import SwiftUI
 import Foundation
 
+extension Notification.Name {
+    /// Posted when the OS asks the app to open a measurement file.
+    /// The `object` is the file `URL`.
+    static let openMeasurementFile = Notification.Name("GuitarTap.openMeasurementFile")
+}
+
 #if os(macOS)
 /// Redirects stdout and stderr to a file so print() output is captured even when
 /// the app is force-restarted by macOS outside of Xcode's debugger.
@@ -94,6 +100,12 @@ struct GuitarTapApp: App {
         // On macOS, use Window instead of WindowGroup to prevent multiple instances
         Window(appTitle, id: "main") {
             TapToneAnalysisView()
+                .onOpenURL { url in
+                    NotificationCenter.default.post(
+                        name: .openMeasurementFile,
+                        object: url
+                    )
+                }
         }
         .defaultSize(width: 1200, height: 800)
         .commands { AppCommands() }
@@ -108,7 +120,13 @@ struct GuitarTapApp: App {
         #else
         // On iOS, WindowGroup is appropriate
         WindowGroup {
-            TapToneAnalysisView()  
+            TapToneAnalysisView()
+                .onOpenURL { url in
+                    NotificationCenter.default.post(
+                        name: .openMeasurementFile,
+                        object: url
+                    )
+                }
         }
         #endif
     }

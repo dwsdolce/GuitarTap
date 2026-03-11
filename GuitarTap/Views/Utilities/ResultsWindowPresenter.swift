@@ -21,6 +21,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
         fftAnalyzer: RealtimeFFTAnalyzer,
         minFreq: Float,
         maxFreq: Float,
+        onExportSpectrum: @escaping () -> Void,
         onExportPDFReport: @escaping () -> Void
     ) {
         if let existing = window, existing.isVisible {
@@ -30,6 +31,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
                 fftAnalyzer: fftAnalyzer,
                 minFreq: minFreq,
                 maxFreq: maxFreq,
+                onExportSpectrum: onExportSpectrum,
                 onExportPDFReport: onExportPDFReport
             )
             existing.makeKeyAndOrderFront(nil)
@@ -41,6 +43,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
             fftAnalyzer: fftAnalyzer,
             minFreq: minFreq,
             maxFreq: maxFreq,
+            onExportSpectrum: onExportSpectrum,
             onExportPDFReport: onExportPDFReport
         )
 
@@ -88,6 +91,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
         fftAnalyzer: RealtimeFFTAnalyzer,
         minFreq: Float,
         maxFreq: Float,
+        onExportSpectrum: @escaping () -> Void,
         onExportPDFReport: @escaping () -> Void
     ) -> NSView {
         let content = NavigationStack {
@@ -96,6 +100,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
                 fftAnalyzer: fftAnalyzer,
                 minFreq: minFreq,
                 maxFreq: maxFreq,
+                onExportSpectrum: onExportSpectrum,
                 onExportPDFReport: onExportPDFReport
             )
             .navigationTitle("Analysis Results")

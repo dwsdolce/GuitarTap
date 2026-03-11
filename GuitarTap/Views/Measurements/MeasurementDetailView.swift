@@ -254,7 +254,7 @@ struct MeasurementDetailView: View {
     private func exportMeasurement() {
         isExporting = true
         analyzer.exportMeasurement(measurement) { json, measurement in
-            MeasurementFileExporter.exportJSONAndImage(json: json, measurement: measurement) {
+            MeasurementFileExporter.exportJSON(json: json, measurement: measurement) {
                 self.isExporting = false
             }
         }

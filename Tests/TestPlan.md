@@ -214,9 +214,9 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | R5 | `annotationOffsets_roundTrip_preserved` | U | iOS iPadOS mac | Medium | `annotationOffsets` dictionary survives round-trip |
 | R6 | `realFixture_decodesWithoutError` | U | iOS iPadOS mac | High | Real fixture file decodes without error |
 | R7 | Save measurement persists across relaunch | M | iOS iPadOS mac | High | Save a measurement; force-quit and relaunch; verify it appears in the list |
-| R8 | Export JSON round-trip — export and re-import matches original | M | iOS iPadOS mac | High | Save a measurement; export as JSON; import the file; open both in the detail view and verify all fields match |
+| R8 | Export Measurement round-trip — export and re-import matches original | M | iOS iPadOS mac | High | Save a measurement; export as .guitartap file; import the file; open both in the detail view and verify all fields match |
 | R9 | Export PDF — file renders correctly | M | iOS iPadOS mac | Medium | Export PDF; open in Preview/Files; verify spectrum image, peaks table, and metadata are present |
-| R10 | Cross-device transfer via export/import | M | iOS iPadOS mac | Low | Export measurement as JSON on one device; import on a second device; verify measurement appears |
+| R10 | Cross-device transfer via export/import | M | iOS iPadOS mac | Low | Export measurement as .guitartap file on one device; import on a second device; verify measurement appears |
 
 ---
 
@@ -812,13 +812,13 @@ Each procedure follows the format:
 
 ---
 
-#### R8 — Export JSON round-trip — export and re-import matches original
+#### R8 — Export Measurement round-trip — export and re-import matches original
 **Platforms:** iOS · iPadOS · macOS · **Priority:** High · **Part 1 ref:** R8
 **Preconditions:** A measurement with peaks is saved.
 **Steps:**
 1. Open the Measurements list. Right-click (macOS) or long-press (iOS/iPadOS) the measurement row and choose **View Details**. Note the name, date, location/notes, and all peaks shown in the Results panel.
-2. Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Export as JSON/image**. Save the file.
-3. Import the file using the **Import** toolbar button (macOS) or ellipsis → **Import from JSON** (iOS/iPadOS). A single-measurement import automatically loads it into the main view and adds it to the list.
+2. Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Export Measurement**. Save the file (exported as a `.guitartap` file).
+3. Import the file using the **Import** toolbar button (macOS) or ellipsis → **Import Measurement** (iOS/iPadOS). A single-measurement import automatically loads it into the main view and adds it to the list.
 4. Right-click (macOS) or long-press (iOS/iPadOS) the newly imported row and choose **View Details**.
 
 **Expected result:** The imported measurement's detail view looks identical to the original — same name, date, location/notes, same peaks with the same frequencies, magnitudes, and mode assignments in the Results panel, and the same spectrum appearance.
@@ -846,8 +846,8 @@ Each procedure follows the format:
 > **Note:** Measurements are stored in the app's local document directory. There is no automatic iCloud or CloudKit sync — measurements do **not** automatically appear on other devices. Cross-device transfer requires manual export/import.
 
 **Steps:**
-1. On device A: right-click (macOS) or long-press (iOS/iPadOS) the measurement and choose **Export as JSON/image**. Save or share the file to a location accessible from device B (e.g. Files/iCloud Drive, AirDrop, email).
-2. On device B: use the **Import** toolbar button (macOS) or ellipsis → **Import from JSON** (iOS/iPadOS) to import the file.
+1. On device A: right-click (macOS) or long-press (iOS/iPadOS) the measurement and choose **Export Measurement**. Save or share the `.guitartap` file to a location accessible from device B (e.g. Files/iCloud Drive, AirDrop, email). AirDrop will route the file directly to GuitarTap on the receiving device.
+2. On device B: use the **Import** toolbar button (macOS) or ellipsis → **Import Measurement** (iOS/iPadOS) to import the file. Legacy `.json` files are also accepted.
 
 **Expected result:** The measurement appears in the list on device B.
 
@@ -861,7 +861,7 @@ Each procedure follows the format:
 **Steps:**
 1. Launch GuitarTap on iPhone.
 2. Verify the toolbar or header row contains: Start/Stop, Results, Save, Settings, Measurements.
-3. Verify secondary controls (Export Spectrum, Auto dB, Crosshair, Annotations) are accessible.
+3. Verify secondary controls (Auto dB, Crosshair, Annotations) are accessible. Export Spectrum is now in the Results panel.
 
 **Expected result:** No required button is clipped, hidden under another element, or missing. Secondary controls appear as icon-only buttons in the compact layout.
 
@@ -883,7 +883,7 @@ Each procedure follows the format:
 **Preconditions:** macOS, window at ≥900 px wide.
 **Steps:**
 1. Launch GuitarTap.
-2. Verify the single-row button layout shows: Start, Results, Metrics, Save, Export Spectrum, Auto dB, Annotations, Measurements, Settings.
+2. Verify the single-row button layout shows: Start, Results, Auto dB, Annotations, Save, Measurements, Metrics, Settings.
 
 **Expected result:** All buttons with full text labels are visible in one row.
 
@@ -1010,7 +1010,7 @@ Each procedure follows the format:
 **Platforms:** iOS · iPadOS · macOS · **Priority:** High · **Part 1 ref:** K2
 **Preconditions:** The `chris-1771351833.json` fixture file is available (included in the repo at `GuitarTapTests/`).
 **Steps:**
-1. Use Files (iOS) or Finder (macOS) to import `chris-1771351833.json` into GuitarTap.
+1. Use Files (iOS) or Finder (macOS) to import `chris-1771351833.json` into GuitarTap using **Import Measurement** (iOS/iPadOS) or the **Import** toolbar button (macOS). Legacy `.json` files are accepted alongside the newer `.guitartap` format.
 2. Open the imported measurement from the Measurements list.
 
 **Expected result:** The spectrum chart renders with the correct peaks annotated. No blank chart or decode error.

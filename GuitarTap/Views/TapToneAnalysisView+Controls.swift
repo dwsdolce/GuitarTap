@@ -30,14 +30,6 @@ extension TapToneAnalysisView {
                     .buttonStyle(.bordered)
                     .hint(HintText.showMetrics)
 
-                    // Export Spectrum button
-                    Button(action: { exportCurrentSpectrum() }) {
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(!fft.isRunning || fft.frequencies.isEmpty)
-                    .hint(HintText.exportSpectrum)
-
                     // Auto-scale dB toggle button
                     Button(action: { toggleAutoScale() }) {
                         Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
@@ -115,14 +107,6 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.showResults)
-
-                // Export Spectrum button
-                Button(action: { exportCurrentSpectrum() }) {
-                    Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                .buttonStyle(.bordered)
-                .disabled(!fft.isRunning || fft.frequencies.isEmpty)
-                .hint(HintText.exportSpectrum)
 
                 // Auto-scale dB toggle button (iPad)
                 Button(action: { toggleAutoScale() }) {
@@ -231,14 +215,6 @@ extension TapToneAnalysisView {
             .buttonStyle(.bordered)
             .hint(HintText.showResults)
 
-            // Export Spectrum button
-            Button(action: { exportCurrentSpectrum() }) {
-                Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
-            }
-            .buttonStyle(.bordered)
-            .disabled(!fft.isRunning || fft.frequencies.isEmpty)
-            .hint(HintText.exportSpectrum)
-
             // Auto-scale dB toggle button (macOS)
             Button(action: { toggleAutoScale() }) {
                 Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
@@ -317,14 +293,6 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.showResults)
-
-                // Export Spectrum button
-                Button(action: { exportCurrentSpectrum() }) {
-                    Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                .buttonStyle(.bordered)
-                .disabled(!fft.isRunning || fft.frequencies.isEmpty)
-                .hint(HintText.exportSpectrum)
 
                 // Auto-scale dB toggle button
                 Button(action: { toggleAutoScale() }) {
@@ -407,14 +375,6 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .hint(HintText.showResults)
-
-                // Export Spectrum button
-                Button(action: { exportCurrentSpectrum() }) {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                }
-                .buttonStyle(.bordered)
-                .disabled(!fft.isRunning || fft.frequencies.isEmpty)
-                .hint(HintText.exportSpectrum)
 
                 // Auto-scale dB toggle button
                 Button(action: { toggleAutoScale() }) {

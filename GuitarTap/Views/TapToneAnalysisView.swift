@@ -42,6 +42,8 @@ struct TapToneAnalysisView: View {
     @State var isSavingMeasurement = false
     @State var isGeneratingReport = false
     @State var showingMicrophonePermissionAlert = false
+    @State private var openURLImportSuccess: String? = nil
+    @State private var openURLImportError: String? = nil
 
     // Spectrum display state (loaded from persisted settings)
     @State var minFreq: Float = TapDisplaySettings.minFrequency
@@ -499,6 +501,54 @@ struct TapToneAnalysisView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("GuitarTap needs microphone access to analyse tap tones. Please enable it in System Settings → Privacy & Security → Microphone.")
+        }
+        // Handle files opened via AirDrop, Files app, or other system mechanisms
+        .onReceive(NotificationCenter.default.publisher(for: .openMeasurementFile)) { notification in
+            guard let url = notification.object as? URL else { return }
+            importMeasurementFromURL(url)
+        }
+        .alert("Import Successful", isPresented: .init(
+            get: { openURLImportSuccess != nil },
+            set: { if !$0 { openURLImportSuccess = nil } }
+        )) {
+            Button("OK", role: .cancel) { openURLImportSuccess = nil }
+        } message: {
+            Text(openURLImportSuccess ?? "")
+        }
+        .alert("Import Error", isPresented: .init(
+            get: { openURLImportError != nil },
+            set: { if !$0 { openURLImportError = nil } }
+        )) {
+            Button("OK", role: .cancel) { openURLImportError = nil }
+        } message: {
+            Text(openURLImportError ?? "")
+        }
+    }
+
+    /// Import a measurement JSON file that was opened via AirDrop or the Files app.
+    private func importMeasurementFromURL(_ url: URL) {
+        do {
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+            let data = try Data(contentsOf: url)
+            let imported = try tapToneAnalyzer.importMeasurements(from: data, baseURL: url)
+
+            var message: String
+            if imported.count == 1, let measurement = imported.first {
+                tapToneAnalyzer.loadMeasurement(measurement)
+                message = "Successfully imported and loaded 1 measurement"
+            } else {
+                message = "Successfully imported \(imported.count) measurements"
+            }
+
+            if let warning = tapToneAnalyzer.microphoneWarning {
+                message += "\n\n⚠️ " + warning
+                tapToneAnalyzer.microphoneWarning = nil
+            }
+            openURLImportSuccess = message
+        } catch {
+            openURLImportError = "Failed to import: \(error.localizedDescription)"
         }
     }
 }

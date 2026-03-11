@@ -554,14 +554,14 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
-### R8 — Export JSON round-trip — export and re-import matches original
+### R8 — Export Measurement round-trip — export and re-import matches original
 **Platforms:** iOS · iPadOS · macOS    **Priority:** High
 
 **Preconditions:** A measurement with peaks is saved.
 
 - [ ] Open the Measurements list; right-click (macOS) or long-press (iOS/iPadOS) the row and choose **View Details**; note the name, date, location/notes, and all peaks in the Results panel
-- [ ] Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Export as JSON/image**; save the file
-- [ ] Import the file using the **Import** toolbar button (macOS) or ellipsis → **Import from JSON** (iOS/iPadOS)
+- [ ] Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Export Measurement**; save the file (exported as a `.guitartap` file)
+- [ ] Import the file using the **Import** toolbar button (macOS) or ellipsis → **Import Measurement** (iOS/iPadOS)
 - [ ] Right-click (macOS) or long-press (iOS/iPadOS) the newly imported row and choose **View Details**
 - [ ] Verify the name, date, and location/notes match the original
 - [ ] Verify the Results panel shows the same peaks with the same frequencies, magnitudes, and mode assignments
@@ -595,8 +595,8 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** Two devices with GuitarTap installed. A measurement is saved on device A.
 
-- [ ] On device A: right-click (macOS) or long-press (iOS/iPadOS) the measurement and choose **Export as JSON/image**; share the file to device B (e.g. via AirDrop, Files/iCloud Drive, or email)
-- [ ] On device B: import the file using **Import** toolbar button (macOS) or ellipsis → **Import from JSON** (iOS/iPadOS)
+- [ ] On device A: right-click (macOS) or long-press (iOS/iPadOS) the measurement and choose **Export Measurement**; share the `.guitartap` file to device B (e.g. via AirDrop, Files/iCloud Drive, or email); AirDrop will route the file directly to GuitarTap on the receiving device
+- [ ] On device B: import the file using **Import** toolbar button (macOS) or ellipsis → **Import Measurement** (iOS/iPadOS); legacy `.json` files are also accepted
 - [ ] Verify the measurement appears in the list on device B
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
@@ -612,7 +612,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 - [ ] Launch GuitarTap on iPhone
 - [ ] Verify these controls are visible or accessible via toolbar: Start/Stop, Results, Save, Settings, Measurements
-- [ ] Verify secondary controls are accessible: Export Spectrum, Auto dB, Crosshair, Annotations
+- [ ] Verify secondary controls are accessible: Auto dB, Crosshair, Annotations (Export Spectrum is now in the Results panel)
 - [ ] Confirm no required button is clipped, hidden under another element, or missing
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
@@ -639,7 +639,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 **Preconditions:** macOS, window at ≥900 px wide.
 
 - [ ] Launch GuitarTap
-- [ ] Verify the single-row button layout shows: Start, Results, Metrics, Save, Export Spectrum, Auto dB, Annotations, Measurements, Settings
+- [ ] Verify the single-row button layout shows: Start, Results, Auto dB, Annotations, Save, Measurements, Metrics, Settings
 - [ ] Confirm all buttons have full text labels and are visible in one row
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
@@ -799,7 +799,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** The `chris-1771351833.json` fixture file is available (included in the repo at `GuitarTapTests/`).
 
-- [ ] Use Files (iOS) or Finder (macOS) to import `chris-1771351833.json` into GuitarTap
+- [ ] Use Files (iOS) or Finder (macOS) to import `chris-1771351833.json` into GuitarTap using **Import Measurement** (iOS/iPadOS) or the **Import** toolbar button (macOS); legacy `.json` files are accepted alongside the newer `.guitartap` format
 - [ ] Open the imported measurement from the Measurements list
 - [ ] Verify the spectrum chart renders with peaks annotated
 - [ ] Confirm no blank chart or decode error

@@ -333,6 +333,7 @@ extension TapToneAnalysisView {
             fftAnalyzer: fft,
             minFreq: minFreq,
             maxFreq: maxFreq,
+            onExportSpectrum: { exportCurrentSpectrum() },
             onExportPDFReport: { exportPDFReport() }
         )
         #endif

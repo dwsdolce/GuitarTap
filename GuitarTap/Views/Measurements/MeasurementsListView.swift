@@ -12,6 +12,11 @@ import AppKit
 import UIKit
 #endif
 
+extension UTType {
+    /// GuitarTap measurement file (.guitartap). Conforms to public.json.
+    static let guitarTapMeasurement = UTType(exportedAs: "com.dolcesfogato.guitartap.measurement")
+}
+
 struct MeasurementsListView: View {
     @ObservedObject var analyzer: TapToneAnalyzer
     @Environment(\.dismiss) var dismiss
@@ -37,7 +42,7 @@ struct MeasurementsListView: View {
             }
             .fileImporter(
                 isPresented: $showingImportPicker,
-                allowedContentTypes: [.json],
+                allowedContentTypes: [.guitarTapMeasurement, .json],
                 allowsMultipleSelection: false
             ) { result in
                 switch result {
@@ -171,7 +176,13 @@ struct MeasurementsListView: View {
                             Button(action: {
                                 exportSingleMeasurement(measurement)
                             }) {
-                                Label("Export as JSON/image", systemImage: "square.and.arrow.up")
+                                Label("Export Measurement", systemImage: "doc.badge.arrow.up")
+                            }
+
+                            Button(action: {
+                                exportSpectrumMeasurement(measurement)
+                            }) {
+                                Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
                             }
 
                             Button(action: {
@@ -207,7 +218,7 @@ struct MeasurementsListView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     Button(action: { showingImportPicker = true }) {
-                        Label("Import from JSON", systemImage: "square.and.arrow.down")
+                        Label("Import Measurement", systemImage: "square.and.arrow.down")
                     }
                     
                     Divider()
@@ -240,9 +251,16 @@ struct MeasurementsListView: View {
     private func exportSingleMeasurement(_ measurement: TapToneMeasurement) {
         isExporting = true
         analyzer.exportMeasurement(measurement) { json, measurement in
-            MeasurementFileExporter.exportJSONAndImage(json: json, measurement: measurement) {
+            MeasurementFileExporter.exportJSON(json: json, measurement: measurement) {
                 self.isExporting = false
             }
+        }
+    }
+
+    private func exportSpectrumMeasurement(_ measurement: TapToneMeasurement) {
+        isExporting = true
+        MeasurementFileExporter.exportSpectrumImage(measurement: measurement) {
+            self.isExporting = false
         }
     }
 
@@ -345,7 +363,7 @@ private struct DocumentPickerRepresentable: UIViewControllerRepresentable {
     let onPick: (URL) -> Void
     
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.json])
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.guitarTapMeasurement, .json])
         picker.allowsMultipleSelection = false
         picker.delegate = context.coordinator
         return picker

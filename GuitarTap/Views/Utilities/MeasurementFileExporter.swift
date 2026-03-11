@@ -86,20 +86,139 @@ struct MeasurementFileExporter {
     }
     #endif
 
-    // MARK: - JSON + Image Export
+    // MARK: - JSON Export
 
-    static func exportJSONAndImage(
+    /// Export only the JSON measurement file.
+    static func exportJSON(
         json: String,
         measurement: TapToneMeasurement,
         completion: @escaping () -> Void
     ) {
         #if os(iOS)
-        exportiOS(json: json, measurement: measurement, completion: completion)
+        exportJSONiOS(json: json, measurement: measurement, completion: completion)
         #elseif os(macOS)
-        exportMacOS(json: json, measurement: measurement, completion: completion)
+        exportJSONMacOS(json: json, measurement: measurement, completion: completion)
         #endif
     }
+
+    // MARK: - Spectrum Image Export
+
+    /// Export the spectrum PNG image for a saved measurement.
+    static func exportSpectrumImage(
+        measurement: TapToneMeasurement,
+        completion: @escaping () -> Void
+    ) {
+        #if os(iOS)
+        exportSpectrumImageiOS(measurement: measurement, completion: completion)
+        #elseif os(macOS)
+        exportSpectrumImageMacOS(measurement: measurement, completion: completion)
+        #endif
+    }
+
     
+    #if os(iOS)
+    private static func exportJSONiOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
+        do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            let jsonURL = tempDir.appendingPathComponent("\(measurement.baseFilename).guitartap")
+            try json.write(to: jsonURL, atomically: true, encoding: .utf8)
+            presentShareSheet(items: [jsonURL], completion: completion)
+        } catch {
+            print("Failed to export JSON: \(error)")
+            completion()
+        }
+    }
+
+    private static func exportSpectrumImageiOS(measurement: TapToneMeasurement, completion: @escaping () -> Void) {
+        guard let imageData = measurement.chartImageData else {
+            print("No spectrum image available for this measurement")
+            completion()
+            return
+        }
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
+        do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            let imageURL = tempDir.appendingPathComponent("\(measurement.baseFilename).png")
+            try imageData.write(to: imageURL)
+            presentShareSheet(items: [imageURL], completion: completion)
+        } catch {
+            print("Failed to export spectrum image: \(error)")
+            completion()
+        }
+    }
+
+    private static func presentShareSheet(items: [URL], completion: @escaping () -> Void) {
+        DispatchQueue.main.async {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first(where: { $0.isKeyWindow }),
+               let rootViewController = window.rootViewController {
+                var topController = rootViewController
+                while let presented = topController.presentedViewController {
+                    topController = presented
+                }
+                let activityVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+                if let popover = activityVC.popoverPresentationController {
+                    popover.sourceView = topController.view
+                    popover.sourceRect = CGRect(x: topController.view.bounds.midX,
+                                                y: topController.view.bounds.midY,
+                                                width: 0, height: 0)
+                    popover.permittedArrowDirections = []
+                }
+                topController.present(activityVC, animated: true)
+            }
+            completion()
+        }
+    }
+    #endif
+
+    #if os(macOS)
+    private static func exportJSONMacOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.guitarTapMeasurement]
+        savePanel.nameFieldStringValue = "\(measurement.baseFilename).guitartap"
+        savePanel.canCreateDirectories = true
+        savePanel.message = "Save Measurement JSON"
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                do {
+                    try json.write(to: url, atomically: true, encoding: .utf8)
+                    print("✅ Saved measurement JSON to: \(url.path)")
+                } catch {
+                    print("❌ Failed to save JSON: \(error)")
+                }
+            }
+            completion()
+        }
+    }
+
+    private static func exportSpectrumImageMacOS(measurement: TapToneMeasurement, completion: @escaping () -> Void) {
+        guard let imageData = measurement.chartImageData else {
+            print("No spectrum image available for this measurement")
+            completion()
+            return
+        }
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.png]
+        savePanel.nameFieldStringValue = "\(measurement.baseFilename).png"
+        savePanel.canCreateDirectories = true
+        savePanel.message = "Save Spectrum Image"
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                do {
+                    try imageData.write(to: url)
+                    print("✅ Saved spectrum image to: \(url.path)")
+                } catch {
+                    print("❌ Failed to save spectrum image: \(error)")
+                }
+            }
+            completion()
+        }
+    }
+    #endif
+
     #if os(iOS)
     private static func exportiOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
         let tempDir = FileManager.default.temporaryDirectory
@@ -109,7 +228,7 @@ struct MeasurementFileExporter {
             try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
             
             let basename = measurement.baseFilename
-            let jsonURL = tempDir.appendingPathComponent("\(basename).json")
+            let jsonURL = tempDir.appendingPathComponent("\(basename).guitartap")
             try json.write(to: jsonURL, atomically: true, encoding: .utf8)
             
             var itemsToShare: [URL] = [jsonURL]
@@ -155,34 +274,4 @@ struct MeasurementFileExporter {
     }
     #endif
     
-    #if os(macOS)
-    private static func exportMacOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.message = "Select a folder to save measurement and image"
-        panel.prompt = "Export Here"
-        
-        panel.begin { response in
-            if response == .OK, let directoryURL = panel.url {
-                do {
-                    let basename = measurement.baseFilename
-                    let jsonURL = directoryURL.appendingPathComponent("\(basename).json")
-                    try json.write(to: jsonURL, atomically: true, encoding: .utf8)
-                    
-                    if let imageData = measurement.chartImageData {
-                        let imageURL = directoryURL.appendingPathComponent("\(basename).png")
-                        try imageData.write(to: imageURL)
-                    }
-                    
-                    print("✅ Exported measurement to: \(directoryURL.path)")
-                } catch {
-                    print("Failed to save files: \(error)")
-                }
-            }
-            completion()
-        }
-    }
-    #endif
 }

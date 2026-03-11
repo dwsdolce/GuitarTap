@@ -16,6 +16,10 @@ struct TapAnalysisResultsView: View {
     var minFreq: Float
     var maxFreq: Float
     
+    /// Optional callback invoked when the user requests a spectrum image export.
+    /// When nil, the Export Spectrum button is not shown.
+    var onExportSpectrum: (() -> Void)? = nil
+
     /// Optional callback invoked when the user requests a PDF report export.
     /// When nil, the PDF export button is not shown.
     var onExportPDFReport: (() -> Void)? = nil
@@ -98,16 +102,27 @@ struct TapAnalysisResultsView: View {
                 // Status indicator
                 statusIndicator
 
-                // PDF Report export button
-                if let exportPDF = onExportPDFReport {
+                // Export buttons
+                if onExportSpectrum != nil || onExportPDFReport != nil {
                     Divider()
-                    Button {
-                        exportPDF()
-                    } label: {
-                        Label("Export PDF Report", systemImage: "doc.richtext")
+                    if let exportSpectrum = onExportSpectrum {
+                        Button {
+                            exportSpectrum()
+                        } label: {
+                            Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+                        }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
+                    if let exportPDF = onExportPDFReport {
+                        Button {
+                            exportPDF()
+                        } label: {
+                            Label("Export PDF Report", systemImage: "doc.richtext")
+                        }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                    }
                 }
             }
             .padding()
