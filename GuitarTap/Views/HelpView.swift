@@ -260,7 +260,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Peak Min (slider)",
-                    body: "Minimum magnitude a spectral peak must reach to be reported. This is also adjustable in Settings → Analysis. Move the slider left to catch quieter peaks; move it right to suppress noise peaks. Displayed in dB."
+                    body: "Minimum magnitude a spectral peak must reach to be annotated on the spectrum chart. In guitar mode, a peak must also clear this threshold to be reported. In brace/plate mode, the tap capture uses its own adaptive noise floor — Peak Min only affects what is visible on the chart, not which peaks are selected. Move the slider left to show quieter peaks; right to suppress noise. Displayed in dB."
                 )
                 helpRow(
                     title: "Reset arrows",
@@ -293,8 +293,8 @@ After all taps, tap Results to see:
                     body: "Peaks outside this window are ignored during detection. Narrow it to exclude spurious low-frequency rumble or high-frequency noise."
                 )
                 helpRow(
-                    title: "Peak Detection Minimum",
-                    body: "Same control as Peak Min on the main view — also accessible here. A peak must reach this magnitude (dB) to be reported. Typical useful range: −60 to −40 dB."
+                    title: "Peak Min",
+                    body: "Same control as Peak Min on the main view — also accessible here. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported. In brace/plate mode the measurement capture uses its own adaptive noise floor, so Peak Min only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB."
                 )
                 helpRow(
                     title: "Maximum Peaks",

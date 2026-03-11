@@ -717,6 +717,7 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
                         .accessibilityLabel("Peak detection minimum threshold")
+                        .hint(HintText.peakMin)
                         .onChange(of: tap.peakThreshold) { _, newValue in
                             TapDisplaySettings.peakThreshold = newValue
                         }
@@ -910,6 +911,7 @@ extension TapToneAnalysisView {
                 Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
                     .frame(width: 80)
                     .accessibilityLabel("Peak detection minimum threshold")
+                    .hint(HintText.peakMin)
                     .onChange(of: tap.peakThreshold) { _, newValue in
                         TapDisplaySettings.peakThreshold = newValue
                     }

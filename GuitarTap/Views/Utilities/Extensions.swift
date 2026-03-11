@@ -237,8 +237,9 @@ enum HintText {
     
     // MARK: - Tap Controls
     static let taps = "Number of taps to average for peak detection (1-10)"
-    static let threshold = "Signal level that triggers tap detection - lower values detect quieter taps"
-    static let hysteresis = "Margin below threshold before detecting next tap - prevents multiple triggers from one tap"
+    static let threshold = "Signal level that triggers tap detection. Lower values detect quieter taps. In brace/plate mode this is used as the headroom above the ambient noise floor, not an absolute level."
+    static let hysteresis = "How far the signal must drop below the detection threshold before the detector resets and is ready for the next tap. Prevents a single loud tap from triggering multiple detections."
+    static let peakMin = "Minimum peak magnitude shown on the spectrum chart. In guitar mode this also gates which peaks are reported. In brace/plate mode the tap capture uses its own adaptive noise floor, so this only affects chart display."
     static let newTap = "Start a new tap sequence to detect and analyze resonance peaks"
     static let cancel = "Cancel the current tap sequence and start over"
     static let resetLabels = "Reset all peak label positions to their default locations"

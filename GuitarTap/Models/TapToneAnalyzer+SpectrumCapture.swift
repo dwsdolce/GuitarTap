@@ -102,9 +102,9 @@ extension TapToneAnalyzer {
             return
         }
 
-        // Determine the frequency search window for this measurement type.
-        // Using the known physical range rejects low-frequency impact thuds (20–80 Hz)
-        // that are present in every tap but are not resonances of the workpiece.
+        // Determine the frequency search window for this phase.
+        // Using per-phase windows rejects out-of-range peaks that would otherwise
+        // compete with the true resonance.
         let mType = TapDisplaySettings.measurementType
         let hpsMinHz: Float
         let hpsMaxHz: Float
@@ -113,16 +113,28 @@ extension TapToneAnalyzer {
             // Brace bars resonate 100–1000 Hz; exclude sub-100 Hz table/impact thud
             hpsMinHz = 100; hpsMaxHz = 1200
         case .plate:
-            // Plate modes: fL ~70–400 Hz, fC ~30–200 Hz, fLC ~20–150 Hz
-            hpsMinHz = 20; hpsMaxHz = 600
+            switch phase {
+            case .capturingLongitudinal:
+                // fL: longitudinal stiffness mode, typically 70–400 Hz
+                hpsMinHz = 50; hpsMaxHz = 500
+            case .capturingCross, .waitingForCrossTap:
+                // fC: cross-grain stiffness mode, typically 30–200 Hz
+                hpsMinHz = 20; hpsMaxHz = 250
+            case .capturingFlc, .waitingForFlcTap:
+                // fLC: shear/diagonal mode, typically 20–150 Hz — tighter cap to avoid
+                // harmonics and other plate modes competing with the true shear fundamental
+                hpsMinHz = 20; hpsMaxHz = 200
+            default:
+                hpsMinHz = 20; hpsMaxHz = 600
+            }
         default:
             hpsMinHz = 20; hpsMaxHz = 2000
         }
 
-        // For longitudinal and cross-grain taps the tap orientation physically selects
-        // the lowest resonant mode of the plate, so prefer the lowest significant peak.
-        // For FLC (diagonal) the loudest peak strategy is appropriate.
-        let preferLowest = (phase == .capturingLongitudinal || phase == .capturingCross)
+        // For all three plate phases the tap orientation physically selects the lowest
+        // resonant mode of the plate (longitudinal, cross-grain, or shear), so always
+        // prefer the lowest significant peak in the search window.
+        let preferLowest = (mType == .plate || phase == .capturingLongitudinal || phase == .capturingCross)
 
         // Find the dominant peak using harmonic product spectrum analysis.
         // This finds the fundamental regardless of whether harmonics are louder.
@@ -133,6 +145,16 @@ extension TapToneAnalyzer {
                                                    preferLowestSignificant: preferLowest) else {
             print("⚠️ Gated FFT: no peak found — tap again")
             statusMessage = "No resonance detected — tap again"
+            reEnableDetectionForNextPlateTap()
+            return
+        }
+
+        // Reject captures where the dominant peak is below the tap detection threshold.
+        // If the best peak found is below the threshold, the ring-out was too weak -
+        // likely a noise trigger, not a real tap — so ask the user to tap again.
+        if dominantPeak.magnitude < tapDetectionThreshold {
+            print("⚠️ Gated FFT: dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB is below tap detection threshold (\(String(format: "%.0f", tapDetectionThreshold)) dB) — tap again")
+            statusMessage = "Signal too quiet — tap harder"
             reEnableDetectionForNextPlateTap()
             return
         }
@@ -198,6 +220,7 @@ extension TapToneAnalyzer {
             let index: Int
             let magnitude: Float
             let hpsScore: Float
+            let qFactor: Float
         }
         var candidates: [Candidate] = []
 
@@ -223,24 +246,47 @@ extension TapToneAnalyzer {
                 if harmIdx < n { hpsScore *= linear[harmIdx] }
             }
 
-            candidates.append(Candidate(index: i, magnitude: mag, hpsScore: hpsScore))
+            // Q factor: the key discriminant between material resonances (high Q,
+            // narrow peak) and impact thuds / ambient noise (low Q, broad smear).
+            // A well-tapped brace or plate resonance typically has Q > 10.
+            // Impact contact noise and table rumble rarely exceed Q ~ 3–5.
+            let (q, _) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies,
+                                          peakIndex: i, peakMagnitude: mag)
+
+            candidates.append(Candidate(index: i, magnitude: mag, hpsScore: hpsScore, qFactor: q))
         }
 
         guard !candidates.isEmpty else { return nil }
 
         // --- Step 2: pick the best candidate ---
-        let byMagnitude = candidates.sorted { $0.magnitude > $1.magnitude }
+        // Prefer high-Q candidates (material resonances) over low-Q ones (impact thuds).
+        // Q < 3 reliably identifies impact contact smear and broadband noise (seen at
+        // Q=1.9–2.3 in practice). Real tap-tone resonances — even weak ones in a short
+        // 400 ms gated window — rarely fall below Q=3.
+        // If no candidate clears the Q threshold, fall back to all candidates so we
+        // always return something the user can manually override.
+        let minQ: Float = 3.0
+        let highQCandidates = candidates.filter { $0.qFactor >= minQ }
+        if highQCandidates.count < candidates.count {
+            let rejected = candidates.filter { $0.qFactor < minQ }
+            let rejStr = rejected.map { String(format: "%.0f Hz (Q=%.1f)", frequencies[$0.index], $0.qFactor) }.joined(separator: ", ")
+            print("🔇 Q-filtered out low-Q peaks: \(rejStr)")
+        }
+        let pool = highQCandidates.isEmpty ? candidates : highQCandidates
+
+        let byMagnitude = pool.sorted { $0.magnitude > $1.magnitude }
         let strongest = byMagnitude[0]
 
         let best: Candidate
         if preferLowestSignificant {
             // For longitudinal and cross-grain taps the tap orientation physically
-            // selects the plate's fundamental (lowest) resonant mode. Pick the
-            // lowest-frequency candidate that is within 30 dB of the strongest peak.
-            // This tolerates a quiet fundamental being dominated by a louder harmonic
-            // while still excluding pure noise far below the signal.
-            let threshold30dB = strongest.magnitude - 30.0
-            let significant = candidates.filter { $0.magnitude >= threshold30dB }
+            // selects the plate's fundamental (lowest) resonant mode.
+            // Among Q-filtered candidates, pick the lowest-frequency one within 15 dB
+            // of the strongest. Q filtering handles thud rejection; 15 dB is tight
+            // enough to exclude distant ambient resonances while tolerating a genuine
+            // fundamental that is a bit quieter than its harmonics.
+            let thresholdDB = strongest.magnitude - 15.0
+            let significant = pool.filter { $0.magnitude >= thresholdDB }
             best = significant.min(by: { $0.index < $1.index }) ?? strongest
         } else {
             // Default: strongest peak wins unless a lower-frequency candidate has a
@@ -265,7 +311,7 @@ extension TapToneAnalyzer {
         let pitchNote  = pitchCalculator.note(frequency: Double(freq))
         let pitchCents = pitchCalculator.cents(frequency: Double(freq))
         let pitchFreq  = pitchCalculator.freq0(frequency: Double(freq))
-        print("🎯 Dominant peak: \(String(format: "%.1f", freq)) Hz @ \(String(format: "%.1f", mag)) dB (HPS score: \(String(format: "%.3e", best.hpsScore)))")
+        print("🎯 Dominant peak: \(String(format: "%.1f", freq)) Hz @ \(String(format: "%.1f", mag)) dB (Q: \(String(format: "%.1f", best.qFactor)), HPS score: \(String(format: "%.3e", best.hpsScore)))")
         return ResonantPeak(frequency: freq, magnitude: mag,
                             quality: quality, bandwidth: bandwidth,
                             pitchNote: pitchNote, pitchCents: pitchCents,
