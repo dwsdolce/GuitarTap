@@ -266,6 +266,13 @@ struct DraggablePeakAnnotation: View {
                         cachedPeakPosition = calculatePeakPosition()
                     }
             )
+            #if os(iOS)
+            .simultaneousGesture(
+                TapGesture(count: 2).onEnded {
+                    onReset()
+                }
+            )
+            #endif
             .onHover { hovering in
                 withAnimation(.none) {
                     isHovering = hovering

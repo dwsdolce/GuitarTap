@@ -183,10 +183,13 @@ struct MeasurementDetailView: View {
                     }
                     
                     // Peaks (filtered based on unknown mode setting)
+                    // Plate/brace measurements don't use guitar mode classification, so skip the filter for them
+                    let isMaterialMeasurement = measurement.longitudinalSnapshot != nil || measurement.selectedLongitudinalPeakID != nil
                     let selectedIDs = Set(measurement.selectedPeakIDs ?? measurement.peaks.map { $0.id })
                     let filteredPeaks = measurement.peaks
                         .sorted(by: { $0.frequency < $1.frequency })
                         .filter { peak in
+                            isMaterialMeasurement ||
                             TapDisplaySettings.showUnknownModes ||
                             GuitarMode.classify(frequency: peak.frequency).normalized != .unknown
                         }
@@ -202,22 +205,28 @@ struct MeasurementDetailView: View {
                         } else {
                             VStack(alignment: .leading, spacing: 12) {
                                 ForEach(filteredPeaks) { peak in
-                                    let mode = GuitarMode.classify(frequency: peak.frequency)
                                     let isSelected = selectedIDs.contains(peak.id)
-                                    let overrideLabel: String = {
+                                    let mode = GuitarMode.classify(frequency: peak.frequency)
+                                    let effectiveLabel: String = {
+                                        if isMaterialMeasurement {
+                                            if peak.id == measurement.selectedLongitudinalPeakID { return "fL" }
+                                            if peak.id == measurement.selectedCrossPeakID { return "fC" }
+                                            if peak.id == measurement.selectedFlcPeakID { return "fLC" }
+                                            return "Peak"
+                                        }
                                         switch measurement.peakModeOverrides?[peak.id] ?? .auto {
                                         case .auto: return mode.displayName
                                         case .assigned(let label): return label
                                         }
                                     }()
-                                    let isOverridden = measurement.peakModeOverrides?[peak.id].flatMap {
+                                    let isOverridden = !isMaterialMeasurement && measurement.peakModeOverrides?[peak.id].flatMap {
                                         if case .assigned = $0 { return $0 }
                                         return nil
                                     } != nil
                                     CombinedPeakModeRowView(
                                         peak: peak,
                                         mode: mode,
-                                        effectiveModeLabel: overrideLabel,
+                                        effectiveModeLabel: effectiveLabel,
                                         isManualOverride: isOverridden,
                                         isSelected: isSelected
                                     )

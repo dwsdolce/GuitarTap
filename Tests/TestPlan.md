@@ -148,9 +148,9 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | D10 | `cycleAnnotationVisibility_traversesAllModes` | U | iOS iPadOS mac | High | `.cycle()` visits all → selected → none → all in order |
 | D11 | Annotation draggable on screen | M | iOS iPadOS mac | High | Perform a measurement; drag a peak label; verify it moves and stays at new position |
 | D12 | Annotation position persists after zoom/pan | M | iOS iPadOS mac | Medium | Drag a label; zoom the chart; verify label remains at its new relative position |
-| D13 | Double-tap annotation resets to default position | M | iOS iPadOS mac | Medium | Drag a label; double-tap it; verify it snaps back to its default position |
+| D13 | Annotation reset to default position | M | iOS iPadOS mac | Medium | Drag a label; double-tap it (iOS/iPadOS) or right-click and choose Reset Position (macOS); verify it snaps back to its default position |
 | D14 | Annotations hidden in `.none` visibility mode | M | iOS iPadOS mac | Medium | Tap Annotations button to cycle to None; verify all labels disappear |
-| D15 | `.selected` mode shows only tapped labels | M | iOS iPadOS mac | Low | Cycle to Selected; tap one label; verify only that label is visible |
+| D15 | `.selected` mode shows only Results-panel-selected labels | M | iOS iPadOS mac | Low | Ensure not all peaks are selected in Results panel; cycle Annotations to Selected; verify only selected-peak labels are visible |
 
 ---
 
@@ -214,9 +214,9 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | R5 | `annotationOffsets_roundTrip_preserved` | U | iOS iPadOS mac | Medium | `annotationOffsets` dictionary survives round-trip |
 | R6 | `realFixture_decodesWithoutError` | U | iOS iPadOS mac | High | Real fixture file decodes without error |
 | R7 | Save measurement persists across relaunch | M | iOS iPadOS mac | High | Save a measurement; force-quit and relaunch; verify it appears in the list |
-| R8 | Export JSON — file is valid | M | iOS iPadOS mac | High | Export a measurement; open JSON in a text editor; verify it is well-formed |
+| R8 | Export JSON round-trip — export and re-import matches original | M | iOS iPadOS mac | High | Save a measurement; export as JSON; import the file; open both in the detail view and verify all fields match |
 | R9 | Export PDF — file renders correctly | M | iOS iPadOS mac | Medium | Export PDF; open in Preview/Files; verify spectrum image, peaks table, and metadata are present |
-| R10 | iCloud sync between two devices | M | iOS iPadOS | Low | Save on iPhone; open on iPad (same iCloud account); verify measurement appears |
+| R10 | Cross-device transfer via export/import | M | iOS iPadOS mac | Low | Export measurement as JSON on one device; import on a second device; verify measurement appears |
 
 ---
 
@@ -747,7 +747,7 @@ Each procedure follows the format:
 **Platforms:** iOS · iPadOS · macOS · **Priority:** High · **Part 1 ref:** D11
 **Preconditions:** A measurement has been captured and peak annotations are visible.
 **Steps:**
-1. Long-press (iOS/iPadOS) or click-and-drag (macOS) a peak label.
+1. Press and drag (iOS/iPadOS) or click-and-drag (macOS) a peak label.
 2. Drag it to a new position.
 3. Release.
 
@@ -759,18 +759,18 @@ Each procedure follows the format:
 **Platforms:** iOS · iPadOS · macOS · **Priority:** Medium · **Part 1 ref:** D12
 **Preconditions:** D11 completed; a label is at a non-default position.
 **Steps:**
-1. Pinch/scroll to zoom the chart.
+1. Pinch to zoom (iOS/iPadOS) or scroll with Command/Option/Control modifier (macOS) to zoom the chart.
 2. Pan the chart.
 
 **Expected result:** The annotation label stays attached to its peak at the correct chart position and does not jump back to the default position.
 
 ---
 
-#### D13 — Double-tap annotation resets position
+#### D13 — Annotation reset to default position
 **Platforms:** iOS · iPadOS · macOS · **Priority:** Medium · **Part 1 ref:** D13
 **Preconditions:** A label has been dragged to a non-default position (D11).
 **Steps:**
-1. Double-tap the label.
+1. iOS/iPadOS: Double-tap the label. macOS: Right-click the label and choose "Reset Position".
 
 **Expected result:** The label snaps back to its default (zero-offset) position relative to the peak marker.
 
@@ -786,14 +786,14 @@ Each procedure follows the format:
 
 ---
 
-#### D15 — `.selected` mode shows only tapped labels
+#### D15 — `.selected` mode shows only Results-panel-selected labels
 **Platforms:** iOS · iPadOS · macOS · **Priority:** Low · **Part 1 ref:** D15
-**Preconditions:** Multiple peaks are visible.
+**Preconditions:** Multiple peaks are visible and at least one peak is not selected in the Results panel.
 **Steps:**
-1. Cycle the Annotations button to the **Selected** mode.
-2. Tap one annotation label.
+1. In the Results panel, confirm that some peaks are selected and some are not.
+2. Cycle the Annotations button to the **Selected** mode.
 
-**Expected result:** Only the tapped label is visible. All others are hidden.
+**Expected result:** Only the labels for peaks that are selected in the Results panel are visible. Labels for unselected peaks are hidden.
 
 ---
 
@@ -812,15 +812,18 @@ Each procedure follows the format:
 
 ---
 
-#### R8 — Export JSON is valid
+#### R8 — Export JSON round-trip — export and re-import matches original
 **Platforms:** iOS · iPadOS · macOS · **Priority:** High · **Part 1 ref:** R8
-**Preconditions:** A measurement is saved.
+**Preconditions:** A measurement with peaks is saved.
 **Steps:**
-1. Open the measurement in the detail view.
-2. Tap **Export → JSON**.
-3. Share the file to Files (or open in a JSON viewer).
+1. Open the Measurements list. Right-click (macOS) or long-press (iOS/iPadOS) the measurement row and choose **View Details**. Note the name, date, location/notes, and all peaks shown in the Results panel.
+2. Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Export as JSON/image**. Save the file.
+3. Import the file using the **Import** toolbar button (macOS) or ellipsis → **Import from JSON** (iOS/iPadOS). A single-measurement import automatically loads it into the main view and adds it to the list.
+4. Right-click (macOS) or long-press (iOS/iPadOS) the newly imported row and choose **View Details**.
 
-**Expected result:** The file opens without parse errors. Fields include `timestamp`, `peaks`, `annotationOffsets`, and `guitarType`.
+**Expected result:** The imported measurement's detail view looks identical to the original — same name, date, location/notes, same peaks with the same frequencies, magnitudes, and mode assignments in the Results panel, and the same spectrum appearance.
+
+> **Design note — auto label stability:** Mode labels stored as `.auto` (i.e. not manually overridden by the user) are re-evaluated at display time by `GuitarMode.classify()`. If classification boundaries change in a future app version, an auto-labelled peak may display a different mode name than when it was saved. Manually assigned labels are stored as literal strings and are immune to this. Peaks near boundaries (~195 Hz Air/Top) are most susceptible. This is expected behaviour, not a bug.
 
 ---
 
@@ -836,15 +839,17 @@ Each procedure follows the format:
 
 ---
 
-#### R10 — iCloud sync between two devices
-**Platforms:** iOS · iPadOS · **Priority:** Low · **Part 1 ref:** R10
-**Preconditions:** iPhone and iPad signed into the same iCloud account. iCloud Drive enabled.
-**Steps:**
-1. Save a measurement on the iPhone.
-2. Wait up to 30 s.
-3. Open Measurements on the iPad.
+#### R10 — Cross-device transfer via export/import
+**Platforms:** iOS · iPadOS · macOS · **Priority:** Low · **Part 1 ref:** R10
+**Preconditions:** Two devices (any combination of iPhone, iPad, Mac). A measurement is saved on device A.
 
-**Expected result:** The measurement saved on the iPhone appears in the list on the iPad.
+> **Note:** Measurements are stored in the app's local document directory. There is no automatic iCloud or CloudKit sync — measurements do **not** automatically appear on other devices. Cross-device transfer requires manual export/import.
+
+**Steps:**
+1. On device A: right-click (macOS) or long-press (iOS/iPadOS) the measurement and choose **Export as JSON/image**. Save or share the file to a location accessible from device B (e.g. Files/iCloud Drive, AirDrop, email).
+2. On device B: use the **Import** toolbar button (macOS) or ellipsis → **Import from JSON** (iOS/iPadOS) to import the file.
+
+**Expected result:** The measurement appears in the list on device B.
 
 ---
 

@@ -208,6 +208,11 @@ After all taps, tap Results to see:
                     systemImages: ["eye", "star.fill", "eye.slash"]
                 )
                 helpRow(
+                    title: "Peak Labels",
+                    body: "Drag any peak label to reposition it and avoid overlaps. To reset an individual label: double-tap it (iOS/iPadOS) or right-click it and choose \"Reset Position\" (macOS). To reset all labels at once: use the ellipsis menu's \"Reset Labels\" (iOS/iPadOS) or right-click the chart area (not a label) and choose \"Reset Labels\" (macOS).",
+                    systemImages: ["tag"]
+                )
+                helpRow(
                     title: "Save",
                     body: "Saves the current measurement — enabled only when peaks are detected. Enter a location label and optional notes.",
                     systemImages: ["square.and.arrow.down"]
@@ -236,7 +241,7 @@ After all taps, tap Results to see:
                 #else
                 helpRow(
                     title: "ⓘ Zoom & Pan Help",
-                    body: "The info button in the top-right corner of the spectrum shows the keyboard and trackpad shortcuts for navigating the chart: Scroll — pan vertically (magnitude); ⇧ Scroll — pan horizontally (frequency); ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency axis; ⌃ Scroll — zoom magnitude axis; Pinch — zoom (trackpad); Drag — pan both axes; Right-click — reset axes and labels.",
+                    body: "The info button in the top-right corner of the spectrum shows the keyboard and trackpad shortcuts for navigating the chart: Scroll — pan vertically (magnitude); ⇧ Scroll — pan horizontally (frequency); ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency axis; ⌃ Scroll — zoom magnitude axis; Pinch — zoom (trackpad); Drag — pan both axes; Right-click chart area — reset axes and/or labels; Right-click a label — reset that label's position.",
                     systemImages: ["info.circle"]
                 )
                 #endif

@@ -11,9 +11,18 @@ import Foundation
 ///
 /// The underlying `GuitarMode` classification (used for color, icon, and range checks) is
 /// never altered — only the displayed text string can be overridden.
+///
+/// - Note: **Label stability caveat.** `.assigned` labels are stored as literal strings in JSON
+///   and are fully stable across app versions. `.auto` labels are *not* stored — they are
+///   re-evaluated at display time by calling `GuitarMode.classify(frequency:)`. This means
+///   that if classification boundaries change in a future version, a saved peak with `.auto`
+///   may display a different mode name than it did when the measurement was recorded.
+///   Peaks that sit near a boundary (e.g. ~195 Hz Air/Top boundary) are most at risk.
+///   If long-term label stability is required, assign an explicit label via `.assigned`.
 enum UserAssignedMode: Codable, Equatable, Hashable {
 
     /// Use the auto-detected label from `GuitarMode.classify(frequency:)`.
+    /// See stability caveat in the type-level documentation above.
     case auto
 
     /// Show the user-supplied string instead of the auto-detected label.

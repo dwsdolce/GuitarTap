@@ -476,7 +476,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** A measurement has been captured and peak annotations are visible.
 
-- [ ] Long-press (iOS/iPadOS) or click-and-drag (macOS) a peak label
+- [ ] Press and drag (iOS/iPadOS) or click-and-drag (macOS) a peak label
 - [ ] Drag it to a new position
 - [ ] Release
 - [ ] Verify the label is at the new position and stays there
@@ -490,7 +490,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** D11 completed; a label has been dragged to a non-default position.
 
-- [ ] Pinch/scroll to zoom the chart
+- [ ] Pinch to zoom (iOS/iPadOS) or scroll with Command/Option/Control modifier (macOS) to zoom the chart
 - [ ] Pan the chart
 - [ ] Verify the annotation label stays attached to its peak at the correct chart position
 - [ ] Confirm the label does not jump back to the default position
@@ -499,12 +499,12 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
-### D13 — Double-tap annotation resets position
+### D13 — Annotation reset to default position
 **Platforms:** iOS · iPadOS · macOS    **Priority:** Medium
 
 **Preconditions:** A label has been dragged to a non-default position (D11).
 
-- [ ] Double-tap the label
+- [ ] iOS/iPadOS: Double-tap the label; macOS: right-click and choose "Reset Position"
 - [ ] Verify the label snaps back to its default (zero-offset) position relative to the peak marker
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
@@ -523,14 +523,15 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
-### D15 — Selected mode shows only tapped labels
+### D15 — Selected mode shows only Results-panel-selected labels
 **Platforms:** iOS · iPadOS · macOS    **Priority:** Low
 
-**Preconditions:** Multiple peaks are visible.
+**Preconditions:** Multiple peaks are visible and at least one peak is not selected in the Results panel.
 
+- [ ] In the Results panel, confirm some peaks are selected and some are not
 - [ ] Cycle the Annotations button to the **Selected** mode
-- [ ] Tap one annotation label
-- [ ] Verify only the tapped label is visible and all others are hidden
+- [ ] Verify only the labels for Results-panel-selected peaks are visible
+- [ ] Verify labels for unselected peaks are hidden
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
@@ -553,17 +554,18 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
-### R8 — Export JSON is valid
+### R8 — Export JSON round-trip — export and re-import matches original
 **Platforms:** iOS · iPadOS · macOS    **Priority:** High
 
-**Preconditions:** A measurement is saved.
+**Preconditions:** A measurement with peaks is saved.
 
-- [ ] Open the measurement in the detail view
-- [ ] Tap **Export → JSON**
-- [ ] Share or save the file to Files / Finder
-- [ ] Open the file in a JSON viewer or text editor
-- [ ] Confirm the file opens without parse errors
-- [ ] Verify the file contains fields: `timestamp`, `peaks`, `annotationOffsets`, `guitarType`
+- [ ] Open the Measurements list; right-click (macOS) or long-press (iOS/iPadOS) the row and choose **View Details**; note the name, date, location/notes, and all peaks in the Results panel
+- [ ] Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Export as JSON/image**; save the file
+- [ ] Import the file using the **Import** toolbar button (macOS) or ellipsis → **Import from JSON** (iOS/iPadOS)
+- [ ] Right-click (macOS) or long-press (iOS/iPadOS) the newly imported row and choose **View Details**
+- [ ] Verify the name, date, and location/notes match the original
+- [ ] Verify the Results panel shows the same peaks with the same frequencies, magnitudes, and mode assignments
+- [ ] Verify the spectrum chart appearance matches the original
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
@@ -586,15 +588,16 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
-### R10 — iCloud sync between two devices
-**Platforms:** iOS · iPadOS    **Priority:** Low
+### R10 — Cross-device transfer via export/import
+**Platforms:** iOS · iPadOS · macOS    **Priority:** Low
 
-**Preconditions:** iPhone and iPad signed into the same iCloud account. iCloud Drive enabled.
+> **Note:** No automatic iCloud sync — cross-device transfer requires manual export/import.
 
-- [ ] Save a measurement on the iPhone
-- [ ] Wait up to 30 s
-- [ ] Open Measurements on the iPad
-- [ ] Verify the measurement saved on the iPhone appears in the list on the iPad
+**Preconditions:** Two devices with GuitarTap installed. A measurement is saved on device A.
+
+- [ ] On device A: right-click (macOS) or long-press (iOS/iPadOS) the measurement and choose **Export as JSON/image**; share the file to device B (e.g. via AirDrop, Files/iCloud Drive, or email)
+- [ ] On device B: import the file using **Import** toolbar button (macOS) or ellipsis → **Import from JSON** (iOS/iPadOS)
+- [ ] Verify the measurement appears in the list on device B
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 

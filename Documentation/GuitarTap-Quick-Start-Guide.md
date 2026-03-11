@@ -162,6 +162,10 @@ Scales the magnitude axis to fit the current signal. Tap it after each measureme
 
 Cycles through three label modes: All peaks annotated, Selected peaks only, or None.
 
+### ![](/tmp/guitar-tap-symbols/tag.png){height=14pt width=14pt} Peak Labels
+
+Drag any peak label to reposition it and avoid overlaps. To reset an individual label: double-tap it (iOS/iPadOS) or right-click it and choose "Reset Position" (macOS). To reset all labels at once: use the ellipsis menu's "Reset Labels" (iOS/iPadOS) or right-click the chart area (not a label) and choose "Reset Labels" (macOS).
+
 ### ![](/tmp/guitar-tap-symbols/square.and.arrow.down.png){height=14pt width=14pt} Save
 
 Saves the current measurement — enabled only when peaks are detected. Enter a location label and optional notes.
@@ -184,7 +188,7 @@ The ellipsis button in the top-right corner of the spectrum opens the Chart Opti
 
 ### ![](/tmp/guitar-tap-symbols/info.circle.png){height=14pt width=14pt} ⓘ Zoom & Pan Help *(macOS only)*
 
-The info button in the top-right corner of the spectrum shows the keyboard and trackpad shortcuts for navigating the chart: Scroll — pan vertically (magnitude); ⇧ Scroll — pan horizontally (frequency); ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency axis; ⌃ Scroll — zoom magnitude axis; Pinch — zoom (trackpad); Drag — pan both axes; Right-click — reset axes and labels.
+The info button in the top-right corner of the spectrum shows the keyboard and trackpad shortcuts for navigating the chart: Scroll — pan vertically (magnitude); ⇧ Scroll — pan horizontally (frequency); ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency axis; ⌃ Scroll — zoom magnitude axis; Pinch — zoom (trackpad); Drag — pan both axes; Right-click chart area — reset axes and/or labels; Right-click a label — reset that label's position.
 
 ## ![](/tmp/guitar-tap-symbols/slider.horizontal.3.png){height=18pt width=18pt} Tap Controls (main view)
 
