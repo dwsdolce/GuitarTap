@@ -122,6 +122,7 @@
 				8965D5B92F061CE300243E14 /* Frameworks */,
 				8965D5BA2F061CE300243E14 /* Resources */,
 				8966A48A2F48E988007090AA /* Set Build Number from Git */,
+				891DFA0A2F61ECD300A26408 /* Generate Help PDF (macOS only) */,
 			);
 			buildRules = (
 			);
@@ -239,6 +240,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		891DFA0A2F61ECD300A26408 /* Generate Help PDF (macOS only) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 12;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Generate Help PDF (macOS only)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$PLATFORM_NAME\" = \"macosx\" ]; then\n    bash \"${SRCROOT}/GuitarTap/generate-help.sh\"\nfi\n";
+		};
 		8966A48A2F48E988007090AA /* Set Build Number from Git */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
