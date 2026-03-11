@@ -179,6 +179,14 @@ struct MeasurementsListView: View {
                                 Label("Export Measurement", systemImage: "doc.badge.arrow.up")
                             }
 
+                            #if os(macOS)
+                            Button(action: {
+                                saveMeasurementToDisk(measurement)
+                            }) {
+                                Label("Save Measurement to Disk…", systemImage: "arrow.down.doc")
+                            }
+                            #endif
+
                             Button(action: {
                                 exportSpectrumMeasurement(measurement)
                             }) {
@@ -256,6 +264,17 @@ struct MeasurementsListView: View {
             }
         }
     }
+
+    #if os(macOS)
+    private func saveMeasurementToDisk(_ measurement: TapToneMeasurement) {
+        isExporting = true
+        analyzer.exportMeasurement(measurement) { json, measurement in
+            MeasurementFileExporter.saveMeasurementToDisk(json: json, measurement: measurement) {
+                self.isExporting = false
+            }
+        }
+    }
+    #endif
 
     private func exportSpectrumMeasurement(_ measurement: TapToneMeasurement) {
         isExporting = true

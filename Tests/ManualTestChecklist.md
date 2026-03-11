@@ -560,7 +560,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 **Preconditions:** A measurement with peaks is saved.
 
 - [ ] Open the Measurements list; right-click (macOS) or long-press (iOS/iPadOS) the row and choose **View Details**; note the name, date, location/notes, and all peaks in the Results panel
-- [ ] Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Export Measurement**; save the file (exported as a `.guitartap` file)
+- [ ] Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Save Measurement to Disk…** (macOS) or **Export Measurement** (iOS/iPadOS); save the `.guitartap` file
 - [ ] Import the file using the **Import** toolbar button (macOS) or ellipsis → **Import Measurement** (iOS/iPadOS)
 - [ ] Right-click (macOS) or long-press (iOS/iPadOS) the newly imported row and choose **View Details**
 - [ ] Verify the name, date, and location/notes match the original
@@ -595,7 +595,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** Two devices with GuitarTap installed. A measurement is saved on device A.
 
-- [ ] On device A: right-click (macOS) or long-press (iOS/iPadOS) the measurement and choose **Export Measurement**; share the `.guitartap` file to device B (e.g. via AirDrop, Files/iCloud Drive, or email); AirDrop will route the file directly to GuitarTap on the receiving device
+- [ ] On device A: choose **Export Measurement** (iOS/iPadOS, or macOS for share sheet) or **Save Measurement to Disk…** (macOS for save to disk); send the `.guitartap` file to device B via AirDrop, Files/iCloud Drive, or email; AirDrop will route the file directly to GuitarTap on the receiving device
 - [ ] On device B: import the file using **Import** toolbar button (macOS) or ellipsis → **Import Measurement** (iOS/iPadOS); legacy `.json` files are also accepted
 - [ ] Verify the measurement appears in the list on device B
 

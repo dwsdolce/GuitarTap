@@ -88,7 +88,7 @@ struct MeasurementFileExporter {
 
     // MARK: - JSON Export
 
-    /// Export only the JSON measurement file.
+    /// Export the measurement file via the share sheet (AirDrop, Messages, etc.).
     static func exportJSON(
         json: String,
         measurement: TapToneMeasurement,
@@ -100,6 +100,32 @@ struct MeasurementFileExporter {
         exportJSONMacOS(json: json, measurement: measurement, completion: completion)
         #endif
     }
+
+    #if os(macOS)
+    /// Save the measurement file directly to disk via a save panel.
+    static func saveMeasurementToDisk(
+        json: String,
+        measurement: TapToneMeasurement,
+        completion: @escaping () -> Void
+    ) {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.guitarTapMeasurement]
+        savePanel.nameFieldStringValue = "\(measurement.baseFilename).guitartap"
+        savePanel.canCreateDirectories = true
+        savePanel.message = "Save Measurement to Disk"
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                do {
+                    try json.write(to: url, atomically: true, encoding: .utf8)
+                    print("✅ Saved measurement to: \(url.path)")
+                } catch {
+                    print("❌ Failed to save measurement: \(error)")
+                }
+            }
+            completion()
+        }
+    }
+    #endif
 
     // MARK: - Spectrum Image Export
 
@@ -176,20 +202,15 @@ struct MeasurementFileExporter {
 
     #if os(macOS)
     private static func exportJSONMacOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.guitarTapMeasurement]
-        savePanel.nameFieldStringValue = "\(measurement.baseFilename).guitartap"
-        savePanel.canCreateDirectories = true
-        savePanel.message = "Save Measurement JSON"
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
-                do {
-                    try json.write(to: url, atomically: true, encoding: .utf8)
-                    print("✅ Saved measurement JSON to: \(url.path)")
-                } catch {
-                    print("❌ Failed to save JSON: \(error)")
-                }
-            }
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
+        do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            let fileURL = tempDir.appendingPathComponent("\(measurement.baseFilename).guitartap")
+            try json.write(to: fileURL, atomically: true, encoding: .utf8)
+            presentSharingPicker(items: [fileURL], completion: completion)
+        } catch {
+            print("❌ Failed to prepare measurement for sharing: \(error)")
             completion()
         }
     }
@@ -217,61 +238,20 @@ struct MeasurementFileExporter {
             completion()
         }
     }
-    #endif
 
-    #if os(iOS)
-    private static func exportiOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
-        let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
-        
-        do {
-            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-            
-            let basename = measurement.baseFilename
-            let jsonURL = tempDir.appendingPathComponent("\(basename).guitartap")
-            try json.write(to: jsonURL, atomically: true, encoding: .utf8)
-            
-            var itemsToShare: [URL] = [jsonURL]
-            
-            if let imageData = measurement.chartImageData {
-                let imageURL = tempDir.appendingPathComponent("\(basename).png")
-                try imageData.write(to: imageURL)
-                itemsToShare.append(imageURL)
-            }
-            
-            // Use UIActivityViewController (share sheet) like Export Spectrum does
-            DispatchQueue.main.async {
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let window = windowScene.windows.first(where: { $0.isKeyWindow }),
-                   let rootViewController = window.rootViewController {
-                    
-                    // Find the topmost presented view controller
-                    var topController = rootViewController
-                    while let presented = topController.presentedViewController {
-                        topController = presented
-                    }
-                    
-                    let activityVC = UIActivityViewController(activityItems: itemsToShare, applicationActivities: nil)
-                    
-                    // For iPad - set source for popover
-                    if let popover = activityVC.popoverPresentationController {
-                        popover.sourceView = topController.view
-                        popover.sourceRect = CGRect(x: topController.view.bounds.midX, 
-                                                    y: topController.view.bounds.midY, 
-                                                    width: 0, height: 0)
-                        popover.permittedArrowDirections = []
-                    }
-                    
-                    topController.present(activityVC, animated: true)
-                }
-                
+    private static func presentSharingPicker(items: [Any], completion: @escaping () -> Void) {
+        DispatchQueue.main.async {
+            guard let window = NSApplication.shared.keyWindow,
+                  let contentView = window.contentView else {
                 completion()
+                return
             }
-        } catch {
-            print("Failed to export: \(error)")
+            let picker = NSSharingServicePicker(items: items)
+            // Show centred on the content view; picker retains itself until dismissed
+            let centre = CGRect(x: contentView.bounds.midX, y: contentView.bounds.midY, width: 0, height: 0)
+            picker.show(relativeTo: centre, of: contentView, preferredEdge: .minY)
             completion()
         }
     }
     #endif
-    
 }

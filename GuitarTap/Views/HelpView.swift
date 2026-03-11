@@ -214,7 +214,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Measurements",
-                    body: "Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (saves the measurement as a .guitartap file for import on another device), Export Spectrum (saves the saved chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device.",
+                    body: "Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device.",
                     systemImages: ["list.bullet.clipboard"]
                 )
                 helpRow(

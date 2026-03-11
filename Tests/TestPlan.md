@@ -817,7 +817,7 @@ Each procedure follows the format:
 **Preconditions:** A measurement with peaks is saved.
 **Steps:**
 1. Open the Measurements list. Right-click (macOS) or long-press (iOS/iPadOS) the measurement row and choose **View Details**. Note the name, date, location/notes, and all peaks shown in the Results panel.
-2. Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Export Measurement**. Save the file (exported as a `.guitartap` file).
+2. Right-click (macOS) or long-press (iOS/iPadOS) the same row and choose **Save Measurement to Disk…** (macOS) or **Export Measurement** (iOS/iPadOS). Save the `.guitartap` file.
 3. Import the file using the **Import** toolbar button (macOS) or ellipsis → **Import Measurement** (iOS/iPadOS). A single-measurement import automatically loads it into the main view and adds it to the list.
 4. Right-click (macOS) or long-press (iOS/iPadOS) the newly imported row and choose **View Details**.
 
@@ -846,7 +846,7 @@ Each procedure follows the format:
 > **Note:** Measurements are stored in the app's local document directory. There is no automatic iCloud or CloudKit sync — measurements do **not** automatically appear on other devices. Cross-device transfer requires manual export/import.
 
 **Steps:**
-1. On device A: right-click (macOS) or long-press (iOS/iPadOS) the measurement and choose **Export Measurement**. Save or share the `.guitartap` file to a location accessible from device B (e.g. Files/iCloud Drive, AirDrop, email). AirDrop will route the file directly to GuitarTap on the receiving device.
+1. On device A: right-click (macOS) or long-press (iOS/iPadOS) the measurement and choose **Export Measurement** (opens the share sheet — choose AirDrop to send directly to device B) or **Save Measurement to Disk…** (macOS only — save to disk then share via Finder). AirDrop will route the `.guitartap` file directly to GuitarTap on the receiving device.
 2. On device B: use the **Import** toolbar button (macOS) or ellipsis → **Import Measurement** (iOS/iPadOS) to import the file. Legacy `.json` files are also accepted.
 
 **Expected result:** The measurement appears in the list on device B.
