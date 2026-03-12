@@ -1010,10 +1010,11 @@ Each procedure follows the format:
 
 #### K2 — Chart renders with a saved measurement
 **Platforms:** iOS · iPadOS · macOS · **Priority:** High · **Part 1 ref:** K2
-**Preconditions:** The `chris-1771351833.json` fixture file is available (included in the repo at `GuitarTapTests/`).
+**Preconditions:** At least one measurement has been saved using the **Save** button during a previous tap tone session (see R8).
 **Steps:**
-1. Use Files (iOS) or Finder (macOS) to import `chris-1771351833.json` into GuitarTap using **Import Measurement** (iOS/iPadOS) or the **Import** toolbar button (macOS). Legacy `.json` files are accepted alongside the newer `.guitartap` format.
-2. Open the imported measurement from the Measurements list.
+1. Export that measurement to a `.guitartap` file using **Export Measurement** (iOS/iPadOS share sheet) or **Save Measurement to Disk…** (macOS).
+2. Re-import it using **Import Measurement** (iOS/iPadOS) or the **Import** toolbar button (macOS).
+3. Open the imported measurement from the Measurements list.
 
 **Expected result:** The spectrum chart renders with the correct peaks annotated. No blank chart or decode error.
 
