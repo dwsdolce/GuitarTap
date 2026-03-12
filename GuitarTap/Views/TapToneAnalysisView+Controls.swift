@@ -14,23 +14,10 @@ extension TapToneAnalysisView {
             // Top row: Main controls - adaptive for iOS
             #if os(iOS)
             if useCompactLayout {
-                // Compact layout for iPhone - icon-only secondary buttons (primary buttons are in toolbar)
+                // iPhone portrait: icon-only button bar (all buttons except Start/Results/Metrics/Settings which are in the nav bar)
                 HStack(spacing: 8) {
-                    // Results button
-                    Button(action: { showingResults.toggle() }) {
-                        Image(systemName: showingResults ? "doc.text.fill" : "doc.text")
-                    }
-                    .buttonStyle(.bordered)
-                    .hint(HintText.showResults)
+                    Spacer()
 
-                    // Metrics button
-                    Button(action: { showingMetrics.toggle() }) {
-                        Image(systemName: showingMetrics ? "chart.bar.fill" : "chart.bar")
-                    }
-                    .buttonStyle(.bordered)
-                    .hint(HintText.showMetrics)
-
-                    // Auto-scale dB toggle button
                     Button(action: { toggleAutoScale() }) {
                         Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                     }
@@ -39,14 +26,13 @@ extension TapToneAnalysisView {
                     .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
                     .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
-                    // Crosshair mode toggle button
                     Button(action: { crosshairMode.toggle() }) {
                         Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                     }
                     .buttonStyle(.bordered)
                     .tint(crosshairMode ? .blue : .gray)
+                    .accessibilityLabel("Crosshair")
 
-                    // Annotation visibility cycling button
                     Button(action: { tap.cycleAnnotationVisibility() }) {
                         Image(systemName: tap.annotationVisibilityMode.iconName)
                     }
@@ -54,6 +40,23 @@ extension TapToneAnalysisView {
                     .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
                     .disabled(tap.currentPeaks.isEmpty)
                     .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
+
+                    Button(action: { showingSaveSheet = true }) {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(tap.currentPeaks.isEmpty)
+                    .accessibilityLabel("Save")
+                    .hint(HintText.save)
+
+                    Button(action: { showingMeasurements = true }) {
+                        Image(systemName: "list.bullet.clipboard")
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel("Measurements")
+                    .hint(HintText.measurements)
+
+                    Spacer()
                 }
             } else {
                 // Regular layout for iPad
@@ -462,8 +465,8 @@ extension TapToneAnalysisView {
                 .fill(tap.tapDetected ? Color.green : Color.gray.opacity(0.3))
                 .frame(width: 10, height: 10)
 
-            // Status text - truncated if needed
-            Text(tap.tapDetected ? "Tap!" : "Waiting...")
+            // Status message - shows rich model state messages
+            Text(tap.statusMessage)
                 .font(.caption)
                 .foregroundColor(tap.tapDetected ? .green : .secondary)
                 .lineLimit(1)
@@ -488,6 +491,14 @@ extension TapToneAnalysisView {
             }
 
             Spacer()
+
+            // Peak info when running
+            if fft.isRunning {
+                Text("Peak: \(fft.peakMagnitude, specifier: "%.1f") dB @ \(fft.peakFrequency, specifier: "%.1f") Hz")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .lineLimit(1)
+            }
 
             // Frozen indicator
             if tap.isSpectrumFrozen {
@@ -557,12 +568,6 @@ extension TapToneAnalysisView {
 
                 // FFT Status info
                 if fft.isRunning {
-                    Text("\(fft.frequencies.count) bins")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                    Text("•")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                     Text("Peak: \(fft.peakMagnitude, specifier: "%.1f") dB @ \(fft.peakFrequency, specifier: "%.1f") Hz")
                         .font(.caption)
                         .foregroundColor(.blue)

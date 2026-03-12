@@ -168,7 +168,7 @@ Saves the current measurement — enabled only when peaks are detected. Enter a 
 
 ### ![](/tmp/guitar-tap-symbols/list.bullet.clipboard.png){height=14pt width=14pt} Measurements
 
-Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (saves the measurement as a .guitartap file for import on another device), Export Spectrum (saves the saved chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device.
+Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device.
 
 ### ![](/tmp/guitar-tap-symbols/chart.bar.png){height=14pt width=14pt} Metrics
 

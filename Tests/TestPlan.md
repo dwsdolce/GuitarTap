@@ -224,7 +224,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 
 | ID | Name | Type | Platforms | Priority | Description |
 |---|---|---|---|---|---|
-| U1 | All primary controls present on iPhone (compact) | M | iOS | High | On iPhone SE or similar: Start, Results, Save, Settings, Measurements buttons all visible or accessible via toolbar |
+| U1 | All primary controls present on iPhone (compact) | M | iOS | High | Portrait: Start/Results (nav bar left), Metrics/Settings (nav bar right), Auto dB/Crosshair/Annotations/Save/Measurements (header button bar). Landscape: Start/Results/Auto dB/Crosshair (nav bar left), Annotations/Save/Measurements/Metrics/Settings (nav bar right) |
 | U2 | All primary controls present on iPad | M | iPadOS | High | On iPad: full-label two-row layout visible without scrolling |
 | U3 | All primary controls present on macOS | M | mac | High | On macOS at 800 px wide: all buttons visible in one or two rows |
 | U4 | macOS window narrows to icon-only layout | M | mac | Medium | Narrow the window to <600 px; verify `ViewThatFits` switches to icon-only layout without truncation |
@@ -859,11 +859,13 @@ Each procedure follows the format:
 **Platforms:** iOS · **Priority:** High · **Part 1 ref:** U1
 **Preconditions:** iPhone with a compact horizontal size class (iPhone SE, iPhone 15, etc.)
 **Steps:**
-1. Launch GuitarTap on iPhone.
-2. Verify the toolbar or header row contains: Start/Stop, Results, Save, Settings, Measurements.
-3. Verify secondary controls (Auto dB, Crosshair, Annotations) are accessible. Export Spectrum is now in the Results panel.
+1. Launch GuitarTap on iPhone in portrait.
+2. Verify nav bar left contains: Start/Stop, Results. Nav bar right contains: Metrics, Settings.
+3. Verify the header button bar contains: Auto dB, Crosshair, Annotations, Save, Measurements (icon-only bordered buttons).
+4. Rotate to landscape.
+5. Verify nav bar left contains: Start/Stop, Results, Auto dB, Crosshair. Nav bar right contains: Annotations, Save, Measurements, Metrics, Settings.
 
-**Expected result:** No required button is clipped, hidden under another element, or missing. Secondary controls appear as icon-only buttons in the compact layout.
+**Expected result:** All 9 controls are present in both orientations with no clipping. Button order is consistent with iPad layout.
 
 ---
 

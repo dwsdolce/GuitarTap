@@ -37,6 +37,14 @@ struct FFTAnalysisMetricsView: View {
                         value: formatFrequency(analyzer.frequencyResolution),
                         subtitle: "Hz per bin"
                     )
+
+                    Divider()
+
+                    MetricRow(
+                        label: "Bin Count",
+                        value: analyzer.frequencies.isEmpty ? "—" : "\(analyzer.frequencies.count)",
+                        subtitle: "FFT output bins (guitar mode only)"
+                    )
                     
                     Divider()
                     

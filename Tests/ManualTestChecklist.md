@@ -610,10 +610,14 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** iPhone with compact horizontal size class (iPhone SE, iPhone 15, etc.).
 
-- [ ] Launch GuitarTap on iPhone
-- [ ] Verify these controls are visible or accessible via toolbar: Start/Stop, Results, Save, Settings, Measurements
-- [ ] Verify secondary controls are accessible: Auto dB, Crosshair, Annotations (Export Spectrum is now in the Results panel)
-- [ ] Confirm no required button is clipped, hidden under another element, or missing
+- [ ] Launch GuitarTap on iPhone in portrait
+- [ ] Verify nav bar left: Start/Stop, Results
+- [ ] Verify nav bar right: Metrics, Settings
+- [ ] Verify header button bar: Auto dB, Crosshair, Annotations, Save, Measurements (icon-only bordered buttons)
+- [ ] Rotate to landscape
+- [ ] Verify nav bar left: Start/Stop, Results, Auto dB, Crosshair
+- [ ] Verify nav bar right: Annotations, Save, Measurements, Metrics, Settings
+- [ ] Confirm no button is clipped, hidden, or missing in either orientation
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 

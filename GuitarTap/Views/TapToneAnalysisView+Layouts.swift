@@ -244,6 +244,7 @@ extension TapToneAnalysisView {
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // Left: Start, Results, Auto dB, Crosshair
             ToolbarItemGroup(placement: .topBarLeading) {
                 Button(action: toggleAnalyzer) {
                     Image(systemName: fft.isRunning ? "stop.circle.fill" : "play.circle.fill")
@@ -252,38 +253,29 @@ extension TapToneAnalysisView {
                 .accessibilityLabel(fft.isRunning ? "Stop" : "Start")
                 .hint(HintText.start(isRunning: fft.isRunning))
 
-                Button(action: { showingSaveSheet = true }) {
-                    Image(systemName: "square.and.arrow.down")
+                Button(action: { showingResults.toggle() }) {
+                    Image(systemName: "doc.text")
                 }
-                .disabled(tap.currentPeaks.isEmpty)
-                .accessibilityLabel("Save")
-                .hint(HintText.save)
+                .accessibilityLabel("Results")
+                .hint(HintText.showResults)
 
-                // Export Spectrum button
-                Button(action: { exportCurrentSpectrum() }) {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                }
-                .disabled(!fft.isRunning || fft.frequencies.isEmpty)
-                .accessibilityLabel("Export Spectrum")
-                .hint(HintText.exportSpectrum)
-
-                // Auto-scale dB toggle button
                 Button(action: { toggleAutoScale() }) {
                     Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
                 .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
+                .tint(isAutoScaleEnabled ? .blue : nil)
                 .accessibilityLabel("Auto dB")
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
-            }
 
-            ToolbarItemGroup(placement: .topBarTrailing) {
                 Button(action: { crosshairMode.toggle() }) {
                     Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                 }
                 .tint(crosshairMode ? .blue : nil)
                 .accessibilityLabel("Crosshair")
+            }
 
-                // Annotation visibility cycling button
+            // Right: Annotations, Save, Measurements, Metrics, Settings
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 Button(action: { tap.cycleAnnotationVisibility() }) {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
@@ -291,23 +283,24 @@ extension TapToneAnalysisView {
                 .disabled(tap.currentPeaks.isEmpty)
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
-                Button(action: { showingResults.toggle() }) {
-                    Image(systemName: "doc.text")
+                Button(action: { showingSaveSheet = true }) {
+                    Image(systemName: "square.and.arrow.down")
                 }
-                .accessibilityLabel("Results")
-                .hint(HintText.showResults)
-
-                Button(action: { showingMetrics.toggle() }) {
-                    Image(systemName: "chart.bar")
-                }
-                .accessibilityLabel("Metrics")
-                .hint(HintText.showMetrics)
+                .disabled(tap.currentPeaks.isEmpty)
+                .accessibilityLabel("Save")
+                .hint(HintText.save)
 
                 Button(action: { showingMeasurements = true }) {
                     Image(systemName: "list.bullet.clipboard")
                 }
                 .accessibilityLabel("Measurements")
                 .hint(HintText.measurements)
+
+                Button(action: { showingMetrics.toggle() }) {
+                    Image(systemName: "chart.bar")
+                }
+                .accessibilityLabel("Metrics")
+                .hint(HintText.showMetrics)
 
                 Button(action: { showingSettings = true }) {
                     Image(systemName: "gearshape")
@@ -506,8 +499,8 @@ extension TapToneAnalysisView {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if useCompactLayout {
+                // Left: Start, Results
                 ToolbarItemGroup(placement: .topBarLeading) {
-                    // Start/Stop button
                     Button(action: toggleAnalyzer) {
                         Image(systemName: fft.isRunning ? "stop.circle.fill" : "play.circle.fill")
                             .foregroundColor(fft.isRunning ? .red : .green)
@@ -515,30 +508,29 @@ extension TapToneAnalysisView {
                     .accessibilityLabel(fft.isRunning ? "Stop" : "Start")
                     .hint(HintText.start(isRunning: fft.isRunning))
 
-                    // Save button
-                    Button(action: { showingSaveSheet = true }) {
-                        Image(systemName: "square.and.arrow.down")
+                    Button(action: { showingResults.toggle() }) {
+                        Image(systemName: "doc.text")
                     }
-                    .disabled(tap.currentPeaks.isEmpty)
-                    .accessibilityLabel("Save")
-                    .hint(HintText.save)
+                    .accessibilityLabel("Results")
+                    .hint(HintText.showResults)
                 }
 
+                // Right: Metrics, Settings
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    // Measurements button
-                    Button(action: { showingMeasurements = true }) {
-                        Image(systemName: "list.bullet.clipboard")
+                    Button(action: { showingMetrics.toggle() }) {
+                        Image(systemName: "chart.bar")
                     }
-                    .accessibilityLabel("Measurements")
-                    .hint(HintText.measurements)
+                    .accessibilityLabel("Metrics")
+                    .hint(HintText.showMetrics)
 
-                    // Settings button
                     Button(action: { showingSettings = true }) {
                         Image(systemName: "gearshape")
                     }
                     .accessibilityLabel("Settings")
                     .hint(HintText.settings)
                 }
+
+
             }
         }
         #endif
