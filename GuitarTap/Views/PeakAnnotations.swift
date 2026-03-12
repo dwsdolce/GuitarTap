@@ -482,7 +482,7 @@ private struct PeakAnnotationLabel: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color(white: 0.95))
+                .fill(.background.secondary)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
