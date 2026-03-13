@@ -5,14 +5,91 @@
 //  Created on 1/25/26.
 //
 
+/// # TapToneAnalyzer+SpectrumCapture
+///
+/// Implements the gated-FFT capture pipeline used for plate and brace
+/// measurements, along with the frequency-domain spectrum averaging used
+/// for both multi-tap guitar and material measurements.
+///
+/// ## Gated FFT Architecture
+/// The continuous FFT operates on a fixed long window (≈ 400 ms at the
+/// `gatedCaptureDuration` constant). For guitar measurements this is fine
+/// because the tap-detection threshold ensures we see the ring-out. For
+/// plate and brace measurements the ring-out is much shorter and the
+/// transient tap energy is spread across the full window, reducing the
+/// apparent peak magnitude by up to ~15 dB.
+///
+/// The gated approach captures *raw PCM samples* starting just before the
+/// tap onset (via the pre-roll buffer) and running until the window fills:
+///
+/// ```
+/// ┌────────────────────────────────────┐
+/// │  200 ms pre-roll  │  400 ms gate   │
+/// │  (ring buffer)    │  (new samples) │
+/// └────────────────────────────────────┘
+///               ↑ tap onset
+/// ```
+///
+/// The pre-roll ring buffer (``preRollBuffer``) holds the most recent
+/// `preRollSamples` worth of audio at all times.  When
+/// ``startGatedCapture(phase:)`` is called, the pre-roll is immediately
+/// seeded into ``gatedAccumBuffer`` so the tap attack transient — which
+/// arrived slightly before the detection event — is included in the
+/// captured window.
+///
+/// ## Dominant Peak Selection — HPS + Q filter
+/// ``findDominantPeak(magnitudes:frequencies:minHz:maxHz:preferLowestSignificant:)``
+/// uses a two-stage strategy:
+///
+/// 1. **Q filtering**: candidates with Q < 3 are rejected as impact thuds
+///    or broadband noise (real material resonances have Q ≥ 3 even in a
+///    short 400 ms window).
+/// 2. **Magnitude + HPS tie-breaking**: the highest-magnitude remaining
+///    candidate wins unless a lower-frequency candidate is within 6 dB
+///    and has a comparable HPS score (within 1 order of magnitude),
+///    in which case the lower-frequency fundamental is preferred.
+///
+/// HPS (Harmonic Product Spectrum) is computed up to the 3rd harmonic:
+/// ```
+/// HPS(i) = linear(i) × linear(2i) × linear(3i)
+/// ```
+/// where `linear(i) = 10^(magnitudes[i] / 20)`.
+///
+/// ## Frequency-Domain Power Averaging
+/// Multiple taps from the same phase are averaged in the **linear power
+/// domain** before peak detection runs on the average:
+/// ```
+/// p_avg = (1/N) × Σ 10^(dB_n / 10)       [per bin]
+/// dB_avg = 10 × log10(p_avg)
+/// ```
+/// Averaging power (rather than amplitude or dB) is the physically correct
+/// approach for non-periodic impulse responses where inter-tap phase
+/// alignment cannot be guaranteed.
+
 import Foundation
 
 extension TapToneAnalyzer {
 
     // MARK: - Gated FFT Capture (Plate/Brace)
 
-    /// Called on the audioProcessingQueue for every incoming buffer of raw samples.
-    /// Maintains the pre-roll ring buffer and accumulates samples for gated FFT capture.
+    /// Receives raw PCM samples from the audio engine and maintains both the
+    /// pre-roll ring buffer and the active gated capture buffer.
+    ///
+    /// Called on `audioProcessingQueue` for every incoming audio buffer.
+    /// When `gatedCaptureActive` is `true`, incoming samples are appended
+    /// to `gatedAccumBuffer`. When the buffer reaches `gatedCaptureSamples`
+    /// the capture is closed and `finishGatedFFTCapture` is dispatched to
+    /// the main thread.
+    ///
+    /// - Parameters:
+    ///   - samples: Raw PCM samples (mono, normalised to ±1.0) from the
+    ///     current audio buffer.
+    ///   - sampleRate: The current hardware sample rate in Hz. Stored as
+    ///     `mpmSampleRate` for use in the FFT computation.
+    ///
+    /// - Note: This method is **not** thread-safe without the surrounding
+    ///   `mpmLock` NSLock; all access to `preRollBuffer` and
+    ///   `gatedAccumBuffer` is protected by that lock.
     func accumulateGatedSamples(_ samples: [Float], sampleRate: Double) {
         mpmSampleRate = sampleRate
 
@@ -51,11 +128,20 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Open a short raw-PCM capture window for the current plate/brace phase.
+    /// Opens a raw-PCM capture window for the current plate/brace phase.
     ///
-    /// `accumulateGatedSamples` routes incoming audio into `gatedAccumBuffer` while
-    /// `gatedCaptureActive` is true.  When the window fills (400 ms by default)
-    /// `finishGatedFFTCapture` is called on the main thread.
+    /// Seeds `gatedAccumBuffer` with the pre-roll contents so the tap attack
+    /// transient (which arrived slightly before this call) is included in
+    /// the captured window. Sets `gatedCaptureActive = true` to start
+    /// accumulating new samples via ``accumulateGatedSamples(_:sampleRate:)``.
+    ///
+    /// A safety timeout fires after 2 seconds: if the buffer still has audio
+    /// at that point, it is flushed to ``finishGatedFFTCapture``; if empty,
+    /// the user is prompted to tap again.
+    ///
+    /// - Parameter phase: The ``MaterialTapPhase`` being captured. Stored as
+    ///   `gatedCapturePhase` so the phase handler can be routed correctly
+    ///   when the window closes.
     func startGatedCapture(phase: MaterialTapPhase) {
         mpmLock.lock()
         // Seed the gated buffer with the pre-roll contents so the tap attack transient
@@ -86,12 +172,34 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Called on the main thread once the gated capture window fills (or times out).
+    /// Processes the captured PCM window and routes the result to the
+    /// appropriate phase handler.
     ///
-    /// Runs `computeGatedFFT` on the captured samples and finds the dominant peak —
-    /// the strongest resonance in the ring-out spectrum above 20 Hz.  No frequency
-    /// window assumptions are made: the tap orientation physically selects the mode,
-    /// so the strongest peak is the correct one.
+    /// Runs `RealtimeFFTAnalyzer.computeGatedFFT` to transform the raw
+    /// samples into a magnitude spectrum. Applies a phase-specific frequency
+    /// search window and calls ``findDominantPeak(magnitudes:frequencies:minHz:maxHz:preferLowestSignificant:)``
+    /// to identify the strongest material resonance.
+    ///
+    /// Rejects the capture and requests a re-tap if:
+    /// - The FFT returns an empty spectrum.
+    /// - No peak is found in the search window.
+    /// - The dominant peak is below `tapDetectionThreshold` (weak tap).
+    ///
+    /// The per-phase frequency search windows are:
+    ///
+    /// | Mode / Phase | Min Hz | Max Hz |
+    /// |---|---|---|
+    /// | Brace (longitudinal) | 100 | 1200 |
+    /// | Plate — longitudinal | 50 | 500 |
+    /// | Plate — cross-grain | 20 | 250 |
+    /// | Plate — FLC | 20 | 200 |
+    ///
+    /// - Parameters:
+    ///   - samples: Captured PCM samples (pre-roll + gate window).
+    ///   - sampleRate: Hardware sample rate in Hz.
+    ///   - phase: The ``MaterialTapPhase`` active at capture time.
+    ///
+    /// - Note: Called on the main thread via `DispatchQueue.main.async`.
     func finishGatedFFTCapture(samples: [Float], sampleRate: Double, phase: MaterialTapPhase) {
         let (magnitudes, frequencies) = fftAnalyzer.computeGatedFFT(samples: samples, sampleRate: sampleRate)
 
@@ -150,7 +258,7 @@ extension TapToneAnalyzer {
         }
 
         // Reject captures where the dominant peak is below the tap detection threshold.
-        // If the best peak found is below the threshold, the ring-out was too weak -
+        // If the best peak found is below the threshold, the ring-out was too weak —
         // likely a noise trigger, not a real tap — so ask the user to tap again.
         if dominantPeak.magnitude < tapDetectionThreshold {
             print("⚠️ Gated FFT: dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB is below tap detection threshold (\(String(format: "%.0f", tapDetectionThreshold)) dB) — tap again")
@@ -186,13 +294,39 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Find the dominant resonance peak in the gated FFT spectrum.
+    /// Selects the dominant resonance peak from a gated-FFT spectrum.
     ///
-    /// Strategy: the tap orientation physically selects the resonant mode, so the
-    /// highest-magnitude local peak in the expected frequency range is the right answer
-    /// for plate/brace measurements.  HPS is applied as a secondary score to break ties
-    /// between closely-matched peaks and to prefer the fundamental over a louder harmonic
-    /// when the magnitude difference is small (< 6 dB).
+    /// The algorithm operates in two steps:
+    ///
+    /// **Step 1 — Candidate collection:** Find all local maxima above the
+    /// median (noise floor) of the search range. For each candidate, compute:
+    /// - Raw magnitude (dB).
+    /// - HPS score: `linear[i] × linear[2i] × linear[3i]` (order 3).
+    /// - Q factor via the −3 dB bandwidth method.
+    ///
+    /// **Step 2 — Selection:**
+    /// - Filter out candidates with Q < 3 (impact thuds / broadband noise).
+    /// - If `preferLowestSignificant` is `true` (plate/brace longitudinal and
+    ///   cross-grain phases): among Q-filtered candidates, pick the
+    ///   lowest-frequency one within 15 dB of the strongest.
+    /// - Otherwise: the highest-magnitude candidate wins unless a
+    ///   lower-frequency candidate is within 6 dB and has an HPS score
+    ///   within one order of magnitude (prefers fundamental over harmonics).
+    ///
+    /// The winner's frequency and magnitude are refined with parabolic
+    /// interpolation before being returned.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: dBFS magnitude spectrum from the gated FFT.
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
+    ///   - minHz: Lower search bound in Hz. Defaults to 20 Hz.
+    ///   - maxHz: Upper search bound in Hz. Defaults to 2000 Hz.
+    ///   - preferLowestSignificant: When `true`, the lowest-frequency
+    ///     candidate within 15 dB of the peak is chosen instead of the
+    ///     highest-magnitude candidate. Use for longitudinal and cross-grain
+    ///     phases where the tap orientation selects the plate's fundamental.
+    /// - Returns: The best ``ResonantPeak``, or `nil` if no candidates are
+    ///   found above the adaptive noise floor.
     func findDominantPeak(magnitudes: [Float],
                           frequencies: [Float],
                           minHz: Float = 20,
@@ -318,8 +452,21 @@ extension TapToneAnalyzer {
                             pitchFrequency: pitchFreq)
     }
 
-    /// Gated-FFT handler for the longitudinal phase — mirrors `handleLongitudinalTapProgress`
-    /// but uses the pre-computed `dominantPeak` instead of re-running `findPeaks`.
+    /// Gated-FFT handler for the longitudinal capture phase.
+    ///
+    /// Mirrors ``handleLongitudinalTapProgress(magnitudes:frequencies:)`` but
+    /// uses the pre-computed `dominantPeak` from `findDominantPeak` instead of
+    /// re-running `findPeaks`. Also calls
+    /// ``buildAllPeaks(magnitudes:frequencies:dominantPeak:)`` to populate the
+    /// full peak list for manual override.
+    ///
+    /// Transitions to `.waitingForCrossTap` (plate) or `.complete` (brace)
+    /// when `numberOfTaps` longitudinal taps have been collected.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Averaged gated-FFT magnitude spectrum (dBFS).
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
+    ///   - dominantPeak: The pre-selected dominant peak from this tap.
     func handleLongitudinalGatedProgress(magnitudes: [Float],
                                          frequencies: [Float],
                                          dominantPeak: ResonantPeak) {
@@ -378,7 +525,17 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Gated-FFT handler for the cross-grain phase.
+    /// Gated-FFT handler for the cross-grain capture phase.
+    ///
+    /// Accumulates cross-grain taps until `numberOfTaps` have been collected.
+    /// Averages all captured spectra, auto-selects the best cross-grain peak,
+    /// and either transitions to `.waitingForFlcTap` (FLC enabled) or marks
+    /// the measurement `.complete`.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Current gated-FFT magnitude spectrum (dBFS).
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
+    ///   - dominantPeak: The pre-selected dominant peak from this tap.
     func handleCrossGatedProgress(magnitudes: [Float],
                                    frequencies: [Float],
                                    dominantPeak: ResonantPeak) {
@@ -428,7 +585,16 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Gated-FFT handler for the FLC (shear/diagonal) phase.
+    /// Gated-FFT handler for the FLC (shear/diagonal) capture phase.
+    ///
+    /// Accumulates FLC taps until `numberOfTaps` have been collected, then
+    /// averages all captured spectra, auto-selects the best FLC peak, and
+    /// marks the measurement `.complete` with all three phase peaks populated.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Current gated-FFT magnitude spectrum (dBFS).
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
+    ///   - dominantPeak: The pre-selected dominant peak from this tap.
     func handleFlcGatedProgress(magnitudes: [Float],
                                  frequencies: [Float],
                                  dominantPeak: ResonantPeak) {
@@ -464,9 +630,23 @@ extension TapToneAnalyzer {
         print("✅ Plate complete: L=\(longitudinalPeaks.first?.frequency ?? 0) C=\(crossPeaks.first?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
     }
 
-    /// Build a peak list for display from the averaged gated-FFT spectrum.
-    /// Ensures `dominantPeak` is always present (it may not appear in `findPeaks`
-    /// if it falls outside the guitar mode ranges).
+    /// Builds a display-ready peak list from a gated-FFT spectrum, ensuring
+    /// that `dominantPeak` is always present.
+    ///
+    /// Runs the standard ``findPeaks(magnitudes:frequencies:minHz:maxHz:)``
+    /// finder with no range restrictions so the user can see and manually
+    /// select any peak in the spectrum. If a peak near `dominantPeak.frequency`
+    /// (within 2 Hz) is found, it is replaced with `dominantPeak` so that the
+    /// `autoSelectedXxxPeakID == dominantPeak.id` identity invariant holds
+    /// for all subsequent UUID-based lookups. If no nearby peak is found,
+    /// `dominantPeak` is prepended.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Averaged gated-FFT spectrum (dBFS).
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
+    ///   - dominantPeak: The already-selected dominant peak whose UUID must
+    ///     appear in the returned array.
+    /// - Returns: Full peak array with `dominantPeak` guaranteed to be present.
     func buildAllPeaks(magnitudes: [Float],
                        frequencies: [Float],
                        dominantPeak: ResonantPeak) -> [ResonantPeak] {
@@ -486,69 +666,36 @@ extension TapToneAnalyzer {
 
     // MARK: - Spectrum Capture
 
-    /// Finish capturing spectrum after capture window
+    /// Invalidates the capture-window timer after the ring-out window closes.
+    ///
+    /// For guitar mode, `captureTimer` is started immediately after a tap is
+    /// detected and fires after `captureWindow` seconds. This method is called
+    /// from the timer callback to clean up the reference.
     func finishCapture() {
         captureTimer?.invalidate()
         captureTimer = nil
     }
     
-    /// Process multiple captured taps using frequency-domain magnitude averaging.
+    /// Averages multiple tap spectra using frequency-domain power averaging.
     ///
-    /// Each tap has already been independently transformed into a magnitude spectrum
-    /// by `computeGatedFFT`. This function averages those spectra bin-by-bin in the
-    /// linear power domain (see `averageSpectra`), then runs peak detection once on
-    /// the averaged result. Averaging in the frequency domain after discarding phase
-    /// is the correct approach for non-periodic impulse responses: there is no
-    /// meaningful inter-tap phase relationship to preserve, and power averaging
-    /// reduces random noise while keeping consistent resonance peaks.
-    func processMultipleTaps() {
-        guard !capturedTaps.isEmpty else { return }
-        
-        print("🔬 Processing \(capturedTaps.count) taps for averaging...")
-        
-        // Average the per-tap magnitude spectra in the frequency domain
-        let (avgMagnitudes, avgFrequencies) = averageSpectra(from: capturedTaps)
-        
-        // Freeze the averaged spectrum for display
-        frozenFrequencies = avgFrequencies
-        frozenMagnitudes = avgMagnitudes
-        isSpectrumFrozen = true
-        print("📸 Spectrum frozen with averaged data from \(capturedTaps.count) taps")
-        
-        // Now find peaks in the AVERAGED spectrum so they align with what's displayed
-        // This ensures peak markers sit on actual peaks in the averaged waveform
-        let peaksFromAveragedSpectrum = findPeaks(magnitudes: avgMagnitudes, frequencies: avgFrequencies)
-        
-        // Update current peaks with peaks from averaged spectrum
-        currentPeaks = peaksFromAveragedSpectrum
-        selectedPeakIDs = Set(peaksFromAveragedSpectrum.map { $0.id })
-        
-        // Classify modes based on peaks
-        identifiedModes = peaksFromAveragedSpectrum.map { peak in
-            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
-        }
-        
-        // Update status
-        statusMessage = "Analysis complete! \(peaksFromAveragedSpectrum.count) peaks identified (from \(capturedTaps.count) averaged taps)."
-        tapProgress = 1.0
-        
-        print("✅ Found \(peaksFromAveragedSpectrum.count) peaks in averaged spectrum from \(capturedTaps.count) taps")
-    }
-    
-    /// Average per-tap FFT magnitude spectra in the linear power domain.
+    /// Averaging in the frequency domain after discarding phase is the correct
+    /// approach for non-periodic impulse responses: there is no meaningful
+    /// inter-tap phase relationship to preserve, and power averaging reduces
+    /// random noise while keeping consistent resonance peaks.
     ///
-    /// Each entry in `taps` contains a magnitude spectrum (in dB) already produced
-    /// by `computeGatedFFT` for a single tap. Averaging is done bin-by-bin:
+    /// The per-bin averaging formula is:
+    /// ```
+    /// p_i = 10^(dB_i / 10)           [dB → linear power, per tap]
+    /// avg_p = (1/N) Σ p_i            [average power across N taps]
+    /// dB_avg = 10 × log10(avg_p)     [back to dB]
+    /// ```
     ///
-    ///   1. Convert each bin from dB to linear power:  p = 10^(dB / 10)
-    ///   2. Average the linear powers across all taps
-    ///   3. Convert the average back to dB:  dB = 10 · log10(avg_power)
-    ///
-    /// Averaging power (rather than amplitude or dB directly) is the physically
-    /// correct approach — it preserves energy relationships between taps.
-    /// Phase is implicitly discarded because each tap's magnitude spectrum was
-    /// computed independently; this is appropriate for non-periodic impulse
-    /// responses where inter-tap phase alignment cannot be guaranteed.
+    /// - Parameter taps: Array of captured tap records, each containing a
+    ///   magnitude spectrum (dBFS), its frequency axis, and a timestamp.
+    /// - Returns: `(magnitudes, frequencies)` of the averaged spectrum.
+    ///   Returns `([], [])` if `taps` is empty, and returns the single tap's
+    ///   data unchanged if `taps.count == 1`. Returns the first tap's data
+    ///   unchanged if spectrum lengths differ (mismatch logged to console).
     func averageSpectra(from taps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)]) -> (magnitudes: [Float], frequencies: [Float]) {
         guard !taps.isEmpty else { return ([], []) }
         
@@ -589,5 +736,51 @@ extension TapToneAnalyzer {
         print("📊 Averaged \(taps.count) spectra: \(spectrumLength) bins each")
         
         return (magnitudes: averagedMagnitudes, frequencies: frequencies)
+    }
+
+    /// Processes multiple captured guitar taps using frequency-domain
+    /// magnitude averaging.
+    ///
+    /// Each tap's magnitude spectrum was already computed by the continuous
+    /// FFT at the moment of tap detection. This method averages those spectra
+    /// bin-by-bin in the linear power domain via ``averageSpectra(from:)``,
+    /// then runs peak detection once on the averaged result. The averaged
+    /// spectrum is frozen for display.
+    ///
+    /// - Note: Called after all required taps have been captured
+    ///   (`currentTapCount >= numberOfTaps`), scheduled via
+    ///   `DispatchQueue.main.asyncAfter(deadline:execute:)`.
+    func processMultipleTaps() {
+        guard !capturedTaps.isEmpty else { return }
+        
+        print("🔬 Processing \(capturedTaps.count) taps for averaging...")
+        
+        // Average the per-tap magnitude spectra in the frequency domain
+        let (avgMagnitudes, avgFrequencies) = averageSpectra(from: capturedTaps)
+        
+        // Freeze the averaged spectrum for display
+        frozenFrequencies = avgFrequencies
+        frozenMagnitudes = avgMagnitudes
+        isSpectrumFrozen = true
+        print("📸 Spectrum frozen with averaged data from \(capturedTaps.count) taps")
+        
+        // Find peaks in the AVERAGED spectrum so they align with what's displayed.
+        // This ensures peak markers sit on actual peaks in the averaged waveform.
+        let peaksFromAveragedSpectrum = findPeaks(magnitudes: avgMagnitudes, frequencies: avgFrequencies)
+        
+        // Update current peaks with peaks from averaged spectrum
+        currentPeaks = peaksFromAveragedSpectrum
+        selectedPeakIDs = Set(peaksFromAveragedSpectrum.map { $0.id })
+        
+        // Classify modes based on peaks
+        identifiedModes = peaksFromAveragedSpectrum.map { peak in
+            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+        }
+        
+        // Update status
+        statusMessage = "Analysis complete! \(peaksFromAveragedSpectrum.count) peaks identified (from \(capturedTaps.count) averaged taps)."
+        tapProgress = 1.0
+        
+        print("✅ Found \(peaksFromAveragedSpectrum.count) peaks in averaged spectrum from \(capturedTaps.count) taps")
     }
 }

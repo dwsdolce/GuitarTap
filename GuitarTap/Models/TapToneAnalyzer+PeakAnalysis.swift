@@ -5,6 +5,48 @@
 //  Created on 1/25/26.
 //
 
+/// # TapToneAnalyzer+PeakAnalysis
+///
+/// Core DSP methods for detecting, refining, and classifying spectral peaks.
+///
+/// ## Analysis Pipeline
+/// Each time `RealtimeFFTAnalyzer` delivers a new magnitude spectrum, the
+/// main entry point ``analyzeMagnitudes(_:frequencies:peakMagnitude:)`` runs
+/// the following sequence:
+///
+/// 1. **Tap detection** — for guitar mode only; plate/brace use the fast input
+///    level path in `TapToneAnalyzer+TapDetection` to avoid the ~15 dB
+///    transient-energy loss in the long-window continuous FFT.
+/// 2. **Peak finding** — ``findPeaks(magnitudes:frequencies:minHz:maxHz:)``
+///    first guarantees a slot for the strongest peak in each known guitar mode
+///    range, then fills remaining slots by magnitude.
+/// 3. **Mode classification** — each peak is mapped to a ``GuitarMode`` via
+///    ``GuitarMode/classify(frequency:)``.
+/// 4. **Decay tracking** — ``trackDecay(peakMagnitude:)`` is always called,
+///    even when detection is paused, so ring-out time continues to be measured
+///    after a tap.
+///
+/// ## Parabolic Interpolation
+/// All peak frequencies and magnitudes are refined with sub-bin accuracy using
+/// the formula (δ ∈ (−0.5, 0.5)):
+///
+/// ```
+/// δ = 0.5 · (α − γ) / (α − 2β + γ)
+/// f_true ≈ f_bin + δ · Δf
+/// A_true ≈ β − 0.25 · (α − γ) · δ
+/// ```
+/// where `α`, `β`, `γ` are the dB magnitudes of the left, centre, and right
+/// bins respectively and `Δf` is the bin width in Hz.
+///
+/// ## Q Factor
+/// Q is measured via the −3 dB bandwidth method:
+/// ```
+/// Q = f_centre / (f_upper − f_lower)
+/// ```
+/// where `f_upper` and `f_lower` are the frequencies at which the spectrum
+/// first crosses the `peakMagnitude − 3 dB` threshold on either side of
+/// the peak bin.
+
 import SwiftUI
 import Combine
 
@@ -12,7 +54,20 @@ extension TapToneAnalyzer {
 
     // MARK: - Analysis Methods
 
-    /// Main analysis pipeline
+    /// Main entry point called by ``RealtimeFFTAnalyzer`` on every FFT frame.
+    ///
+    /// Performs tap detection (guitar mode only), peak finding, mode
+    /// classification, and decay tracking in sequence.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: The current magnitude spectrum in dBFS, one value per
+    ///     FFT bin.
+    ///   - frequencies: The frequency axis matching `magnitudes`, in Hz.
+    ///   - peakMagnitude: The maximum bin magnitude in dBFS — used for
+    ///     hysteresis tap detection and decay tracking.
+    ///
+    /// - Note: Must be called on the main thread; `fftAnalyzer` publishes on
+    ///   the main queue via a Combine `.receive(on: RunLoop.main)` subscription.
     func analyzeMagnitudes(_ magnitudes: [Float], frequencies: [Float], peakMagnitude: Float) {
         // Don't analyze anything if the FFT analyzer isn't actually running
         guard fftAnalyzer.isRunning else {
@@ -21,7 +76,7 @@ extension TapToneAnalyzer {
             return
         }
         
-        // Calculate average magnitude for tap detection
+        // Calculate average magnitude for tap detection; exclude below-noise-floor bins (-100 dB)
         let validMags = magnitudes.filter { $0 > -100 }
         averageMagnitude = validMags.isEmpty ? -100 : validMags.reduce(0, +) / Float(validMags.count)
         
@@ -34,8 +89,8 @@ extension TapToneAnalyzer {
             detectTap(peakMagnitude: peakMagnitude, magnitudes: magnitudes, frequencies: frequencies)
         }
         
-        // Analyze peaks if detection is enabled, paused (spectrum stays live), or in capture window
-        // But don't overwrite currentPeaks after a plate/brace measurement is complete —
+        // Analyze peaks if detection is enabled, paused (spectrum stays live), or in capture window.
+        // Do not overwrite currentPeaks after a plate/brace measurement is complete —
         // those peaks are the final selected L/C/FLC peaks and must not be replaced by live audio.
         if (isDetecting || isDetectionPaused || captureTimer != nil) && materialTapPhase != .complete {
             // Find peaks in spectrum
@@ -56,9 +111,38 @@ extension TapToneAnalyzer {
         trackDecay(peakMagnitude: peakMagnitude)
     }
 
-    /// Find all significant peaks in the spectrum
-    /// Guarantees the strongest peak for each known guitar mode is included,
-    /// then fills remaining slots with additional peaks by magnitude
+    /// Finds all significant spectral peaks within the configured frequency range.
+    ///
+    /// The algorithm uses a two-pass strategy with mode-priority selection:
+    ///
+    /// **Pass 1 — Known modes:**
+    /// Scans each ``GuitarMode/idealRange`` for local maxima that exceed
+    /// ``TapToneAnalyzer/peakThreshold``. Tracks the strongest peak per
+    /// canonical mode name so each guitar mode always gets a guaranteed slot
+    /// in the output.
+    ///
+    /// **Pass 2 — Unknown/inter-mode peaks:**
+    /// Scans the entire configured frequency window for local maxima that fall
+    /// outside all known mode ranges.
+    ///
+    /// **Step 3 — Assembly:**
+    /// The strongest peak from each mode occupies a guaranteed slot. Remaining
+    /// slots (up to ``TapToneAnalyzer/maxPeaks``) are filled by magnitude.
+    /// When `maxPeaks == 0` all found peaks are returned.
+    ///
+    /// Each accepted peak has its frequency and magnitude refined with
+    /// parabolic interpolation and its Q factor calculated using the −3 dB
+    /// bandwidth method.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: dBFS magnitude spectrum array.
+    ///   - frequencies: Frequency axis (Hz) matching `magnitudes`.
+    ///   - minHz: Lower frequency bound (Hz). Defaults to
+    ///     ``TapToneAnalyzer/minFrequency``.
+    ///   - maxHz: Upper frequency bound (Hz). Defaults to
+    ///     ``TapToneAnalyzer/maxFrequency``.
+    /// - Returns: Array of ``ResonantPeak`` values sorted by magnitude
+    ///   (descending).
     func findPeaks(magnitudes: [Float], frequencies: [Float], minHz: Float? = nil, maxHz: Float? = nil) -> [ResonantPeak] {
         guard magnitudes.count == frequencies.count else { return [] }
         
@@ -71,8 +155,8 @@ extension TapToneAnalyzer {
         let startIdx = frequencies.firstIndex(where: { $0 >= loFreq }) ?? 0
         let endIdx = frequencies.firstIndex(where: { $0 > hiFreq }) ?? frequencies.count - 1
         
-        // Define all known modes to search for (excluding unknown)
-        // Uses legacy names that map to normalized modes via .normalized property
+        // Define all known modes to search for (excluding unknown).
+        // Uses legacy names that map to normalized modes via .normalized property.
         let knownModes: [GuitarMode] = [.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode, .upperModes]
         
         // Track the strongest peak found in each mode range
@@ -203,8 +287,8 @@ extension TapToneAnalyzer {
         // Remove duplicate peaks (in case of overlap)
         allPeaks = removeDuplicatePeaks(allPeaks)
         
-        // Step 3: Build final peak list with mode priority
-        // First, include the strongest peak from each known mode (guaranteed slots)
+        // Step 3: Build final peak list with mode priority.
+        // First, include the strongest peak from each known mode (guaranteed slots).
         var finalPeaks: [ResonantPeak] = []
         var includedPeakIDs = Set<UUID>()
         
@@ -213,8 +297,8 @@ extension TapToneAnalyzer {
             includedPeakIDs.insert(peak.id)
         }
         
-        // Then fill remaining slots with other peaks by magnitude
-        // maxPeaks == 0 means "capture all peaks"
+        // Then fill remaining slots with other peaks by magnitude.
+        // maxPeaks == 0 means "capture all peaks".
         if maxPeaks == 0 {
             // Add all remaining peaks (no limit)
             let otherPeaks = allPeaks
@@ -236,16 +320,30 @@ extension TapToneAnalyzer {
         return finalPeaks.sorted(by: { $0.magnitude > $1.magnitude })
     }
     
-    /// Reclassify all current peaks using the current guitar type setting.
-    /// Call this after the guitar type changes to keep identifiedModes consistent
-    /// with the current mode ranges (e.g. when switching acoustic ↔ classical).
+    /// Re-runs mode classification on `currentPeaks` using the active guitar
+    /// type's frequency ranges.
+    ///
+    /// Call this after the user changes the guitar type (acoustic ↔ classical)
+    /// so that `identifiedModes` stays consistent with the updated
+    /// ``GuitarMode/idealRange`` boundaries without requiring a new tap.
     func reclassifyPeaks() {
         identifiedModes = currentPeaks.map { peak in
             (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
         }
     }
 
-    /// Remove duplicate peaks that are too close in frequency
+    /// Removes peaks that are closer than 2 Hz apart, keeping only the
+    /// higher-magnitude peak from each near-duplicate pair.
+    ///
+    /// Near-duplicate peaks arise when a single physical resonance straddles
+    /// two adjacent FFT bins that are each detected as local maxima. The 2 Hz
+    /// tolerance is appropriate for the typical bin spacing of the continuous
+    /// FFT (≈ 1.4 Hz at 44.1 kHz / 32768 bins).
+    ///
+    /// - Parameter peaks: Input peak array (any order).
+    /// - Returns: Array with near-duplicates removed, preserving insertion
+    ///   order of the first-seen instance (updated if a later duplicate has
+    ///   higher magnitude).
     func removeDuplicatePeaks(_ peaks: [ResonantPeak]) -> [ResonantPeak] {
         var uniquePeaks: [ResonantPeak] = []
         let frequencyTolerance: Float = 2.0  // Hz - peaks closer than this are considered duplicates
@@ -273,18 +371,28 @@ extension TapToneAnalyzer {
     
     /// Refine a bin-level peak location using parabolic interpolation.
     ///
-    /// Fits a parabola through the peak bin and its two neighbours to estimate
-    /// where the true spectral peak sits between bins.  This improves frequency
-    /// accuracy by roughly one order of magnitude over the raw bin spacing,
-    /// and corrects the magnitude estimate so it reflects the true peak rather
-    /// than the sample at the nearest bin centre.
+    /// Fits a parabola through the peak bin and its two immediate neighbours to
+    /// estimate where the true spectral peak lies between bin centres. This
+    /// improves frequency accuracy by roughly one order of magnitude over the
+    /// raw bin spacing, and corrects the magnitude estimate so it reflects the
+    /// true peak rather than the magnitude sampled at the nearest bin centre.
+    ///
+    /// The sub-bin offset δ is computed as:
+    /// ```
+    /// δ = 0.5 · (α − γ) / (α − 2β + γ)       [δ ∈ (−0.5, 0.5)]
+    /// f_true  = f_bin + δ · Δf
+    /// A_true  = β − 0.25 · (α − γ) · δ
+    /// ```
+    /// where `α = magnitudes[i−1]`, `β = magnitudes[i]`, `γ = magnitudes[i+1]`,
+    /// and `Δf` is the bin width in Hz.
     ///
     /// - Parameters:
     ///   - magnitudes: dB magnitude spectrum.
     ///   - frequencies: Frequency axis matching `magnitudes`.
     ///   - peakIndex: Index of the local maximum bin.
-    /// - Returns: `(frequency, magnitude)` of the interpolated peak.
-    ///            Falls back to the raw bin values if interpolation cannot be applied.
+    /// - Returns: `(frequency, magnitude)` of the interpolated peak in Hz and
+    ///   dBFS. Falls back to the raw bin values if the peak is at a boundary or
+    ///   if the parabola denominator is near zero (flat top).
     func parabolicInterpolate(magnitudes: [Float], frequencies: [Float], peakIndex i: Int) -> (frequency: Float, magnitude: Float) {
         guard i > 0, i < magnitudes.count - 1 else {
             return (frequencies[i], magnitudes[i])
@@ -305,25 +413,36 @@ extension TapToneAnalyzer {
         return (interpFreq, interpMag)
     }
 
-    /// Calculate Q factor and bandwidth for a peak.
+    /// Calculate the Q factor and −3 dB bandwidth for a spectral peak.
+    ///
+    /// Walks outward from `peakIndex` in both directions until the magnitude
+    /// first drops below `peakMagnitude − 3 dB`, then computes:
+    /// ```
+    /// bandwidth = f_upper − f_lower
+    /// Q         = f_centre / bandwidth
+    /// ```
     ///
     /// - Parameters:
-    ///   - magnitudes:  dB spectrum array (same source as `frequencies`).
-    ///   - frequencies: Frequency axis matching `magnitudes`.  Pass the gated FFT
-    ///                  frequency array when called with gated-FFT data so the bin
-    ///                  spacing is correct.  Defaults to the continuous FFT axis.
-    ///   - peakIndex:   Index of the peak in the arrays.
-    ///   - peakMagnitude: Peak magnitude in dB.
+    ///   - magnitudes: dB spectrum array.
+    ///   - frequencies: Frequency axis matching `magnitudes`. Use the gated
+    ///     FFT frequency array when called on gated-FFT data so the bin spacing
+    ///     is correct.
+    ///   - peakIndex: Index of the peak bin in both arrays.
+    ///   - peakMagnitude: Peak magnitude in dBFS. Use the interpolated value
+    ///     from ``parabolicInterpolate(magnitudes:frequencies:peakIndex:)`` for
+    ///     best accuracy.
+    /// - Returns: `(quality, bandwidth)` where `quality` is dimensionless Q and
+    ///   `bandwidth` is in Hz. Both are 0 if index bounds are exceeded.
     func calculateQFactor(magnitudes: [Float], frequencies: [Float], peakIndex: Int, peakMagnitude: Float) -> (quality: Float, bandwidth: Float) {
-        let threshold = peakMagnitude - 3.0  // -3dB points
+        let threshold = peakMagnitude - 3.0  // -3 dB points
 
-        // Find lower -3dB point
+        // Find lower -3 dB point
         var lowerIdx = peakIndex
         while lowerIdx > 0 && magnitudes[lowerIdx] > threshold {
             lowerIdx -= 1
         }
 
-        // Find upper -3dB point
+        // Find upper -3 dB point
         var upperIdx = peakIndex
         while upperIdx < magnitudes.count - 1 && magnitudes[upperIdx] > threshold {
             upperIdx += 1

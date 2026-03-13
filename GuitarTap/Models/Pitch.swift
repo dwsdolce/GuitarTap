@@ -5,111 +5,160 @@
 //  Converted from pitch.py
 //
 
+/// # Pitch
+///
+/// Equal-temperament pitch analysis — note detection, cents deviation, and frequency conversion.
+///
+/// The calculations are based on the standard 12-tone equal-temperament (12-TET) system where
+/// all semitones are equal-ratio intervals of `2^(1/12)`.  The reference pitch for the entire
+/// scale is A4 (configurable; defaults to 440 Hz).
+///
+/// ## Algorithm Overview
+///
+/// 1. **C0 anchor** — C0 is derived from A4 by shifting 4 octaves down and 9 semitones down:
+///    `f_C0 = f_A4 × 2^(−4.75)`.
+/// 2. **Half-steps from C0** — Any frequency maps to a half-step count via
+///    `h = round(12 × log₂(f / f_C0))`.
+/// 3. **Note and octave** — `octave = h / 12`, `note = h % 12` (0 = C, 1 = C#, … 11 = B).
+/// 4. **Frequency of a note** — `f(note, octave) = f_C0 × 2^(note/12) × 2^octave`.
+/// 5. **Cents deviation** — `cents = 1200 × log₂(f_measured / f_nearest_note)`.
+///
+/// Reference: https://www.johndcook.com/blog/2016/02/10/musical-pitch-notation/
 import Foundation
 
-/// For a specified frequency find the pitch, octave, and cents offset.
-/// This is based on the specified setting for A4.
-/// There are also some utilities for formatting the name and the
-/// closest frequency of a note.
-/// Some of these calculations come from:
-///     https://www.johndcook.com/blog/2016/02/10/musical-pitch-notation/
+/// Provides equal-temperament pitch calculations: note detection, cents deviation,
+/// frequency-of-note lookup, and range queries.
+///
+/// All calculations assume the 12-tone equal-temperament scale anchored at ``a4``.
+/// Create one shared instance per application context; there is no meaningful state
+/// other than the A4 reference frequency.
 class Pitch {
-    
+
     // MARK: - Properties
-    
-    /// The frequency of A4 in Hz (default: 440 Hz)
+
+    /// The reference frequency of A4, in Hz.
+    ///
+    /// The standard concert pitch is 440 Hz.  Change this value to support alternative
+    /// tuning systems (e.g. 432 Hz historical pitch or 415 Hz baroque pitch).
     var a4: Double
-    
-    /// The frequency of C0 in Hz (calculated from A4)
+
+    /// The derived frequency of C0, computed from ``a4``.
+    ///
+    /// C0 is 4 octaves and 9 semitones (= 57 semitones) below A4:
+    /// `f_C0 = f_A4 × 2^(−4.75)`.
+    /// All note-frequency calculations use C0 as their base reference.
     var c0: Double {
-        a4 * pow(2, -4.75)  // -4 octaves below A4 and -9/12 below A
+        // -4.75 octaves = -4 octaves (4 × 12 semitones) minus 9 semitones = -57 semitones
+        a4 * pow(2, -4.75)
     }
-    
-    /// Note names in chromatic scale
+
+    /// Note name strings in ascending chromatic order, index 0 = C through index 11 = B.
     private let noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-    
+
     // MARK: - Initialization
-    
-    /// Initialize with a specific A4 frequency
-    /// - Parameter a4: The frequency of A4 in Hz (typically 440 Hz)
+
+    /// Creates a `Pitch` calculator with the given A4 reference frequency.
+    ///
+    /// - Parameter a4: Reference frequency of A4, in Hz.  Defaults to the standard 440 Hz.
     init(a4: Double = 440.0) {
         self.a4 = a4
     }
-    
-    // MARK: - Pitch Calculation Methods
-    
-    /// Find the pitch (note and octave) closest to the given frequency
-    /// - Parameter frequency: The frequency in Hz to analyze
-    /// - Returns: A tuple containing the note index (0-11) and octave number
+
+    // MARK: - Pitch Calculation
+
+    /// Returns the note index (0–11) and octave number closest to the given frequency.
+    ///
+    /// The note index maps as: 0 = C, 1 = C#, 2 = D, 3 = D#, 4 = E, 5 = F,
+    /// 6 = F#, 7 = G, 8 = G#, 9 = A, 10 = A#, 11 = B.
+    ///
+    /// - Parameter frequency: The frequency to analyse, in Hz.
+    /// - Returns: A tuple `(note: Int, octave: Int)` identifying the nearest equal-temperament pitch.
     func pitch(frequency: Double) -> (note: Int, octave: Int) {
-        // This gives the 1/2 steps above c_0
+        // Count half-steps above C0; rounding snaps to the nearest semitone.
         let halfSteps = Int(round(12 * log2(frequency / c0)))
         let octave = halfSteps / 12
         let note = halfSteps % 12
         return (note, octave)
     }
-    
-    /// Return the frequencies of the upper and lower notes for this frequency
-    /// - Parameter frequency: The frequency in Hz to analyze
-    /// - Returns: A tuple containing the upper and lower note frequencies
+
+    /// Returns the frequencies of the notes immediately above and below the given frequency.
+    ///
+    /// - Parameter frequency: The frequency to analyse, in Hz.
+    /// - Returns: A tuple `(upper: Double, lower: Double)` where `upper` is the frequency of
+    ///   the next semitone above the nearest note and `lower` is the semitone below.
+    ///   Octave boundaries are handled correctly (e.g. B4 → C5 above, A4 below).
     func pitchRange(frequency: Double) -> (upper: Double, lower: Double) {
         let (note, octave) = pitch(frequency: frequency)
         let cents = self.cents(frequency: frequency)
-        
+
         let upper: Double
         let lower: Double
-        
+
         if cents >= 0 {
+            // Frequency is above the nearest note: upper bound is the next semitone.
             if note == 11 {
-                upper = freq(note: 0, octave: octave + 1)
+                upper = freq(note: 0, octave: octave + 1)  // B → C in next octave
             } else {
                 upper = freq(note: note + 1, octave: octave)
             }
             lower = freq(note: note, octave: octave)
         } else {
+            // Frequency is below the nearest note: lower bound is the previous semitone.
             upper = freq(note: note, octave: octave)
             if note == 0 {
-                lower = freq(note: 11, octave: octave - 1)
+                lower = freq(note: 11, octave: octave - 1)  // C → B in previous octave
             } else {
                 lower = freq(note: note - 1, octave: octave)
             }
         }
-        
+
         return (upper, lower)
     }
-    
-    /// Return a string representation of the pitch closest to this frequency
-    /// - Parameter frequency: The frequency in Hz to analyze
-    /// - Returns: A string like "A4" or "C#3"
+
+    /// Returns the name of the nearest equal-temperament note for the given frequency.
+    ///
+    /// - Parameter frequency: The frequency to analyse, in Hz.
+    /// - Returns: A string such as `"A4"` or `"C#3"`.
     func note(frequency: Double) -> String {
         let (note, octave) = pitch(frequency: frequency)
         return "\(noteNames[note])\(octave)"
     }
-    
-    /// Return the frequency of the pitch closest to this frequency
-    /// - Parameter frequency: The frequency in Hz to analyze
-    /// - Returns: The frequency of the nearest note in Hz
+
+    /// Returns the frequency of the nearest equal-temperament note for the given frequency.
+    ///
+    /// Useful for computing how far (in Hz) the measured frequency deviates from the ideal
+    /// note frequency.
+    ///
+    /// - Parameter frequency: The frequency to analyse, in Hz.
+    /// - Returns: The exact frequency in Hz of the nearest note.
     func freq0(frequency: Double) -> Double {
         let (note, octave) = pitch(frequency: frequency)
         return freq(note: note, octave: octave)
     }
-    
-    /// Return the frequency of the note specified by pitch and octave
+
+    /// Returns the exact frequency for a note specified by index and octave.
+    ///
+    /// Formula: `f = f_C0 × 2^(note/12) × 2^octave`
+    ///
     /// - Parameters:
-    ///   - note: The note index (0=C, 1=C#, 2=D, etc.)
-    ///   - octave: The octave number
-    /// - Returns: The frequency in Hz
+    ///   - note: Chromatic note index (0 = C, 1 = C#, … 11 = B).
+    ///   - octave: Octave number (4 is the standard middle-C octave for octave 4 at C4 ≈ 261 Hz).
+    /// - Returns: Frequency in Hz.
     func freq(note: Int, octave: Int) -> Double {
         return pow(2, Double(note) / 12.0) * c0 * pow(2, Double(octave))
     }
-    
-    /// Return the cents offset from the pitch closest to this frequency
-    /// - Parameter frequency: The frequency in Hz to analyze
-    /// - Returns: The cents offset (-50 to +50, where 100 cents = 1 semitone)
+
+    /// Returns the signed cents offset from the nearest equal-temperament pitch.
+    ///
+    /// Formula: `cents = 1200 × log₂(f_measured / f_nearest)`
+    ///
+    /// - Parameter frequency: The measured frequency, in Hz.
+    /// - Returns: Cents offset in the range −50 to +50 (100 cents = 1 semitone).
+    ///   Negative means flat; positive means sharp.
     func cents(frequency: Double) -> Double {
         let (note, octave) = pitch(frequency: frequency)
         let f0 = freq(note: note, octave: octave)
-        // f0 is the desired frequency and frequency is the actual
+        // 1200 × log₂ gives the interval in cents between f0 (ideal) and frequency (measured).
         let cents = 1200 * log2(frequency / f0)
         return cents
     }
@@ -118,34 +167,44 @@ class Pitch {
 // MARK: - Convenience Extensions
 
 extension Pitch {
-    /// Format a frequency with its note name and cents offset
-    /// - Parameter frequency: The frequency in Hz to format
-    /// - Returns: A formatted string like "A4 (+23 cents)"
+
+    /// Returns a formatted string combining the nearest note name and its cents offset.
+    ///
+    /// Example output: `"A4 (+23 cents)"` or `"C#3 (-5 cents)"`.
+    ///
+    /// - Parameter frequency: The frequency to format, in Hz.
+    /// - Returns: A human-readable pitch-and-deviation string.
     func formattedNote(frequency: Double) -> String {
         let noteName = note(frequency: frequency)
         let centsOffset = cents(frequency: frequency)
         let sign = centsOffset >= 0 ? "+" : ""
         return "\(noteName) (\(sign)\(String(format: "%.0f", centsOffset)) cents)"
     }
-    
-    /// Check if a frequency is in tune (within a threshold of cents)
+
+    /// Returns whether the given frequency is within a specified cents tolerance of a pure
+    /// equal-temperament pitch.
+    ///
     /// - Parameters:
-    ///   - frequency: The frequency in Hz to check
-    ///   - threshold: The maximum cents offset to consider in tune (default: 10)
-    /// - Returns: True if the frequency is within the threshold
+    ///   - frequency: The frequency to check, in Hz.
+    ///   - threshold: Maximum absolute cents deviation considered "in tune".  Defaults to 10 cents.
+    /// - Returns: `true` when `|cents| ≤ threshold`.
     func isInTune(frequency: Double, threshold: Double = 10.0) -> Bool {
         return abs(cents(frequency: frequency)) <= threshold
     }
 }
 
-// MARK: - Preview/Testing
+// MARK: - Debug / Testing
 
 #if DEBUG
 extension Pitch {
-    /// Run example calculations (for testing/debugging)
+
+    /// Runs a set of sample pitch calculations and prints results to the console.
+    ///
+    /// Useful for verifying that the equal-temperament formula produces expected values.
+    /// Only compiled in debug builds.
     static func runExample() {
         let pitch = Pitch(a4: 440)
-        
+
         print("Example 1:")
         let f1: Double = 173
         print("f_1 = \(f1)")
@@ -153,7 +212,7 @@ extension Pitch {
         print("f_0 = \(pitch.freq0(frequency: f1))")
         print("cents = \(pitch.cents(frequency: f1))")
         print("==========================")
-        
+
         print("Example 2:")
         let f2: Double = 175.8
         print("f_1 = \(f2)")

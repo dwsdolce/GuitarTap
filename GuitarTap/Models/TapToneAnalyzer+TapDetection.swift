@@ -5,6 +5,59 @@
 //  Created on 1/25/26.
 //
 
+/// # TapToneAnalyzer+TapDetection
+///
+/// Rising-edge hysteresis tap detector and multi-phase plate/brace capture
+/// sequencer.
+///
+/// ## Guitar Mode — Absolute Threshold with Hysteresis
+/// For guitar measurements the FFT `peakMagnitude` is compared against two
+/// absolute dB thresholds:
+///
+/// ```
+/// risingThreshold  = tapDetectionThreshold
+/// fallingThreshold = tapDetectionThreshold − hysteresisMargin
+/// ```
+///
+/// A tap fires only on the **rising edge** (transition from below-rising to
+/// above-rising). The `isAboveThreshold` flag uses the wider falling threshold
+/// to latch `true` until the signal genuinely settles, preventing false
+/// re-triggers from the ring-out decay envelope.
+///
+/// ## Plate / Brace Mode — Relative Threshold
+/// The long-window FFT dilutes tap transients by ~15 dB (energy spread across
+/// the full window); plate/brace detection therefore uses `inputLevelDB` from
+/// the fast polling subscription instead of `peakMagnitude`. Within the
+/// `detectTap` method, relative thresholds are derived from a running noise
+/// floor EMA (α = 0.05, τ ≈ 190 ms at 10 Hz):
+///
+/// ```
+/// headroom             = max(tapDetectionThreshold − noiseFloorEstimate, 10 dB)
+/// risingThreshold      = noiseFloorEstimate + headroom
+/// fallingThreshold     = noiseFloorEstimate + max(headroom − hysteresisMargin, 4 dB)
+/// ```
+///
+/// The 10 dB minimum headroom rejects small ambient spikes (typically 1–4 dB
+/// above the noise floor) while reliably catching real taps (12–30 dB above).
+///
+/// ## Warm-Up Period
+/// The first 0.5 s after `start()` or `resumeTapDetection()` is a warm-up
+/// period during which tap detection is suppressed. On the first frame after
+/// warm-up, `justExitedWarmup` triggers a one-time re-anchor of the noise
+/// floor EMA and `isAboveThreshold` state so the hysteresis calculation starts
+/// from an accurate baseline (the EMA may have converged to −100 dB before
+/// the first real audio buffer arrived).
+///
+/// ## Multi-Phase Plate Sequencer
+/// For plate/brace measurements, `handlePlateTapDetection` opens a gated PCM
+/// capture window (see `TapToneAnalyzer+SpectrumCapture`) instead of
+/// accumulating from the continuous FFT. The phase state machine progresses:
+///
+/// ```
+/// notStarted → capturingLongitudinal → waitingForCrossTap
+///           → capturingCross → [waitingForFlcTap → capturingFlc →] complete
+/// ```
+
 import SwiftUI
 import Combine
 
@@ -12,7 +65,21 @@ extension TapToneAnalyzer {
 
     // MARK: - Tap Detection
 
-    /// Detect tap events using rising edge detection with hysteresis
+    /// Evaluates the current signal level against the active detection threshold
+    /// and fires a tap event on a rising edge.
+    ///
+    /// Called from ``analyzeMagnitudes(_:frequencies:peakMagnitude:)`` for
+    /// guitar mode, and from the fast `inputLevelDB` polling subscription for
+    /// plate/brace mode.
+    ///
+    /// - Parameters:
+    ///   - peakMagnitude: Current peak dBFS level used for threshold comparison.
+    ///     For guitar mode this is the FFT peak magnitude; for plate/brace it is
+    ///     `fftAnalyzer.inputLevelDB` sampled at ~10 Hz.
+    ///   - magnitudes: Current FFT magnitude spectrum (passed through to
+    ///     ``handleTapDetection(magnitudes:frequencies:time:)`` for spectrum
+    ///     capture on a confirmed tap).
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
     func detectTap(peakMagnitude: Float, magnitudes: [Float], frequencies: [Float]) {
         let now = Date()
 
@@ -105,10 +172,12 @@ extension TapToneAnalyzer {
         let risingThreshold  = effectiveRisingThreshold
         let fallingThreshold = effectiveFallingThreshold
 
-        // Determine if currently above threshold (with hysteresis)
+        // Determine if currently above threshold (with hysteresis).
+        // When latched above: use the lower falling threshold to stay "above".
+        // When latched below: use the higher rising threshold to cross "above".
         let currentlyAboveThreshold = isAboveThreshold ?
-            (peakMagnitude > fallingThreshold) :  // When above: use lower threshold to stay "above"
-            (peakMagnitude > risingThreshold)     // When below: use higher threshold to go "above"
+            (peakMagnitude > fallingThreshold) :
+            (peakMagnitude > risingThreshold)
 
         // Debug: Log state transitions
         if currentlyAboveThreshold != isAboveThreshold {
@@ -120,15 +189,15 @@ extension TapToneAnalyzer {
             }
         }
         
-        // Detect tap only when crossing from below to above threshold
+        // Detect tap only when crossing from below to above threshold (rising edge only)
         if currentlyAboveThreshold && !isAboveThreshold {
-            // Rising edge detected! 📈
+            // Rising edge detected!
             tapDetected = true
             lastTapTime = now
             
-            // Capture the recent peak input level for decay tracking reference
-            // Use recentPeakLevelDB which holds the max level over the last 0.5s
-            // This ensures we get the actual tap peak even though FFT detection is delayed
+            // Capture the recent peak input level for decay tracking reference.
+            // Use recentPeakLevelDB which holds the max level over the last 0.5 s.
+            // This ensures we get the actual tap peak even though FFT detection is delayed.
             tapPeakLevel = fftAnalyzer.recentPeakLevelDB
             print("🎯 Tap detected! FFT peak: \(String(format: "%.1f", peakMagnitude)) dB, Input peak: \(String(format: "%.1f", tapPeakLevel)) dB (threshold: \(risingThreshold) dB) [Rising Edge]")
             
@@ -142,7 +211,18 @@ extension TapToneAnalyzer {
         isAboveThreshold = currentlyAboveThreshold
     }
     
-    /// Handle a detected tap in the multi-tap sequence
+    /// Dispatches a confirmed tap event to the appropriate capture handler.
+    ///
+    /// For guitar mode: stores the current spectrum in `capturedTaps`, starts
+    /// decay tracking, and starts the capture-window timer. When all required
+    /// taps have been collected, schedules `processMultipleTaps()`.
+    ///
+    /// For plate/brace mode: delegates to ``handlePlateTapDetection(magnitudes:frequencies:time:)``.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Current FFT magnitude spectrum (dBFS).
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
+    ///   - time: Timestamp of the rising-edge tap detection event.
     func handleTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
         // Stop detection temporarily
         isDetecting = false
@@ -167,8 +247,8 @@ extension TapToneAnalyzer {
         
         print("📊 Captured tap \(currentTapCount) of \(numberOfTaps)")
         
-        // Start decay tracking for ring-out time measurement
-        // This continues for 3 seconds after the tap to capture full decay
+        // Start decay tracking for ring-out time measurement.
+        // This continues for 3 seconds after the tap to capture full decay.
         startDecayTracking()
         
         // Start capture window timer to collect spectrum during ring-out
@@ -190,13 +270,13 @@ extension TapToneAnalyzer {
                 self?.processMultipleTaps()
             }
         } else {
-            // Re-enable detection after cooldown for next tap
-            // First, wait for the cooldown period
+            // Re-enable detection after cooldown for next tap.
+            // First, wait for the cooldown period.
             DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
                 guard let self = self else { return }
                 
-                // Check if the signal has dropped below the falling threshold
-                // If it has, we can immediately start looking for the next tap
+                // Check if the signal has dropped below the falling threshold.
+                // If it has, we can immediately start looking for the next tap.
                 let currentLevel = self.fftAnalyzer.peakMagnitude
                 let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
                 
@@ -208,9 +288,9 @@ extension TapToneAnalyzer {
                     self.statusMessage = "Tap \(self.currentTapCount)/\(self.numberOfTaps) captured. Tap again..."
                     print("🔄 Ready for tap \(self.currentTapCount + 1) of \(self.numberOfTaps) - signal dropped to \(String(format: "%.1f", currentLevel)) dB (below falling threshold \(String(format: "%.1f", fallingThreshold)) dB)")
                 } else {
-                    // Signal still elevated - set isAboveThreshold correctly and wait for drop
+                    // Signal still elevated - set isAboveThreshold correctly and wait for drop.
                     // The hysteresis logic in detectTap will naturally detect the falling edge
-                    // and then be ready for the next rising edge
+                    // and then be ready for the next rising edge.
                     self.isAboveThreshold = true
                     self.isDetecting = true
                     self.tapDetected = false
@@ -221,7 +301,15 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Total number of taps expected across all plate/brace phases
+    /// The total number of individual taps expected across all plate/brace
+    /// capture phases.
+    ///
+    /// - For brace mode: `numberOfTaps` (longitudinal phase only).
+    /// - For plate mode without FLC: `numberOfTaps × 2` (L + C phases).
+    /// - For plate mode with FLC: `numberOfTaps × 3` (L + C + FLC phases).
+    ///
+    /// Used to compute `tapProgress` (0.0–1.0) across the full multi-phase
+    /// sequence.
     var totalPlateTaps: Int {
         let type = TapDisplaySettings.measurementType
         if type == .brace {
@@ -230,11 +318,25 @@ extension TapToneAnalyzer {
         return numberOfTaps * (TapDisplaySettings.measureFlc ? 3 : 2)
     }
     
-    /// Handle tap detection for plate measurement mode (multi-phase, multi-tap capture).
+    /// Routes a plate/brace tap event to the active gated-FFT capture window.
     ///
-    /// Instead of using the long-window FFT magnitudes (which become stale noise after
-    /// ~200 ms), this opens a short gated PCM capture window so `computeGatedFFT`
-    /// can produce a fresh spectrum from just the ring-out audio.
+    /// Instead of using the long-window FFT magnitudes (which become stale
+    /// noise after ~200 ms), this opens a short gated PCM capture window so
+    /// `computeGatedFFT` can produce a fresh spectrum from just the ring-out
+    /// audio. The phase routing table:
+    ///
+    /// | Phase | Action |
+    /// |---|---|
+    /// | `.capturingLongitudinal` | `startGatedCapture(phase:)` |
+    /// | `.capturingCross` | `startGatedCapture(phase:)` |
+    /// | `.capturingFlc` | `startGatedCapture(phase:)` |
+    /// | `.notStarted` / `.complete` | Unexpected — logs a warning |
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Continuous FFT spectrum at the moment of tap detection
+    ///     (not used for plate/brace; gated FFT is used instead).
+    ///   - frequencies: Corresponding frequency axis, in Hz.
+    ///   - time: Timestamp of the tap event.
     func handlePlateTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
         // Stop detection while we capture the ring-out window
         isDetecting = false
@@ -249,7 +351,17 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Process a tap captured during the longitudinal phase
+    /// Handles progress within the longitudinal phase of a **non-gated**
+    /// (continuous FFT) multi-tap capture.
+    ///
+    /// Used only when the gated-FFT path is unavailable. Accumulates
+    /// `materialCapturedTaps` until `numberOfTaps` are collected, then
+    /// averages the spectra, auto-selects the best longitudinal peak, and
+    /// transitions to `.waitingForCrossTap` (plate) or `.complete` (brace).
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Continuous FFT spectrum at tap time, in dBFS.
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
     func handleLongitudinalTapProgress(magnitudes: [Float], frequencies: [Float]) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
@@ -290,8 +402,8 @@ extension TapToneAnalyzer {
             
             let isBraceMode = TapDisplaySettings.measurementType == .brace
             if isBraceMode {
-                // Brace mode: complete after longitudinal tap only
-                // Restrict currentPeaks to only the auto-selected longitudinal peak
+                // Brace mode: complete after longitudinal tap only.
+                // Restrict currentPeaks to only the auto-selected longitudinal peak.
                 if let selID = autoSelectedLongitudinalPeakID,
                    let selPeak = longitudinalPeaks.first(where: { $0.id == selID }) {
                     currentPeaks = [selPeak]
@@ -334,7 +446,17 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Process a tap captured during the cross-grain phase
+    /// Handles progress within the cross-grain phase of a non-gated multi-tap
+    /// capture.
+    ///
+    /// Accumulates `materialCapturedTaps` until `numberOfTaps` cross-grain
+    /// taps are collected, then averages the spectra, auto-selects the best
+    /// cross-grain peak, and either transitions to `.waitingForFlcTap` (if FLC
+    /// is enabled) or marks the measurement `.complete`.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Continuous FFT spectrum at tap time, in dBFS.
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
     func handleCrossTapProgress(magnitudes: [Float], frequencies: [Float]) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
@@ -404,8 +526,8 @@ extension TapToneAnalyzer {
                     print("🔄 Ready for FLC tap")
                 }
             } else {
-                // Complete - no FLC
-                // Restrict currentPeaks to only the auto-selected L and C peaks
+                // Complete - no FLC.
+                // Restrict currentPeaks to only the auto-selected L and C peaks.
                 var selectedPeaks: [ResonantPeak] = []
                 if let selID = autoSelectedLongitudinalPeakID,
                    let p = longitudinalPeaks.first(where: { $0.id == selID }) { selectedPeaks.append(p) }
@@ -427,7 +549,17 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Process a tap captured during the FLC phase
+    /// Handles progress within the FLC (shear/diagonal) phase of a non-gated
+    /// multi-tap capture.
+    ///
+    /// Accumulates `materialCapturedTaps` until `numberOfTaps` FLC taps are
+    /// collected, then averages the spectra, auto-selects the best FLC peak
+    /// (lowest-frequency peak below `fL × 1.5` or 150 Hz), and marks the
+    /// measurement `.complete`.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Continuous FFT spectrum at tap time, in dBFS.
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
     func handleFlcTapProgress(magnitudes: [Float], frequencies: [Float]) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
@@ -489,7 +621,16 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Re-enable tap detection for the next tap within the same plate phase
+    /// Re-enables tap detection after a brief cooldown, used between
+    /// consecutive taps within the same plate/brace capture phase.
+    ///
+    /// Waits `tapCooldown` seconds, then checks the current input level
+    /// to seed `isAboveThreshold` correctly so the hysteresis logic starts
+    /// from an accurate state.
+    ///
+    /// - Important: Does **not** reset `analyzerStartTime` — doing so would
+    ///   restart the warm-up timer and destabilise `isAboveThreshold` via
+    ///   the `justExitedWarmup` sync path.
     func reEnableDetectionForNextPlateTap() {
         DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
             guard let self = self else { return }
@@ -503,15 +644,23 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Combine peaks from longitudinal, cross-grain, and optionally FLC taps for display (plate mode)
+    /// Merges the longitudinal, cross-grain, and (if available) FLC peak
+    /// arrays for combined display in plate mode.
+    ///
+    /// Cross and FLC peaks are deduplicated against previously added peaks
+    /// using a 5 Hz frequency tolerance, **except** that the auto-selected
+    /// peak from each phase is always included regardless of proximity to
+    /// another peak.
+    ///
+    /// - Returns: The merged peak array sorted by frequency (ascending).
     func combinePlatePeaks() -> [ResonantPeak] {
         var combined: [ResonantPeak] = []
         
         // Add longitudinal peaks (these will show as "L" in the UI)
         combined.append(contentsOf: longitudinalPeaks)
         
-        // Add cross-grain peaks, avoiding duplicates within frequency tolerance
-        // BUT always include the auto-selected cross peak even if it's close to an L peak
+        // Add cross-grain peaks, avoiding duplicates within frequency tolerance.
+        // Always include the auto-selected cross peak even if it's close to an L peak.
         let frequencyTolerance: Float = 5.0 // Hz
         for crossPeak in crossPeaks {
             // Always include the auto-selected cross peak

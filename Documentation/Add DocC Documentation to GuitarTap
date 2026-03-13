@@ -1,0 +1,204 @@
+# Plan: Add DocC Documentation to GuitarTap
+
+## Objective
+Add developer-level DocC documentation to all Swift source files using:
+- Top-of-file `///` overview block per file/module
+- Per-type, per-property, per-method `///` triple-slash comments
+- Apple-standard DocC markdown: `- Parameters:`, `- Returns:`, `- Throws:`, `- Note:`, `- SeeAlso:`, `- Important:`, `- Warning:`, code blocks with ` ``` `
+- Refinement of existing inline `//` comments for clarity and precision
+
+## DocC Syntax Rules (Apple Standard)
+```swift
+/// Brief one-sentence summary.
+///
+/// Extended discussion paragraph(s). May include markdown.
+///
+/// ```swift
+/// let example = foo()
+/// ```
+///
+/// - Parameters:
+///   - name: Description of this parameter.
+/// - Returns: Description of return value.
+/// - Throws: `ErrorType` when condition occurs.
+/// - Note: Additional context.
+/// - Important: Critical usage information.
+/// - Warning: Dangerous or destructive behavior.
+/// - SeeAlso: `RelatedType`
+```
+
+## Phased Execution Plan
+
+Work through files in this exact order. Each phase is a self-contained unit of work.
+
+---
+
+### Phase 1 — Core Data Models (5 files)
+**Files:**
+1. `GuitarTap/GuitarTap/Models/ResonantPeak.swift`
+2. `GuitarTap/GuitarTap/Models/SpectrumSnapshot.swift`
+3. `GuitarTap/GuitarTap/Models/TapToneMeasurement.swift`
+4. `GuitarTap/GuitarTap/Models/UserAssignedMode.swift`
+5. `GuitarTap/GuitarTap/Models/GuitarMode.swift`
+
+**Focus:** Data types, enums, Codable conformances, computed properties. Document all cases, properties, and computed values. Note legacy/deprecated cases in GuitarMode.
+
+---
+
+### Phase 2 — Domain Models & Calibration (4 files)
+**Files:**
+1. `GuitarTap/GuitarTap/Models/AVAudioDevice.swift`
+2. `GuitarTap/GuitarTap/Models/Pitch.swift`
+3. `GuitarTap/GuitarTap/Models/MicrophoneCalibration.swift`
+4. `GuitarTap/GuitarTap/Models/MaterialTapPhase.swift`
+
+**Focus:** Platform-specific initializers (AVAudioDevice), equal-temperament math (Pitch), UMIK-1 calibration file format and interpolation (MicrophoneCalibration), phase state machine (MaterialTapPhase).
+
+---
+
+### Phase 3 — Material Properties (1 large file)
+**Files:**
+1. `GuitarTap/GuitarTap/Models/MaterialProperties.swift`
+
+**Focus:** This file contains the most complex physics formulas. Document:
+- `MaterialDimensions` — unit conversion initializers, density computation
+- `PlateProperties` — Young's modulus formula (`E = 48π²ρf²L⁴ / (βL)²`), specific modulus, radiation ratio, Gore plate equations
+- `BraceProperties` — beam equations, quality thresholds
+- `WoodQuality` — evaluation thresholds per wood type and direction
+- Explain reference to Haines/Gore calibration sources where applicable
+
+---
+
+### Phase 4 — TapToneAnalyzer Core & Extensions I (5 files)
+**Files:**
+1. `GuitarTap/GuitarTap/Models/TapToneAnalyzer.swift`
+2. `GuitarTap/GuitarTap/Models/TapToneAnalyzer+Control.swift`
+3. `GuitarTap/GuitarTap/Models/TapToneAnalyzer+AnnotationManagement.swift`
+4. `GuitarTap/GuitarTap/Models/TapToneAnalyzer+ModeOverrideManagement.swift`
+5. `GuitarTap/GuitarTap/Models/TapToneAnalyzer+AnalysisHelpers.swift`
+
+**Focus:** Document the three-layer peak selection system (user override > phase-stored > auto), @Published properties grouped by purpose, annotation thread-safety, warm-up period handling.
+
+---
+
+### Phase 5 — TapToneAnalyzer Extensions II: DSP & Detection (5 files)
+**Files:**
+1. `GuitarTap/GuitarTap/Models/TapToneAnalyzer+PeakAnalysis.swift`
+2. `GuitarTap/GuitarTap/Models/TapToneAnalyzer+TapDetection.swift`
+3. `GuitarTap/GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift`
+4. `GuitarTap/GuitarTap/Models/TapToneAnalyzer+DecayTracking.swift`
+5. `GuitarTap/GuitarTap/Models/TapToneAnalyzer+MeasurementManagement.swift`
+
+**Focus:** The most algorithmically dense files. Document:
+- Parabolic interpolation formula
+- Mode-priority peak selection algorithm (5-step process)
+- Q-factor calculation (-3dB bandwidth method)
+- Relative tap detection hysteresis state machine
+- HPS (Harmonic Product Spectrum) dominant peak finding
+- Gated FFT pre-roll buffer strategy (200ms pre-roll, 400ms window)
+- Linear power averaging across taps
+- Decay tracking using fast input-level polling
+- Measurement persistence and full state restoration
+
+---
+
+### Phase 6 — RealtimeFFTAnalyzer (1 large file)
+**Files:**
+1. `GuitarTap/GuitarTap/Models/RealtimeFFTAnalyzer.swift`
+
+**Focus:** The audio engine. Document:
+- vDSP FFT setup and Hann/boxcar windowing choices
+- Platform differences (macOS CoreAudio device listeners vs iOS AVAudioSession)
+- Gated FFT vs continuous FFT modes
+- Calibration correction pre-computation
+- Microphone permission semaphore pattern
+- @Published properties grouped by category
+- Sample rate configuration trade-offs
+
+---
+
+### Phase 7 — View Utilities (7 files)
+**Files:**
+1. `GuitarTap/GuitarTap/Views/Utilities/AxixTickGenerator.swift`
+2. `GuitarTap/GuitarTap/Views/Utilities/Extensions.swift`
+3. `GuitarTap/GuitarTap/Views/Utilities/TapDisplaySettings.swift`
+4. `GuitarTap/GuitarTap/Views/Utilities/PlatformAdapters.swift`
+5. `GuitarTap/GuitarTap/Views/Utilities/MeasurementFileExporter.swift`
+6. `GuitarTap/GuitarTap/Views/Utilities/PDFReportGenerator.swift`
+7. `GuitarTap/GuitarTap/Views/Utilities/ResultsWindowPresenter.swift`
+
+**Focus:** Document "nice number" tick algorithm, per-measurement-type settings persistence, cross-platform type aliases and adapters, temporary file lifecycle, PDF layout constants, macOS window management.
+
+---
+
+### Phase 8 — Spectrum Views (5 files)
+**Files:**
+1. `GuitarTap/GuitarTap/Views/SpectrumView.swift`
+2. `GuitarTap/GuitarTap/Views/SpectrumView+ChartContent.swift`
+3. `GuitarTap/GuitarTap/Views/SpectrumView+GestureHandlers.swift`
+4. `GuitarTap/GuitarTap/Views/SpectrumView+SnapInterpolation.swift`
+5. `GuitarTap/GuitarTap/Views/SpectrumScrollWheel.swift`
+
+**Focus:** Document public initializer parameters, gesture modifier key bindings (macOS scroll wheel), logarithmic zoom transform, binary search interpolation, gravity-based series locking.
+
+---
+
+### Phase 9 — Main Analysis Views & Supporting Views (9 files)
+**Files:**
+1. `GuitarTap/GuitarTap/Views/TapToneAnalysisView.swift`
+2. `GuitarTap/GuitarTap/Views/TapToneAnalysisView+Actions.swift`
+3. `GuitarTap/GuitarTap/Views/TapToneAnalysisView+Controls.swift`
+4. `GuitarTap/GuitarTap/Views/TapToneAnalysisView+Export.swift`
+5. `GuitarTap/GuitarTap/Views/TapToneAnalysisView+Layouts.swift`
+6. `GuitarTap/GuitarTap/Views/TapToneAnalysisView+SpectrumViews.swift`
+7. `GuitarTap/GuitarTap/Views/TapAnalysisResultsView.swift`
+8. `GuitarTap/GuitarTap/Views/ExportableSpectrumChart.swift`
+9. `GuitarTap/GuitarTap/Views/PeakAnnotations.swift`
+
+**Focus:** Document adaptive layout decisions, ImageRenderer export flow, state coordination between the two @StateObject analyzers, draggable annotation position calculation (log vs linear), connection line rendering.
+
+---
+
+### Phase 10 — Remaining Views, App Entry Point & Settings (8 files)
+**Files:**
+1. `GuitarTap/GuitarTap/Views/Measurements/ExportView.swift`
+2. `GuitarTap/GuitarTap/Views/Measurements/MeasurementDetailView.swift`
+3. `GuitarTap/GuitarTap/Views/Measurements/MeasurementRowView.swift`
+4. `GuitarTap/GuitarTap/Views/Measurements/MeasurementsListView.swift`
+5. `GuitarTap/GuitarTap/Views/Shared/CombinedPeakModeRowView.swift`
+6. `GuitarTap/GuitarTap/Views/Shared/CompactFFTMetricsOverlay.swift`
+7. `GuitarTap/GuitarTap/Views/Shared/EmptyStateView.swift`
+8. `GuitarTap/GuitarTap/Views/Shared/LoadingOverlay.swift`
+9. `GuitarTap/GuitarTap/Views/FFTAnalysisMetricsView.swift`
+10. `GuitarTap/GuitarTap/Views/SaveMeasurementSheet.swift`
+11. `GuitarTap/GuitarTap/Views/HelpView.swift`
+12. `GuitarTap/GuitarTap/Views/Utilities/TapSettingsView.swift`
+13. `GuitarTap/GuitarTap/GuitarTapApp.swift`
+
+**Focus:** Document security-scoped resource handling, platform-specific document picker pattern, custom UTType, macOS window management, AirDrop notification flow, debug log redirection.
+
+---
+
+## Execution Instructions (per phase)
+
+For each file in the phase:
+1. Read the file in full using `XcodeRead`
+2. Add a top-of-file `///` overview block immediately before the first `import` (or after the copyright header if one exists) — use a `/// # FileName` heading followed by a summary paragraph
+3. Add `///` documentation to every:
+   - `struct`, `class`, `enum`, `protocol`, `typealias`
+   - `enum case`
+   - Stored and computed `var`/`let` properties
+   - `func` and `init` declarations (include `- Parameters:`, `- Returns:`, `- Throws:` as applicable)
+4. Refine existing `//` inline comments inside method bodies to be more precise where they are vague or missing context
+5. After editing, run `XcodeRefreshCodeIssuesInFile` to confirm no compilation errors were introduced
+
+## Verification
+After each phase: run `BuildProject` to confirm no regressions before proceeding to next phase.
+
+## Notes
+- Do not change any logic or behavior — documentation only
+- Preserve all existing `//` comments; add to or replace them only where refinement improves clarity
+- Use concrete units in parameter docs (Hz, dB, ms, mm, g) where applicable
+- For physics formulas, render the equation in a fenced code block or inline math description
+- Mark deprecated/legacy enum cases with `/// - Warning: Deprecated.` and `@available(*, deprecated)`-style notes
+

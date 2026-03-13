@@ -5,22 +5,91 @@
 //  Created on 1/25/26.
 //
 
+/// # TapToneAnalyzer
+///
+/// The central coordinator for tap-tone analysis of acoustic instruments and tonewoods.
+///
+/// `TapToneAnalyzer` sits between the low-level ``RealtimeFFTAnalyzer`` (which delivers raw
+/// FFT frames and input-level events) and the SwiftUI views (which present results).  It owns
+/// the complete lifecycle of a tap-tone measurement session: waiting for a tap, capturing the
+/// ring-out spectrum, detecting peaks, classifying modes, and persisting the result.
+///
+/// ## Measurement Modes
+///
+/// Three measurement types are supported, selected via ``TapDisplaySettings/measurementType``:
+///
+/// | Mode | Taps | What is captured |
+/// |------|------|-----------------|
+/// | Guitar (classical/flamenco/acoustic) | 1–N averaged | Spectrum peak in each guitar-mode band |
+/// | Plate | L + C (+ optional FLC) | Per-phase gated FFT → Young's moduli, specific modulus |
+/// | Brace | L only | Longitudinal Young's modulus and specific modulus |
+///
+/// ## Three-Layer Peak Selection (Plate / Brace)
+///
+/// For material measurements the app tracks three independent peak-selection signals and
+/// resolves them with strict priority order:
+///
+/// 1. **User override** (`userSelectedLongitudinalPeakID` / Cross / Flc) — set when the user
+///    explicitly taps a peak row in the results panel.  Takes highest priority.
+/// 2. **Phase-stored peak** (`selectedLongitudinalPeak` / Cross / Flc) — set automatically
+///    when a gated-FFT phase completes and the dominant peak is identified.
+/// 3. **Auto-selected ID** (`autoSelectedLongitudinalPeakID` / Cross / Flc) — intermediate
+///    result set during HPS analysis before the phase is finalised.
+///
+/// The computed ``effectiveLongitudinalPeakID``, ``effectiveCrossPeakID``, and
+/// ``effectiveFlcPeakID`` properties expose the winning ID to views.
+///
+/// ## Gated FFT and Pre-Roll
+///
+/// For plate/brace measurements the analyzer uses a **gated FFT** approach:
+/// - A circular pre-roll buffer (``preRollDuration``: 200 ms) continuously holds the most
+///   recent raw audio samples.
+/// - When tap detection fires, ``startGatedCapture(phase:)`` seeds the accumulator with the
+///   pre-roll contents so the tap attack is not missed.
+/// - The capture window (``gatedCaptureDuration``: 400 ms) then accumulates the ring-out.
+/// - When the window closes, ``finishGatedFFTCapture`` runs a dedicated FFT and routes
+///   results to the appropriate phase handler.
+///
+/// ## Tap Detection Strategy
+///
+/// | Mode | Signal used | Reason |
+/// |------|-------------|--------|
+/// | Guitar | FFT `peakMagnitude` (~1 Hz) | Slower but includes full spectrum analysis |
+/// | Plate / Brace | `inputLevelDB` (~10 Hz RMS) | Long-window FFT dilutes short transients by ~15 dB |
+///
+/// In all modes a **hysteresis state machine** (`isAboveThreshold`) prevents retriggering:
+/// the rising edge fires only when the signal crosses the rising threshold from below; the
+/// next tap cannot be detected until the signal first falls below the falling threshold.
+///
+/// ## Warm-Up Period
+///
+/// The first ``warmupPeriod`` (0.5 s) after `start()` or `startTapSequence()` suppresses
+/// all tap detection to let the audio engine and FFT pipeline settle.  At warm-up exit,
+/// `justExitedWarmup` is momentarily `true` so `detectTap` can re-anchor `isAboveThreshold`
+/// to the actual signal level without firing a spurious tap event.
 import SwiftUI
 import Combine
 
-// MARK: - Annotation Visibility Mode
+// MARK: - AnnotationVisibilityMode
 
 /// Controls which peak annotations are rendered on the spectrum chart.
-/// This is a transient display preference — it does not affect which peaks are selected.
+///
+/// This is a transient display preference — it does not affect which peaks are stored
+/// in ``TapToneAnalyzer/selectedPeakIDs`` or exported in measurements.
+///
+/// - SeeAlso: ``TapToneAnalyzer/cycleAnnotationVisibility()`` to advance through the cycle.
 enum AnnotationVisibilityMode: String, Codable, CaseIterable {
-    /// Render annotations for all detected peaks
+
+    /// Render annotations for every detected peak.
     case all
-    /// Render annotations only for peaks the user has marked as selected results
+
+    /// Render annotations only for peaks the user has marked as selected results.
     case selected
-    /// Render no annotations
+
+    /// Render no annotations.
     case none
 
-    /// Advance to the next mode in the cycle: all → selected → none → all
+    /// The next mode in the cycle: `all → selected → none → all`.
     var next: AnnotationVisibilityMode {
         switch self {
         case .all:      return .selected
@@ -29,6 +98,7 @@ enum AnnotationVisibilityMode: String, Codable, CaseIterable {
         }
     }
 
+    /// SF Symbols icon name representing this visibility state.
     var iconName: String {
         switch self {
         case .all:      return "eye"
@@ -37,6 +107,7 @@ enum AnnotationVisibilityMode: String, Codable, CaseIterable {
         }
     }
 
+    /// Short display label for toolbar buttons and pickers.
     var label: String {
         switch self {
         case .all:      return "All"
@@ -46,120 +117,195 @@ enum AnnotationVisibilityMode: String, Codable, CaseIterable {
     }
 }
 
-// MARK: - Tap Tone Analyzer
+// MARK: - TapToneAnalyzer
 
-/// Advanced tap tone analysis for guitar lutherie
+/// The main `ObservableObject` that coordinates tap-tone measurements across all modes.
+///
+/// Create one shared instance as a `@StateObject` at the app level and pass it to child
+/// views.  All `@Published` properties are updated on the main thread.
+///
+/// - SeeAlso: ``RealtimeFFTAnalyzer`` for the underlying audio/FFT engine.
+/// - SeeAlso: ``TapToneMeasurement`` for the serialisable measurement record.
 final class TapToneAnalyzer: ObservableObject {
-    
+
     // MARK: - Dependencies
-    
-    /// The underlying FFT analyzer
+
+    /// The underlying real-time FFT engine that delivers spectrum frames and input-level events.
     let fftAnalyzer: RealtimeFFTAnalyzer
-    
-    /// Pitch calculator for musical note analysis
+
+    /// Equal-temperament pitch calculator (A4 = 440 Hz) used to annotate peaks with note names.
     let pitchCalculator = Pitch(a4: 440.0)
-    
+
     // MARK: - Configuration
-    
-    /// Minimum magnitude threshold for peak detection (dB)
+
+    /// Minimum magnitude for a spectral peak to be reported, in dBFS.
+    ///
+    /// Peaks below this level are discarded during peak-finding.  Persisted in
+    /// ``TapDisplaySettings``.
     @Published var peakThreshold: Float = TapDisplaySettings.defaultPeakThreshold
-    
-    /// Minimum frequency for analysis (Hz)
+
+    /// Lower bound of the analysis frequency range, in Hz.
+    ///
+    /// Frequencies outside `minFrequency...maxFrequency` are excluded from peak detection.
     @Published var minFrequency: Float = TapDisplaySettings.analysisMinFrequency
-    
-    /// Maximum frequency for analysis (Hz)
+
+    /// Upper bound of the analysis frequency range, in Hz.
     @Published var maxFrequency: Float = TapDisplaySettings.analysisMaxFrequency
-    
-    /// Number of peaks to track (persisted in TapDisplaySettings)
+
+    /// Maximum number of peaks to detect and display.
+    ///
+    /// When more candidate peaks exist, the strongest ones by magnitude are kept.
+    /// Persisted in ``TapDisplaySettings``.
     @Published var maxPeaks: Int = TapDisplaySettings.maxPeaks
-    
-    /// Decay threshold for ring-out measurement (dB below peak)
-    /// Default is 15 dB which works well with typical room noise floors
+
+    /// Minimum decay level relative to the tap peak for ring-out time measurement, in dB.
+    ///
+    /// Ring-out time is measured from the tap peak to the first moment the signal drops
+    /// more than `decayThreshold` dB below that peak.  15 dB works well against typical
+    /// room noise floors.
     @Published var decayThreshold: Float = 15
-    
-    /// Number of taps to average (1 = no averaging, 3-5 recommended)
+
+    /// Number of taps to average into a single spectrum (1 = single tap, 3–5 recommended).
+    ///
+    /// When this changes mid-sequence while waiting for the first tap, the status message
+    /// is updated immediately to reflect the new count.
     @Published var numberOfTaps: Int = 1 {
         didSet {
-            // If we're waiting for the first tap, update the prompt to reflect the new count
+            // Update the prompt if we're still waiting for the first tap.
             if isDetecting && currentTapCount == 0 {
                 statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
             }
         }
     }
-    
-    /// Time window after tap to capture spectrum (seconds)
+
+    /// Duration of the spectrum-capture window after each tap, in seconds.
+    ///
+    /// The spectrum snapshot is taken at `captureWindow` seconds after the tap event.
+    /// 200 ms (default) captures the early decay while avoiding noise floor.
     @Published var captureWindow: TimeInterval = 0.2
-    
-    /// Tap detection threshold in dB (absolute magnitude level to trigger tap)
+
+    /// Tap-detection threshold, in dBFS.
+    ///
+    /// For guitar mode this is an absolute FFT magnitude level.  For plate/brace mode it is
+    /// combined with the noise-floor estimate to form a relative threshold.
+    /// Persisted in ``TapDisplaySettings``.
     @Published var tapDetectionThreshold: Float = TapDisplaySettings.defaultTapDetectionThreshold
-    
-    /// Hysteresis margin in dB (prevents bouncing around threshold)
-    /// Signal must fall this many dB below threshold before ready for next tap
+
+    /// Hysteresis margin in dB.
+    ///
+    /// After a tap is detected, the signal must fall at least `hysteresisMargin` dB below
+    /// the detection threshold before the next tap can be registered.  This prevents
+    /// re-triggering during the ring-out of a single tap.
+    /// Persisted in ``TapDisplaySettings``.
     @Published var hysteresisMargin: Float = TapDisplaySettings.defaultHysteresisMargin
-    
+
     // MARK: - Published Results
-    
-    /// Currently detected peaks
+
+    /// The most recently detected resonant peaks, updated after each completed tap sequence.
     @Published var currentPeaks: [ResonantPeak] = []
-    
-    /// Identified modes with classifications
+
+    /// Peak–mode pairs produced by classifying each entry in ``currentPeaks``.
+    ///
+    /// Each element pairs a ``ResonantPeak`` with the ``GuitarMode`` whose frequency band
+    /// contains the peak.  Legacy mode names are normalised before comparison.
     @Published var identifiedModes: [(peak: ResonantPeak, mode: GuitarMode)] = []
-    
-    /// Current decay time (seconds)
+
+    /// Ring-out decay time from the most recent tap, in seconds.
+    ///
+    /// `nil` when no tap has been completed or decay tracking is disabled.
     @Published var currentDecayTime: Float?
-    
-    /// Saved measurements
+
+    /// All measurements saved during this session, ordered by save time.
     @Published var savedMeasurements: [TapToneMeasurement] = []
-    
-    /// Average magnitude in current frame (for tap detection)
+
+    // MARK: - Published Detection State
+
+    /// Most recent average FFT magnitude, in dBFS.
+    ///
+    /// Used internally by the hysteresis detector and exposed for the level-meter view.
     @Published var averageMagnitude: Float = -100
-    
-    /// Current tap detection level (recent average + threshold)
+
+    /// The computed detection-threshold level displayed on the spectrum chart, in dBFS.
+    ///
+    /// For plate/brace mode this is `noiseFloorEstimate + headroom`; for guitar mode
+    /// it equals ``tapDetectionThreshold``.
     @Published var tapDetectionLevel: Float = -100
-    
-    /// Indicates if a tap was just detected
+
+    /// `true` for a single frame immediately after a tap rising edge is confirmed.
+    ///
+    /// Views observe this to flash the tap indicator.
     @Published var tapDetected: Bool = false
-    
-    /// Detection state (disabled by default until user starts a tap sequence)
+
+    /// `true` when tap detection is actively listening for taps.
+    ///
+    /// `false` after `stop()`, `reset()`, or while paused.
     @Published var isDetecting: Bool = false
-    
-    /// Whether tap detection is temporarily paused mid-sequence (spectrum stays live)
+
+    /// `true` when the tap sequence is paused (spectrum stays live, detection is off).
+    ///
+    /// Distinct from `isDetecting = false` because pause preserves the in-progress
+    /// tap count, while a full stop resets it.
     @Published var isDetectionPaused: Bool = false
-    
-    /// Whether the analyzer is ready for tap detection (false during audio route change reinitialization)
+
+    /// `false` during the brief period after an audio route change while the engine
+    /// reinitialises.  The UI disables the New Tap and Resume buttons while this is `false`.
     @Published var isReadyForDetection: Bool = true
-    
-    /// Current tap count in multi-tap sequence
+
+    /// Number of taps captured so far in the current multi-tap sequence.
     @Published var currentTapCount: Int = 0
-    
-    /// Progress of multi-tap sequence (0.0 to 1.0)
+
+    /// Fractional progress of the current multi-tap sequence (0.0–1.0).
+    ///
+    /// `currentTapCount / numberOfTaps`.  Used by the progress bar.
     @Published var tapProgress: Float = 0.0
-    
-    /// Status message for user feedback
+
+    /// Human-readable status string shown in the status bar and instructions area.
     @Published var statusMessage: String = "Press Start to begin"
-    
-    /// Frozen spectrum data (captured when sequence completes)
+
+    // MARK: - Published Frozen Spectrum
+
+    /// Frequencies of the frozen (post-tap-sequence) spectrum, in Hz.
+    ///
+    /// Populated when `isSpectrumFrozen` becomes `true`.
     @Published var frozenFrequencies: [Float] = []
+
+    /// Magnitudes of the frozen (post-tap-sequence) spectrum, in dBFS.
     @Published var frozenMagnitudes: [Float] = []
-    
-    /// Whether to display frozen spectrum instead of live data
+
+    /// `true` when the spectrum chart should display the frozen post-sequence data
+    /// rather than the live FFT stream.
     @Published var isSpectrumFrozen: Bool = false
-    
-    /// Custom offsets for peak annotations (keyed by peak ID) to prevent overlap
+
+    // MARK: - Published Annotation & Selection State
+
+    /// Screen-space label offset overrides for draggable peak annotations, keyed by peak UUID.
+    ///
+    /// `.zero` means the label is at its default computed position.  Non-zero values are
+    /// persisted in ``TapToneMeasurement/peakAnnotationOffsets`` when a measurement is saved.
     @Published var peakAnnotationOffsets: [UUID: CGPoint] = [:]
 
-    /// Per-peak user mode overrides — empty dict means all peaks use auto-classification
+    /// Per-peak user mode label overrides.
+    ///
+    /// An empty dictionary means all peaks use auto-classification.
+    /// - SeeAlso: ``UserAssignedMode``
     @Published var peakModeOverrides: [UUID: UserAssignedMode] = [:]
 
-    /// Set of peak IDs the user has marked as significant results
+    /// UUIDs of peaks the user has marked as significant results.
+    ///
+    /// Unmarked peaks are displayed at reduced opacity and can be hidden by setting
+    /// ``annotationVisibilityMode`` to `.selected`.
     @Published var selectedPeakIDs: Set<UUID> = []
 
-    /// Controls which annotations are rendered on the spectrum chart
+    /// Controls which annotations are rendered on the spectrum chart.
     @Published var annotationVisibilityMode: AnnotationVisibilityMode = .all
 
-    /// Returns the effective display label for a peak:
-    /// - `.auto` → auto-detected label from `GuitarMode.classify()`
-    /// - `.assigned(string)` → the user-supplied string
+    // MARK: - Mode Label Helpers
+
+    /// Returns the display label for a peak, respecting any user override.
+    ///
+    /// - Parameter peak: The peak whose label is needed.
+    /// - Returns: The ``UserAssignedMode/assigned(_:)`` string if a manual override exists,
+    ///   otherwise the auto-classified ``GuitarMode/displayName``.
     func effectiveModeLabel(for peak: ResonantPeak) -> String {
         switch peakModeOverrides[peak.id] ?? .auto {
         case .auto:
@@ -169,7 +315,13 @@ final class TapToneAnalyzer: ObservableObject {
         }
     }
 
-    /// Set (or clear) a mode override for a specific peak. Always called on main thread.
+    /// Sets or clears a mode override for a specific peak, thread-safely.
+    ///
+    /// If called from a background thread, the update is dispatched to the main queue.
+    ///
+    /// - Parameters:
+    ///   - override: The ``UserAssignedMode`` to apply.
+    ///   - peakID: UUID of the target peak.
     func setModeOverride(_ override: UserAssignedMode, for peakID: UUID) {
         if Thread.isMainThread {
             peakModeOverrides[peakID] = override
@@ -180,14 +332,23 @@ final class TapToneAnalyzer: ObservableObject {
         }
     }
 
-    /// Returns true when the peak has a manually-assigned mode label.
+    /// Returns `true` when the given peak has a manually-assigned (non-auto) mode label.
+    ///
+    /// - Parameter peakID: UUID of the peak to check.
     func hasManualOverride(for peakID: UUID) -> Bool {
         guard let override = peakModeOverrides[peakID] else { return false }
         if case .assigned = override { return true }
         return false
     }
 
-    /// Toggle selection of a specific peak
+    // MARK: - Peak Selection Helpers
+
+    /// Toggles the selection state of a single peak.
+    ///
+    /// Selected peaks are shown at full opacity and included in the `.selected` annotation
+    /// visibility mode.
+    ///
+    /// - Parameter peakID: UUID of the peak to toggle.
     func togglePeakSelection(_ peakID: UUID) {
         if selectedPeakIDs.contains(peakID) {
             selectedPeakIDs.remove(peakID)
@@ -196,22 +357,24 @@ final class TapToneAnalyzer: ObservableObject {
         }
     }
 
-    /// Select all peaks
+    /// Marks all current peaks as selected.
     func selectAllPeaks() {
         selectedPeakIDs = Set(currentPeaks.map { $0.id })
     }
 
-    /// Deselect all peaks
+    /// Clears the selection set so no peaks are marked as significant.
     func selectNoPeaks() {
         selectedPeakIDs.removeAll()
     }
 
-    /// Advance annotation visibility to the next mode in the cycle: all → selected → none → all
+    /// Advances ``annotationVisibilityMode`` to the next state in the cycle:
+    /// `all → selected → none → all`.
     func cycleAnnotationVisibility() {
         annotationVisibilityMode = annotationVisibilityMode.next
     }
 
-    /// Get peaks that should be rendered as annotations given the current visibility mode
+    /// The subset of ``currentPeaks`` that should be rendered as annotations given
+    /// the current ``annotationVisibilityMode``.
     var visiblePeaks: [ResonantPeak] {
         switch annotationVisibilityMode {
         case .all:      return currentPeaks
@@ -219,245 +382,361 @@ final class TapToneAnalyzer: ObservableObject {
         case .none:     return []
         }
     }
-    
-    // MARK: - Plate Measurement State
-    
-    /// Current phase of plate tap sequence (two-tap process for L and C modes)
+
+    // MARK: - Plate / Brace Measurement State
+
+    /// Current phase of the multi-tap material measurement sequence.
+    ///
+    /// Progresses from `.notStarted` through `.capturingLongitudinal`, `.waitingForCrossTap`,
+    /// `.capturingCross` (and optionally FLC phases) to `.complete`.
     @Published var materialTapPhase: MaterialTapPhase = .notStarted
-    
-    /// Captured spectrum from longitudinal tap (support along short edges, plate bends along length)
+
+    /// Averaged FFT spectrum from the longitudinal (along-grain) tap, once captured.
+    ///
+    /// `nil` before the longitudinal phase completes.
     @Published var longitudinalSpectrum: (magnitudes: [Float], frequencies: [Float])?
-    
-    /// Captured spectrum from cross-grain tap (support along long edges, plate bends across width)
+
+    /// Averaged FFT spectrum from the cross-grain tap, once captured.
+    ///
+    /// `nil` before the cross-grain phase completes.
     @Published var crossSpectrum: (magnitudes: [Float], frequencies: [Float])?
-    
-    /// Peaks detected from longitudinal tap
+
+    /// Peaks detected from the longitudinal tap (all candidates, not just the dominant one).
     @Published var longitudinalPeaks: [ResonantPeak] = []
-    
-    /// Peaks detected from cross-grain tap
+
+    /// Peaks detected from the cross-grain tap.
     @Published var crossPeaks: [ResonantPeak] = []
-    
-    /// Auto-selected longitudinal peak ID (strongest peak from L tap)
+
+    /// Intermediate auto-selected UUID from HPS analysis of the longitudinal phase.
+    ///
+    /// Part of the three-layer peak-selection system; overridden by ``selectedLongitudinalPeak``
+    /// once the phase finalises, and further overridden by ``userSelectedLongitudinalPeakID``
+    /// if the user makes a manual choice.
     @Published var autoSelectedLongitudinalPeakID: UUID?
-    
-    /// The peak selected for the longitudinal (fL) phase — set directly when the phase completes
+
+    /// The dominant longitudinal peak stored when the longitudinal phase finalises.
+    ///
+    /// Second priority in the three-layer selection: used when no user override exists.
     @Published var selectedLongitudinalPeak: ResonantPeak?
-    
-    /// User override for longitudinal peak selection (nil = use selectedLongitudinalPeak)
+
+    /// Explicit user override for the longitudinal peak selection.
+    ///
+    /// Highest priority in the three-layer selection.  Set when the user taps a peak row
+    /// in the results panel.
     @Published var userSelectedLongitudinalPeakID: UUID?
-    
-    /// Auto-selected cross-grain peak ID (strongest peak from C tap)
+
+    /// Intermediate auto-selected UUID from HPS analysis of the cross-grain phase.
     @Published var autoSelectedCrossPeakID: UUID?
-    
-    /// The peak selected for the cross-grain (fC) phase — set directly when the phase completes
+
+    /// The dominant cross-grain peak stored when the cross-grain phase finalises.
     @Published var selectedCrossPeak: ResonantPeak?
-    
-    /// User override for cross-grain peak selection (nil = use selectedCrossPeak)
+
+    /// Explicit user override for the cross-grain peak selection.
     @Published var userSelectedCrossPeakID: UUID?
-    
-    /// Peaks detected from FLC (diagonal/shear) tap
+
+    /// Peaks detected from the FLC (diagonal/shear) tap.
     @Published var flcPeaks: [ResonantPeak] = []
-    
-    /// Captured spectrum from FLC tap
+
+    /// Averaged FFT spectrum from the FLC tap, once captured.
     @Published var flcSpectrum: (magnitudes: [Float], frequencies: [Float])?
-    
-    /// Auto-selected FLC peak ID (strongest peak from FLC tap)
+
+    /// Intermediate auto-selected UUID from HPS analysis of the FLC phase.
     @Published var autoSelectedFlcPeakID: UUID?
-    
-    /// The peak selected for the FLC (diagonal/shear) phase — set directly when the phase completes
+
+    /// The dominant FLC peak stored when the FLC phase finalises.
     @Published var selectedFlcPeak: ResonantPeak?
-    
-    /// User override for FLC peak selection (nil = use selectedFlcPeak)
+
+    /// Explicit user override for the FLC peak selection.
     @Published var userSelectedFlcPeakID: UUID?
-    
-    // MARK: - Effective Selection (single source of truth for views)
-    
-    /// The ID of the peak that represents fL — user override takes precedence, then phase-stored peak, then auto-selected
+
+    // MARK: - Effective Peak Selection (Three-Layer Resolution)
+
+    /// Resolved UUID for the longitudinal (fL) peak, applying three-layer priority.
+    ///
+    /// Priority order: ``userSelectedLongitudinalPeakID`` > ``selectedLongitudinalPeak``
+    /// > ``autoSelectedLongitudinalPeakID``.
+    ///
+    /// Views and material-property calculations should read this property rather than
+    /// consulting the three underlying sources directly.
     var effectiveLongitudinalPeakID: UUID? {
         userSelectedLongitudinalPeakID ?? selectedLongitudinalPeak?.id ?? autoSelectedLongitudinalPeakID
     }
-    
-    /// The ID of the peak that represents fC — user override takes precedence, then phase-stored peak, then auto-selected
+
+    /// Resolved UUID for the cross-grain (fC) peak.
+    ///
+    /// Priority order: ``userSelectedCrossPeakID`` > ``selectedCrossPeak``
+    /// > ``autoSelectedCrossPeakID``.
     var effectiveCrossPeakID: UUID? {
         userSelectedCrossPeakID ?? selectedCrossPeak?.id ?? autoSelectedCrossPeakID
     }
-    
-    /// The ID of the peak that represents fLC — user override takes precedence, then phase-stored peak, then auto-selected
+
+    /// Resolved UUID for the FLC (diagonal/shear) peak.
+    ///
+    /// Priority order: ``userSelectedFlcPeakID`` > ``selectedFlcPeak``
+    /// > ``autoSelectedFlcPeakID``.
     var effectiveFlcPeakID: UUID? {
         userSelectedFlcPeakID ?? selectedFlcPeak?.id ?? autoSelectedFlcPeakID
     }
-    
-    // MARK: - Loaded/Restored State (used when loading saved measurements)
 
-    /// Loaded spectrum display ranges (used when restoring measurements)
+    // MARK: - Loaded / Restored State
+
+    /// Frequency range bounds loaded from a saved measurement.
+    ///
+    /// These are published so that the view layer can pick them up via `onReceive` and
+    /// apply them to its local display-range state without the analyzer needing to know
+    /// about the chart's axis state directly.
     @Published var loadedMinFreq: Float?
+    /// Upper frequency bound loaded from a saved measurement, in Hz.
     @Published var loadedMaxFreq: Float?
+    /// Lower magnitude bound loaded from a saved measurement, in dBFS.
     @Published var loadedMinDB: Float?
+    /// Upper magnitude bound loaded from a saved measurement, in dBFS.
     @Published var loadedMaxDB: Float?
-    
-    /// Loaded analysis settings (used when restoring measurements)
+
+    /// Analysis settings loaded from a saved measurement (tap detection threshold in dBFS).
     @Published var loadedTapDetectionThreshold: Float?
+    /// Hysteresis margin loaded from a saved measurement, in dB.
     @Published var loadedHysteresisMargin: Float?
+    /// Peak-magnitude threshold loaded from a saved measurement, in dBFS.
     @Published var loadedPeakThreshold: Float?
+    /// Number-of-taps setting loaded from a saved measurement.
     @Published var loadedNumberOfTaps: Int?
+    /// Unknown-modes visibility flag loaded from a saved measurement.
     @Published var loadedShowUnknownModes: Bool?
+    /// Guitar type classification loaded from a saved measurement.
     @Published var loadedGuitarType: GuitarType?
+    /// Measurement type (guitar / plate / brace) loaded from a saved measurement.
     @Published var loadedMeasurementType: MeasurementType?
-    
-    /// Warning shown when a loaded/imported measurement's microphone is unavailable
+
+    /// Warning message shown when the microphone used for a loaded measurement is unavailable
+    /// on the current device.
     @Published var microphoneWarning: String?
 
-    /// Loaded plate measurement data (used when restoring measurements)
+    /// Peak selection IDs loaded from a saved plate/brace measurement.
     @Published var loadedSelectedLongitudinalPeakID: UUID?
+    /// Cross-grain peak ID loaded from a saved plate measurement.
     @Published var loadedSelectedCrossPeakID: UUID?
+    /// FLC peak ID loaded from a saved plate measurement.
     @Published var loadedSelectedFlcPeakID: UUID?
+
+    /// Plate dimensions loaded from a saved measurement (length in mm).
     @Published var loadedPlateLength: Float?
+    /// Plate width loaded from a saved measurement, in mm.
     @Published var loadedPlateWidth: Float?
+    /// Plate thickness loaded from a saved measurement, in mm.
     @Published var loadedPlateThickness: Float?
+    /// Plate mass loaded from a saved measurement, in grams.
     @Published var loadedPlateMass: Float?
+    /// Guitar body length for Gore calculation loaded from a saved measurement, in mm.
     @Published var loadedGuitarBodyLength: Float?
+    /// Guitar body width for Gore calculation loaded from a saved measurement, in mm.
     @Published var loadedGuitarBodyWidth: Float?
+    /// Plate stiffness preset loaded from a saved measurement.
     @Published var loadedPlateStiffnessPreset: PlateStiffnessPreset?
+    /// Custom plate stiffness loaded from a saved measurement.
     @Published var loadedCustomPlateStiffness: Float?
+    /// FLC measurement flag loaded from a saved measurement.
     @Published var loadedMeasureFlc: Bool?
+    /// Brace length loaded from a saved measurement, in mm.
     @Published var loadedBraceLength: Float?
+    /// Brace width loaded from a saved measurement, in mm.
     @Published var loadedBraceWidth: Float?
+    /// Brace height loaded from a saved measurement, in mm.
     @Published var loadedBraceThickness: Float?
+    /// Brace mass loaded from a saved measurement, in grams.
     @Published var loadedBraceMass: Float?
 
-    /// Timestamp of the measurement that was most recently loaded into the results panel.
-    /// nil when the current results are from a fresh (unsaved) measurement.
+    /// Timestamp of the measurement most recently loaded into the results panel.
+    ///
+    /// `nil` when the current results are from a fresh (unsaved) measurement session.
     @Published var sourceMeasurementTimestamp: Date? = nil
 
-    // MARK: - Gated FFT Private State
+    // MARK: - Gated FFT State
 
-    /// Lock protecting gatedAccumBuffer (accessed from both audio and main queue)
+    /// Lock protecting ``gatedAccumBuffer``, which is written on the audio queue and
+    /// read/cleared on the main queue.
     let mpmLock = NSLock()
 
-    /// Whether the gated-FFT capture window is currently open.
+    /// `true` when the gated-FFT capture window is open and accumulating samples.
     var gatedCaptureActive: Bool = false
 
-    /// Accumulated raw samples for the current gated FFT capture window.
+    /// Accumulated raw PCM samples for the current gated FFT capture window.
+    ///
+    /// Seeded with pre-roll content when the window opens; populated by
+    /// ``accumulateGatedSamples(_:sampleRate:)`` on the audio queue.
     var gatedAccumBuffer: [Float] = []
 
-    /// Target capture duration for the gated FFT window (seconds).
-    /// 400 ms captures the plate ring-out while rejecting post-decay noise.
+    /// Target duration of the gated capture window, in seconds.
+    ///
+    /// 400 ms captures the full plate ring-out while rejecting post-decay noise.
     static let gatedCaptureDuration: Double = 0.400
 
-    /// Number of samples to capture, derived from the actual hardware sample rate.
+    /// Number of samples in one gated capture window at the current hardware sample rate.
     var gatedCaptureSamples: Int { Int(mpmSampleRate * TapToneAnalyzer.gatedCaptureDuration) }
 
-    /// Called on the main thread once the gated capture window fills.
-    /// Receives `(samples, sampleRate, phase)` and runs `computeGatedFFT` then
-    /// routes to the appropriate phase handler.
+    /// Callback invoked on the main thread when the gated capture window fills.
+    ///
+    /// Receives `(samples, sampleRate, phase)` and is responsible for running the gated
+    /// FFT and routing results to the appropriate phase handler.
     var gatedCaptureCompletion: (([Float], Double, MaterialTapPhase) -> Void)?
 
-    /// The plate phase that was active when gated capture started.
+    /// The ``MaterialTapPhase`` that was active when the current gated capture started.
+    ///
+    /// Stored at capture-start time so the completion handler knows which phase to finalise
+    /// even if ``materialTapPhase`` has advanced by the time the window closes.
     var gatedCapturePhase: MaterialTapPhase = .notStarted
 
-    /// Most recent hardware sample rate (set on the audio queue)
+    /// Most recent hardware sample rate, in Hz.
+    ///
+    /// Set on the audio processing queue when a new audio buffer arrives.
     var mpmSampleRate: Double = 48000
 
-    // MARK: - Pre-roll Ring Buffer
-    //
+    // MARK: - Pre-Roll Ring Buffer
+
     // The tap detection subscriber runs on the main thread, while raw audio buffers
     // arrive on the audio processing queue.  By the time detectTap fires and
-    // startGatedCapture sets gatedCaptureActive=true, several buffers carrying the
-    // tap transient have already passed through accumulateGatedSamples and been
-    // discarded — so the gated window captures only the decaying tail or silence.
+    // startGatedCapture sets gatedCaptureActive = true, several audio buffers carrying
+    // the tap transient have already passed through accumulateGatedSamples and been
+    // discarded — so without a pre-roll the gated window captures only the decaying tail.
     //
-    // Solution: continuously keep the last `preRollSamples` worth of raw audio in a
-    // circular buffer (preRollBuffer).  When startGatedCapture is called it seeds
-    // gatedAccumBuffer with the ring buffer contents so the tap attack is included.
+    // Solution: continuously maintain the last `preRollSamples` of raw audio in a circular
+    // buffer (preRollBuffer).  When startGatedCapture is called it seeds gatedAccumBuffer
+    // with the ring-buffer contents so the tap attack transient is always included.
 
-    /// Duration of the pre-roll look-back in seconds (200 ms catches the tap attack).
+    /// Duration of the pre-roll look-back buffer, in seconds.
+    ///
+    /// 200 ms is enough to guarantee the tap attack is captured even on slow devices.
     static let preRollDuration: Double = 0.200
 
-    /// Number of pre-roll samples at the current sample rate.
+    /// Number of pre-roll samples at the current hardware sample rate.
     var preRollSamples: Int { Int(mpmSampleRate * TapToneAnalyzer.preRollDuration) }
 
-    /// Circular pre-roll buffer — always holds the last `preRollSamples` raw samples.
+    /// Circular buffer holding the most recent ``preRollSamples`` raw PCM samples.
+    ///
+    /// Always written on the audio queue; read once at ``startGatedCapture(phase:)``.
     var preRollBuffer: [Float] = []
 
-    // MARK: - Noise Floor Estimation (plate/brace modes)
+    // MARK: - Noise Floor Estimation (Plate / Brace Modes)
 
-    /// Exponential moving average of inputLevelDB, used as the noise floor estimate for
-    /// relative tap detection in plate/brace modes.  Updated only when not detecting
-    /// a tap (i.e. when the signal is at its background level).
+    /// Exponential moving average of `inputLevelDB`, used as the ambient noise-floor
+    /// estimate for relative tap detection in plate/brace modes.
+    ///
+    /// Updated only when the signal is below the detection threshold (i.e. between taps)
+    /// so that tap energy does not contaminate the estimate.
     var noiseFloorEstimate: Float = -60
 
-    /// EMA alpha for noise floor tracking — slower rise to avoid including tap energy,
-    /// faster fall so the estimate recovers quickly between taps.
-    /// α ≈ 1 - exp(-dt/τ).  At ~10 ms buffer updates, α=0.05 gives τ ≈ 190 ms.
+    /// EMA smoothing factor for noise-floor tracking.
+    ///
+    /// At ~10 ms audio buffer updates, α = 0.05 gives a time constant τ ≈ 190 ms:
+    /// `α ≈ 1 − exp(−dt/τ)`.  Slower than a one-pole would normally be so that brief
+    /// transients (instrument handling noise, room noise spikes) do not drive the estimate up.
     let noiseFloorAlpha: Float = 0.05
 
     // MARK: - Private State
 
+    /// Combine cancellable storage for FFT and input-level subscriptions.
     var cancellables = Set<AnyCancellable>()
+
+    /// History of (timestamp, inputLevelDB) samples used by the decay tracker.
     var peakMagnitudeHistory: [(time: Date, magnitude: Float)] = []
+
+    /// Wall-clock time of the most recent detected tap.
     var lastTapTime: Date?
-    var tapPeakLevel: Float = -100  // The input level at tap detection time (for decay reference)
-    let tapCooldown: TimeInterval = 0.5  // Minimum time between taps
-    
-    /// Time when the analyzer started (for warm-up period)
+
+    /// Input level (dBFS) at the moment the most recent tap was detected.
+    ///
+    /// Used as the reference magnitude for ring-out time computation.
+    var tapPeakLevel: Float = -100
+
+    /// Minimum inter-tap interval to prevent double-trigger artefacts, in seconds.
+    let tapCooldown: TimeInterval = 0.5
+
+    /// Wall-clock time when `start()` or `startTapSequence()` was called.
+    ///
+    /// Used to enforce the warm-up period.
     var analyzerStartTime: Date?
-    
-    /// Warm-up period in seconds - ignore taps during this time to prevent false detections
+
+    /// Duration of the warm-up period during which all taps are suppressed, in seconds.
+    ///
+    /// Gives the audio engine and FFT pipeline time to stabilise after a cold start.
     let warmupPeriod: TimeInterval = 0.5
-    
-    /// Storage for captured tap spectra (for averaging) - guitar mode
+
+    /// Captured tap spectra waiting to be averaged at the end of a guitar-mode sequence.
     var capturedTaps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)] = []
-    
-    /// Storage for captured spectra within current plate phase (for multi-tap averaging)
+
+    /// Captured spectra within the current plate/brace phase (supports per-phase averaging).
     var materialCapturedTaps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)] = []
-    
-    /// Storage for peaks from each tap (before averaging)
+
+    /// Per-tap peak arrays used for averaging in multi-tap guitar mode.
     var tapsForAveraging: [[ResonantPeak]] = []
-    
-    /// Timer for capture window
+
+    /// Timer that fires at the end of the capture window to trigger spectrum snapshot.
     var captureTimer: Timer?
-    
-    /// Track if signal is currently above threshold (for rising edge detection)
+
+    /// `true` when the signal is currently above the detection threshold.
+    ///
+    /// This is the state bit of the hysteresis state machine.  A tap is registered only
+    /// on a **rising edge** (transition from `false` to `true`).
     var isAboveThreshold: Bool = false
-    
-    /// Timer for decay tracking window (continues after tap detection)
+
+    /// Timer that bounds the ring-out decay tracking window.
     var decayTrackingTimer: Timer?
-    
-    /// Whether we're currently tracking decay after a tap
+
+    /// `true` while decay tracking is actively recording the post-tap signal envelope.
     var isTrackingDecay: Bool = false
 
-    /// Track if we just exited warm-up period (to sync threshold state without triggering)
+    /// `true` for the single FFT frame immediately after the warm-up period ends.
+    ///
+    /// Used to re-anchor `isAboveThreshold` to the real signal level without firing
+    /// a spurious tap event.
     var justExitedWarmup: Bool = false
 
-    // MARK: - Initialization
-    
+    // MARK: - Initialisation
+
+    /// Creates a `TapToneAnalyzer` backed by the given FFT engine.
+    ///
+    /// Loads persisted analysis settings from ``TapDisplaySettings`` and previously
+    /// saved measurements from the Documents directory, then wires up Combine subscriptions
+    /// to the FFT engine's published properties.
+    ///
+    /// - Parameter fftAnalyzer: The ``RealtimeFFTAnalyzer`` instance to subscribe to.
     init(fftAnalyzer: RealtimeFFTAnalyzer) {
         self.fftAnalyzer = fftAnalyzer
-        
-        // Load persisted analysis settings
+
+        // Restore persisted analysis settings.
         peakThreshold = TapDisplaySettings.peakThreshold
-        minFrequency = TapDisplaySettings.analysisMinFrequency
-        maxFrequency = TapDisplaySettings.analysisMaxFrequency
-        
-        // Load persisted tap detection settings
+        minFrequency  = TapDisplaySettings.analysisMinFrequency
+        maxFrequency  = TapDisplaySettings.analysisMaxFrequency
+
+        // Restore persisted tap detection settings.
         tapDetectionThreshold = TapDisplaySettings.tapDetectionThreshold
-        hysteresisMargin = TapDisplaySettings.hysteresisMargin
-        
-        // Load persisted measurements
+        hysteresisMargin      = TapDisplaySettings.hysteresisMargin
+
+        // Load any previously saved measurements from the Documents directory.
         loadPersistedMeasurements()
-        
+
         setupSubscriptions()
     }
-    
-    // MARK: - Setup
-    
+
+    // MARK: - Combine Setup
+
+    /// Wires up Combine subscriptions to ``fftAnalyzer``'s published properties.
+    ///
+    /// Three subscriptions are created:
+    /// 1. **FFT magnitudes + peakMagnitude** — drives ``analyzeMagnitudes(_:frequencies:peakMagnitude:)``
+    ///    for peak detection and guitar-mode tap detection (~1 Hz).
+    /// 2. **inputLevelDB (fast)** — drives ``trackDecayFast(inputLevel:)`` for ring-out tracking (~10 Hz).
+    /// 3. **inputLevelDB (fast, plate/brace only)** — drives ``detectTap`` for plate/brace mode,
+    ///    where the long-window FFT is unreliable for short transient taps.
+    /// 4. **routeChangeRestartCount** — triggers ``handleRouteChangeRestart()`` when the audio
+    ///    engine restarts after a device/route change.
     func setupSubscriptions() {
-        // Set up raw sample handler for gated FFT capture — accumulates samples into the buffer
+        // Wire the raw-sample handler for gated FFT capture (called on the audio queue).
         fftAnalyzer.rawSampleHandler = { [weak self] samples, sampleRate in
             self?.accumulateGatedSamples(samples, sampleRate: sampleRate)
         }
 
-        // Subscribe to FFT updates (slow - only updates per FFT frame)
+        // Slow path: full FFT frame → peak detection and guitar-mode tap detection.
         fftAnalyzer.$magnitudes
             .combineLatest(fftAnalyzer.$frequencies, fftAnalyzer.$peakMagnitude)
             .receive(on: DispatchQueue.main)
@@ -465,8 +744,8 @@ final class TapToneAnalyzer: ObservableObject {
                 self?.analyzeMagnitudes(magnitudes, frequencies: frequencies, peakMagnitude: peakMag)
             }
             .store(in: &cancellables)
-        
-        // Subscribe to fast input level updates for decay tracking (~10Hz vs ~1Hz for FFT)
+
+        // Fast path: per-buffer input level → decay tracking (~10 Hz update).
         fftAnalyzer.$inputLevelDB
             .receive(on: DispatchQueue.main)
             .sink { [weak self] levelDB in
@@ -474,14 +753,14 @@ final class TapToneAnalyzer: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Fast tap detection for plate/brace modes using per-buffer RMS level.
+        // Fast path: per-buffer input level → plate/brace tap detection.
         //
-        // The long-window FFT (65536 samples ≈ 1.5 s) dilutes a short tap impact by
-        // ~15 dB, making the FFT peakMagnitude an unreliable trigger for transient taps.
-        // inputLevelDB updates every audio buffer (~10 ms) with the instantaneous RMS level,
-        // allowing the hysteresis logic to see the signal fall after a tap so that the
-        // next rising edge can be detected correctly.  Guitar/classical mode continues
-        // to use the FFT path so that the magnitudes array at tap time is analyzed.
+        // The 65 536-sample FFT window (~1.5 s at 44.1 kHz) dilutes a short tap impact by
+        // roughly 15 dB, making FFT peakMagnitude an unreliable trigger for plate taps.
+        // inputLevelDB updates every audio buffer (~10 ms) with the instantaneous RMS,
+        // allowing the hysteresis detector to see the level rise and fall correctly.
+        // Guitar mode continues to use the FFT path so that magnitudes[] is available for
+        // immediate spectrum analysis at tap time.
         fftAnalyzer.$inputLevelDB
             .receive(on: DispatchQueue.main)
             .sink { [weak self] levelDB in
@@ -494,72 +773,70 @@ final class TapToneAnalyzer: ObservableObject {
                                frequencies: self.fftAnalyzer.frequencies)
             }
             .store(in: &cancellables)
-        
-        // Subscribe to route change restart notifications
-        // When the audio engine restarts due to a device change, reset tap detection state
-        // to prevent false detections from the audio startup transient
+
+        // Audio route change → reinitialise detection state after the engine restarts.
         fftAnalyzer.$routeChangeRestartCount
-            .dropFirst() // Ignore initial value
+            .dropFirst()  // Ignore the initial published value (0).
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.handleRouteChangeRestart()
             }
             .store(in: &cancellables)
     }
-    
-    /// Handles audio route change restart by resetting tap detection state
-    /// This prevents false tap detections when the audio engine restarts
+
+    // MARK: - Route Change Handling
+
+    /// Responds to an audio engine restart triggered by a device or route change.
+    ///
+    /// Temporarily disables tap detection, resets the warm-up timer, and re-enables
+    /// detection 2 seconds later (after the 65 536-sample FFT window has filled with
+    /// valid post-restart data).  If detection was active before the route change it is
+    /// restored; otherwise the analyzer returns to the "Ready" state.
+    ///
+    /// - Important: The 2-second settle delay is conservative to ensure `peakMagnitude`
+    ///   reflects real audio data rather than silence or the engine startup transient
+    ///   before `isAboveThreshold` is re-anchored.
     func handleRouteChangeRestart() {
         print("🔄 TapToneAnalyzer: Handling route change restart - resetting detection state")
-        
-        // Remember if we were detecting before the route change
+
         let wasDetecting = isDetecting
-        
-        // Mark analyzer as not ready - this disables New Tap and Resume buttons
+
+        // Disable the New Tap and Resume buttons while reinitialising.
         isReadyForDetection = false
-        
-        // Temporarily disable detection to prevent false positives during restart
         isDetecting = false
-        
-        // Reset warmup timer to prevent false detections during audio startup
+
+        // Reset the warm-up timer so the new engine session starts cleanly.
         analyzerStartTime = Date()
-        
-        // Reset threshold state to prevent false rising edge detection
-        // IMPORTANT: Set to true so the first FFT frame won't trigger a rising edge
-        // The actual state will be corrected once valid FFT data arrives
+
+        // Pre-set isAboveThreshold = true so the first FFT frame does not fire a false
+        // rising edge.  The actual value will be corrected after the settle delay.
         isAboveThreshold = true
-        
-        // Reset tap detection flag
         tapDetected = false
-        
-        // Update status message
+
         statusMessage = "Audio device changed - reinitializing..."
-        
-        // Re-enable detection after FFT has had time to produce valid data
-        // FFT with 65536 samples at 48kHz takes ~1.36 seconds, so wait 2 seconds to be safe
-        // This ensures peakMagnitude has been updated with real data before we check it
+
+        // Wait for the FFT pipeline to fill with valid post-restart data (~1.36 s for
+        // 65 536 samples at 48 kHz).  Use 2 s to be safe.
         let fftSettleTime: TimeInterval = 2.0
         DispatchQueue.main.asyncAfter(deadline: .now() + fftSettleTime) { [weak self] in
             guard let self = self else { return }
-            // Only re-enable if we haven't been stopped in the meantime
-            if self.fftAnalyzer.isRunning {
-                // Re-initialize threshold state based on current audio level
-                // This MUST happen before enabling detection
-                let currentPeakMag = self.fftAnalyzer.peakMagnitude
-                self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
-                
-                // Mark analyzer as ready again - this enables New Tap and Resume buttons
-                self.isReadyForDetection = true
-                
-                // Re-enable detection if it was active before
-                if wasDetecting {
-                    self.isDetecting = true
-                    self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."
-                } else {
-                    self.statusMessage = "Ready"
-                }
-                print("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
+            guard self.fftAnalyzer.isRunning else { return }
+
+            // Re-anchor the threshold state to the current (now valid) audio level.
+            let currentPeakMag = self.fftAnalyzer.peakMagnitude
+            self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
+
+            self.isReadyForDetection = true
+
+            if wasDetecting {
+                self.isDetecting = true
+                self.statusMessage = self.numberOfTaps == 1
+                    ? "Tap the guitar..."
+                    : "Tap the guitar \(self.numberOfTaps) times..."
+            } else {
+                self.statusMessage = "Ready"
             }
+            print("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
         }
     }
 }

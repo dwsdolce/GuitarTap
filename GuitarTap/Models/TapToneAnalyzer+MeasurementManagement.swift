@@ -5,19 +5,73 @@
 //  Created on 1/25/26.
 //
 
+/// # TapToneAnalyzer+MeasurementManagement
+///
+/// Persistence, import/export, and full-state restoration for
+/// ``TapToneMeasurement`` records.
+///
+/// ## Storage Layout
+/// Measurements are persisted as a JSON array at:
+/// ```
+/// <Documents>/saved_measurements.json
+/// ```
+/// Chart images are stored as separate PNG files in the same directory using
+/// a filename derived from the tap location label and a Unix timestamp:
+/// ```
+/// <location-slug>-<timestamp>.png
+/// ```
+/// The filename is recorded in ``TapToneMeasurement/chartImageFilename`` so
+/// that images can be loaded back alongside the JSON metadata.
+///
+/// ## Save / Load Contract
+/// A saved measurement captures a complete snapshot of the analyser state at
+/// the time of saving, including:
+/// - All detected peaks with their UUIDs
+/// - Per-phase spectra for plate/brace measurements
+/// - Annotation offsets (dragged callout positions)
+/// - Mode overrides (user-assigned peak labels)
+/// - Display settings (frequency range, dB range, guitar type, etc.)
+/// - Analysis settings (tap detection threshold, hysteresis, number of taps)
+/// - Microphone UID and calibration name for reproducibility warnings
+///
+/// When ``loadMeasurement(_:)`` restores a measurement it:
+/// 1. Restores all peaks, spectra, and derived state.
+/// 2. Publishes `loaded*` properties that views observe to update their
+///    controls without a new tap cycle.
+/// 3. Disables tap detection so the UI enters a frozen "viewing" state.
+/// 4. Auto-selects (or warns about) the recording microphone.
+///
+/// ## Microphone Warnings
+/// On import/load, the UID of the recording microphone is compared against
+/// `fftAnalyzer.availableInputDevices`. If the device is not connected,
+/// `microphoneWarning` is set to a user-facing string. If it is connected,
+/// the analyser automatically switches to it so calibration is applied.
+
 import SwiftUI
 
 extension TapToneAnalyzer {
 
     // MARK: - Measurement Persistence
 
-    /// File URL for persisted measurements
+    /// URL of the JSON file used for persisting all saved measurements.
+    ///
+    /// Located in the app's `Documents` directory, which is iCloud-backed on
+    /// iOS and accessible via Files on macOS.
     static var measurementsFileURL: URL {
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         return documentsDirectory.appendingPathComponent("saved_measurements.json")
     }
     
-    /// Load measurements from persistent storage
+    /// Loads all persisted measurements from disk, including their associated
+    /// chart images.
+    ///
+    /// Reads `saved_measurements.json` from the Documents directory, decodes
+    /// the `[TapToneMeasurement]` array with ISO-8601 date decoding, and for
+    /// each measurement attempts to load the PNG referenced by
+    /// `chartImageFilename` from the same directory.
+    ///
+    /// Populates `savedMeasurements` on the main thread. No-ops silently if
+    /// the file does not yet exist.
     func loadPersistedMeasurements() {
         let fileURL = TapToneAnalyzer.measurementsFileURL
         
@@ -52,7 +106,16 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Save measurements to persistent storage
+    /// Writes all saved measurements to `saved_measurements.json` and saves
+    /// any associated chart images as separate PNG files.
+    ///
+    /// Uses pretty-printed, sorted-key JSON encoding with ISO-8601 dates.
+    /// `chartImageData` is **not** encoded in the JSON (it is excluded via
+    /// `CodingKeys`); instead it is written to a sidecar PNG file whose name
+    /// is recorded in `chartImageFilename`.
+    ///
+    /// Called automatically after every `saveMeasurement`, `deleteMeasurement`,
+    /// and `importMeasurements` operation.
     func persistMeasurements() {
         let fileURL = TapToneAnalyzer.measurementsFileURL
         
@@ -81,7 +144,45 @@ extension TapToneAnalyzer {
 
     // MARK: - Measurement Management
     
-    /// Save current measurement with optional metadata and chart image
+    /// Captures the current analyser state into a new ``TapToneMeasurement``
+    /// and appends it to `savedMeasurements`.
+    ///
+    /// For **guitar** measurements a combined `SpectrumSnapshot` is built from
+    /// the frozen or live spectrum. For **plate/brace** measurements the
+    /// combined snapshot is `nil`; per-phase snapshots should be passed in
+    /// `longitudinalSnapshot`, `crossSnapshot`, and `flcSnapshot`.
+    ///
+    /// - Parameters:
+    ///   - tapLocation: A short label for where the measurement was taken,
+    ///     e.g. `"Top — Bridge"`. Used to derive the chart image filename.
+    ///   - notes: Free-text user notes to attach to the measurement.
+    ///   - includeSpectrum: When `true` and the measurement type is guitar,
+    ///     a `SpectrumSnapshot` is generated from the current (frozen or live)
+    ///     FFT data.
+    ///   - chartImageData: Raw PNG data of the spectrum chart, or `nil` if no
+    ///     chart is to be saved.
+    ///   - spectrumSnapshot: Pre-built guitar spectrum snapshot. If `nil` and
+    ///     `includeSpectrum` is `true`, one is built from the live/frozen FFT.
+    ///   - longitudinalSnapshot: Pre-built spectrum snapshot for the
+    ///     longitudinal phase (plate/brace measurements).
+    ///   - crossSnapshot: Pre-built spectrum snapshot for the cross-grain
+    ///     phase (plate measurements).
+    ///   - flcSnapshot: Pre-built spectrum snapshot for the FLC phase (plate
+    ///     measurements with FLC enabled).
+    ///   - annotationOffsets: Custom annotation drag offsets to persist. If
+    ///     `nil`, `peakAnnotationOffsets` is used.
+    ///   - selectedLongitudinalPeakID: UUID of the user/auto-selected
+    ///     longitudinal peak (plate/brace only).
+    ///   - selectedCrossPeakID: UUID of the user/auto-selected cross-grain
+    ///     peak (plate only).
+    ///   - selectedFlcPeakID: UUID of the user/auto-selected FLC peak (plate
+    ///     only, FLC enabled).
+    ///   - microphoneName: Display name of the recording microphone, for
+    ///     re-connection warnings on load.
+    ///   - microphoneUID: Persistent UID of the recording microphone, used
+    ///     for device matching on load.
+    ///   - calibrationName: Name of the active calibration profile, for
+    ///     reference information.
     func saveMeasurement(
         tapLocation: String? = nil, 
         notes: String? = nil, 
@@ -122,7 +223,8 @@ extension TapToneAnalyzer {
             snapshot = nil
         }
         
-        // Generate filename if image data is provided
+        // Generate filename if image data is provided.
+        // Format: <location-slug>-<unix-timestamp>.png
         let imageFilename: String?
         if chartImageData != nil {
             let locationPart = tapLocation?.replacingOccurrences(of: " ", with: "-")
@@ -169,7 +271,10 @@ extension TapToneAnalyzer {
         persistMeasurements()
     }
     
-    /// Delete a saved measurement
+    /// Removes a measurement from `savedMeasurements` and deletes its
+    /// associated chart image file from the Documents directory.
+    ///
+    /// - Parameter measurement: The ``TapToneMeasurement`` to delete.
     func deleteMeasurement(_ measurement: TapToneMeasurement) {
         // Also delete the associated chart image file if it exists
         if let filename = measurement.chartImageFilename {
@@ -184,8 +289,26 @@ extension TapToneAnalyzer {
         persistMeasurements()
     }
     
-    /// Import measurements from JSON data and optionally load associated images
-    /// Returns the array of imported measurements
+    /// Decodes a JSON data blob into ``TapToneMeasurement`` records and
+    /// appends them to `savedMeasurements`.
+    ///
+    /// If `baseURL` is provided, each measurement's `chartImageFilename` is
+    /// resolved relative to `baseURL.deletingLastPathComponent()` and its
+    /// image data is loaded if found.
+    ///
+    /// After import, the UID of each measurement's recording microphone is
+    /// compared against `fftAnalyzer.availableInputDevices`. If any microphone
+    /// is missing, `microphoneWarning` is set with a list of missing device
+    /// names.
+    ///
+    /// - Parameters:
+    ///   - jsonData: Raw JSON data containing an array of encoded
+    ///     ``TapToneMeasurement`` values.
+    ///   - baseURL: Optional base URL for resolving sidecar image files (e.g.
+    ///     the URL of the JSON file that was opened via document picker).
+    /// - Returns: The array of newly decoded measurements.
+    /// - Throws: A decoding error if `jsonData` is not a valid
+    ///   `[TapToneMeasurement]` JSON array.
     func importMeasurements(from jsonData: Data, baseURL: URL? = nil) throws -> [TapToneMeasurement] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -231,7 +354,23 @@ extension TapToneAnalyzer {
         return measurements
     }
     
-    /// Load a measurement's data into the current view (recreate the plot)
+    /// Restores the full analyser state from a saved measurement, entering
+    /// a frozen "viewing" mode.
+    ///
+    /// The restoration sequence:
+    /// 1. Peaks, decay time, and per-phase spectra are restored.
+    /// 2. Display and analysis settings are published via `loaded*` properties
+    ///    so that bound UI controls update without triggering a new tap cycle.
+    /// 3. Phase-specific peak selections (`selectedLongitudinalPeak`,
+    ///    `selectedCrossPeak`, `selectedFlcPeak`) are resolved by UUID into
+    ///    the restored peak array.
+    /// 4. Annotation offsets, selected peak IDs, annotation visibility mode,
+    ///    and mode overrides are all restored.
+    /// 5. Tap detection is disabled (`isDetecting = false`, `currentTapCount = 0`).
+    /// 6. The recording microphone is auto-selected if connected; otherwise
+    ///    `microphoneWarning` is set.
+    ///
+    /// - Parameter measurement: The ``TapToneMeasurement`` to load.
     func loadMeasurement(_ measurement: TapToneMeasurement) {
         print("🔄 Loading measurement...")
 
@@ -270,8 +409,8 @@ extension TapToneAnalyzer {
             flcPeaks = []
         }
         
-        // For plate/brace: use per-phase spectra for display (no frozen spectrum needed)
-        // For guitar: restore the single frozen spectrum as before
+        // For plate/brace: use per-phase spectra for display (no frozen spectrum needed).
+        // For guitar: restore the single frozen spectrum as before.
         if hasMaterialSpectra {
             isSpectrumFrozen = false
             frozenFrequencies = []
@@ -411,7 +550,7 @@ extension TapToneAnalyzer {
             peakModeOverrides = [:]
         }
         
-        // Restore analysis settings if available - set both internal and published values
+        // Restore analysis settings if available — set both internal and published values
         if let threshold = measurement.tapDetectionThreshold {
             print("  🎯 Publishing tap threshold: \(threshold) dB")
             tapDetectionThreshold = threshold
@@ -462,7 +601,17 @@ extension TapToneAnalyzer {
         print("✅ Loaded measurement with \(measurement.peaks.count) peaks (frozen)")
     }
 
-    /// Export a single measurement as JSON with image (calls completion with JSON and measurement)
+    /// Encodes a single measurement as a pretty-printed JSON string and
+    /// delivers it to `completion` on the main thread.
+    ///
+    /// Encoding is done on a background queue to avoid blocking the main
+    /// thread for large measurements with many peaks.
+    ///
+    /// - Parameters:
+    ///   - measurement: The ``TapToneMeasurement`` to export.
+    ///   - completion: Called on the main thread with the JSON string and the
+    ///     original measurement (for accessing `chartImageData` to share as a
+    ///     sidecar file).
     func exportMeasurement(_ measurement: TapToneMeasurement, completion: @escaping (String, TapToneMeasurement) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let encoder = JSONEncoder()
@@ -478,7 +627,18 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Import measurements from JSON
+    /// Simple string-based JSON import for quick in-app sharing.
+    ///
+    /// Decodes a JSON string containing an array of ``TapToneMeasurement``
+    /// values and appends them to `savedMeasurements`. No image files are
+    /// loaded and no microphone warnings are generated.
+    ///
+    /// - Parameter json: UTF-8 JSON string representing `[TapToneMeasurement]`.
+    /// - Returns: `true` if decoding succeeded and measurements were appended;
+    ///   `false` otherwise.
+    ///
+    /// - SeeAlso: ``importMeasurements(from:baseURL:)`` for the full import
+    ///   path with image loading and microphone warning support.
     func importMeasurements(json: String) -> Bool {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

@@ -5,27 +5,50 @@
 //  Created on 1/25/26.
 //
 
+/// # TapToneAnalyzer+Control
+///
+/// Start, stop, reset, and sequence-management methods for ``TapToneAnalyzer``.
+///
+/// ## Auto-Start Logic
+///
+/// ``start()`` auto-starts a tap sequence only on the **first user-initiated launch** — not
+/// on engine restarts triggered by device/route changes.  The guard condition checks that:
+/// - no sequence is already active (`!isDetecting`)
+/// - the spectrum is not frozen (`!isSpectrumFrozen`)
+/// - detection is not paused (`!isDetectionPaused`)
+/// - no taps have been counted yet (`currentTapCount == 0`)
+///
+/// Route-change restarts are handled by ``handleRouteChangeRestart()`` in the main file,
+/// which preserves in-progress sequences.
+///
+/// ## Pause vs Cancel
+///
+/// | Action | Detection | Tap count | Spectrum | Phase |
+/// |--------|-----------|-----------|----------|-------|
+/// | `pauseTapDetection()` | Off | Preserved | Live | Preserved |
+/// | `cancelTapSequence()` | On (restarts) | Reset to 0 | Unfrozen | Reset to start |
+/// | `reset()` | Off | Reset to 0 | Unfrozen | Reset to notStarted |
 import Foundation
 
 extension TapToneAnalyzer {
 
-    // MARK: - Control
+    // MARK: - Lifecycle Control
 
-    /// Start analyzing
+    /// Starts the FFT engine and auto-starts a tap detection sequence when appropriate.
+    ///
+    /// The auto-start guard ensures `startTapSequence()` fires only on a fresh launch, not
+    /// on audio-engine restarts mid-sequence.  The guard is evaluated asynchronously on the
+    /// main queue so that any in-flight state changes (e.g. a concurrent pause dispatch)
+    /// settle before the decision is made.
+    ///
+    /// - Throws: Any error propagated from ``RealtimeFFTAnalyzer/start()``, such as
+    ///   microphone permission denial or audio session configuration failure.
     func start() throws {
         try fftAnalyzer.start()
-        analyzerStartTime = Date()  // Record start time for warm-up period
+        analyzerStartTime = Date()  // Begin the warm-up period for the new session.
         print("🎬 Analyzer started - warm-up period: \(warmupPeriod)s")
 
-        // Only auto-start tap detection on the initial user-initiated start.
-        // Engine restarts due to device/route/sample-rate changes go through
-        // handleRouteChangeRestart() instead, which preserves frozen spectra
-        // and in-progress sequences.
-        //
-        // Evaluate the guard on the main queue so it runs after any pending
-        // state changes (e.g. a pause that was dispatched just before this
-        // restart) have settled. This prevents startTapSequence() from firing
-        // mid-sequence after a HALC overload restart.
+        // Evaluate the auto-start guard after pending state changes have settled.
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if !self.isDetecting && !self.isSpectrumFrozen && !self.isDetectionPaused
@@ -34,77 +57,96 @@ extension TapToneAnalyzer {
             }
         }
     }
-    
-    /// Stop analyzing
+
+    /// Stops the FFT engine.
+    ///
+    /// Does not reset the tap count or clear any captured spectra — call ``reset()`` if a
+    /// full state clear is needed.
     func stop() {
         fftAnalyzer.stop()
     }
-    
-    /// Reset analysis state
+
+    /// Resets all analysis state to the initial idle condition.
+    ///
+    /// Clears peaks, spectra, decay data, plate/brace phase state, annotation offsets, and
+    /// any in-flight gated capture.  The spectrum is unfrozen.  All operations are
+    /// dispatched to the main queue.
     func reset() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
-            self.currentPeaks = []
-            self.identifiedModes = []
-            self.currentDecayTime = nil
-            self.sourceMeasurementTimestamp = nil  // No longer viewing a saved measurement
+
+            self.currentPeaks        = []
+            self.identifiedModes     = []
+            self.currentDecayTime    = nil
+            // Clear the loaded-measurement reference — results are now from a fresh tap.
+            self.sourceMeasurementTimestamp = nil
             self.peakMagnitudeHistory = []
-            self.lastTapTime = nil
-            self.tapDetected = false
-            self.isDetecting = false  // Disable detection until new sequence starts
-            self.currentTapCount = 0
-            self.tapProgress = 0.0
-            self.capturedTaps = []
-            self.tapsForAveraging = []
+            self.lastTapTime         = nil
+            self.tapDetected         = false
+            // Disable detection until the user starts a new sequence.
+            self.isDetecting         = false
+            self.currentTapCount     = 0
+            self.tapProgress         = 0.0
+            self.capturedTaps        = []
+            self.tapsForAveraging    = []
             self.captureTimer?.invalidate()
-            self.captureTimer = nil
-            self.isAboveThreshold = false  // Reset edge detection state
-            self.analyzerStartTime = Date()  // Reset warm-up timer
-            
-            // Stop decay tracking
+            self.captureTimer        = nil
+            // Always start fresh so the first new tap is detected on a rising edge.
+            self.isAboveThreshold    = false
+            self.analyzerStartTime   = Date()  // Reset warm-up timer.
+
+            // Stop any in-progress decay tracking.
             self.isTrackingDecay = false
             self.decayTrackingTimer?.invalidate()
             self.decayTrackingTimer = nil
-            
-            // Unfreeze spectrum
-            self.isSpectrumFrozen = false
-            self.frozenFrequencies = []
-            self.frozenMagnitudes = []
-            
-            // Clear annotation offsets
+
+            // Unfreeze the spectrum so the live FFT is shown.
+            self.isSpectrumFrozen    = false
+            self.frozenFrequencies   = []
+            self.frozenMagnitudes    = []
+
+            // Clear annotation label offsets.
             self.peakAnnotationOffsets = [:]
-            
-            // Reset plate/brace measurement state
-            self.materialTapPhase = .notStarted
+
+            // Reset all plate/brace phase state.
+            self.materialTapPhase    = .notStarted
             self.longitudinalSpectrum = nil
-            self.crossSpectrum = nil
-            self.flcSpectrum = nil
-            self.longitudinalPeaks = []
-            self.crossPeaks = []
-            self.flcPeaks = []
+            self.crossSpectrum       = nil
+            self.flcSpectrum         = nil
+            self.longitudinalPeaks   = []
+            self.crossPeaks          = []
+            self.flcPeaks            = []
             self.autoSelectedLongitudinalPeakID = nil
-            self.autoSelectedCrossPeakID = nil
-            self.autoSelectedFlcPeakID = nil
-            self.selectedLongitudinalPeak = nil
-            self.selectedCrossPeak = nil
-            self.selectedFlcPeak = nil
-            self.userSelectedLongitudinalPeakID = nil
-            self.userSelectedCrossPeakID = nil
-            self.userSelectedFlcPeakID = nil
-            self.materialCapturedTaps = []
-            
-            // Cancel any in-flight gated FFT capture
+            self.autoSelectedCrossPeakID        = nil
+            self.autoSelectedFlcPeakID          = nil
+            self.selectedLongitudinalPeak        = nil
+            self.selectedCrossPeak               = nil
+            self.selectedFlcPeak                 = nil
+            self.userSelectedLongitudinalPeakID  = nil
+            self.userSelectedCrossPeakID         = nil
+            self.userSelectedFlcPeakID           = nil
+            self.materialCapturedTaps            = []
+
+            // Cancel any in-flight gated FFT capture cleanly.
             self.gatedCaptureActive = false
             self.mpmLock.lock()
             self.gatedAccumBuffer = []
             self.mpmLock.unlock()
-            
+
             self.statusMessage = "Press 'New Tap' to begin"
         }
     }
-    
-    /// Start a new tap detection sequence
+
+    // MARK: - Tap Sequence Management
+
+    /// Starts a new tap detection sequence, resetting all per-sequence state.
+    ///
+    /// For plate and brace modes, transitions ``materialTapPhase`` to
+    /// `.capturingLongitudinal` and resets all per-phase spectra and peak selections.
+    /// For guitar modes, resets the multi-tap counter and averaged spectra.
+    ///
+    /// `isAboveThreshold` is always reset to `false` regardless of the current signal level.
+    /// The ``warmupPeriod`` then handles any audio transients at the start of the session.
     func startTapSequence() {
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
@@ -113,48 +155,48 @@ extension TapToneAnalyzer {
         print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), plate mode: \(isPlateMode), brace mode: \(isBraceMode)")
         print("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
         print("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
-        
-        // Ensure all @Published updates happen on main thread
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
-            // Clear previous data
-            self.capturedTaps = []
-            self.tapsForAveraging = []
-            self.currentTapCount = 0
-            self.tapProgress = 0.0
-            self.tapDetected = false
-            self.isDetectionPaused = false
-            // Reset noise floor estimate so it adapts to the current environment
-            self.noiseFloorEstimate = self.fftAnalyzer.inputLevelDB
-            
-            // Reset decay tracking
-            self.currentDecayTime = nil
+
+            // Clear per-sequence accumulated data.
+            self.capturedTaps        = []
+            self.tapsForAveraging    = []
+            self.currentTapCount     = 0
+            self.tapProgress         = 0.0
+            self.tapDetected         = false
+            self.isDetectionPaused   = false
+            // Seed the noise-floor estimate from the current ambient level so the first
+            // relative-threshold calculation is accurate immediately.
+            self.noiseFloorEstimate  = self.fftAnalyzer.inputLevelDB
+
+            // Reset decay tracking.
+            self.currentDecayTime    = nil
             self.peakMagnitudeHistory = []
-            self.isTrackingDecay = false
+            self.isTrackingDecay     = false
             self.decayTrackingTimer?.invalidate()
-            self.decayTrackingTimer = nil
-            
-            // Reset plate/brace measurement state
+            self.decayTrackingTimer  = nil
+
+            // Initialise plate/brace phase state.
             if isPlateMode || isBraceMode {
                 self.materialTapPhase = .capturingLongitudinal
                 self.longitudinalSpectrum = nil
-                self.crossSpectrum = nil
-                self.flcSpectrum = nil
-                self.longitudinalPeaks = []
-                self.crossPeaks = []
-                self.flcPeaks = []
+                self.crossSpectrum        = nil
+                self.flcSpectrum          = nil
+                self.longitudinalPeaks    = []
+                self.crossPeaks           = []
+                self.flcPeaks             = []
                 self.autoSelectedLongitudinalPeakID = nil
-                self.autoSelectedCrossPeakID = nil
-                self.autoSelectedFlcPeakID = nil
-                self.selectedLongitudinalPeak = nil
-                self.selectedCrossPeak = nil
-                self.selectedFlcPeak = nil
-                self.userSelectedLongitudinalPeakID = nil
-                self.userSelectedCrossPeakID = nil
-                self.userSelectedFlcPeakID = nil
-                self.materialCapturedTaps = []
-                // Cancel any in-flight gated FFT capture
+                self.autoSelectedCrossPeakID        = nil
+                self.autoSelectedFlcPeakID          = nil
+                self.selectedLongitudinalPeak        = nil
+                self.selectedCrossPeak               = nil
+                self.selectedFlcPeak                 = nil
+                self.userSelectedLongitudinalPeakID  = nil
+                self.userSelectedCrossPeakID         = nil
+                self.userSelectedFlcPeakID           = nil
+                self.materialCapturedTaps            = []
+                // Cancel any lingering in-flight capture from a previous sequence.
                 self.gatedCaptureActive = false
                 self.mpmLock.lock()
                 self.gatedAccumBuffer = []
@@ -162,37 +204,29 @@ extension TapToneAnalyzer {
             } else {
                 self.materialTapPhase = .notStarted
             }
-            
-            // IMPORTANT: Always start with isAboveThreshold = false
-            // The warm-up period (0.5s) gives time for the audio level to settle,
-            // and then we detect the first rising edge naturally.
-            // Previously we tried to initialize based on current level, but this caused
-            // issues when starting a new sequence while frozen spectrum showed high peaks
-            // but actual live audio was quiet - we'd get stuck waiting for a "drop" that
-            // never came because the live audio was already low.
+
+            // Always start with isAboveThreshold = false so the first real tap produces
+            // a genuine rising edge.  The warm-up period suppresses detections for the
+            // first 0.5 s; justExitedWarmup then re-anchors the state without firing a tap.
             let currentPeakMag = self.fftAnalyzer.peakMagnitude
             print("🎬 Inside async block - FFT peak magnitude: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB")
             print("🎬 FFT analyzer state: running=\(self.fftAnalyzer.isRunning), magnitudes count=\(self.fftAnalyzer.magnitudes.count)")
-            
-            // Always start fresh - the warm-up period handles any transients
-            // The justExitedWarmup flag ensures we sync with actual signal level
-            // after warm-up ends, preventing false triggers from ambient noise
-            self.isAboveThreshold = false
-            self.justExitedWarmup = false  // Will be set true during warm-up
+
+            self.isAboveThreshold  = false
+            self.justExitedWarmup  = false  // Will be set true as warm-up ends.
             print("✅ Starting with isAboveThreshold = false - ready for tap detection after warm-up")
-            
-            // Reset warm-up timer to prevent immediate false detection
+
+            // Reset the warm-up timer for this new sequence.
             self.analyzerStartTime = Date()
-            
-            // Unfreeze spectrum
-            self.isSpectrumFrozen = false
+
+            // Unfreeze the spectrum so the live FFT is shown while waiting for taps.
+            self.isSpectrumFrozen  = false
             self.frozenFrequencies = []
-            self.frozenMagnitudes = []
-            
-            // Enable detection
+            self.frozenMagnitudes  = []
+
             self.isDetecting = true
-            
-            // Set appropriate status message
+
+            // Set context-appropriate status message.
             if isBraceMode {
                 self.statusMessage = self.numberOfTaps > 1 ? "Ready for fL tap (×\(self.numberOfTaps))" : "Ready for fL tap"
             } else if isPlateMode {
@@ -206,41 +240,57 @@ extension TapToneAnalyzer {
             } else {
                 self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."
             }
-            
-            // Clear current results
-            self.currentPeaks = []
+
+            // Clear previous results so the chart shows a clean slate while waiting.
+            self.currentPeaks    = []
             self.identifiedModes = []
         }
     }
-    
-    /// Pause tap detection mid-sequence; spectrum stays live so the user can experiment
+
+    // MARK: - Pause / Resume
+
+    /// Pauses tap detection mid-sequence without losing the current tap count.
+    ///
+    /// The spectrum remains live so the user can experiment with the guitar while paused.
+    /// Use ``resumeTapDetection()`` to continue the sequence from where it left off.
+    ///
+    /// No-op when not currently detecting or already paused.
     func pauseTapDetection() {
         guard isDetecting && !isDetectionPaused else { return }
-        isDetecting = false
+        isDetecting      = false
         isDetectionPaused = true
-        statusMessage = "Detection paused – tap freely, then resume"
+        statusMessage    = "Detection paused – tap freely, then resume"
         print("⏸️ Tap detection paused at \(currentTapCount)/\(numberOfTaps)")
     }
-    
-    /// Resume tap detection after a pause, continuing the in-progress sequence
+
+    /// Resumes tap detection after a pause, continuing from the current tap count.
+    ///
+    /// The warm-up timer is reset so the first audio frame after resume does not fire
+    /// immediately as a false tap.
+    ///
+    /// No-op when not paused.
     func resumeTapDetection() {
         guard isDetectionPaused else { return }
         isDetectionPaused = false
-        
-        // Reset warm-up timer so the first audio frame after resume doesn't trigger immediately
+
+        // Reset warm-up to prevent an immediate false trigger on the first frame.
         analyzerStartTime = Date()
-        isAboveThreshold = false
-        
+        isAboveThreshold  = false
+
         isDetecting = true
-        
+
+        // Restore a context-appropriate prompt.
         let resumeType = TapDisplaySettings.measurementType
         let isPlateMode = resumeType == .plate
         let isBraceMode = resumeType == .brace
         if isPlateMode || isBraceMode {
             switch materialTapPhase {
-            case .capturingLongitudinal: statusMessage = isBraceMode ? "Ready for fL tap" : "Ready for L tap"
-            case .capturingFlc, .waitingForFlcTap: statusMessage = "Ready for FLC tap"
-            default: statusMessage = "Ready for C tap"
+            case .capturingLongitudinal:
+                statusMessage = isBraceMode ? "Ready for fL tap" : "Ready for L tap"
+            case .capturingFlc, .waitingForFlcTap:
+                statusMessage = "Ready for FLC tap"
+            default:
+                statusMessage = "Ready for C tap"
             }
         } else if currentTapCount == 0 {
             statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
@@ -249,72 +299,76 @@ extension TapToneAnalyzer {
         }
         print("▶️ Tap detection resumed at \(currentTapCount)/\(numberOfTaps)")
     }
-    
-    /// Cancel current tap sequence and restart detection
+
+    // MARK: - Cancel
+
+    /// Cancels the current tap sequence and immediately restarts detection from scratch.
+    ///
+    /// Unlike ``reset()``, cancel keeps detection active so the user can start a new
+    /// tap without pressing the Start button again.  All per-sequence data (captured taps,
+    /// phase spectra, peaks) is cleared.  The spectrum is unfrozen.
     func cancelTapSequence() {
         print("❌ Tap sequence cancelled")
-        
+
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
-        
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
-            self.capturedTaps = []
-            self.tapsForAveraging = []
-            self.currentTapCount = 0
-            self.tapProgress = 0.0
-            self.tapDetected = false
-            self.isDetectionPaused = false
-            self.isDetecting = true
-            
-            // Reset plate/brace measurement state
+
+            self.capturedTaps        = []
+            self.tapsForAveraging    = []
+            self.currentTapCount     = 0
+            self.tapProgress         = 0.0
+            self.tapDetected         = false
+            self.isDetectionPaused   = false
+            self.isDetecting         = true
+
+            // Reset plate/brace state back to the start of the sequence.
             if isPlateMode || isBraceMode {
                 self.materialTapPhase = .capturingLongitudinal
                 self.longitudinalSpectrum = nil
-                self.crossSpectrum = nil
-                self.flcSpectrum = nil
-                self.longitudinalPeaks = []
-                self.crossPeaks = []
-                self.flcPeaks = []
+                self.crossSpectrum        = nil
+                self.flcSpectrum          = nil
+                self.longitudinalPeaks    = []
+                self.crossPeaks           = []
+                self.flcPeaks             = []
                 self.autoSelectedLongitudinalPeakID = nil
-                self.autoSelectedCrossPeakID = nil
-                self.autoSelectedFlcPeakID = nil
-                self.selectedLongitudinalPeak = nil
-                self.selectedCrossPeak = nil
-                self.selectedFlcPeak = nil
-                self.userSelectedLongitudinalPeakID = nil
-                self.userSelectedCrossPeakID = nil
-                self.userSelectedFlcPeakID = nil
-                self.materialCapturedTaps = []
-                // Cancel any in-flight gated FFT capture
+                self.autoSelectedCrossPeakID        = nil
+                self.autoSelectedFlcPeakID          = nil
+                self.selectedLongitudinalPeak        = nil
+                self.selectedCrossPeak               = nil
+                self.selectedFlcPeak                 = nil
+                self.userSelectedLongitudinalPeakID  = nil
+                self.userSelectedCrossPeakID         = nil
+                self.userSelectedFlcPeakID           = nil
+                self.materialCapturedTaps            = []
+                // Abort any in-flight gated FFT capture.
                 self.gatedCaptureActive = false
                 self.mpmLock.lock()
                 self.gatedAccumBuffer = []
                 self.mpmLock.unlock()
             }
-            
-            // Stop decay tracking
+
+            // Stop decay tracking.
             self.isTrackingDecay = false
             self.decayTrackingTimer?.invalidate()
             self.decayTrackingTimer = nil
-            
-            // Unfreeze spectrum
-            self.isSpectrumFrozen = false
+
+            // Unfreeze the spectrum.
+            self.isSpectrumFrozen  = false
             self.frozenFrequencies = []
-            self.frozenMagnitudes = []
-            
-            // Reset warm-up timer to prevent detection issues
+            self.frozenMagnitudes  = []
+
+            // Reset the warm-up timer for the restarted sequence.
             self.analyzerStartTime = Date()
-            
-            // Always start fresh - the warm-up period handles any transients
-            self.isAboveThreshold = false
-            
+            self.isAboveThreshold  = false
+
             self.captureTimer?.invalidate()
             self.captureTimer = nil
-            
-            // Set appropriate status message
+
+            // Show an appropriate ready prompt.
             if isBraceMode {
                 self.statusMessage = "Ready for fL tap"
             } else if isPlateMode {
