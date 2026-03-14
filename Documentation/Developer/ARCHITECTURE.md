@@ -1,576 +1,271 @@
-# GuitarTap Architecture Guide
+# GuitarTap Architecture
 
-## Overview
-
-GuitarTap is a cross-platform (macOS and iOS) guitar tap tone analysis application built with SwiftUI. This document outlines the architectural patterns, design decisions, and best practices used throughout the codebase.
+GuitarTap is a cross-platform (macOS + iOS) luthier tool for tap-tone analysis. Users tap a guitar top, back, plate, or brace and the app captures the acoustic response via microphone, performs real-time FFT analysis, identifies resonant modes, and calculates material properties.
 
 ---
 
-## Architecture Pattern: MVVM (Model-View-ViewModel)
+## Layered Overview
 
-### Models
-- **`ResonantPeak`**: Represents a detected frequency peak with metadata
-- **`TapToneMeasurement`**: Complete measurement session with peaks and metadata
-- **`SpectrumSnapshot`**: Frozen FFT data for recreating visualizations
-- **`GuitarMode`**: Enum representing different guitar resonance modes
+```
+┌──────────────────────────────────────────────────────────────┐
+│                          Views                               │
+│   TapToneAnalysisView  SpectrumView  TapAnalysisResultsView  │
+│   TapSettingsView  MeasurementsListView  ...                 │
+├──────────────────────────────────────────────────────────────┤
+│                  View Models (ObservableObject)              │
+│         RealtimeFFTAnalyzer          TapToneAnalyzer         │
+├──────────────────────────────────────────────────────────────┤
+│                       Data Models                            │
+│   TapToneMeasurement  SpectrumSnapshot  ResonantPeak         │
+│   GuitarMode  MaterialTapPhase  UserAssignedMode             │
+├──────────────────────────────────────────────────────────────┤
+│                    Supporting Services                       │
+│   MaterialProperties  MicrophoneCalibration/Storage          │
+│   Pitch  AVAudioDevice  TapDisplaySettings                   │
+└──────────────────────────────────────────────────────────────┘
+```
 
-### View Models (ObservableObject)
-- **`TapToneAnalyzer`**: Core business logic for tap detection and analysis
-- **`RealtimeFFTAnalyzer`**: FFT engine and audio input handling
-
-### Views
-- **`TapToneAnalysisView`**: Main analysis interface
-- **`SpectrumView`**: Interactive frequency spectrum chart
-- **`TapAnalysisResultsView`**: Results panel
-- **`MeasurementsListView`**: Saved measurements management
+The pattern is MVVM. Both view models are `ObservableObject`s instantiated as `@StateObject` in `TapToneAnalysisView` and passed down the tree as `@ObservedObject`. `TapToneAnalyzer` subscribes directly to `RealtimeFFTAnalyzer`'s published values — it does not own its own audio session.
 
 ---
 
-## Cross-Platform Design Principles
+## View Models
 
-### 1. **Conditional Compilation**
-Use `#if os(macOS)` and `#if os(iOS)` to provide platform-specific implementations:
+### RealtimeFFTAnalyzer
 
-```swift
-#if os(macOS)
-// macOS-specific layout with HSplitView
-var macOSLayout: some View { ... }
-#else
-// iOS-specific layout with adaptive sizing
-var iOSLayout: some View { ... }
-#endif
-```
+**Files:** `RealtimeFFTAnalyzer.swift` + `+DeviceManagement`, `+EngineControl`, `+FFTProcessing`
 
-### 2. **Platform Adapters**
-Abstract platform differences through unified interfaces (see `PlatformAdapters.swift`):
-- `PlatformImage` type alias
-- `ImageRenderer.platformScale`
-- `FileExportHelper` for unified save/share dialogs
-- `ToolbarItemPlacement` extensions
+Owns the `AVAudioEngine` and `vDSP` DFT setup. Responsible for everything below the spectrum data.
 
-### 3. **Shared Business Logic**
-Keep all business logic platform-agnostic in model and view model layers:
-- `TapToneAnalyzer` works identically on both platforms
-- Audio processing in `RealtimeFFTAnalyzer` uses AVFoundation (available on both)
+**Publishes:**
 
-### 4. **Adaptive UI**
-Use SwiftUI's environment values for adaptive layouts:
+| Property | Rate | Description |
+|---|---|---|
+| `frequencies[]`, `magnitudes[]` | ~1–2 Hz | Full FFT spectrum (65,536-point, 48 kHz target) |
+| `peakMagnitude`, `peakFrequency` | ~1–2 Hz | Dominant bin in the current spectrum |
+| `inputLevelDB`, `recentPeakLevelDB` | ~10 Hz | Fast signal level for decay tracking and tap detection |
 
-```swift
-@Environment(\.horizontalSizeClass) var horizontalSizeClass
+**Two FFT modes:**
+- **Continuous** (rectangular window) — always running; drives live spectrum display and guitar-mode tap detection.
+- **Gated one-shot** (Hann window) — triggered by `TapToneAnalyzer` for plate/brace captures; uses a temporary DFT setup so it doesn't interfere with the continuous path.
 
-// Adapt layout based on device size
-if horizontalSizeClass == .regular {
-    // iPad side-by-side layout
-} else {
-    // iPhone sheet-based layout
-}
-```
+**Device management** is platform-specific: CoreAudio `AudioDeviceID` on macOS, `AVAudioSessionPortDescription` on iOS. When the selected device changes, calibration data is automatically loaded via `CalibrationStorage`.
 
 ---
 
-## Key Architectural Components
+### TapToneAnalyzer
 
-### 1. **Tap Detection State Machine**
+**Files:** `TapToneAnalyzer.swift` + 9 extension files
 
-The tap detection system uses a state machine pattern with hysteresis:
+The central coordinator. Subscribes to `RealtimeFFTAnalyzer` and implements the full tap-detection and analysis pipeline. Each extension owns one well-defined responsibility:
 
-**States:**
-- `isDetecting: Bool` - Whether detection is active
-- `isAboveThreshold: Bool` - Current signal level state
-- `currentTapCount: Int` - Progress in multi-tap sequence
+| Extension | Responsibility |
+|---|---|
+| `+TapDetection` | Rising-edge hysteresis detector. Guitar mode: absolute `peakMagnitude` threshold. Plate/brace: `noiseFloor EMA + headroom` (relative). Warm-up suppression for first 0.5 s. |
+| `+PeakAnalysis` | Two-pass peak finder: pass 1 guarantees one slot per known `GuitarMode` frequency range, pass 2 fills remaining slots by magnitude. Parabolic sub-bin interpolation. Q-factor via −3 dB bandwidth method. |
+| `+SpectrumCapture` | Gated PCM capture seeded from pre-roll ring buffer. HPS + Q-factor filtering selects dominant material resonance (rejects Q < 3). Frequency-domain power averaging across multi-tap captures. |
+| `+DecayTracking` | Opens a 3-second ring-out window after each tap. Measures time from peak level to a threshold crossing (`recentPeakLevelDB` fast path). |
+| `+MeasurementManagement` | JSON persistence to `Documents/saved_measurements.json`. Import/export. PNG sidecar chart images. |
+| `+ModeOverrideManagement` | Thread-safe bulk apply/reset of user-supplied mode labels. |
+| `+AnnotationManagement` | Per-peak `[UUID: CGPoint]` drag offsets for chart labels. |
+| `+Control` | Lifecycle (`start`/`stop`/`reset`), tap sequence state machine (`startTapSequence`/`pause`/`resume`/`cancel`). |
+| `+AnalysisHelpers` | Tap-tone ratio (`f_Top / f_Air`, ideal ≈ 2.0), measurement-to-measurement frequency delta comparison. |
 
-**State Transitions:**
-1. User starts sequence → `isDetecting = true`
-2. Signal crosses threshold → Tap detected, capture FFT
-3. Cooldown period → Wait for next tap
-4. Sequence complete → Average results, freeze display
+**Key published state:**
 
-**Key Insight:** Rising edge detection with hysteresis prevents false triggers:
-```swift
-let risingThreshold = tapDetectionThreshold
-let fallingThreshold = tapDetectionThreshold - hysteresisMargin
-
-// Only trigger on rising edge (BELOW→ABOVE transition)
-if currentlyAboveThreshold && !isAboveThreshold {
-    // TAP!
-}
-```
-
-### 2. **Annotation Offset System**
-
-Peak annotations can be dragged to prevent overlap. The system stores custom positions:
-
-**Storage:** `[UUID: CGPoint]` dictionary keyed by peak ID
-**Persistence:** Saved with measurements in JSON
-**Thread Safety:** All updates go through main thread checks
-
-**Best Practices:**
-- Update offsets synchronously when already on main thread (prevents deadlock)
-- Store offsets relative to default position (allows recalculation on zoom)
-- Cache calculated positions during drag to reduce overhead
-
-### 3. **Spectrum Freezing**
-
-When a tap sequence completes, the spectrum is "frozen" to prevent live updates:
-
-```swift
-@Published var isSpectrumFrozen: Bool = false
-@Published var frozenFrequencies: [Float] = []
-@Published var frozenMagnitudes: [Float] = []
-
-// In chart view:
-frequencies: analyzer.isSpectrumFrozen ? 
-    analyzer.frozenFrequencies : fftAnalyzer.frequencies
-```
-
-**Why?** This allows users to save/export the exact spectrum captured during taps, not whatever is currently happening.
-
-### 4. **Multi-Tap Averaging**
-
-To reduce noise, users can average multiple taps:
-
-**Process:**
-1. Capture raw FFT data from each tap
-2. Find peaks in each capture independently
-3. Group similar peaks across taps (within 5 Hz tolerance)
-4. Average frequency, magnitude, Q-factor per group
-5. Average raw FFT bins (in linear power domain, not dB)
-
-**Implementation Note:** Averaging in dB domain is incorrect! Convert to linear first:
-```swift
-let linearPower = pow(10.0, magnitudeDB / 10.0)
-// ... average linear values ...
-let averageDB = 10.0 * log10(averageLinear)
-```
+| Property | Description |
+|---|---|
+| `currentPeaks` | Detected `ResonantPeak` array, updated at FFT rate |
+| `identifiedModes` | Mode classifications for current peaks |
+| `isDetecting`, `tapProgress` | Detection active flag and multi-tap progress (0–1) |
+| `isSpectrumFrozen`, `frozenFrequencies/Magnitudes` | Frozen display after a completed tap sequence |
+| `currentDecayTime` | Ring-out measurement in seconds |
+| `materialTapPhase` | Current phase in plate/brace multi-phase sequence |
+| `savedMeasurements` | Persisted `[TapToneMeasurement]` |
 
 ---
 
-## Platform-Specific Considerations
+## Data Models
 
-### macOS
+### TapToneMeasurement
+Serializable record of one complete session. Captures peaks, decay time, tap location, notes, per-phase spectrum snapshots (guitar uses a single `spectrumSnapshot`; plate/brace add `longitudinalSnapshot`, `crossSnapshot`, `flcSnapshot`), display state (annotation offsets, selected peaks, visibility mode, mode overrides), analysis settings (thresholds, tap count, peak count), and microphone provenance (name, UID, calibration name).
 
-**Layout:**
-- `HSplitView` for resizable panels
-- Multiple simultaneous panels (metrics + results)
-- Native `NSSavePanel` for file exports
-- Mouse hover effects and cursor changes
+### SpectrumSnapshot
+Immutable frozen spectrum paired with its display axis settings (`minFreq`, `maxFreq`, `minDB`, `maxDB`, `isLogarithmic`) and the analysis settings active at capture time (guitar type, measurement type, plate/brace dimensions, stiffness parameters).
 
-**Controls:**
-- Right-click context menus
-- Keyboard shortcuts (Cmd+S, etc.)
-- Window chrome and title bar
+### ResonantPeak
+`Identifiable` + `Codable`. Fields: `frequency`, `magnitude` (dBFS), `quality` (Q-factor), `bandwidth`, pitch information (`pitchNote`, `pitchCents`, `pitchFrequency`), `timestamp`.
 
-**Example:**
-```swift
-HSplitView {
-    mainContentView
-        .frame(minWidth: 600)
-    
-    metricsPanel
-        .frame(minWidth: 300, idealWidth: 350, maxWidth: 450)
-}
+### GuitarMode
+Enum with 7 active cases (`air`, `top`, `back`, `dipole`, `ringMode`, `upperModes`, `unknown`) plus 4 legacy names for backward compatibility. `classify(frequency:guitarType:)` maps a frequency to a mode using per-guitar-type frequency ranges. Each mode has both a detection range and a narrower `idealRange`.
+
+### MaterialTapPhase
+State machine for plate/brace multi-phase measurement:
 ```
-
-### iOS
-
-**Layout:**
-- **iPad**: `HStack` for split view with side panels (regular size class)
-- **iPhone**: Always uses full-screen layout with sheets (even in landscape)
-  - Compact button layouts with icon-only controls
-  - Vertical stacking of control groups for readability
-  - Full-width sliders for better touch targets
-- Sheet-based panels for all secondary content on iPhone
-- `UIActivityViewController` for sharing
-- Device detection (`UIDevice.current.userInterfaceIdiom`) prevents side panels on iPhone landscape
-
-**Controls:**
-- Gesture-based navigation
-- Bottom sheets for secondary content
-- Share sheets for file export
-- Adaptive button layouts:
-  - **iPhone (compact)**: Icon-only buttons in rows, full-width sliders
-  - **iPad (regular)**: Full labels with text
-
-**Layout Strategy:**
-```swift
-// Only show side panels on iPad, never on iPhone
-if UIDevice.current.userInterfaceIdiom == .pad && 
-   horizontalSizeClass == .regular && 
-   (showingMetrics || showingResults) {
-    // iPad: side-by-side
-    HStack {
-        mainContent
-        Divider()
-        sidePanel
-    }
-} else {
-    // iPhone: full screen with sheets
-    mainContent
-}
+notStarted → capturingLongitudinal → waitingForCrossTap → capturingCross
+           → waitingForFlcTap → capturingFlc → complete
 ```
-
-**Button Adaptation:**
-```swift
-#if os(iOS)
-if horizontalSizeClass == .compact {
-    // iPhone: Compact icon-only buttons
-    VStack(spacing: 8) {
-        HStack(spacing: 8) {
-            Button { } label: { Image(systemName: "play") }
-            Button { } label: { Image(systemName: "save") }
-            // ... more icon-only buttons
-        }
-    }
-} else {
-    // iPad: Full labels
-    HStack {
-        Button("Start") { }
-        Button("Save") { }
-    }
-}
-#endif
-```
+Each case exposes `instruction` and `shortStatus` strings for UI display.
 
 ---
 
-## Data Persistence
+## Supporting Services
 
-### Measurement Export Format
+**MaterialProperties** — `PlateProperties` and `BraceProperties` compute Young's moduli from the Euler-Bernoulli beam formula and the Gore plate formula. `WoodQuality` rates results against species-specific thresholds (Sitka, Engelmann, European Spruce, Cedar). `goreTargetThickness()` calculates optimal plate thickness from Gore Equations 4.5–7.
 
-Measurements are saved as JSON with optional PNG images:
+**MicrophoneCalibration / CalibrationStorage** — Parses UMIK-1 / REW `.cal` files into frequency-correction point arrays. `correction(at:)` uses linear interpolation with flat extrapolation at the extremes. `CalibrationStorage` is a singleton that persists calibrations and device-UID → calibration mappings in UserDefaults. Calibration corrections are pre-computed and applied at FFT time.
 
-**Files:**
-- `measurement.json` - Peak data, metadata, spectrum snapshot
-- `location-timestamp.png` - Chart image (optional)
+**Pitch** — Equal-temperament calculator with configurable A4 reference (default 440 Hz). Anchored at C0 (`f_A4 × 2^(−4.75)`).
 
-**Structure:**
-```swift
-struct TapToneMeasurement: Codable {
-    let peaks: [ResonantPeak]
-    let timestamp: Date
-    let tapLocation: String?
-    let spectrumSnapshot: SpectrumSnapshot?
-    let chartImageFilename: String?
-    let peakAnnotationOffsets: [UUID: CGPoint]?
-    
-    // NOT SAVED: transient runtime data
-    var chartImageData: Data?  // Excluded via CodingKeys
-}
-```
+**AVAudioDevice** — Platform-agnostic device wrapper whose identity is based on a persistent `uid` string, not a transient runtime ID.
 
-**Why separate image file?**
-- Keeps JSON human-readable
-- Allows image previews in file browsers
-- Reduces memory footprint when loading metadata only
-
-### Import/Export Workflow
-
-**Export:**
-1. User saves measurement
-2. Capture current spectrum → `SpectrumSnapshot`
-3. Render chart to PNG → `ImageRenderer`
-4. Save JSON + PNG together
-5. Store reference in `savedMeasurements` array
-
-**Import:**
-1. User selects JSON file
-2. Decode measurement data
-3. Look for associated PNG (same directory)
-4. Load image data if found
-5. Append to `savedMeasurements`
+**TapDisplaySettings** — Singleton backed by UserDefaults. Global display state: frequency axis range, dB axis range, logarithmic toggle, peak threshold, unknown-mode visibility, max peak count.
 
 ---
 
-## Performance Considerations
+## Reactive Data Flow
 
-### 1. **FFT Processing**
-
-**Challenge:** 65,536-point FFT at ~1.8 Hz update rate
-**Solution:** Background thread processing with main thread UI updates
-
-```swift
-// NEVER do this on main thread:
-try tapToneAnalyzer.start()
-
-// Instead:
-DispatchQueue.global(qos: .userInitiated).async {
-    try self.tapToneAnalyzer.start()
-}
+```
+AVAudioEngine install tap (audio processing queue)
+        │
+        ▼
+RealtimeFFTAnalyzer
+        │
+        ├─ magnitudes / frequencies @ ~1–2 Hz ──► TapToneAnalyzer.analyzeMagnitudes()
+        │                                               ├─ findPeaks() → currentPeaks
+        │                                               └─ detectTap() [guitar path]
+        │
+        └─ inputLevelDB @ ~10 Hz ───────────────► TapToneAnalyzer.trackDecayFast()
+                                                  TapToneAnalyzer.detectTap() [plate/brace]
 ```
 
-### 2. **Chart Rendering**
-
-**Challenge:** Rendering 10,000+ data points in real-time
-**Solution:** Filter data to visible range only
-
-```swift
-private var chartData: [SpectrumDataPoint] {
-    zip(frequencies, magnitudes)
-        .filter { $0.0 >= minFreq && $0.0 <= maxFreq }  // ← Key optimization
-        .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
-}
-```
-
-### 3. **Annotation Position Caching**
-
-**Challenge:** Recalculating annotation positions every frame during drag
-**Solution:** Cache positions at drag start, reuse during gesture
-
-```swift
-@State private var cachedChartPosition: CGPoint = .zero
-
-// On drag start:
-if !isDragging {
-    isDragging = true
-    cachedChartPosition = calculateChartPosition()  // Expensive!
-}
-
-// During drag:
-let position = CGPoint(
-    x: cachedChartPosition.x + dragOffset.width,  // Cheap!
-    y: cachedChartPosition.y + dragOffset.height
-)
-```
-
-### 4. **Transaction Animation Control**
-
-**Challenge:** SwiftUI animations interfere with smooth dragging
-**Solution:** Disable animations during interactive gestures
-
-```swift
-var transaction = Transaction()
-transaction.disablesAnimations = true
-withTransaction(transaction) {
-    onOffsetChange(newOffset)
-}
-```
+**Threading rules:**
+- Audio capture and FFT computation run on `audioProcessingQueue` (serial, `.userInteractive`).
+- Raw buffer access is synchronized via `bufferAccessQueue`.
+- All `@Published` property updates are dispatched to the main thread before assignment.
 
 ---
 
-## Testing Strategy
+## View Hierarchy & Navigation
 
-### Unit Tests
-- Peak detection algorithm
-- Tap tone ratio calculations
-- Mode classification logic
-- FFT averaging math
+`TapToneAnalysisView` is the root view. It owns both view models and provides platform-adaptive layouts.
 
-### Integration Tests
-- Multi-tap sequence flow
-- Save/load measurement cycle
-- Export/import round-trip
+### Layout by platform
 
-### Platform-Specific Tests
-- macOS: `HSplitView` resizing
-- iOS: Sheet presentation on different size classes
+| Platform | Layout |
+|---|---|
+| macOS | `HSplitView`: spectrum on left, collapsible right panel. Results open in a free-floating `NSWindow` via `ResultsWindowPresenter`. |
+| iOS iPad | Vertical stack. Results/metrics panel appears as an inline side panel. |
+| iOS iPhone (portrait) | Vertical stack. All secondary panels presented as sheets. |
+| iOS iPhone (landscape) | `HStack`: controls panel on left, spectrum on right. |
+
+### View tree
+
+```
+TapToneAnalysisView (root)
+├── SpectrumView                    — interactive Swift Charts spectrum
+│   ├── PeakAnnotations             — draggable mode/frequency labels
+│   └── SpectrumScrollWheel         — macOS scroll-wheel event bridge
+├── TapAnalysisResultsView          — peaks table, material properties, export
+├── TapSettingsView                 — detection params, display ranges, dimensions, device
+├── MeasurementsListView
+│   └── MeasurementDetailView       — playback of saved measurements
+├── FFTAnalysisMetricsView          — FFT diagnostics panel
+├── SaveMeasurementSheet            — captures tap location and notes
+├── HelpView
+└── ExportView
+```
+
+`ExportableSpectrumChart` is a gesture-free clone of `SpectrumView` used exclusively as an `ImageRenderer` target for PNG/PDF export — it never appears on screen.
 
 ---
 
-## Code Organization Best Practices
+## Persistence & Export
 
-### File Structure
+| Data | Location | Format |
+|---|---|---|
+| Measurements | `Documents/saved_measurements.json` | JSON array, pretty-printed, sorted keys |
+| Chart images | Same directory, sidecar files | PNG, referenced by filename in JSON |
+| Calibrations | UserDefaults (`CalibrationStorage`) | Codable structs |
+| Device→calibration map | UserDefaults | `[uid: calibrationID]` |
+| Display settings | UserDefaults (`TapDisplaySettings`) | Individual keys |
+
+Export formats available to the user: JSON bundle (measurement + PNG), PNG spectrum only, PDF report (via `PDFReportGenerator` combining spectrum image + computed data table).
+
+---
+
+## File Map
+
 ```
 GuitarTap/
+├── GuitarTapApp.swift
 ├── Models/
-│   ├── TapToneAnalyzer.swift       (Business logic + models)
-│   └── RealtimeFFTAnalyzer.swift   (Audio engine)
-├── Views/
-│   ├── TapToneAnalysisView.swift   (Main interface)
-│   ├── SpectrumView.swift          (Chart component)
-│   ├── TapAnalysisResultsView.swift
-│   └── MeasurementsListView.swift
-├── Components/
-│   ├── Extensions.swift            (Float, GuitarMode extensions)
-│   ├── PlatformAdapters.swift      (Cross-platform helpers)
-│   └── LoadingOverlay.swift        (Reusable UI)
-└── GuitarTapApp.swift              (App entry point)
-```
-
-### Naming Conventions
-- **Views:** `[Feature]View` (e.g., `SpectrumView`)
-- **Models:** Descriptive nouns (e.g., `ResonantPeak`)
-- **View Models:** `[Feature]Analyzer` or `[Feature]Manager`
-- **State Properties:** Descriptive bools (e.g., `isSpectrumFrozen`)
-
-### Documentation
-- Use `/// ...` for public APIs
-- Include `- Parameter` and `- Returns` tags
-- Add `- Note` for important implementation details
-- Document **why**, not just **what**
-
-Example:
-```swift
-/// Handles pinch-to-zoom gestures on both frequency and dB axes.
-///
-/// The zoom is centered on the midpoint of the current visible range.
-/// Different zoom algorithms are used for logarithmic vs. linear frequency scales.
-///
-/// - Parameter scale: The magnification factor from the gesture (> 1 = zoom in, < 1 = zoom out)
-///
-/// - Note: Zoom ranges are clamped to reasonable limits to prevent invalid states
-private func handleZoom(scale: CGFloat) { ... }
-```
-
----
-
-## Common Pitfalls & Solutions
-
-### 1. **iPhone Layout in Landscape Mode**
-**Problem:** Using `horizontalSizeClass == .regular` alone shows side panels on iPhone Plus/Max models in landscape, wasting screen space.
-
-**Solution:** Combine size class detection with device type checking:
-```swift
-if UIDevice.current.userInterfaceIdiom == .pad && 
-   horizontalSizeClass == .regular {
-    // Only iPad gets side-by-side layout
-} else {
-    // iPhone always uses sheets, even in landscape
-}
-```
-
-### 2. **Control Overcrowding on Small Screens**
-**Problem:** Many buttons with labels cause horizontal overflow and unreadable text on iPhone.
-
-**Solution:** Create adaptive button layouts based on size class:
-```swift
-#if os(iOS)
-if horizontalSizeClass == .compact {
-    // Icon-only buttons in vertical stacks
-    VStack(spacing: 8) {
-        HStack(spacing: 8) {
-            Button { } label: { Image(systemName: "play") }
-            Button { } label: { Image(systemName: "save") }
-        }
-    }
-} else {
-    // Full labels for iPad
-    HStack {
-        Button("Start") { }
-        Button("Save") { }
-    }
-}
-#endif
-```
-
-### 3. **Slider Touch Targets on iPhone**
-**Problem:** Narrow sliders with labels on both sides are hard to use on touchscreens.
-
-**Solution:** Stack sliders vertically with full-width layout:
-```swift
-VStack(alignment: .leading, spacing: 4) {
-    Text("Threshold: \(value) dB")
-    Slider(value: $value, in: range)
-        .frame(maxWidth: .infinity) // Full width for better touch
-}
-```
-
-### 4. **Main Thread Deadlock**
-### 4. **Main Thread Deadlock**
-**Problem:** Calling `DispatchQueue.main.async` when already on main thread can cause deadlock in some cases.
-
-**Solution:**
-```swift
-if Thread.isMainThread {
-    // Update directly
-    self.property = value
-} else {
-    DispatchQueue.main.async {
-        self.property = value
-    }
-}
-```
-
-### 5. **Gesture Interference**
-**Problem:** Multiple gesture recognizers fighting for touch events.
-
-**Solution:** Use `.allowsHitTesting()` strategically:
-```swift
-.overlay(
-    GeometryReader { plotGeometry in
-        ZStack {
-            // Draggable annotations
-        }
-        .allowsHitTesting(true)  // ← Allow annotations to capture gestures
-    }
-    .allowsHitTesting(true)      // ← Allow overlay to receive events
-)
-```
-
-### 6. **Logarithmic Scale Calculations**
-**Problem:** Pan/zoom feels wrong on log scale when using linear math.
-
-**Solution:** Work in log space for logarithmic scales:
-```swift
-if isLogarithmic {
-    let logMin = log10(Double(minFreq))
-    let logMax = log10(Double(maxFreq))
-    let logCenter = (logMin + logMax) / 2
-    // ... zoom/pan in log space ...
-    newMinFreq = Float(pow(10, logCenter - newRange/2))
-}
-```
-
-### 7. **Audio Session Lifecycle (iOS)**
-**Problem:** Audio session conflicts with other apps or doesn't handle interruptions.
-
-**Solution:** Configure properly and handle interruptions:
-```swift
-#if os(iOS)
-let session = AVAudioSession.sharedInstance()
-try session.setCategory(.record, mode: .measurement, options: [])
-try session.setActive(true)
-
-// TODO: Add interruption handling
-NotificationCenter.default.addObserver(
-    forName: AVAudioSession.interruptionNotification,
-    object: session,
-    queue: .main
-) { notification in
-    // Handle interruption
-}
-#endif
+│   ├── RealtimeFFTAnalyzer.swift
+│   ├── RealtimeFFTAnalyzer+DeviceManagement.swift
+│   ├── RealtimeFFTAnalyzer+EngineControl.swift
+│   ├── RealtimeFFTAnalyzer+FFTProcessing.swift
+│   ├── TapToneAnalyzer.swift
+│   ├── TapToneAnalyzer+AnalysisHelpers.swift
+│   ├── TapToneAnalyzer+AnnotationManagement.swift
+│   ├── TapToneAnalyzer+Control.swift
+│   ├── TapToneAnalyzer+DecayTracking.swift
+│   ├── TapToneAnalyzer+MeasurementManagement.swift
+│   ├── TapToneAnalyzer+ModeOverrideManagement.swift
+│   ├── TapToneAnalyzer+PeakAnalysis.swift
+│   ├── TapToneAnalyzer+SpectrumCapture.swift
+│   ├── TapToneAnalyzer+TapDetection.swift
+│   ├── TapToneMeasurement.swift
+│   ├── SpectrumSnapshot.swift
+│   ├── ResonantPeak.swift
+│   ├── GuitarMode.swift
+│   ├── MaterialProperties.swift
+│   ├── MaterialTapPhase.swift
+│   ├── MicrophoneCalibration.swift
+│   ├── Pitch.swift
+│   ├── UserAssignedMode.swift
+│   └── AVAudioDevice.swift
+└── Views/
+    ├── TapToneAnalysisView.swift
+    ├── TapToneAnalysisView+Actions.swift
+    ├── TapToneAnalysisView+Controls.swift
+    ├── TapToneAnalysisView+Export.swift
+    ├── TapToneAnalysisView+Layouts.swift
+    ├── TapToneAnalysisView+SpectrumViews.swift
+    ├── SpectrumView.swift
+    ├── SpectrumView+ChartContent.swift
+    ├── SpectrumView+GestureHandlers.swift
+    ├── SpectrumView+SnapInterpolation.swift
+    ├── TapAnalysisResultsView.swift
+    ├── FFTAnalysisMetricsView.swift
+    ├── HelpView.swift
+    ├── PeakAnnotations.swift
+    ├── SaveMeasurementSheet.swift
+    ├── SpectrumScrollWheel.swift
+    ├── ExportableSpectrumChart.swift
+    ├── Measurements/
+    │   ├── MeasurementsListView.swift
+    │   ├── MeasurementDetailView.swift
+    │   ├── MeasurementRowView.swift
+    │   └── ExportView.swift
+    ├── Shared/
+    │   ├── CombinedPeakModeRowView.swift
+    │   ├── CompactFFTMetricsOverlay.swift
+    │   ├── EmptyStateView.swift
+    │   └── LoadingOverlay.swift
+    └── Utilities/
+        ├── TapDisplaySettings.swift
+        ├── TapSettingsView.swift
+        ├── TapSettingsView+Actions.swift
+        ├── TapSettingsView+LayoutHelpers.swift
+        ├── TapSettingsView+Sections.swift
+        ├── PDFReportGenerator.swift
+        ├── MeasurementFileExporter.swift
+        ├── ResultsWindowPresenter.swift
+        ├── AxixTickGenerator.swift
+        ├── PlatformAdapters.swift
+        └── Extensions.swift
 ```
 
 ---
 
-## Future Enhancements
-
-### 1. **SwiftData Migration**
-Consider migrating from JSON persistence to SwiftData for:
-- Better query performance
-- Sync with iCloud
-- Rich relationships between measurements
-
-### 2. **Accessibility**
-- VoiceOver labels for all interactive elements
-- Dynamic Type support for text
-- High contrast mode support
-
-### 3. **Export Formats**
-- CSV export for spreadsheet analysis
-- PDF reports with multiple measurements
-- Batch export functionality
-
-### 4. **Advanced Features**
-- Comparison mode (overlay two spectra)
-- Time-domain waveform view
-- Harmonic analysis
-- Guitar builder database integration
-
----
-
-## Conclusion
-
-This architecture balances several competing concerns:
-- **Performance:** Real-time FFT analysis without UI lag
-- **Usability:** Platform-appropriate UI conventions
-- **Maintainability:** Shared logic, minimal duplication
-- **Extensibility:** Easy to add new features
-
-The key insight is to keep platform differences isolated at the UI layer while sharing all business logic. Use SwiftUI's built-in adaptation (environment values, size classes) where possible, and only resort to conditional compilation when truly necessary.
-
----
-
-**Last Updated:** February 10, 2026
-**Version:** 1.1 - iPhone Layout Improvements
+*Last updated: March 2026*
