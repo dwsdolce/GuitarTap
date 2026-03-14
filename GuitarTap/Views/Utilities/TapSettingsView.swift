@@ -12,14 +12,12 @@
 ///
 /// | Section | Parameters |
 /// |---|---|
-/// | Measurement Type | Guitar type, plate/brace selection; updates mode-frequency ranges |
+/// | Measurement Type | Guitar type, plate/brace selection; mode-frequency ranges; unknown-modes toggle (guitar); plate/brace dimensions, FLC toggle, Gore body dimensions, stiffness preset (plate); brace dimensions (brace) |
 /// | Display Range | Min/max frequency (Hz) and dB range; validated text-field input |
 /// | Analysis Range | Analysis min/max frequency; peak threshold (dBFS); max peaks |
-/// | Material Dimensions | Plate/brace length, width, thickness (mm), mass (g) |
-/// | Gore Thicknessing | Guitar body length, target frequencies for thicknessing model |
-/// | FLC Measurement | Measure FLC (diagonal) shear mode toggle |
-/// | Unknown Modes | Toggle display of guitar peaks outside the known mode bands |
-/// | Audio Device | Microphone / input device picker (`RealtimeFFTAnalyzer.availableDevices`) |
+/// | Audio Input & Calibration | Microphone / input device picker; calibration import, selection, and deletion |
+/// | FFT Processing | Hop-size overlap slider |
+/// | About & Help | App version, copyright, help link |
 ///
 /// ## Validation
 ///

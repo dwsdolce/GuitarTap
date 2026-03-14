@@ -358,7 +358,7 @@ enum PlateStiffnessPreset: String, CaseIterable, Identifiable, Codable {
 /// - **dB range** — min/max dB for the vertical axis.
 /// - **Analysis frequency range** — band within which peaks are searched.
 /// - **Peak detection** — threshold, maximum peak count, hysteresis margin.
-/// - **Tap sequencing** — number of taps to average, FLC tap inclusion.
+/// - **Tap sequencing** — FLC tap inclusion (`measureFlc`).
 ///
 /// - SeeAlso: `TapSettingsView`, `TapToneAnalyzer`, `SpectrumView`
 struct TapDisplaySettings {

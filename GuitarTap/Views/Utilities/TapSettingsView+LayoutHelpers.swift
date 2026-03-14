@@ -19,7 +19,7 @@
 /// `compactFrequencyRangeView` and `regularFrequencyRangeView` display
 /// identical data; the caller decides which to use based on `isCompact`.
 ///
-/// - SeeAlso: `TapSettingsView`, `TapSettingsView+Sections`
+/// - SeeAlso: `TapSettingsView`, `TapSettingsView+Sections`, `TapSettingsView+Actions`
 
 import SwiftUI
 
@@ -126,6 +126,14 @@ extension TapSettingsView {
 
     // MARK: - Helper Views
 
+    /// A single row showing a guitar mode label and its classification frequency range.
+    ///
+    /// Used in the Measurement Type section to display the Hz bounds for each
+    /// mode (Air, Top, Back, Dipole, Ring) for the selected guitar type.
+    ///
+    /// - Parameters:
+    ///   - label: Short mode name displayed in a fixed-width leading column (e.g. `"Air:"`).
+    ///   - range: The classification frequency range for the mode, in Hz.
     @ViewBuilder
     func modeRangeRow(_ label: String, range: ClosedRange<Float>) -> some View {
         HStack(spacing: 4) {
