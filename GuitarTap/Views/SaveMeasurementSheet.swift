@@ -2,8 +2,25 @@
 //  SaveMeasurementSheet.swift
 //  GuitarTap
 //
-//  Created by David Smith on 2/9/26.
-//
+
+/// # SaveMeasurementSheet
+///
+/// A modal sheet for naming and saving the current tap tone measurement.
+///
+/// Provides optional free-text fields for tap location (e.g., "Bridge",
+/// "Soundhole") and notes. The form is identical on both platforms; the
+/// structural difference is:
+///
+/// - **macOS**: no `NavigationView` wrapper; the sheet receives a fixed
+///   minimum size (`450 × 250 pt`).
+/// - **iOS**: wrapped in a `NavigationView` so the nav-bar toolbar items
+///   (Cancel / Save) are visible.
+///
+/// The `onSave` closure is called when the user confirms; the sheet then
+/// dismisses itself.
+///
+/// - SeeAlso: `TapToneAnalysisView`, `TapToneAnalyzer.saveMeasurement`
+
 import SwiftUI
 
 struct SaveMeasurementSheet: View {

@@ -2,8 +2,34 @@
 //  MeasurementDetailView.swift
 //  GuitarTap
 //
-//  Created by David Smith on 2/9/26.
-//
+
+/// # MeasurementDetailView
+///
+/// Detail panel for a single saved `TapToneMeasurement`.
+///
+/// ## Platform Differences
+///
+/// - **macOS**: Rendered bare (`contentView` without a `NavigationView`),
+///   presented in a dedicated `NSWindowController` opened from
+///   `MeasurementsListView`. Toolbar items provide Load, Export, and PDF
+///   Report actions. Loading closes the detail window by calling
+///   `NSApplication.shared.keyWindow?.close()`.
+/// - **iOS**: Wrapped in a `NavigationView` with nav-bar toolbar items.
+///
+/// ## Load Flow
+///
+/// Tapping Load shows a confirmation alert ("replace current analysis?") then
+/// calls `analyzer.loadMeasurement(_:)`.
+///
+/// ## Export Flow
+///
+/// The JSON export encodes the measurement to pretty-printed JSON text and
+/// presents it in `ExportView`. The PDF report flow uses
+/// `PDFReportGenerator` with an off-screen `ExportableSpectrumChart`
+/// rendered by `ImageRenderer`.
+///
+/// - SeeAlso: `MeasurementsListView`, `ExportView`, `PDFReportGenerator`
+
 import SwiftUI
 
 struct MeasurementDetailView: View {

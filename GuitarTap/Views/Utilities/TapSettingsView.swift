@@ -2,13 +2,46 @@
 //  TapSettingsView.swift
 //  GuitarTap
 //
-//  Created on 2/12/26.
-//
+
+/// # TapSettingsView
+///
+/// Settings sheet for spectrum display range, analysis parameters,
+/// measurement type, material dimensions, and audio device selection.
+///
+/// ## Settings Groups
+///
+/// | Section | Parameters |
+/// |---|---|
+/// | Measurement Type | Guitar type, plate/brace selection; updates mode-frequency ranges |
+/// | Display Range | Min/max frequency (Hz) and dB range; validated text-field input |
+/// | Analysis Range | Analysis min/max frequency; peak threshold (dBFS); max peaks |
+/// | Material Dimensions | Plate/brace length, width, thickness (mm), mass (g) |
+/// | Gore Thicknessing | Guitar body length, target frequencies for thicknessing model |
+/// | FLC Measurement | Measure FLC (diagonal) shear mode toggle |
+/// | Unknown Modes | Toggle display of guitar peaks outside the known mode bands |
+/// | Audio Device | Microphone / input device picker (`RealtimeFFTAnalyzer.availableDevices`) |
+///
+/// ## Validation
+///
+/// All numeric fields use companion `@State` text strings initialized from the
+/// bound `Float`/`Int` values in `init`. Changes are validated and applied when
+/// the user taps the Apply button (or dismisses on iOS). Invalid or
+/// out-of-range inputs revert to the last good value. Pressing Apply calls
+/// `onApply` which triggers `TapToneAnalyzer.reclassifyPeaks()` to refresh
+/// results with the new ranges.
+///
+/// ## Calibration Import
+///
+/// A UMIK-1 microphone calibration file (`.txt`, one frequency/dB pair per
+/// line) can be imported via the file importer; the data is parsed by
+/// `MicrophoneCalibration` and stored in `RealtimeFFTAnalyzer`.
+///
+/// - SeeAlso: `TapDisplaySettings`, `MicrophoneCalibration`
 
 import SwiftUI
 internal import UniformTypeIdentifiers
 
-/// Settings view for spectrum display and analysis parameters
+/// Settings sheet for spectrum display and analysis parameters.
 struct TapSettingsView: View {
     // Display settings
     @Binding var minFreq: Float

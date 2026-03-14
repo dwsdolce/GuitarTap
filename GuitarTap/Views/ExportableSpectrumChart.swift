@@ -2,8 +2,39 @@
 //  ExportableSpectrumChart.swift
 //  GuitarTap
 //
-//  A simplified, static spectrum chart designed for ImageRenderer export.
-//
+
+/// # ExportableSpectrumChart
+///
+/// A stripped-down, static spectrum chart suitable for off-screen rendering
+/// with `ImageRenderer`.
+///
+/// ## Why a Separate View?
+///
+/// `SpectrumView` uses AppKit `NSEvent` monitors, hover effects, and
+/// gesture recognizers that prevent `ImageRenderer` from capturing it
+/// reliably. `ExportableSpectrumChart` reproduces the same visual appearance
+/// using only stateless SwiftUI Charts primitives so the renderer can
+/// produce a pixel-accurate PNG without interactive side effects.
+///
+/// ## Supported Overlay Layers
+///
+/// 1. **Spectrum line** — primary (red) or per-phase colored series
+/// 2. **Mode boundaries** — dashed vertical `RuleMark` lines in mode colors
+/// 3. **Peak annotations** — symbols + labels with `ConnectionLineShape`
+///    connection lines, positions offset by `annotationOffsets`
+///
+/// ## Peak Coloring
+///
+/// - Guitar mode: peaks colored by `GuitarMode` (air=cyan, top=green, etc.)
+/// - Plate/brace mode: L=blue, C=orange, FLC=purple, unselected=secondary
+///
+/// ## Connection Lines
+///
+/// Because `Path` views don't render correctly inside a `ZStack` when using
+/// `ImageRenderer`, connection lines are drawn with `ConnectionLineShape`
+/// (a `Shape`-conforming type), which renders correctly in all contexts.
+///
+/// - SeeAlso: `SpectrumView`, `MeasurementFileExporter`
 
 import SwiftUI
 import Charts
@@ -30,28 +61,47 @@ private struct ConnectionLineShape: Shape {
 /// This view removes all interactive elements (gestures, hover effects, context menus)
 /// that can cause ImageRenderer to fail.
 struct ExportableSpectrumChart: View {
+    /// Raw frequency bins (Hz) from the FFT output.
     let frequencies: [Float]
+    /// Magnitude values (dBFS) corresponding to each frequency bin.
     let magnitudes: [Float]
+    /// Minimum frequency (Hz) of the visible chart range.
     let minFreq: Float
+    /// Maximum frequency (Hz) of the visible chart range.
     let maxFreq: Float
+    /// Minimum magnitude (dBFS) of the visible chart range.
     let minDB: Float
+    /// Maximum magnitude (dBFS) of the visible chart range.
     let maxDB: Float
+    /// When `true`, the frequency axis uses a logarithmic scale.
     let isLogarithmic: Bool
+    /// Peaks to annotate. Pass `nil` to suppress all peak annotations.
     var peaks: [ResonantPeak]?
+    /// Whether to draw guitar mode boundary lines.
     var showModeBoundaries: Bool = true
+    /// Per-peak label drag offsets (CGPoint in chart-relative points).
     var annotationOffsets: [UUID: CGPoint] = [:]
-    var showUnknownModes: Bool? = nil  // If nil, uses global setting
+    /// Override for `TapDisplaySettings.showUnknownModes`. Pass `nil` to use
+    /// the global setting.
+    var showUnknownModes: Bool? = nil
 
     // Plate/brace measurement mode support
+    /// Measurement type determining color coding and boundary visibility.
     var measurementType: MeasurementType = .acoustic
+    /// ID of the peak selected as the longitudinal (L) mode.
     var selectedLongitudinalPeakID: UUID?
+    /// ID of the peak selected as the cross-grain (C) mode.
     var selectedCrossPeakID: UUID?
+    /// ID of the peak selected as the FLC (diagonal) mode.
     var selectedFlcPeakID: UUID?
 
-    // Per-peak user mode overrides (empty = all peaks use auto-classification)
+    /// Per-peak user-assigned mode overrides. An empty dictionary means all
+    /// peaks use automatic `GuitarMode` classification.
     var modeOverrides: [UUID: UserAssignedMode] = [:]
 
-    /// Per-phase spectra overlay for plate/brace measurements
+    /// Per-phase spectra overlay for plate/brace measurements. Each element
+    /// provides a labeled, colored spectrum series drawn alongside the primary
+    /// curve.
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
 
     private var chartData: [SpectrumDataPoint] {

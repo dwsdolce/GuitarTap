@@ -3,6 +3,40 @@
 //  GuitarTap
 //
 
+/// # TapToneAnalysisView+Layouts
+///
+/// Platform-specific top-level layout containers for `TapToneAnalysisView`.
+///
+/// ## Layout Hierarchy
+///
+/// ```
+/// body
+/// └── macOSLayout  /  iOSLayout          (platform switch)
+///     └── mainContentView
+///         ├── phoneLandscapeLayout       (iPhone landscape only)
+///         └── standardVerticalLayout     (all other cases)
+///             ├── headerView             (controls)
+///             ├── realTimeSpectrumView   (spectrum chart)
+///             └── decayTimeView          (ring-out / material metrics)
+/// ```
+///
+/// ## Platform Differences
+///
+/// - **macOS**: Results open in a free-floating `NSWindow` via
+///   `ResultsWindowPresenter`; all other panels (save, settings, measurements,
+///   metrics) present as `.sheet`. Input-field sync `onChange` handlers update
+///   the text-field mirrors whenever bound `Double` values change.
+/// - **iOS**: Results, metrics, save, and settings all use `.sheet`. The iOS
+///   layout wraps `mainContentView` in a `NavigationView` to provide a nav bar
+///   for toolbar items on compact devices.
+/// - **iPhone landscape**: A horizontal split with a 200 pt scrollable control
+///   panel on the left and the spectrum on the right.
+///
+/// A `LoadingOverlay` is shown during spectrum export, measurement save, and
+/// PDF report generation on both platforms.
+///
+/// - SeeAlso: `TapToneAnalysisView+Controls`, `ResultsWindowPresenter`
+
 import SwiftUI
 
 extension TapToneAnalysisView {

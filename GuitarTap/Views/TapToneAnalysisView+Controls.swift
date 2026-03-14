@@ -3,6 +3,33 @@
 //  GuitarTap
 //
 
+/// # TapToneAnalysisView+Controls
+///
+/// Adaptive toolbar and tap-sequence control bar for `TapToneAnalysisView`.
+///
+/// ## Layout Strategy
+///
+/// The header and tap controls adapt to three form factors at runtime:
+///
+/// | Platform | Header | Tap Controls |
+/// |---|---|---|
+/// | iPhone (compact) | Icon-only button row | `compactTapControls` |
+/// | iPhone landscape | Navigation bar items | `landscapeTapControls` |
+/// | iPad | Two-row labeled buttons (`ipadHeaderButtons`) | `regularTapControls` |
+/// | macOS | `ViewThatFits` wide/medium/narrow variants | `regularTapControls` |
+///
+/// The macOS header uses `ViewThatFits` to automatically switch between a
+/// wide single-row layout, a two-row medium layout, and an icon-only narrow
+/// layout as the window is resized.
+///
+/// ## Tap Sequence Controls
+///
+/// `regularTapControls` and `compactTapControls` contain the New Tap, Cancel,
+/// mode picker, and threshold input fields. The compact version omits labels
+/// to fit narrow iPhone screens.
+///
+/// - SeeAlso: `TapToneAnalysisView+Layouts`, `TapToneAnalysisView+Actions`
+
 import SwiftUI
 
 extension TapToneAnalysisView {

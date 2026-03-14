@@ -1,3 +1,51 @@
+/// # TapDisplaySettings
+///
+/// Global settings store and related domain enums for GuitarTap's analysis
+/// and display configuration.
+///
+/// ## Overview
+///
+/// All settings are persisted to `UserDefaults.standard` via static computed
+/// properties on the `TapDisplaySettings` struct.  No `ObservableObject` is
+/// involved; views read settings at construction time and re-read them when
+/// the user changes a value through the settings UI.
+///
+/// ## Type hierarchy
+///
+/// ```
+/// MeasurementType (Codable)
+///   └── GuitarType (Codable)
+///         ├── ModeRanges  — classification frequency bands
+///         ├── idealRanges — narrower "on target" bands
+///         └── DecayThresholds — ring-out quality cutoffs
+///
+/// PlateStiffnessPreset (Codable) — f_vs preset or .custom
+///
+/// TapDisplaySettings (struct, no instances)
+///   ├── Measurement type & guitar type
+///   ├── Plate dimensions (length, width, thickness, mass in mm / g)
+///   ├── Brace dimensions (separate from plate)
+///   ├── Gore thicknessing inputs (body length, body width, f_vs preset)
+///   ├── Per-type display frequency range (min/max Hz, stored per MeasurementType)
+///   ├── Per-type dB range (min/max dB)
+///   ├── Analysis frequency range (Hz)
+///   ├── Peak detection parameters (threshold, max peaks, hysteresis, etc.)
+///   └── Tap counting and sequencing parameters
+/// ```
+///
+/// ## Guitar type vs measurement type
+///
+/// `GuitarType` (`.classical`, `.flamenco`, `.acoustic`) is a subset of
+/// `MeasurementType`.  The `guitarType` property is provided for backward
+/// compatibility; new code should use `measurementType` instead.
+///
+/// ## UserDefaults key naming
+///
+/// Display frequency keys are per-measurement-type:
+/// `"displayMinFreq_<MeasurementType.rawValue>"`.  A shared fallback key
+/// `"displayMinFreq"` (no suffix) is retained for legacy data.
+///
+/// - SeeAlso: `TapSettingsView`, `TapToneAnalyzer`, `PDFReportData`
 //
 //  TapDisplaySettings.swift
 //  GuitarTap
@@ -9,7 +57,11 @@ import Foundation
 
 // MARK: - Measurement Type
 
-/// The type of measurement being performed
+/// The kind of tap tone measurement being performed.
+///
+/// Guitar types (`.classical`, `.flamenco`, `.acoustic`) use guitar-body mode
+/// classification (air, top, back, dipole, ring).  Material types (`.plate`,
+/// `.brace`) use a multi-tap capture sequence and compute Young's modulus.
 enum MeasurementType: String, Codable, CaseIterable, Identifiable {
     case classical = "Classical Guitar"
     case flamenco = "Flamenco Guitar"
@@ -86,7 +138,11 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
 
 // MARK: - Guitar Type
 
-/// The type of guitar being analyzed, affecting frequency range classifications
+/// The kind of guitar body, which determines mode frequency classification ranges.
+///
+/// Each guitar type has a distinct set of `ModeRanges` reflecting its typical
+/// construction (body depth, bracing style, string tension), and separate
+/// `DecayThresholds` calibrated to expected ring-out times.
 enum GuitarType: String, Codable, CaseIterable, Identifiable {
     case classical = "Classical"
     case flamenco = "Flamenco"
@@ -106,14 +162,24 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
         }
     }
     
-    /// Frequency ranges for mode classification
+    /// Frequency classification bands for each guitar body mode, in Hz.
+    ///
+    /// Used by `GuitarMode.classify(frequency:guitarType:)` to assign a mode
+    /// label to each detected peak.  Bands are non-overlapping and cover the
+    /// full audible spectrum via `upperModes`.
     struct ModeRanges {
-        let air: ClosedRange<Float>          // Helmholtz/Air resonance
-        let top: ClosedRange<Float>          // Main top plate resonance
-        let back: ClosedRange<Float>         // Back plate resonance
-        let dipole: ClosedRange<Float>       // Dipole mode
-        let ringMode: ClosedRange<Float>     // Ring mode
-        let upperModes: ClosedRange<Float>   // Upper modes
+        /// Helmholtz air resonance band, in Hz.
+        let air: ClosedRange<Float>
+        /// Main top plate bending mode band, in Hz.
+        let top: ClosedRange<Float>
+        /// Back plate bending mode band, in Hz.
+        let back: ClosedRange<Float>
+        /// Dipole (top-plate out-of-phase) mode band, in Hz.
+        let dipole: ClosedRange<Float>
+        /// Ring mode band, in Hz.
+        let ringMode: ClosedRange<Float>
+        /// Upper harmonic modes band (extends to 20 kHz), in Hz.
+        let upperModes: ClosedRange<Float>
     }
     
     /// Get the frequency ranges for this guitar type
@@ -182,12 +248,21 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
         }
     }
     
-    /// Decay time quality thresholds for this guitar type
+    /// Ring-out time quality thresholds, in seconds.
+    ///
+    /// Used by `Float.decayQuality(for:)` to convert a numeric ring-out time
+    /// into a qualitative label.  Thresholds differ between guitar types:
+    /// flamenco guitars are expected to decay quickly (percussive playing),
+    /// while classical guitars are expected to sustain longer.
     struct DecayThresholds {
-        let veryShort: Float    // Below this is "Very Short"
-        let short: Float        // Below this is "Short"
-        let moderate: Float     // Below this is "Moderate"
-        let good: Float         // Below this is "Good", above is "Excellent"
+        /// Ring-out times below this value are rated "Very Short", in seconds.
+        let veryShort: Float
+        /// Ring-out times below this value are rated "Short", in seconds.
+        let short: Float
+        /// Ring-out times below this value are rated "Moderate", in seconds.
+        let moderate: Float
+        /// Ring-out times below this value are rated "Good"; at or above is "Excellent", in seconds.
+        let good: Float
     }
     
     /// Get decay quality thresholds for this guitar type
@@ -224,7 +299,19 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
 
 // MARK: - Plate Stiffness Preset
 
-/// Preset vibrational stiffness targets for different plate types (Gore Eq. 4.5-7)
+/// Named vibrational stiffness (f_vs) presets for Gore Equation 4.5-7.
+///
+/// The Gore target thickness formula requires a vibrational stiffness
+/// parameter that varies by instrument type and plate role.  The `.custom`
+/// case defers to the `TapDisplaySettings.customPlateStiffness` value.
+///
+/// Reference values (f_vs):
+/// - Steel-string top: 75
+/// - Steel-string back: 55
+/// - Classical top: 60
+/// - Classical back: 50
+///
+/// - SeeAlso: `PlateProperties.goreTargetThickness(bodyLengthMm:bodyWidthMm:vibrationalStiffness:)`
 enum PlateStiffnessPreset: String, CaseIterable, Identifiable, Codable {
     case steelStringTop = "Steel String Top"
     case steelStringBack = "Steel String Back"
@@ -256,7 +343,24 @@ enum PlateStiffnessPreset: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-/// Centralized settings for spectrum display ranges across the app
+/// Global, `UserDefaults`-backed settings for spectrum display and analysis
+/// configuration.
+///
+/// `TapDisplaySettings` is a namespace of static properties; it is never
+/// instantiated.  Every property is a computed `static var` that reads from
+/// and writes to `UserDefaults.standard` using a private key constant.
+///
+/// Settings are grouped by function:
+/// - **Measurement type** — which kind of analysis is active.
+/// - **Plate/brace dimensions** — physical dimensions entered by the user.
+/// - **Gore thicknessing** — guitar body dimensions and f_vs preset.
+/// - **Display frequency range** — per-measurement-type min/max Hz for the chart.
+/// - **dB range** — min/max dB for the vertical axis.
+/// - **Analysis frequency range** — band within which peaks are searched.
+/// - **Peak detection** — threshold, maximum peak count, hysteresis margin.
+/// - **Tap sequencing** — number of taps to average, FLC tap inclusion.
+///
+/// - SeeAlso: `TapSettingsView`, `TapToneAnalyzer`, `SpectrumView`
 struct TapDisplaySettings {
 
     // MARK: - UserDefaults Keys

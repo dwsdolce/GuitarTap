@@ -2,8 +2,28 @@
 //  ExportView.swift
 //  GuitarTap
 //
-//  Created by David Smith on 2/9/26.
-//
+
+/// # ExportView
+///
+/// A modal sheet that displays a measurement's raw JSON content and provides
+/// Copy and Save controls.
+///
+/// ## Usage
+///
+/// `ExportView` is presented by `MeasurementsListView` and
+/// `MeasurementDetailView` when the user requests a JSON text export. The
+/// caller passes the pre-rendered JSON string; `ExportView` renders it in a
+/// monospaced, selectable `ScrollView` with:
+///
+/// - **Copy** — writes the text to the system pasteboard and shows a transient
+///   "Copied" confirmation banner.
+/// - **Save / Share** — calls `MeasurementFileExporter.exportJSON` which routes
+///   to `NSSavePanel` on macOS or `UIActivityViewController` on iOS.
+///
+/// Confirmation banners auto-dismiss after 2 s using a `Task.sleep` delay.
+///
+/// - SeeAlso: `MeasurementFileExporter`, `MeasurementsListView`
+
 import SwiftUI
 internal import UniformTypeIdentifiers
 

@@ -1,9 +1,41 @@
 //
-//  guitar_tap_App.swift
+//  GuitarTapApp.swift
 //  GuitarTap
 //
-//  Created by David Smith on 12/31/25.
-//
+
+/// # GuitarTapApp
+///
+/// Application entry point and macOS menu-command definitions.
+///
+/// ## App Structure
+///
+/// - **macOS**: Uses a single `Window` scene (not `WindowGroup`) to prevent
+///   multiple instances. A separate `Window` with id `"help"` is declared for
+///   the Help panel opened via `⌘?`.
+/// - **iOS**: Uses a standard `WindowGroup`.
+///
+/// Both platforms handle `onOpenURL` by posting
+/// `Notification.Name.openMeasurementFile` so that `MeasurementsListView`
+/// can import the file regardless of which view is currently on screen.
+///
+/// ## Debug Log Redirection (macOS only)
+///
+/// `redirectOutputToFile()` runs at app init. When no debugger is attached it
+/// redirects `stdout` and `stderr` to
+/// `~/Library/Logs/GuitarTap-debug.log` (sandbox-relative) using
+/// `dup2`, enabling post-mortem log inspection after force restarts. Each
+/// launch appends an ISO 8601 timestamp separator so successive runs are easy
+/// to distinguish. When Xcode is attached the function is a no-op.
+///
+/// ## Global Constants
+///
+/// | Constant | Value |
+/// |---|---|
+/// | `appVersion` | `CFBundleShortVersionString` + `_` + `CFBundleVersion` |
+/// | `appTitle` | `CFBundleDisplayName` (or `CFBundleName`) + `appVersion` |
+///
+/// - SeeAlso: `TapToneAnalysisView`, `HelpView`, `MeasurementsListView`
+
 import SwiftUI
 import Foundation
 
@@ -14,11 +46,11 @@ extension Notification.Name {
 }
 
 #if os(macOS)
-/// Redirects stdout and stderr to a file so print() output is captured even when
-/// the app is force-restarted by macOS outside of Xcode's debugger.
-/// The log file is at ~/Library/Logs/GuitarTap/debug.log
-/// Returns true when a debugger (e.g. Xcode) is attached to this process.
-/// Used to skip file redirection so Xcode's console still receives output.
+/// Returns `true` when a debugger (e.g. Xcode) is attached to this process.
+///
+/// Used to skip `stdout`/`stderr` redirection so Xcode's console still
+/// receives output during development. Implemented via `sysctl` and the
+/// `P_TRACED` process flag.
 private func isDebuggerAttached() -> Bool {
     var info = kinfo_proc()
     var size = MemoryLayout<kinfo_proc>.stride
@@ -68,6 +100,12 @@ let appTitle: String = {
 
 #if os(macOS)
 // MARK: - macOS Menu Commands
+
+/// macOS menu bar command definitions for GuitarTap.
+///
+/// Removes the default "New Window" item (the app uses a single `Window` scene)
+/// and replaces the standard Help menu entry with a button that opens the
+/// dedicated Help window (`id: "help"`) via the `openWindow` environment action.
 struct AppCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 

@@ -136,7 +136,7 @@ extension TapToneAnalyzer {
     /// accumulating new samples via ``accumulateGatedSamples(_:sampleRate:)``.
     ///
     /// A safety timeout fires after 2 seconds: if the buffer still has audio
-    /// at that point, it is flushed to ``finishGatedFFTCapture``; if empty,
+    /// at that point, it is flushed to `finishGatedFFTCapture(samples:sampleRate:phase:)`; if empty,
     /// the user is prompted to tap again.
     ///
     /// - Parameter phase: The ``MaterialTapPhase`` being captured. Stored as

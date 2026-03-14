@@ -2,26 +2,75 @@
 //  TapAnalysisResultsView.swift
 //  GuitarTap
 //
-//  Created by David Smith on 2/9/26.
-//
+
+/// # TapAnalysisResultsView
+///
+/// Scrollable results panel displaying tap tone analysis for the current
+/// measurement. This view is presented as a sheet (iOS) or in a separate
+/// `NSWindow` via `ResultsWindowPresenter` (macOS).
+///
+/// ## Content Sections
+///
+/// The body adapts to the active `MeasurementType`:
+///
+/// | Section | Guitar | Plate | Brace |
+/// |---|---|---|---|
+/// | Detected Peaks & Modes | ✓ | ✓ (unfiltered) | ✓ (unfiltered) |
+/// | Ring-Out Time | ✓ | — | — |
+/// | Tap Tone Ratio | ✓ | — | — |
+/// | Plate Properties | — | ✓ | — |
+/// | Brace Properties | — | — | ✓ |
+/// | Status Indicator | ✓ | ✓ | ✓ |
+/// | Export Buttons | optional | optional | optional |
+///
+/// ## Guitar Peak Table
+///
+/// `peaksAndModesSection` lists all `currentPeaks` sorted by frequency.
+/// Each row shows the guitar mode color chip, frequency, magnitude, Q-factor,
+/// pitch note and cents deviation, and a mode-override picker. Unknown modes
+/// can be hidden via `TapDisplaySettings.showUnknownModes`. Rows can be
+/// hidden/shown individually; Select All / Select None batch controls
+/// are available in the section header.
+///
+/// ## Plate / Brace Properties
+///
+/// `platePropertiesSection` and `bracePropertiesSection` compute
+/// `PlateProperties` / `BraceProperties` from the peak frequencies and the
+/// current `MaterialDimensions`. Results are formatted with color-coded
+/// quality indicators from `WoodQuality`.
+///
+/// ## Export
+///
+/// Optional `onExportSpectrum` and `onExportPDFReport` closures are provided
+/// by `TapToneAnalysisView`. When non-nil they activate the corresponding
+/// export buttons at the bottom of the scroll view.
+///
+/// - SeeAlso: `TapToneAnalysisView+Export`, `ResultsWindowPresenter`,
+///   `PlateProperties`, `BraceProperties`
+
 import SwiftUI
 import Charts
 
-/// A view that displays tap tone analysis results in a dedicated panel.
+/// Results panel presenting peaks, mode classifications, material properties,
+/// and export controls for the most recently captured tap tone measurement.
+///
+/// - SeeAlso: `TapAnalysisResultsView` file overview for section details.
 struct TapAnalysisResultsView: View {
+    /// The tap-tone analyzer supplying peaks, decay time, and material data.
     @ObservedObject var analyzer: TapToneAnalyzer
+    /// The FFT analyzer (read-only here; used for metrics display).
     @ObservedObject var fftAnalyzer: RealtimeFFTAnalyzer
     
-    // Frequency range for filtering
+    /// Lower bound of the displayed frequency range (Hz). Used to filter
+    /// guitar peaks to the visible spectrum window.
     var minFreq: Float
+    /// Upper bound of the displayed frequency range (Hz).
     var maxFreq: Float
     
-    /// Optional callback invoked when the user requests a spectrum image export.
-    /// When nil, the Export Spectrum button is not shown.
+    /// Called when the user taps "Export Spectrum". Pass `nil` to hide the button.
     var onExportSpectrum: (() -> Void)? = nil
 
-    /// Optional callback invoked when the user requests a PDF report export.
-    /// When nil, the PDF export button is not shown.
+    /// Called when the user taps "Export PDF Report". Pass `nil` to hide the button.
     var onExportPDFReport: (() -> Void)? = nil
     
     // Current measurement type

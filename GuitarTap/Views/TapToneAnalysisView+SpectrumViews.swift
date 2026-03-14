@@ -3,6 +3,48 @@
 //  GuitarTap
 //
 
+/// # TapToneAnalysisView+SpectrumViews
+///
+/// Spectrum display properties and material-phase UI for `TapToneAnalysisView`.
+///
+/// ## Spectrum Data Sources
+///
+/// Two computed properties resolve which data is currently displayed:
+///
+/// | Property | Frozen | Live |
+/// |---|---|---|
+/// | `displayFrequencies` | `tap.frozenFrequencies` | `fft.frequencies` |
+/// | `displayMagnitudes` | `tap.frozenMagnitudes` | `fft.magnitudes` |
+///
+/// The spectrum is frozen immediately after a tap is detected so the chart
+/// holds the last captured FFT while the analyzer continues running.
+///
+/// ## Material Spectra Overlay
+///
+/// For plate and brace measurements `materialSpectra` assembles up to three
+/// named series (longitudinal, cross-grain, FLC) from the analyzer's
+/// per-phase `SpectrumSnapshot` properties. Guitar measurements return an
+/// empty array and use the single red primary curve instead.
+///
+/// ## Threshold Lines
+///
+/// `realTimeSpectrumView` injects up to three dashed threshold lines into
+/// `SpectrumView`:
+/// - **Orange dashed** — rising tap trigger threshold
+/// - **Purple dashed** — falling / reset hysteresis threshold
+/// - **Green dashed** — peak detection threshold
+///
+/// Lines outside the current dB range are filtered out before passing to
+/// the chart.
+///
+/// ## Material Phase UI
+///
+/// `materialInstructionsView` presents a step-by-step instruction card
+/// driven by `tap.materialTapPhase`. `guitarMetricsView` shows Ring-Out
+/// Time and Tap Tone Ratio when in guitar measurement mode.
+///
+/// - SeeAlso: `TapToneAnalysisView+Layouts`, `SpectrumView`, `MaterialTapPhase`
+
 import SwiftUI
 
 extension TapToneAnalysisView {

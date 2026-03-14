@@ -1,3 +1,28 @@
+/// # TapToneAnalysisView+Export
+///
+/// PDF report and spectrum PNG export flows for `TapToneAnalysisView`.
+///
+/// ## Export flows
+///
+/// ### Spectrum PNG export (`exportSpectrumImage()`)
+/// 1. Calls `createExportableSpectrumView()` to build an off-screen
+///    `ExportableSpectrumChart` with current peaks, overlays, and axis range.
+/// 2. Renders it to PNG data using `ImageRenderer` at the device's display scale.
+/// 3. Delegates to `MeasurementFileExporter.exportSpectrumImage(...)` to present
+///    the platform share sheet / save panel.
+///
+/// ### PDF report export (`exportPDFReport()`)
+/// 1. Renders the spectrum to PNG (same `ImageRenderer` path as above).
+/// 2. Re-derives `PlateProperties` / `BraceProperties` from the current
+///    analyzer state (peak IDs + `TapDisplaySettings` dimensions).
+/// 3. Builds a `PDFReportData` value and calls `PDFReportGenerator.generate(data:)`.
+/// 4. Delegates to `MeasurementFileExporter.exportPDF(...)` to present the
+///    platform share sheet / save panel.
+///
+/// All export methods are `@MainActor` because `ImageRenderer` requires
+/// main-actor execution.
+///
+/// - SeeAlso: `PDFReportGenerator`, `MeasurementFileExporter`, `ExportableSpectrumChart`
 //
 //  TapToneAnalysisView+Export.swift
 //  GuitarTap

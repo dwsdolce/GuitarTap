@@ -2,23 +2,29 @@
 //  FFTAnalysisMetricsView.swift
 //  GuitarTap
 //
-//  Created by David Smith on 01/03/26.
-//
+
+/// # FFTAnalysisMetricsView
+///
+/// Full-detail FFT analysis metrics and performance diagnostics panel.
+///
+/// Presented in a sheet (iOS) or macOS sheet on demand from the Metrics
+/// toolbar button in `TapToneAnalysisView`. Organized into four `GroupBox`
+/// sections:
+///
+/// | Section | Metrics |
+/// |---|---|
+/// | Analysis Configuration | Frequency resolution (Hz/bin), bin count, sample rate (Hz), FFT window size (samples), window function |
+/// | Performance | Update interval (ms), estimated frame rate (FPS), processing mode |
+/// | Peak Detection | Dominant frequency (Hz), magnitude (dBFS) |
+/// | Calibration | Active calibration file name (if loaded) |
+///
+/// All values are read from `@ObservedObject var analyzer: RealtimeFFTAnalyzer`
+/// and update live while the analyzer is running.
+///
+/// - SeeAlso: `CompactFFTMetricsOverlay`, `RealtimeFFTAnalyzer`
 
 import SwiftUI
 
-/// A view that displays detailed FFT analysis metrics and performance statistics.
-///
-/// This view shows:
-/// - Frequency resolution and bandwidth
-/// - Sample length and frame rate
-/// - Real-time processing performance
-/// - Peak frequency detection
-///
-/// ## Example Usage
-/// ```swift
-/// FFTAnalysisMetricsView(analyzer: analyzer)
-/// ```
 struct FFTAnalysisMetricsView: View {
     @ObservedObject var analyzer: RealtimeFFTAnalyzer
     

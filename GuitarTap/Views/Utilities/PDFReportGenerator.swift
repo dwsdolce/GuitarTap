@@ -1,3 +1,51 @@
+/// # PDFReportGenerator
+///
+/// Generates a single-page PDF tap tone analysis report from a
+/// `PDFReportData` value struct.
+///
+/// ## Architecture
+///
+/// ```
+/// TapToneMeasurement  ──►  PDFReportData.from(measurement:)
+///                               │
+///                               ▼
+///                        PDFReportGenerator.generate(data:)
+///                               │
+///                               ▼ (ImageRenderer on @MainActor)
+///                        PDFReportContentView
+///                               │
+///                               ▼
+///                        CGContext PDF page  ──►  Data (PDF bytes)
+/// ```
+///
+/// `PDFReportData` is a plain value type that carries everything the renderer
+/// needs: timestamps, peaks, material properties, spectrum image data, and
+/// display-range bounds.  The static factory `PDFReportData.from(measurement:)`
+/// re-derives computed `PlateProperties` / `BraceProperties` from the
+/// measurement's saved dimensions and frequency IDs, matching the logic used
+/// in the live analysis view.
+///
+/// `PDFReportGenerator.generate(data:)` must be called on the `@MainActor`
+/// because `ImageRenderer` is main-actor-bound.  It renders
+/// `PDFReportContentView` into a single `CGContext` PDF page whose size
+/// matches the SwiftUI view's natural size.
+///
+/// ## Page layout
+///
+/// The US Letter-width page (612 pt) is divided vertically into sections:
+/// - Header: app name + accent bar + timestamp
+/// - Metadata: location, measurement type, frequency range, microphone
+/// - Spectrum image (if present, max 220 pt tall)
+/// - Peaks table: frequency, magnitude, note, and mode/role columns
+/// - Tap instructions (plate/brace measurements only)
+/// - Analysis results: guitar (ring-out + tap tone ratio),
+///   plate (computed properties + Gore target thickness),
+///   or brace (computed properties)
+/// - Footer: GuitarTap version + generation timestamp
+///
+/// The page margin is 36 pt on all sides; content width is 540 pt.
+///
+/// - SeeAlso: `MeasurementFileExporter`, `TapToneAnalysisView+Export`
 //
 //  PDFReportGenerator.swift
 //  GuitarTap
@@ -16,40 +64,80 @@ import AppKit
 
 // MARK: - Report Data
 
-/// All data needed to generate a PDF tap tone analysis report
+/// All data required to render a PDF tap tone analysis report.
+///
+/// `PDFReportData` is a pure value type; it contains no ObservableObject
+/// references.  Create it from a saved measurement with the
+/// `from(measurement:)` factory, or construct it directly for custom reports.
+///
+/// Material property objects (`plateProperties`, `braceProperties`) are
+/// computed from the measurement's stored dimensions and peak IDs inside
+/// `from(measurement:)` so the PDF accurately reflects the live analysis.
 struct PDFReportData {
+    /// Date and time the measurement was captured.
     let timestamp: Date
+    /// User-supplied location label (e.g., "Bridge plate", "Top – centre").
     let tapLocation: String?
+    /// Free-text notes entered by the user at save time.
     let notes: String?
+    /// Type of measurement: guitar, plate, or brace.
     let measurementType: MeasurementType
+    /// Guitar body type (classical, steel-string, etc.) — used for mode classification.
     let guitarType: GuitarType
+    /// All detected peaks, already filtered to the display frequency range.
     let peaks: [ResonantPeak]
+    /// The set of peak IDs that are selected/visible in the report.
     let selectedPeakIDs: Set<UUID>
+    /// Ring-out time in seconds (time for the signal to decay 15 dB), or `nil`
+    /// if decay tracking was not performed.
     let decayTime: Float?
+    /// Tap tone ratio (fTop / fAir), or `nil` for non-guitar measurements.
     let tapToneRatio: Float?
+    /// PNG-encoded spectrum chart image, or `nil` if none was captured.
     let spectrumImageData: Data?
+    /// Lower bound of the displayed frequency range, in Hz.
     let minFreq: Float
+    /// Upper bound of the displayed frequency range, in Hz.
     let maxFreq: Float
+    /// Computed plate stiffness properties, or `nil` for non-plate measurements.
     let plateProperties: PlateProperties?
+    /// Computed brace stiffness properties, or `nil` for non-brace measurements.
     let braceProperties: BraceProperties?
+    /// Peak ID of the selected longitudinal frequency (plate/brace), or `nil`.
     let selectedLongitudinalPeakID: UUID?
+    /// Peak ID of the selected cross-grain frequency (plate only), or `nil`.
     let selectedCrossPeakID: UUID?
+    /// Peak ID of the selected FLC (diagonal shear) frequency (plate only), or `nil`.
     let selectedFlcPeakID: UUID?
 
-    // Per-peak user mode overrides (empty = all peaks use auto-classification)
+    /// Per-peak user mode overrides; empty means all peaks use auto-classification.
     var peakModeOverrides: [UUID: UserAssignedMode] = [:]
 
-    // Microphone info
+    // MARK: Microphone info
+    /// Display name of the recording microphone, or `nil` if unavailable.
     let microphoneName: String?
+    /// Name of the applied calibration profile, or `nil` if uncalibrated.
     let calibrationName: String?
 
-    // Gore thicknessing inputs (for plate measurements)
+    // MARK: Gore thicknessing inputs (for plate measurements)
+    /// Guitar body length used for Gore target thickness calculation, in mm.
     let guitarBodyLength: Float
+    /// Guitar body width used for Gore target thickness calculation, in mm.
     let guitarBodyWidth: Float
+    /// Vibrational stiffness value (f_vs) used in the Gore equation.
     let plateStiffness: Float
+    /// Named preset that produced `plateStiffness`, or `.custom` for a manual value.
     let plateStiffnessPreset: PlateStiffnessPreset
 
-    /// Build report data from a saved TapToneMeasurement
+    /// Builds a `PDFReportData` from a persisted `TapToneMeasurement`.
+    ///
+    /// The factory re-derives `PlateProperties` / `BraceProperties` from the
+    /// measurement's stored peak IDs and snapshot dimensions so that computed
+    /// values match the live analysis view.  Peaks are filtered to those within
+    /// the saved display frequency range.
+    ///
+    /// - Parameter measurement: The saved measurement to generate a report for.
+    /// - Returns: A fully populated `PDFReportData` ready for `PDFReportGenerator.generate(data:)`.
     static func from(measurement: TapToneMeasurement) -> PDFReportData {
         let snapshot = measurement.spectrumSnapshot
         let anySnapshot = snapshot ?? measurement.longitudinalSnapshot ?? measurement.crossSnapshot
@@ -144,7 +232,10 @@ struct PDFReportData {
         )
     }
 
-    /// Filename base (without extension) for this report
+    /// Filename stem (without extension) for this report.
+    ///
+    /// Derived from `tapLocation` (spaces and slashes replaced with dashes,
+    /// lowercased) and a Unix timestamp, e.g. `"bridge-plate-1740000000"`.
     var baseFilename: String {
         let locationPart = tapLocation?
             .replacingOccurrences(of: " ", with: "-")
@@ -157,10 +248,20 @@ struct PDFReportData {
 
 // MARK: - PDF Generator
 
+/// Generates PDF data by rendering `PDFReportContentView` via `ImageRenderer`.
 struct PDFReportGenerator {
 
-    /// Generate PDF data for the given report data.
-    /// Must be called on the main actor (ImageRenderer requirement).
+    /// Renders a single-page PDF for the supplied report data.
+    ///
+    /// Internally creates a `PDFReportContentView`, renders it with
+    /// `ImageRenderer`, and writes the output to a `CGContext` PDF page whose
+    /// media box matches the SwiftUI view's natural size.
+    ///
+    /// - Parameter data: The report data to render.
+    /// - Returns: Raw PDF `Data` on success, or `nil` if the `CGDataConsumer`
+    ///   or `CGContext` could not be created.
+    /// - Important: Must be called on the `@MainActor` because `ImageRenderer`
+    ///   requires it.
     @MainActor
     static func generate(data: PDFReportData) -> Data? {
         let contentView = PDFReportContentView(data: data)
@@ -184,13 +285,23 @@ struct PDFReportGenerator {
 
 // MARK: - PDF Report Content View
 
-/// A SwiftUI view that renders the full tap tone analysis report.
-/// Designed for off-screen rendering via ImageRenderer.
+/// SwiftUI view that lays out the full tap tone analysis report page.
+///
+/// Designed for off-screen rendering via `ImageRenderer`; not intended to be
+/// displayed in a live view hierarchy.
+///
+/// The page is US Letter width (612 pt) with 36 pt margins, giving a content
+/// width of 540 pt.  Sections are stacked vertically with fixed `Spacer` gaps;
+/// the natural height of the view determines the PDF page height.
 private struct PDFReportContentView: View {
+    /// All data needed to populate the report sections.
     let data: PDFReportData
 
+    /// Total page width in points (US Letter width).
     private let pageWidth: CGFloat = 612
+    /// Horizontal and vertical page margin in points.
     private let margin: CGFloat = 36
+    /// Available content width = `pageWidth - 2 × margin` (540 pt).
     private var contentWidth: CGFloat { pageWidth - margin * 2 }
 
     var body: some View {
@@ -381,8 +492,16 @@ private struct PDFReportContentView: View {
         }
     }
 
-    /// Returns the effective mode label for a guitar peak, applying user overrides.
-    /// Overridden labels are returned with a " *" suffix so readers can identify them.
+    /// Returns the effective mode label for a peak, applying any user override.
+    ///
+    /// If the peak has a user-assigned mode in `data.peakModeOverrides`, the
+    /// override label is returned with a `" *"` suffix to indicate it was
+    /// manually set.  Otherwise the auto-classified `GuitarMode.displayName` is
+    /// returned without a suffix.
+    ///
+    /// - Parameter peak: The peak whose mode label is needed.
+    /// - Returns: A tuple with the display label string and a flag indicating
+    ///   whether the label came from a user override.
     private func effectiveModeLabel(for peak: ResonantPeak) -> (label: String, isOverridden: Bool) {
         switch data.peakModeOverrides[peak.id] ?? .auto {
         case .auto:

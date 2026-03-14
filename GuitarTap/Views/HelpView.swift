@@ -3,6 +3,34 @@
 //  GuitarTap
 //
 
+/// # HelpView
+///
+/// In-app user guide presented as a `List` of `Section` groups.
+///
+/// ## Content Sections
+///
+/// | Section | Topics |
+/// |---|---|
+/// | What Guitar Tap Does | App overview and three workflows |
+/// | First-Time Setup | Microphone permission, measurement type, quiet environment |
+/// | Guitar Mode | Steps 1–5, mode descriptions, interpreting results |
+/// | Plate Mode | Two-tap / three-tap process (L, C, FLC), node-point technique |
+/// | Brace Mode | Single-tap longitudinal process |
+/// | Ring-Out Time | Decay quality thresholds and interpretation |
+/// | Tap Tone Ratio | Top/Air frequency ratio and quality levels |
+/// | Material Properties | Young's modulus, radiation ratio, Gore equations |
+/// | Tips & Troubleshooting | Common issues and remedies |
+///
+/// ## Presentation
+///
+/// - **macOS**: Opened in a dedicated `Window` (id `"help"`) from the Help
+///   menu (`⌘?`) via `AppCommands`. Default size 520 × 620 pt.
+/// - **iOS**: Shown as a sheet from the main analysis toolbar.
+///
+/// All content is static text; no external resources are fetched.
+///
+/// - SeeAlso: `GuitarTapApp`, `AppCommands`
+
 import SwiftUI
 
 // MARK: - Top-level Help View

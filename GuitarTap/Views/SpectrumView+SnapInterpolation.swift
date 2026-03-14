@@ -1,3 +1,35 @@
+/// # SpectrumView+SnapInterpolation
+///
+/// Cursor/crosshair snap-to-waveform interpolation for `SpectrumView`.
+///
+/// When the spectrum is frozen (post-tap capture) or when plate/brace
+/// multi-phase spectra are displayed, moving the mouse or crosshair over the
+/// chart should lock the readout to the nearest waveform rather than showing
+/// the raw pointer position.  This file provides the two core algorithms:
+///
+/// ## Binary search + linear interpolation (`snapToWaveform`)
+///
+/// The FFT bin array is sorted by frequency (ascending), so a binary search
+/// finds the bin index bracketing `targetHz` in O(log n).  The magnitude is
+/// then linearly interpolated between the left and right bins:
+///
+/// ```
+/// t = (targetHz - freq[l]) / (freq[r] - freq[l])
+/// snappedMag = mag[l] + t * (mag[r] - mag[l])
+/// ```
+///
+/// This produces sub-bin precision without the computational cost of a full
+/// parabolic peak finder.
+///
+/// ## Gravity-based series locking (`nearestSeriesIndex`)
+///
+/// When multiple spectra are visible (plate/brace phases), the cursor locks to
+/// the nearest curve.  To prevent rapid switching when two curves are close,
+/// a gravity threshold (`curveGravityThreshold` = 12 pt) applies hysteresis:
+/// the currently locked curve is only abandoned when a competitor curve is at
+/// least 12 pt closer on screen.
+///
+/// - SeeAlso: `SpectrumView`, `CursorSnapState`
 //
 //  SpectrumView+SnapInterpolation.swift
 //  GuitarTap
@@ -12,11 +44,22 @@ extension SpectrumView {
 
     // MARK: - Spectral Interpolation Utilities
 
-    /// Snaps a raw cursor frequency to the waveform of a single series.
+    /// Snaps a raw cursor frequency to the nearest point on a spectrum waveform
+    /// using binary search and linear interpolation.
     ///
-    /// Algorithm:
-    /// 1. Binary search for the bin closest to `targetHz`.
-    /// 2. Linearly interpolate between the two bracketing bins for smooth tracking.
+    /// ## Algorithm
+    /// 1. Binary search the `frequencies` array for the index whose value is
+    ///    closest to `targetHz`.
+    /// 2. Find the two bracketing bins `[l, r]` such that
+    ///    `frequencies[l] ≤ targetHz ≤ frequencies[r]`.
+    /// 3. Linearly interpolate both frequency and magnitude between bins `l` and `r`.
+    ///
+    /// - Parameters:
+    ///   - targetHz: The cursor frequency to snap from, in Hz.
+    ///   - magnitudes: FFT magnitudes array, in dB, parallel to `frequencies`.
+    ///   - frequencies: FFT frequency array, in Hz, in ascending order.
+    /// - Returns: The interpolated `(frequency, magnitude)` pair on the waveform,
+    ///   or `nil` if the arrays are empty or mismatched.
     static func snapToWaveform(
         targetHz: Float,
         magnitudes: [Float],
@@ -57,13 +100,29 @@ extension SpectrumView {
                 magnitudes[l]  + t * (magnitudes[r]  - magnitudes[l]))
     }
 
-    /// Screen-distance gravity threshold (points). A locked curve is only abandoned when
-    /// a competitor curve is at least this many points closer on screen.
+    /// Screen-distance gravity threshold, in points.
+    ///
+    /// The currently locked curve is only abandoned in favour of a closer
+    /// competitor when the competitor is at least this many screen points
+    /// closer.  This prevents the cursor from flickering between two nearly
+    /// overlapping curves.
     static let curveGravityThreshold: CGFloat = 12.0
 
-    /// Returns the materialSpectra index to lock to (-1 = primary spectrum).
-    /// Switches away from `lockedIndex` only when a competitor is at least
-    /// `curveGravityThreshold` screen points closer.
+    /// Returns the `materialSpectra` index the cursor should lock to.
+    ///
+    /// The algorithm computes the on-screen Y distance from the cursor to each
+    /// series' snapped magnitude, then applies `curveGravityThreshold` hysteresis:
+    /// the current `lockedIndex` is retained unless a different series is at
+    /// least `curveGravityThreshold` points closer.
+    ///
+    /// - Parameters:
+    ///   - targetHz: Current cursor frequency, in Hz.
+    ///   - cursorScreenY: Current cursor Y position in overlay-local coordinates.
+    ///   - proxy: The chart proxy for magnitude → screen-Y conversion.
+    ///   - plotFrame: The resolved chart plot frame in overlay-local coordinates.
+    ///   - materialSpectra: The per-phase spectra currently displayed.
+    ///   - lockedIndex: The index currently locked (`-1` = primary spectrum).
+    /// - Returns: The series index to lock to (`-1` = primary spectrum).
     static func nearestSeriesIndex(
         targetHz: Float,
         cursorScreenY: CGFloat,
@@ -91,11 +150,26 @@ extension SpectrumView {
         return best.index
     }
 
-    /// Resolves a raw screen location into a `CursorSnapState`.
+    /// Converts a raw screen location into a `CursorSnapState`.
     ///
-    /// When `isSpectrumFrozen` is false, returns the raw data-coordinate position
-    /// with no series lock (free-floating cursor). When frozen, snaps the Y position
-    /// to the nearest waveform and applies gravity-based curve locking.
+    /// Behaviour depends on `isSpectrumFrozen` and `materialSpectra`:
+    ///
+    /// - **Live spectrum** (`isSpectrumFrozen == false` and no material spectra):
+    ///   Returns the raw data-coordinate position with no series lock
+    ///   (free-floating cursor readout).
+    /// - **Frozen spectrum** or **plate/brace multi-phase** display:
+    ///   Runs `nearestSeriesIndex` to select the nearest curve, then
+    ///   calls `snapToWaveform` on that series to obtain an interpolated
+    ///   `(frequency, magnitude)` pair.  Updates `lockedSeriesIndex` in place.
+    ///
+    /// - Parameters:
+    ///   - location: Cursor position in overlay-local coordinates (screen points).
+    ///   - plotFrame: The resolved chart plot area frame.
+    ///   - proxy: The chart proxy for coordinate conversion.
+    ///   - lockedSeriesIndex: Inout index tracking which series the cursor is
+    ///     locked to; updated by this call.
+    /// - Returns: A `CursorSnapState` ready for display, or `nil` if the proxy
+    ///   cannot convert the coordinates (e.g. before the chart is laid out).
     func resolveSnapState(
         location: CGPoint,
         plotFrame: CGRect,

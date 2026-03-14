@@ -2,8 +2,18 @@
 //  LoadingOverlay.swift
 //  GuitarTap
 //
-//  Created by David Smith on 2/9/26.
-//
+
+/// # LoadingOverlay
+///
+/// A full-screen dimmed overlay with a centered spinner and message label.
+///
+/// Placed using `.overlay` on the root content view to block interaction
+/// during asynchronous operations: spectrum export, PDF report generation,
+/// and measurement save. The overlay ignores safe-area insets so it covers
+/// the entire window.
+///
+/// - SeeAlso: `TapToneAnalysisView+Layouts`
+
 import SwiftUI
 
 struct LoadingOverlay: View {

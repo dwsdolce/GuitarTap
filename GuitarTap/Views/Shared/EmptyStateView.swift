@@ -2,8 +2,16 @@
 //  EmptyStateView.swift
 //  GuitarTap
 //
-//  Created by David Smith on 2/9/26.
-//
+
+/// # EmptyStateView
+///
+/// A centered placeholder view displayed when a list or content area is empty.
+///
+/// Shows a large SF Symbol, a bold title, and a secondary descriptive message.
+/// Used in `MeasurementsListView` when no saved measurements exist.
+///
+/// - SeeAlso: `MeasurementsListView`
+
 import SwiftUI
 
 struct EmptyStateView: View {

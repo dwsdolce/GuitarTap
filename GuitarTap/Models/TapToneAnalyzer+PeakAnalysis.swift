@@ -389,7 +389,7 @@ extension TapToneAnalyzer {
     /// - Parameters:
     ///   - magnitudes: dB magnitude spectrum.
     ///   - frequencies: Frequency axis matching `magnitudes`.
-    ///   - peakIndex: Index of the local maximum bin.
+    ///   - i: Index of the local maximum bin.
     /// - Returns: `(frequency, magnitude)` of the interpolated peak in Hz and
     ///   dBFS. Falls back to the raw bin values if the peak is at a boundary or
     ///   if the parabola denominator is near zero (flat top).

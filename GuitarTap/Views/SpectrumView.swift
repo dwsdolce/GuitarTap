@@ -1,3 +1,43 @@
+/// # SpectrumView
+///
+/// An interactive frequency-spectrum chart built on Swift Charts.
+///
+/// `SpectrumView` is the central visualization component of GuitarTap.  It
+/// renders an FFT magnitude spectrum, overlaid with peak annotations, guitar
+/// mode boundary markers, material-analysis phase spectra, and tap-detection
+/// threshold lines.
+///
+/// ## Extensions
+///
+/// | File | Contents |
+/// |------|----------|
+/// | `SpectrumView+ChartContent.swift` | `@ChartContentBuilder` properties for each visual layer |
+/// | `SpectrumView+GestureHandlers.swift` | Zoom, pan, and scroll-wheel handlers |
+/// | `SpectrumView+SnapInterpolation.swift` | Binary-search snap + gravity-based curve locking |
+/// | `SpectrumScrollWheel.swift` | AppKit scroll wheel event bridge (macOS only) |
+///
+/// ## Interaction model
+///
+/// | Gesture / Input          | Platform | Action |
+/// |--------------------------|----------|--------|
+/// | Pinch (`MagnifyGesture`) | Both     | Zoom both axes, anchored to gesture start point |
+/// | Drag                     | Both     | Pan frequency and dB axes |
+/// | Scroll wheel (no mod)    | macOS    | Pan dB axis |
+/// | Scroll + Shift           | macOS    | Pan frequency axis |
+/// | Scroll + Command         | macOS    | Zoom both axes around cursor |
+/// | Scroll + Option          | macOS    | Zoom frequency axis around cursor |
+/// | Scroll + Control         | macOS    | Zoom dB axis around cursor |
+/// | Hover                    | macOS    | Show snap-to-waveform cursor readout |
+/// | Long press / tap         | iOS      | Show crosshair readout |
+///
+/// ## Axis ranges
+///
+/// Both axes are expressed as `@Binding<Float>` so parent views can persist the
+/// visible range across taps.  The legal ranges are:
+/// - Frequency: 20 Hz – 20 kHz
+/// - Magnitude: −120 dB – +20 dB
+///
+/// - SeeAlso: `TapToneAnalysisView`, `PeakAnnotations`, `AxisTickGenerator`
 //
 //  SpectrumView.swift
 //  GuitarTap
@@ -14,10 +54,11 @@ import AppKit
 
 // MARK: - Spectrum Data Point
 
-/// A data point representing a single frequency bin in the spectrum visualization.
+/// A single frequency-domain data point for chart rendering.
 ///
-/// Each point contains a frequency value (in Hz) and its corresponding magnitude (in dB).
-/// The `Identifiable` conformance allows SwiftUI Charts to efficiently track and render each point.
+/// Each `SpectrumDataPoint` corresponds to one FFT bin.  The `Identifiable`
+/// conformance lets SwiftUI Charts efficiently track insertions and removals
+/// when the spectrum is refreshed.
 struct SpectrumDataPoint: Identifiable {
     /// Unique identifier for SwiftUI's identity system
     let id = UUID()
@@ -31,16 +72,21 @@ struct SpectrumDataPoint: Identifiable {
 
 // MARK: - Cursor Snap State
 
-/// The position the cursor/crosshair has snapped to on a waveform, including
-/// the identity of the series being tracked.
+/// The result of snapping the cursor or crosshair to the nearest waveform point.
+///
+/// `CursorSnapState` is computed in `SpectrumView+SnapInterpolation` and stored
+/// in `@State` by `SpectrumView` so the cursor overlay can read the snapped
+/// coordinates without re-running the interpolation on every render pass.
 struct CursorSnapState {
-    /// Interpolated frequency in Hz at the snapped position
+    /// Interpolated frequency at the snapped position, in Hz.
     let frequency: Double
-    /// Interpolated magnitude in dB at the snapped position
+    /// Interpolated magnitude at the snapped position, in dB.
     let magnitude: Double
-    /// Index into `materialSpectra`, or nil when tracking the primary spectrum
+    /// Index into `materialSpectra` identifying the locked curve, or `nil`
+    /// when tracking the primary (single) spectrum.
     let seriesIndex: Int?
-    /// Display color matching the tracked curve (.primary in single-curve mode)
+    /// Display color matching the tracked curve; used to tint the readout label
+    /// so it visually corresponds to the waveform being tracked.
     let curveColor: Color
 }
 

@@ -1,3 +1,34 @@
+/// # TapToneAnalysisView+Actions
+///
+/// User-initiated action handlers for `TapToneAnalysisView`.
+///
+/// This extension contains all methods that respond to toolbar button taps and
+/// menu selections:
+///
+/// - **`toggleAnalyzer()`** — Starts or stops the audio engine.  On iOS, requests
+///   microphone permission before starting using the appropriate API for the
+///   OS version (iOS 17+ uses `AVAudioApplication`, earlier uses
+///   `AVAudioSession`).  On macOS, checks `AVCaptureDevice.authorizationStatus`
+///   and shows an alert if the user has denied access.  A macOS-specific error
+///   path handles `kAudioUnitErr_Unauthorized` (−10877) — the OS silently mutes
+///   the audio engine after permission is revoked, even while
+///   `authorizationStatus` still reports `.authorized` from its TCC cache.
+///
+/// - **`startAnalyzer()`** — Calls `TapToneAnalyzer.start()` after configuring
+///   the `AVAudioSession` on iOS.  Surfaces permission errors as an alert.
+///
+/// - **`startNewTapSequence()`** — Resets the analyzer for a new tap cycle,
+///   synchronizing spectrum display state (axis ranges, selected peak IDs)
+///   with the current `TapDisplaySettings`.
+///
+/// - **`cancelCurrentTap()`** — Cancels an in-progress multi-tap sequence and
+///   clears all related state.
+///
+/// - **`loadMeasurement(_:)`** — Restores a persisted `TapToneMeasurement` into
+///   the analyzer and updates the view's axis range bindings from the
+///   `loaded*` published properties.
+///
+/// - SeeAlso: `TapToneAnalyzer+Control`, `TapToneAnalyzer+MeasurementManagement`
 //
 //  TapToneAnalysisView+Actions.swift
 //  GuitarTap

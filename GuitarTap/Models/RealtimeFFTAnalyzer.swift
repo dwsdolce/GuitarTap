@@ -5,6 +5,72 @@
 //  Created by David Smith on 12/31/25.
 //
 
+/// # RealtimeFFTAnalyzer
+///
+/// A real-time FFT analyser that captures audio from the device microphone,
+/// computes a continuous magnitude spectrum, and publishes results for live
+/// visualisation and tap-tone analysis.
+///
+/// ## Architecture
+/// ```
+/// AVAudioInputNode tap (1 024-sample buffers, hardware rate)
+///        │
+///        ├──► audioProcessingQueue
+///        │         ├─ RMS level → inputLevelDB / recentPeakLevelDB (main thread, ~10 Hz)
+///        │         ├─ rawSampleHandler → TapToneAnalyzer pre-roll + gated capture
+///        │         └─ inputBuffer accumulation
+///        │                  └─ when ≥ fftSize samples:
+///        │                         performFFT(on:) → magnitudes / peakMagnitude (main, ~2 Hz)
+///        └──► (gated path)  computeGatedFFT(samples:sampleRate:) → called on demand
+/// ```
+///
+/// ## Continuous vs. Gated FFT
+/// The **continuous** path produces one spectrum frame per hop interval. The
+/// frame rate is controlled by `hopSizeOverlap`:
+/// ```
+/// hop = fftSize × (1 − overlap/100)
+/// frameRate = sampleRate / hop
+/// ```
+/// The window is a **boxcar** (rectangular) — no windowing — for simplicity on
+/// the live display path where sidelobe suppression is less important than
+/// amplitude accuracy.
+///
+/// The **gated** path (`computeGatedFFT`) transforms a short pre-captured PCM
+/// buffer for plate/brace measurements. It uses a **Hann window** for better
+/// frequency resolution and lower sidelobes, since the result feeds material
+/// property calculations.
+///
+/// ## Platform Differences
+///
+/// | Feature | macOS | iOS |
+/// |---|---|---|
+/// | Device selection | CoreAudio `AudioDeviceID` via AUHAL | `AVAudioSession.setPreferredInput` |
+/// | Device change events | `AudioObjectAddPropertyListenerBlock` | `AVAudioSession.routeChangeNotification` |
+/// | Permission check | `AVCaptureDevice.authorizationStatus` + 3-second TCC-stale detection | Handled by system |
+/// | Permission-denied signal | Silent all-zero stream → `peakMagnitude.isInfinite` | Not needed |
+///
+/// ## Permission Handling (macOS)
+/// macOS TCC can cache `.authorized` even after a revocation. The analyser
+/// uses a delayed check at t = +3 s: if the peak magnitude is −∞ (perfectly
+/// silent all-zero stream) and buffers *are* arriving, the OS is silently
+/// muting the input. In that case `microphonePermissionDenied` is set `true`
+/// and the engine is stopped.
+///
+/// ## Thread Safety
+/// - Audio buffer delivery: `audioProcessingQueue` (serial, `.userInteractive`)
+/// - Shared buffer access: `bufferAccessQueue` (serial, `.userInteractive`)
+/// - All `@Published` property updates: main thread only
+///
+/// ## Example Usage
+/// ```swift
+/// let analyzer = RealtimeFFTAnalyzer(fftSize: 16384, targetSampleRate: 48000)
+/// try analyzer.start()
+/// // Observe analyzer.magnitudes and analyzer.frequencies for visualisation
+/// analyzer.stop()
+/// ```
+///
+/// - Note: Requires `NSMicrophoneUsageDescription` in Info.plist.
+
 import SwiftUI
 import AVFoundation
 import Accelerate
@@ -21,23 +87,6 @@ private let micLog = Logger(subsystem: "com.dolcesfogato.GuitarTap", category: "
 
 // MARK: - FFT Analyzer
 
-/// A real-time Fast Fourier Transform (FFT) analyzer that captures audio from the device's microphone
-/// and computes frequency spectrum data for visualization.
-///
-/// This class uses Apple's Accelerate framework for high-performance FFT calculations and AVFoundation
-/// for audio capture. It handles sample rate conversion, windowing, and converts the FFT output to
-/// a logarithmic dB scale suitable for audio visualization.
-///
-/// ## Example Usage
-/// ```swift
-/// let analyzer = RealtimeFFTAnalyzer(fftSize: 16384, targetSampleRate: 48000)
-/// try analyzer.start()
-/// // Access analyzer.magnitudes and analyzer.frequencies for visualization
-/// analyzer.stop()
-/// ```
-///
-/// - Note: This class requires microphone permissions. Ensure you've added the
-///   `NSMicrophoneUsageDescription` key to your Info.plist file.
 final class RealtimeFFTAnalyzer: ObservableObject {
     
     // MARK: - Audio Engine Components
@@ -179,12 +228,28 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Use this for decay tracking instead of peakMagnitude which only updates per FFT frame
     @Published var inputLevelDB: Float = -100
     
-    /// Recent peak input level in dB - tracks the maximum level over the last 2 seconds
-    /// Use this to capture the actual tap peak even when FFT detection is delayed
-    /// Must be longer than FFT processing time (~1.5s for 65536 samples @ 44.1kHz)
-    
-    /// Counter that increments each time the engine restarts due to an audio route change
-    /// Observers can watch this to reset their state (e.g., warmup timers, threshold state)
+    /// Maximum input level observed over the last `peakHoldDuration` seconds (dBFS).
+    ///
+    /// Updated on every audio buffer callback (~10 Hz). Because the continuous FFT
+    /// window is ~400 ms, `peakMagnitude` lags the actual tap transient by up to that
+    /// amount. `recentPeakLevelDB` captures the true tap peak before the FFT result
+    /// arrives, and is used by ``TapToneAnalyzer`` as the `tapPeakLevel` reference for
+    /// decay tracking.
+    ///
+    /// - Note: The hold duration is 2 seconds — longer than the worst-case FFT
+    ///   processing latency (~1.5 s for 65 536 samples at 44.1 kHz).
+    @Published var recentPeakLevelDB: Float = -100
+
+    /// Timestamp of the most recent `recentPeakLevelDB` update; used to detect hold expiry.
+    private var recentPeakTime: Date = Date.distantPast
+
+    /// Duration in seconds for which `recentPeakLevelDB` is held after a peak.
+    private let peakHoldDuration: TimeInterval = 2.0
+
+    /// Counter that increments each time the engine restarts due to an audio route change.
+    ///
+    /// ``TapToneAnalyzer`` observes this via a Combine sink to reset its warm-up timer
+    /// and `isAboveThreshold` state after a route change restart.
     @Published var routeChangeRestartCount: Int = 0
     
     // MARK: - Microphone Calibration
@@ -225,34 +290,52 @@ final class RealtimeFFTAnalyzer: ObservableObject {
 
     // MARK: - Raw Sample Callback (for gated FFT)
 
-    /// Optional callback that receives raw PCM samples on the audio processing queue.
-    /// Used by the gated FFT capture to accumulate raw audio for plate/brace analysis.
-    /// Called on the audioProcessingQueue — do not update UI directly.
+    /// Optional callback that receives raw PCM samples on `audioProcessingQueue`.
+    ///
+    /// Set by ``TapToneAnalyzer`` to feed the gated FFT pre-roll ring buffer and
+    /// the gated accumulation buffer used for plate/brace measurements. Called on
+    /// every audio buffer at the hardware callback rate (~10 Hz at 1024 samples).
+    ///
+    /// - Important: Do **not** update any `@Published` properties or touch UIKit/SwiftUI
+    ///   from this callback — it runs on a background queue.
     var rawSampleHandler: (([Float], Double) -> Void)?
     
-    /// Flag to prevent re-saving device mapping when loading device-specific calibration
+    /// Suppresses re-saving the device→calibration mapping during auto-load.
+    ///
+    /// When `selectedInputDevice.didSet` auto-loads a device-specific calibration,
+    /// setting `activeCalibration` would normally also persist a new device mapping.
+    /// This flag breaks the feedback loop so the association is only written
+    /// when the user explicitly changes the calibration.
     private var isLoadingDeviceCalibration = false
 
     #if os(macOS)
-    /// Retained block for the CoreAudio hardware device-list change listener
+    /// Retained block for the CoreAudio `kAudioHardwarePropertyDevices` listener.
+    /// Fires on any device connect/disconnect event and triggers
+    /// `loadAvailableInputDevices()`.
     private var hardwareListenerBlock: AudioObjectPropertyListenerBlock?
-    /// Retained block for the CoreAudio sample-rate change listener on the selected device
+
+    /// Retained block for the CoreAudio `kAudioDevicePropertyNominalSampleRate`
+    /// listener on the currently selected device. Fires when the user changes
+    /// the sample rate in Audio MIDI Setup while the engine is running.
     private var sampleRateListenerBlock: AudioObjectPropertyListenerBlock?
-    /// The AudioDeviceID the sample-rate listener is currently registered against
+
+    /// The `AudioDeviceID` the sample-rate listener is currently registered
+    /// against, or `0` if no listener is registered.
     private var sampleRateListenerDeviceID: AudioDeviceID = 0
     #endif
     
-    /// Sets calibration without updating the device mapping (used when auto-loading device calibration)
+    /// Applies a calibration without persisting a device→calibration mapping.
+    ///
+    /// Used by `selectedInputDevice.didSet` when auto-loading a device-specific
+    /// calibration from `CalibrationStorage`. Setting `activeCalibration` directly
+    /// would trigger `activeCalibration.didSet`, which would re-save the mapping and
+    /// create a redundant write. The `isLoadingDeviceCalibration` guard breaks the loop.
     private func setCalibrationWithoutSavingDeviceMapping(_ calibration: MicrophoneCalibration?) {
         isLoadingDeviceCalibration = true
         activeCalibration = calibration
         isLoadingDeviceCalibration = false
     }
-    @Published var recentPeakLevelDB: Float = -100
-    private var recentPeakTime: Date = Date.distantPast
-    private let peakHoldDuration: TimeInterval = 2.0  // How long to hold the peak
-    
-    /// Indicates whether the analyzer is currently running and processing audio
+    /// Indicates whether the analyzer is currently running and processing audio.
     @Published var isRunning: Bool = false
 
     /// Set to true when permission is confirmed denied after start (macOS TCC cache lag).
@@ -863,10 +946,20 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     // MARK: - Private Processing Methods
     
-    // Debug tracking
+    // MARK: - Debug tracking
+
+    /// `true` after the first audio buffer callback fires. Used by the 3-second
+    /// post-start check to distinguish "no buffers delivered" (hardware/permission
+    /// problem) from "buffers delivered but silent" (TCC muted stream on macOS).
     private var firstBufferReceived = false
+
+    /// Running count of completed FFT frames, used to throttle console logging
+    /// (prints every 30 frames, roughly every 15 s at 2 Hz frame rate).
     private var fftCount = 0
-    private var engineStartTime: Date?  // Track when engine started for timeout detection
+
+    /// Time at which the audio engine most recently started. Used in the 3-second
+    /// post-start diagnostic to determine whether to warn about missing buffers.
+    private var engineStartTime: Date?
     
     /// Updates the frequency bin values based on the effective sample rate.
     ///
@@ -1355,7 +1448,13 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         return (magnitudes: db, frequencies: freqs)
     }
 
-    /// Returns the smallest power of two that is >= n (minimum 2).
+    /// Returns the smallest power of two that is ≥ `n`.
+    ///
+    /// Used to choose the zero-padding size for `computeGatedFFT`, which requires
+    /// a power-of-two sample count. Returns 2 for any `n` ≤ 1.
+    ///
+    /// - Parameter n: Input value.
+    /// - Returns: Smallest power of two ≥ `n` (minimum 2).
     private func nextPowerOfTwo(_ n: Int) -> Int {
         guard n > 1 else { return 2 }
         var p = 2
@@ -1365,7 +1464,13 @@ final class RealtimeFFTAnalyzer: ObservableObject {
 
     // MARK: - Audio Device Selection
     
-    /// Loads the list of available audio input devices
+    /// Refreshes `availableInputDevices` from the platform audio subsystem.
+    ///
+    /// Dispatches to the platform-specific implementation:
+    /// - macOS: ``loadAvailableInputDevicesMacOS()`` via CoreAudio
+    /// - iOS: ``loadAvailableInputDevicesIOS()`` via `AVAudioSession`
+    ///
+    /// Called at init, after `start()` (iOS), and on device connect/disconnect events.
     private func loadAvailableInputDevices() {
         #if os(macOS)
         loadAvailableInputDevicesMacOS()
@@ -1375,7 +1480,21 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     }
     
     #if os(macOS)
-    /// Loads the list of available audio input devices on macOS
+    /// Enumerates CoreAudio input devices and updates `availableInputDevices`.
+    ///
+    /// Queries `kAudioHardwarePropertyDevices`, filters for devices with at least
+    /// one input channel (`kAudioDevicePropertyStreamConfiguration`), and reads each
+    /// device's display name, UID, and nominal sample rate.
+    ///
+    /// ## Auto-selection Policy (initial load)
+    /// 1. Previously persisted device UID (`UserDefaults` key `selectedInputDeviceUID`)
+    /// 2. Built-in microphone (UID contains `"BuiltInMicrophone"`)
+    /// 3. System default input device (`kAudioHardwarePropertyDefaultInputDevice`)
+    /// 4. First device in the enumerated list
+    ///
+    /// On subsequent calls (device connect/disconnect): newly appeared real devices
+    /// are auto-selected; aggregate devices matching `"CADefaultDeviceAggregate"` are
+    /// ignored; if the current device disappeared, falls back to built-in or first.
     private func loadAvailableInputDevicesMacOS() {
         var devices: [AVAudioDevice] = []
         
@@ -1627,7 +1746,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         print("🎤 Found \(devices.count) audio input device(s) total")
     }
 
-    /// Registers a CoreAudio listener so the device list refreshes when hardware changes.
+    /// Registers a CoreAudio `kAudioHardwarePropertyDevices` listener on the
+    /// system object so `availableInputDevices` refreshes whenever a device
+    /// connects or disconnects.
+    ///
+    /// The retained listener block is stored in `hardwareListenerBlock` so it
+    /// can be removed cleanly in ``unregisterMacOSHardwareListener()``.
     private func registerMacOSHardwareListener() {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
@@ -1653,7 +1777,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
     }
 
-    /// Removes the CoreAudio hardware change listener.
+    /// Removes the CoreAudio hardware-change listener from the system object and
+    /// also calls ``unregisterSampleRateListener()`` to clean up the per-device
+    /// listener. Safe to call multiple times.
     private func unregisterMacOSHardwareListener() {
         guard let block = hardwareListenerBlock else { return }
         var address = AudioObjectPropertyAddress(
@@ -1671,8 +1797,16 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         unregisterSampleRateListener()
     }
 
-    /// Registers a CoreAudio listener on a specific device that fires when its sample rate changes.
-    /// When the rate changes while the engine is running, the engine is restarted to adopt the new rate.
+    /// Registers a CoreAudio `kAudioDevicePropertyNominalSampleRate` listener on
+    /// the given device. When the sample rate changes while the engine is running
+    /// (e.g. because the user adjusted it in Audio MIDI Setup), the engine is
+    /// stopped and restarted so `actualSampleRate` and the frequency bin axis
+    /// update to reflect the new rate.
+    ///
+    /// Replaces any previously registered sample-rate listener before adding the
+    /// new one. The new listener is stored in `sampleRateListenerBlock`.
+    ///
+    /// - Parameter deviceID: The `AudioDeviceID` to watch for sample-rate changes.
     func registerSampleRateListener(for deviceID: AudioDeviceID) {
         // Remove any previous registration before adding a new one
         unregisterSampleRateListener()
@@ -1711,7 +1845,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
     }
 
-    /// Removes the sample-rate change listener from the device it was registered against.
+    /// Removes the `kAudioDevicePropertyNominalSampleRate` listener from the
+    /// device it was registered against and clears `sampleRateListenerBlock`
+    /// and `sampleRateListenerDeviceID`. No-op if no listener is registered.
     func unregisterSampleRateListener() {
         guard let block = sampleRateListenerBlock, sampleRateListenerDeviceID != 0 else { return }
         var address = AudioObjectPropertyAddress(
@@ -1726,7 +1862,15 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     #endif
     
     #if os(iOS)
-    /// Loads the list of available audio input devices on iOS
+    /// Enumerates `AVAudioSession.availableInputs` and updates `availableInputDevices`.
+    ///
+    /// Configures the audio session to `.playAndRecord` / `.measurement` before
+    /// querying, because iOS will not expose external USB audio devices unless a
+    /// recording category is active. This configuration step is **skipped** if the
+    /// engine is already running to avoid invalidating the active audio tap.
+    ///
+    /// Selects `session.currentRoute.inputs.first` if it matches an available device;
+    /// otherwise selects the first device in the list.
     private func loadAvailableInputDevicesIOS() {
         let session = AVAudioSession.sharedInstance()
         var devices: [AVAudioDevice] = []
@@ -1814,7 +1958,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         print("🎤 Found \(devices.count) audio input device(s) total")
     }
     
-    /// Returns a human-readable description of the port type without triggering internal enum warnings
+    /// Maps an `AVAudioSession.Port` to a user-readable string without
+    /// accessing the raw value of unknown cases, which can trigger internal
+    /// framework warnings on some OS versions.
+    ///
+    /// - Parameter portType: The `AVAudioSession.Port` to describe.
+    /// - Returns: A localisation-friendly string such as `"USB Audio"` or
+    ///   `"Built-in Microphone"`. Returns `"Audio Input"` for unrecognised
+    ///   port types.
     private func getPortTypeDescription(_ portType: AVAudioSession.Port) -> String {
         switch portType {
         case .builtInMic:
@@ -1843,7 +1994,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
     }
     
-    /// Handles audio route changes (e.g., headphones plugged in/out, USB devices connected)
+    /// Handles `AVAudioSession.routeChangeNotification` on iOS.
+    ///
+    /// Reacts to three reason codes:
+    /// - `.newDeviceAvailable` — refreshes device list and restarts engine if running.
+    /// - `.oldDeviceUnavailable` — refreshes device list and restarts engine if running.
+    /// - `.categoryChange` — refreshes device list only (engine restart not needed).
+    ///
+    /// All other reason codes are ignored.
     @objc private func handleRouteChange(notification: Notification) {
         guard let userInfo = notification.userInfo,
               let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
@@ -1890,8 +2048,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         }
     }
     
-    /// Restarts the audio engine after a route change
-    /// This ensures the audio tap is properly reconfigured for the new audio route
+    /// Restarts the audio engine 0.5 s after an iOS route change.
+    ///
+    /// The delay allows the audio session to settle before `stop()` / `start()`
+    /// are called. After a successful restart, `routeChangeRestartCount` is
+    /// incremented so that ``TapToneAnalyzer`` can reset its warm-up timer and
+    /// threshold state.
     private func restartEngineAfterRouteChange() {
         // Use a slight delay to allow the system to settle after the route change
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
@@ -1923,9 +2085,21 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     }
     #endif
     
-    /// Sets the audio input device
-    /// - Parameter device: The audio device to use for input
-    /// - Throws: An error if the device cannot be set
+    /// Switches the audio input to the given device.
+    ///
+    /// **iOS:** Calls `AVAudioSession.setPreferredInput(_:)` with the device's
+    /// `port`. The engine does not need to restart.
+    ///
+    /// **macOS:** Stops the engine if running, sets `selectedInputDevice`
+    /// (which will be applied to the AUHAL unit on the next `start()` call),
+    /// and restarts the engine.
+    ///
+    /// The `isApplyingDeviceSwitch` guard prevents `selectedInputDevice.didSet`
+    /// from triggering a second redundant restart.
+    ///
+    /// - Parameter device: The ``AVAudioDevice`` to use as the new input source.
+    /// - Throws: An error if `device.port` is `nil` on iOS, or if the engine
+    ///   fails to restart on macOS.
     func setInputDevice(_ device: AVAudioDevice) throws {
         print("🎤 Attempting to set input device to: \(device.name)")
         

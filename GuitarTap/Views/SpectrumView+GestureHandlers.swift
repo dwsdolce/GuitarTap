@@ -1,3 +1,35 @@
+/// # SpectrumView+GestureHandlers
+///
+/// Zoom, pan, and scroll-wheel gesture handlers for `SpectrumView`.
+///
+/// ## Scroll wheel modifier key bindings (macOS)
+///
+/// | Modifier key(s)     | Action                                     |
+/// |---------------------|--------------------------------------------|
+/// | None                | Pan vertically (dB axis)                   |
+/// | Shift               | Pan horizontally (frequency axis)          |
+/// | Command             | Zoom both axes around cursor               |
+/// | Option              | Zoom frequency axis only around cursor     |
+/// | Control             | Zoom magnitude (dB) axis only around cursor |
+///
+/// All zoom operations anchor to the data-space coordinate under the cursor
+/// so the frequency/dB value at the cursor position remains fixed as the
+/// range expands or contracts.
+///
+/// ## Axis bounds
+///
+/// Both axes are clamped to prevent invalid states:
+/// - Frequency: 20 Hz – 20 kHz; minimum visible span 50 Hz (linear) / 1.1× ratio (log)
+/// - Magnitude: −120 dB – +20 dB; minimum visible span 10 dB
+///
+/// ## Logarithmic zoom
+///
+/// Frequency zoom in log mode works in log₁₀ space: the log-distance from the
+/// anchor to each edge is divided by the zoom scale, then the result is
+/// exponentiated.  This keeps the perceived zoom speed constant regardless
+/// of where in the frequency range the anchor falls.
+///
+/// - SeeAlso: `SpectrumScrollWheel`, `SpectrumView+SnapInterpolation`
 //
 //  SpectrumView+GestureHandlers.swift
 //  GuitarTap

@@ -2,8 +2,37 @@
 //  CombinedPeakModeRowView.swift
 //  GuitarTap
 //
-//  Created by David Smith on 2/9/26.
-//
+
+/// # CombinedPeakModeRowView
+///
+/// A list row showing a single `ResonantPeak` with its guitar mode
+/// classification, allowing the user to select/deselect the peak and
+/// assign a custom mode label override.
+///
+/// ## Layout
+///
+/// ```
+/// [star toggle]  [mode icon + range indicator]  [peak info + mode label]  [picker]
+/// ```
+///
+/// - The **star toggle** calls `onToggleSelection` when tapped; it is hidden
+///   when `onToggleSelection` is `nil`.
+/// - The **mode icon** uses `GuitarMode.icon` and `GuitarMode.color`; a
+///   checkmark or warning badge indicates whether the peak frequency falls
+///   within the mode's ideal range.
+/// - The **peak info** column shows frequency (Hz), magnitude (dBFS), and
+///   optionally Q-factor and pitch (note + cents deviation).
+/// - The **mode label** picker presents a quick-pick list of common names
+///   plus a "Custom…" text entry. Selecting a name calls
+///   `onSetModeOverride`; "Reset to Auto" calls `onResetModeOverride`.
+///
+/// ## Mode Override Presentation
+///
+/// - macOS: the picker appears as a `Popover`.
+/// - iOS compact: the picker appears as a sheet (`showModePickerSheet`).
+///
+/// - SeeAlso: `TapAnalysisResultsView`, `UserAssignedMode`
+
 import SwiftUI
 
 struct CombinedPeakModeRowView: View {

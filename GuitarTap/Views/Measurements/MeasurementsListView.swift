@@ -2,8 +2,42 @@
 //  MeasurementsListView.swift
 //  GuitarTap
 //
-//  Created by David Smith on 2/9/26.
-//
+
+/// # MeasurementsListView
+///
+/// Sheet-presented list of all saved `TapToneMeasurement` records, with
+/// import, export, and detail-navigation capabilities.
+///
+/// ## Custom UTType
+///
+/// `UTType.guitarTapMeasurement` (`com.dolcesfogato.guitartap.measurement`)
+/// is declared here and in `Info.plist` so that `.guitartap` files can be
+/// opened from Mail, AirDrop, and the Files app.
+///
+/// ## Platform Differences
+///
+/// | Feature | macOS | iOS |
+/// |---|---|---|
+/// | Detail navigation | `NSWindowController` (`detailWindowController`) | `NavigationLink` |
+/// | Import | `.fileImporter` with `UTType.guitarTapMeasurement` | `DocumentPicker` |
+/// | Export (JSON) | `MeasurementFileExporter.exportJSON` → `NSSavePanel` | Share sheet |
+///
+/// ## Import Flow
+///
+/// The file importer / document picker calls `importFromFile(url:)`, which
+/// uses a security-scoped access pair (`startAccessingSecurityScopedResource`
+/// / `stopAccessingSecurityScopedResource`) to read `.guitartap` files
+/// outside the app sandbox, then calls `TapToneAnalyzer.importMeasurement`.
+///
+/// ## AirDrop / Open-URL
+///
+/// Files opened via AirDrop or "Open in…" are routed through
+/// `Notification.Name.openMeasurementFile` posted by `GuitarTapApp`. This
+/// view observes the notification and calls `importFromFile(url:)` when
+/// received.
+///
+/// - SeeAlso: `MeasurementDetailView`, `MeasurementFileExporter`
+
 import SwiftUI
 internal import UniformTypeIdentifiers
 #if os(macOS)

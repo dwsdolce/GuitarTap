@@ -1,17 +1,48 @@
-//
-//  MeasurementFileExporter.swift
-//  GuitarTap
-//
-//  Created by David Smith on 2/9/26.
-//
+/// # MeasurementFileExporter
+///
+/// Platform-adaptive file export helpers for GuitarTap measurements.
+///
+/// All export operations are static methods that dispatch to platform-specific
+/// implementations at compile time via `#if os(iOS)` / `#if os(macOS)` guards:
+///
+/// | Platform | PDF export       | JSON/guitartap export  | Spectrum PNG export |
+/// |----------|------------------|------------------------|---------------------|
+/// | iOS      | Share sheet via `UIActivityViewController` | Share sheet | Share sheet |
+/// | macOS    | `NSSavePanel`    | `NSSharingServicePicker` (AirDrop etc.) | `NSSavePanel` |
+///
+/// On iOS, temporary files are written to a UUID-named subdirectory of
+/// `FileManager.temporaryDirectory` and presented via the system share sheet.
+/// Callers are responsible for deleting these temp files when done if needed,
+/// though they are cleared by the OS periodically.
+///
+/// On macOS, PDF and spectrum PNG files are saved directly to a user-chosen
+/// location via `NSSavePanel`.  JSON measurement files are shared via
+/// `NSSharingServicePicker` (which includes AirDrop, Mail, Messages, etc.),
+/// or can be saved directly to disk using `saveMeasurementToDisk(...)`.
+///
+/// All completion handlers are called on the main thread.
+///
+/// - SeeAlso: `PDFReportGenerator`, `TapToneAnalysisView+Export`
 import SwiftUI
 internal import UniformTypeIdentifiers
 
+/// Static helpers for exporting measurements, PDF reports, and spectrum images
+/// to platform-appropriate destinations.
 struct MeasurementFileExporter {
 
     // MARK: - PDF Report Export
 
-    /// Export a PDF report using the same share/save pattern as JSON export.
+    /// Exports a PDF report using the platform share/save pattern.
+    ///
+    /// On iOS, the PDF is written to a temporary file and presented via
+    /// `UIActivityViewController` (share sheet).  On macOS, an `NSSavePanel`
+    /// prompts the user to choose a save location.
+    ///
+    /// - Parameters:
+    ///   - data: Raw PDF data, typically produced by `PDFReportGenerator.generate(data:)`.
+    ///   - basename: Filename stem (without extension) for the saved file.
+    ///   - completion: Called on the main thread after the share sheet is
+    ///     presented or the save panel is dismissed.
     static func exportPDF(
         data: Data,
         basename: String,
@@ -25,6 +56,8 @@ struct MeasurementFileExporter {
     }
 
     #if os(iOS)
+    /// iOS implementation: writes `data` to `tmp/<basename>.pdf` then presents
+    /// the system share sheet.
     private static func exportPDFiOS(data: Data, basename: String, completion: @escaping () -> Void) {
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("\(basename).pdf")
@@ -42,6 +75,7 @@ struct MeasurementFileExporter {
                let window = windowScene.windows.first(where: { $0.isKeyWindow }),
                let rootViewController = window.rootViewController {
 
+                // Walk the presented-controller chain to reach the topmost controller
                 var topController = rootViewController
                 while let presented = topController.presentedViewController {
                     topController = presented
@@ -49,6 +83,7 @@ struct MeasurementFileExporter {
 
                 let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
 
+                // On iPad, the activity view controller requires a source rect for the popover
                 if let popover = activityVC.popoverPresentationController {
                     popover.sourceView = topController.view
                     popover.sourceRect = CGRect(x: topController.view.bounds.midX,
@@ -65,6 +100,7 @@ struct MeasurementFileExporter {
     #endif
 
     #if os(macOS)
+    /// macOS implementation: presents an `NSSavePanel` pre-configured for PDF.
     private static func exportPDFMacOS(data: Data, basename: String, completion: @escaping () -> Void) {
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [.pdf]
@@ -88,7 +124,19 @@ struct MeasurementFileExporter {
 
     // MARK: - JSON Export
 
-    /// Export the measurement file via the share sheet (AirDrop, Messages, etc.).
+    /// Exports a measurement file via the platform share/save mechanism.
+    ///
+    /// On iOS the measurement is written to a temporary `.guitartap` file and
+    /// shared via `UIActivityViewController`.  On macOS it is shared via
+    /// `NSSharingServicePicker`, which includes AirDrop, Mail, and other
+    /// system services.  To save directly to disk on macOS, use
+    /// `saveMeasurementToDisk(json:measurement:completion:)` instead.
+    ///
+    /// - Parameters:
+    ///   - json: JSON string encoding of the measurement.
+    ///   - measurement: The `TapToneMeasurement` whose `baseFilename` is used
+    ///     for the exported file name.
+    ///   - completion: Called on the main thread after export is initiated.
     static func exportJSON(
         json: String,
         measurement: TapToneMeasurement,
@@ -102,7 +150,16 @@ struct MeasurementFileExporter {
     }
 
     #if os(macOS)
-    /// Save the measurement file directly to disk via a save panel.
+    /// Saves the measurement JSON directly to a user-chosen location on disk.
+    ///
+    /// Presents an `NSSavePanel` pre-configured with the `.guitartap` custom
+    /// content type and the measurement's `baseFilename` as the default name.
+    ///
+    /// - Parameters:
+    ///   - json: JSON string encoding of the measurement.
+    ///   - measurement: The measurement being saved; its `baseFilename` is used
+    ///     for the default file name.
+    ///   - completion: Called on the main thread after the panel is dismissed.
     static func saveMeasurementToDisk(
         json: String,
         measurement: TapToneMeasurement,
@@ -129,7 +186,17 @@ struct MeasurementFileExporter {
 
     // MARK: - Spectrum Image Export
 
-    /// Export the spectrum PNG image for a saved measurement.
+    /// Exports the spectrum PNG image associated with a saved measurement.
+    ///
+    /// On iOS, the PNG is written to a temporary file and shared via the system
+    /// share sheet.  On macOS, an `NSSavePanel` prompts the user to choose a
+    /// location.  If the measurement has no `chartImageData`, the completion
+    /// handler is called immediately and no sheet is presented.
+    ///
+    /// - Parameters:
+    ///   - measurement: The saved measurement whose `chartImageData` is exported.
+    ///   - completion: Called on the main thread after the operation completes
+    ///     (whether or not a file was actually exported).
     static func exportSpectrumImage(
         measurement: TapToneMeasurement,
         completion: @escaping () -> Void
@@ -143,6 +210,8 @@ struct MeasurementFileExporter {
 
     
     #if os(iOS)
+    /// iOS implementation: writes JSON to `tmp/<UUID>/<basename>.guitartap`
+    /// then presents the share sheet.
     private static func exportJSONiOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
@@ -157,6 +226,8 @@ struct MeasurementFileExporter {
         }
     }
 
+    /// iOS implementation: writes the spectrum PNG to a temporary file then
+    /// presents the share sheet.
     private static func exportSpectrumImageiOS(measurement: TapToneMeasurement, completion: @escaping () -> Void) {
         guard let imageData = measurement.chartImageData else {
             print("No spectrum image available for this measurement")
@@ -176,6 +247,15 @@ struct MeasurementFileExporter {
         }
     }
 
+    /// Presents `UIActivityViewController` for the given file URLs, walking
+    /// the controller hierarchy to reach the topmost presented controller.
+    ///
+    /// On iPad, the popover is anchored to the centre of the root view with no
+    /// preferred arrow direction.
+    ///
+    /// - Parameters:
+    ///   - items: File URLs to share.
+    ///   - completion: Called immediately after `present(_:animated:)` is invoked.
     private static func presentShareSheet(items: [URL], completion: @escaping () -> Void) {
         DispatchQueue.main.async {
             if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -201,6 +281,8 @@ struct MeasurementFileExporter {
     #endif
 
     #if os(macOS)
+    /// macOS implementation: writes JSON to a temporary `.guitartap` file then
+    /// presents `NSSharingServicePicker` centred in the key window.
     private static func exportJSONMacOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
@@ -215,6 +297,7 @@ struct MeasurementFileExporter {
         }
     }
 
+    /// macOS implementation: presents an `NSSavePanel` for the spectrum PNG.
     private static func exportSpectrumImageMacOS(measurement: TapToneMeasurement, completion: @escaping () -> Void) {
         guard let imageData = measurement.chartImageData else {
             print("No spectrum image available for this measurement")
@@ -239,6 +322,15 @@ struct MeasurementFileExporter {
         }
     }
 
+    /// Presents `NSSharingServicePicker` centred on the key window's content view.
+    ///
+    /// The picker retains itself until it is dismissed; callers do not need to
+    /// hold a strong reference to it.  The completion handler is called
+    /// immediately after `show(relativeTo:of:preferredEdge:)` returns.
+    ///
+    /// - Parameters:
+    ///   - items: Items to share (typically file URLs).
+    ///   - completion: Called on the main thread after the picker is shown.
     private static func presentSharingPicker(items: [Any], completion: @escaping () -> Void) {
         DispatchQueue.main.async {
             guard let window = NSApplication.shared.keyWindow,

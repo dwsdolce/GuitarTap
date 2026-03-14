@@ -2,25 +2,30 @@
 //  CompactFFTMetricsOverlay.swift
 //  GuitarTap
 //
-//  Created by David Smith on 01/03/26.
-//
 
-import SwiftUI
-
+/// # CompactFFTMetricsOverlay
+///
 /// A compact, translucent overlay showing key FFT metrics.
 ///
-/// This view can be overlaid on top of your spectrum chart or placed anywhere
+/// This view can be overlaid on top of the spectrum chart or placed anywhere
 /// to provide at-a-glance performance information without taking up much space.
+/// It displays a green/gray status dot followed by frequency resolution, update
+/// interval, sample rate, and dominant frequency.
 ///
 /// ## Example Usage
 /// ```swift
 /// ZStack(alignment: .topTrailing) {
 ///     SpectrumView(...)
-///     
+///
 ///     CompactFFTMetricsOverlay(analyzer: analyzer)
 ///         .padding(8)
 /// }
 /// ```
+///
+/// - SeeAlso: `FFTAnalysisMetricsView` for the full-detail metrics panel.
+
+import SwiftUI
+
 struct CompactFFTMetricsOverlay: View {
     @ObservedObject var analyzer: RealtimeFFTAnalyzer
     

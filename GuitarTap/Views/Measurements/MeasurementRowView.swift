@@ -2,8 +2,20 @@
 //  MeasurementRowView.swift
 //  GuitarTap
 //
-//  Created by David Smith on 2/9/26.
-//
+
+/// # MeasurementRowView
+///
+/// A compact list-row cell for a single `TapToneMeasurement`.
+///
+/// Displays the tap location (or "Measurement" as a fallback), the timestamp
+/// formatted as a time string, peak count, and optional tap-tone ratio and
+/// decay time. Attachment indicators (photo, waveform) are shown when a
+/// chart image or spectrum snapshot is available.
+///
+/// Used by `MeasurementsListView` inside a `ForEach` loop.
+///
+/// - SeeAlso: `MeasurementsListView`, `TapToneMeasurement`
+
 import SwiftUI
 
 struct MeasurementRowView: View {

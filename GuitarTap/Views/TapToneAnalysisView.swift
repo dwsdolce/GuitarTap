@@ -1,3 +1,54 @@
+/// # TapToneAnalysisView
+///
+/// The root screen of GuitarTap — live spectrum display, tap detection
+/// controls, and access to saved measurements.
+///
+/// ## Architecture
+///
+/// `TapToneAnalysisView` owns two `@StateObject` instances that share the same
+/// `RealtimeFFTAnalyzer`:
+///
+/// ```
+/// RealtimeFFTAnalyzer  (65536-point FFT, 48 kHz target)
+///      │
+///      ├── @StateObject fftAnalyzer  ─ live audio engine
+///      └── @StateObject tapToneAnalyzer ─ peak detection & measurement management
+/// ```
+///
+/// The analyzer pair is created in `init()` so both objects refer to the
+/// *same* FFT engine instance.  Sharing the engine avoids double audio
+/// sessions and lets `TapToneAnalyzer` read pre-computed FFT data directly
+/// from `RealtimeFFTAnalyzer`'s published properties.
+///
+/// ## Extensions
+///
+/// | File | Contents |
+/// |------|----------|
+/// | `TapToneAnalysisView+Actions.swift`   | Start/stop, new tap, cancel, load measurement |
+/// | `TapToneAnalysisView+Controls.swift`  | Toolbar and control panel subviews |
+/// | `TapToneAnalysisView+Export.swift`    | PDF report and spectrum PNG export flows |
+/// | `TapToneAnalysisView+Layouts.swift`   | macOS / iPad / iPhone layout selection |
+/// | `TapToneAnalysisView+SpectrumViews.swift` | Spectrum chart configuration builder |
+///
+/// ## Platform layout
+///
+/// | Platform         | Layout |
+/// |------------------|--------|
+/// | macOS            | `HSplitView` — spectrum chart + right panel |
+/// | iPad (landscape) | Same as macOS |
+/// | iPhone           | Vertical stack; compact controls in landscape |
+///
+/// ## State coordination
+///
+/// - `loadedMinFreq` / `loadedMaxFreq` / `loadedMinDB` / `loadedMaxDB` are
+///   `@Published` on `TapToneAnalyzer` and observed via `.onReceive` to update
+///   the view's `@State` axis range without triggering a new tap cycle.
+/// - `isAutoScaleEnabled` activates a min-magnitude auto-scale algorithm that
+///   polls `fftAnalyzer.magnitudeData` on the analysis queue.
+/// - `selectedLongitudinalPeakID` / `selectedCrossPeakID` / `selectedFlcPeakID`
+///   mirror `tapToneAnalyzer.effectiveXxxPeakID` for the spectrum chart overlay.
+///
+/// - SeeAlso: `RealtimeFFTAnalyzer`, `TapToneAnalyzer`, `SpectrumView`
 //
 //  TapToneAnalysisView.swift
 //  GuitarTap
@@ -19,12 +70,17 @@ import UIKit
 
 // MARK: - Main Tap Tone Analysis View
 
+/// Root view for GuitarTap, providing the live spectrum display, tap detection
+/// controls, and navigation to saved measurements and settings.
 struct TapToneAnalysisView: View {
+    /// The live audio FFT engine; private to prevent external re-starts.
     @StateObject private var fftAnalyzer: RealtimeFFTAnalyzer
+    /// The tap-tone peak detector and measurement manager, shared with the view.
     @StateObject var tapToneAnalyzer: TapToneAnalyzer
 
-    // Internal accessor for fftAnalyzer (keeps @StateObject private for audio safety)
+    /// Convenience accessor for `fftAnalyzer` (preserves `@StateObject` encapsulation).
     var fft: RealtimeFFTAnalyzer { fftAnalyzer }
+    /// Convenience accessor for `tapToneAnalyzer`.
     var tap: TapToneAnalyzer { tapToneAnalyzer }
 
     @State var tapLocation: String = ""
@@ -122,13 +178,18 @@ struct TapToneAnalysisView: View {
         return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
     }
 
+    /// Creates the view and its paired audio analyzers.
+    ///
+    /// A single `RealtimeFFTAnalyzer` is constructed with a 65,536-point FFT
+    /// (≈0.67 Hz/bin at 48 kHz) and passed to both `@StateObject` wrappers so
+    /// they share the same audio engine instance.
     init() {
-        // Create a single FFT analyzer instance
-        // Using 65,536 FFT size for maximum frequency resolution (0.67 Hz/bin @ 44.1kHz)
-        // With 25% overlap, this gives ~1.8 Hz frame rate
+        // Create a single FFT analyzer instance.
+        // 65,536 FFT size gives maximum frequency resolution (0.67 Hz/bin @ 44.1 kHz).
+        // With 25% overlap, this gives ~1.8 Hz frame rate.
         let fft = RealtimeFFTAnalyzer(fftSize: 65536, targetSampleRate: 48000)
 
-        // Use the SAME instance for both state objects
+        // Use the SAME instance for both state objects so they share one audio session.
         _fftAnalyzer = StateObject(wrappedValue: fft)
         _tapToneAnalyzer = StateObject(wrappedValue: TapToneAnalyzer(fftAnalyzer: fft))
     }

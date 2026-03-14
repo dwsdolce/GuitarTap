@@ -726,7 +726,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// 1. **FFT magnitudes + peakMagnitude** — drives ``analyzeMagnitudes(_:frequencies:peakMagnitude:)``
     ///    for peak detection and guitar-mode tap detection (~1 Hz).
     /// 2. **inputLevelDB (fast)** — drives ``trackDecayFast(inputLevel:)`` for ring-out tracking (~10 Hz).
-    /// 3. **inputLevelDB (fast, plate/brace only)** — drives ``detectTap`` for plate/brace mode,
+    /// 3. **inputLevelDB (fast, plate/brace only)** — drives `detectTap(peakMagnitude:magnitudes:frequencies:)` for plate/brace mode,
     ///    where the long-window FFT is unreliable for short transient taps.
     /// 4. **routeChangeRestartCount** — triggers ``handleRouteChangeRestart()`` when the audio
     ///    engine restarts after a device/route change.

@@ -1,3 +1,25 @@
+/// # SpectrumView+ChartContent
+///
+/// `@ChartContentBuilder` properties and color/label helpers for `SpectrumView`.
+///
+/// This extension segregates the declarative Swift Charts content builders from
+/// the main `SpectrumView` body and its gesture/interaction logic.  Each
+/// `@ChartContentBuilder` var produces a distinct visual layer that is composed
+/// inside the `Chart { }` block.
+///
+/// ## Layers (rendered bottom to top)
+///
+/// 1. `spectrumLineContent` — primary red `LineMark` of the FFT spectrum.
+/// 2. `modeBoundaryContent` — vertical `RuleMark` lines at guitar mode boundaries
+///    (only when `showModeBoundaries` and `measurementType.isGuitar`).
+/// 3. `peakAnnotationContent` — `PointMark` dots at each detected peak with
+///    invisible placeholder annotations for label positioning.
+/// 4. `materialSpectraContent` — coloured `LineMark` overlays for plate/brace
+///    per-phase spectra (longitudinal, cross, FLC).
+/// 5. `thresholdLinesContent` — horizontal `RuleMark` lines showing tap
+///    detection thresholds.
+///
+/// - SeeAlso: `SpectrumView`, `SpectrumView+GestureHandlers`
 //
 //  SpectrumView+ChartContent.swift
 //  GuitarTap
@@ -12,7 +34,11 @@ extension SpectrumView {
 
     // MARK: - Chart Content Builders
 
-    /// Spectrum line chart content
+    /// Primary spectrum curve: a red `LineMark` for each point in `chartData`.
+    ///
+    /// Magnitudes are clamped to `[minDB, maxDB]` so points outside the
+    /// visible dB range are rendered at the chart boundary rather than
+    /// outside the plot area.
     @ChartContentBuilder
     var spectrumLineContent: some ChartContent {
         ForEach(chartData) { dataPoint in
@@ -29,7 +55,12 @@ extension SpectrumView {
         }
     }
 
-    /// Mode boundary markers chart content (guitar mode only)
+    /// Guitar mode boundary markers: vertical dashed `RuleMark` lines at mode
+    /// frequency boundaries, with abbreviated mode labels at the start of each band.
+    ///
+    /// Only rendered when `showModeBoundaries` is `true` and the current
+    /// `measurementType` is a guitar type.  Labels are shown only at the lower
+    /// boundary of each mode range (determined by `isStartOfModeRange(_:for:)`).
     @ChartContentBuilder
     var modeBoundaryContent: some ChartContent {
         // Only show guitar mode boundaries when in guitar measurement mode
@@ -55,7 +86,12 @@ extension SpectrumView {
         }
     }
 
-    /// Peak annotations chart content
+    /// `PointMark` dots at each visible peak, colour-coded by mode or by
+    /// plate/brace role (longitudinal = blue, cross = orange, FLC = purple).
+    ///
+    /// A second invisible `PointMark` with a `Color.clear` annotation is placed
+    /// at each peak position to serve as a size placeholder for the draggable
+    /// overlay labels rendered in `PeakAnnotations`.
     @ChartContentBuilder
     var peakAnnotationContent: some ChartContent {
         ForEach(visiblePeaks) { peak in
@@ -82,7 +118,12 @@ extension SpectrumView {
         }
     }
 
-    /// Per-phase spectrum overlay chart content (plate/brace measurements)
+    /// Coloured `LineMark` overlays for each phase in `materialSpectra`.
+    ///
+    /// Used during plate and brace measurements to show the longitudinal, cross,
+    /// and FLC tap spectra side-by-side.  Each series is differentiated by the
+    /// `foregroundStyle(by: .value("Series", label))` modifier so Swift Charts
+    /// automatically builds a legend entry for each.
     @ChartContentBuilder
     var materialSpectraContent: some ChartContent {
         ForEach(Array(materialSpectra.enumerated()), id: \.offset) { seriesIndex, series in
@@ -101,7 +142,13 @@ extension SpectrumView {
         }
     }
 
-    /// Threshold lines chart content (for tap detection visualization)
+    /// Horizontal `RuleMark` lines showing tap detection thresholds.
+    ///
+    /// Each threshold entry in `thresholdLines` specifies a dB value, label
+    /// text, color, line width, and dash pattern.  Lines outside the visible
+    /// dB range are omitted.  Labels alternate between `.top`/`.bottom` and
+    /// `.trailing`/`.leading` alignment to reduce overlap between adjacent
+    /// thresholds (e.g., tap level and noise floor).
     @ChartContentBuilder
     var thresholdLinesContent: some ChartContent {
         if let thresholds = thresholdLines {
@@ -131,7 +178,15 @@ extension SpectrumView {
 
     // MARK: - Color & Label Helpers
 
-    /// Returns the appropriate color for a peak based on measurement type and selection
+    /// Returns the display color for a peak marker.
+    ///
+    /// In guitar mode, the color is determined by `GuitarMode.classify` (e.g. `.cyan`
+    /// for the air resonance).  In plate/brace mode, peaks are colored by their
+    /// selected role: blue for longitudinal, orange for cross-grain, purple for FLC,
+    /// and `.secondary` for unselected peaks.
+    ///
+    /// - Parameter peak: The detected resonant peak to color.
+    /// - Returns: A `Color` reflecting the peak's mode or plate role.
     func peakColor(for peak: ResonantPeak) -> Color {
         if measurementType.isGuitar {
             // Guitar mode: color by guitar mode classification

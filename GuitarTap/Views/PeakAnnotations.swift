@@ -2,33 +2,94 @@
 //  PeakAnnotations.swift
 //  GuitarTap
 //
-//  Draggable peak annotation views used in the spectrum chart overlay.
-//
+
+/// # PeakAnnotations
+///
+/// Draggable peak annotation labels and connection-line views overlaid on the
+/// live spectrum chart.
+///
+/// ## Component Hierarchy
+///
+/// ```
+/// PeakAnnotationsOverlay          (container — iterates all visible peaks)
+/// └── DraggablePeakAnnotation     (per-peak drag/hover/context-menu handler)
+///     ├── ConnectionLine          (dashed line from peak to label)
+///     └── PeakAnnotationLabel     (badge: mode name, pitch, frequency, dBFS)
+/// ```
+///
+/// ## Position Calculation
+///
+/// Label positions are computed from chart coordinates using the current axis
+/// ranges. Both linear and logarithmic frequency scales are supported:
+///
+/// - **Linear X**: `freqNormalized = (freq - minFreq) / (maxFreq - minFreq)`
+/// - **Log X**: `freqNormalized = (log10(freq) - log10(min)) / (log10(max) - log10(min))`
+/// - **Y**: `dbNormalized = (clampedMag - minDB) / (maxDB - minDB)` — inverted
+///   because SwiftUI's coordinate system has y=0 at the top.
+///
+/// The default label position is 70 pt above the peak marker. Users can drag
+/// labels anywhere; accumulated offsets are stored as `[UUID: CGPoint]` and
+/// passed back via `onOffsetChange`. Positions are cached in `@State` to avoid
+/// redundant recalculation during drag.
+///
+/// ## Gesture Handling
+///
+/// - **Drag**: moves the label; offset is committed on `.onEnded`.
+/// - **Double-tap (iOS)**: resets the label to its default position.
+/// - **Right-click (macOS)**: presents a context menu with "Reset Position".
+/// - **Hover (macOS)**: highlights the border and changes cursor to open-hand.
+///
+/// ## Peak Coloring
+///
+/// Color is determined by `modeColor` in `DraggablePeakAnnotation`:
+/// - Guitar measurements: Air=cyan, Top=green, Back=orange, Dipole=red, etc.
+/// - Plate/brace measurements: L=blue, C=orange, FLC=purple, unselected=secondary.
+///
+/// User-assigned mode overrides are shown in italic with a pencil badge.
+///
+/// - SeeAlso: `SpectrumView`, `TapToneAnalyzer.peakAnnotationOffsets`
 
 import SwiftUI
 
 // MARK: - Peak Annotations Overlay
 
-/// A container view for all peak annotations
+/// A `ZStack` container that renders a `DraggablePeakAnnotation` for every
+/// visible peak. It forwards the shared axis-range parameters and annotation
+/// offset bindings to each child.
 struct PeakAnnotationsOverlay: View {
+    /// The peaks to annotate.
     let peaks: [ResonantPeak]
+    /// Two-way binding to the persisted label-drag offsets dictionary.
     let annotationOffsets: Binding<[UUID: CGPoint]>
+    /// Full view geometry used to resolve chart-relative coordinates.
     let geometry: GeometryProxy
+    /// The rendered plot area within the containing view.
     let plotFrame: CGRect
+    /// Minimum displayed frequency (Hz).
     let minFreq: Float
+    /// Maximum displayed frequency (Hz).
     let maxFreq: Float
+    /// Minimum displayed magnitude (dBFS).
     let minDB: Float
+    /// Maximum displayed magnitude (dBFS).
     let maxDB: Float
+    /// When `true`, the frequency axis is logarithmic.
     let isLogarithmic: Bool
+    /// Set to `true` while any annotation is being dragged; used to suppress
+    /// chart interactions during a drag gesture.
     @Binding var isAnnotationDragging: Bool
 
     // Plate/brace measurement mode support
+    /// Active measurement type (guitar, plate, or brace).
     let measurementType: MeasurementType
+    /// ID of the peak assigned as the longitudinal (L) mode.
     let selectedLongitudinalPeakID: UUID?
+    /// ID of the peak assigned as the cross-grain (C) mode.
     let selectedCrossPeakID: UUID?
+    /// ID of the peak assigned as the FLC (diagonal) mode.
     let selectedFlcPeakID: UUID?
 
-    // Per-peak user mode overrides (empty = all peaks use auto-classification)
+    /// Per-peak user-assigned mode overrides. Empty = auto-classification.
     var modeOverrides: [UUID: UserAssignedMode] = [:]
 
     var body: some View {
@@ -65,37 +126,66 @@ struct PeakAnnotationsOverlay: View {
 
 // MARK: - Draggable Peak Annotation
 
-/// A draggable annotation view for peak labels that can be repositioned to prevent overlap
+/// Per-peak label that the user can drag to any position on the chart.
+///
+/// Position state is managed as a two-part sum:
+/// 1. A persisted `offset: CGPoint` stored in `TapToneAnalyzer.peakAnnotationOffsets`
+///    (survives view re-creation and measurement loads).
+/// 2. A transient `dragOffset: CGSize` accumulated live during an active drag
+///    gesture and merged into `offset` on `.onEnded`.
+///
+/// Cached geometry (`cachedChartPosition`, `cachedPeakPosition`) is recomputed
+/// whenever the axis ranges, plot frame, or peak values change.
 struct DraggablePeakAnnotation: View {
+    /// The peak this annotation describes.
     let peak: ResonantPeak
+    /// Persisted drag offset from the default chart position (pt).
     let offset: CGPoint
+    /// Full view geometry, used to resolve `plotFrame` origin.
     let chartGeometry: GeometryProxy
+    /// The chart's rendered plot area within the containing view.
     let plotFrame: CGRect
+    /// Minimum displayed frequency (Hz).
     let minFreq: Float
+    /// Maximum displayed frequency (Hz).
     let maxFreq: Float
+    /// Minimum displayed magnitude (dBFS).
     let minDB: Float
+    /// Maximum displayed magnitude (dBFS).
     let maxDB: Float
+    /// When `true`, frequency-to-X mapping uses a log10 transform.
     let isLogarithmic: Bool
+    /// Propagated to the parent so it can suppress chart interactions.
     @Binding var isAnnotationDragging: Bool
 
     // Plate/brace measurement mode support
+    /// Active measurement type.
     let measurementType: MeasurementType
+    /// ID of the longitudinal (L) peak, if assigned.
     let selectedLongitudinalPeakID: UUID?
+    /// ID of the cross-grain (C) peak, if assigned.
     let selectedCrossPeakID: UUID?
+    /// ID of the FLC peak, if assigned.
     let selectedFlcPeakID: UUID?
 
-    // Per-peak user mode overrides (empty = all peaks use auto-classification)
+    /// Per-peak user-assigned mode overrides. Empty = auto-classification.
     var modeOverrides: [UUID: UserAssignedMode] = [:]
 
+    /// Called when the drag ends with the new cumulative offset.
     let onOffsetChange: (CGPoint) -> Void
+    /// Called to remove this peak's stored offset, returning it to default.
     let onReset: () -> Void
 
+    /// In-flight drag translation (not yet committed to `offset`).
     @State private var dragOffset: CGSize = .zero
+    /// `true` while the pointer hovers over this label (macOS).
     @State private var isHovering: Bool = false
+    /// `true` during an active drag gesture.
     @State private var isDragging: Bool = false
 
-    // Cache computed positions to reduce calculation overhead
+    /// Cached label origin in view coordinates (70 pt above the peak marker).
     @State private var cachedChartPosition: CGPoint = .zero
+    /// Cached peak marker position in view coordinates.
     @State private var cachedPeakPosition: CGPoint = .zero
 
     private var modeColor: Color {
@@ -371,10 +461,17 @@ struct DraggablePeakAnnotation: View {
 
 // MARK: - Connection Line
 
-/// A simple view that draws a connection line between two points
+/// A dashed `Path`-based line connecting a peak marker to its floating label.
+///
+/// Rendered as a `1.5 pt` stroke with a `[4, 3]` dash pattern in the peak's
+/// mode color at 40% opacity. Both endpoints are validated for finite values
+/// before drawing to avoid rendering artifacts at zero-size frames.
 private struct ConnectionLine: View {
+    /// Starting point — the peak marker position.
     let from: CGPoint
+    /// Ending point — the bottom centre of the label badge.
     let to: CGPoint
+    /// The mode color used for the stroke.
     let color: Color
 
     var body: some View {
@@ -390,21 +487,36 @@ private struct ConnectionLine: View {
 
 // MARK: - Peak Annotation Label
 
-/// The visual label component for a peak annotation
+/// The visual badge rendered for each peak: mode name, optional pitch info,
+/// frequency (Hz), and magnitude (dBFS).
+///
+/// The badge border thickens during hover (`1.5 pt` → `2 pt`) and drag
+/// (`2.5 pt`), providing clear visual feedback. When the label has a
+/// user-assigned mode override the mode name is shown in italic with a
+/// pencil-circle badge icon.
 private struct PeakAnnotationLabel: View {
+    /// The peak whose data this label displays.
     let peak: ResonantPeak
+    /// The mode color used for the border and mode-name text.
     let modeColor: Color
+    /// `true` while the pointer hovers over this label (macOS).
     let isHovering: Bool
+    /// `true` during an active drag gesture.
     let isDragging: Bool
+    /// `true` when the label has been moved from its default position.
     let isMoved: Bool
 
     // Plate/brace measurement mode support
+    /// Active measurement type (guitar, plate, or brace).
     let measurementType: MeasurementType
+    /// `true` when this peak is the selected longitudinal (L) mode.
     let isLongitudinal: Bool
+    /// `true` when this peak is the selected cross-grain (C) mode.
     let isCross: Bool
+    /// `true` when this peak is the selected FLC (diagonal) mode.
     var isFlc: Bool = false
 
-    // Per-peak user mode overrides (empty = auto-classification)
+    /// Per-peak user-assigned mode overrides. Empty = auto-classification.
     var modeOverrides: [UUID: UserAssignedMode] = [:]
 
     /// Whether this peak has a user-assigned label
