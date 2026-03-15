@@ -154,10 +154,10 @@ RealtimeFFTAnalyzer
 
 | Platform | Layout |
 |---|---|
-| macOS | `HSplitView`: spectrum on left, collapsible right panel. Results open in a free-floating `NSWindow` via `ResultsWindowPresenter`. |
-| iOS iPad | Vertical stack. Results/metrics panel appears as an inline side panel. |
-| iOS iPhone (portrait) | Vertical stack. All secondary panels presented as sheets. |
-| iOS iPhone (landscape) | `HStack`: controls panel on left, spectrum on right. |
+| macOS | Vertical stack (`standardVerticalLayout`). Results open in a free-floating `NSWindow` via `ResultsWindowPresenter`. All other panels (save, settings, measurements, metrics) present as sheets. |
+| iOS iPad | Vertical stack (`standardVerticalLayout`) inside a `NavigationView`. All secondary panels present as sheets. |
+| iOS iPhone (portrait) | Vertical stack (`standardVerticalLayout`). All secondary panels presented as sheets. |
+| iOS iPhone (landscape) | `HStack` (`phoneLandscapeLayout`): 200 pt scrollable controls panel on left, spectrum on right. |
 
 ### View tree
 

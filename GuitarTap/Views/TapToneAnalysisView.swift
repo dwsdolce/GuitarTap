@@ -34,9 +34,10 @@
 ///
 /// | Platform         | Layout |
 /// |------------------|--------|
-/// | macOS            | `HSplitView` — spectrum chart + right panel |
-/// | iPad (landscape) | Same as macOS |
-/// | iPhone           | Vertical stack; compact controls in landscape |
+/// | macOS            | Vertical stack. Results open in a free-floating `NSWindow` via `ResultsWindowPresenter`. All other panels are sheets. |
+/// | iPad             | Vertical stack inside a `NavigationView`. All secondary panels are sheets. |
+/// | iPhone (portrait) | Vertical stack. All secondary panels are sheets. |
+/// | iPhone (landscape) | `HStack`: 200 pt scrollable controls panel on left, spectrum on right. |
 ///
 /// ## State coordination
 ///
