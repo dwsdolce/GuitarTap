@@ -72,6 +72,16 @@ struct TapAnalysisResultsView: View {
 
     /// Called when the user taps "Export PDF Report". Pass `nil` to hide the button.
     var onExportPDFReport: (() -> Void)? = nil
+
+    /// Maximum width for instruction text blocks in plate/brace mode (macOS only).
+    /// Provides a finite width inside the .fixedSize panel so text wraps rather than
+    /// expanding the panel. Scales with the system font size. On iOS the sheet has
+    /// unconstrained width so no cap is needed.
+    #if os(macOS)
+    @ScaledMetric(relativeTo: .caption2) private var instructionTextMaxWidth: CGFloat = 240
+    #else
+    private var instructionTextMaxWidth: CGFloat { .infinity }
+    #endif
     
     // Current measurement type
     private var measurementType: MeasurementType {
@@ -319,6 +329,8 @@ struct TapAnalysisResultsView: View {
                         }
                         
                         // Instructions and guidance
+                        // fixedSize allows text to wrap at the panel width instead of
+                        // expanding the panel to the ideal (single-line) text width.
                         VStack(alignment: .leading, spacing: 6) {
                             Divider()
                                 .padding(.vertical, 4)
@@ -328,7 +340,11 @@ struct TapAnalysisResultsView: View {
                                 .fontWeight(.semibold)
                             
                             VStack(alignment: .leading, spacing: 8) {
-                                Label {
+                                HStack(alignment: .top, spacing: 6) {
+                                    Circle()
+                                        .fill(Color.blue)
+                                        .frame(width: 8, height: 8)
+                                        .padding(.top, 2)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("**1. Longitudinal (L) Tap**")
                                             .font(.caption2)
@@ -336,13 +352,14 @@ struct TapAnalysisResultsView: View {
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                     }
-                                } icon: {
-                                    Circle()
-                                        .fill(Color.blue)
-                                        .frame(width: 8, height: 8)
+                                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                                 }
-                                
-                                Label {
+
+                                HStack(alignment: .top, spacing: 6) {
+                                    Circle()
+                                        .fill(Color.orange)
+                                        .frame(width: 8, height: 8)
+                                        .padding(.top, 2)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("**2. Cross-grain (C) Tap**")
                                             .font(.caption2)
@@ -350,14 +367,15 @@ struct TapAnalysisResultsView: View {
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                     }
-                                } icon: {
-                                    Circle()
-                                        .fill(Color.orange)
-                                        .frame(width: 8, height: 8)
+                                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                                 }
-                                
+
                                 if hasFlcMeasurement {
-                                    Label {
+                                    HStack(alignment: .top, spacing: 6) {
+                                        Circle()
+                                            .fill(Color.purple)
+                                            .frame(width: 8, height: 8)
+                                            .padding(.top, 2)
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text("**3. FLC (Diagonal) Tap**")
                                                 .font(.caption2)
@@ -365,20 +383,20 @@ struct TapAnalysisResultsView: View {
                                                 .font(.caption2)
                                                 .foregroundColor(.secondary)
                                         }
-                                    } icon: {
-                                        Circle()
-                                            .fill(Color.purple)
-                                            .frame(width: 8, height: 8)
+                                        .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                                     }
                                 }
                             }
-                            
+                            .frame(maxWidth: instructionTextMaxWidth)
+
                             Text("The strongest peak from each tap is auto-selected. Adjust selections above if needed.")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                                 .italic()
+                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                                 .padding(.top, 2)
                         }
+                        .frame(maxWidth: instructionTextMaxWidth)
                         .padding(.top, 4)
                     } else if measurementType == .brace {
                         // Brace mode — fL selection only
@@ -413,7 +431,11 @@ struct TapAnalysisResultsView: View {
                                 .font(.caption)
                                 .fontWeight(.semibold)
                             
-                            Label {
+                            HStack(alignment: .top, spacing: 6) {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 8, height: 8)
+                                    .padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("**1. Longitudinal (fL) Tap**")
                                         .font(.caption2)
@@ -421,18 +443,17 @@ struct TapAnalysisResultsView: View {
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
-                            } icon: {
-                                Circle()
-                                    .fill(Color.blue)
-                                    .frame(width: 8, height: 8)
+                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                             }
                             
                             Text("The strongest peak is auto-selected. Adjust if needed.")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                                 .italic()
+                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                                 .padding(.top, 2)
                         }
+                        .frame(maxWidth: instructionTextMaxWidth)
                         .padding(.top, 4)
                     } else {
                         // Standard guitar mode display

@@ -65,7 +65,7 @@ The central coordinator. Subscribes to `RealtimeFFTAnalyzer` and implements the 
 | `+PeakAnalysis` | Two-pass peak finder: pass 1 guarantees one slot per known `GuitarMode` frequency range, pass 2 fills remaining slots by magnitude. Parabolic sub-bin interpolation. Q-factor via −3 dB bandwidth method. |
 | `+SpectrumCapture` | Gated PCM capture seeded from pre-roll ring buffer. HPS + Q-factor filtering selects dominant material resonance (rejects Q < 3). Frequency-domain power averaging across multi-tap captures. |
 | `+DecayTracking` | Opens a 3-second ring-out window after each tap. Measures time from peak level to a threshold crossing (`recentPeakLevelDB` fast path). |
-| `+MeasurementManagement` | JSON persistence to `Documents/saved_measurements.json`. Import/export. PNG sidecar chart images. |
+| `+MeasurementManagement` | JSON persistence to `Documents/saved_measurements.json`. Import/export. PNG sidecar chart images. After loading a measurement, calls `reclassifyPeaks()` to rebuild `identifiedModes` from the restored `currentPeaks` so that `calculateTapToneRatio()` and other helpers work correctly on a fresh launch without requiring a new tap. |
 | `+ModeOverrideManagement` | Thread-safe bulk apply/reset of user-supplied mode labels. |
 | `+AnnotationManagement` | Per-peak `[UUID: CGPoint]` drag offsets for chart labels. |
 | `+Control` | Lifecycle (`start`/`stop`/`reset`), tap sequence state machine (`startTapSequence`/`pause`/`resume`/`cancel`). |
@@ -154,8 +154,8 @@ RealtimeFFTAnalyzer
 
 | Platform | Layout |
 |---|---|
-| macOS | Vertical stack (`standardVerticalLayout`). Results open in a free-floating `NSWindow` via `ResultsWindowPresenter`. All other panels (save, settings, measurements, metrics) present as sheets. |
-| iOS iPad | Vertical stack (`standardVerticalLayout`) inside a `NavigationView`. All secondary panels present as sheets. |
+| macOS | `HStack` (`macOSLayout`): spectrum+decay pane on the left (`.frame(maxWidth: .infinity)`), permanent results panel on the right (`.fixedSize(horizontal: true, vertical: false)`). The results panel self-sizes to its ideal content width at the current system font size. All other panels (save, settings, measurements, metrics) present as sheets. `ResultsWindowPresenter` exists in the codebase but is not used for the main window. |
+| iOS iPad | Vertical stack (`standardVerticalLayout`) inside a `NavigationView`. Results present as a `.sheet`. All other secondary panels present as sheets. |
 | iOS iPhone (portrait) | Vertical stack (`standardVerticalLayout`). All secondary panels presented as sheets. |
 | iOS iPhone (landscape) | `HStack` (`phoneLandscapeLayout`): 200 pt scrollable controls panel on left, spectrum on right. |
 
@@ -177,6 +177,8 @@ TapToneAnalysisView (root)
 ```
 
 `ExportableSpectrumChart` is a gesture-free clone of `SpectrumView` used exclusively as an `ImageRenderer` target for PNG/PDF export — it never appears on screen.
+
+`CombinedPeakModeRowView` (in `Shared/`) renders one row of the peak list. On macOS, the mode label column is capped at the width of the longest predefined mode name (`UserAssignedMode.longestPredefinedLabel`) using an overlay pattern: a hidden `Text` with the sizer string drives the layout width, while the actual label is rendered in an `.overlay` that does not contribute to layout measurement. Custom mode labels longer than the cap are truncated with an ellipsis in the results panel but displayed in full on the spectrum chart. On iOS the column uses `.lineLimit(1)` / `.truncationMode(.tail)` without fixed-width sizing.
 
 ---
 
