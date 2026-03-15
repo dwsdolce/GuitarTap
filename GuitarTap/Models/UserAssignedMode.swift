@@ -104,4 +104,9 @@ enum UserAssignedMode: Codable, Equatable, Hashable {
     /// All suggestion strings presented in the override picker, combining ``guitarTapModes``
     /// and ``additionalModes``.
     static var allSuggestions: [String] { guitarTapModes + additionalModes }
+
+    /// The longest predefined label string, used to size the mode label column in
+    /// ``CombinedPeakModeRowView`` so it scales correctly with the system font.
+    static let longestPredefinedLabel: String =
+        allSuggestions.max(by: { $0.count < $1.count }) ?? "Air (Helmholtz)"
 }

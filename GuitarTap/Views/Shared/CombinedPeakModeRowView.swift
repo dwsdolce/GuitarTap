@@ -183,6 +183,11 @@ struct CombinedPeakModeRowView: View {
             Text(effectiveModeLabel)
                 .font(.headline)
                 .foregroundColor(mode.color)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                #if os(macOS)
+                .help(effectiveModeLabel)
+                #endif
         }
     }
 
@@ -241,9 +246,29 @@ struct CombinedPeakModeRowView: View {
 
     private var modeLabelContent: some View {
         HStack(spacing: 4) {
+            #if os(macOS)
+            // Fixed-width label column: capped at the width of the longest predefined
+            // mode name. The hidden Text sets the frame via layout; the overlay renders
+            // the actual label on top without affecting the measured size, so custom
+            // labels longer than the cap are clipped/truncated rather than expanding.
+            Text(UserAssignedMode.longestPredefinedLabel)
+                .font(.headline)
+                .hidden()
+                .help(effectiveModeLabel)
+                .overlay(alignment: .leading) {
+                    Text(effectiveModeLabel)
+                        .font(isManualOverride ? .headline.italic() : .headline)
+                        .foregroundColor(mode.color)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            #else
             Text(effectiveModeLabel)
                 .font(isManualOverride ? .headline.italic() : .headline)
                 .foregroundColor(mode.color)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            #endif
             if isManualOverride {
                 Image(systemName: "pencil.circle.fill")
                     .font(.caption)

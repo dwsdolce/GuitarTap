@@ -22,10 +22,12 @@
 ///
 /// ## Platform Differences
 ///
-/// - **macOS**: Results open in a free-floating `NSWindow` via
-///   `ResultsWindowPresenter`; all other panels (save, settings, measurements,
-///   metrics) present as `.sheet`. Input-field sync `onChange` handlers update
-///   the text-field mirrors whenever bound `Double` values change.
+/// - **macOS**: A horizontal `HSplitView` shows the spectrum pane on the left
+///   and the results panel on the right (when `showingResults` is true). The
+///   status bar spans the full width below the split. All other panels (save,
+///   settings, measurements, metrics) present as `.sheet`. Input-field sync
+///   `onChange` handlers update the text-field mirrors whenever bound `Double`
+///   values change.
 /// - **iOS**: Results, metrics, save, and settings all use `.sheet`. The iOS
 ///   layout wraps `mainContentView` in a `NavigationView` to provide a nav bar
 ///   for toolbar items on compact devices.
@@ -44,10 +46,35 @@ extension TapToneAnalysisView {
     // MARK: - Platform-Specific Layouts
 
     #if os(macOS)
-    /// macOS layout - always uses sheets for Results and Metrics
+    /// macOS layout - horizontal split view with graph+info on the left and
+    /// results panel on the right.  Status bar sits below the split.
     @ViewBuilder
     var macOSLayout: some View {
-        mainContentView
+        VStack(spacing: 0) {
+            // Toolbar buttons span the full window width
+            headerView
+
+            Divider()
+
+            // Fixed split: results pane sizes itself to its content minimum width;
+            // spectrum pane fills the remaining space.
+            HStack(spacing: 0) {
+                // Left pane: spectrum chart + decay info — takes all remaining space
+                macOSLeftPane
+                    .frame(maxWidth: .infinity)
+
+                Divider()
+
+                // Right pane: sizes to its ideal (unwrapped) width at the current font size
+                macOSResultsPane
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+
+            Divider()
+
+            // Status bar spans the full width below the split
+            statusBarView
+        }
         .sheet(isPresented: $showingMeasurements) {
             MeasurementsListView(analyzer: tap)
                 .interactiveDismissDisabled()
@@ -74,21 +101,6 @@ extension TapToneAnalysisView {
                 onApply: { tapToneAnalyzer.reclassifyPeaks() }
             )
             .interactiveDismissDisabled()
-        }
-        .onChange(of: showingResults) { _, isShowing in
-            if isShowing {
-                resultsWindowPresenter.onClose = { showingResults = false }
-                resultsWindowPresenter.show(
-                    analyzer: tap,
-                    fftAnalyzer: fft,
-                    minFreq: minFreq,
-                    maxFreq: maxFreq,
-                    onExportSpectrum: { exportCurrentSpectrum() },
-                    onExportPDFReport: { exportPDFReport() }
-                )
-            } else {
-                resultsWindowPresenter.close()
-            }
         }
         .sheet(isPresented: $showingMetrics) {
             NavigationStack {
@@ -128,6 +140,32 @@ extension TapToneAnalysisView {
                 LoadingOverlay(message: "Generating PDF report...")
             }
         }
+    }
+
+    /// Left pane of the macOS split view: spectrum chart and decay info.
+    @ViewBuilder
+    var macOSLeftPane: some View {
+        GeometryReader { _ in
+            VStack(spacing: 20) {
+                realTimeSpectrumView
+                decayTimeView
+                    .padding(.horizontal)
+            }
+            .padding(.vertical)
+        }
+    }
+
+    /// Right pane of the macOS split view: scrollable analysis results.
+    @ViewBuilder
+    var macOSResultsPane: some View {
+        TapAnalysisResultsView(
+            analyzer: tap,
+            fftAnalyzer: fft,
+            minFreq: minFreq,
+            maxFreq: maxFreq,
+            onExportSpectrum: { exportCurrentSpectrum() },
+            onExportPDFReport: { exportPDFReport() }
+        )
     }
     #endif
 

@@ -345,28 +345,8 @@ extension TapToneAnalysisView {
 
     // MARK: - Results Window
 
-    /// Opens the Results panel, refreshing it even if already open.
-    ///
-    /// On macOS the Results panel is a free-floating NSWindow managed by
-    /// `resultsWindowPresenter`. Setting `showingResults = true` triggers an
-    /// `onChange` that calls `show()` — but if `showingResults` is already
-    /// `true` (e.g. the window was open when the user changed settings), the
-    /// `onChange` never fires and the button appears to do nothing.
-    ///
-    /// This function always calls `show()` directly so that the window is
-    /// raised and its content is refreshed regardless of prior state.
+    /// Opens or toggles the Results panel in the macOS split view.
     func showResults() {
         showingResults = true
-        #if os(macOS)
-        resultsWindowPresenter.onClose = { showingResults = false }
-        resultsWindowPresenter.show(
-            analyzer: tap,
-            fftAnalyzer: fft,
-            minFreq: minFreq,
-            maxFreq: maxFreq,
-            onExportSpectrum: { exportCurrentSpectrum() },
-            onExportPDFReport: { exportPDFReport() }
-        )
-        #endif
     }
 }

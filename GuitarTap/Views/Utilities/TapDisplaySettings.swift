@@ -189,7 +189,7 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
             return ModeRanges(
                 air: 80...110,        // Lower air resonance due to deeper body
                 top: 170...230,       // Main top resonance
-                back: 190...260,      // Back resonance
+                back: 190...280,      // Back resonance (extended to 280 Hz to capture higher back modes)
                 dipole: 330...430,    // Dipole mode
                 ringMode: 580...820,  // Ring mode
                 upperModes: 820...20000
@@ -594,9 +594,9 @@ struct TapDisplaySettings {
     /// Whether to display/report peaks classified as "Unknown" mode (persisted in UserDefaults)
     static var showUnknownModes: Bool {
         get {
-            // Default to false (hide unknown modes)
+            // Default to true (show unknown modes)
             if UserDefaults.standard.object(forKey: showUnknownModesKey) == nil {
-                return false
+                return true
             }
             return UserDefaults.standard.bool(forKey: showUnknownModesKey)
         }
@@ -863,7 +863,7 @@ struct TapDisplaySettings {
     /// Reset all persisted settings to their default values
     static func resetToDefaults() {
         guitarType = .acoustic
-        showUnknownModes = false
+        showUnknownModes = true
         minFrequency = defaultMinFrequency
         maxFrequency = defaultMaxFrequency
         minMagnitude = defaultMinMagnitude

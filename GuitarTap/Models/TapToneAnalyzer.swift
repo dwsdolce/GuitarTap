@@ -297,7 +297,7 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var selectedPeakIDs: Set<UUID> = []
 
     /// Controls which annotations are rendered on the spectrum chart.
-    @Published var annotationVisibilityMode: AnnotationVisibilityMode = .all
+    @Published var annotationVisibilityMode: AnnotationVisibilityMode = .selected
 
     // MARK: - Mode Label Helpers
 

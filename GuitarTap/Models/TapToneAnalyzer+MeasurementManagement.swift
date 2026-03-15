@@ -549,6 +549,12 @@ extension TapToneAnalyzer {
         } else {
             peakModeOverrides = [:]
         }
+
+        // Rebuild identifiedModes from the restored peaks so that calculateTapToneRatio()
+        // and other helpers work correctly immediately after load (without needing a new tap).
+        // This must run after peakModeOverrides is set so reclassifyPeaks() can incorporate them.
+        reclassifyPeaks()
+        print("  🔬 Reclassified \(identifiedModes.count) modes after load")
         
         // Restore analysis settings if available — set both internal and published values
         if let threshold = measurement.tapDetectionThreshold {

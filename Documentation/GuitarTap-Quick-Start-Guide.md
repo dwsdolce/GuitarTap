@@ -47,7 +47,7 @@ Coloured markers label each resonant peak with its mode, frequency, and pitch. T
 
 ### Step 5 — Read the Results
 
-Tap Results to see the peak list with frequency, magnitude, Q factor, bandwidth, and pitch. Decay time (ring-out in seconds) and Tap Tone Ratio (Top ÷ Air) are shown when applicable. Typical top/air ratios range from 1.8 to 2.4 for quality instruments.
+On iOS/iPadOS, tap Results to open the results panel. On macOS, the results panel is always visible on the right side of the window. The panel shows the peak list with frequency, magnitude, Q factor, bandwidth, and pitch. Decay time (ring-out in seconds) and Tap Tone Ratio (Top ÷ Air) are shown when applicable. Typical top/air ratios range from 1.8 to 2.4 for quality instruments.
 
 ### Multi-Tap Averaging
 
@@ -146,9 +146,9 @@ Temporarily suspends tap detection while keeping the spectrum live. Useful betwe
 
 Aborts a multi-tap or plate measurement sequence and discards the partial data.
 
-### ![](/tmp/guitar-tap-symbols/doc.text.png){height=14pt width=14pt} Results
+### ![](/tmp/guitar-tap-symbols/doc.text.png){height=14pt width=14pt} Results (iOS/iPadOS)
 
-Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons.
+Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons. On macOS this button is not shown — the results panel is permanently visible on the right side of the window.
 
 ### ![](/tmp/guitar-tap-symbols/arrow.up.arrow.down.circle.png){height=14pt width=14pt} Auto dB
 

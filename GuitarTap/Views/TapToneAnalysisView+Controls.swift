@@ -238,13 +238,6 @@ extension TapToneAnalysisView {
 
             Spacer()
 
-            // Results button
-            Button(action: { showResults() }) {
-                Label("Results", systemImage: "doc.text")
-            }
-            .buttonStyle(.bordered)
-            .hint(HintText.showResults)
-
             // Auto-scale dB toggle button (macOS)
             Button(action: { toggleAutoScale() }) {
                 Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
@@ -316,13 +309,6 @@ extension TapToneAnalysisView {
                 .hint(HintText.start(isRunning: fft.isRunning))
 
                 Spacer()
-
-                // Results button
-                Button(action: { showResults() }) {
-                    Label("Results", systemImage: "doc.text")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.showResults)
 
                 // Auto-scale dB toggle button
                 Button(action: { toggleAutoScale() }) {
@@ -398,13 +384,6 @@ extension TapToneAnalysisView {
                 .hint(HintText.start(isRunning: fft.isRunning))
 
                 Spacer()
-
-                // Results button
-                Button(action: { showResults() }) {
-                    Image(systemName: "doc.text")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.showResults)
 
                 // Auto-scale dB toggle button
                 Button(action: { toggleAutoScale() }) {

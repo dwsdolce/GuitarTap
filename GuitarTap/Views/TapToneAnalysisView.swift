@@ -34,7 +34,7 @@
 ///
 /// | Platform         | Layout |
 /// |------------------|--------|
-/// | macOS            | Vertical stack. Results open in a free-floating `NSWindow` via `ResultsWindowPresenter`. All other panels are sheets. |
+/// | macOS            | Horizontal `HSplitView`: spectrum+info on the left, results panel on the right (when shown). Status bar below. All other panels are sheets. |
 /// | iPad             | Vertical stack inside a `NavigationView`. All secondary panels are sheets. |
 /// | iPhone (portrait) | Vertical stack. All secondary panels are sheets. |
 /// | iPhone (landscape) | `HStack`: 200 pt scrollable controls panel on left, spectrum on right. |
@@ -91,9 +91,6 @@ struct TapToneAnalysisView: View {
     @State var showingMeasurements = false
     @State var showingMetrics = false
     @State var showingResults = false
-    #if os(macOS)
-    @State var resultsWindowPresenter = ResultsWindowPresenter()
-    #endif
     @State var showingSettings = false
     @State var isExportingSpectrum = false
     @State var isSavingMeasurement = false
