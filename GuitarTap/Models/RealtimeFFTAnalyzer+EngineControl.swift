@@ -63,42 +63,33 @@ extension RealtimeFFTAnalyzer {
         case .notDetermined:
             engineLog.info("Microphone permission: NOT DETERMINED - requesting now...")
             print("⚠️ Microphone permission: NOT DETERMINED - requesting now...")
-            // Request permission asynchronously. If the user clicks "Open System Settings"
-            // instead of Allow/Don't Allow, the callback fires with granted=false but the
-            // status remains .notDetermined. In that case we do NOT throw — the user can
-            // grant access in System Settings and tap Start again. If they explicitly deny
-            // (status becomes .denied), we throw so the denied-alert path runs.
+            // Request permission asynchronously. The callback fires on a background thread
+            // once the user responds to the system prompt:
+            // - Granted: start the engine automatically so the user doesn't have to tap Start again.
+            // - Denied: signal the UI to show the permission alert.
+            // - Still .notDetermined (user clicked "Open System Settings"): do nothing —
+            //   they can grant access there and tap Start again.
             AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
                 print("🔐 Permission request result: \(granted ? "GRANTED" : "DENIED")")
-                if !granted {
+                guard let self else { return }
+                if granted {
+                    // Permission just granted — start the engine now so the user
+                    // doesn't need to tap Start a second time.
+                    DispatchQueue.main.async {
+                        try? self.start()
+                    }
+                } else {
                     let finalStatus = AVCaptureDevice.authorizationStatus(for: .audio)
                     if finalStatus == .denied || finalStatus == .restricted {
                         DispatchQueue.main.async {
-                            self?.microphonePermissionDenied = true
+                            self.microphonePermissionDenied = true
                         }
                     }
-                    // If still .notDetermined (user dismissed to System Settings), do nothing —
-                    // they can grant access there and tap Start again.
+                    // If still .notDetermined (user dismissed to System Settings), do nothing.
                 }
             }
-            // Return immediately; the engine start below will be reached only after
-            // the user answers the prompt. If they dismiss to System Settings the
-            // engine will attempt to start and the 3-second check will catch denial.
-            // Re-check status synchronously after the async request is enqueued.
-            // On macOS the requestAccess dialog is modal and blocks until answered,
-            // so by this point we have the final status.
-            let postRequestStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-            if postRequestStatus == .denied || postRequestStatus == .restricted {
-                engineLog.warning("Microphone permission: DENIED after request — throwing")
-                throw NSError(domain: "RealtimeFFTAnalyzer", code: 1,
-                              userInfo: [NSLocalizedDescriptionKey: "Microphone access denied"])
-            }
-            if postRequestStatus == .notDetermined {
-                // User dismissed to System Settings — abort this start attempt silently.
-                // They will need to grant access and tap Start again.
-                engineLog.info("Microphone permission: still notDetermined after request — aborting start")
-                return
-            }
+            // Always return here — the callback above will start the engine if granted.
+            return
         case .denied:
             engineLog.warning("Microphone permission: DENIED — throwing")
             print("❌ Microphone permission: DENIED")

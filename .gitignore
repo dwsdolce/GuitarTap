@@ -20,6 +20,7 @@ playground.xcworkspace
 ## Build generated
 build/
 DerivedData/
+Distribution/GuitarTap*
 
 ## Project secret files
 *.xcprivacy

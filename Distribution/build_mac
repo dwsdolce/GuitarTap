@@ -1,0 +1,78 @@
+#!/bin/zsh
+
+# There are two fors for this command:
+#   build_mac help
+# and
+#   build_mac version
+#  
+# The script reinvokes if the current architecture is not the desired one.
+#
+if [[ $# == 1 ]]
+then
+    if [[ "$1" == "help" ]]
+    then
+        echo "build_mac version"
+        exit 0
+     fi
+elif [[ $# !=  2 ]]
+then
+    echo "build_mac version"
+    exit 1
+fi
+
+VERSION="$1"
+
+#===============================================
+# Create the format.
+#===============================================
+installer_name="GuitarTap_${VERSION}.dmg"
+app_name="GuitarTap-${VERSION}/GuitarTap.app"
+echo "Createing ${installer_name}"
+
+test -f $installer_name && rm $installer_name
+
+    create-dmg \
+        --volname "GuitarTap $VERSION Install" \
+        --background "guitar-tap-dmg.png" \
+        --window-pos 1 1 \
+        --icon "GuitarTap.app" 190 350 \
+        --window-size 640 535 \
+        --icon-size 110 \
+        --icon "Applications" 110 110 \
+        --hide-extension "Applications" \
+        --app-drop-link 450 360 \
+        --format ULFO \
+        --hdiutil-verbose \
+        --volicon "guitar-tap.icns" \
+        $installer_name \
+        $app_name
+if [ $? -ne 0 ]; then
+    echo "Creating ${installer_name} failed"
+    exit 1
+fi
+
+echo "Done Creating ${installer_name}"
+
+#===============================================
+# Notarize the format.
+#===============================================
+echo "Notarizing ${installer_name}"
+xcrun notarytool submit $installer_name --wait --apple-id dws@dolcesfogato.com --password ouio-uwqe-qzhz-ukmm --team-id 43QHHT3XK2
+if [ $? -ne 0 ]; then
+    echo "Notarizing ${installer_name} failed"
+    exit 1
+fi
+echo "Done Notarizing the ${installer_name}"
+
+#===============================================
+# Staple the format.
+#===============================================
+echo "Stapling ${installer_name}"
+xcrun stapler staple $installer_name
+if [ $? -ne 0 ]; then
+    echo "Stapling {installer_name} failed"
+    exit 1
+fi
+
+echo "Done creating ${installer_name}"
+
