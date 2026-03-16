@@ -552,8 +552,16 @@ struct TapToneAnalysisView: View {
                     UIApplication.shared.open(url)
                 }
                 #elseif os(macOS)
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-                    NSWorkspace.shared.open(url)
+                // macOS 14+ (Sonoma/Sequoia) uses a different URL than earlier versions.
+                // Try the new path first; fall back to the old one if it doesn't open.
+                let candidates = [
+                    "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone",
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+                ]
+                for candidate in candidates {
+                    if let url = URL(string: candidate), NSWorkspace.shared.open(url) {
+                        break
+                    }
                 }
                 #endif
             }
