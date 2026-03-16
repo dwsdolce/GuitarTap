@@ -48,6 +48,16 @@ extension RealtimeFFTAnalyzer {
         // Fully replace the audio engine with a fresh instance rather than reusing it.
         // After macOS force-restarts the app following a permission revocation, the existing
         // AVAudioEngine is in an irrecoverably broken state — reset() is not sufficient.
+        //
+        // IMPORTANT: Nil out inputNode before stopping / replacing the engine.
+        // Holding a strong reference to the old inputNode while the engine tears down its
+        // AUHAL unit on the AVAudioIOUnit queue causes a malloc-corruption crash
+        // ("BUG IN CLIENT OF LIBMALLOC: memory corruption of free block") because
+        // the main thread re-enters AVAudioEngineImpl::UpdateInputNode — which
+        // sync-dispatches onto the same queue — while CoreAudio is still tearing
+        // down the old IOProc on that queue.  Releasing the reference first lets
+        // the old engine fully quiesce before the new one is created.
+        inputNode = nil
         audioEngine.stop()
         audioEngine = AVAudioEngine()
         inputNode = audioEngine.inputNode
@@ -330,6 +340,9 @@ extension RealtimeFFTAnalyzer {
             if isRunning == 0 {
                 print("⚠️ Audio unit stopped before tap install — performing full engine restart...")
                 inputNode.removeTap(onBus: 0)   // remove any stale tap first
+                // Nil inputNode before stop/reset for the same reason as in the primary path:
+                // prevents malloc corruption from re-entrant UpdateInputNode on the AVAudioIOUnit queue.
+                inputNode = nil
                 audioEngine.stop()
                 audioEngine.reset()
                 inputNode = audioEngine.inputNode
