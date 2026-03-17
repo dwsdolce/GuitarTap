@@ -94,8 +94,6 @@ struct TapToneMeasurementCodableTests {
             tapLocation: "Bridge",
             notes: "Test measurement",
             spectrum: snapshot,
-            chartImageFilename: "test-image.png",
-            chartImageData: nil,   // transient — not encoded
             annotationOffsets: [peak1.id: annotationOffset],
             tapDetectionThreshold: -40,
             hysteresisMargin: 5,
@@ -132,7 +130,6 @@ struct TapToneMeasurementCodableTests {
         #expect(decoded.decayTime == original.decayTime)
         #expect(decoded.tapLocation == original.tapLocation)
         #expect(decoded.notes == original.notes)
-        #expect(decoded.chartImageFilename == original.chartImageFilename)
         #expect(decoded.tapDetectionThreshold == original.tapDetectionThreshold)
         #expect(decoded.hysteresisMargin == original.hysteresisMargin)
         #expect(decoded.numberOfTaps == original.numberOfTaps)
@@ -143,23 +140,6 @@ struct TapToneMeasurementCodableTests {
         #expect(decoded.selectedPeakIDs == original.selectedPeakIDs)
         // selectedLongitudinalPeakID
         #expect(decoded.selectedLongitudinalPeakID == original.selectedLongitudinalPeakID)
-    }
-
-    // Transient chartImageData must NOT appear in JSON.
-    @Test func chartImageData_isNotEncoded() throws {
-        // We just check that a freshly-created measurement with non-nil data
-        // produces JSON without a key for it.
-        _ = makeFullMeasurement()  // verify creation doesn't crash
-
-        // Rebuild with image data set
-        let withData = TapToneMeasurement(
-            peaks: [],
-            chartImageData: Data([0x89, 0x50, 0x4E, 0x47])  // PNG magic bytes
-        )
-        let data = try JSONEncoder().encode(withData)
-        let jsonString = String(data: data, encoding: .utf8) ?? ""
-        #expect(!jsonString.contains("chartImageData"),
-                "chartImageData is transient and must not appear in serialised JSON")
     }
 
     // peakAnnotationOffsets CGPoint dictionary survives the round-trip.

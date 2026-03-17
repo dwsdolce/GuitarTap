@@ -35,9 +35,12 @@ extension TapToneAnalyzer {
     /// - Parameters:
     ///   - peakID: The ``ResonantPeak/id`` of the peak whose label is being
     ///     repositioned.
-    ///   - offset: The desired offset, in SwiftUI canvas points, relative to
-    ///     the peak's default label anchor position. `.zero` represents the
-    ///     default (no offset) position.
+    ///   - offset: The desired offset in **data-space** coordinates:
+    ///     `x` = frequency delta in Hz, `y` = magnitude delta in dB.
+    ///     `.zero` represents the default (no offset) position.
+    ///     Stored values are converted to/from pixels at render time using the
+    ///     current chart axis ranges, making offsets valid across platforms and
+    ///     screen sizes.
     ///
     /// - Note: Safe to call from any thread; dispatches to the main queue when
     ///   needed.
@@ -98,7 +101,8 @@ extension TapToneAnalyzer {
     /// user's previously arranged callout positions.
     ///
     /// - Parameter offsets: A dictionary keyed by ``ResonantPeak/id`` values,
-    ///   mapping each peak to its stored `CGPoint` label offset.
+    ///   mapping each peak to its stored `CGPoint` label offset in data-space
+    ///   (x = Hz delta, y = dB delta).
     ///
     /// - Note: Safe to call from any thread.
     func applyAnnotationOffsets(_ offsets: [UUID: CGPoint]) {

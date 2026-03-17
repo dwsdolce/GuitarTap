@@ -417,3 +417,164 @@ struct ExportableSpectrumChart: View {
         }
     }
 }
+
+// MARK: - Shared Export View Builder
+
+/// Builds the full spectrum export composite view — chart, header, peak summary, and
+/// mode legend — from explicit data parameters.
+///
+/// Used by both the live export path (`TapToneAnalysisView+Export`) and the
+/// measurement export path (`PDFReportGenerator`) so that "Export Spectrum Image"
+/// produces an identical image regardless of whether it is triggered from the live
+/// analysis view or from a saved measurement.
+///
+/// - Parameters:
+///   - frequencies: FFT frequency bins (Hz).
+///   - magnitudes: FFT magnitude values (dBFS).
+///   - minFreq: Minimum displayed frequency (Hz).
+///   - maxFreq: Maximum displayed frequency (Hz).
+///   - minDB: Minimum displayed magnitude (dBFS).
+///   - maxDB: Maximum displayed magnitude (dBFS).
+///   - peaks: Detected resonant peaks to annotate.
+///   - annotationOffsets: Per-peak label drag offsets, keyed by peak UUID.
+///   - showUnknownModes: Whether to show peaks classified as unknown guitar modes.
+///   - measurementType: Guitar, plate, or brace — controls colour coding and boundary visibility.
+///   - selectedLongitudinalPeakID: UUID of the selected longitudinal (L) peak (plate/brace).
+///   - selectedCrossPeakID: UUID of the selected cross-grain (C) peak (plate).
+///   - selectedFlcPeakID: UUID of the selected FLC peak (plate, optional).
+///   - modeOverrides: Per-peak user-assigned mode label overrides.
+///   - materialSpectra: Per-phase spectrum series for plate/brace overlays.
+///   - dateLabel: Date/time string shown in the header (e.g. formatted measurement timestamp).
+/// - Returns: A self-contained `View` suitable for off-screen rendering with `ImageRenderer`.
+@MainActor
+func makeExportableSpectrumView(
+    frequencies: [Float],
+    magnitudes: [Float],
+    minFreq: Float,
+    maxFreq: Float,
+    minDB: Float,
+    maxDB: Float,
+    peaks: [ResonantPeak],
+    annotationOffsets: [UUID: CGPoint] = [:],
+    showUnknownModes: Bool? = nil,
+    measurementType: MeasurementType = .acoustic,
+    selectedLongitudinalPeakID: UUID? = nil,
+    selectedCrossPeakID: UUID? = nil,
+    selectedFlcPeakID: UUID? = nil,
+    modeOverrides: [UUID: UserAssignedMode] = [:],
+    materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = [],
+    dateLabel: String
+) -> some View {
+    let formatFreq: (Float) -> String = { freq in
+        freq >= 1000 ? String(format: "%.1fk Hz", freq / 1000) : String(format: "%.0f Hz", freq)
+    }
+
+    return VStack(alignment: .leading, spacing: 16) {
+        // Header
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Guitar Tap Tone Analysis - Frequency Response")
+                .font(.title)
+                .fontWeight(.bold)
+
+            HStack {
+                Text("Date: \(dateLabel)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Text("Range: \(formatFreq(minFreq)) - \(formatFreq(maxFreq))")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                Text("•")
+                    .foregroundColor(.secondary)
+
+                Text("\(Int(minDB)) to \(Int(maxDB)) dB")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+
+            if !peaks.isEmpty {
+                Text("Detected Peaks: \(peaks.count)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+
+        // Chart
+        ExportableSpectrumChart(
+            frequencies: frequencies,
+            magnitudes: magnitudes,
+            minFreq: minFreq,
+            maxFreq: maxFreq,
+            minDB: minDB,
+            maxDB: maxDB,
+            isLogarithmic: false,
+            peaks: peaks,
+            showModeBoundaries: true,
+            annotationOffsets: annotationOffsets,
+            showUnknownModes: showUnknownModes,
+            measurementType: measurementType,
+            selectedLongitudinalPeakID: selectedLongitudinalPeakID,
+            selectedCrossPeakID: selectedCrossPeakID,
+            selectedFlcPeakID: selectedFlcPeakID,
+            modeOverrides: modeOverrides,
+            materialSpectra: materialSpectra
+        )
+        .frame(width: 1400, height: 800)
+        .padding()
+
+        // Peak Summary
+        if !peaks.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Detected Peaks Summary")
+                    .font(.headline)
+                    .padding(.horizontal)
+
+                HStack(spacing: 20) {
+                    ForEach(peaks.prefix(8).sorted(by: { $0.frequency < $1.frequency })) { peak in
+                        let mode = GuitarMode.classify(frequency: peak.frequency)
+                        VStack(spacing: 4) {
+                            Text("\(peak.frequency, specifier: "%.1f") Hz")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                            Text(mode.displayName)
+                                .font(.caption2)
+                                .foregroundColor(mode.color)
+                            Text("\(peak.magnitude, specifier: "%.1f") dB")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(8)
+                        .background(mode.color.opacity(0.1))
+                        .cornerRadius(6)
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .padding(.vertical, 8)
+        }
+
+        // Mode Legend
+        HStack(spacing: 20) {
+            Text("Guitar Modes:")
+                .font(.caption)
+                .fontWeight(.semibold)
+
+            ForEach([GuitarMode.air, .top, .back, .dipole, .ringMode], id: \.self) { mode in
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(mode.color)
+                        .frame(width: 12, height: 12)
+                    Text(mode.displayName)
+                        .font(.caption)
+                }
+            }
+        }
+        .padding()
+    }
+    .background(Color.white)
+    .padding()
+}

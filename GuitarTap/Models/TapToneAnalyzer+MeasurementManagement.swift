@@ -15,13 +15,8 @@
 /// ```
 /// <Documents>/saved_measurements.json
 /// ```
-/// Chart images are stored as separate PNG files in the same directory using
-/// a filename derived from the tap location label and a Unix timestamp:
-/// ```
-/// <location-slug>-<timestamp>.png
-/// ```
-/// The filename is recorded in ``TapToneMeasurement/chartImageFilename`` so
-/// that images can be loaded back alongside the JSON metadata.
+/// The JSON file is self-contained: all spectrum data needed to recreate the
+/// chart is embedded in the snapshot fields.  There are no sidecar files.
 ///
 /// ## Save / Load Contract
 /// A saved measurement captures a complete snapshot of the analyser state at
@@ -62,13 +57,10 @@ extension TapToneAnalyzer {
         return documentsDirectory.appendingPathComponent("saved_measurements.json")
     }
     
-    /// Loads all persisted measurements from disk, including their associated
-    /// chart images.
+    /// Loads all persisted measurements from disk.
     ///
-    /// Reads `saved_measurements.json` from the Documents directory, decodes
-    /// the `[TapToneMeasurement]` array with ISO-8601 date decoding, and for
-    /// each measurement attempts to load the PNG referenced by
-    /// `chartImageFilename` from the same directory.
+    /// Reads `saved_measurements.json` from the Documents directory and decodes
+    /// the `[TapToneMeasurement]` array with ISO-8601 date decoding.
     ///
     /// Populates `savedMeasurements` on the main thread. No-ops silently if
     /// the file does not yet exist.
@@ -85,57 +77,30 @@ extension TapToneAnalyzer {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let measurements = try decoder.decode([TapToneMeasurement].self, from: data)
-            
-            // Load associated images for each measurement
-            var loadedMeasurements = measurements
-            let documentsDirectory = fileURL.deletingLastPathComponent()
-            
-            for i in 0..<loadedMeasurements.count {
-                if let filename = loadedMeasurements[i].chartImageFilename {
-                    let imageURL = documentsDirectory.appendingPathComponent(filename)
-                    if let imageData = try? Data(contentsOf: imageURL) {
-                        loadedMeasurements[i].chartImageData = imageData
-                    }
-                }
-            }
-            
-            savedMeasurements = loadedMeasurements
+            savedMeasurements = measurements
             print("📂 Loaded \(measurements.count) persisted measurements")
         } catch {
             print("❌ Failed to load persisted measurements: \(error)")
         }
     }
     
-    /// Writes all saved measurements to `saved_measurements.json` and saves
-    /// any associated chart images as separate PNG files.
+    /// Writes all saved measurements to `saved_measurements.json`.
     ///
     /// Uses pretty-printed, sorted-key JSON encoding with ISO-8601 dates.
-    /// `chartImageData` is **not** encoded in the JSON (it is excluded via
-    /// `CodingKeys`); instead it is written to a sidecar PNG file whose name
-    /// is recorded in `chartImageFilename`.
+    /// The JSON file is self-contained; all spectrum data is embedded in the
+    /// snapshot fields.  There are no sidecar image files.
     ///
     /// Called automatically after every `saveMeasurement`, `deleteMeasurement`,
     /// and `importMeasurements` operation.
     func persistMeasurements() {
         let fileURL = TapToneAnalyzer.measurementsFileURL
-        
+
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(savedMeasurements)
             try data.write(to: fileURL)
-            
-            // Also save any chart images
-            let documentsDirectory = fileURL.deletingLastPathComponent()
-            for measurement in savedMeasurements {
-                if let filename = measurement.chartImageFilename,
-                   let imageData = measurement.chartImageData {
-                    let imageURL = documentsDirectory.appendingPathComponent(filename)
-                    try? imageData.write(to: imageURL)
-                }
-            }
-            
             print("💾 Persisted \(savedMeasurements.count) measurements to disk")
         } catch {
             print("❌ Failed to persist measurements: \(error)")
@@ -154,13 +119,11 @@ extension TapToneAnalyzer {
     ///
     /// - Parameters:
     ///   - tapLocation: A short label for where the measurement was taken,
-    ///     e.g. `"Top — Bridge"`. Used to derive the chart image filename.
+    ///     e.g. `"Top — Bridge"`.
     ///   - notes: Free-text user notes to attach to the measurement.
     ///   - includeSpectrum: When `true` and the measurement type is guitar,
     ///     a `SpectrumSnapshot` is generated from the current (frozen or live)
     ///     FFT data.
-    ///   - chartImageData: Raw PNG data of the spectrum chart, or `nil` if no
-    ///     chart is to be saved.
     ///   - spectrumSnapshot: Pre-built guitar spectrum snapshot. If `nil` and
     ///     `includeSpectrum` is `true`, one is built from the live/frozen FFT.
     ///   - longitudinalSnapshot: Pre-built spectrum snapshot for the
@@ -184,10 +147,9 @@ extension TapToneAnalyzer {
     ///   - calibrationName: Name of the active calibration profile, for
     ///     reference information.
     func saveMeasurement(
-        tapLocation: String? = nil, 
-        notes: String? = nil, 
+        tapLocation: String? = nil,
+        notes: String? = nil,
         includeSpectrum: Bool = true,
-        chartImageData: Data? = nil,
         spectrumSnapshot: SpectrumSnapshot? = nil,
         longitudinalSnapshot: SpectrumSnapshot? = nil,
         crossSnapshot: SpectrumSnapshot? = nil,
@@ -223,27 +185,12 @@ extension TapToneAnalyzer {
             snapshot = nil
         }
         
-        // Generate filename if image data is provided.
-        // Format: <location-slug>-<unix-timestamp>.png
-        let imageFilename: String?
-        if chartImageData != nil {
-            let locationPart = tapLocation?.replacingOccurrences(of: " ", with: "-")
-                .replacingOccurrences(of: "/", with: "-")
-                .lowercased() ?? "measurement"
-            let timestampPart = Int(Date().timeIntervalSince1970)
-            imageFilename = "\(locationPart)-\(timestampPart).png"
-        } else {
-            imageFilename = nil
-        }
-        
         let measurement = TapToneMeasurement(
             peaks: currentPeaks,
             decayTime: currentDecayTime,
             tapLocation: tapLocation,
             notes: notes,
             spectrum: snapshot,
-            chartImageFilename: imageFilename,
-            chartImageData: chartImageData,
             annotationOffsets: annotationOffsets ?? peakAnnotationOffsets,
             tapDetectionThreshold: tapDetectionThreshold,
             hysteresisMargin: hysteresisMargin,
@@ -265,24 +212,16 @@ extension TapToneAnalyzer {
         )
         
         savedMeasurements.append(measurement)
-        print("💾 Saved measurement with \(currentPeaks.count) peaks, image: \(imageFilename ?? "none"), type: \(measurementType.shortName)")
+        print("💾 Saved measurement with \(currentPeaks.count) peaks, type: \(measurementType.shortName)")
         
         // Persist to disk
         persistMeasurements()
     }
     
-    /// Removes a measurement from `savedMeasurements` and deletes its
-    /// associated chart image file from the Documents directory.
+    /// Removes a measurement from `savedMeasurements` and persists the change.
     ///
     /// - Parameter measurement: The ``TapToneMeasurement`` to delete.
     func deleteMeasurement(_ measurement: TapToneMeasurement) {
-        // Also delete the associated chart image file if it exists
-        if let filename = measurement.chartImageFilename {
-            let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let imageURL = documentsDirectory.appendingPathComponent(filename)
-            try? FileManager.default.removeItem(at: imageURL)
-        }
-        
         savedMeasurements.removeAll(where: { $0.id == measurement.id })
         
         // Persist to disk
@@ -292,10 +231,6 @@ extension TapToneAnalyzer {
     /// Decodes a JSON data blob into ``TapToneMeasurement`` records and
     /// appends them to `savedMeasurements`.
     ///
-    /// If `baseURL` is provided, each measurement's `chartImageFilename` is
-    /// resolved relative to `baseURL.deletingLastPathComponent()` and its
-    /// image data is loaded if found.
-    ///
     /// After import, the UID of each measurement's recording microphone is
     /// compared against `fftAnalyzer.availableInputDevices`. If any microphone
     /// is missing, `microphoneWarning` is set with a list of missing device
@@ -304,8 +239,7 @@ extension TapToneAnalyzer {
     /// - Parameters:
     ///   - jsonData: Raw JSON data containing an array of encoded
     ///     ``TapToneMeasurement`` values.
-    ///   - baseURL: Optional base URL for resolving sidecar image files (e.g.
-    ///     the URL of the JSON file that was opened via document picker).
+    ///   - baseURL: Unused. Kept for API compatibility.
     /// - Returns: The array of newly decoded measurements.
     /// - Throws: A decoding error if `jsonData` is not a valid
     ///   `[TapToneMeasurement]` JSON array.
@@ -313,20 +247,7 @@ extension TapToneAnalyzer {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         
-        var measurements = try decoder.decode([TapToneMeasurement].self, from: jsonData)
-        
-        // If baseURL is provided, try to load associated images
-        if let baseURL = baseURL {
-            for i in 0..<measurements.count {
-                if let filename = measurements[i].chartImageFilename {
-                    let imageURL = baseURL.deletingLastPathComponent().appendingPathComponent(filename)
-                    if let imageData = try? Data(contentsOf: imageURL) {
-                        measurements[i].chartImageData = imageData
-                        print("📷 Loaded image: \(filename)")
-                    }
-                }
-            }
-        }
+        let measurements = try decoder.decode([TapToneMeasurement].self, from: jsonData)
         
         // Add imported measurements
         savedMeasurements.append(contentsOf: measurements)
@@ -616,8 +537,7 @@ extension TapToneAnalyzer {
     /// - Parameters:
     ///   - measurement: The ``TapToneMeasurement`` to export.
     ///   - completion: Called on the main thread with the JSON string and the
-    ///     original measurement (for accessing `chartImageData` to share as a
-    ///     sidecar file).
+    ///     original measurement.
     func exportMeasurement(_ measurement: TapToneMeasurement, completion: @escaping (String, TapToneMeasurement) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let encoder = JSONEncoder()

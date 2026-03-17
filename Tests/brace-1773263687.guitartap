@@ -2,7 +2,7 @@
   {
     "annotationVisibilityMode" : "all",
     "calibrationName" : "7108913",
-    "chartImageFilename" : "brace-1773263687.png",
+    "guitarType" : "Acoustic",
     "hysteresisMargin" : 3,
     "id" : "5535B6FB-7B1F-4DB0-851E-B404110AE557",
     "longitudinalSnapshot" : {
@@ -32792,6 +32792,7 @@
       "minFreq" : 30,
       "showUnknownModes" : false
     },
+    "measurementType" : "Material (Brace)",
     "microphoneName" : "Umik-1  Gain: 18dB",
     "microphoneUID" : "AppleUSBAudioEngine:miniDSP:Umik-1  Gain: 18dB:000-0000:1",
     "notes" : "Umik-1",
@@ -32806,6 +32807,7 @@
         "frequency" : 512.10333,
         "id" : "2F6ED23A-20DE-432B-B176-73E357C7D3E8",
         "magnitude" : -54.46924,
+        "modeLabel" : "Longitudinal",
         "pitchCents" : -37.28229152953664,
         "pitchFrequency" : 523.2511306011972,
         "pitchNote" : "C5",

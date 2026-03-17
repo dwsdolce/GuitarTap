@@ -186,25 +186,27 @@ struct MeasurementFileExporter {
 
     // MARK: - Spectrum Image Export
 
-    /// Exports the spectrum PNG image associated with a saved measurement.
+    /// Exports a spectrum PNG image via the platform share/save mechanism.
     ///
     /// On iOS, the PNG is written to a temporary file and shared via the system
     /// share sheet.  On macOS, an `NSSavePanel` prompts the user to choose a
-    /// location.  If the measurement has no `chartImageData`, the completion
-    /// handler is called immediately and no sheet is presented.
+    /// location.  If `imageData` is `nil`, the completion handler is called
+    /// immediately and no sheet is presented.
     ///
     /// - Parameters:
-    ///   - measurement: The saved measurement whose `chartImageData` is exported.
+    ///   - imageData: PNG-encoded spectrum image data to export.
+    ///   - basename: Filename stem (without extension) for the saved file.
     ///   - completion: Called on the main thread after the operation completes
     ///     (whether or not a file was actually exported).
     static func exportSpectrumImage(
-        measurement: TapToneMeasurement,
+        imageData: Data?,
+        basename: String,
         completion: @escaping () -> Void
     ) {
         #if os(iOS)
-        exportSpectrumImageiOS(measurement: measurement, completion: completion)
+        exportSpectrumImageiOS(imageData: imageData, basename: basename, completion: completion)
         #elseif os(macOS)
-        exportSpectrumImageMacOS(measurement: measurement, completion: completion)
+        exportSpectrumImageMacOS(imageData: imageData, basename: basename, completion: completion)
         #endif
     }
 
@@ -228,8 +230,8 @@ struct MeasurementFileExporter {
 
     /// iOS implementation: writes the spectrum PNG to a temporary file then
     /// presents the share sheet.
-    private static func exportSpectrumImageiOS(measurement: TapToneMeasurement, completion: @escaping () -> Void) {
-        guard let imageData = measurement.chartImageData else {
+    private static func exportSpectrumImageiOS(imageData: Data?, basename: String, completion: @escaping () -> Void) {
+        guard let imageData = imageData else {
             print("No spectrum image available for this measurement")
             completion()
             return
@@ -238,7 +240,7 @@ struct MeasurementFileExporter {
             .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
         do {
             try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-            let imageURL = tempDir.appendingPathComponent("\(measurement.baseFilename).png")
+            let imageURL = tempDir.appendingPathComponent("\(basename).png")
             try imageData.write(to: imageURL)
             presentShareSheet(items: [imageURL], completion: completion)
         } catch {
@@ -298,15 +300,15 @@ struct MeasurementFileExporter {
     }
 
     /// macOS implementation: presents an `NSSavePanel` for the spectrum PNG.
-    private static func exportSpectrumImageMacOS(measurement: TapToneMeasurement, completion: @escaping () -> Void) {
-        guard let imageData = measurement.chartImageData else {
+    private static func exportSpectrumImageMacOS(imageData: Data?, basename: String, completion: @escaping () -> Void) {
+        guard let imageData = imageData else {
             print("No spectrum image available for this measurement")
             completion()
             return
         }
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [.png]
-        savePanel.nameFieldStringValue = "\(measurement.baseFilename).png"
+        savePanel.nameFieldStringValue = "\(basename).png"
         savePanel.canCreateDirectories = true
         savePanel.message = "Save Spectrum Image"
         savePanel.begin { response in

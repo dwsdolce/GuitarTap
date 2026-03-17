@@ -20,11 +20,12 @@
 ///
 /// ## Persistence Format
 ///
-/// Measurements are serialised to JSON in the app's Documents directory.  The companion
-/// spectrum PNG (if present) is stored as a separate file with the name given by
-/// ``chartImageFilename``.  The ``chartImageData`` property is **transient** — it is excluded
-/// from JSON via ``CodingKeys`` and is loaded separately at runtime by
-/// ``TapToneAnalyzer+MeasurementManagement``.
+/// Measurements are serialised to JSON in the app's Documents directory.  The JSON file
+/// is self-contained: all spectrum data needed to recreate the chart is embedded in the
+/// ``spectrumSnapshot`` (guitar) or per-phase snapshots (plate/brace).  There are no
+/// external sidecar files.  This makes the format suitable for exchange with other
+/// applications (e.g. a Python analysis tool) without any dependency on GuitarTap's
+/// internal file layout.
 ///
 /// ## Measurement Types
 ///
@@ -80,21 +81,6 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// Contains the full chart display settings needed to restore the spectrum plot.
     /// `nil` for plate/brace measurements, which use the per-phase snapshots instead.
     let spectrumSnapshot: SpectrumSnapshot?
-
-    // MARK: - Chart Image
-
-    /// Filename (without directory path) of the companion PNG spectrum image.
-    ///
-    /// Stored alongside the JSON file in the Documents directory.
-    /// `nil` if no image was captured when saving.
-    let chartImageFilename: String?
-
-    /// In-memory PNG image data for the spectrum chart.
-    ///
-    /// - Important: This property is **transient** and is excluded from JSON serialisation
-    ///   via ``CodingKeys``.  It is loaded at runtime by reading the file named
-    ///   ``chartImageFilename`` from the Documents directory.
-    var chartImageData: Data?
 
     // MARK: - Annotation State
 
@@ -180,16 +166,24 @@ struct TapToneMeasurement: Identifiable, Codable {
 
     // MARK: - Coding Keys
 
-    /// Explicit coding keys that exclude the transient ``chartImageData`` from JSON.
     enum CodingKeys: String, CodingKey {
         case id, timestamp, peaks, decayTime, tapLocation, notes
-        case spectrumSnapshot, chartImageFilename, peakAnnotationOffsets
+        case spectrumSnapshot, peakAnnotationOffsets
         case tapDetectionThreshold, hysteresisMargin, numberOfTaps, peakThreshold
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
         case longitudinalSnapshot, crossSnapshot, flcSnapshot
         case selectedPeakIDs, annotationVisibilityMode
         case peakModeOverrides
         case microphoneName, microphoneUID, calibrationName
+        // Encode-only convenience fields for external consumers
+        case measurementType, guitarType
+    }
+
+    /// CodingKeys for the per-peak export container that injects a resolved `modeLabel`.
+    private enum PeakExportCodingKeys: String, CodingKey {
+        case id, frequency, magnitude, quality, bandwidth, timestamp
+        case pitchNote, pitchCents, pitchFrequency
+        case modeLabel
     }
 
     // MARK: - Initializer
@@ -205,8 +199,6 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///   - tapLocation: User-supplied location label, e.g. `"Bridge"`.
     ///   - notes: Free-form notes.
     ///   - spectrum: Guitar-mode averaged spectrum snapshot.
-    ///   - chartImageFilename: Filename of the companion PNG in the Documents directory.
-    ///   - chartImageData: Transient in-memory PNG data (not persisted to JSON).
     ///   - annotationOffsets: Custom label positions keyed by peak UUID.
     ///   - tapDetectionThreshold: Detection threshold in dB at save time.
     ///   - hysteresisMargin: Hysteresis margin in dB at save time.
@@ -229,8 +221,6 @@ struct TapToneMeasurement: Identifiable, Codable {
          tapLocation: String? = nil,
          notes: String? = nil,
          spectrum: SpectrumSnapshot? = nil,
-         chartImageFilename: String? = nil,
-         chartImageData: Data? = nil,
          annotationOffsets: [UUID: CGPoint]? = nil,
          tapDetectionThreshold: Float? = nil,
          hysteresisMargin: Float? = nil,
@@ -255,8 +245,6 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.tapLocation = tapLocation
         self.notes = notes
         self.spectrumSnapshot = spectrum
-        self.chartImageFilename = chartImageFilename
-        self.chartImageData = chartImageData
         self.peakAnnotationOffsets = annotationOffsets
         self.tapDetectionThreshold = tapDetectionThreshold
         self.hysteresisMargin = hysteresisMargin
@@ -307,5 +295,124 @@ struct TapToneMeasurement: Identifiable, Codable {
             .lowercased() ?? "measurement"
         let timestampPart = Int(timestamp.timeIntervalSince1970)
         return "\(locationPart)-\(timestampPart)"
+    }
+
+    // MARK: - Decoding
+
+    /// Synthesized-equivalent `init(from:)` required because we provide a custom `encode(to:)`.
+    ///
+    /// All stored properties are decoded from their standard keys.  The encode-only convenience
+    /// keys (`measurementType`, `guitarType`, `modeLabel`) are ignored during decode.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id               = try container.decode(UUID.self,   forKey: .id)
+        timestamp        = try container.decode(Date.self,   forKey: .timestamp)
+        decayTime        = try container.decodeIfPresent(Float.self,  forKey: .decayTime)
+        tapLocation      = try container.decodeIfPresent(String.self, forKey: .tapLocation)
+        notes            = try container.decodeIfPresent(String.self, forKey: .notes)
+        spectrumSnapshot = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .spectrumSnapshot)
+        peakAnnotationOffsets = try container.decodeIfPresent([UUID: CGPoint].self, forKey: .peakAnnotationOffsets)
+        tapDetectionThreshold = try container.decodeIfPresent(Float.self, forKey: .tapDetectionThreshold)
+        hysteresisMargin = try container.decodeIfPresent(Float.self, forKey: .hysteresisMargin)
+        numberOfTaps     = try container.decodeIfPresent(Int.self,   forKey: .numberOfTaps)
+        peakThreshold    = try container.decodeIfPresent(Float.self, forKey: .peakThreshold)
+        selectedLongitudinalPeakID = try container.decodeIfPresent(UUID.self, forKey: .selectedLongitudinalPeakID)
+        selectedCrossPeakID        = try container.decodeIfPresent(UUID.self, forKey: .selectedCrossPeakID)
+        selectedFlcPeakID          = try container.decodeIfPresent(UUID.self, forKey: .selectedFlcPeakID)
+        longitudinalSnapshot = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .longitudinalSnapshot)
+        crossSnapshot        = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .crossSnapshot)
+        flcSnapshot          = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .flcSnapshot)
+        selectedPeakIDs      = try container.decodeIfPresent([UUID].self, forKey: .selectedPeakIDs)
+        annotationVisibilityMode = try container.decodeIfPresent(AnnotationVisibilityMode.self, forKey: .annotationVisibilityMode)
+        peakModeOverrides    = try container.decodeIfPresent([UUID: UserAssignedMode].self, forKey: .peakModeOverrides)
+        microphoneName       = try container.decodeIfPresent(String.self, forKey: .microphoneName)
+        microphoneUID        = try container.decodeIfPresent(String.self, forKey: .microphoneUID)
+        calibrationName      = try container.decodeIfPresent(String.self, forKey: .calibrationName)
+        // Decode peaks as [ResonantPeak]; the extra modeLabel key in each entry is
+        // silently ignored by ResonantPeak's synthesized Decodable conformance.
+        peaks = try container.decode([ResonantPeak].self, forKey: .peaks)
+    }
+
+    // MARK: - Custom Encoding
+
+    /// Encodes all stored fields plus three convenience additions for external consumers:
+    ///
+    /// - `measurementType`: top-level string (e.g. `"Acoustic Guitar"`) so consumers don't
+    ///   need to dig into the nested snapshot to discover the measurement kind.
+    /// - `guitarType`: top-level string (e.g. `"Acoustic"`) or absent for plate/brace.
+    /// - `modeLabel`: resolved human-readable label added to each peak entry, incorporating
+    ///   any user override from ``peakModeOverrides``.
+    ///
+    /// Decoding uses the synthesized `init(from:)` — the added keys are unknown to the stored
+    /// properties and are silently ignored, keeping round-trips lossless.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        // Standard stored properties (mirrors synthesized encoding order)
+        try container.encode(id,                        forKey: .id)
+        try container.encode(timestamp,                 forKey: .timestamp)
+        try container.encodeIfPresent(decayTime,        forKey: .decayTime)
+        try container.encodeIfPresent(tapLocation,      forKey: .tapLocation)
+        try container.encodeIfPresent(notes,            forKey: .notes)
+        try container.encodeIfPresent(spectrumSnapshot, forKey: .spectrumSnapshot)
+        try container.encodeIfPresent(peakAnnotationOffsets, forKey: .peakAnnotationOffsets)
+        try container.encodeIfPresent(tapDetectionThreshold, forKey: .tapDetectionThreshold)
+        try container.encodeIfPresent(hysteresisMargin, forKey: .hysteresisMargin)
+        try container.encodeIfPresent(numberOfTaps,     forKey: .numberOfTaps)
+        try container.encodeIfPresent(peakThreshold,    forKey: .peakThreshold)
+        try container.encodeIfPresent(selectedLongitudinalPeakID, forKey: .selectedLongitudinalPeakID)
+        try container.encodeIfPresent(selectedCrossPeakID,        forKey: .selectedCrossPeakID)
+        try container.encodeIfPresent(selectedFlcPeakID,          forKey: .selectedFlcPeakID)
+        try container.encodeIfPresent(longitudinalSnapshot, forKey: .longitudinalSnapshot)
+        try container.encodeIfPresent(crossSnapshot,    forKey: .crossSnapshot)
+        try container.encodeIfPresent(flcSnapshot,      forKey: .flcSnapshot)
+        try container.encodeIfPresent(selectedPeakIDs,  forKey: .selectedPeakIDs)
+        try container.encodeIfPresent(annotationVisibilityMode, forKey: .annotationVisibilityMode)
+        try container.encodeIfPresent(peakModeOverrides, forKey: .peakModeOverrides)
+        try container.encodeIfPresent(microphoneName,   forKey: .microphoneName)
+        try container.encodeIfPresent(microphoneUID,    forKey: .microphoneUID)
+        try container.encodeIfPresent(calibrationName,  forKey: .calibrationName)
+
+        // Convenience: top-level measurementType and guitarType for external consumers
+        let resolvedMeasurementType = spectrumSnapshot?.measurementType
+            ?? longitudinalSnapshot?.measurementType
+        let resolvedGuitarType = spectrumSnapshot?.guitarType
+            ?? longitudinalSnapshot?.guitarType
+        try container.encodeIfPresent(resolvedMeasurementType, forKey: .measurementType)
+        try container.encodeIfPresent(resolvedGuitarType,      forKey: .guitarType)
+
+        // Encode peaks with a resolved modeLabel injected into each peak entry
+        let mt = resolvedMeasurementType ?? TapDisplaySettings.measurementType
+        let gt = resolvedGuitarType ?? TapDisplaySettings.guitarType
+        var peaksContainer = container.nestedUnkeyedContainer(forKey: .peaks)
+        for peak in peaks {
+            var peakContainer = peaksContainer.nestedContainer(keyedBy: PeakExportCodingKeys.self)
+            try peakContainer.encode(peak.id,        forKey: .id)
+            try peakContainer.encode(peak.frequency, forKey: .frequency)
+            try peakContainer.encode(peak.magnitude, forKey: .magnitude)
+            try peakContainer.encode(peak.quality,   forKey: .quality)
+            try peakContainer.encode(peak.bandwidth, forKey: .bandwidth)
+            try peakContainer.encode(peak.timestamp, forKey: .timestamp)
+            try peakContainer.encodeIfPresent(peak.pitchNote,      forKey: .pitchNote)
+            try peakContainer.encodeIfPresent(peak.pitchCents,     forKey: .pitchCents)
+            try peakContainer.encodeIfPresent(peak.pitchFrequency, forKey: .pitchFrequency)
+
+            // Resolve the mode label: user override > auto-classify > plate/brace role
+            let label: String
+            if mt.isGuitar {
+                switch peakModeOverrides?[peak.id] ?? .auto {
+                case .auto:
+                    label = GuitarMode.classify(frequency: peak.frequency, guitarType: gt).displayName
+                case .assigned(let customLabel):
+                    label = customLabel
+                }
+            } else {
+                if peak.id == selectedLongitudinalPeakID      { label = "Longitudinal" }
+                else if peak.id == selectedCrossPeakID        { label = "Cross-grain" }
+                else if peak.id == selectedFlcPeakID          { label = "FLC" }
+                else                                          { label = "Peak" }
+            }
+            try peakContainer.encode(label, forKey: .modeLabel)
+        }
     }
 }

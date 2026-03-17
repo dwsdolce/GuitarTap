@@ -286,11 +286,26 @@ struct DraggablePeakAnnotation: View {
         return CGPoint(x: x, y: y)
     }
 
-    /// Final position including user offset and drag
+    /// Final position including user offset and drag.
+    ///
+    /// `offset` is stored in data-space (x = Hz delta, y = dB delta); convert back
+    /// to pixels using the current axis ranges and plot frame before applying.
+    /// `dragOffset` is a transient live-drag value already in pixels.
     private var finalPosition: CGPoint {
-        CGPoint(
-            x: cachedChartPosition.x + offset.x + dragOffset.width,
-            y: cachedChartPosition.y + offset.y + dragOffset.height
+        let freqRange = CGFloat(maxFreq - minFreq)
+        let dbRange   = CGFloat(maxDB   - minDB)
+        let pixelOffsetX: CGFloat
+        let pixelOffsetY: CGFloat
+        if plotFrame.width > 0, plotFrame.height > 0, freqRange > 0, dbRange > 0 {
+            pixelOffsetX = (offset.x / freqRange) * plotFrame.width
+            pixelOffsetY = (offset.y / dbRange)   * plotFrame.height
+        } else {
+            pixelOffsetX = 0
+            pixelOffsetY = 0
+        }
+        return CGPoint(
+            x: cachedChartPosition.x + pixelOffsetX + dragOffset.width,
+            y: cachedChartPosition.y + pixelOffsetY + dragOffset.height
         )
     }
 
@@ -304,8 +319,8 @@ struct DraggablePeakAnnotation: View {
                 ConnectionLine(
                     from: cachedPeakPosition,
                     to: CGPoint(
-                        x: cachedChartPosition.x + offset.x + dragOffset.width,
-                        y: cachedChartPosition.y + offset.y + dragOffset.height + 30
+                        x: finalPosition.x,
+                        y: finalPosition.y + 30
                     ),
                     color: modeColor
                 )
@@ -338,15 +353,30 @@ struct DraggablePeakAnnotation: View {
                         dragOffset = value.translation
                     }
                     .onEnded { value in
-                        let newOffset = CGPoint(
-                            x: offset.x + value.translation.width,
-                            y: offset.y + value.translation.height
-                        )
+                        // Accumulated pixel delta (existing data-space offset converted back
+                        // to pixels in finalPosition, so we add translation directly here)
+                        let pixelX = offset.x + value.translation.width
+                        let pixelY = offset.y + value.translation.height
+
+                        // Convert to data-space (Hz delta, dB delta) for platform-independent storage.
+                        // Guard against degenerate frames; if conversion is impossible keep zero.
+                        let dataOffset: CGPoint
+                        let freqRange = CGFloat(maxFreq - minFreq)
+                        let dbRange   = CGFloat(maxDB   - minDB)
+                        if plotFrame.width > 0, plotFrame.height > 0, freqRange > 0, dbRange > 0 {
+                            dataOffset = CGPoint(
+                                x: (pixelX / plotFrame.width)  * freqRange,
+                                y: (pixelY / plotFrame.height) * dbRange
+                            )
+                        } else {
+                            dataOffset = .zero
+                        }
+
                         // Disable animation for smoother dragging
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
-                            onOffsetChange(newOffset)
+                            onOffsetChange(dataOffset)
                             isDragging = false
                             isAnnotationDragging = false
                         }

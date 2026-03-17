@@ -138,7 +138,7 @@ struct PDFReportData {
     ///
     /// - Parameter measurement: The saved measurement to generate a report for.
     /// - Returns: A fully populated `PDFReportData` ready for `PDFReportGenerator.generate(data:)`.
-    static func from(measurement: TapToneMeasurement) -> PDFReportData {
+    static func from(measurement: TapToneMeasurement, spectrumImageData: Data? = nil) -> PDFReportData {
         let snapshot = measurement.spectrumSnapshot
         let anySnapshot = snapshot ?? measurement.longitudinalSnapshot ?? measurement.crossSnapshot
         let measurementType = anySnapshot?.measurementType ?? .classical
@@ -208,7 +208,7 @@ struct PDFReportData {
             selectedPeakIDs: Set(measurement.selectedPeakIDs ?? measurement.peaks.map { $0.id }),
             decayTime: measurement.decayTime,
             tapToneRatio: measurement.tapToneRatio,
-            spectrumImageData: measurement.chartImageData,
+            spectrumImageData: spectrumImageData,
             minFreq: minFreq,
             maxFreq: maxFreq,
             plateProperties: plateProps,
@@ -280,6 +280,79 @@ struct PDFReportGenerator {
         }
 
         return mutableData.length > 0 ? mutableData as Data : nil
+    }
+
+    /// Renders the spectrum chart for a measurement to PNG data using `ImageRenderer`.
+    ///
+    /// Builds the full composite export view (header + chart + peak summary +
+    /// legend) from the measurement's stored snapshot data, producing output
+    /// identical to the spectrum image exported from the live analysis view.
+    /// Returns `nil` if the measurement contains no spectrum snapshot.
+    ///
+    /// - Parameter measurement: The saved measurement to render a chart for.
+    /// - Returns: PNG-encoded chart image, or `nil` if no snapshot is available.
+    @MainActor
+    static func renderSpectrumImage(for measurement: TapToneMeasurement) -> Data? {
+        let primarySnapshot = measurement.spectrumSnapshot ?? measurement.longitudinalSnapshot
+        guard let snap = primarySnapshot else { return nil }
+
+        var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
+        if let longSnap = measurement.longitudinalSnapshot {
+            materialSpectra.append((longSnap.magnitudes, longSnap.frequencies, .blue, "Longitudinal"))
+        }
+        if let crossSnap = measurement.crossSnapshot {
+            materialSpectra.append((crossSnap.magnitudes, crossSnap.frequencies, .orange, "Cross-grain"))
+        }
+        if let flcSnap = measurement.flcSnapshot {
+            materialSpectra.append((flcSnap.magnitudes, flcSnap.frequencies, .purple, "FLC"))
+        }
+
+        let measurementType = snap.measurementType ?? .classical
+
+        // Mirror TapToneAnalyzer.visiblePeaks: filter by annotationVisibilityMode and selectedPeakIDs
+        let allPeaks = measurement.peaks
+        let visibilityMode = measurement.annotationVisibilityMode ?? .all
+        let selectedIDs = Set(measurement.selectedPeakIDs ?? allPeaks.map { $0.id })
+        let visiblePeaks: [ResonantPeak]
+        switch visibilityMode {
+        case .all:      visiblePeaks = allPeaks
+        case .selected: visiblePeaks = allPeaks.filter { selectedIDs.contains($0.id) }
+        case .none:     visiblePeaks = []
+        }
+
+        let compositeView = makeExportableSpectrumView(
+            frequencies: snap.frequencies,
+            magnitudes: snap.magnitudes,
+            minFreq: snap.minFreq,
+            maxFreq: snap.maxFreq,
+            minDB: snap.minDB,
+            maxDB: snap.maxDB,
+            peaks: visiblePeaks,
+            annotationOffsets: measurement.peakAnnotationOffsets ?? [:],
+            showUnknownModes: snap.showUnknownModes,
+            measurementType: measurementType,
+            selectedLongitudinalPeakID: measurement.selectedLongitudinalPeakID,
+            selectedCrossPeakID: measurement.selectedCrossPeakID,
+            selectedFlcPeakID: measurement.selectedFlcPeakID,
+            modeOverrides: measurement.peakModeOverrides ?? [:],
+            materialSpectra: materialSpectra,
+            dateLabel: measurement.timestamp.formatted()
+        )
+
+        let renderer = ImageRenderer(content: compositeView)
+        renderer.scale = 2.0
+
+        #if os(iOS)
+        guard let uiImage = renderer.uiImage,
+              let pngData = uiImage.pngData() else { return nil }
+        return pngData
+        #elseif os(macOS)
+        guard let nsImage = renderer.nsImage,
+              let tiffData = nsImage.tiffRepresentation,
+              let bitmapImage = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmapImage.representation(using: .png, properties: [:]) else { return nil }
+        return pngData
+        #endif
     }
 }
 

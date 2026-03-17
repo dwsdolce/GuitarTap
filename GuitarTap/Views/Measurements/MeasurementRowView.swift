@@ -9,8 +9,8 @@
 ///
 /// Displays the tap location (or "Measurement" as a fallback), the timestamp
 /// formatted as a time string, peak count, and optional tap-tone ratio and
-/// decay time. Attachment indicators (photo, waveform) are shown when a
-/// chart image or spectrum snapshot is available.
+/// decay time. A waveform indicator is shown when a spectrum snapshot is
+/// available.
 ///
 /// Used by `MeasurementsListView` inside a `ForEach` loop.
 ///
@@ -55,12 +55,6 @@ struct MeasurementRowView: View {
                 
                 // Show indicators for attached data
                 HStack(spacing: 6) {
-                    if measurement.chartImageFilename != nil || measurement.chartImageData != nil {
-                        Image(systemName: "photo.fill")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                    }
-                    
                     if measurement.spectrumSnapshot != nil {
                         Image(systemName: "waveform")
                             .font(.caption)

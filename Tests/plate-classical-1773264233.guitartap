@@ -2,7 +2,6 @@
   {
     "annotationVisibilityMode" : "all",
     "calibrationName" : "7108913",
-    "chartImageFilename" : "plate-classical-1773264233.png",
     "crossSnapshot" : {
       "customPlateStiffness" : 75,
       "frequencies" : [
@@ -65587,6 +65586,7 @@
       "plateWidth" : 220.5,
       "showUnknownModes" : false
     },
+    "guitarType" : "Acoustic",
     "hysteresisMargin" : 3,
     "id" : "E6242442-CBBB-42D7-9CDC-CC0B3EDC5C6D",
     "longitudinalSnapshot" : {
@@ -98381,6 +98381,7 @@
       "plateWidth" : 220.5,
       "showUnknownModes" : false
     },
+    "measurementType" : "Material (Plate)",
     "microphoneName" : "Umik-1  Gain: 18dB",
     "microphoneUID" : "AppleUSBAudioEngine:miniDSP:Umik-1  Gain: 18dB:000-0000:1",
     "notes" : "Umik-1",
@@ -98395,6 +98396,7 @@
         "frequency" : 67.668175,
         "id" : "7418982B-F8DD-4916-91E0-42A3D718EE53",
         "magnitude" : -47.18981,
+        "modeLabel" : "Longitudinal",
         "pitchCents" : -41.1449731456785,
         "pitchFrequency" : 69.29565774421802,
         "pitchNote" : "C#2",
@@ -98406,6 +98408,7 @@
         "frequency" : 117.41098,
         "id" : "BD210AAC-6B00-45E4-B848-EBC93DF58A96",
         "magnitude" : -39.533115,
+        "modeLabel" : "Cross-grain",
         "pitchCents" : 12.876573475880464,
         "pitchFrequency" : 116.54094037952247,
         "pitchNote" : "A#2",
@@ -98417,6 +98420,7 @@
         "frequency" : 36.926853,
         "id" : "E0F383F2-C489-42A7-8247-7878FAFFEDDB",
         "magnitude" : -42.5868,
+        "modeLabel" : "FLC",
         "pitchCents" : 10.286447256391396,
         "pitchFrequency" : 36.70809598967595,
         "pitchNote" : "D1",

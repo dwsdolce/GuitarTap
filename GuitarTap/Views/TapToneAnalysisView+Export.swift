@@ -150,117 +150,24 @@ extension TapToneAnalysisView {
         }
     }
 
-    @ViewBuilder
     func createExportableSpectrumView() -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Guitar Tap Tone Analysis - Frequency Response")
-                    .font(.title)
-                    .fontWeight(.bold)
-
-                HStack {
-                    Text("Date: \(Date().formatted())")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    Text("Range: \(formatFrequency(minFreq)) - \(formatFrequency(maxFreq))")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-
-                    Text("•")
-                        .foregroundColor(.secondary)
-
-                    Text("\(Int(minDB)) to \(Int(maxDB)) dB")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                }
-
-                if !tap.currentPeaks.isEmpty {
-                    Text("Detected Peaks: \(tap.currentPeaks.count)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding()
-
-            // Chart - use static export version to avoid ImageRenderer issues
-            ExportableSpectrumChart(
-                frequencies: tap.isSpectrumFrozen ?
-                    tap.frozenFrequencies : fft.frequencies,
-                magnitudes: tap.isSpectrumFrozen ?
-                    tap.frozenMagnitudes : fft.magnitudes,
-                minFreq: minFreq,
-                maxFreq: maxFreq,
-                minDB: minDB,
-                maxDB: maxDB,
-                isLogarithmic: false,
-                peaks: tap.visiblePeaks,
-                showModeBoundaries: true,
-                annotationOffsets: tap.peakAnnotationOffsets,
-                showUnknownModes: TapDisplaySettings.showUnknownModes,
-                measurementType: TapDisplaySettings.measurementType,
-                selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
-                selectedCrossPeakID: tap.effectiveCrossPeakID,
-                selectedFlcPeakID: tap.effectiveFlcPeakID,
-                modeOverrides: tap.peakModeOverrides,
-                materialSpectra: materialSpectra
-            )
-            .frame(width: 1400, height: 800)
-            .padding()
-
-            // Peak Summary
-            if !tap.currentPeaks.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Detected Peaks Summary")
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    HStack(spacing: 20) {
-                        ForEach(tap.currentPeaks.prefix(8).sorted(by: { $0.frequency < $1.frequency })) { peak in
-                            let mode = GuitarMode.classify(frequency: peak.frequency)
-                            VStack(spacing: 4) {
-                                Text("\(peak.frequency, specifier: "%.1f") Hz")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                Text(mode.displayName)
-                                    .font(.caption2)
-                                    .foregroundColor(mode.color)
-                                Text("\(peak.magnitude, specifier: "%.1f") dB")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(8)
-                            .background(mode.color.opacity(0.1))
-                            .cornerRadius(6)
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-                .padding(.vertical, 8)
-            }
-
-            // Legend
-            HStack(spacing: 20) {
-                Text("Guitar Modes:")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-
-                ForEach([GuitarMode.air, .top, .back, .dipole, .ringMode], id: \.self) { mode in
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(mode.color)
-                            .frame(width: 12, height: 12)
-                        Text(mode.displayName)
-                            .font(.caption)
-                    }
-                }
-            }
-            .padding()
-        }
-        .background(Color.white)
-        .padding()
+        makeExportableSpectrumView(
+            frequencies: tap.isSpectrumFrozen ? tap.frozenFrequencies : fft.frequencies,
+            magnitudes: tap.isSpectrumFrozen ? tap.frozenMagnitudes : fft.magnitudes,
+            minFreq: minFreq,
+            maxFreq: maxFreq,
+            minDB: minDB,
+            maxDB: maxDB,
+            peaks: tap.visiblePeaks,
+            annotationOffsets: tap.peakAnnotationOffsets,
+            showUnknownModes: TapDisplaySettings.showUnknownModes,
+            measurementType: TapDisplaySettings.measurementType,
+            selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
+            selectedCrossPeakID: tap.effectiveCrossPeakID,
+            selectedFlcPeakID: tap.effectiveFlcPeakID,
+            modeOverrides: tap.peakModeOverrides,
+            materialSpectra: materialSpectra,
+            dateLabel: Date().formatted()
+        )
     }
 }
