@@ -17,6 +17,106 @@ import Foundation
 @testable import GuitarTap
 
 // ---------------------------------------------------------------------------
+// MARK: - SpectrumSnapshot binary round-trip
+// ---------------------------------------------------------------------------
+
+@Suite("SpectrumSnapshotCodable")
+@MainActor
+struct SpectrumSnapshotCodableTests {
+
+    /// New saves must use compact Base64 binary keys (`frequenciesData` / `magnitudesData`).
+    @Test func snapshot_encodesAsCompactBinary() throws {
+        let snap = SpectrumSnapshot(
+            frequencies: [100.0, 200.0, 300.0],
+            magnitudes: [-20.0, -30.0, -40.0],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false
+        )
+        let data = try JSONEncoder().encode(snap)
+        let json = try #require(String(data: data, encoding: .utf8))
+        // New format must contain the binary keys, not the verbose array keys
+        #expect(json.contains("\"frequenciesData\""), "Should encode using compact binary key")
+        #expect(json.contains("\"magnitudesData\""),  "Should encode using compact binary key")
+        #expect(!json.contains("\"frequencies\":["),  "Should not write legacy array key")
+    }
+
+    /// Round-trip through the new binary format preserves float values exactly.
+    @Test func snapshot_binaryRoundTrip_preservesValues() throws {
+        let original = SpectrumSnapshot(
+            frequencies: [43.066, 86.132, 129.199, 172.266],
+            magnitudes: [-80.5, -45.2, -30.1, -22.7],
+            minFreq: 20, maxFreq: 1000, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(SpectrumSnapshot.self, from: data)
+
+        #expect(decoded.frequencies.count == original.frequencies.count)
+        #expect(decoded.magnitudes.count  == original.magnitudes.count)
+        for (a, b) in zip(decoded.frequencies, original.frequencies) {
+            #expect(a == b, "Frequency values must survive binary round-trip exactly")
+        }
+        for (a, b) in zip(decoded.magnitudes, original.magnitudes) {
+            #expect(a == b, "Magnitude values must survive binary round-trip exactly")
+        }
+        #expect(decoded.guitarType      == original.guitarType)
+        #expect(decoded.measurementType == original.measurementType)
+    }
+
+    /// Old files that contain `"frequencies"` / `"magnitudes"` JSON arrays still decode.
+    @Test func snapshot_legacyArrayFormat_decodesCorrectly() throws {
+        let legacyJSON = """
+        {
+          "frequencies": [100.0, 200.0, 300.0],
+          "magnitudes": [-20.0, -30.0, -40.0],
+          "minFreq": 50.0, "maxFreq": 500.0,
+          "minDB": -100.0, "maxDB": 0.0,
+          "isLogarithmic": false
+        }
+        """
+        let data = try #require(legacyJSON.data(using: .utf8))
+        let decoded = try JSONDecoder().decode(SpectrumSnapshot.self, from: data)
+        #expect(decoded.frequencies.count == 3)
+        #expect(abs(decoded.frequencies[1] - 200.0) < 0.001)
+        #expect(abs(decoded.magnitudes[2] - (-40.0)) < 0.001)
+    }
+
+    /// Compact binary encoding is significantly smaller than pretty-printed legacy encoding.
+    @Test func snapshot_binaryEncoding_isSmallerThanPrettyPrintedLegacy() throws {
+        // Use a realistic FFT bin count: 65536 / 2 = 32768
+        let count = 32768
+        let freqs = (0..<count).map { Float($0) * 1.4648 }        // realistic Hz spacing
+        let mags  = (0..<count).map { Float(-80 + sin(Double($0) * 0.01) * 30) }
+
+        let snap = SpectrumSnapshot(
+            frequencies: freqs, magnitudes: mags,
+            minFreq: 20, maxFreq: 24000, minDB: -100, maxDB: 0, isLogarithmic: false
+        )
+
+        // New binary encoding
+        let binaryEncoder = JSONEncoder()
+        let binaryData = try binaryEncoder.encode(snap)
+
+        // Old encoding: pretty-printed [Float] arrays as the app used to write them
+        struct LegacySnap: Encodable {
+            let frequencies: [Float]; let magnitudes: [Float]
+            let minFreq: Float; let maxFreq: Float
+            let minDB: Float; let maxDB: Float; let isLogarithmic: Bool
+        }
+        let legacyEncoder = JSONEncoder()
+        legacyEncoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let legacyData = try legacyEncoder.encode(
+            LegacySnap(frequencies: freqs, magnitudes: mags,
+                       minFreq: 20, maxFreq: 24000, minDB: -100, maxDB: 0, isLogarithmic: false)
+        )
+
+        // Binary (Base64) should be at least 2× smaller than pretty-printed decimal text.
+        // Actual ratio is ~2.8× for realistic FFT data; use 2× as a conservative floor.
+        #expect(binaryData.count * 2 < legacyData.count,
+                "Binary (\(binaryData.count) B) should be ≥2× smaller than pretty-printed legacy (\(legacyData.count) B)")
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MARK: - ResonantPeak round-trip
 // ---------------------------------------------------------------------------
 

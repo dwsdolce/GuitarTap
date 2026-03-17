@@ -94,16 +94,20 @@ extension TapToneAnalyzer {
     /// and `importMeasurements` operation.
     func persistMeasurements() {
         let fileURL = TapToneAnalyzer.measurementsFileURL
-
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(savedMeasurements)
-            try data.write(to: fileURL)
-            print("💾 Persisted \(savedMeasurements.count) measurements to disk")
-        } catch {
-            print("❌ Failed to persist measurements: \(error)")
+        // Snapshot the array on the main thread; encoding + disk I/O run in background
+        // to avoid blocking the UI (spectrum data can be several MB).
+        let snapshot = savedMeasurements
+        DispatchQueue.global(qos: .utility).async {
+            do {
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                let data = try encoder.encode(snapshot)
+                try data.write(to: fileURL, options: .atomic)
+                print("💾 Persisted \(snapshot.count) measurements to disk")
+            } catch {
+                print("❌ Failed to persist measurements: \(error)")
+            }
         }
     }
 

@@ -476,8 +476,7 @@ private struct PDFReportContentView: View {
             reportImage(from: imageData)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: contentWidth)
-                .frame(maxHeight: 220)
+                .frame(width: contentWidth)
                 .background(Color(white: 0.05))
                 .cornerRadius(6)
         }

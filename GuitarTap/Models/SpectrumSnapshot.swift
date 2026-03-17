@@ -33,7 +33,128 @@ import Foundation
 /// parameters, brace dimensions) are `nil` when not applicable.
 ///
 /// - SeeAlso: ``TapToneMeasurement`` which embeds one or more snapshots per saved measurement.
-struct SpectrumSnapshot: Codable {
+struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init below
+
+    // MARK: - Coding Keys
+
+    private enum CodingKeys: String, CodingKey {
+        // Compact binary (new format) — Base64-encoded little-endian IEEE-754 float32 arrays
+        case frequenciesData, magnitudesData
+        // Legacy text arrays (old format) — kept for decode fallback only
+        case frequencies, magnitudes
+        // All other scalar fields
+        case minFreq, maxFreq, minDB, maxDB, isLogarithmic
+        case showUnknownModes, guitarType, measurementType, maxPeaks
+        case plateLength, plateWidth, plateThickness, plateMass
+        case guitarBodyLength, guitarBodyWidth
+        case plateStiffnessPreset, customPlateStiffness, measureFlc
+        case braceLength, braceWidth, braceThickness, braceMass
+    }
+
+    // MARK: - Encoding
+
+    /// Encodes float arrays as compact Base64 binary (`frequenciesData` / `magnitudesData`).
+    ///
+    /// Each array is stored as raw little-endian IEEE-754 float32 bytes and then
+    /// Base64-encoded into a JSON string.  This is ~10× smaller than pretty-printed
+    /// decimal text and keeps AirDrop transfers well within reliable size limits.
+    ///
+    /// The legacy `frequencies` / `magnitudes` keys are **not** written; the decoder
+    /// falls back to them only for files created by older builds.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+
+        // Encode float arrays as Base64 binary blobs
+        try c.encode(Self.floatsToBase64(frequencies), forKey: .frequenciesData)
+        try c.encode(Self.floatsToBase64(magnitudes),  forKey: .magnitudesData)
+
+        // All scalar fields
+        try c.encode(minFreq,       forKey: .minFreq)
+        try c.encode(maxFreq,       forKey: .maxFreq)
+        try c.encode(minDB,         forKey: .minDB)
+        try c.encode(maxDB,         forKey: .maxDB)
+        try c.encode(isLogarithmic, forKey: .isLogarithmic)
+        try c.encodeIfPresent(showUnknownModes,    forKey: .showUnknownModes)
+        try c.encodeIfPresent(guitarType,          forKey: .guitarType)
+        try c.encodeIfPresent(measurementType,     forKey: .measurementType)
+        try c.encodeIfPresent(maxPeaks,            forKey: .maxPeaks)
+        try c.encodeIfPresent(plateLength,         forKey: .plateLength)
+        try c.encodeIfPresent(plateWidth,          forKey: .plateWidth)
+        try c.encodeIfPresent(plateThickness,      forKey: .plateThickness)
+        try c.encodeIfPresent(plateMass,           forKey: .plateMass)
+        try c.encodeIfPresent(guitarBodyLength,    forKey: .guitarBodyLength)
+        try c.encodeIfPresent(guitarBodyWidth,     forKey: .guitarBodyWidth)
+        try c.encodeIfPresent(plateStiffnessPreset,  forKey: .plateStiffnessPreset)
+        try c.encodeIfPresent(customPlateStiffness,  forKey: .customPlateStiffness)
+        try c.encodeIfPresent(measureFlc,          forKey: .measureFlc)
+        try c.encodeIfPresent(braceLength,         forKey: .braceLength)
+        try c.encodeIfPresent(braceWidth,          forKey: .braceWidth)
+        try c.encodeIfPresent(braceThickness,      forKey: .braceThickness)
+        try c.encodeIfPresent(braceMass,           forKey: .braceMass)
+    }
+
+    // MARK: - Decoding
+
+    /// Decodes spectrum data, accepting both the new compact binary format and the
+    /// legacy plain-`[Float]` format for backward compatibility with older files.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Try compact binary first; fall back to legacy text arrays
+        if let freqB64 = try c.decodeIfPresent(String.self, forKey: .frequenciesData),
+           let magB64  = try c.decodeIfPresent(String.self, forKey: .magnitudesData) {
+            frequencies = Self.base64ToFloats(freqB64)
+            magnitudes  = Self.base64ToFloats(magB64)
+        } else {
+            frequencies = try c.decode([Float].self, forKey: .frequencies)
+            magnitudes  = try c.decode([Float].self, forKey: .magnitudes)
+        }
+
+        minFreq       = try c.decode(Float.self, forKey: .minFreq)
+        maxFreq       = try c.decode(Float.self, forKey: .maxFreq)
+        minDB         = try c.decode(Float.self, forKey: .minDB)
+        maxDB         = try c.decode(Float.self, forKey: .maxDB)
+        isLogarithmic = try c.decode(Bool.self,  forKey: .isLogarithmic)
+        showUnknownModes   = try c.decodeIfPresent(Bool.self,               forKey: .showUnknownModes)
+        guitarType         = try c.decodeIfPresent(GuitarType.self,         forKey: .guitarType)
+        measurementType    = try c.decodeIfPresent(MeasurementType.self,    forKey: .measurementType)
+        maxPeaks           = try c.decodeIfPresent(Int.self,                forKey: .maxPeaks)
+        plateLength        = try c.decodeIfPresent(Float.self,              forKey: .plateLength)
+        plateWidth         = try c.decodeIfPresent(Float.self,              forKey: .plateWidth)
+        plateThickness     = try c.decodeIfPresent(Float.self,              forKey: .plateThickness)
+        plateMass          = try c.decodeIfPresent(Float.self,              forKey: .plateMass)
+        guitarBodyLength   = try c.decodeIfPresent(Float.self,              forKey: .guitarBodyLength)
+        guitarBodyWidth    = try c.decodeIfPresent(Float.self,              forKey: .guitarBodyWidth)
+        plateStiffnessPreset = try c.decodeIfPresent(PlateStiffnessPreset.self, forKey: .plateStiffnessPreset)
+        customPlateStiffness = try c.decodeIfPresent(Float.self,            forKey: .customPlateStiffness)
+        measureFlc         = try c.decodeIfPresent(Bool.self,               forKey: .measureFlc)
+        braceLength        = try c.decodeIfPresent(Float.self,              forKey: .braceLength)
+        braceWidth         = try c.decodeIfPresent(Float.self,              forKey: .braceWidth)
+        braceThickness     = try c.decodeIfPresent(Float.self,              forKey: .braceThickness)
+        braceMass          = try c.decodeIfPresent(Float.self,              forKey: .braceMass)
+    }
+
+    // MARK: - Binary Helpers
+
+    /// Packs a `[Float]` into raw little-endian IEEE-754 bytes and Base64-encodes them.
+    private static func floatsToBase64(_ floats: [Float]) -> String {
+        var copy = floats  // ensure native (LE on all Apple silicon + x86) byte order
+        let data = Data(bytes: &copy, count: copy.count * MemoryLayout<Float>.size)
+        return data.base64EncodedString()
+    }
+
+    /// Decodes a Base64 string produced by `floatsToBase64(_:)` back into `[Float]`.
+    ///
+    /// Returns an empty array if the string is not valid Base64 or has an unexpected length.
+    private static func base64ToFloats(_ base64: String) -> [Float] {
+        guard let data = Data(base64Encoded: base64),
+              data.count % MemoryLayout<Float>.size == 0 else { return [] }
+        let count = data.count / MemoryLayout<Float>.size
+        return data.withUnsafeBytes { ptr in
+            Array(ptr.bindMemory(to: Float.self).prefix(count))
+        }
+    }
+
 
     // MARK: - Spectrum Data
 

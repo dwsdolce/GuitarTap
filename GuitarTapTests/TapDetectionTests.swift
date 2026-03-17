@@ -24,6 +24,7 @@ import Foundation
 
 /// Build a non-running TapToneAnalyzer in guitar mode (absolute threshold)
 /// with its warm-up period satisfied so detectTap can fire.
+@MainActor
 private func makeSUT(
     threshold: Float = -40,
     hysteresis: Float = 5,
@@ -44,8 +45,9 @@ private func makeSUT(
     // Disconnect Combine subscriptions so that the $magnitudes publisher
     // cannot fire analyzeMagnitudes (which resets tapDetected when isRunning==false)
     // between detectTap() returning and the #expect assertion reading the value.
-    // On device with Swift Testing on the main thread, queued main-actor Combine
-    // deliveries drain before the next statement when the test is already on main.
+    // @MainActor on the suite ensures tests run on the main thread, so all
+    // DispatchQueue.main deliveries queued during init() have already drained
+    // before we reach cancellables.removeAll().
     sut.cancellables.removeAll()
     return sut
 }
@@ -59,6 +61,7 @@ private let fakeFreqs: [Float] = (0..<64).map { Float($0) * 375 }
 // ---------------------------------------------------------------------------
 
 @Suite("TapDetection", .serialized)
+@MainActor
 struct TapDetectionTests {
 
     // Save and restore measurementType around every test so that concurrent

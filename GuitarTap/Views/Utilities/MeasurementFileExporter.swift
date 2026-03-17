@@ -111,10 +111,21 @@ struct MeasurementFileExporter {
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
                 do {
-                    try data.write(to: url)
+                    // Write atomically via a temp file so that if the destination is
+                    // already open in another application (e.g. Acrobat) the write
+                    // either succeeds cleanly or throws a meaningful error.
+                    try data.write(to: url, options: .atomic)
                     print("✅ Saved PDF report to: \(url.path)")
                 } catch {
                     print("❌ Failed to save PDF: \(error)")
+                    DispatchQueue.main.async {
+                        let alert = NSAlert()
+                        alert.alertStyle = .warning
+                        alert.messageText = "Could Not Save PDF"
+                        alert.informativeText = "The file may be open in another application. Close it and try again.\n\n\(error.localizedDescription)"
+                        alert.addButton(withTitle: "OK")
+                        alert.runModal()
+                    }
                 }
             }
             completion()
