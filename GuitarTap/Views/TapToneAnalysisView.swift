@@ -552,10 +552,17 @@ struct TapToneAnalysisView: View {
                     UIApplication.shared.open(url)
                 }
                 #elseif os(macOS)
-                // New string
-                if let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone"
-                ) {
-                    NSWorkspace.shared.open(url)
+                // The newer .extension URL is unreliable on non-developer/non-admin accounts
+                // (can route to wrong pane). The legacy preference: scheme works consistently
+                // across all account types on macOS Ventura, Sonoma, and Sequoia.
+                let micPrivacyURLs = [
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+                    "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone"
+                ]
+                for urlString in micPrivacyURLs {
+                    if let url = URL(string: urlString), NSWorkspace.shared.open(url) {
+                        break
+                    }
                 }
                 #endif
             }
