@@ -41,16 +41,9 @@ extension TapToneAnalysisView {
             // Top row: Main controls - adaptive for iOS
             #if os(iOS)
             if useCompactLayout {
-                // iPhone portrait: icon-only button bar (all buttons except Start/Results/Metrics/Settings which are in the nav bar)
+                // iPhone portrait: icon-only button bar (all buttons except Start/Results/AutodB/Metrics/Settings which are in the nav bar)
                 HStack(spacing: 8) {
                     Spacer()
-
-                    Button(action: { toggleAutoScale() }) {
-                        Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.blue)
-                    .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                     Button(action: { crosshairMode.toggle() }) {
                         Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")

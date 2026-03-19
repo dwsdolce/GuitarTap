@@ -126,6 +126,9 @@ struct TapToneAnalysisView: View {
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.verticalSizeClass) var verticalSizeClass
     @Environment(\.displayScale) var displayScale
+    #if os(iOS)
+    @Environment(\.scenePhase) var scenePhase
+    #endif
 
     /// Returns true if running on iPhone (not iPad)
     var isPhone: Bool {
@@ -552,6 +555,43 @@ struct TapToneAnalysisView: View {
             if isDenied {
                 showingMicrophonePermissionAlert = true
                 fftAnalyzer.microphonePermissionDenied = false
+            }
+        }
+        #endif
+        #if os(iOS)
+        // Stop the engine when the app moves to the background (iOS will suspend audio anyway,
+        // and keeping AVAudioEngine running burns battery and risks an OS kill).
+        // Restart automatically when the scene becomes active again.
+        // Note: .inactive fires for many transient system overlays (alerts, Control Centre,
+        // notifications) — stopping/restarting on those causes a false tap from the audio
+        // engine reinitialising.  Only .background signals a genuine move out of foreground.
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .background:
+                if fft.isRunning {
+                    tap.stop()
+                }
+            case .active:
+                if !fft.isRunning {
+                    toggleAnalyzer()
+                }
+            default:
+                break
+            }
+        }
+        #endif
+        #if os(macOS)
+        // Stop the engine when the window is minimized to the Dock and restart when restored.
+        // This mirrors the iOS background behaviour and avoids unnecessary CPU/audio use
+        // while the window is hidden.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { _ in
+            if fft.isRunning {
+                tap.stop()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification)) { _ in
+            if !fft.isRunning {
+                startAnalyzer()
             }
         }
         #endif

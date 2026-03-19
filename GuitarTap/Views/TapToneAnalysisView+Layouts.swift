@@ -316,15 +316,8 @@ extension TapToneAnalysisView {
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Left: Start, Results, Auto dB, Crosshair
+            // Left: Results, Auto dB, Crosshair, Annotations
             ToolbarItemGroup(placement: .topBarLeading) {
-                Button(action: toggleAnalyzer) {
-                    Image(systemName: fft.isRunning ? "stop.circle.fill" : "play.circle.fill")
-                        .foregroundColor(fft.isRunning ? .red : .green)
-                }
-                .accessibilityLabel(fft.isRunning ? "Stop" : "Start")
-                .hint(HintText.start(isRunning: fft.isRunning))
-
                 Button(action: { showingResults.toggle() }) {
                     Image(systemName: "doc.text")
                 }
@@ -343,17 +336,17 @@ extension TapToneAnalysisView {
                 }
                 .tint(crosshairMode ? .blue : nil)
                 .accessibilityLabel("Crosshair")
-            }
 
-            // Right: Annotations, Save, Measurements, Metrics, Settings
-            ToolbarItemGroup(placement: .topBarTrailing) {
                 Button(action: { tap.cycleAnnotationVisibility() }) {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
                 .tint(.blue)
                 .disabled(tap.currentPeaks.isEmpty)
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
+            }
 
+            // Right: Save, Measurements, Metrics, Settings
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 Button(action: { showingSaveSheet = true }) {
                     Image(systemName: "square.and.arrow.down")
                 }
@@ -570,20 +563,20 @@ extension TapToneAnalysisView {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if useCompactLayout {
-                // Left: Start, Results
+                // Left: Results, Auto dB
                 ToolbarItemGroup(placement: .topBarLeading) {
-                    Button(action: toggleAnalyzer) {
-                        Image(systemName: fft.isRunning ? "stop.circle.fill" : "play.circle.fill")
-                            .foregroundColor(fft.isRunning ? .red : .green)
-                    }
-                    .accessibilityLabel(fft.isRunning ? "Stop" : "Start")
-                    .hint(HintText.start(isRunning: fft.isRunning))
-
                     Button(action: { showingResults.toggle() }) {
                         Image(systemName: "doc.text")
                     }
                     .accessibilityLabel("Results")
                     .hint(HintText.showResults)
+
+                    Button(action: { toggleAutoScale() }) {
+                        Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                    }
+                    .tint(.blue)
+                    .accessibilityLabel("Auto dB")
+                    .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
                 }
 
                 // Right: Metrics, Settings
