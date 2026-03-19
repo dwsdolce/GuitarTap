@@ -180,7 +180,7 @@ The ellipsis button in the top-right corner of the spectrum opens the Chart Opti
 
 ### ![](/tmp/guitar-tap-symbols/info.circle.png){height=14pt width=14pt} ⓘ Zoom & Pan Help *(macOS only)*
 
-The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.
+The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom of both axes or each individual axis (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.
 
 ## ![](/tmp/guitar-tap-symbols/slider.horizontal.3.png){height=18pt width=18pt} Tap Controls (main view)
 
@@ -270,7 +270,7 @@ Each saved measurement can generate a PDF report containing the spectrum chart, 
 
 ### ![](/tmp/guitar-tap-symbols/ellipsis.circle.png){height=14pt width=14pt} Zooming the Spectrum *(iOS only)*
 
-Pinch to zoom both axes and drag to pan within the chart. To reset the axes, tap the … button in the top-right corner of the spectrum and choose Reset to Saved or Reset to Defaults.
+Pinch to zoom both axes or each individual axis and drag to pan within the chart or on an axis to pan that axis. To reset the axes, tap the … button in the top-right corner of the spectrum and choose Reset to Saved or Reset to Defaults.
 
 ### ![](/tmp/guitar-tap-symbols/info.circle.png){height=14pt width=14pt} Zooming the Spectrum *(macOS only)*
 

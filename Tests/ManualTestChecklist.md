@@ -334,7 +334,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - [ ] Place two fingers near the centre of the chart
 - [ ] Spread fingers apart
 - [ ] Verify the frequency axis zooms out and the range widens
-- [ ] Confirm the range cannot exceed 20–20000 Hz
+- [ ] Confirm the range cannot exceed 0–5000 Hz (linear scale) or 20–5000 Hz (logarithmic scale)
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 

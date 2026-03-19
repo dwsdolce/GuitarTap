@@ -231,7 +231,48 @@ struct SpectrumView: View {
 
     /// Which chart region the pointer is currently over. Updated on every hover tick.
     /// Used by the scroll-wheel handler to decide which axis to operate on.
-    @State private var currentPointerRegion: PointerRegion = .outside
+    @State var currentPointerRegion: PointerRegion = .outside
+
+    /// Estimated hit rects for visible annotation labels, used by onContinuousHover
+    /// to set the openHand cursor. Computed from label positions + a fixed size estimate.
+    /// Uses the same position logic as DraggablePeakAnnotation.calculateChartPosition().
+    func annotationLabelRects(in plotFrame: CGRect) -> [CGRect] {
+        guard let offsets = annotationOffsets else { return [] }
+        let labelSize = CGSize(width: 100, height: 80) // conservative estimate
+        return visiblePeaks.compactMap { peak -> CGRect? in
+            let freqRange = CGFloat(maxFreq - minFreq)
+            let dbRange   = CGFloat(maxDB   - minDB)
+            guard plotFrame.width > 0, plotFrame.height > 0,
+                  freqRange > 0, dbRange > 0 else { return nil }
+            // X from frequency
+            let freqNormalized: CGFloat
+            if isLogarithmic {
+                let logMin = log10(Double(minFreq))
+                let logMax = log10(Double(maxFreq))
+                let logRange = logMax - logMin
+                guard logRange > 0, minFreq > 0, maxFreq > 0 else { return nil }
+                freqNormalized = CGFloat((log10(Double(peak.frequency)) - logMin) / logRange)
+            } else {
+                freqNormalized = CGFloat((peak.frequency - minFreq)) / freqRange
+            }
+            let baseX = plotFrame.minX + freqNormalized * plotFrame.width
+            // Y from magnitude (inverted, offset up 70pt for default label position)
+            let clampedMag = max(minDB, min(maxDB, peak.magnitude))
+            let dbNormalized = CGFloat(clampedMag - minDB) / dbRange
+            let baseY = plotFrame.minY + (1.0 - dbNormalized) * plotFrame.height - 70
+            // Apply persisted data-space offset
+            let storedOffset = offsets.wrappedValue[peak.id] ?? .zero
+            let pixelOffsetX = (CGFloat(storedOffset.x) / freqRange) * plotFrame.width
+            let pixelOffsetY = (CGFloat(storedOffset.y) / dbRange)   * plotFrame.height
+            let centre = CGPoint(x: baseX + pixelOffsetX, y: baseY + pixelOffsetY)
+            return CGRect(
+                x: centre.x - labelSize.width  / 2,
+                y: centre.y - labelSize.height / 2,
+                width:  labelSize.width,
+                height: labelSize.height
+            )
+        }
+    }
 
     #else
     /// Whether the iOS chart options sheet is showing
@@ -338,9 +379,9 @@ struct SpectrumView: View {
                         .contentShape(Rectangle())
                         .onHover { hovering in
                             if hovering {
-                                NSCursor.pointingHand.push()
+                                NSCursor.pointingHand.set()
                             } else {
-                                NSCursor.pop()
+                                NSCursor.arrow.set()
                             }
                         }
                 }
@@ -468,34 +509,12 @@ struct SpectrumView: View {
             #if os(macOS)
             .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
             .simultaneousGesture(isAnnotationDragging ? nil : panGesture)
-            // Outer hover covers the full chart frame (plot + axis label areas) so the cursor
-            // shape changes over the axes too — not just over the plot overlay.
-            // Outer hover: cursor shape only. Does NOT update lastCursorPosition because
-            // the outer hover fires in chartView-local coordinates, which differ from the
-            // overlay-local coordinates that plotFrame is expressed in. lastCursorPosition
-            // is kept in overlay-local space by the inner overlay hover.
+            // Outer hover: tracks when pointer leaves the chart entirely.
+            // Cursor restore on exit: NSCursor.arrow is set by the outer .onContinuousHover .ended handler.
             .onContinuousHover { phase in
-                switch phase {
-                case .active(let location):
-                    guard lastPlotFrame != .zero else { return }
-                    let region = pointerRegion(at: location, plotFrame: lastPlotFrame)
-                    if region != currentPointerRegion {
-                        NSCursor.pop()
-                        switch region {
-                        case .plot:
-                            NSCursor.crosshair.push()
-                        case .xAxis:
-                            NSCursor.resizeLeftRight.push()
-                        case .yAxis:
-                            NSCursor.resizeUpDown.push()
-                        case .outside:
-                            break
-                        }
-                        currentPointerRegion = region
-                    }
-                case .ended:
-                    NSCursor.pop()
+                if case .ended = phase {
                     currentPointerRegion = .outside
+                    lastCursorPosition = nil
                 }
             }
             #else
@@ -526,9 +545,11 @@ struct SpectrumView: View {
                 // UnitPoint anchor to data coordinates without a ChartProxy reference.
                 let _ = { DispatchQueue.main.async { lastPlotFrame = resolvedPlotFrame } }()
                 ZStack {
-                    // Non-hittable background so events reach annotation label children
-                    Color.clear
-                        .allowsHitTesting(false)
+                    // Transparent fill ensures this ZStack always has a hittable frame,
+                    // even when no annotation labels are rendered (visiblePeaks is empty).
+                    // Required for onContinuousHover to fire in all annotation-visibility states.
+                    Rectangle()
+                        .fill(Color.clear)
 
                     PeakAnnotationsOverlay(
                         peaks: visiblePeaks,
@@ -562,18 +583,28 @@ struct SpectrumView: View {
                     }
                     #endif
                 }
-                // contentShape makes the ZStack hittable so gestures below fire on empty areas
+                // contentShape ensures the ZStack is hittable even when empty (no annotation labels).
+                // This is required for onContinuousHover to fire reliably.
                 .contentShape(Rectangle())
                 #if os(macOS)
-                // Inner overlay hover: tracks lastCursorPosition and snap readout.
-                // This fires in overlay-local coordinates, which is the same space as
-                // resolvedPlotFrame, so the scroll-wheel zoom anchor is correct.
-                // Cursor shape is handled by the outer chartView hover.
+                // Hover handler: sets cursor on mouse move and tracks position/snap state.
                 .onContinuousHover { phase in
                     switch phase {
                     case .active(let location):
-                        // Always track position for scroll-wheel zoom anchor (overlay-local coords).
                         lastCursorPosition = location
+                        let region = pointerRegion(at: location, plotFrame: resolvedPlotFrame)
+                        currentPointerRegion = region
+                        let overLabel = annotationLabelRects(in: resolvedPlotFrame).contains { $0.contains(location) }
+                        if overLabel {
+                            NSCursor.openHand.set()
+                        } else {
+                            switch region {
+                            case .plot:    NSCursor.crosshair.set()
+                            case .xAxis:   NSCursor.resizeLeftRight.set()
+                            case .yAxis:   NSCursor.resizeUpDown.set()
+                            case .outside: NSCursor.arrow.set()
+                            }
+                        }
                         guard resolvedPlotFrame.contains(location) else {
                             isCursorVisible = false
                             cursorSnapState = nil
@@ -674,11 +705,25 @@ struct SpectrumView: View {
                 )
                 #endif
                 #if os(macOS)
-                // Scroll-wheel zoom/pan — placed here so proxy and resolvedPlotFrame are in scope,
-                // allowing anchor-aware zoom around the cursor position.
-                .onScrollWheel { event in
+                // Scroll-wheel zoom/pan. The cursorHandler is called on every mouse-moved
+                // event while inside bounds, re-asserting the correct cursor after SwiftUI
+                // re-renders (triggered by zoom/pan) reset it to the system arrow.
+                .onScrollWheel({ event in
                     handleScrollWheel(event: event, plotFrame: resolvedPlotFrame, proxy: proxy)
-                }
+                }, cursorHandler: { point in
+                    let cgPoint = CGPoint(x: point.x, y: point.y)
+                    let overLabel = annotationLabelRects(in: resolvedPlotFrame).contains { $0.contains(cgPoint) }
+                    if overLabel {
+                        NSCursor.openHand.set()
+                    } else {
+                        switch pointerRegion(at: cgPoint, plotFrame: resolvedPlotFrame) {
+                        case .plot:    NSCursor.crosshair.set()
+                        case .xAxis:   NSCursor.resizeLeftRight.set()
+                        case .yAxis:   NSCursor.resizeUpDown.set()
+                        case .outside: NSCursor.arrow.set()
+                        }
+                    }
+                })
                 #endif
             }
         }

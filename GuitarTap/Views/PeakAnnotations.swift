@@ -96,6 +96,7 @@ struct PeakAnnotationsOverlay: View {
         ZStack {
             ForEach(peaks) { peak in
                 DraggablePeakAnnotation(
+
                     peak: peak,
                     offset: annotationOffsets.wrappedValue[peak.id] ?? .zero,
                     chartGeometry: geometry,
@@ -327,7 +328,7 @@ struct DraggablePeakAnnotation: View {
     var body: some View {
         // Separate the connection line and label into distinct layers
         ZStack(alignment: .topLeading) {
-            // Connection line layer - always show when we have valid positions
+            // Connection line layer - never hittable (visual only)
             if peakPosition.x.isFinite && peakPosition.y.isFinite &&
                chartPosition.x.isFinite && chartPosition.y.isFinite &&
                chartPosition != .zero {
@@ -339,9 +340,12 @@ struct DraggablePeakAnnotation: View {
                     ),
                     color: modeColor
                 )
+                .allowsHitTesting(false)
             }
 
-            // The annotation content - positioned independently
+            // The annotation content - positioned independently.
+            // The GeometryReader background is applied BEFORE .position() so it measures
+            // the label's natural size (not the full parent frame).
             PeakAnnotationLabel(
                 peak: peak,
                 modeColor: modeColor,
@@ -364,30 +368,37 @@ struct DraggablePeakAnnotation: View {
                             // Freeze positions at drag start so they don't shift mid-gesture
                             frozenChartPosition = calculateChartPosition()
                             frozenPeakPosition = calculatePeakPosition()
+                            #if os(macOS)
+                            NSCursor.closedHand.set()
+                            #endif
                         }
                         dragOffset = value.translation
                     }
                     .onEnded { value in
-                        // Accumulated pixel delta (existing data-space offset converted back
-                        // to pixels in finalPosition, so we add translation directly here)
-                        let pixelX = offset.x + value.translation.width
-                        let pixelY = offset.y + value.translation.height
-
-                        // Convert to data-space (Hz delta, dB delta) for platform-independent storage.
-                        // Guard against degenerate frames; if conversion is impossible keep zero.
-                        let dataOffset: CGPoint
+                        // `offset` is stored in data-space (Hz delta, dB delta).
+                        // Convert it back to pixels, add the drag translation, then
+                        // convert the total back to data-space for storage.
                         let freqRange = CGFloat(maxFreq - minFreq)
                         let dbRange   = CGFloat(maxDB   - minDB)
+                        let dataOffset: CGPoint
                         if plotFrame.width > 0, plotFrame.height > 0, freqRange > 0, dbRange > 0 {
+                            let existingPixelX = (CGFloat(offset.x) / freqRange) * plotFrame.width
+                            let existingPixelY = (CGFloat(offset.y) / dbRange)   * plotFrame.height
+                            let totalPixelX = existingPixelX + value.translation.width
+                            let totalPixelY = existingPixelY + value.translation.height
                             dataOffset = CGPoint(
-                                x: (pixelX / plotFrame.width)  * freqRange,
-                                y: (pixelY / plotFrame.height) * dbRange
+                                x: (totalPixelX / plotFrame.width)  * freqRange,
+                                y: (totalPixelY / plotFrame.height) * dbRange
                             )
                         } else {
                             dataOffset = .zero
                         }
 
                         // Disable animation for smoother dragging
+                        #if os(macOS)
+                        // Restore open-hand cursor after drag ends (pointer is still over the label)
+                        NSCursor.openHand.set()
+                        #endif
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
@@ -409,13 +420,8 @@ struct DraggablePeakAnnotation: View {
             )
             #endif
             .onHover { hovering in
-                withAnimation(.none) {
-                    isHovering = hovering
-                }
+                withAnimation(.none) { isHovering = hovering }
             }
-            #if os(macOS)
-            .cursor(NSCursor.openHand)
-            #endif
             .contextMenu {
                 Button(action: onReset) {
                     Label("Reset Position", systemImage: "arrow.counterclockwise")

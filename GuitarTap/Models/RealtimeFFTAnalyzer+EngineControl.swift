@@ -186,8 +186,6 @@ extension RealtimeFFTAnalyzer {
             )
         }
         
-        let effectiveSampleRate = useHardwareSampleRate ? actualSampleRate : targetSampleRate
-
         // Create tap format matching hardware (use hardware channel count)
         // WORKAROUND: Some USB mics report 2 channels but are actually mono
         // If we detect this situation, force to 1 channel

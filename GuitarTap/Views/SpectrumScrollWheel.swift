@@ -46,10 +46,13 @@ import AppKit
 private struct ScrollWheelModifier: ViewModifier {
     /// The handler to invoke when a scroll wheel event is captured.
     let onScrollWheel: (NSEvent) -> Void
+    /// Called with the current mouse position (in the view's coordinate space)
+    /// on every mouse-moved event. Use this to keep the cursor shape current.
+    var cursorHandler: ((NSPoint) -> Void)?
 
     func body(content: Content) -> some View {
         content.background(
-            ScrollWheelMonitorView(onScrollWheel: onScrollWheel)
+            ScrollWheelMonitorView(onScrollWheel: onScrollWheel, cursorHandler: cursorHandler)
         )
     }
 }
@@ -59,72 +62,102 @@ private struct ScrollWheelModifier: ViewModifier {
 private struct ScrollWheelMonitorView: NSViewRepresentable {
     /// The closure forwarded to the `ScrollWheelHostView`'s event monitor.
     let onScrollWheel: (NSEvent) -> Void
+    /// Called with the mouse position on every mouse-moved event while inside bounds.
+    var cursorHandler: ((NSPoint) -> Void)?
 
     func makeNSView(context: Context) -> ScrollWheelHostView {
         let view = ScrollWheelHostView()
         view.scrollHandler = onScrollWheel
+        view.cursorHandler = cursorHandler
         return view
     }
 
     func updateNSView(_ nsView: ScrollWheelHostView, context: Context) {
         nsView.scrollHandler = onScrollWheel
+        nsView.cursorHandler = cursorHandler
     }
 }
 
-/// `NSView` that installs a local `NSEvent` monitor for scroll wheel events and
-/// forwards them to `scrollHandler` only while the mouse is inside its bounds
-/// and in the same window.
+/// `NSView` that installs local `NSEvent` monitors for scroll wheel and mouse-moved
+/// events and forwards them to handler closures only while the mouse is inside its
+/// bounds and in the same window.
 ///
-/// The monitor is installed in `setupEventMonitor()` during `init` and removed
-/// in `deinit`.  A tracking area covering the full bounds triggers
-/// `mouseEntered` / `mouseExited` to gate event delivery.
+/// The monitors are installed during `init` and removed in `deinit`.  A tracking
+/// area covering the full bounds triggers `mouseEntered` / `mouseExited` to gate
+/// event delivery.
+///
+/// **Cursor management**: `cursorHandler` is called on every mouse-moved event
+/// (and mouse-entered) while inside bounds.  This keeps the cursor shape correct
+/// even when SwiftUI re-renders (e.g. after scroll-wheel zoom) reset the system
+/// cursor — the next mouse-moved event immediately re-asserts the right cursor.
 ///
 /// - Note: `hitTest(_:)` returns `nil` so the view is invisible to AppKit's
 ///   normal hit-testing, leaving SwiftUI gesture recognisers unaffected.
 class ScrollWheelHostView: NSView {
     /// Closure called when a qualifying scroll wheel event is captured.
     var scrollHandler: ((NSEvent) -> Void)?
-    /// The registered local event monitor token; retained until `deinit`.
-    private var eventMonitor: Any?
+    /// Closure called with the current mouse position (in view coordinates,
+    /// y=0 at top) on every mouse-moved event while inside bounds.
+    var cursorHandler: ((NSPoint) -> Void)?
+
+    /// The registered local event monitor tokens; retained until `deinit`.
+    private var scrollMonitor: Any?
+    private var mouseMovedMonitor: Any?
     /// `true` while the mouse cursor is inside this view's bounds.
     private var isMouseInside = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        setupEventMonitor()
+        setupEventMonitors()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private func setupEventMonitor() {
+    private func setupEventMonitors() {
         // Monitor scroll wheel events at the application level
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
             guard let self = self, self.isMouseInside else {
                 return event  // Pass through if mouse not in our view
             }
-
-            // Check if the event's window is our window
             guard event.window == self.window else {
                 return event
             }
-
-            // Handle the scroll event
             self.scrollHandler?(event)
-
             // Return nil to prevent further propagation (consume the event)
             return nil
         }
+
+        // Monitor mouse-moved events to keep the cursor shape correct.
+        // SwiftUI re-renders (e.g. after scroll-wheel zoom) reset the system cursor
+        // to the default arrow. The next mouse-moved event re-asserts the right cursor
+        // via cursorHandler, so the flicker window is at most one mouse-move tick.
+        mouseMovedMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] event in
+            guard let self = self, self.isMouseInside, event.window == self.window else {
+                return event
+            }
+            // Convert screen-relative event location to our flipped view coordinates
+            if let point = self.mousePositionInView() {
+                self.cursorHandler?(point)
+            }
+            return event  // Don't consume mouse-moved events
+        }
+    }
+
+    /// Returns the current mouse position in this view's coordinate space (y=0 at top).
+    private func mousePositionInView() -> NSPoint? {
+        guard let window = window else { return nil }
+        let screenPoint = NSEvent.mouseLocation
+        let windowPoint = window.convertPoint(fromScreen: screenPoint)
+        // Convert from AppKit's flipped-false window coords to our flipped view coords
+        let viewPoint = convert(windowPoint, from: nil)
+        return viewPoint
     }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-
-        // Remove old tracking areas
         trackingAreas.forEach { removeTrackingArea($0) }
-
-        // Add new tracking area
         let trackingArea = NSTrackingArea(
             rect: bounds,
             options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect],
@@ -136,11 +169,18 @@ class ScrollWheelHostView: NSView {
 
     override func mouseEntered(with event: NSEvent) {
         isMouseInside = true
+        // Re-assert cursor immediately on entry in case it reset during a re-render
+        if let point = mousePositionInView() {
+            cursorHandler?(point)
+        }
     }
 
     override func mouseExited(with event: NSEvent) {
         isMouseInside = false
     }
+
+    /// Use flipped coordinates so positions match SwiftUI's coordinate space (y=0 at top).
+    override var isFlipped: Bool { true }
 
     // Return nil to be transparent to hit testing (allows SwiftUI gestures to work)
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -148,11 +188,12 @@ class ScrollWheelHostView: NSView {
     }
 
     deinit {
-        if let monitor = eventMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
+        if let monitor = scrollMonitor { NSEvent.removeMonitor(monitor) }
+        if let monitor = mouseMovedMonitor { NSEvent.removeMonitor(monitor) }
     }
 }
+
+
 
 extension View {
     /// Attaches a scroll wheel event handler to a view on macOS.
@@ -165,9 +206,14 @@ extension View {
     /// same window; they are consumed and not propagated further.
     ///
     /// - Parameter handler: Closure invoked with each captured scroll wheel event.
+    /// - Parameter cursorHandler: Optional closure invoked on every mouse-moved event
+    ///   while the mouse is inside the view. Receives the position in the view's
+    ///   coordinate space (y=0 at top). Use this to keep the cursor shape correct
+    ///   after SwiftUI re-renders triggered by scroll-wheel zoom.
     /// - Returns: The view with scroll wheel monitoring installed.
-    func onScrollWheel(_ handler: @escaping (NSEvent) -> Void) -> some View {
-        self.modifier(ScrollWheelModifier(onScrollWheel: handler))
+    func onScrollWheel(_ handler: @escaping (NSEvent) -> Void,
+                       cursorHandler: ((NSPoint) -> Void)? = nil) -> some View {
+        self.modifier(ScrollWheelModifier(onScrollWheel: handler, cursorHandler: cursorHandler))
     }
 }
 

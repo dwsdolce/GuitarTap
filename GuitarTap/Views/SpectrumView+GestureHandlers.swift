@@ -217,7 +217,10 @@ extension SpectrumView {
             }
         }
         // Ignore any combination of modifiers
+
+
     }
+
 #endif
 
     /// Zooms only the frequency (X) axis, anchoring to the cursor position when available.

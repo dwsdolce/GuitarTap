@@ -62,8 +62,8 @@ struct FrequencyZoomTests {
         s.view.applyFrequencyZoom(scale: 2.0, anchorFreq: 550)
         let after = s.maxFreq - s.minFreq
         #expect(after < before, "Zoom-in should narrow the frequency range")
-        #expect(s.minFreq >= 20, "minFreq should stay ≥ 20 Hz")
-        #expect(s.maxFreq <= 20000, "maxFreq should stay ≤ 20 kHz")
+        #expect(s.minFreq >= 0, "minFreq should stay ≥ 0 Hz")
+        #expect(s.maxFreq <= 5000, "maxFreq should stay ≤ 5 kHz")
     }
 
     // C2 — scale < 1 widens the visible frequency range, clamped to valid bounds
@@ -73,8 +73,8 @@ struct FrequencyZoomTests {
         s.view.applyFrequencyZoom(scale: 0.5, anchorFreq: 600)
         let after = s.maxFreq - s.minFreq
         #expect(after > before, "Zoom-out should widen the frequency range")
-        #expect(s.minFreq >= 20)
-        #expect(s.maxFreq <= 20000)
+        #expect(s.minFreq >= 0)
+        #expect(s.maxFreq <= 5000)
     }
 
     // C3 — zooming in past the minimum 50 Hz span is rejected
@@ -152,24 +152,24 @@ struct MagnitudeZoomTests {
 @Suite("Pan")
 struct PanTests {
 
-    // C6 — panning left past 20 Hz stops at 20 Hz and preserves the span
-    @Test func frequency_clampsAt20Hz() {
+    // C6 — panning left past 0 Hz stops at 0 Hz and preserves the span
+    @Test func frequency_clampsAt0Hz() {
         let s = GestureState(minFreq: 50, maxFreq: 300, minDB: -80, maxDB: 0)
         let span = s.maxFreq - s.minFreq
         // Large left-pan (positive width shifts the view window to the left)
         s.view.handlePan(translation: CGSize(width: 10000, height: 0))
-        #expect(s.minFreq >= 20, "minFreq should not go below 20 Hz")
+        #expect(s.minFreq >= 0, "minFreq should not go below 0 Hz")
         let newSpan = s.maxFreq - s.minFreq
         #expect(abs(newSpan - span) < 1, "Frequency span should be preserved after clamped pan")
     }
 
-    // C7 — panning right past 20 kHz stops at 20 kHz and preserves the span
-    @Test func frequency_clampsAt20kHz() {
-        let s = GestureState(minFreq: 15000, maxFreq: 19000, minDB: -80, maxDB: 0)
+    // C7 — panning right past 5 kHz stops at 5 kHz and preserves the span
+    @Test func frequency_clampsAt5kHz() {
+        let s = GestureState(minFreq: 4000, maxFreq: 4800, minDB: -80, maxDB: 0)
         let span = s.maxFreq - s.minFreq
         // Large right-pan (negative width)
         s.view.handlePan(translation: CGSize(width: -10000, height: 0))
-        #expect(s.maxFreq <= 20000, "maxFreq should not exceed 20 kHz")
+        #expect(s.maxFreq <= 5000, "maxFreq should not exceed 5 kHz")
         let newSpan = s.maxFreq - s.minFreq
         #expect(abs(newSpan - span) < 1, "Frequency span should be preserved after clamped pan")
     }

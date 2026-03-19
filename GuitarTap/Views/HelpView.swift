@@ -259,7 +259,7 @@ After all taps, tap Results to see:
                 #else
                 helpRow(
                     title: "ⓘ Zoom & Pan Help",
-                    body: "The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.",
+                    body: "The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom of both axes or each individual axis (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.",
                     systemImages: ["info.circle"]
                 )
                 #endif
@@ -364,7 +364,7 @@ After all taps, tap Results to see:
                 #if os(iOS)
                 helpRow(
                     title: "Zooming the Spectrum",
-                    body: "Pinch to zoom both axes and drag to pan within the chart. To reset the axes, tap the … button in the top-right corner of the spectrum and choose Reset to Saved or Reset to Defaults.",
+                    body: "Pinch to zoom both axes or each individual axis and drag to pan within the chart or on an axis to pan that axis. To reset the axes, tap the … button in the top-right corner of the spectrum and choose Reset to Saved or Reset to Defaults.",
                     systemImages: ["ellipsis.circle"]
                 )
                 #else
