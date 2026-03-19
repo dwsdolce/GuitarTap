@@ -31,8 +31,7 @@ extension RealtimeFFTAnalyzer {
     /// - Note: Requires microphone permissions. Add `NSMicrophoneUsageDescription` to Info.plist
     func start() throws {
         engineLog.info("=== Starting Audio Engine ===")
-        print("=== Starting Audio Engine ===")
-        
+
         // CRITICAL: Always remove any existing tap to prevent "Tap already exists" error
         // This must be done BEFORE stopping or resetting the engine.
         // We always attempt removal regardless of audioEngine.isRunning state because:
@@ -42,7 +41,6 @@ extension RealtimeFFTAnalyzer {
         // Remove any existing tap before teardown. Guard against nil on very first call
         // (inputNode is not assigned in init to avoid touching the audio hardware before
         // permission is confirmed).
-        print("🔧 Removing any existing tap before restart...")
         inputNode?.removeTap(onBus: 0)
 
         // Fully replace the audio engine with a fresh instance rather than reusing it.
@@ -65,14 +63,11 @@ extension RealtimeFFTAnalyzer {
         #if os(macOS)
         // Request microphone permission explicitly on macOS
         // Note: On macOS 10.14+, apps need explicit permission to access the microphone
-        print("🔐 Checking microphone permission...")
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
             engineLog.info("Microphone permission: AUTHORIZED")
-            print("✅ Microphone permission: AUTHORIZED")
         case .notDetermined:
             engineLog.info("Microphone permission: NOT DETERMINED - requesting now...")
-            print("⚠️ Microphone permission: NOT DETERMINED - requesting now...")
             // Request permission asynchronously. The callback fires on a background thread
             // once the user responds to the system prompt:
             // - Granted: start the engine automatically so the user doesn't have to tap Start again.
@@ -80,7 +75,6 @@ extension RealtimeFFTAnalyzer {
             // - Still .notDetermined (user clicked "Open System Settings"): do nothing —
             //   they can grant access there and tap Start again.
             AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
-                print("🔐 Permission request result: \(granted ? "GRANTED" : "DENIED")")
                 guard let self else { return }
                 if granted {
                     // Permission just granted — start the engine now so the user
@@ -102,43 +96,24 @@ extension RealtimeFFTAnalyzer {
             return
         case .denied:
             engineLog.warning("Microphone permission: DENIED — throwing")
-            print("❌ Microphone permission: DENIED")
             throw NSError(domain: "RealtimeFFTAnalyzer", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "Microphone access denied"])
         case .restricted:
-            print("⚠️ Microphone permission: RESTRICTED (parental controls or MDM)")
             throw NSError(domain: "RealtimeFFTAnalyzer", code: 2,
                           userInfo: [NSLocalizedDescriptionKey: "Microphone access restricted"])
         @unknown default:
-            print("⚠️ Microphone permission: UNKNOWN STATUS")
+            break
         }
         
         #endif
         
         #if os(iOS)
         // Configure audio session for recording (iOS only)
-        print("🎙️ Configuring iOS audio session...")
         let audioSession = AVAudioSession.sharedInstance()
         do {
-            // Set category to record mode
             try audioSession.setCategory(.record, mode: .measurement, options: [])
-            
-            // Activate the session
             try audioSession.setActive(true, options: [])
-            print("✅ Audio session activated successfully")
-            
-            // Log current session state
-            print("   - Sample rate: \(audioSession.sampleRate) Hz")
-            print("   - Input available: \(audioSession.isInputAvailable)")
-            print("   - Input channels: \(audioSession.inputNumberOfChannels)")
-            
-            if let currentRoute = audioSession.currentRoute.inputs.first {
-                print("   - Current input: \(currentRoute.portName)")
-            } else {
-                print("   ⚠️ WARNING: No input route detected!")
-            }
         } catch {
-            print("❌ Failed to configure audio session: \(error)")
             throw error
         }
         #endif
@@ -159,28 +134,24 @@ extension RealtimeFFTAnalyzer {
                 &deviceID,
                 UInt32(MemoryLayout<AudioDeviceID>.size)
             )
-            if setStatus == noErr {
-                print("🎤 Set input device to: \(device.name) (ID: \(device.deviceID))")
-            } else {
-                print("⚠️ Failed to set input device '\(device.name)': error \(setStatus) — will use system default")
+            if setStatus != noErr {
+                engineLog.warning("Failed to set input device '\(device.name, privacy: .public)': error \(setStatus, privacy: .public) — will use system default")
             }
         }
         #endif
 
         // Start the audio engine
-        print("🎤 Starting audio engine...")
         try audioEngine.start()
-        print("✅ Audio engine started")
+        engineLog.info("Audio engine started")
         
         #if os(macOS)
-        // CRITICAL FIX: Manually start the audio unit if it's not running
+        // CRITICAL FIX: Manually start the audio unit if it's not running.
         // This is a workaround for a macOS bug where AVAudioEngine.start() succeeds
-        // but the underlying Audio Unit doesn't actually start
+        // but the underlying Audio Unit doesn't actually start.
         if let audioUnit = inputNode.audioUnit {
-            // Check if it's running
             var isRunning: UInt32 = 0
             var isRunningSize = UInt32(MemoryLayout<UInt32>.size)
-            var status = AudioUnitGetProperty(
+            let status = AudioUnitGetProperty(
                 audioUnit,
                 kAudioOutputUnitProperty_IsRunning,
                 kAudioUnitScope_Global,
@@ -188,80 +159,22 @@ extension RealtimeFFTAnalyzer {
                 &isRunning,
                 &isRunningSize
             )
-            
             if status == noErr && isRunning == 0 {
-                print("⚠️ Audio unit not running after engine start - initializing and starting it...")
-                
-                // First, ensure the audio unit is initialized
-                status = AudioUnitInitialize(audioUnit)
-                if status != noErr && status != kAudioUnitErr_Initialized {
-                    print("⚠️ Failed to initialize audio unit (error \(status))")
-                } else if status == kAudioUnitErr_Initialized {
-                    print("ℹ️ Audio unit already initialized")
-                }
-                
-                // Now try to start it
-                status = AudioOutputUnitStart(audioUnit)
-                
-                if status == noErr {
-                    print("✅ Successfully started audio unit manually")
-                    
-                    // Verify it's now running
-                    AudioUnitGetProperty(
-                        audioUnit,
-                        kAudioOutputUnitProperty_IsRunning,
-                        kAudioUnitScope_Global,
-                        0,
-                        &isRunning,
-                        &isRunningSize
-                    )
-                    print("🔍 Audio unit now running: \(isRunning == 1 ? "YES" : "NO")")
-                } else {
-                    print("❌ Failed to start audio unit manually (error \(status))")
-                    print("   Error name: \(status == -10867 ? "kAudioUnitErr_Uninitialized" : status == -10875 ? "kAudioUnitErr_Uninitialized" : "Unknown")")
-                }
-            } else if status == noErr {
-                print("✅ Audio unit already running")
-            } else {
-                print("⚠️ Could not check audio unit status (error \(status))")
-            }
-        }
-        
-        // Verify which device we're actually using
-        if let audioUnit = inputNode.audioUnit {
-            var actualDeviceID: AudioDeviceID = 0
-            var propertySize = UInt32(MemoryLayout<AudioDeviceID>.size)
-            let getStatus = AudioUnitGetProperty(
-                audioUnit,
-                kAudioOutputUnitProperty_CurrentDevice,
-                kAudioUnitScope_Global,
-                0,
-                &actualDeviceID,
-                &propertySize
-            )
-            
-            if getStatus == noErr {
-                print("🎤 Actual device ID after start: \(actualDeviceID)")
-                
-                if let device = selectedInputDevice {
-                    if actualDeviceID == device.deviceID {
-                        print("✅ Using requested device: \(device.name)")
-                    } else {
-                        print("⚠️ Device mismatch! Requested \(device.deviceID) (\(device.name)), got \(actualDeviceID)")
-                        print("   This usually means the device couldn't be set - using system default")
-                    }
+                engineLog.warning("Audio unit not running after engine start — starting manually")
+                AudioUnitInitialize(audioUnit)
+                let startStatus = AudioOutputUnitStart(audioUnit)
+                if startStatus != noErr {
+                    engineLog.error("Failed to start audio unit manually (error \(startStatus, privacy: .public))")
                 }
             }
         }
         #endif
-        
+
         // Get hardware format AFTER engine starts
         let hardwareFormat = inputNode.inputFormat(forBus: 0)
         actualSampleRate = hardwareFormat.sampleRate
         
-        print("Hardware format: \(hardwareFormat)")
-        print("Hardware sample rate: \(actualSampleRate) Hz")
-        print("Channels: \(hardwareFormat.channelCount)")
+        engineLog.info("Hardware sample rate: \(self.actualSampleRate, privacy: .public) Hz, channels: \(hardwareFormat.channelCount, privacy: .public)")
         
         // Validate sample rate
         guard actualSampleRate > 0 else {
@@ -274,22 +187,16 @@ extension RealtimeFFTAnalyzer {
         }
         
         let effectiveSampleRate = useHardwareSampleRate ? actualSampleRate : targetSampleRate
-        
-        print("Target sample rate: \(targetSampleRate) Hz")
-        print("Using sample rate: \(effectiveSampleRate) Hz")
-        print("FFT size: \(fftSize)")
-        
+
         // Create tap format matching hardware (use hardware channel count)
         // WORKAROUND: Some USB mics report 2 channels but are actually mono
         // If we detect this situation, force to 1 channel
         let effectiveChannelCount: AVAudioChannelCount
         if hardwareFormat.channelCount == 2 {
-            print("⚠️ Device reports 2 channels - checking if it's actually mono...")
             // If the device name suggests it's a measurement mic (like UMIK), force mono
             if let deviceName = selectedInputDevice?.name.lowercased(),
                (deviceName.contains("umik") || deviceName.contains("measurement")) {
                 effectiveChannelCount = 1
-                print("   → Forcing to 1 channel (mono) for measurement microphone")
             } else {
                 effectiveChannelCount = AVAudioChannelCount(hardwareFormat.channelCount)
             }
@@ -311,17 +218,12 @@ extension RealtimeFFTAnalyzer {
             )
         }
         
-        print("Tap format: \(tapFormat)")
-        
         // CRITICAL FIX: Use smaller buffer size for large FFTs
         // Using 1024 samples (~23ms at 44.1kHz) for faster level metering updates
         // This improves decay measurement precision from ~100ms to ~23ms
         // FFT accuracy is unaffected since samples are accumulated to fftSize regardless
         let maxSafeBufferSize: AVAudioFrameCount = 1024
         let requestedBufferSize = min(AVAudioFrameCount(fftSize), maxSafeBufferSize)
-        
-        print("Requested buffer size: \(requestedBufferSize) samples (max safe: \(maxSafeBufferSize))")
-        print("Will accumulate to: \(fftSize) samples for FFT")
         
         // Verify the audio unit is still running before installing the tap (macOS diagnostic).
         // It can stop between engine.start() and here if inputNode was accessed unexpectedly.
@@ -331,14 +233,12 @@ extension RealtimeFFTAnalyzer {
             var isRunningSize = UInt32(MemoryLayout<UInt32>.size)
             AudioUnitGetProperty(audioUnit, kAudioOutputUnitProperty_IsRunning,
                                  kAudioUnitScope_Global, 0, &isRunning, &isRunningSize)
-            print("🔍 Audio unit running status: \(isRunning == 1 ? "YES" : "NO")")
-
             // If the audio unit stopped between engine.start() and here, manually
             // restarting the AUHAL is insufficient — AVAudioEngine's internal render
             // graph is already broken and the tap will never deliver buffers.
             // The only reliable recovery is a full engine teardown and restart.
             if isRunning == 0 {
-                print("⚠️ Audio unit stopped before tap install — performing full engine restart...")
+                engineLog.warning("Audio unit stopped before tap install — performing full engine restart")
                 inputNode.removeTap(onBus: 0)   // remove any stale tap first
                 // Nil inputNode before stop/reset for the same reason as in the primary path:
                 // prevents malloc corruption from re-entrant UpdateInputNode on the AVAudioIOUnit queue.
@@ -358,24 +258,14 @@ extension RealtimeFFTAnalyzer {
                         &deviceID,
                         UInt32(MemoryLayout<AudioDeviceID>.size)
                     )
-                    print(setStatus == noErr
-                          ? "🎤 Re-applied device '\(device.name)' after engine reset"
-                          : "⚠️ Failed to re-apply device '\(device.name)' (error \(setStatus))")
+                    if setStatus != noErr {
+                        engineLog.warning("Failed to re-apply device '\(device.name, privacy: .public)' (error \(setStatus, privacy: .public))")
+                    }
                 }
 
-                print("🔄 Restarting audio engine after reset...")
                 try audioEngine.start()
-                print("✅ Audio engine restarted")
-
-                // Refresh inputNode and verify the AU is now running.
+                engineLog.info("Audio engine restarted after reset")
                 inputNode = audioEngine.inputNode
-                if let freshAU = inputNode.audioUnit {
-                    var runCheck: UInt32 = 0
-                    var runCheckSize = UInt32(MemoryLayout<UInt32>.size)
-                    AudioUnitGetProperty(freshAU, kAudioOutputUnitProperty_IsRunning,
-                                        kAudioUnitScope_Global, 0, &runCheck, &runCheckSize)
-                    print("🔍 Audio unit running after restart: \(runCheck == 1 ? "YES" : "NO")")
-                }
             }
 
             var inputSampleRate: Float64 = 0
@@ -384,7 +274,7 @@ extension RealtimeFFTAnalyzer {
                                                         kAudioUnitScope_Input, 1,
                                                         &inputSampleRate, &inputSampleRateSize)
             if sampleRateStatus == noErr {
-                print("🔍 Audio unit input sample rate: \(inputSampleRate) Hz")
+                engineLog.info("Audio unit input sample rate: \(inputSampleRate, privacy: .public) Hz")
             }
         }
         #endif
@@ -395,7 +285,7 @@ extension RealtimeFFTAnalyzer {
                 self.processAudioBuffer(buffer)
             }
         }
-        print("✅ Audio tap installed successfully")
+        engineLog.info("Audio tap installed")
         
         // Update frequency bins based on effective sample rate
         // This ensures frequency labels are correct
@@ -430,11 +320,7 @@ extension RealtimeFFTAnalyzer {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
                 guard let self = self else { return }
                 if self.isRunning && !self.firstBufferReceived {
-                    print("⚠️ WARNING: Audio engine started but no audio buffers received after 3 seconds!")
-                    print("⚠️ This usually means:")
-                    print("   1. Microphone permission was denied (check System Settings > Privacy & Security > Microphone)")
-                    print("   2. No input device is connected or selected")
-                    print("   3. The input device is in use by another application")
+                    engineLog.warning("Audio engine started but no audio buffers received after 3 seconds")
                 }
                 #if os(macOS)
                 // Detect permission denial even when TCC cache is stale.
@@ -465,10 +351,8 @@ extension RealtimeFFTAnalyzer {
                     && self.firstBufferReceived
                     && tccStatus != .notDetermined
                 engineLog.info("3s TCC check — status: \(tccStatus.rawValue, privacy: .public), peak: \(self.peakMagnitude, privacy: .public) dB, perfectSilence: \(perfectSilence, privacy: .public), buffersReceived: \(self.firstBufferReceived, privacy: .public)")
-                print("🔐 3s TCC check — status: \(tccStatus.rawValue), peak: \(self.peakMagnitude) dB, perfectSilence: \(perfectSilence), buffersReceived: \(self.firstBufferReceived)")
                 if tccDenied || perfectSilence {
                     engineLog.warning("Microphone permission confirmed DENIED after 3s — tccDenied=\(tccDenied, privacy: .public), perfectSilence=\(perfectSilence, privacy: .public)")
-                    print("❌ Microphone permission confirmed DENIED after 3s — signalling UI (tccDenied=\(tccDenied), perfectSilence=\(perfectSilence))")
                     self.stop()
                     self.microphonePermissionDenied = true
                 }
@@ -487,7 +371,7 @@ extension RealtimeFFTAnalyzer {
     ///
     /// - Note: It's safe to call this method multiple times or when already stopped
     func stop() {
-        print("🛑 Stop requested - engine running: \(audioEngine.isRunning), isRunning flag: \(isRunning)")
+        engineLog.info("Stop requested")
 
         #if os(macOS)
         // Remove the sample-rate listener so it doesn't fire during the stop/restart cycle
@@ -502,8 +386,6 @@ extension RealtimeFFTAnalyzer {
             
             // Stop the audio engine
             audioEngine.stop()
-            
-            print("✅ Audio engine stopped")
         }
         
         // Clear the input buffer on the buffer access queue (async to avoid blocking)
@@ -522,7 +404,6 @@ extension RealtimeFFTAnalyzer {
             self?.isRunning = false
             self?.peakMagnitude = -100  // Reset to silent state
             self?.peakFrequency = 0
-            print("✅ isRunning set to false on main thread")
         }
     }
 }

@@ -2,15 +2,35 @@
 ///
 /// Zoom, pan, and scroll-wheel gesture handlers for `SpectrumView`.
 ///
-/// ## Scroll wheel modifier key bindings (macOS)
+/// ## Scroll wheel bindings (macOS)
+///
+/// Without modifier keys, the action depends on where the pointer is:
+///
+/// | Pointer location    | Scroll action                              |
+/// |---------------------|--------------------------------------------|
+/// | Over plot area      | Zoom both axes around cursor               |
+/// | Over frequency axis | Zoom frequency axis around cursor          |
+/// | Over magnitude axis | Zoom magnitude axis around cursor          |
+/// | Outside chart       | Pan magnitude axis (legacy fallback)       |
+///
+/// Modifier key overrides (take priority over spatial behavior):
 ///
 /// | Modifier key(s)     | Action                                     |
 /// |---------------------|--------------------------------------------|
-/// | None                | Pan vertically (dB axis)                   |
 /// | Shift               | Pan horizontally (frequency axis)          |
 /// | Command             | Zoom both axes around cursor               |
 /// | Option              | Zoom frequency axis only around cursor     |
 /// | Control             | Zoom magnitude (dB) axis only around cursor |
+///
+/// ## Drag bindings (macOS)
+///
+/// Drag behavior is also context-sensitive based on where the drag starts:
+///
+/// | Drag start location | Drag action                                |
+/// |---------------------|--------------------------------------------|
+/// | Over plot area      | Pan both axes                              |
+/// | Over frequency axis | Pan frequency axis only                    |
+/// | Over magnitude axis | Pan magnitude axis only                    |
 ///
 /// All zoom operations anchor to the data-space coordinate under the cursor
 /// so the frequency/dB value at the cursor position remains fixed as the
@@ -44,11 +64,53 @@ import Charts
 import AppKit
 #endif
 
+// MARK: - Pointer Region
+
+/// Classifies where the mouse pointer is relative to the chart plot frame.
+///
+/// Used to implement context-sensitive scroll-wheel zoom and drag-pan:
+/// gestures operate on whichever axis (or both) the pointer is over.
+enum PointerRegion {
+    /// Inside the plot area — scroll zooms both axes, drag pans both axes.
+    case plot
+    /// Below the plot frame (x-axis label area) — scroll/drag affects frequency axis only.
+    case xAxis
+    /// Left of the plot frame (y-axis label area) — scroll/drag affects magnitude axis only.
+    case yAxis
+    /// Outside the chart entirely.
+    case outside
+}
+
 extension SpectrumView {
 
     // MARK: - Gesture Handlers
 
 #if os(macOS)
+    /// Determines which region of the chart the given point falls in.
+    ///
+    /// The x-axis and y-axis hit zones encompass the full area outside the plot
+    /// frame on their respective sides (not just the narrow label strip), so they
+    /// are easy to target.
+    ///
+    /// - Parameters:
+    ///   - point: The pointer location in the overlay's local coordinate space.
+    ///   - plotFrame: The resolved chart plot frame in the same coordinate space.
+    /// - Returns: The `PointerRegion` that contains `point`.
+    func pointerRegion(at point: CGPoint, plotFrame: CGRect) -> PointerRegion {
+        if plotFrame.contains(point) {
+            return .plot
+        }
+        // Y-axis zone: left of plot, within the plot's vertical span
+        if point.x < plotFrame.minX && point.y >= plotFrame.minY && point.y <= plotFrame.maxY {
+            return .yAxis
+        }
+        // X-axis zone: below plot, within the plot's horizontal span
+        if point.y > plotFrame.maxY && point.x >= plotFrame.minX && point.x <= plotFrame.maxX {
+            return .xAxis
+        }
+        return .outside
+    }
+
     /// Handles scroll wheel events for zooming and panning on macOS.
     ///
     /// Zoom operations anchor to the current cursor position so the point under the
@@ -75,14 +137,6 @@ extension SpectrumView {
         let hasOption = modifiers.contains(.option)
         let hasControl = modifiers.contains(.control)
 
-        // Debug: Print scroll deltas and modifiers
-        #if DEBUG
-        if hasCommand || hasShift || hasOption || hasControl {
-            print("Scroll - deltaY: \(scrollDeltaY), deltaX: \(scrollDeltaX)")
-            print("Modifiers - Command: \(hasCommand), Shift: \(hasShift), Option: \(hasOption), Control: \(hasControl)")
-        }
-        #endif
-
         // Skip very small deltas (noise from trackpad)
         guard abs(scrollDeltaY) > 0.1 || abs(scrollDeltaX) > 0.1 else { return }
 
@@ -101,52 +155,57 @@ extension SpectrumView {
         // Check in order of priority
         if hasCommand && !hasShift && !hasOption && !hasControl {
             // Command only: Zoom both axes around cursor
-            #if DEBUG
-            print("→ Zooming both axes")
-            #endif
             withAnimation(.easeOut(duration: 0.1)) {
                 handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             }
         } else if hasControl && !hasCommand && !hasOption && !hasShift {
             // Control only: Zoom magnitude axis only around cursor
-            #if DEBUG
-            print("→ Zooming magnitude axis (zoom factor: \(zoomFactor))")
-            #endif
             withAnimation(.easeOut(duration: 0.1)) {
                 handleMagnitudeZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             }
         } else if hasOption && !hasCommand && !hasShift && !hasControl {
             // Option only: Zoom frequency axis only around cursor
-            #if DEBUG
-            print("→ Zooming frequency axis")
-            #endif
             withAnimation(.easeOut(duration: 0.1)) {
                 handleFrequencyZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             }
         } else if hasShift && !hasCommand && !hasOption && !hasControl {
             // Shift only: Pan horizontally (frequency axis)
             // Shift often converts vertical scroll to horizontal, so check both deltas
-            #if DEBUG
-            print("→ Panning horizontally")
-            #endif
             let effectiveScroll = abs(scrollDeltaX) > abs(scrollDeltaY) ? scrollDeltaX : scrollDeltaY
             let translation = CGSize(width: effectiveScroll, height: 0)
             withAnimation(.easeOut(duration: 0.1)) {
                 handlePan(translation: translation)
             }
         } else if !hasCommand && !hasShift && !hasOption && !hasControl {
-            // No modifiers: Pan vertically (magnitude axis)
-            #if DEBUG
-            print("→ Panning vertically")
-            #endif
-            let translation = CGSize(width: 0, height: scrollDeltaY)  // Pan only vertically
-            withAnimation(.easeOut(duration: 0.1)) {
-                handlePan(translation: translation)
+            // No modifiers: behavior is context-sensitive based on where the pointer is.
+            // Scroll wheel only sends vertical delta, so zoom factor is always driven by deltaY.
+            let region: PointerRegion = {
+                guard let pos = anchor else { return .plot }
+                return pointerRegion(at: pos, plotFrame: plotFrame)
+            }()
+            switch region {
+            case .plot:
+                // Over the plot: zoom both axes around cursor
+                withAnimation(.easeOut(duration: 0.1)) {
+                    handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
+                }
+            case .xAxis:
+                // Over the x-axis area: zoom frequency axis only
+                withAnimation(.easeOut(duration: 0.1)) {
+                    handleFrequencyZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
+                }
+            case .yAxis:
+                // Over the y-axis area: zoom magnitude axis only
+                withAnimation(.easeOut(duration: 0.1)) {
+                    handleMagnitudeZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
+                }
+            case .outside:
+                // Outside the chart: fall back to legacy pan-magnitude behavior
+                let translation = CGSize(width: 0, height: scrollDeltaY)
+                withAnimation(.easeOut(duration: 0.1)) {
+                    handlePan(translation: translation)
+                }
             }
-        } else {
-            #if DEBUG
-            print("→ Ignoring modifier combination")
-            #endif
         }
         // Ignore any combination of modifiers
     }
@@ -224,31 +283,13 @@ extension SpectrumView {
 #endif
 
     func applyMagnitudeZoom(scale: CGFloat, anchorDB: Float) {
-        #if DEBUG
-        print("  handleMagnitudeZoom called with scale: \(scale)")
-        print("  Current dB range: \(minDB) to \(maxDB)")
-        #endif
-
         var newMinDB = anchorDB - (anchorDB - minDB) / Float(scale)
         var newMaxDB = anchorDB + (maxDB - anchorDB) / Float(scale)
         newMinDB = max(-120, newMinDB)
         newMaxDB = min(20, newMaxDB)
-
-        #if DEBUG
-        print("  Calculated new dB range: \(newMinDB) to \(newMaxDB)")
-        print("  Condition check: \(newMaxDB) > \(newMinDB) + 10 = \(newMaxDB > newMinDB + 10)")
-        #endif
-
         if newMaxDB > newMinDB + 10 {
             minDB = newMinDB
             maxDB = newMaxDB
-            #if DEBUG
-            print("  ✓ Updated dB range to: \(minDB) to \(maxDB)")
-            #endif
-        } else {
-            #if DEBUG
-            print("  ✗ Did not update (minimum range not met)")
-            #endif
         }
     }
 

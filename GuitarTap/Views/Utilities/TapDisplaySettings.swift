@@ -408,7 +408,8 @@ struct TapDisplaySettings {
     private static let tapDetectionThresholdKey = "tapDetectionThreshold"
     private static let hysteresisMarginKey = "hysteresisMargin"
     private static let measureFlcKey = "measureFlc"
-    
+    private static let annotationVisibilityModeKey = "annotationVisibilityMode"
+
     // MARK: - Measurement Type Setting
     
     /// The currently selected measurement type (persisted in UserDefaults)
@@ -605,6 +606,24 @@ struct TapDisplaySettings {
         }
     }
     
+    // MARK: - Annotation Visibility Mode
+
+    /// The last-used annotation visibility mode (persisted in UserDefaults).
+    ///
+    /// Defaults to `.selected` on first launch.
+    static var annotationVisibilityMode: AnnotationVisibilityMode {
+        get {
+            if let raw = UserDefaults.standard.string(forKey: annotationVisibilityModeKey),
+               let mode = AnnotationVisibilityMode(rawValue: raw) {
+                return mode
+            }
+            return .selected
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: annotationVisibilityModeKey)
+        }
+    }
+
     // MARK: - Display Ranges (Persisted)
     
     /// Default minimum frequency for guitar spectrum display (Hz)

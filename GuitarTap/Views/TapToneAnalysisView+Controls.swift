@@ -581,9 +581,7 @@ extension TapToneAnalysisView {
                     Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
                         .accessibilityLabel("Tap detection threshold")
                         .hint(HintText.threshold)
-                        .onChange(of: tap.tapDetectionThreshold) { _, newValue in
-                            TapDisplaySettings.tapDetectionThreshold = newValue
-                        }
+
                     Text("\(Int(tap.tapDetectionThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
@@ -609,9 +607,7 @@ extension TapToneAnalysisView {
                     Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
                         .accessibilityLabel("Hysteresis margin")
                         .hint(HintText.hysteresis)
-                        .onChange(of: tap.hysteresisMargin) { _, newValue in
-                            TapDisplaySettings.hysteresisMargin = newValue
-                        }
+
                     Text("\(tap.hysteresisMargin, specifier: "%.1f") dB")
                         .font(.caption)
                         .fontWeight(.medium)
@@ -636,9 +632,7 @@ extension TapToneAnalysisView {
                     Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
                         .accessibilityLabel("Peak detection minimum threshold")
                         .hint(HintText.peakMin)
-                        .onChange(of: tap.peakThreshold) { _, newValue in
-                            TapDisplaySettings.peakThreshold = newValue
-                        }
+
                     Text("\(Int(tap.peakThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
@@ -764,9 +758,7 @@ extension TapToneAnalysisView {
                 Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
                     .frame(width: 80)
                     .accessibilityLabel("Tap detection threshold")
-                    .onChange(of: tap.tapDetectionThreshold) { _, newValue in
-                        TapDisplaySettings.tapDetectionThreshold = newValue
-                    }
+
                 Text("\(Int(tap.tapDetectionThreshold)) dB")
                     .font(.caption)
                     .fontWeight(.medium)
@@ -797,9 +789,7 @@ extension TapToneAnalysisView {
                 Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
                     .frame(width: 60)
                     .accessibilityLabel("Hysteresis margin")
-                    .onChange(of: tap.hysteresisMargin) { _, newValue in
-                        TapDisplaySettings.hysteresisMargin = newValue
-                    }
+
                 Text("\(tap.hysteresisMargin, specifier: "%.1f") dB")
                     .font(.caption)
                     .fontWeight(.medium)
@@ -830,9 +820,7 @@ extension TapToneAnalysisView {
                     .frame(width: 80)
                     .accessibilityLabel("Peak detection minimum threshold")
                     .hint(HintText.peakMin)
-                    .onChange(of: tap.peakThreshold) { _, newValue in
-                        TapDisplaySettings.peakThreshold = newValue
-                    }
+
                 Text("\(Int(tap.peakThreshold)) dB")
                     .font(.caption)
                     .fontWeight(.medium)
@@ -930,9 +918,7 @@ extension TapToneAnalysisView {
                     Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
                         .frame(width: 80)
                         .accessibilityLabel("Tap detection threshold")
-                        .onChange(of: tap.tapDetectionThreshold) { _, newValue in
-                            TapDisplaySettings.tapDetectionThreshold = newValue
-                        }
+
                     Text("\(Int(tap.tapDetectionThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
@@ -963,9 +949,7 @@ extension TapToneAnalysisView {
                     Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
                         .frame(width: 60)
                         .accessibilityLabel("Hysteresis margin")
-                        .onChange(of: tap.hysteresisMargin) { _, newValue in
-                            TapDisplaySettings.hysteresisMargin = newValue
-                        }
+
                     Text("\(tap.hysteresisMargin, specifier: "%.1f") dB")
                         .font(.caption)
                         .fontWeight(.medium)
@@ -996,9 +980,7 @@ extension TapToneAnalysisView {
                     Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
                         .frame(width: 80)
                         .accessibilityLabel("Peak detection minimum threshold")
-                        .onChange(of: tap.peakThreshold) { _, newValue in
-                            TapDisplaySettings.peakThreshold = newValue
-                        }
+
                     Text("\(Int(tap.peakThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)

@@ -465,6 +465,7 @@ extension TapToneAnalyzer {
 
         // Restore annotation visibility mode; default to .all if not saved
         annotationVisibilityMode = measurement.annotationVisibilityMode ?? .all
+        TapDisplaySettings.annotationVisibilityMode = annotationVisibilityMode
         print("  👁️ Restored annotation visibility: \(annotationVisibilityMode.label)")
 
         // Restore per-peak mode overrides; nil / empty → all peaks auto-classify

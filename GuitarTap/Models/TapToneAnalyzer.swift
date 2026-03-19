@@ -142,7 +142,9 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Peaks below this level are discarded during peak-finding.  Persisted in
     /// ``TapDisplaySettings``.
-    @Published var peakThreshold: Float = TapDisplaySettings.defaultPeakThreshold
+    @Published var peakThreshold: Float = TapDisplaySettings.peakThreshold {
+        didSet { TapDisplaySettings.peakThreshold = peakThreshold }
+    }
 
     /// Lower bound of the analysis frequency range, in Hz.
     ///
@@ -189,7 +191,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// For guitar mode this is an absolute FFT magnitude level.  For plate/brace mode it is
     /// combined with the noise-floor estimate to form a relative threshold.
     /// Persisted in ``TapDisplaySettings``.
-    @Published var tapDetectionThreshold: Float = TapDisplaySettings.defaultTapDetectionThreshold
+    @Published var tapDetectionThreshold: Float = TapDisplaySettings.tapDetectionThreshold {
+        didSet { TapDisplaySettings.tapDetectionThreshold = tapDetectionThreshold }
+    }
 
     /// Hysteresis margin in dB.
     ///
@@ -197,7 +201,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// the detection threshold before the next tap can be registered.  This prevents
     /// re-triggering during the ring-out of a single tap.
     /// Persisted in ``TapDisplaySettings``.
-    @Published var hysteresisMargin: Float = TapDisplaySettings.defaultHysteresisMargin
+    @Published var hysteresisMargin: Float = TapDisplaySettings.hysteresisMargin {
+        didSet { TapDisplaySettings.hysteresisMargin = hysteresisMargin }
+    }
 
     // MARK: - Published Results
 
@@ -297,7 +303,8 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var selectedPeakIDs: Set<UUID> = []
 
     /// Controls which annotations are rendered on the spectrum chart.
-    @Published var annotationVisibilityMode: AnnotationVisibilityMode = .selected
+    /// Initialised from UserDefaults so the last-used mode is restored on launch.
+    @Published var annotationVisibilityMode: AnnotationVisibilityMode = TapDisplaySettings.annotationVisibilityMode
 
     // MARK: - Mode Label Helpers
 
@@ -368,9 +375,10 @@ final class TapToneAnalyzer: ObservableObject {
     }
 
     /// Advances ``annotationVisibilityMode`` to the next state in the cycle:
-    /// `all → selected → none → all`.
+    /// `all → selected → none → all`, and persists the new value to UserDefaults.
     func cycleAnnotationVisibility() {
         annotationVisibilityMode = annotationVisibilityMode.next
+        TapDisplaySettings.annotationVisibilityMode = annotationVisibilityMode
     }
 
     /// The subset of ``currentPeaks`` that should be rendered as annotations given

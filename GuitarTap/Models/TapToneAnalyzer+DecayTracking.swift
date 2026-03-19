@@ -76,24 +76,7 @@ extension TapToneAnalyzer {
         decayTrackingTimer?.invalidate()
         decayTrackingTimer = nil
         
-        // Log result for debugging
-        if let decayTime = currentDecayTime {
-            print("✅ Ring-out measured: \(String(format: "%.2f", decayTime)) seconds")
-        } else {
-            // Debug why it failed
-            if let tapTime = lastTapTime {
-                let postTapHistory = peakMagnitudeHistory.filter { $0.time >= tapTime }
-                if let peakEntry = postTapHistory.max(by: { $0.magnitude < $1.magnitude }) {
-                    let currentLevel = postTapHistory.last?.magnitude ?? -100
-                    let target = peakEntry.magnitude - decayThreshold
-                    print("⚠️ Ring-out not measured: peak=\(String(format: "%.1f", peakEntry.magnitude)) dB, final=\(String(format: "%.1f", currentLevel)) dB, target=\(String(format: "%.1f", target)) dB, samples=\(postTapHistory.count)")
-                } else {
-                    print("⚠️ Ring-out not measured: no peak found in \(peakMagnitudeHistory.count) samples")
-                }
-            } else {
-                print("⚠️ Ring-out not measured: no tap time recorded")
-            }
-        }
+
     }
     
     /// Legacy slow-path decay tracker — now a no-op.

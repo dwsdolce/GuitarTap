@@ -143,10 +143,9 @@ extension TapToneAnalyzer {
                 let h = max(tapDetectionThreshold - noiseFloorEstimate, 10.0)
                 let risingAnchored = noiseFloorEstimate + h
                 isAboveThreshold = peakMagnitude > risingAnchored
-                print("🎬 Warm-up complete - signal at \(String(format: "%.1f", peakMagnitude)) dB, noise floor (re-anchored) \(String(format: "%.1f", noiseFloorEstimate)) dB, rising threshold \(String(format: "%.1f", risingAnchored)) dB, isAboveThreshold = \(isAboveThreshold)")
+
             } else {
                 isAboveThreshold = peakMagnitude > effectiveRisingThreshold
-                print("🎬 Warm-up complete - signal at \(String(format: "%.1f", peakMagnitude)) dB, rising threshold \(String(format: "%.1f", effectiveRisingThreshold)) dB, isAboveThreshold = \(isAboveThreshold)")
             }
             // Don't detect on this frame - just sync the state
             tapDetected = false
@@ -179,10 +178,7 @@ extension TapToneAnalyzer {
             (peakMagnitude > fallingThreshold) :
             (peakMagnitude > risingThreshold)
 
-        // Debug: Log state transitions
         if currentlyAboveThreshold != isAboveThreshold {
-            print("🔄 Threshold crossing: \(isAboveThreshold ? "ABOVE→BELOW" : "BELOW→ABOVE") at \(peakMagnitude) dB (rising: \(risingThreshold), falling: \(fallingThreshold))")
-            
             // Update status message when signal settles after a tap in multi-tap mode
             if !currentlyAboveThreshold && isAboveThreshold && currentTapCount > 0 && currentTapCount < numberOfTaps {
                 statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
@@ -199,7 +195,6 @@ extension TapToneAnalyzer {
             // Use recentPeakLevelDB which holds the max level over the last 0.5 s.
             // This ensures we get the actual tap peak even though FFT detection is delayed.
             tapPeakLevel = fftAnalyzer.recentPeakLevelDB
-            print("🎯 Tap detected! FFT peak: \(String(format: "%.1f", peakMagnitude)) dB, Input peak: \(String(format: "%.1f", tapPeakLevel)) dB (threshold: \(risingThreshold) dB) [Rising Edge]")
             
             // Handle tap in multi-tap sequence
             handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
@@ -245,8 +240,6 @@ extension TapToneAnalyzer {
         currentTapCount += 1
         tapProgress = Float(currentTapCount) / Float(numberOfTaps)
         
-        print("📊 Captured tap \(currentTapCount) of \(numberOfTaps)")
-        
         // Start decay tracking for ring-out time measurement.
         // This continues for 3 seconds after the tap to capture full decay.
         startDecayTracking()
@@ -286,7 +279,7 @@ extension TapToneAnalyzer {
                     self.isDetecting = true
                     self.tapDetected = false
                     self.statusMessage = "Tap \(self.currentTapCount)/\(self.numberOfTaps) captured. Tap again..."
-                    print("🔄 Ready for tap \(self.currentTapCount + 1) of \(self.numberOfTaps) - signal dropped to \(String(format: "%.1f", currentLevel)) dB (below falling threshold \(String(format: "%.1f", fallingThreshold)) dB)")
+
                 } else {
                     // Signal still elevated - set isAboveThreshold correctly and wait for drop.
                     // The hysteresis logic in detectTap will naturally detect the falling edge
@@ -295,7 +288,7 @@ extension TapToneAnalyzer {
                     self.isDetecting = true
                     self.tapDetected = false
                     self.statusMessage = "Tap \(self.currentTapCount)/\(self.numberOfTaps) captured. Waiting for settle..."
-                    print("🔄 Waiting for tap \(self.currentTapCount + 1) of \(self.numberOfTaps) - signal at \(String(format: "%.1f", currentLevel)) dB (still above falling threshold \(String(format: "%.1f", fallingThreshold)) dB)")
+
                 }
             }
         }
@@ -365,7 +358,7 @@ extension TapToneAnalyzer {
     func handleLongitudinalTapProgress(magnitudes: [Float], frequencies: [Float]) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
-        print("📊 Captured LONGITUDINAL tap \(captured)/\(total)")
+
         
         if captured < total {
             // More taps needed - update status and re-enable detection
@@ -389,7 +382,7 @@ extension TapToneAnalyzer {
             if let peak = bestPeak {
                 autoSelectedLongitudinalPeakID = peak.id
                 selectedLongitudinalPeak = peak
-                print("🔵 Auto-selected longitudinal peak: \(peak.frequency) Hz")
+
             }
             
             // Freeze averaged spectrum
@@ -420,7 +413,7 @@ extension TapToneAnalyzer {
                 tapProgress = 1.0
                 let avgNote = total > 1 ? " (\(total) taps averaged)" : ""
                 statusMessage = "Complete\(avgNote) - check Results"
-                print("✅ Brace measurement complete: fL=\(longitudinalPeaks.first?.frequency ?? 0) Hz")
+
             } else {
                 // Plate mode: continue to cross-grain tap
                 materialTapPhase = .waitingForCrossTap
@@ -440,7 +433,7 @@ extension TapToneAnalyzer {
                     self.frozenFrequencies = []
                     self.frozenMagnitudes = []
                     self.analyzerStartTime = Date()
-                    print("🔄 Ready for cross-grain tap")
+
                 }
             }
         }
@@ -460,7 +453,7 @@ extension TapToneAnalyzer {
     func handleCrossTapProgress(magnitudes: [Float], frequencies: [Float]) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
-        print("📊 Captured CROSS-GRAIN tap \(captured)/\(total)")
+
         
         if captured < total {
             statusMessage = "C tap \(captured)/\(total) captured. Tap again..."
@@ -494,7 +487,7 @@ extension TapToneAnalyzer {
             if let peak = bestCrossPeak {
                 autoSelectedCrossPeakID = peak.id
                 selectedCrossPeak = peak
-                print("🟠 Auto-selected cross-grain peak: \(peak.frequency) Hz (window \(crossLo)–\(crossHi) Hz)")
+
             }
             
             materialCapturedTaps = []
@@ -523,7 +516,7 @@ extension TapToneAnalyzer {
                     self.frozenFrequencies = []
                     self.frozenMagnitudes = []
                     self.analyzerStartTime = Date()
-                    print("🔄 Ready for FLC tap")
+
                 }
             } else {
                 // Complete - no FLC.
@@ -544,7 +537,7 @@ extension TapToneAnalyzer {
                 tapProgress = 1.0
                 let avgNote = total > 1 ? " (\(total) taps averaged each)" : ""
                 statusMessage = "Complete\(avgNote) - check Results"
-                print("✅ Plate measurement complete: L=\(longitudinalPeaks.first?.frequency ?? 0) Hz, C=\(crossPeaks.first?.frequency ?? 0) Hz")
+
             }
         }
     }
@@ -563,7 +556,7 @@ extension TapToneAnalyzer {
     func handleFlcTapProgress(magnitudes: [Float], frequencies: [Float]) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
-        print("📊 Captured FLC tap \(captured)/\(total)")
+
         
         if captured < total {
             statusMessage = "FLC tap \(captured)/\(total) captured. Tap again..."
@@ -593,7 +586,7 @@ extension TapToneAnalyzer {
             if let peak = bestFlcPeak {
                 autoSelectedFlcPeakID = peak.id
                 selectedFlcPeak = peak
-                print("🟣 Auto-selected FLC peak: \(peak.frequency) Hz (ceiling \(flcCeiling) Hz)")
+
             }
             
             materialCapturedTaps = []
@@ -617,7 +610,7 @@ extension TapToneAnalyzer {
             tapProgress = 1.0
             let avgNote = total > 1 ? " (\(total) taps averaged each)" : ""
             statusMessage = "Complete\(avgNote) - check Results"
-            print("✅ Plate measurement complete: L=\(longitudinalPeaks.first?.frequency ?? 0) Hz, C=\(crossPeaks.first?.frequency ?? 0) Hz, FLC=\(flcPeaks.first?.frequency ?? 0) Hz")
+
         }
     }
     

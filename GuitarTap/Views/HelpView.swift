@@ -259,7 +259,7 @@ After all taps, tap Results to see:
                 #else
                 helpRow(
                     title: "ⓘ Zoom & Pan Help",
-                    body: "The info button in the top-right corner of the spectrum shows the keyboard and trackpad shortcuts for navigating the chart: Scroll — pan vertically (magnitude); ⇧ Scroll — pan horizontally (frequency); ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency axis; ⌃ Scroll — zoom magnitude axis; Pinch — zoom (trackpad); Drag — pan both axes; Right-click chart area — reset axes and/or labels; Right-click a label — reset that label's position.",
+                    body: "The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency; ⌃ Scroll — zoom magnitude; Pinch — zoom (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.",
                     systemImages: ["info.circle"]
                 )
                 #endif
@@ -361,10 +361,19 @@ After all taps, tap Results to see:
                     title: "PDF Reports",
                     body: "Each saved measurement can generate a PDF report containing the spectrum chart, peak table, and analysis summary. Open Measurements, select a measurement, then tap the PDF export button."
                 )
+                #if os(iOS)
                 helpRow(
                     title: "Zooming the Spectrum",
-                    body: "On iOS, pinch-to-zoom and drag to pan within the chart. On macOS, scroll to zoom and drag to pan. Double-tap (iOS) or double-click (macOS) to reset to the configured display range."
+                    body: "Pinch to zoom both axes and drag to pan within the chart. To reset the axes, tap the … button in the top-right corner of the spectrum and choose Reset to Saved or Reset to Defaults.",
+                    systemImages: ["ellipsis.circle"]
                 )
+                #else
+                helpRow(
+                    title: "Zooming the Spectrum",
+                    body: "Scroll or drag over the chart to zoom and pan — the action depends on where the pointer is: over the plot area it zooms or pans both axes; over the frequency axis (bottom) it zooms or pans frequency only; over the magnitude axis (left) it zooms or pans magnitude only. To reset the axes, right-click anywhere inside the chart to choose from options to reset either or both axes.",
+                    systemImages: ["info.circle"]
+                )
+                #endif
             } header: {
                 Label("Tips & Technique", systemImage: "lightbulb")
             }

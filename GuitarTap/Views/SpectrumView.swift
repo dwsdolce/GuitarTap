@@ -18,17 +18,21 @@
 ///
 /// ## Interaction model
 ///
-/// | Gesture / Input          | Platform | Action |
-/// |--------------------------|----------|--------|
-/// | Pinch (`MagnifyGesture`) | Both     | Zoom both axes, anchored to gesture start point |
-/// | Drag                     | Both     | Pan frequency and dB axes |
-/// | Scroll wheel (no mod)    | macOS    | Pan dB axis |
-/// | Scroll + Shift           | macOS    | Pan frequency axis |
-/// | Scroll + Command         | macOS    | Zoom both axes around cursor |
-/// | Scroll + Option          | macOS    | Zoom frequency axis around cursor |
-/// | Scroll + Control         | macOS    | Zoom dB axis around cursor |
-/// | Hover                    | macOS    | Show snap-to-waveform cursor readout |
-/// | Long press / tap         | iOS      | Show crosshair readout |
+/// | Gesture / Input               | Platform | Action |
+/// |-------------------------------|----------|--------|
+/// | Pinch (`MagnifyGesture`)      | Both     | Zoom both axes, anchored to gesture start point |
+/// | Drag over plot                | Both     | Pan both axes |
+/// | Drag over frequency axis      | macOS    | Pan frequency axis only |
+/// | Drag over magnitude axis      | macOS    | Pan magnitude axis only |
+/// | Scroll wheel over plot        | macOS    | Zoom both axes around cursor |
+/// | Scroll wheel over freq axis   | macOS    | Zoom frequency axis around cursor |
+/// | Scroll wheel over mag axis    | macOS    | Zoom magnitude axis around cursor |
+/// | Scroll + Shift                | macOS    | Pan frequency axis |
+/// | Scroll + Command              | macOS    | Zoom both axes around cursor |
+/// | Scroll + Option               | macOS    | Zoom frequency axis around cursor |
+/// | Scroll + Control              | macOS    | Zoom dB axis around cursor |
+/// | Hover                         | macOS    | Show snap-to-waveform cursor readout |
+/// | Long press / tap              | iOS      | Show crosshair readout |
 ///
 /// ## Axis ranges
 ///
@@ -218,6 +222,14 @@ struct SpectrumView: View {
     /// Used by the scroll-wheel zoom handler to zoom around the cursor rather than the range midpoint.
     @State var lastCursorPosition: CGPoint? = nil
 
+    /// Which chart region the pointer is currently over. Updated on every hover tick.
+    /// Used by the scroll-wheel handler to decide which axis to operate on.
+    @State private var currentPointerRegion: PointerRegion = .outside
+
+    /// Which chart region the drag started in. Captured on the first drag `.onChanged` event
+    /// and held for the duration of the drag so the axis constraint doesn't change mid-gesture.
+    @State private var dragRegion: PointerRegion = .plot
+
     #else
     /// Whether the iOS chart options sheet is showing
     @State private var showingChartOptions: Bool = false
@@ -329,13 +341,17 @@ struct SpectrumView: View {
                 .buttonStyle(.plain)
                 .help("""
                     Zoom & Pan Controls:
-                    • Scroll: Pan vertically (magnitude)
+                    • Scroll over plot: Zoom both axes around cursor
+                    • Scroll over frequency axis: Zoom frequency
+                    • Scroll over magnitude axis: Zoom magnitude
                     • ⇧ + Scroll: Pan horizontally (frequency)
                     • ⌘ + Scroll: Zoom both axes
                     • ⌥ + Scroll: Zoom frequency (horizontal)
                     • ⌃ + Scroll: Zoom magnitude (vertical)
                     • Pinch: Zoom (trackpad)
-                    • Drag: Pan view (both axes)
+                    • Drag over plot: Pan both axes
+                    • Drag over frequency axis: Pan frequency
+                    • Drag over magnitude axis: Pan magnitude
                     • Right-click: Reset axes & labels
                     """)
                 .popover(isPresented: $showingControlsHelp, arrowEdge: .bottom) {
@@ -344,19 +360,27 @@ struct SpectrumView: View {
                             .font(.headline)
                             .padding(.bottom, 2)
                         Group {
-                            Text("Scroll") + Text(": Pan vertically (magnitude)").foregroundColor(.secondary)
+                            Text("Scroll over plot") + Text(": Zoom both axes around cursor").foregroundColor(.secondary)
+                            Text("Scroll over freq axis") + Text(": Zoom frequency").foregroundColor(.secondary)
+                            Text("Scroll over mag axis") + Text(": Zoom magnitude").foregroundColor(.secondary)
                             Text("⇧ + Scroll") + Text(": Pan horizontally (frequency)").foregroundColor(.secondary)
                             Text("⌘ + Scroll") + Text(": Zoom both axes").foregroundColor(.secondary)
                             Text("⌥ + Scroll") + Text(": Zoom frequency (horizontal)").foregroundColor(.secondary)
                             Text("⌃ + Scroll") + Text(": Zoom magnitude (vertical)").foregroundColor(.secondary)
                             Text("Pinch") + Text(": Zoom (trackpad)").foregroundColor(.secondary)
-                            Text("Drag") + Text(": Pan view (both axes)").foregroundColor(.secondary)
+                        }
+                        .font(.callout)
+                        Divider()
+                        Group {
+                            Text("Drag over plot") + Text(": Pan both axes").foregroundColor(.secondary)
+                            Text("Drag over freq axis") + Text(": Pan frequency only").foregroundColor(.secondary)
+                            Text("Drag over mag axis") + Text(": Pan magnitude only").foregroundColor(.secondary)
                             Text("Right-click") + Text(": Reset axes & labels").foregroundColor(.secondary)
                         }
                         .font(.callout)
                     }
                     .padding()
-                    .frame(minWidth: 280)
+                    .frame(minWidth: 300)
                 }
                 #else
                 // iOS: plain button opens a sheet — avoids UIContextMenuInteraction conflicts
@@ -422,31 +446,11 @@ struct SpectrumView: View {
             .chartXAxis { xAxisContent }
             .chartXAxisLabel(alignment: .center) {
                 Text("Frequency (Hz)")
-                    .padding(4)
-                    .contentShape(Rectangle())
-                    .contextMenu {
-                        Button(action: resetFrequencyAxisToSaved) {
-                            Label("Reset to Saved", systemImage: "arrow.counterclockwise")
-                        }
-                        Button(action: resetFrequencyAxisToDefaults) {
-                            Label("Reset to Defaults", systemImage: "arrow.counterclockwise.circle")
-                        }
-                    }
             }
             .chartYAxis { yAxisContent }
             .chartYAxisLabel(position: .leading, alignment: .center) {
                 Text("FFT Magnitude (dB)")
                     .rotationEffect(.degrees(180))
-                    .padding(4)
-                    .contentShape(Rectangle())
-                    .contextMenu {
-                        Button(action: resetMagnitudeAxisToSaved) {
-                            Label("Reset to Saved", systemImage: "arrow.counterclockwise")
-                        }
-                        Button(action: resetMagnitudeAxisToDefaults) {
-                            Label("Reset to Defaults", systemImage: "arrow.counterclockwise.circle")
-                        }
-                    }
             }
             // Only allow chart gestures when not dragging annotations and not in crosshair mode
             #if os(macOS)
@@ -525,6 +529,24 @@ struct SpectrumView: View {
                     case .active(let location):
                         // Always track raw position so scroll-wheel zoom can anchor to the cursor.
                         lastCursorPosition = location
+
+                        // Classify which region the pointer is over and update cursor accordingly.
+                        let region = pointerRegion(at: location, plotFrame: resolvedPlotFrame)
+                        if region != currentPointerRegion {
+                            NSCursor.pop()
+                            switch region {
+                            case .plot:
+                                NSCursor.crosshair.push()
+                            case .xAxis:
+                                NSCursor.resizeLeftRight.push()
+                            case .yAxis:
+                                NSCursor.resizeUpDown.push()
+                            case .outside:
+                                break  // No custom cursor outside the chart
+                            }
+                            currentPointerRegion = region
+                        }
+
                         guard resolvedPlotFrame.contains(location) else {
                             isCursorVisible = false
                             cursorSnapState = nil
@@ -538,6 +560,8 @@ struct SpectrumView: View {
                             lockedSeriesIndex: &lockedSeriesIndex)
                         isCursorVisible = cursorSnapState != nil
                     case .ended:
+                        NSCursor.pop()
+                        currentPointerRegion = .outside
                         lastCursorPosition = nil
                         isCursorVisible = false
                         cursorSnapState = nil
@@ -848,7 +872,15 @@ struct SpectrumView: View {
             }
     }
 
-    /// Drag gesture for panning
+    /// Drag gesture for panning (macOS).
+    ///
+    /// Captures the drag start region from `lastPlotFrame` on the first `.onChanged`
+    /// call and holds it for the duration of the drag so axis constraint stays stable
+    /// even if the pointer wanders into a different region mid-drag.
+    ///
+    /// - `.plot` start → pan both axes
+    /// - `.xAxis` start → pan frequency axis only
+    /// - `.yAxis` start → pan magnitude axis only
     private var panGesture: some Gesture {
         DragGesture(minimumDistance: 8)
             .onChanged { value in
@@ -857,18 +889,34 @@ struct SpectrumView: View {
                     lastDragTranslation = .zero
                     return
                 }
+                // On the first event of a new drag, capture the start region so the
+                // axis constraint is stable for the entire gesture.
+                if lastDragTranslation == .zero {
+                    dragRegion = pointerRegion(at: value.startLocation, plotFrame: lastPlotFrame)
+                }
                 // Compute the per-frame delta so pan accumulates incrementally,
                 // matching the behaviour of the macOS scroll wheel.
-                let delta = CGSize(
+                let rawDelta = CGSize(
                     width:  value.translation.width  - lastDragTranslation.width,
                     height: value.translation.height - lastDragTranslation.height
                 )
                 lastDragTranslation = value.translation
-                handlePan(translation: delta)
+                // Constrain pan axis based on where the drag started.
+                let constrainedDelta: CGSize
+                switch dragRegion {
+                case .xAxis:
+                    constrainedDelta = CGSize(width: rawDelta.width, height: 0)
+                case .yAxis:
+                    constrainedDelta = CGSize(width: 0, height: rawDelta.height)
+                default:
+                    constrainedDelta = rawDelta
+                }
+                handlePan(translation: constrainedDelta)
             }
             .onEnded { _ in
                 dragOffset = .zero
                 lastDragTranslation = .zero
+                dragRegion = .plot
             }
     }
 }

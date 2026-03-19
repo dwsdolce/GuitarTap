@@ -49,7 +49,6 @@ extension RealtimeFFTAnalyzer {
         
         // Pre-compute corrections for all frequency bins
         calibrationCorrections = calibration.corrections(for: frequencies)
-        print("📊 Calibration '\(calibration.name)' applied with \(calibration.correctionPoints.count) correction points")
     }
     
     /// Updates all performance and analysis metrics based on current configuration.
@@ -80,14 +79,6 @@ extension RealtimeFFTAnalyzer {
         let hopSizeMultiplier = 1.0 - overlapFraction
         let hopSize = fftSizeFloat * hopSizeMultiplier
         let fr = sampleRate / hopSize
-        
-        print("=== Analysis Metrics ===")
-        print("Frequency Resolution: \(freqRes) Hz")
-        print("Bandwidth: \(bw) Hz (0 Hz to \(bw) Hz)")
-        print("Sample Length: \(sampleLen * 1000) ms (\(sampleLen) seconds)")
-        print("Hop Size: \(Int(hopSize)) samples (\(Int(hopSizeOverlap))% overlap)")
-        print("Frame Rate: \(fr) Hz")
-        print("=======================")
         
         // Update published properties on main thread
         DispatchQueue.main.async {
@@ -122,10 +113,7 @@ extension RealtimeFFTAnalyzer {
         let frameLength = Int(buffer.frameLength)
         let samples = Array(UnsafeBufferPointer(start: channelData[0], count: frameLength))
         
-        // Debug: Print first time we receive audio
         if !firstBufferReceived {
-            print("🎤 First audio buffer received! Frame length: \(frameLength)")
-            print("🎤 Sample values (first 5): \(samples.prefix(5).map { String(format: "%.4f", $0) }.joined(separator: ", "))")
             firstBufferReceived = true
         }
 
@@ -344,12 +332,8 @@ extension RealtimeFFTAnalyzer {
             // Calculate average processing time
             let avgTime = processingTimeHistory.reduce(0, +) / Float(processingTimeHistory.count)
             
-            // Debug: Print when FFT completes
             fftCount += 1
-            if fftCount % 30 == 0 {  // Print every 30 FFTs (about every 15 seconds at 2Hz frame rate)
-                print("📈 FFT #\(fftCount) complete - Peak: \(String(format: "%.1f", peakMag)) dB @ \(String(format: "%.1f", peakFreq)) Hz")
-            }
-            
+
             // Throttle UI updates to avoid flooding main queue
             let currentTime = CFAbsoluteTimeGetCurrent()
             let shouldPublish = (currentTime - lastPublishTime) >= minPublishInterval
