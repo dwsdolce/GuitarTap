@@ -889,18 +889,20 @@ struct SpectrumView: View {
                     lastDragTranslation = .zero
                     return
                 }
+#if os(macOS)
                 // On the first event of a new drag, capture the start region so the
                 // axis constraint is stable for the entire gesture.
                 if lastDragTranslation == .zero {
                     dragRegion = pointerRegion(at: value.startLocation, plotFrame: lastPlotFrame)
                 }
-                // Compute the per-frame delta so pan accumulates incrementally,
-                // matching the behaviour of the macOS scroll wheel.
+#endif
+                // Compute the per-frame delta so pan accumulates incrementally.
                 let rawDelta = CGSize(
                     width:  value.translation.width  - lastDragTranslation.width,
                     height: value.translation.height - lastDragTranslation.height
                 )
                 lastDragTranslation = value.translation
+#if os(macOS)
                 // Constrain pan axis based on where the drag started.
                 let constrainedDelta: CGSize
                 switch dragRegion {
@@ -912,11 +914,16 @@ struct SpectrumView: View {
                     constrainedDelta = rawDelta
                 }
                 handlePan(translation: constrainedDelta)
+#else
+                handlePan(translation: rawDelta)
+#endif
             }
             .onEnded { _ in
                 dragOffset = .zero
                 lastDragTranslation = .zero
+#if os(macOS)
                 dragRegion = .plot
+#endif
             }
     }
 }
