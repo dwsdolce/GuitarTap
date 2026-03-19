@@ -60,7 +60,7 @@ Three main workflows are supported:
             Section {
                 helpRow(
                     title: "Grant Microphone Access",
-                    body: "The first time you tap Start the system will ask for microphone permission. Tap OK. Without it the analyzer cannot run."
+                    body: "The first time the app launches it will ask for microphone permission. Tap OK. Without it the analyzer cannot run."
                 )
                 helpRow(
                     title: "Choose a Measurement Type",
@@ -85,8 +85,8 @@ Three main workflows are supported:
                     body: "In Settings choose the guitar type (Classical, Flamenco, or Acoustic/Steel String). Each type has calibrated frequency windows for each mode. You can view those windows in the Settings Measurement Type section."
                 )
                 helpRow(
-                    title: "Step 2 — Start",
-                    body: "Tap Start. The spectrum updates in real time. Set the device microphone 5–15 cm from the guitar, aimed at the sound hole or tap point."
+                    title: "Step 2 — Position the Microphone",
+                    body: "The spectrum updates in real time as soon as the app opens. Set the device microphone 5–15 cm from the guitar, aimed at the sound hole or tap point."
                 )
                 helpRow(
                     title: "Step 3 — Tap New Tap",
@@ -195,11 +195,6 @@ After all taps, tap Results to see:
 
             // ── Controls Reference ────────────────────────────────────────
             Section {
-                helpRow(
-                    title: "Start / Stop",
-                    body: "Starts or stops the microphone and live spectrum. The spectrum continues updating until a tap is detected or you tap Stop.",
-                    systemImages: ["play.circle.fill", "stop.circle.fill"]
-                )
                 helpRow(
                     title: "New Tap",
                     body: "Arms the detector for the next tap (or begins a plate measurement sequence). A green indicator shows when a tap has been registered.",

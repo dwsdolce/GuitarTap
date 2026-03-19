@@ -49,8 +49,7 @@ extension TapToneAnalysisView {
                         Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                     }
                     .buttonStyle(.bordered)
-                    .tint(isAutoScaleEnabled ? .blue : .gray)
-                    .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
+                    .tint(.blue)
                     .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                     Button(action: { crosshairMode.toggle() }) {
@@ -64,7 +63,7 @@ extension TapToneAnalysisView {
                         Image(systemName: tap.annotationVisibilityMode.iconName)
                     }
                     .buttonStyle(.bordered)
-                    .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+                    .tint(.blue)
                     .disabled(tap.currentPeaks.isEmpty)
                     .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
@@ -118,17 +117,6 @@ extension TapToneAnalysisView {
         VStack(spacing: 8) {
             // Row 1: Primary controls
             HStack(spacing: 8) {
-                // Start/Stop button
-                Button(action: toggleAnalyzer) {
-                    Label(
-                        fft.isRunning ? "Stop" : "Start",
-                        systemImage: fft.isRunning ? "stop.circle.fill" : "play.circle.fill"
-                    )
-                    .foregroundColor(fft.isRunning ? .red : .green)
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.start(isRunning: fft.isRunning))
-
                 Spacer()
 
                 // Results button
@@ -143,8 +131,7 @@ extension TapToneAnalysisView {
                     Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
                 .buttonStyle(.bordered)
-                .tint(isAutoScaleEnabled ? .blue : .gray)
-                .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
+                .tint(.blue)
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                 // Crosshair mode toggle button (iPad)
@@ -159,7 +146,7 @@ extension TapToneAnalysisView {
                     Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
                 }
                 .buttonStyle(.bordered)
-                .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+                .tint(.blue)
                 .disabled(tap.currentPeaks.isEmpty)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
@@ -225,17 +212,6 @@ extension TapToneAnalysisView {
     @ViewBuilder
     var macosWideHeaderButtons: some View {
         HStack {
-            // Start/Stop button
-            Button(action: toggleAnalyzer) {
-                Label(
-                    fft.isRunning ? "Stop" : "Start",
-                    systemImage: fft.isRunning ? "stop.circle.fill" : "play.circle.fill"
-                )
-                .foregroundColor(fft.isRunning ? .red : .green)
-            }
-            .buttonStyle(.bordered)
-            .hint(HintText.start(isRunning: fft.isRunning))
-
             Spacer()
 
             // Auto-scale dB toggle button (macOS)
@@ -243,8 +219,7 @@ extension TapToneAnalysisView {
                 Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
             }
             .buttonStyle(.bordered)
-            .tint(isAutoScaleEnabled ? .blue : .gray)
-            .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
+            .tint(.blue)
             .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
             // Annotation visibility cycling button (macOS wide)
@@ -252,7 +227,7 @@ extension TapToneAnalysisView {
                 Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
             }
             .buttonStyle(.bordered)
-            .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+            .tint(.blue)
             .disabled(tap.currentPeaks.isEmpty)
             .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
@@ -297,17 +272,6 @@ extension TapToneAnalysisView {
         VStack(spacing: 8) {
             // Row 1: Primary controls
             HStack(spacing: 8) {
-                // Start/Stop button
-                Button(action: toggleAnalyzer) {
-                    Label(
-                        fft.isRunning ? "Stop" : "Start",
-                        systemImage: fft.isRunning ? "stop.circle.fill" : "play.circle.fill"
-                    )
-                    .foregroundColor(fft.isRunning ? .red : .green)
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.start(isRunning: fft.isRunning))
-
                 Spacer()
 
                 // Auto-scale dB toggle button
@@ -315,8 +279,7 @@ extension TapToneAnalysisView {
                     Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
                 .buttonStyle(.bordered)
-                .tint(isAutoScaleEnabled ? .blue : .gray)
-                .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
+                .tint(.blue)
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                 // Annotation visibility cycling button (macOS medium)
@@ -324,7 +287,7 @@ extension TapToneAnalysisView {
                     Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
                 }
                 .buttonStyle(.bordered)
-                .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+                .tint(.blue)
                 .disabled(tap.currentPeaks.isEmpty)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
@@ -375,14 +338,6 @@ extension TapToneAnalysisView {
         VStack(spacing: 8) {
             // Row 1: Primary controls - icon only
             HStack(spacing: 6) {
-                // Start/Stop button
-                Button(action: toggleAnalyzer) {
-                    Image(systemName: fft.isRunning ? "stop.circle.fill" : "play.circle.fill")
-                        .foregroundColor(fft.isRunning ? .red : .green)
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.start(isRunning: fft.isRunning))
-
                 Spacer()
 
                 // Auto-scale dB toggle button
@@ -390,8 +345,7 @@ extension TapToneAnalysisView {
                     Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
                 .buttonStyle(.bordered)
-                .tint(isAutoScaleEnabled ? .blue : .gray)
-                .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
+                .tint(.blue)
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                 // Annotation visibility cycling button (macOS narrow)
@@ -399,7 +353,7 @@ extension TapToneAnalysisView {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
                 .buttonStyle(.bordered)
-                .tint(tap.annotationVisibilityMode == .none ? .gray : .blue)
+                .tint(.blue)
                 .disabled(tap.currentPeaks.isEmpty)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
@@ -578,9 +532,9 @@ extension TapToneAnalysisView {
                         .font(.caption)
                         .foregroundColor(.blue)
                 } else {
-                    Text("Analyzer stopped")
+                    Text("Starting...")
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundColor(.secondary)
                 }
 
                 // Sequence status

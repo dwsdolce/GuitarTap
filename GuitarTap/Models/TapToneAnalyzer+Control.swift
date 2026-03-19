@@ -133,7 +133,7 @@ extension TapToneAnalyzer {
             self.gatedAccumBuffer = []
             self.mpmLock.unlock()
 
-            self.statusMessage = "Press 'New Tap' to begin"
+            self.statusMessage = "Tap the guitar to begin"
         }
     }
 

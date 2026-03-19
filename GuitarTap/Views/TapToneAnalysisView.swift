@@ -524,6 +524,16 @@ struct TapToneAnalysisView: View {
                 print("🔄 Auto-scale dB disabled - tap detected, spectrum frozen")
             }
         }
+        .onAppear {
+            // Auto-start the analyzer when the view first appears.
+            // Guard against toggling off an already-running engine — on macOS, closing the
+            // window hides the view without destroying the @StateObject, so onAppear fires
+            // again on reopen.  Calling toggleAnalyzer() when the engine is already running
+            // would stop it, leaving the app in a permanently-stalled "Starting..." state.
+            if !fft.isRunning {
+                toggleAnalyzer()
+            }
+        }
         #if os(macOS)
         .onAppear {
             // On macOS, System Settings can force-restart the app after revoking microphone

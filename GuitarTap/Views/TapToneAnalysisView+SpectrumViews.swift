@@ -195,10 +195,10 @@ extension TapToneAnalysisView {
                 Group {
                     if !fft.isRunning {
                         VStack {
-                            Image(systemName: "waveform.slash")
+                            Image(systemName: "waveform")
                                 .font(.system(size: 48))
                                 .foregroundColor(.secondary)
-                            Text("Press Start to begin analysis")
+                            Text("Starting...")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }

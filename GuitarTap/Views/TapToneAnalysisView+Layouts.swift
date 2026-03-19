@@ -334,8 +334,7 @@ extension TapToneAnalysisView {
                 Button(action: { toggleAutoScale() }) {
                     Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
-                .disabled(!fft.isRunning || displayMagnitudes.isEmpty)
-                .tint(isAutoScaleEnabled ? .blue : nil)
+                .tint(.blue)
                 .accessibilityLabel("Auto dB")
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
@@ -351,7 +350,7 @@ extension TapToneAnalysisView {
                 Button(action: { tap.cycleAnnotationVisibility() }) {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
-                .tint(tap.annotationVisibilityMode == .none ? nil : .blue)
+                .tint(.blue)
                 .disabled(tap.currentPeaks.isEmpty)
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 

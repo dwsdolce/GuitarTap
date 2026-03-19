@@ -13,7 +13,7 @@ Three main workflows are supported:
 
 ### Grant Microphone Access
 
-The first time you tap Start the system will ask for microphone permission. Tap OK. Without it the analyzer cannot run.
+The first time the app launches it will ask for microphone permission. Tap OK. Without it the analyzer cannot run.
 
 ### Choose a Measurement Type
 
@@ -33,9 +33,9 @@ Guitar mode identifies the key structural resonances of a completed body: Air (H
 
 In Settings choose the guitar type (Classical, Flamenco, or Acoustic/Steel String). Each type has calibrated frequency windows for each mode. You can view those windows in the Settings Measurement Type section.
 
-### Step 2 — Start
+### Step 2 — Position the Microphone
 
-Tap Start. The spectrum updates in real time. Set the device microphone 5–15 cm from the guitar, aimed at the sound hole or tap point.
+The spectrum updates in real time as soon as the app opens. Set the device microphone 5–15 cm from the guitar, aimed at the sound hole or tap point.
 
 ### Step 3 — Tap New Tap
 
@@ -129,10 +129,6 @@ Hold the brace at one point 22% from one end along the length, near one edge in 
 E_L, c_L, specific modulus, and a spruce quality rating are reported. No cross-grain or Gore thickness calculation is available in Brace mode.
 
 ## ![](/tmp/guitar-tap-symbols/hand.tap.png){height=18pt width=18pt} Controls Reference
-
-### ![](/tmp/guitar-tap-symbols/play.circle.fill.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/stop.circle.fill.png){height=14pt width=14pt} Start / Stop
-
-Starts or stops the microphone and live spectrum. The spectrum continues updating until a tap is detected or you tap Stop.
 
 ### ![](/tmp/guitar-tap-symbols/hand.tap.png){height=14pt width=14pt} New Tap
 

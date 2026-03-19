@@ -13,7 +13,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App running with microphone permission granted.
 
-- [ ] Tap **Start** to begin recording
+- [ ] Launch the app (recording begins automatically)
 - [ ] Verify the spectrum chart updates periodically (expected ~0.7 Hz — roughly once per 1.5 s)
 - [ ] Confirm the display does not freeze permanently or show obviously stale data
 - [ ] Note: the low update rate is by design — the large FFT window needed for high frequency resolution requires ~1.5 s of audio per frame
@@ -27,7 +27,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App recording in a quiet environment.
 
-- [ ] Tap **Start** with no sound being produced
+- [ ] Launch the app in a quiet environment (recording begins automatically)
 - [ ] Observe the noise floor level displayed in the spectrum
 - [ ] Confirm the noise floor is visible and stable near −70 to −90 dB
 - [ ] Confirm the floor is not jumping or showing false peaks
@@ -41,7 +41,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** A 220 Hz reference tone source is available (e.g. tuning app, online tone generator). In Settings, confirm the mode is set to a Guitar tap mode (not a Material tap mode), so that 220 Hz falls within the displayed frequency range.
 
-- [ ] Tap **Start** to begin recording
+- [ ] Launch the app (recording begins automatically)
 - [ ] Play a 220 Hz tone near the device microphone
 - [ ] Verify a peak appears in the spectrum chart near 220 Hz (within ±5 Hz)
 
@@ -56,7 +56,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App running and recording. Tap count set to 1. Acoustic measurement mode. Microphone (built-in or external) positioned close to the guitar body.
 
-- [ ] Tap **Start** and confirm spectrum is animating
+- [ ] Confirm spectrum is animating (recording starts automatically on launch)
 - [ ] Knock the guitar top firmly once
 - [ ] Verify the tap indicator flashes green
 - [ ] Verify `Tap count: 1/1` appears in the status bar
@@ -160,7 +160,6 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 - **macOS:** Run `tccutil reset Microphone` in Terminal (resets all apps), then relaunch GuitarTap.
 
 - [ ] Launch GuitarTap
-- [ ] Tap/click **Start**
 - [ ] Verify the OS permission dialog "GuitarTap would like to access the microphone" appears
 - [ ] Confirm the app does not crash
 - [ ] Confirm the app does not start recording before the user responds
@@ -176,7 +175,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Note (macOS):** Toggling the slider off in System Settings causes macOS to force-restart GuitarTap. The app checks permission on launch, so the alert appears automatically on restart — no need to press Start first.
 
-- [ ] On iOS/iPadOS: tap **Start**. On macOS: launch the app (alert may appear immediately on the post-revocation restart, or tap **Start**)
+- [ ] Launch GuitarTap (the app attempts to start recording automatically; the alert will appear at launch)
 - [ ] Verify the app does not crash
 - [ ] Verify recording does not start
 - [ ] Confirm an alert titled "Microphone Access Required" appears
@@ -192,8 +191,8 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 **Preconditions:** Microphone permission was previously denied.
 
 - [ ] Open **System Settings → Privacy & Security → Microphone → GuitarTap** and enable it
-- [ ] **iOS/iPadOS:** Return to GuitarTap (no relaunch needed on iOS 14+), then tap **Start**
-- [ ] **macOS:** GuitarTap is force-restarted automatically; click **Start** after it relaunches
+- [ ] **iOS/iPadOS:** Return to GuitarTap (no relaunch needed on iOS 14+) — recording restarts automatically
+- [ ] **macOS:** GuitarTap is force-restarted automatically; recording begins on relaunch
 - [ ] Verify recording begins and the spectrum starts animating
 - [ ] Verify the green running indicator appears
 
@@ -206,8 +205,8 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App running on a real device.
 
-- [ ] Tap/click **Start**
-- [ ] **iOS/iPadOS:** Confirm the orange microphone indicator appears in the status bar; stop the analyzer and confirm it disappears
+- [ ] Launch the app (recording begins automatically)
+- [ ] **iOS/iPadOS:** Confirm the orange microphone indicator appears in the status bar
 - [ ] **macOS:** Confirm the orange microphone indicator appears in the menu bar (top-right area); note that it persists until the app is quit — this is normal macOS behavior
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
@@ -219,12 +218,11 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App recording on a real iPhone.
 
-- [ ] Tap **Start** and confirm spectrum is animating
+- [ ] Confirm spectrum is animating (recording starts automatically on launch)
 - [ ] Have another phone call the device
 - [ ] Let the call ring for 5 s then decline (do not answer)
 - [ ] While the call rings, verify recording stops cleanly (no crash, no freeze)
-- [ ] After declining, verify the app is in a stopped state
-- [ ] Tap **Start** again and verify recording can be restarted
+- [ ] After declining, verify the app is in a consistent state
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
@@ -237,12 +235,12 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Note:** Does not apply to macOS — CoreAudio allows simultaneous audio access by multiple apps, so a playback app does not interrupt GuitarTap's microphone input.
 
-- [ ] Tap **Start** and confirm spectrum is animating
+- [ ] Confirm spectrum is animating (recording starts automatically on launch)
 - [ ] Swipe to the Home screen
 - [ ] Open Music or Spotify and start playback
 - [ ] Return to GuitarTap
 - [ ] Verify GuitarTap is in a stopped state
-- [ ] Tap **Start** to confirm recording can be restarted
+- [ ] Verify the app recovers when focus returns
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
 
@@ -253,7 +251,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** Two microphone sources available on the Mac (e.g. built-in + USB headset).
 
-- [ ] Launch GuitarTap and tap **Start**
+- [ ] Launch GuitarTap (recording begins automatically)
 - [ ] Open GuitarTap **Settings → Audio Input & Calibration → Audio Input Device** and select the alternative device
 - [ ] Within 2 s, verify the spectrum updates to reflect audio from the new device
 - [ ] Confirm no crash occurs
@@ -284,7 +282,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App recording on any platform.
 
-- [ ] Tap **Start**
+- [ ] Launch the app (recording begins automatically)
 - [ ] Tap **Metrics** to open the metrics overlay
 - [ ] Verify **Sample Rate** shows "48000 Hz" (or the device's actual rate)
 - [ ] Confirm the value is not "0 Hz", "—", or empty
@@ -300,7 +298,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 - [ ] Open Audio MIDI Setup and set the device to 44100 Hz
 - [ ] Launch GuitarTap and select that device in **GuitarTap Settings → Audio Input & Calibration → Audio Input Device**
-- [ ] Tap **Start**
+- [ ] Confirm recording starts automatically
 - [ ] Verify the spectrum chart appears and animates normally
 - [ ] Confirm **Sample Rate** in Metrics reads "44100 Hz"
 - [ ] While still recording, switch the device back to 48000 Hz in Audio MIDI Setup
@@ -611,11 +609,11 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 **Preconditions:** iPhone with compact horizontal size class (iPhone SE, iPhone 15, etc.).
 
 - [ ] Launch GuitarTap on iPhone in portrait
-- [ ] Verify nav bar left: Start/Stop, Results
+- [ ] Verify nav bar left: Results
 - [ ] Verify nav bar right: Metrics, Settings
 - [ ] Verify header button bar: Auto dB, Crosshair, Annotations, Save, Measurements (icon-only bordered buttons)
 - [ ] Rotate to landscape
-- [ ] Verify nav bar left: Start/Stop, Results, Auto dB, Crosshair
+- [ ] Verify nav bar left: Results, Auto dB, Crosshair
 - [ ] Verify nav bar right: Annotations, Save, Measurements, Metrics, Settings
 - [ ] Confirm no button is clipped, hidden, or missing in either orientation
 
@@ -643,7 +641,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 **Preconditions:** macOS, window at ≥900 px wide.
 
 - [ ] Launch GuitarTap
-- [ ] Verify the single-row button layout shows: Start, Results, Auto dB, Annotations, Save, Measurements, Metrics, Settings
+- [ ] Verify the single-row button layout shows (right-justified): Auto dB, Annotations, Save, Measurements, Metrics, Settings
 - [ ] Confirm all buttons have full text labels and are visible in one row
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
@@ -669,7 +667,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App running on iPhone.
 
-- [ ] Start recording
+- [ ] Launch the app (recording begins automatically)
 - [ ] Verify the compact status bar (28 px tall) shows the tap indicator
 - [ ] Verify it shows the dB reading
 - [ ] Verify it shows the running dot indicator
@@ -683,7 +681,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App running on iPad or macOS.
 
-- [ ] Start recording and perform at least one tap
+- [ ] Launch the app (recording begins automatically); perform at least one tap
 - [ ] Verify the full status bar shows the progress bar
 - [ ] Verify it shows the "Tap Detected!" label
 - [ ] Verify it shows the bin count
@@ -813,15 +811,13 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
-### K3 — Recording session starts and stops cleanly
+### K3 — Recording starts automatically on launch
 **Platforms:** iOS · iPadOS · macOS    **Priority:** High
 
 **Preconditions:** Microphone permission granted.
 
-- [ ] Tap **Start**
-- [ ] Observe the green running indicator for 5 s
-- [ ] Tap **Stop**
-- [ ] Verify indicator goes green on Start and red on Stop
+- [ ] Launch the app
+- [ ] Verify the green running indicator appears within 3 s
 - [ ] Confirm the app does not freeze or crash
 
 - [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
@@ -834,9 +830,8 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 **Preconditions:** Xcode Instruments available. App running on a physical device.
 
 - [ ] Profile the app with the Allocations instrument in Xcode
-- [ ] Tap **Start**
+- [ ] Launch the app (recording begins automatically)
 - [ ] Record continuously for 2 minutes
-- [ ] Tap **Stop**
 - [ ] Verify memory usage grows during FFT initialisation and then plateaus
 - [ ] Confirm there is no unbounded growth over the 2-minute period
 - [ ] Confirm net growth is less than 10 MB from the plateau
@@ -850,7 +845,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App recording on iPhone or iPad.
 
-- [ ] Tap **Start**; confirm spectrum is animating
+- [ ] Confirm spectrum is animating (recording starts automatically on launch)
 - [ ] Press the Home button (or swipe up to go home)
 - [ ] Wait 10 s
 - [ ] Return to GuitarTap by tapping its icon
@@ -867,8 +862,7 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 **Preconditions:** App running on iPhone or iPad.
 
-- [ ] Hold the device in portrait; confirm the spectrum is visible
-- [ ] Tap **Start** and confirm spectrum is animating
+- [ ] Hold the device in portrait; confirm the spectrum is visible and animating (recording starts automatically on launch)
 - [ ] Rotate the device to landscape
 - [ ] Verify the chart, header buttons, and status bar reflow without truncation or overlap
 - [ ] Rotate back to portrait

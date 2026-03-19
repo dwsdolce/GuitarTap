@@ -260,7 +260,7 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var tapProgress: Float = 0.0
 
     /// Human-readable status string shown in the status bar and instructions area.
-    @Published var statusMessage: String = "Press Start to begin"
+    @Published var statusMessage: String = "Tap the guitar to begin"
 
     // MARK: - Published Frozen Spectrum
 
