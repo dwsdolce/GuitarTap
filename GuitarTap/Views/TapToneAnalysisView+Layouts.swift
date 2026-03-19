@@ -119,18 +119,6 @@ extension TapToneAnalysisView {
             }
             .frame(minWidth: 400, minHeight: 500)
         }
-        .onChange(of: minFreq) { _, newValue in
-            minFreqInput = String(format: "%.0f", newValue)
-        }
-        .onChange(of: maxFreq) { _, newValue in
-            maxFreqInput = String(format: "%.0f", newValue)
-        }
-        .onChange(of: minDB) { _, newValue in
-            minDBInput = String(format: "%.0f", newValue)
-        }
-        .onChange(of: maxDB) { _, newValue in
-            maxDBInput = String(format: "%.0f", newValue)
-        }
         .overlay {
             if isExportingSpectrum {
                 LoadingOverlay(message: "Exporting spectrum...")
@@ -243,18 +231,6 @@ extension TapToneAnalysisView {
                 onApply: { tapToneAnalyzer.reclassifyPeaks() }
             )
             .interactiveDismissDisabled()
-        }
-        .onChange(of: minFreq) { _, newValue in
-            minFreqInput = String(format: "%.0f", newValue)
-        }
-        .onChange(of: maxFreq) { _, newValue in
-            maxFreqInput = String(format: "%.0f", newValue)
-        }
-        .onChange(of: minDB) { _, newValue in
-            minDBInput = String(format: "%.0f", newValue)
-        }
-        .onChange(of: maxDB) { _, newValue in
-            maxDBInput = String(format: "%.0f", newValue)
         }
         .overlay {
             if isExportingSpectrum {

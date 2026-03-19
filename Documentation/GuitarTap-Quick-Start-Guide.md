@@ -180,7 +180,7 @@ The ellipsis button in the top-right corner of the spectrum opens the Chart Opti
 
 ### ![](/tmp/guitar-tap-symbols/info.circle.png){height=14pt width=14pt} ⓘ Zoom & Pan Help *(macOS only)*
 
-The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency; ⌃ Scroll — zoom magnitude; Pinch — zoom (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.
+The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.
 
 ## ![](/tmp/guitar-tap-symbols/slider.horizontal.3.png){height=18pt width=18pt} Tap Controls (main view)
 
@@ -274,7 +274,7 @@ Pinch to zoom both axes and drag to pan within the chart. To reset the axes, tap
 
 ### ![](/tmp/guitar-tap-symbols/info.circle.png){height=14pt width=14pt} Zooming the Spectrum *(macOS only)*
 
-Scroll or drag over the chart to zoom and pan — the action depends on where the pointer is: over the plot area it zooms or pans both axes; over the frequency axis (bottom) it zooms or pans frequency only; over the magnitude axis (left) it zooms or pans magnitude only. To reset the axes, right-click anywhere inside the chart to choose from options to reset either or both axes.
+Scroll over the chart to zoom — the axis depends on where the pointer is: over the plot area it zooms both axes; over the frequency axis (bottom) it zooms frequency only; over the magnitude axis (left) it zooms magnitude only. Drag to pan the same way. Modifier keys: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘/⌃ Scroll — zoom both axes. To reset the axes, right-click anywhere inside the chart.
 
 ## ![](/tmp/guitar-tap-symbols/text.book.closed.png){height=18pt width=18pt} Glossary
 

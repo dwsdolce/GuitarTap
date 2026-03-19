@@ -134,8 +134,10 @@ struct PeakAnnotationsOverlay: View {
 /// 2. A transient `dragOffset: CGSize` accumulated live during an active drag
 ///    gesture and merged into `offset` on `.onEnded`.
 ///
-/// Cached geometry (`cachedChartPosition`, `cachedPeakPosition`) is recomputed
-/// whenever the axis ranges, plot frame, or peak values change.
+/// Label and peak positions are pure computed properties derived from the current
+/// axis ranges and plot frame, so they stay correct automatically on every render.
+/// During a drag they are frozen (`frozenChartPosition`/`frozenPeakPosition`) so
+/// that axis-range changes mid-gesture don't shift the label under the finger/cursor.
 struct DraggablePeakAnnotation: View {
     /// The peak this annotation describes.
     let peak: ResonantPeak
@@ -183,10 +185,10 @@ struct DraggablePeakAnnotation: View {
     /// `true` during an active drag gesture.
     @State private var isDragging: Bool = false
 
-    /// Cached label origin in view coordinates (70 pt above the peak marker).
-    @State private var cachedChartPosition: CGPoint = .zero
-    /// Cached peak marker position in view coordinates.
-    @State private var cachedPeakPosition: CGPoint = .zero
+    /// Label origin frozen at drag-start so positions don't jump mid-gesture. `nil` when not dragging.
+    @State private var frozenChartPosition: CGPoint? = nil
+    /// Peak marker position frozen at drag-start. `nil` when not dragging.
+    @State private var frozenPeakPosition: CGPoint? = nil
 
     private var modeColor: Color {
         if measurementType.isGuitar {
@@ -219,6 +221,19 @@ struct DraggablePeakAnnotation: View {
     /// Whether the annotation has been moved from its default position
     private var isMoved: Bool {
         offset.x != 0 || offset.y != 0
+    }
+
+    /// Current label origin in view coordinates.
+    /// Returns the drag-frozen value while a drag is active; otherwise computes fresh from current axis ranges.
+    /// No `@State` writes needed — positions update automatically on every render when props change.
+    private var chartPosition: CGPoint {
+        frozenChartPosition ?? calculateChartPosition()
+    }
+
+    /// Current peak marker position in view coordinates.
+    /// Returns the drag-frozen value while a drag is active; otherwise computes fresh.
+    private var peakPosition: CGPoint {
+        frozenPeakPosition ?? calculatePeakPosition()
     }
 
     /// Calculate position in chart coordinates
@@ -304,8 +319,8 @@ struct DraggablePeakAnnotation: View {
             pixelOffsetY = 0
         }
         return CGPoint(
-            x: cachedChartPosition.x + pixelOffsetX + dragOffset.width,
-            y: cachedChartPosition.y + pixelOffsetY + dragOffset.height
+            x: chartPosition.x + pixelOffsetX + dragOffset.width,
+            y: chartPosition.y + pixelOffsetY + dragOffset.height
         )
     }
 
@@ -313,11 +328,11 @@ struct DraggablePeakAnnotation: View {
         // Separate the connection line and label into distinct layers
         ZStack(alignment: .topLeading) {
             // Connection line layer - always show when we have valid positions
-            if cachedPeakPosition.x.isFinite && cachedPeakPosition.y.isFinite &&
-               cachedChartPosition.x.isFinite && cachedChartPosition.y.isFinite &&
-               cachedChartPosition != .zero {
+            if peakPosition.x.isFinite && peakPosition.y.isFinite &&
+               chartPosition.x.isFinite && chartPosition.y.isFinite &&
+               chartPosition != .zero {
                 ConnectionLine(
-                    from: cachedPeakPosition,
+                    from: peakPosition,
                     to: CGPoint(
                         x: finalPosition.x,
                         y: finalPosition.y + 30
@@ -346,9 +361,9 @@ struct DraggablePeakAnnotation: View {
                         if !isDragging {
                             isDragging = true
                             isAnnotationDragging = true
-                            // Cache positions at start of drag
-                            cachedChartPosition = calculateChartPosition()
-                            cachedPeakPosition = calculatePeakPosition()
+                            // Freeze positions at drag start so they don't shift mid-gesture
+                            frozenChartPosition = calculateChartPosition()
+                            frozenPeakPosition = calculatePeakPosition()
                         }
                         dragOffset = value.translation
                     }
@@ -381,9 +396,9 @@ struct DraggablePeakAnnotation: View {
                             isAnnotationDragging = false
                         }
                         dragOffset = .zero
-                        // Update cache after drag completes
-                        cachedChartPosition = calculateChartPosition()
-                        cachedPeakPosition = calculatePeakPosition()
+                        // Release frozen positions — computed properties take over again
+                        frozenChartPosition = nil
+                        frozenPeakPosition = nil
                     }
             )
             #if os(iOS)
@@ -411,81 +426,7 @@ struct DraggablePeakAnnotation: View {
             .help(isMoved ? "Drag to adjust • Right-click to reset position" : "Drag to reposition label")
             #endif
         }
-        .onAppear {
-            // Initialize cached positions immediately on appear
-            cachedChartPosition = calculateChartPosition()
-            cachedPeakPosition = calculatePeakPosition()
-        }
-        .task {
-            // Also calculate on initial render to ensure we have positions ASAP
-            if cachedChartPosition == .zero {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
-            }
-        }
-        .onChange(of: minFreq) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: maxFreq) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: minDB) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: maxDB) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: isLogarithmic) { _, _ in
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: plotFrame) { _, _ in
-            // Update cached positions when the chart geometry changes (e.g., during device rotation)
-            if !isDragging {
-                Task { @MainActor in
-                    cachedChartPosition = calculateChartPosition()
-                    cachedPeakPosition = calculatePeakPosition()
-                }
-            }
-        }
-        .onChange(of: peak.id) { _, _ in
-            // Update cached positions when the peak itself changes (e.g., after a new measurement)
-            if !isDragging {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
-            }
-        }
-        .onChange(of: peak.magnitude) { _, _ in
-            // Update Y position when peak magnitude changes
-            if !isDragging {
-                cachedChartPosition = calculateChartPosition()
-                cachedPeakPosition = calculatePeakPosition()
-            }
-        }
+
     }
 }
 

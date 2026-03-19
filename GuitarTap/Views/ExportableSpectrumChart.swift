@@ -148,11 +148,11 @@ struct ExportableSpectrumChart: View {
     }
 
     private var frequencyAxisValues: [Double] {
-        if isLogarithmic {
-            return AxisTickGenerator.generateTicks(min: Double(minFreq), max: Double(maxFreq), maxTicks: 8, scale: AxisScale.logarithmic())
-        } else {
-            return AxisTickGenerator.generateTicks(min: Double(minFreq), max: Double(maxFreq), maxTicks: 8, scale: AxisScale.linear)
-        }
+        let lo = Double(minFreq)
+        let hi = Double(maxFreq)
+        let scale: AxisScale = isLogarithmic ? AxisScale.logarithmic() : .linear
+        return AxisTickGenerator.generateTicks(min: lo, max: hi, maxTicks: 8, scale: scale)
+            .filter { $0 >= lo && $0 <= hi }
     }
 
     private func modeColor(for mode: GuitarMode) -> Color {

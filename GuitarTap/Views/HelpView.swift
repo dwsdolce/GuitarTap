@@ -259,7 +259,7 @@ After all taps, tap Results to see:
                 #else
                 helpRow(
                     title: "ⓘ Zoom & Pan Help",
-                    body: "The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌘ Scroll — zoom both axes; ⌥ Scroll — zoom frequency; ⌃ Scroll — zoom magnitude; Pinch — zoom (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.",
+                    body: "The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.",
                     systemImages: ["info.circle"]
                 )
                 #endif
@@ -370,7 +370,7 @@ After all taps, tap Results to see:
                 #else
                 helpRow(
                     title: "Zooming the Spectrum",
-                    body: "Scroll or drag over the chart to zoom and pan — the action depends on where the pointer is: over the plot area it zooms or pans both axes; over the frequency axis (bottom) it zooms or pans frequency only; over the magnitude axis (left) it zooms or pans magnitude only. To reset the axes, right-click anywhere inside the chart to choose from options to reset either or both axes.",
+                    body: "Scroll over the chart to zoom — the axis depends on where the pointer is: over the plot area it zooms both axes; over the frequency axis (bottom) it zooms frequency only; over the magnitude axis (left) it zooms magnitude only. Drag to pan the same way. Modifier keys: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘/⌃ Scroll — zoom both axes. To reset the axes, right-click anywhere inside the chart.",
                     systemImages: ["info.circle"]
                 )
                 #endif

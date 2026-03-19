@@ -19,8 +19,8 @@
 /// |---------------------|--------------------------------------------|
 /// | Shift               | Pan horizontally (frequency axis)          |
 /// | Command             | Zoom both axes around cursor               |
-/// | Option              | Zoom frequency axis only around cursor     |
-/// | Control             | Zoom magnitude (dB) axis only around cursor |
+/// | Control             | Zoom both axes around cursor (Windows compat) |
+/// | Option              | Pan magnitude (dB) axis                    |
 ///
 /// ## Drag bindings (macOS)
 ///
@@ -39,7 +39,7 @@
 /// ## Axis bounds
 ///
 /// Both axes are clamped to prevent invalid states:
-/// - Frequency: 20 Hz – 20 kHz; minimum visible span 50 Hz (linear) / 1.1× ratio (log)
+/// - Frequency: 0 Hz – 5 kHz (linear) / 20 Hz – 5 kHz (log); minimum visible span 50 Hz (linear) / 1.1× ratio (log)
 /// - Magnitude: −120 dB – +20 dB; minimum visible span 10 dB
 ///
 /// ## Logarithmic zoom
@@ -64,6 +64,13 @@ import Charts
 import AppKit
 #endif
 
+// MARK: - Frequency Axis Bounds
+
+/// Upper bound for the frequency axis across all zoom and pan operations.
+/// Anything above this is noise for tap-tone work, and allowing the full
+/// 20 kHz range makes panning and zooming impractically slow.
+let maxDisplayFrequency: Float = 5000
+
 // MARK: - Pointer Region
 
 /// Classifies where the mouse pointer is relative to the chart plot frame.
@@ -85,15 +92,14 @@ extension SpectrumView {
 
     // MARK: - Gesture Handlers
 
-#if os(macOS)
     /// Determines which region of the chart the given point falls in.
     ///
     /// The x-axis and y-axis hit zones encompass the full area outside the plot
     /// frame on their respective sides (not just the narrow label strip), so they
-    /// are easy to target.
+    /// are easy to target. Used on both macOS (hover/scroll) and iOS (drag-pan).
     ///
     /// - Parameters:
-    ///   - point: The pointer location in the overlay's local coordinate space.
+    ///   - point: The pointer/touch location in the overlay's local coordinate space.
     ///   - plotFrame: The resolved chart plot frame in the same coordinate space.
     /// - Returns: The `PointerRegion` that contains `point`.
     func pointerRegion(at point: CGPoint, plotFrame: CGRect) -> PointerRegion {
@@ -111,16 +117,18 @@ extension SpectrumView {
         return .outside
     }
 
+#if os(macOS)
+
     /// Handles scroll wheel events for zooming and panning on macOS.
     ///
     /// Zoom operations anchor to the current cursor position so the point under the
     /// cursor stays fixed as the range expands or contracts.
     ///
-    /// - No modifiers: Pan view vertically (magnitude axis)
-    /// - Shift key: Pan view horizontally (frequency axis)
+    /// - No modifiers: Context-sensitive zoom (both/X/Y depending on pointer region)
+    /// - Shift key: Pan horizontally (frequency axis)
     /// - Command key: Zoom both axes around cursor
-    /// - Option key: Zoom frequency axis only (horizontal) around cursor
-    /// - Control key: Zoom magnitude axis only (vertical) around cursor
+    /// - Control key: Zoom both axes around cursor (Windows Ctrl+wheel compat)
+    /// - Option key: Pan magnitude (dB) axis
     ///
     /// - Parameters:
     ///   - event: The scroll wheel event from AppKit
@@ -159,14 +167,15 @@ extension SpectrumView {
                 handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             }
         } else if hasControl && !hasCommand && !hasOption && !hasShift {
-            // Control only: Zoom magnitude axis only around cursor
+            // Control only: Zoom both axes around cursor (Windows-style Ctrl+wheel compat)
             withAnimation(.easeOut(duration: 0.1)) {
-                handleMagnitudeZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
+                handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             }
         } else if hasOption && !hasCommand && !hasShift && !hasControl {
-            // Option only: Zoom frequency axis only around cursor
+            // Option only: Pan Y (magnitude) axis
+            let translation = CGSize(width: 0, height: effectiveDelta)
             withAnimation(.easeOut(duration: 0.1)) {
-                handleFrequencyZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
+                handlePan(translation: translation)
             }
         } else if hasShift && !hasCommand && !hasOption && !hasControl {
             // Shift only: Pan horizontally (frequency axis)
@@ -244,7 +253,7 @@ extension SpectrumView {
             var newMinFreq = Float(pow(10, newLogMin))
             var newMaxFreq = Float(pow(10, newLogMax))
             newMinFreq = max(20, newMinFreq)
-            newMaxFreq = min(20000, newMaxFreq)
+            newMaxFreq = min(maxDisplayFrequency, newMaxFreq)
             if newMaxFreq > newMinFreq * 1.1 {
                 minFreq = newMinFreq
                 maxFreq = newMaxFreq
@@ -253,8 +262,8 @@ extension SpectrumView {
         } else {
             var newMinFreq = anchorFreq - (anchorFreq - minFreq) / Float(scale)
             var newMaxFreq = anchorFreq + (maxFreq - anchorFreq) / Float(scale)
-            newMinFreq = max(20, newMinFreq)
-            newMaxFreq = min(20000, newMaxFreq)
+            newMinFreq = max(0, newMinFreq)
+            newMaxFreq = min(maxDisplayFrequency, newMaxFreq)
             if newMaxFreq > newMinFreq + 50 {
                 minFreq = newMinFreq
                 maxFreq = newMaxFreq
@@ -389,14 +398,14 @@ extension SpectrumView {
                 newMinFreq = 20
                 newMaxFreq += shift
             }
-            if newMaxFreq > 20000 {
-                let shift = newMaxFreq - 20000
-                newMaxFreq = 20000
+            if newMaxFreq > maxDisplayFrequency {
+                let shift = newMaxFreq - maxDisplayFrequency
+                newMaxFreq = maxDisplayFrequency
                 newMinFreq -= shift
             }
 
             minFreq = max(20, newMinFreq)
-            maxFreq = min(20000, newMaxFreq)
+            maxFreq = min(maxDisplayFrequency, newMaxFreq)
             onFrequencyRangeChanged?()
         } else {
             // Pan on frequency axis (linear scale)
@@ -408,19 +417,19 @@ extension SpectrumView {
             var newMaxFreq = maxFreq - freqShift
 
             // Clamp to boundaries
-            if newMinFreq < 20 {
-                let shift = 20 - newMinFreq
-                newMinFreq = 20
+            if newMinFreq < 0 {
+                let shift = -newMinFreq
+                newMinFreq = 0
                 newMaxFreq += shift
             }
-            if newMaxFreq > 20000 {
-                let shift = newMaxFreq - 20000
-                newMaxFreq = 20000
+            if newMaxFreq > maxDisplayFrequency {
+                let shift = newMaxFreq - maxDisplayFrequency
+                newMaxFreq = maxDisplayFrequency
                 newMinFreq -= shift
             }
 
-            minFreq = max(20, newMinFreq)
-            maxFreq = min(20000, newMaxFreq)
+            minFreq = max(0, newMinFreq)
+            maxFreq = min(maxDisplayFrequency, newMaxFreq)
             onFrequencyRangeChanged?()
         }
 

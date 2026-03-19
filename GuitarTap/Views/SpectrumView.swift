@@ -20,7 +20,9 @@
 ///
 /// | Gesture / Input               | Platform | Action |
 /// |-------------------------------|----------|--------|
-/// | Pinch (`MagnifyGesture`)      | Both     | Zoom both axes, anchored to gesture start point |
+/// | Pinch over plot               | Both     | Zoom both axes, anchored to gesture start point |
+/// | Pinch over frequency axis     | Both     | Zoom frequency axis only |
+/// | Pinch over magnitude axis     | Both     | Zoom magnitude axis only |
 /// | Drag over plot                | Both     | Pan both axes |
 /// | Drag over frequency axis      | macOS    | Pan frequency axis only |
 /// | Drag over magnitude axis      | macOS    | Pan magnitude axis only |
@@ -28,9 +30,9 @@
 /// | Scroll wheel over freq axis   | macOS    | Zoom frequency axis around cursor |
 /// | Scroll wheel over mag axis    | macOS    | Zoom magnitude axis around cursor |
 /// | Scroll + Shift                | macOS    | Pan frequency axis |
+/// | Scroll + Option               | macOS    | Pan magnitude axis |
 /// | Scroll + Command              | macOS    | Zoom both axes around cursor |
-/// | Scroll + Option               | macOS    | Zoom frequency axis around cursor |
-/// | Scroll + Control              | macOS    | Zoom dB axis around cursor |
+/// | Scroll + Control              | macOS    | Zoom both axes around cursor |
 /// | Hover                         | macOS    | Show snap-to-waveform cursor readout |
 /// | Long press / tap              | iOS      | Show crosshair readout |
 ///
@@ -208,6 +210,11 @@ struct SpectrumView: View {
     /// -1 = primary spectrum, 0+ = index into materialSpectra. Reset to -1 on cursor exit/drag end.
     @State private var lockedSeriesIndex: Int = -1
 
+    /// Which chart region the drag started in. Captured on the first drag `.onChanged` event
+    /// and held for the duration of the gesture so the axis constraint doesn't change mid-drag.
+    /// Used on both macOS and iOS.
+    @State private var dragRegion: PointerRegion = .plot
+
     #if os(macOS)
     /// Snapped cursor position in data coordinates, including series identity. Nil when not hovering.
     @State private var cursorSnapState: CursorSnapState? = nil
@@ -225,10 +232,6 @@ struct SpectrumView: View {
     /// Which chart region the pointer is currently over. Updated on every hover tick.
     /// Used by the scroll-wheel handler to decide which axis to operate on.
     @State private var currentPointerRegion: PointerRegion = .outside
-
-    /// Which chart region the drag started in. Captured on the first drag `.onChanged` event
-    /// and held for the duration of the drag so the axis constraint doesn't change mid-gesture.
-    @State private var dragRegion: PointerRegion = .plot
 
     #else
     /// Whether the iOS chart options sheet is showing
@@ -299,11 +302,14 @@ struct SpectrumView: View {
     ///
     /// - Returns: An array of frequency values (in Hz) where axis labels should be placed
     private var frequencyAxisValues: [Double] {
-        if isLogarithmic {
-            return AxisTickGenerator.generateTicks(min: Double(minFreq), max: Double(maxFreq), maxTicks: 8, scale: AxisScale.logarithmic())
-        } else {
-            return AxisTickGenerator.generateTicks(min: Double(minFreq), max: Double(maxFreq), maxTicks: 8, scale: AxisScale.linear)
-        }
+        let lo = Double(minFreq)
+        let hi = Double(maxFreq)
+        let scale: AxisScale = isLogarithmic ? AxisScale.logarithmic() : .linear
+        // Filter to the visible domain so ticks produced by the "nice number" rounding
+        // that fall outside [minFreq, maxFreq] (e.g. a 0 Hz tick when minFreq is 20)
+        // are not passed to AxisMarks, which would place them in the axis-label gutter.
+        return AxisTickGenerator.generateTicks(min: lo, max: hi, maxTicks: 8, scale: scale)
+            .filter { $0 >= lo && $0 <= hi }
     }
 
     /// Labels for frequency axis ticks, with precision automatically increased
@@ -342,16 +348,17 @@ struct SpectrumView: View {
                 .help("""
                     Zoom & Pan Controls:
                     • Scroll over plot: Zoom both axes around cursor
-                    • Scroll over frequency axis: Zoom frequency
-                    • Scroll over magnitude axis: Zoom magnitude
-                    • ⇧ + Scroll: Pan horizontally (frequency)
-                    • ⌘ + Scroll: Zoom both axes
-                    • ⌥ + Scroll: Zoom frequency (horizontal)
-                    • ⌃ + Scroll: Zoom magnitude (vertical)
-                    • Pinch: Zoom (trackpad)
+                    • Scroll over frequency axis: Zoom frequency only
+                    • Scroll over magnitude axis: Zoom magnitude only
+                    • ⇧ + Scroll: Pan frequency axis
+                    • ⌥ + Scroll: Pan magnitude axis
+                    • ⌘/⌃ + Scroll: Zoom both axes
+                    • Pinch over plot: Zoom both axes (trackpad)
+                    • Pinch over frequency axis: Zoom frequency only
+                    • Pinch over magnitude axis: Zoom magnitude only
                     • Drag over plot: Pan both axes
-                    • Drag over frequency axis: Pan frequency
-                    • Drag over magnitude axis: Pan magnitude
+                    • Drag over frequency axis: Pan frequency only
+                    • Drag over magnitude axis: Pan magnitude only
                     • Right-click: Reset axes & labels
                     """)
                 .popover(isPresented: $showingControlsHelp, arrowEdge: .bottom) {
@@ -361,13 +368,18 @@ struct SpectrumView: View {
                             .padding(.bottom, 2)
                         Group {
                             Text("Scroll over plot") + Text(": Zoom both axes around cursor").foregroundColor(.secondary)
-                            Text("Scroll over freq axis") + Text(": Zoom frequency").foregroundColor(.secondary)
-                            Text("Scroll over mag axis") + Text(": Zoom magnitude").foregroundColor(.secondary)
-                            Text("⇧ + Scroll") + Text(": Pan horizontally (frequency)").foregroundColor(.secondary)
-                            Text("⌘ + Scroll") + Text(": Zoom both axes").foregroundColor(.secondary)
-                            Text("⌥ + Scroll") + Text(": Zoom frequency (horizontal)").foregroundColor(.secondary)
-                            Text("⌃ + Scroll") + Text(": Zoom magnitude (vertical)").foregroundColor(.secondary)
-                            Text("Pinch") + Text(": Zoom (trackpad)").foregroundColor(.secondary)
+                            Text("Scroll over freq axis") + Text(": Zoom frequency only").foregroundColor(.secondary)
+                            Text("Scroll over mag axis") + Text(": Zoom magnitude only").foregroundColor(.secondary)
+                            Text("⇧ + Scroll") + Text(": Pan frequency axis").foregroundColor(.secondary)
+                            Text("⌥ + Scroll") + Text(": Pan magnitude axis").foregroundColor(.secondary)
+                            Text("⌘/⌃ + Scroll") + Text(": Zoom both axes").foregroundColor(.secondary)
+                        }
+                        .font(.callout)
+                        Divider()
+                        Group {
+                            Text("Pinch over plot") + Text(": Zoom both axes").foregroundColor(.secondary)
+                            Text("Pinch over freq axis") + Text(": Zoom frequency only").foregroundColor(.secondary)
+                            Text("Pinch over mag axis") + Text(": Zoom magnitude only").foregroundColor(.secondary)
                         }
                         .font(.callout)
                         Divider()
@@ -456,6 +468,36 @@ struct SpectrumView: View {
             #if os(macOS)
             .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
             .simultaneousGesture(isAnnotationDragging ? nil : panGesture)
+            // Outer hover covers the full chart frame (plot + axis label areas) so the cursor
+            // shape changes over the axes too — not just over the plot overlay.
+            // Outer hover: cursor shape only. Does NOT update lastCursorPosition because
+            // the outer hover fires in chartView-local coordinates, which differ from the
+            // overlay-local coordinates that plotFrame is expressed in. lastCursorPosition
+            // is kept in overlay-local space by the inner overlay hover.
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let location):
+                    guard lastPlotFrame != .zero else { return }
+                    let region = pointerRegion(at: location, plotFrame: lastPlotFrame)
+                    if region != currentPointerRegion {
+                        NSCursor.pop()
+                        switch region {
+                        case .plot:
+                            NSCursor.crosshair.push()
+                        case .xAxis:
+                            NSCursor.resizeLeftRight.push()
+                        case .yAxis:
+                            NSCursor.resizeUpDown.push()
+                        case .outside:
+                            break
+                        }
+                        currentPointerRegion = region
+                    }
+                case .ended:
+                    NSCursor.pop()
+                    currentPointerRegion = .outside
+                }
+            }
             #else
             // On iOS, zoom uses simultaneousGesture (MagnifyGesture doesn't conflict with
             // annotation DragGestures). Pan/crosshair DragGesture lives in annotationGeometryWrapper
@@ -523,30 +565,15 @@ struct SpectrumView: View {
                 // contentShape makes the ZStack hittable so gestures below fire on empty areas
                 .contentShape(Rectangle())
                 #if os(macOS)
-                // Hover tracking: annotation highPriorityGestures pre-empt this as children
+                // Inner overlay hover: tracks lastCursorPosition and snap readout.
+                // This fires in overlay-local coordinates, which is the same space as
+                // resolvedPlotFrame, so the scroll-wheel zoom anchor is correct.
+                // Cursor shape is handled by the outer chartView hover.
                 .onContinuousHover { phase in
                     switch phase {
                     case .active(let location):
-                        // Always track raw position so scroll-wheel zoom can anchor to the cursor.
+                        // Always track position for scroll-wheel zoom anchor (overlay-local coords).
                         lastCursorPosition = location
-
-                        // Classify which region the pointer is over and update cursor accordingly.
-                        let region = pointerRegion(at: location, plotFrame: resolvedPlotFrame)
-                        if region != currentPointerRegion {
-                            NSCursor.pop()
-                            switch region {
-                            case .plot:
-                                NSCursor.crosshair.push()
-                            case .xAxis:
-                                NSCursor.resizeLeftRight.push()
-                            case .yAxis:
-                                NSCursor.resizeUpDown.push()
-                            case .outside:
-                                break  // No custom cursor outside the chart
-                            }
-                            currentPointerRegion = region
-                        }
-
                         guard resolvedPlotFrame.contains(location) else {
                             isCursorVisible = false
                             cursorSnapState = nil
@@ -560,8 +587,6 @@ struct SpectrumView: View {
                             lockedSeriesIndex: &lockedSeriesIndex)
                         isCursorVisible = cursorSnapState != nil
                     case .ended:
-                        NSCursor.pop()
-                        currentPointerRegion = .outside
                         lastCursorPosition = nil
                         isCursorVisible = false
                         cursorSnapState = nil
@@ -601,8 +626,9 @@ struct SpectrumView: View {
                 .gesture(
                     DragGesture(minimumDistance: crosshairMode.wrappedValue ? 0 : 10)
                         .onChanged { value in
-                            guard resolvedPlotFrame.contains(value.location) else { return }
                             if crosshairMode.wrappedValue {
+                                // Crosshair only tracks within the plot area
+                                guard resolvedPlotFrame.contains(value.location) else { return }
                                 crosshairSnapState = resolveSnapState(
                                     location: value.location,
                                     plotFrame: resolvedPlotFrame,
@@ -613,12 +639,27 @@ struct SpectrumView: View {
                                     lastDragTranslation = .zero
                                     return
                                 }
+                                // Capture the start region once so axis constraint is stable
+                                // for the entire gesture (finger may wander off the axis).
+                                if lastDragTranslation == .zero {
+                                    dragRegion = pointerRegion(at: value.startLocation, plotFrame: resolvedPlotFrame)
+                                }
                                 let delta = CGSize(
                                     width:  value.translation.width  - lastDragTranslation.width,
                                     height: value.translation.height - lastDragTranslation.height
                                 )
                                 lastDragTranslation = value.translation
-                                handlePan(translation: delta)
+                                // Constrain pan to the axis the drag started on
+                                let constrainedDelta: CGSize
+                                switch dragRegion {
+                                case .xAxis:
+                                    constrainedDelta = CGSize(width: delta.width, height: 0)
+                                case .yAxis:
+                                    constrainedDelta = CGSize(width: 0, height: delta.height)
+                                default:
+                                    constrainedDelta = delta
+                                }
+                                handlePan(translation: constrainedDelta)
                             }
                         }
                         .onEnded { _ in
@@ -627,6 +668,7 @@ struct SpectrumView: View {
                                 lockedSeriesIndex = -1
                             } else {
                                 lastDragTranslation = .zero
+                                dragRegion = .plot
                             }
                         }
                 )
@@ -660,7 +702,10 @@ struct SpectrumView: View {
         let margin: CGFloat = 8
 
         let cursorX = plotFrame.minX + (proxy.position(forX: snap.frequency) ?? 0)
-        let cursorY = plotFrame.minY + (proxy.position(forY: snap.magnitude) ?? 0)
+        // Clamp Y so the horizontal crosshair stays inside the plot when the curve
+        // is clipped at the top or bottom of the visible magnitude range.
+        let cursorY = (plotFrame.minY + (proxy.position(forY: snap.magnitude) ?? 0))
+            .clamped(to: plotFrame.minY...plotFrame.maxY)
 
         // Vertical crosshair line
         Path { path in
@@ -731,7 +776,10 @@ struct SpectrumView: View {
         let margin: CGFloat = 8
 
         let cursorX = (proxy.position(forX: snap.frequency) ?? 0) + plotFrame.minX
-        let cursorY = (proxy.position(forY: snap.magnitude) ?? 0) + plotFrame.minY
+        // Clamp Y so the horizontal crosshair stays inside the plot when the curve
+        // is clipped at the top or bottom of the visible magnitude range.
+        let cursorY = ((proxy.position(forY: snap.magnitude) ?? 0) + plotFrame.minY)
+            .clamped(to: plotFrame.minY...plotFrame.maxY)
 
         // Vertical crosshair line
         Path { path in
@@ -859,13 +907,53 @@ struct SpectrumView: View {
     /// Uses `MagnifyGesture` (iOS 17+ / macOS 14+) which provides `startAnchor`
     /// — the unit-space centroid of the pinch within the view — so the chart zooms
     /// around the pinch location rather than the center of the visible range.
+    ///
+    /// The zoom is axis-constrained based on where the pinch starts:
+    /// - Over the plot area → zoom both axes
+    /// - Over the x-axis area → zoom frequency axis only
+    /// - Over the y-axis area → zoom magnitude axis only
     private var zoomGesture: some Gesture {
         MagnifyGesture()
             .onChanged { value in
                 // Compute the per-frame delta so zoom accumulates incrementally.
                 let delta = value.magnification / lastMagnificationScale
                 lastMagnificationScale = value.magnification
-                handleZoom(scale: delta, pinchAnchor: value.startAnchor)
+
+                // Classify where the pinch started to decide which axis to zoom.
+                // Convert startAnchor (unit point relative to the full view) to screen coords.
+                guard lastPlotFrame != .zero else {
+                    handleZoom(scale: delta, pinchAnchor: value.startAnchor)
+                    return
+                }
+                let viewWidth  = lastPlotFrame.minX + lastPlotFrame.width
+                let viewHeight = lastPlotFrame.minY + lastPlotFrame.height
+                let startPoint = CGPoint(
+                    x: value.startAnchor.x * viewWidth,
+                    y: value.startAnchor.y * viewHeight
+                )
+                // Classify the region inline (mirrors pointerRegion on macOS).
+                let pinchRegion: PointerRegion
+                if lastPlotFrame.contains(startPoint) {
+                    pinchRegion = .plot
+                } else if startPoint.x < lastPlotFrame.minX &&
+                          startPoint.y >= lastPlotFrame.minY &&
+                          startPoint.y <= lastPlotFrame.maxY {
+                    pinchRegion = .yAxis
+                } else if startPoint.y > lastPlotFrame.maxY &&
+                          startPoint.x >= lastPlotFrame.minX &&
+                          startPoint.x <= lastPlotFrame.maxX {
+                    pinchRegion = .xAxis
+                } else {
+                    pinchRegion = .outside
+                }
+                switch pinchRegion {
+                case .xAxis:
+                    handleFrequencyZoom(scale: delta)
+                case .yAxis:
+                    applyMagnitudeZoom(scale: delta, anchorDB: (maxDB + minDB) / 2)
+                default:
+                    handleZoom(scale: delta, pinchAnchor: value.startAnchor)
+                }
             }
             .onEnded { _ in
                 lastMagnificationScale = 1.0
