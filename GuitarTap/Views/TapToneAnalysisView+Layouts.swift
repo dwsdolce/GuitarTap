@@ -417,7 +417,7 @@ extension TapToneAnalysisView {
                     }
             }
 
-            // Peak detection threshold
+            // Peak detection threshold (guitar only — not used for plate/brace)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text("Peak Min: \(Int(tap.peakThreshold)) dB")
@@ -439,6 +439,8 @@ extension TapToneAnalysisView {
                         TapDisplaySettings.peakThreshold = newValue
                     }
             }
+            .disabled(!TapDisplaySettings.measurementType.isGuitar)
+            .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
 
             Divider()
 

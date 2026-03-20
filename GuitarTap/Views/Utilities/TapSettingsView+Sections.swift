@@ -460,7 +460,7 @@ extension TapSettingsView {
                 )
             }
 
-            // Peak Threshold
+            // Peak Threshold (guitar only — not used for plate/brace)
             VStack(alignment: .leading, spacing: 12) {
                 Text("Peak Detection Minimum")
                     .font(.subheadline)
@@ -485,8 +485,10 @@ extension TapSettingsView {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 4)
+            .disabled(!selectedMeasurementType.isGuitar)
+            .opacity(selectedMeasurementType.isGuitar ? 1 : 0.4)
 
-            // Max Peaks
+            // Max Peaks (guitar only — plate/brace have a fixed number of peaks)
             VStack(alignment: .leading, spacing: 12) {
                 Text("Maximum Peaks")
                     .font(.subheadline)
@@ -556,6 +558,8 @@ extension TapSettingsView {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 4)
+            .disabled(!selectedMeasurementType.isGuitar)
+            .opacity(selectedMeasurementType.isGuitar ? 1 : 0.4)
 
             Button {
                 resetAnalysisSettings()

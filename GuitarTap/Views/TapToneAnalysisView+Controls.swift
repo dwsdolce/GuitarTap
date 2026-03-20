@@ -648,6 +648,8 @@ extension TapToneAnalysisView {
                     }
                     .buttonStyle(.plain)
                 }
+                .disabled(!TapDisplaySettings.measurementType.isGuitar)
+                .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
             }
 
             // Row 2: Action buttons - all buttons always visible to prevent layout shifts
@@ -837,6 +839,8 @@ extension TapToneAnalysisView {
                 .buttonStyle(.plain)
                 .help("Reset to default")
             }
+            .disabled(!TapDisplaySettings.measurementType.isGuitar)
+            .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
 
             Spacer()
 
@@ -997,6 +1001,8 @@ extension TapToneAnalysisView {
                     .buttonStyle(.plain)
                     .help("Reset to default")
                 }
+                .disabled(!TapDisplaySettings.measurementType.isGuitar)
+                .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
 
                 Spacer()
             }
