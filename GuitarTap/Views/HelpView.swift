@@ -94,7 +94,7 @@ Three main workflows are supported:
                 )
                 helpRow(
                     title: "Step 4 — Inspect Peaks",
-                    body: "Coloured markers label each resonant peak with its mode, frequency, and pitch. Tap a peak label to select it. Use the Annotations button to cycle through All / Selected / None label modes."
+                    body: "Coloured markers label each resonant peak with its mode, frequency, and pitch. In guitar mode, one peak per mode is auto-selected based on the strongest peak in each frequency range, working lowest-to-highest so overlapping ranges resolve in favour of the lower mode. Tap a peak label to toggle its selection. Use the Annotations button to cycle through All / Selected / None label modes. In the Results panel, the wand button resets selections back to automatic if you have made manual changes."
                 )
                 helpRow(
                     title: "Step 5 — Read the Results",
@@ -283,7 +283,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Peak Min (slider)",
-                    body: "Minimum magnitude a spectral peak must reach to be annotated on the spectrum chart. In guitar mode, a peak must also clear this threshold to be reported. In brace/plate mode, the tap capture uses its own adaptive noise floor — Peak Min only affects what is visible on the chart, not which peaks are selected. Move the slider left to show quieter peaks; right to suppress noise. Displayed in dB."
+                    body: "Minimum magnitude a spectral peak must reach to be annotated on the spectrum chart. In guitar mode, a peak must also clear this threshold to be reported; adjusting it on a frozen spectrum re-runs peak finding and updates auto—selections (or carries forward manual selections if you have changed them). In brace/plate mode, the tap capture uses its own adaptive noise floor — Peak Min only affects what is visible on the chart, not which peaks are selected. Move the slider left to show quieter peaks; right to suppress noise. Displayed in dB."
                 )
                 helpRow(
                     title: "Reset arrows",
@@ -317,7 +317,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Peak Min",
-                    body: "Same control as Peak Min on the main view — also accessible here. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported. In brace/plate mode the measurement capture uses its own adaptive noise floor, so Peak Min only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB."
+                    body: "Same control as Peak Min on the main view — also accessible here. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported; adjusting it on a frozen spectrum re-runs peak finding and updates selections (auto if untouched, carry-forward by frequency if manually changed). In brace/plate mode the measurement capture uses its own adaptive noise floor, so Peak Min only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB."
                 )
                 helpRow(
                     title: "Maximum Peaks",

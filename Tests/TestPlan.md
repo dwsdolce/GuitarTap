@@ -163,7 +163,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | G8–G9 | `classical_*`, `flamenco_*` | U | iOS iPadOS mac | Medium | Air range correct for other guitar types |
 | G10 | `helmholtz_normalizesToAir` | U | iOS iPadOS mac | Low | Legacy `.helmholtz` normalises to `.air` |
 | G11 | `displayName_nonEmpty` | U | iOS iPadOS mac | Low | `displayName` returns non-empty string for every case |
-| G12 | `idealRange_containedInClassificationRange` | U | iOS iPadOS mac | Medium | `idealRange` is a strict subset of the classification range |
+| G12 | `modeRange_classicalAir_matchesModeRanges`, `modeRange_acousticTop_matchesModeRanges` | U | iOS iPadOS mac | Medium | `modeRange(for:)` returns the same range as `modeRanges.<mode>` for each guitar type |
 | G13 | `annotationVisibilityCycle_allToSelectedToNoneToAll` | U | iOS iPadOS mac | Medium | Cycle visits all three states in order |
 
 ---

@@ -303,7 +303,7 @@ struct SpectrumView: View {
         var boundaries: [(Float, GuitarMode)] = []
 
         for mode in allModes {
-            let range = mode.idealRange
+            let range = mode.modeRange
             // Add lower boundary if visible
             if range.lowerBound >= minFreq && range.lowerBound <= maxFreq {
                 boundaries.append((range.lowerBound, mode))

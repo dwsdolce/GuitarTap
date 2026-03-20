@@ -78,7 +78,7 @@ struct CombinedPeakModeRowView: View {
 
                 // Mode range indicator
                 if mode != .unknown && mode != .upperModes {
-                    let inRange = mode.idealRange.contains(peak.frequency)
+                    let inRange = mode.modeRange.contains(peak.frequency)
                     Image(systemName: inRange ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                         .foregroundColor(inRange ? .green : .orange)
                         .font(.caption2)

@@ -768,9 +768,14 @@ extension TapToneAnalyzer {
         // This ensures peak markers sit on actual peaks in the averaged waveform.
         let peaksFromAveragedSpectrum = findPeaks(magnitudes: avgMagnitudes, frequencies: avgFrequencies)
         
-        // Update current peaks with peaks from averaged spectrum
+        // Update current peaks with peaks from averaged spectrum.
+        // Auto-select one best peak per guitar mode (lowest range first) so that
+        // overlapping ranges resolve in favour of the lower-frequency mode.
+        // Clear the manual-modification flag so subsequent Peak Min changes re-run
+        // auto-selection rather than carrying forward a now-stale manual state.
         currentPeaks = peaksFromAveragedSpectrum
-        selectedPeakIDs = Set(peaksFromAveragedSpectrum.map { $0.id })
+        selectedPeakIDs = guitarModeSelectedPeakIDs(from: peaksFromAveragedSpectrum)
+        userHasModifiedPeakSelection = false
         
         // Classify modes based on peaks
         identifiedModes = peaksFromAveragedSpectrum.map { peak in

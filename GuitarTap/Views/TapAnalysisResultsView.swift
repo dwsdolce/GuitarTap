@@ -226,7 +226,7 @@ struct TapAnalysisResultsView: View {
                     
                     Spacer()
                     
-                    // Select All / Select None buttons
+                    // Select All / Select None / Reset to Auto buttons
                     if !sortedPeaksWithModes.isEmpty {
                         HStack(spacing: 8) {
                             Button {
@@ -250,6 +250,19 @@ struct TapAnalysisResultsView: View {
                             .controlSize(.mini)
                             .disabled(analyzer.selectedPeakIDs.isEmpty)
                             .help("Deselect all peaks")
+
+                            if measurementType.isGuitar {
+                                Button {
+                                    analyzer.resetToAutoSelection()
+                                } label: {
+                                    Image(systemName: "wand.and.stars")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.mini)
+                                .disabled(!analyzer.userHasModifiedPeakSelection)
+                                .help("Reset to automatic mode selection")
+                            }
                         }
                     }
                 }

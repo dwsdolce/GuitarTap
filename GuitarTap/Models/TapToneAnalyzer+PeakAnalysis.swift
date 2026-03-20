@@ -111,14 +111,82 @@ extension TapToneAnalyzer {
         trackDecay(peakMagnitude: peakMagnitude)
     }
 
+    /// Re-runs peak finding on the frozen spectrum when the peak threshold changes.
+    ///
+    /// Called from the `peakThreshold` `didSet` observer. Has no effect when the
+    /// spectrum is not frozen or when frozen data is unavailable.
+    ///
+    /// **Selection strategy (guitar mode):**
+    /// - If the user has not manually touched selections since the last freeze
+    ///   (`userHasModifiedPeakSelection == false`), auto-selection is re-run from
+    ///   scratch via ``guitarModeSelectedPeakIDs(from:)``.
+    /// - If the user has made manual changes, selections are carried forward by
+    ///   frequency proximity (±5 Hz): previously-selected peaks that still exist in
+    ///   the new peak set are kept selected; previously-deselected peaks that still
+    ///   exist remain deselected; peaks that disappeared below the new threshold are
+    ///   simply dropped.
+    func recalculateFrozenPeaksIfNeeded() {
+        guard isSpectrumFrozen,
+              !frozenFrequencies.isEmpty,
+              !frozenMagnitudes.isEmpty else { return }
+
+        let isGuitar = TapDisplaySettings.measurementType.isGuitar
+
+        // Snapshot selected frequencies before peaks are replaced (UUIDs change).
+        let previouslySelectedFrequencies: [Float] = isGuitar && userHasModifiedPeakSelection
+            ? currentPeaks.filter { selectedPeakIDs.contains($0.id) }.map { $0.frequency }
+            : []
+
+        let peaks = findPeaks(magnitudes: frozenMagnitudes, frequencies: frozenFrequencies)
+        currentPeaks = peaks
+        identifiedModes = peaks.map { peak in
+            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+        }
+
+        if !isGuitar {
+            // Plate/brace: the frozen peaks are final gated-capture results — select all.
+            selectedPeakIDs = Set(peaks.map { $0.id })
+        } else if userHasModifiedPeakSelection {
+            // User has made manual changes: carry forward selections by frequency proximity.
+            // A new peak is selected only if its frequency is within 5 Hz of a previously
+            // selected peak — anything further away is treated as a new/different peak and
+            // left deselected so the user can choose it explicitly.
+            let tolerance: Float = 5.0
+            selectedPeakIDs = Set(
+                peaks.filter { newPeak in
+                    previouslySelectedFrequencies.contains { oldFreq in
+                        abs(newPeak.frequency - oldFreq) <= tolerance
+                    }
+                }.map { $0.id }
+            )
+        } else {
+            // No user changes yet: re-run the mode-priority auto-selection.
+            selectedPeakIDs = guitarModeSelectedPeakIDs(from: peaks)
+        }
+    }
+
+    /// Resets peak selections back to the automatic mode-priority algorithm and
+    /// clears the manual-modification flag.
+    ///
+    /// Call this when the user explicitly requests auto-selection (e.g. via a
+    /// "Reset to Auto" button). If the spectrum is frozen the selection is
+    /// applied immediately to `currentPeaks`; otherwise it will take effect on
+    /// the next freeze.
+    func resetToAutoSelection() {
+        userHasModifiedPeakSelection = false
+        let peaks = currentPeaks
+        guard !peaks.isEmpty else { return }
+        selectedPeakIDs = guitarModeSelectedPeakIDs(from: peaks)
+    }
+
     /// Finds all significant spectral peaks within the configured frequency range.
     ///
     /// The algorithm uses a two-pass strategy with mode-priority selection:
     ///
     /// **Pass 1 — Known modes:**
-    /// Scans each ``GuitarMode/idealRange`` for local maxima that exceed
-    /// ``TapToneAnalyzer/peakThreshold``. Tracks the strongest peak per
-    /// canonical mode name so each guitar mode always gets a guaranteed slot
+    /// Scans each mode's band from ``GuitarType/modeRanges`` for local maxima
+    /// that exceed ``TapToneAnalyzer/peakThreshold``. Tracks the strongest peak
+    /// per canonical mode name so each guitar mode always gets a guaranteed slot
     /// in the output.
     ///
     /// **Pass 2 — Unknown/inter-mode peaks:**
@@ -156,24 +224,31 @@ extension TapToneAnalyzer {
         let endIdx = frequencies.firstIndex(where: { $0 > hiFreq }) ?? frequencies.count - 1
         
         // Define all known modes to search for (excluding unknown).
-        // Uses legacy names that map to normalized modes via .normalized property.
-        let knownModes: [GuitarMode] = [.helmholtz, .crossGrain, .longGrain, .monopole, .dipole, .ringMode, .upperModes]
+        // Use canonical modern cases only — legacy aliases normalise to the same
+        // modeRange and would cause the same physical peak to be found twice,
+        // landing it in two separate guaranteed slots.
+        let knownModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
         
         // Track the strongest peak found in each mode range
         var strongestPeakPerMode: [GuitarMode: ResonantPeak] = [:]
         
-        // Step 1: Search known mode ranges for peaks
+        // Step 1: Search known mode ranges for peaks.
+        // Uses modeRanges (the classification bands shown in Settings) so that
+        // peak detection covers the same frequency window the user sees.
+        let guitarType = TapDisplaySettings.guitarType
         for mode in knownModes {
-            let modeRange = mode.idealRange
+            let modeRange = mode.modeRange(for: guitarType)
             let normalizedMode = mode.normalized
             
-            // Find indices for this mode's range
-            let modeStartIdx = frequencies.firstIndex(where: { $0 >= modeRange.lowerBound }) ?? startIdx
-            let modeEndIdx = frequencies.firstIndex(where: { $0 > modeRange.upperBound }) ?? endIdx
-            
-            // Skip if range is invalid
-            guard modeStartIdx < modeEndIdx, modeStartIdx >= startIdx, modeEndIdx <= endIdx else { continue }
-            
+            // Find indices for this mode's range, clamped to the analysis window.
+            // A mode whose range extends beyond the window (e.g. upperModes goes to 20 kHz
+            // but the display window ends at 2 kHz) is still scanned within the window.
+            let modeStartIdx = max(frequencies.firstIndex(where: { $0 >= modeRange.lowerBound }) ?? startIdx, startIdx)
+            let modeEndIdx   = min(frequencies.firstIndex(where: { $0 > modeRange.upperBound }) ?? endIdx, endIdx)
+
+            // Skip if the mode range doesn't intersect the analysis window at all
+            guard modeStartIdx < modeEndIdx else { continue }
+
             // Scan for local maxima within this mode's range
             let scanStart = max(modeStartIdx, startIdx + windowSize)
             let scanEnd = min(modeEndIdx, endIdx - windowSize)
@@ -242,7 +317,7 @@ extension TapToneAnalyzer {
                 
                 // Check if this frequency is already covered by a known mode
                 let isInKnownMode = knownModes.contains { mode in
-                    mode.idealRange.contains(frequency)
+                    mode.modeRange(for: guitarType).contains(frequency)
                 }
                 
                 // Only process if outside known mode ranges
@@ -320,12 +395,67 @@ extension TapToneAnalyzer {
         return finalPeaks.sorted(by: { $0.magnitude > $1.magnitude })
     }
     
+    /// Selects one peak per guitar mode using a lowest-frequency-first priority
+    /// rule, so overlapping mode ranges always resolve in favour of the lower mode.
+    ///
+    /// The algorithm:
+    /// 1. Orders known modes by the lower bound of their ``GuitarType/modeRanges``
+    ///    band, ascending.
+    /// 2. Walks them in that order. For each mode it picks the highest-magnitude
+    ///    peak whose frequency lies inside the mode's range and has not already
+    ///    been claimed by a lower-frequency mode.
+    /// 3. Claiming is done by both UUID and frequency proximity (±3 Hz), so when
+    ///    overlapping mode ranges cause `findPeaks` to produce two near-duplicate
+    ///    entries for the same physical resonance, the second mode cannot re-select it.
+    /// 4. Returns the `UUID` set of the selected peaks.
+    ///
+    /// Peaks whose frequency falls outside all mode ranges (`.unknown`) are
+    /// **not** auto-selected; the user can toggle them individually in the
+    /// results panel.
+    ///
+    /// - Parameter peaks: The candidate peak array to select from. Defaults
+    ///   to `currentPeaks`.
+    /// - Returns: A `Set<UUID>` containing at most one peak ID per mode.
+    func guitarModeSelectedPeakIDs(from peaks: [ResonantPeak]? = nil) -> Set<UUID> {
+        let candidates = peaks ?? currentPeaks
+        let guitarType = TapDisplaySettings.guitarType
+
+        // Canonical modern modes ordered by ascending lower-bound of their classification range.
+        // Legacy cases are excluded because findPeaks() works with normalised modes.
+        let orderedModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
+            .sorted { $0.modeRange(for: guitarType).lowerBound < $1.modeRange(for: guitarType).lowerBound }
+
+        var selected = Set<UUID>()
+        // Track claimed frequencies (not just IDs) so that when mode ranges overlap
+        // and findPeaks produces two near-duplicate peaks at the same physical frequency,
+        // the second mode doesn't re-select what is effectively the same resonance.
+        var claimedFrequencies: [Float] = []
+        let duplicateTolerance: Float = 3.0   // Hz — tighter than removeDuplicatePeaks (2 Hz) + interpolation jitter
+
+        for mode in orderedModes {
+            let range = mode.modeRange(for: guitarType)
+            // Find the highest-magnitude peak within this mode's range that has not
+            // already been claimed by a lower-frequency mode (by ID or by frequency proximity).
+            if let best = candidates
+                .filter({ peak in
+                    range.contains(peak.frequency) &&
+                    !selected.contains(peak.id) &&
+                    !claimedFrequencies.contains(where: { abs($0 - peak.frequency) <= duplicateTolerance })
+                })
+                .max(by: { $0.magnitude < $1.magnitude }) {
+                selected.insert(best.id)
+                claimedFrequencies.append(best.frequency)
+            }
+        }
+        return selected
+    }
+
     /// Re-runs mode classification on `currentPeaks` using the active guitar
     /// type's frequency ranges.
     ///
     /// Call this after the user changes the guitar type (acoustic ↔ classical)
     /// so that `identifiedModes` stays consistent with the updated
-    /// ``GuitarMode/idealRange`` boundaries without requiring a new tap.
+    /// ``GuitarMode/modeRange`` boundaries without requiring a new tap.
     func reclassifyPeaks() {
         identifiedModes = currentPeaks.map { peak in
             (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))

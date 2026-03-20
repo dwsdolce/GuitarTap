@@ -116,22 +116,15 @@ struct GuitarModeClassificationTests {
         #expect(GuitarMode.unknown.displayName == "Unknown")
     }
 
-    // MARK: - Ideal range consistency
+    // MARK: - modeRange convenience accessor
 
-    // The ideal range must be contained within (or equal to) the mode's classification range.
-    @Test func idealRange_classicalAir_containedInClassificationRange() {
-        let ideal = GuitarMode.air.idealRange(for: .classical)
-        let classif = GuitarType.classical.modeRanges.air
-        // Ideal range must be narrower or equal to classification range
-        #expect(ideal.lowerBound >= classif.lowerBound)
-        #expect(ideal.upperBound <= classif.upperBound)
+    // modeRange(for:) must return the same range as modeRanges.<mode> for each guitar type.
+    @Test func modeRange_classicalAir_matchesModeRanges() {
+        #expect(GuitarMode.air.modeRange(for: .classical) == GuitarType.classical.modeRanges.air)
     }
 
-    @Test func idealRange_acousticTop_containedInClassificationRange() {
-        let ideal = GuitarMode.top.idealRange(for: .acoustic)
-        let classif = GuitarType.acoustic.modeRanges.top
-        #expect(ideal.lowerBound >= classif.lowerBound)
-        #expect(ideal.upperBound <= classif.upperBound)
+    @Test func modeRange_acousticTop_matchesModeRanges() {
+        #expect(GuitarMode.top.modeRange(for: .acoustic) == GuitarType.acoustic.modeRanges.top)
     }
 
     // MARK: - Annotation visibility mode cycle

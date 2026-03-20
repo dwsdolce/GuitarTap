@@ -124,6 +124,77 @@ struct PeakSelectionTests {
 }
 
 // ---------------------------------------------------------------------------
+// MARK: - userHasModifiedPeakSelection Flag Tests  (D3b)
+// ---------------------------------------------------------------------------
+
+@Suite("UserModifiedPeakSelectionFlag")
+struct UserModifiedPeakSelectionFlagTests {
+
+    // togglePeakSelection sets the flag.
+    @Test func togglePeakSelection_setsModifiedFlag() {
+        let sut = makeSUT()
+        #expect(!sut.userHasModifiedPeakSelection, "Flag should start false")
+
+        sut.togglePeakSelection(UUID())
+
+        #expect(sut.userHasModifiedPeakSelection, "Flag should be true after toggle")
+    }
+
+    // selectAllPeaks sets the flag.
+    @Test func selectAllPeaks_setsModifiedFlag() {
+        let sut = makeSUT()
+        sut.currentPeaks = [makePeak()]
+
+        sut.selectAllPeaks()
+
+        #expect(sut.userHasModifiedPeakSelection)
+    }
+
+    // selectNoPeaks sets the flag.
+    @Test func selectNoPeaks_setsModifiedFlag() {
+        let sut = makeSUT()
+
+        sut.selectNoPeaks()
+
+        #expect(sut.userHasModifiedPeakSelection)
+    }
+
+    // resetToAutoSelection clears the flag and selects the best peak per mode.
+    @Test func resetToAutoSelection_clearsFlagAndSelectsBestPerMode() {
+        let sut = makeSUT()
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .acoustic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        // Two peaks in the acoustic Air range (90–120 Hz); the louder one should win.
+        let quietAir = ResonantPeak(frequency: 98, magnitude: -50)
+        let loudAir  = ResonantPeak(frequency: 105, magnitude: -30)
+        sut.currentPeaks = [quietAir, loudAir]
+
+        // Simulate user having made a manual change
+        sut.userHasModifiedPeakSelection = true
+        sut.selectedPeakIDs = []
+
+        sut.resetToAutoSelection()
+
+        #expect(!sut.userHasModifiedPeakSelection, "Flag should be cleared after resetToAutoSelection")
+        #expect(sut.selectedPeakIDs.contains(loudAir.id), "Loudest Air peak should be auto-selected")
+        #expect(!sut.selectedPeakIDs.contains(quietAir.id), "Quieter Air peak should not be selected")
+    }
+
+    // resetToAutoSelection on empty currentPeaks is a no-op (no crash).
+    @Test func resetToAutoSelection_emptyPeaks_isNoop() {
+        let sut = makeSUT()
+        sut.userHasModifiedPeakSelection = true
+
+        sut.resetToAutoSelection()
+
+        #expect(!sut.userHasModifiedPeakSelection)
+        #expect(sut.selectedPeakIDs.isEmpty)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MARK: - Visible Peaks Tests  (D4–D6)
 // ---------------------------------------------------------------------------
 

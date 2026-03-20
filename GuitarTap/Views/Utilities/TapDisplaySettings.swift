@@ -16,7 +16,6 @@
 /// MeasurementType (Codable)
 ///   └── GuitarType (Codable)
 ///         ├── ModeRanges  — classification frequency bands
-///         ├── idealRanges — narrower "on target" bands
 ///         └── DecayThresholds — ring-out quality cutoffs
 ///
 /// PlateStiffnessPreset (Codable) — f_vs preset or .custom
@@ -215,38 +214,6 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
         }
     }
     
-    /// Ideal frequency ranges for display (narrower "target" ranges)
-    var idealRanges: ModeRanges {
-        switch self {
-        case .classical:
-            return ModeRanges(
-                air: 90...100,
-                top: 185...215,
-                back: 210...250,
-                dipole: 360...410,
-                ringMode: 650...750,
-                upperModes: 850...2000
-            )
-        case .flamenco:
-            return ModeRanges(
-                air: 95...105,
-                top: 205...235,
-                back: 195...225,
-                dipole: 380...420,
-                ringMode: 680...780,
-                upperModes: 880...2000
-            )
-        case .acoustic:
-            return ModeRanges(
-                air: 95...110,
-                top: 165...195,
-                back: 230...270,
-                dipole: 390...430,
-                ringMode: 680...780,
-                upperModes: 900...2000
-            )
-        }
-    }
     
     /// Ring-out time quality thresholds, in seconds.
     ///

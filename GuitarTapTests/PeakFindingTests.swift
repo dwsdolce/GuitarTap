@@ -57,7 +57,7 @@ private func combineSpectra(_ a: ([Float], [Float]), _ b: ([Float], [Float])) ->
 struct FindPeaksTests {
 
     // F10: A single pure tone in the upperModes range (900–2000 Hz) is detected.
-    // The idealRange width (1100 Hz) covers ~94 bins at 11.7 Hz/bin, so the
+    // The modeRange width (1100 Hz) covers ~94 bins at 11.7 Hz/bin, so the
     // ±5-bin local-max window can always find peaks in this range.
     @Test func singlePureTone_returnsOnePeak() throws {
         let sut = makeSUT()

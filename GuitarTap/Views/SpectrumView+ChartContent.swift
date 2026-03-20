@@ -235,6 +235,6 @@ extension SpectrumView {
 
     /// Determines if this boundary frequency is the start (lower bound) of a mode range
     func isStartOfModeRange(_ frequency: Float, for mode: GuitarMode) -> Bool {
-        return abs(frequency - mode.idealRange.lowerBound) < 0.1
+        return abs(frequency - mode.modeRange.lowerBound) < 0.1
     }
 }

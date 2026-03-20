@@ -455,12 +455,15 @@ extension TapToneAnalyzer {
             print("  🏷️ Restored \(offsets.count) annotation offsets")
         }
         
-        // Restore selected peak IDs; if none saved, default to selecting all peaks
+        // Restore selected peak IDs; if none saved, default to selecting all peaks.
+        // Mark as user-modified so Peak Min adjustments carry selections forward by
+        // frequency proximity rather than clobbering the restored state with auto-selection.
         if let saved = measurement.selectedPeakIDs {
             selectedPeakIDs = Set(saved)
         } else {
             selectedPeakIDs = Set(measurement.peaks.map { $0.id })
         }
+        userHasModifiedPeakSelection = true
         print("  ⭐ Restored \(selectedPeakIDs.count) selected peaks")
 
         // Restore annotation visibility mode; default to .all if not saved

@@ -143,7 +143,10 @@ final class TapToneAnalyzer: ObservableObject {
     /// Peaks below this level are discarded during peak-finding.  Persisted in
     /// ``TapDisplaySettings``.
     @Published var peakThreshold: Float = TapDisplaySettings.peakThreshold {
-        didSet { TapDisplaySettings.peakThreshold = peakThreshold }
+        didSet {
+            TapDisplaySettings.peakThreshold = peakThreshold
+            recalculateFrozenPeaksIfNeeded()
+        }
     }
 
     /// Lower bound of the analysis frequency range, in Hz.
@@ -302,6 +305,14 @@ final class TapToneAnalyzer: ObservableObject {
     /// ``annotationVisibilityMode`` to `.selected`.
     @Published var selectedPeakIDs: Set<UUID> = []
 
+    /// Whether the user has manually modified peak selections since the last auto-selection.
+    ///
+    /// When `false`, changing Peak Min on a frozen guitar spectrum re-runs
+    /// ``guitarModeSelectedPeakIDs(from:)`` from scratch. When `true`, selections
+    /// are carried forward by frequency proximity instead so manual choices are preserved.
+    /// Reset to `false` by ``resetToAutoSelection()`` or by a new tap sequence completing.
+    var userHasModifiedPeakSelection: Bool = false
+
     /// Controls which annotations are rendered on the spectrum chart.
     /// Initialised from UserDefaults so the last-used mode is restored on launch.
     @Published var annotationVisibilityMode: AnnotationVisibilityMode = TapDisplaySettings.annotationVisibilityMode
@@ -362,16 +373,19 @@ final class TapToneAnalyzer: ObservableObject {
         } else {
             selectedPeakIDs.insert(peakID)
         }
+        userHasModifiedPeakSelection = true
     }
 
     /// Marks all current peaks as selected.
     func selectAllPeaks() {
         selectedPeakIDs = Set(currentPeaks.map { $0.id })
+        userHasModifiedPeakSelection = true
     }
 
     /// Clears the selection set so no peaks are marked as significant.
     func selectNoPeaks() {
         selectedPeakIDs.removeAll()
+        userHasModifiedPeakSelection = true
     }
 
     /// Advances ``annotationVisibilityMode`` to the next state in the cycle:

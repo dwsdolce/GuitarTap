@@ -13,16 +13,18 @@
 /// The frequency boundaries for each mode depend on the guitar type (classical, flamenco, acoustic)
 /// and are defined in ``GuitarType/ModeRanges``.
 ///
-/// ## Mode Map (classical / flamenco defaults)
+/// ## Mode Map (approximate detection ranges, guitar-type-dependent)
 ///
-/// | Mode | Approx. range | Physical description |
-/// |------|--------------|----------------------|
-/// | Air  | 80–200 Hz    | Helmholtz air resonance of the sound-hole cavity |
-/// | Top  | 170–260 Hz   | Main monopole resonance of the top plate |
-/// | Back | 210–310 Hz   | Main monopole resonance of the back plate |
-/// | Dipole | 280–420 Hz | T(1,2) anti-symmetric bending mode |
-/// | Ring Mode | 380–550 Hz | Higher structural mode |
-/// | Upper Modes | 500–1 000 Hz | Cluster of higher-order modes |
+/// | Mode | Classical | Flamenco | Acoustic | Physical description |
+/// |------|-----------|----------|----------|----------------------|
+/// | Air  | 80–110 Hz | 85–115 Hz | 90–120 Hz | Helmholtz air resonance of the sound-hole cavity |
+/// | Top  | 170–230 Hz | 190–250 Hz | 150–210 Hz | Main monopole resonance of the top plate |
+/// | Back | 190–280 Hz | 180–240 Hz | 210–290 Hz | Main monopole resonance of the back plate |
+/// | Dipole | 330–430 Hz | 350–450 Hz | 360–460 Hz | T(1,2) anti-symmetric bending mode |
+/// | Ring Mode | 580–820 Hz | 600–850 Hz | 620–880 Hz | Higher structural mode |
+/// | Upper Modes | 820+ Hz | 850+ Hz | 880+ Hz | Cluster of higher-order modes |
+///
+/// Exact boundaries are defined in ``GuitarType/modeRanges``.
 ///
 /// ## Legacy Cases
 ///
@@ -128,24 +130,20 @@ enum GuitarMode: String, Codable {
 
     // MARK: - Frequency Ranges
 
-    /// The ideal (target) frequency range for this mode using the current guitar type setting.
+    /// The classification frequency range for this mode using the current guitar type setting.
     ///
-    /// - SeeAlso: ``idealRange(for:)`` for a guitar-type–specific variant.
-    var idealRange: ClosedRange<Float> {
-        return idealRange(for: TapDisplaySettings.guitarType)
+    /// - SeeAlso: ``modeRange(for:)`` for a guitar-type–specific variant.
+    var modeRange: ClosedRange<Float> {
+        return modeRange(for: TapDisplaySettings.guitarType)
     }
 
-    /// The ideal (target) frequency range for this mode for a specific guitar type.
+    /// The classification frequency range for this mode for a specific guitar type.
     ///
-    /// Ideal ranges are the narrower "target" bands used for quality assessment, as opposed
-    /// to the wider detection bands in ``GuitarType/ModeRanges`` which define what counts as
-    /// belonging to a mode at all.
-    ///
-    /// - Parameter guitarType: The guitar type whose ideal-range table is consulted.
+    /// - Parameter guitarType: The guitar type whose ``GuitarType/modeRanges`` table is consulted.
     /// - Returns: A closed range in Hz.  Returns `0...20000` for ``unknown`` and for
     ///   any unrecognised future cases.
-    func idealRange(for guitarType: GuitarType) -> ClosedRange<Float> {
-        let ranges = guitarType.idealRanges
+    func modeRange(for guitarType: GuitarType) -> ClosedRange<Float> {
+        let ranges = guitarType.modeRanges
         switch self.normalized {
         case .air:        return ranges.air
         case .top:        return ranges.top

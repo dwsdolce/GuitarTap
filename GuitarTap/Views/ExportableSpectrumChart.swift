@@ -118,7 +118,7 @@ struct ExportableSpectrumChart: View {
         var boundaries: [(Float, GuitarMode)] = []
 
         for mode in allModes {
-            let range = mode.idealRange
+            let range = mode.modeRange
             if range.lowerBound >= minFreq && range.lowerBound <= maxFreq {
                 boundaries.append((range.lowerBound, mode))
             }
@@ -222,7 +222,7 @@ struct ExportableSpectrumChart: View {
     }
 
     private func isStartOfModeRange(_ frequency: Float, for mode: GuitarMode) -> Bool {
-        return abs(frequency - mode.idealRange.lowerBound) < 0.1
+        return abs(frequency - mode.modeRange.lowerBound) < 0.1
     }
 
     /// Build filtered chart data for a single plate/brace spectrum series

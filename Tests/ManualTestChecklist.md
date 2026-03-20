@@ -535,6 +535,59 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
+### D16 — Guitar mode auto-selects one peak per mode on freeze
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
+
+**Preconditions:** App in guitar measurement mode. A real guitar (or tone source covering multiple mode frequencies) available.
+
+- [ ] Capture a tap so the spectrum freezes
+- [ ] Open the Results panel
+- [ ] Verify that at most one peak per mode (Air, Top, Back, Dipole, Ring Mode, Upper Modes) is selected (checkmark shown)
+- [ ] Verify that if two mode ranges overlap and a peak falls in both, the peak is assigned to the lower-frequency mode
+- [ ] Verify that peaks with mode "Unknown" are **not** auto-selected (no checkmark)
+- [ ] Confirm the **Reset to Auto** wand button (⌛) in the Results panel header is disabled (already in auto state)
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### D17 — Peak Min recalculates frozen guitar spectrum; selections update correctly
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
+
+**Preconditions:** A guitar tap has been captured and the spectrum is frozen with at least two annotated peaks.
+
+**Part A — Auto state (no manual changes):**
+- [ ] Without touching any selection checkboxes, move the Peak Min slider to the right (raise threshold)
+- [ ] Verify peaks that fall below the new threshold disappear from the chart and Results panel
+- [ ] Verify the remaining auto-selected peaks update (wand button stays disabled — still in auto state)
+- [ ] Move the slider back left; verify the previously hidden peaks reappear and auto-selection re-runs
+
+**Part B — Manual state:**
+- [ ] Toggle any peak's checkmark in the Results panel (select or deselect it)
+- [ ] Confirm the **Reset to Auto** wand button is now enabled
+- [ ] Move the Peak Min slider
+- [ ] Verify peaks that survive the threshold carry their selection state forward (a peak you selected stays selected; one you deselected stays deselected)
+- [ ] Verify peaks removed by the threshold are simply gone (no crash, no stale IDs)
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### D18 — Reset to Auto restores mode-priority selection
+**Platforms:** iOS · iPadOS · macOS    **Priority:** Medium
+
+**Preconditions:** A guitar tap is frozen and the user has made at least one manual selection change (D17 Part B).
+
+- [ ] Confirm the **Reset to Auto** wand button (⌛) in the Results panel header is enabled
+- [ ] Tap/click the wand button
+- [ ] Verify the selection reverts to auto-selection (one best peak per mode, lowest-first)
+- [ ] Verify the wand button becomes disabled again
+- [ ] Verify moving the Peak Min slider now re-runs auto-selection (not carry-forward)
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
 ## R — Persistence & Export (Manual)
 
 ### R7 — Saved measurement persists across relaunch
@@ -881,10 +934,10 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 | A — Averaging | 3 | | | |
 | S — Audio Stack | 10 | | | |
 | C — Chart Interaction | 11 | | | |
-| D — Draggable Annotations | 5 | | | |
+| D — Draggable Annotations | 8 | | | |
 | R — Persistence & Export | 4 | | | |
 | U — Cross-Platform UI | 12 | | | |
 | K — Regression Smoke | 6 | | | |
-| **Total** | **58** | | | |
+| **Total** | **61** | | | |
 
 **Overall result:** Pass / Fail / Partial      **Sign-off:** _______________________________
