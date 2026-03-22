@@ -97,6 +97,7 @@ extension TapToneAnalysisView {
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakThreshold: $tapToneAnalyzer.peakThreshold,
                 maxPeaks: $tapToneAnalyzer.maxPeaks,
+                hysteresisMargin: $tapToneAnalyzer.hysteresisMargin,
                 fftAnalyzer: fft,
                 onApply: { tapToneAnalyzer.reclassifyPeaks() }
             )
@@ -104,7 +105,7 @@ extension TapToneAnalysisView {
         }
         .sheet(isPresented: $showingMetrics) {
             NavigationStack {
-                ScrollView {
+                AlwaysVisibleScrollView {
                     FFTAnalysisMetricsView(analyzer: fft)
                         .padding()
                 }
@@ -201,7 +202,7 @@ extension TapToneAnalysisView {
         }
         .sheet(isPresented: $showingMetrics) {
             NavigationView {
-                ScrollView {
+                AlwaysVisibleScrollView {
                     FFTAnalysisMetricsView(analyzer: fft)
                         .padding()
                 }
@@ -227,6 +228,7 @@ extension TapToneAnalysisView {
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakThreshold: $tapToneAnalyzer.peakThreshold,
                 maxPeaks: $tapToneAnalyzer.maxPeaks,
+                hysteresisMargin: $tapToneAnalyzer.hysteresisMargin,
                 fftAnalyzer: fft,
                 onApply: { tapToneAnalyzer.reclassifyPeaks() }
             )
@@ -391,29 +393,6 @@ extension TapToneAnalysisView {
                     .hint(HintText.threshold)
                     .onChange(of: tap.tapDetectionThreshold) { _, newValue in
                         TapDisplaySettings.tapDetectionThreshold = newValue
-                    }
-            }
-
-            // Hysteresis
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text("Hysteresis: \(tap.hysteresisMargin, specifier: "%.1f") dB")
-                        .font(.caption)
-                    Button(action: {
-                        tapToneAnalyzer.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
-                        TapDisplaySettings.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
-                    .accessibilityLabel("Hysteresis margin")
-                    .hint(HintText.hysteresis)
-                    .onChange(of: tap.hysteresisMargin) { _, newValue in
-                        TapDisplaySettings.hysteresisMargin = newValue
                     }
             }
 

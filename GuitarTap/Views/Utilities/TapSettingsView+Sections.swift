@@ -14,7 +14,7 @@
 /// |---|---|
 /// | `measurementTypeSection` | Measurement-type picker, guitar mode ranges, plate/brace dimensions, Gore thicknessing |
 /// | `displayRangeSection` | Display frequency range, magnitude range, Save Current View / Reset buttons |
-/// | `analysisSettingsSection` | Analysis frequency range, peak threshold, max peaks |
+/// | `analysisSettingsSection` | Analysis frequency range, peak threshold, max peaks, hysteresis margin |
 /// | `audioInputSection` | Audio-input device picker, calibration picker, import / delete calibration |
 /// | `fftProcessingSection` | Hop-size overlap slider |
 /// | `aboutSection` | App version, copyright, Help navigation link |
@@ -560,6 +560,39 @@ extension TapSettingsView {
             .padding(.vertical, 4)
             .disabled(!selectedMeasurementType.isGuitar)
             .opacity(selectedMeasurementType.isGuitar ? 1 : 0.4)
+
+            // Hysteresis Margin
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Hysteresis Margin")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                HStack(spacing: 8) {
+                    Slider(value: $hysteresisMargin, in: 1...10, step: 0.5)
+                        .accessibilityLabel("Hysteresis margin")
+
+                    Text(String(format: "%.1f dB", hysteresisMargin))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.purple)
+                        .frame(width: 60, alignment: .trailing)
+
+                    Button {
+                        hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset to default")
+                }
+
+                Text("How far the signal must drop below the detection threshold before the detector resets and is ready for the next tap. A higher value prevents a single loud tap from triggering multiple detections.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.vertical, 4)
 
             Button {
                 resetAnalysisSettings()

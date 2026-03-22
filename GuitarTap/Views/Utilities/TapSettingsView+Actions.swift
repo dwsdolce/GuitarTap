@@ -144,6 +144,7 @@ extension TapSettingsView {
         TapDisplaySettings.analysisMaxFrequency = validatedAnalysisFreq.max
         TapDisplaySettings.peakThreshold = clampedThreshold
         TapDisplaySettings.maxPeaks = maxPeaks
+        TapDisplaySettings.hysteresisMargin = hysteresisMargin
         TapDisplaySettings.hopSizeOverlap = fftAnalyzer.hopSizeOverlap
 
         // Update input fields with validated values (in case they were clamped)
@@ -188,6 +189,7 @@ extension TapSettingsView {
         maxPeaks = TapDisplaySettings.defaultMaxPeaks
         maxPeaksInput = "\(TapDisplaySettings.defaultMaxPeaks)"
         captureAllPeaks = false
+        hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
     }
 
     // MARK: - Calibration Helpers

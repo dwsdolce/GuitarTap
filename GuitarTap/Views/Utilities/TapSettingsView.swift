@@ -14,7 +14,7 @@
 /// |---|---|
 /// | Measurement Type | Guitar type, plate/brace selection; mode-frequency ranges; unknown-modes toggle (guitar); plate/brace dimensions, FLC toggle, Gore body dimensions, stiffness preset (plate); brace dimensions (brace) |
 /// | Display Range | Min/max frequency (Hz) and dB range; validated text-field input |
-/// | Analysis Range | Analysis min/max frequency; peak threshold (dBFS); max peaks |
+/// | Analysis Range | Analysis min/max frequency; peak threshold (dBFS); max peaks; hysteresis margin |
 /// | Audio Input & Calibration | Microphone / input device picker; calibration import, selection, and deletion |
 /// | FFT Processing | Hop-size overlap slider |
 /// | About & Help | App version, copyright, help link |
@@ -61,6 +61,7 @@ struct TapSettingsView: View {
     @Binding var analysisMaxFreq: Float
     @Binding var peakThreshold: Float
     @Binding var maxPeaks: Int
+    @Binding var hysteresisMargin: Float
 
     // FFT Analyzer for audio device selection
     @ObservedObject var fftAnalyzer: RealtimeFFTAnalyzer
@@ -146,6 +147,7 @@ struct TapSettingsView: View {
          analysisMaxFreq: Binding<Float>,
          peakThreshold: Binding<Float>,
          maxPeaks: Binding<Int>,
+         hysteresisMargin: Binding<Float>,
          fftAnalyzer: RealtimeFFTAnalyzer,
          onApply: (() -> Void)? = nil) {
 
@@ -157,6 +159,7 @@ struct TapSettingsView: View {
         self._analysisMaxFreq = analysisMaxFreq
         self._peakThreshold = peakThreshold
         self._maxPeaks = maxPeaks
+        self._hysteresisMargin = hysteresisMargin
         self.fftAnalyzer = fftAnalyzer
         self.onApply = onApply
 
@@ -185,6 +188,7 @@ struct TapSettingsView: View {
                 fftProcessingSection
                 aboutSection
             }
+            .legacyScrollers()
             #if os(macOS)
             .formStyle(.grouped)
             .frame(minWidth: 500, minHeight: 600)
@@ -244,6 +248,7 @@ struct TapSettingsView: View {
         analysisMaxFreq: .constant(2000),
         peakThreshold: .constant(-60),
         maxPeaks: .constant(10),
+        hysteresisMargin: .constant(6),
         fftAnalyzer: RealtimeFFTAnalyzer(fftSize: 8192, targetSampleRate: 48000)
     )
 }

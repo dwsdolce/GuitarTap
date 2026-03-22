@@ -374,6 +374,120 @@ extension View {
     }
 }
 
+// MARK: - Always-Visible Scroll View (macOS)
+
+#if os(macOS)
+/// A SwiftUI scroll view that uses legacy-style, always-visible scrollbars on macOS.
+///
+/// SwiftUI's `ScrollView` uses overlay scrollbars that only appear on hover or scroll.
+/// This wrapper drops down to `NSScrollView` and sets `scrollerStyle = .legacy` so the
+/// vertical scrollbar is permanently visible, matching the behaviour of apps like Xcode.
+///
+/// On iOS the type is a plain SwiftUI `ScrollView` so call sites need no `#if` guards.
+struct AlwaysVisibleScrollView<Content: View>: NSViewRepresentable {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = false
+        scrollView.scrollerStyle = .legacy
+        scrollView.drawsBackground = false
+
+        let hostingView = NSHostingView(rootView: content)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+
+        let clipView = scrollView.contentView
+        scrollView.documentView = hostingView
+
+        NSLayoutConstraint.activate([
+            hostingView.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: clipView.topAnchor),
+        ])
+
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        if let hostingView = scrollView.documentView as? NSHostingView<Content> {
+            hostingView.rootView = content
+        }
+    }
+}
+#else
+/// On iOS, `AlwaysVisibleScrollView` is a standard SwiftUI `ScrollView`.
+struct AlwaysVisibleScrollView<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        ScrollView {
+            content
+        }
+    }
+}
+#endif
+
+// MARK: - Legacy Scroller Patcher (macOS)
+
+#if os(macOS)
+/// A zero-size `NSViewRepresentable` that, when placed inside a SwiftUI view hierarchy,
+/// walks up the AppKit view tree to find the nearest enclosing `NSScrollView` and
+/// switches it to `.legacy` scrollers (always-visible) rather than overlay scrollers.
+///
+/// Usage: add `.background(LegacyScrollerPatcher())` to a `Form` or `ScrollView`.
+private struct LegacyScrollerPatcherView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            patchScrollViews(in: view)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    /// Walks up to the window's content view, then searches the entire subtree
+    /// for NSScrollViews and switches them all to legacy (always-visible) style.
+    private func patchScrollViews(in view: NSView) {
+        guard let root = view.window?.contentView else { return }
+        applyLegacyStyle(to: root)
+    }
+
+    private func applyLegacyStyle(to view: NSView) {
+        if let scrollView = view as? NSScrollView {
+            scrollView.scrollerStyle = .legacy
+            scrollView.autohidesScrollers = false
+            scrollView.hasVerticalScroller = true
+        }
+        for subview in view.subviews {
+            applyLegacyStyle(to: subview)
+        }
+    }
+}
+
+extension View {
+    /// Patches the nearest enclosing `NSScrollView` to use always-visible legacy scrollbars (macOS only).
+    func legacyScrollers() -> some View {
+        self.background(LegacyScrollerPatcherView())
+    }
+}
+#else
+extension View {
+    /// No-op on iOS.
+    func legacyScrollers() -> some View { self }
+}
+#endif
+
 // MARK: - Document Picker for iOS
 
 #if os(iOS)

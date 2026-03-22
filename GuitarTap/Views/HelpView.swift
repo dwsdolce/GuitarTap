@@ -278,10 +278,6 @@ After all taps, tap Results to see:
                     body: "The signal level that triggers tap detection. If taps are being missed, move the slider left (lower). If ambient noise triggers false detections, move it right (higher). Displayed in dB."
                 )
                 helpRow(
-                    title: "Hysteresis (slider)",
-                    body: "How far the signal must drop below the detection threshold before the detector resets and is ready for the next tap. A higher value prevents a single loud tap from triggering multiple detections."
-                )
-                helpRow(
                     title: "Peak Min (slider)",
                     body: "Minimum magnitude a spectral peak must reach to be annotated on the spectrum chart. In guitar mode, a peak must also clear this threshold to be reported; adjusting it on a frozen spectrum re-runs peak finding and updates auto—selections (or carries forward manual selections if you have changed them). In brace/plate mode, the tap capture uses its own adaptive noise floor — Peak Min only affects what is visible on the chart, not which peaks are selected. Move the slider left to show quieter peaks; right to suppress noise. Displayed in dB."
                 )
@@ -290,7 +286,7 @@ After all taps, tap Results to see:
                     body: "Each slider has a small ↺ button that resets it to the factory default value."
                 )
             } header: {
-                Label("Tap Controls (main view)", systemImage: "slider.horizontal.3")
+                Label("Tap Controls", systemImage: "slider.horizontal.3")
             }
 
             // ── Settings Reference ────────────────────────────────────────
@@ -318,6 +314,10 @@ After all taps, tap Results to see:
                 helpRow(
                     title: "Peak Min",
                     body: "Same control as Peak Min on the main view — also accessible here. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported; adjusting it on a frozen spectrum re-runs peak finding and updates selections (auto if untouched, carry-forward by frequency if manually changed). In brace/plate mode the measurement capture uses its own adaptive noise floor, so Peak Min only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB."
+                )
+                helpRow(
+                    title: "Hysteresis Margin",
+                    body: "How far the signal must drop below the detection threshold before the detector resets and is ready for the next tap. A higher value prevents a single loud tap from triggering multiple detections. Range: 1–10 dB; default is 6 dB."
                 )
                 helpRow(
                     title: "Maximum Peaks",

@@ -25,8 +25,9 @@
 /// ## Tap Sequence Controls
 ///
 /// `regularTapControls` and `compactTapControls` contain the New Tap, Cancel,
-/// mode picker, and threshold input fields. The compact version omits labels
-/// to fit narrow iPhone screens.
+/// Taps stepper, Threshold slider, and Peak Min slider. The compact version
+/// omits labels to fit narrow iPhone screens. The Hysteresis slider has been
+/// moved to the Settings panel (`TapSettingsView`).
 ///
 /// - SeeAlso: `TapToneAnalysisView+Layouts`, `TapToneAnalysisView+Actions`
 
@@ -598,32 +599,6 @@ extension TapToneAnalysisView {
                     .buttonStyle(.plain)
                 }
 
-                // Hysteresis slider
-                HStack(spacing: 6) {
-                    Text("Hysteresis:")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .fixedSize()
-                    Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
-                        .accessibilityLabel("Hysteresis margin")
-                        .hint(HintText.hysteresis)
-
-                    Text("\(tap.hysteresisMargin, specifier: "%.1f") dB")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.purple)
-                        .fixedSize()
-                    Button(action: {
-                        tapToneAnalyzer.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
-                        TapDisplaySettings.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-
                 HStack(spacing: 6) {
                     Text("Peak Min:")
                         .font(.caption)
@@ -782,37 +757,6 @@ extension TapToneAnalysisView {
             Divider()
                 .frame(height: 20)
 
-            // Hysteresis margin slider
-            HStack(spacing: 4) {
-                Text("Hysteresis:")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize()
-                Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
-                    .frame(width: 60)
-                    .accessibilityLabel("Hysteresis margin")
-
-                Text("\(tap.hysteresisMargin, specifier: "%.1f") dB")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.purple)
-                    .fixedSize()
-                Button(action: {
-                    tapToneAnalyzer.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
-                    TapDisplaySettings.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
-                }) {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Reset to default")
-            }
-            .hint(HintText.hysteresis)
-
-            Divider()
-                .frame(height: 20)
-
             HStack(spacing: 4) {
                 Text("Peak Min:")
                     .font(.caption)
@@ -940,37 +884,6 @@ extension TapToneAnalysisView {
                     .help("Reset to default")
                 }
                 .hint(HintText.threshold)
-
-                Divider()
-                    .frame(height: 20)
-
-                // Hysteresis margin slider
-                HStack(spacing: 4) {
-                    Text("Hysteresis:")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .fixedSize()
-                    Slider(value: $tapToneAnalyzer.hysteresisMargin, in: 1...10, step: 0.5)
-                        .frame(width: 60)
-                        .accessibilityLabel("Hysteresis margin")
-
-                    Text("\(tap.hysteresisMargin, specifier: "%.1f") dB")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.purple)
-                        .fixedSize()
-                    Button(action: {
-                        tapToneAnalyzer.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
-                        TapDisplaySettings.hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Reset to default")
-                }
-                .hint(HintText.hysteresis)
 
                 Divider()
                     .frame(height: 20)
