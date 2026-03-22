@@ -219,7 +219,14 @@ extension TapToneAnalysisView {
 
     /// Auto-scale the dB range to fit the current signal
     func autoScaleDB() {
-        let mags = displayMagnitudes.filter { $0 > -100 && $0 < 20 }
+        // When comparing, scale to fit all comparison curves; otherwise use the displayed spectrum.
+        let sourceMagnitudes: [Float]
+        if !tap.comparisonSpectra.isEmpty {
+            sourceMagnitudes = tap.comparisonSpectra.flatMap { $0.magnitudes }
+        } else {
+            sourceMagnitudes = displayMagnitudes
+        }
+        let mags = sourceMagnitudes.filter { $0 > -100 && $0 < 20 }
         guard !mags.isEmpty else {
             print("⚠️ No valid magnitudes to auto-scale")
             return

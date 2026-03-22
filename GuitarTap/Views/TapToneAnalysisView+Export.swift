@@ -151,15 +151,16 @@ extension TapToneAnalysisView {
     }
 
     func createExportableSpectrumView() -> some View {
-        makeExportableSpectrumView(
+        let isComparing = !tap.comparisonSpectra.isEmpty
+        return makeExportableSpectrumView(
             frequencies: tap.isSpectrumFrozen ? tap.frozenFrequencies : fft.frequencies,
             magnitudes: tap.isSpectrumFrozen ? tap.frozenMagnitudes : fft.magnitudes,
             minFreq: minFreq,
             maxFreq: maxFreq,
             minDB: minDB,
             maxDB: maxDB,
-            peaks: tap.visiblePeaks,
-            annotationOffsets: tap.peakAnnotationOffsets,
+            peaks: isComparing ? [] : tap.visiblePeaks,
+            annotationOffsets: isComparing ? [:] : tap.peakAnnotationOffsets,
             showUnknownModes: TapDisplaySettings.showUnknownModes,
             measurementType: TapDisplaySettings.measurementType,
             selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,

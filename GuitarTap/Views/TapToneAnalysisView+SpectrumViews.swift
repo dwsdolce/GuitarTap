@@ -40,8 +40,8 @@
 /// ## Material Phase UI
 ///
 /// `materialInstructionsView` presents a step-by-step instruction card
-/// driven by `tap.materialTapPhase`. `guitarMetricsView` shows Ring-Out
-/// Time and Tap Tone Ratio when in guitar measurement mode.
+/// driven by `tap.materialTapPhase`. In guitar mode nothing is shown below
+/// the chart; Ring-Out Time and Tap Tone Ratio appear in the Results panel.
 ///
 /// - SeeAlso: `TapToneAnalysisView+Layouts`, `SpectrumView`, `MaterialTapPhase`
 
@@ -58,10 +58,17 @@ extension TapToneAnalysisView {
         tap.isSpectrumFrozen ? tap.frozenMagnitudes : fft.magnitudes
     }
 
-    /// Per-phase spectra for plate/brace measurements, formatted for SpectrumView overlay
+    /// Per-phase spectra for plate/brace measurements, plus any active comparison overlays.
+    ///
+    /// For guitar mode this returns only `comparisonSpectra` (empty when no comparison is loaded).
+    /// For plate/brace mode this returns the per-phase spectra (longitudinal/cross/FLC).
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] {
         let measurementType = TapDisplaySettings.measurementType
-        guard !measurementType.isGuitar else { return [] }
+        if measurementType.isGuitar {
+            // In guitar mode, comparison overlays replace the single red primary curve
+            // when present; otherwise returns [] so the primary red curve is used.
+            return tap.comparisonSpectra
+        }
         var result: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
         if let spec = tap.longitudinalSpectrum {
             result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .blue, label: "Longitudinal (L)"))
@@ -125,6 +132,10 @@ extension TapToneAnalysisView {
             }()
 
             // Spectrum Chart
+            // Suppress single-measurement peak annotations while comparison is active —
+            // the annotation positions belong to the previous measurement and would render
+            // in the wrong place relative to the comparison curves.
+            let isComparing = !tap.comparisonSpectra.isEmpty
             Group {
                 #if os(macOS)
                 SpectrumView(
@@ -135,12 +146,12 @@ extension TapToneAnalysisView {
                     minDB: $minDB,
                     maxDB: $maxDB,
                     isLogarithmic: .constant(false),
-                    peaks: tap.visiblePeaks,
+                    peaks: isComparing ? nil : tap.visiblePeaks,
                     showModeBoundaries: true,
                     onFrequencyRangeChanged: updateFrequencyInputFields,
                     annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
                     materialSpectra: materialSpectra,
-                    thresholdLines: thresholds,
+                    thresholdLines: isComparing ? [] : thresholds,
                     onResetLabels: {
                         tapToneAnalyzer.resetAllAnnotationOffsets()
                     },
@@ -162,12 +173,12 @@ extension TapToneAnalysisView {
                     minDB: $minDB,
                     maxDB: $maxDB,
                     isLogarithmic: .constant(false),
-                    peaks: tap.visiblePeaks,
+                    peaks: isComparing ? nil : tap.visiblePeaks,
                     showModeBoundaries: true,
                     onFrequencyRangeChanged: updateFrequencyInputFields,
                     annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
                     materialSpectra: materialSpectra,
-                    thresholdLines: thresholds,
+                    thresholdLines: isComparing ? [] : thresholds,
                     onResetLabels: {
                         tapToneAnalyzer.resetAllAnnotationOffsets()
                     },
@@ -234,10 +245,8 @@ extension TapToneAnalysisView {
             if !TapDisplaySettings.measurementType.isGuitar {
                 // Plate/brace measurement instructions
                 materialInstructionsView
-            } else {
-                // Guitar mode: Ring-Out Time and Tap Tone Ratio
-                guitarMetricsView
             }
+            // Guitar mode: Ring-Out Time and Tap Tone Ratio are in the Results panel
         }
     }
 
@@ -374,70 +383,4 @@ extension TapToneAnalysisView {
         }
     }
 
-    /// Guitar mode metrics view (Ring-Out Time and Tap Tone Ratio)
-    var guitarMetricsView: some View {
-        HStack(spacing: 12) {
-            // Ring-Out Time
-            GroupBox("Ring-Out Time") {
-                HStack {
-                    Image(systemName: "waveform")
-                        .foregroundColor(.blue)
-
-                    if let decay = tap.currentDecayTime {
-                        Text("\(decay, specifier: "%.2f") seconds")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-
-                        Spacer()
-
-                        VStack(alignment: .trailing) {
-                            Text("Decay Quality")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(decay.decayQuality)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(decay.decayQualityColor)
-                        }
-                    } else {
-                        Text("Waiting for decay measurement...")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            .frame(maxWidth: .infinity)
-
-            // Tap Tone Ratio
-            GroupBox("Tap Tone Ratio") {
-                HStack {
-                    Image(systemName: "divide")
-                        .foregroundColor(.purple)
-
-                    if let ratio = tap.calculateTapToneRatio() {
-                        Text("\(ratio, specifier: "%.2f")")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-
-                        Spacer()
-
-                        VStack(alignment: .trailing) {
-                            Text("Top / Air")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(ratio.tapToneRatioQuality)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(ratio.tapToneRatioQualityColor)
-                        }
-                    } else {
-                        Text("Needs Air & Top peaks...")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            .frame(maxWidth: .infinity)
-        }
-    }
 }

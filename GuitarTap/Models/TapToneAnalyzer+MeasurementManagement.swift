@@ -585,4 +585,51 @@ extension TapToneAnalyzer {
         savedMeasurements.append(contentsOf: measurements)
         return true
     }
+
+    // MARK: - Comparison Overlay
+
+    /// Color palette for comparison overlays (cycles if more than 5 measurements).
+    private static let comparisonPalette: [Color] = [.blue, .orange, .green, .purple, .teal]
+
+    /// Short label for a measurement in the comparison legend.
+    private func comparisonLabel(for measurement: TapToneMeasurement) -> String {
+        if let location = measurement.tapLocation, !location.isEmpty {
+            return location
+        }
+        return measurement.timestamp.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+    }
+
+    /// Loads the given guitar measurements as comparison overlays in the main chart.
+    ///
+    /// Only measurements with a `spectrumSnapshot` are included. The comparison
+    /// spectra are shown via the main `SpectrumView`'s existing `materialSpectra`
+    /// path; calling this does not affect the current tap/measurement state.
+    ///
+    /// Also updates `loadedMin/MaxFreq` and `loadedMin/MaxDB` to the union of all
+    /// snapshot display ranges so the main view's axis state is adjusted automatically.
+    ///
+    /// - Parameter measurements: The guitar measurements to overlay.
+    func loadComparison(measurements: [TapToneMeasurement]) {
+        let withSnapshots = measurements.filter { $0.spectrumSnapshot != nil }
+        comparisonSpectra = withSnapshots.enumerated().map { index, measurement in
+            let snap = measurement.spectrumSnapshot!
+            let color = Self.comparisonPalette[index % Self.comparisonPalette.count]
+            return (magnitudes: snap.magnitudes, frequencies: snap.frequencies,
+                    color: color, label: comparisonLabel(for: measurement))
+        }
+
+        // Broadcast the union axis ranges so TapToneAnalysisView updates its display
+        let snapshots = withSnapshots.compactMap { $0.spectrumSnapshot }
+        if !snapshots.isEmpty {
+            loadedMinFreq = snapshots.map(\.minFreq).min()
+            loadedMaxFreq = snapshots.map(\.maxFreq).max()
+            loadedMinDB   = snapshots.map(\.minDB).min()
+            loadedMaxDB   = snapshots.map(\.maxDB).max()
+        }
+    }
+
+    /// Removes all comparison overlay spectra from the main chart.
+    func clearComparison() {
+        comparisonSpectra = []
+    }
 }

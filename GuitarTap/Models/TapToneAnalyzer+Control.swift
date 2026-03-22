@@ -159,6 +159,9 @@ extension TapToneAnalyzer {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
+            // Starting a new tap always clears any active comparison overlay.
+            self.comparisonSpectra = []
+
             // Clear per-sequence accumulated data.
             self.capturedTaps        = []
             self.tapsForAveraging    = []

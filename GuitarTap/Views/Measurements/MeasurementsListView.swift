@@ -62,6 +62,9 @@ struct MeasurementsListView: View {
     @State private var importError: String?
     @State private var importSuccess: String?
     @State private var selectedMeasurement: TapToneMeasurement?
+    // Compare mode state
+    @State private var isComparing: Bool = false
+    @State private var selectedCompareIDs: Set<UUID> = []
     #if os(macOS)
     @State private var detailWindowController: NSWindowController?
     #endif
@@ -187,9 +190,13 @@ struct MeasurementsListView: View {
                     ForEach(analyzer.savedMeasurements) { measurement in
                         // Use Button for both platforms - macOS opens window, iOS shows sheet
                         Button(action: {
-                            showDetail(for: measurement)
+                            if isComparing {
+                                toggleCompareSelection(for: measurement)
+                            } else {
+                                showDetail(for: measurement)
+                            }
                         }) {
-                            MeasurementRowView(measurement: measurement)
+                            compareRowContent(for: measurement)
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
@@ -253,38 +260,71 @@ struct MeasurementsListView: View {
         .navigationTitle("Saved Measurements")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Done") { dismiss() }
+                if isComparing {
+                    Button("Cancel") { exitCompareMode() }
+                } else {
+                    Button("Done") { dismiss() }
+                }
             }
-            
+
             #if os(iOS)
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button(action: { showingImportPicker = true }) {
-                        Label("Import Measurement", systemImage: "square.and.arrow.down")
+                if isComparing {
+                    Button(action: openComparison) {
+                        Text("Compare (\(selectedCompareIDs.count))")
+                            .fontWeight(.semibold)
                     }
-                    
-                    Divider()
-                    
-                    Button(role: .destructive, action: deleteAll) {
-                        Label("Delete All", systemImage: "trash")
+                    .disabled(selectedCompareIDs.count < 2)
+                } else {
+                    Menu {
+                        Button(action: { isComparing = true }) {
+                            Label("Compare Measurements…", systemImage: "waveform.path")
+                        }
+                        .disabled(comparableMeasurements.count < 2)
+
+                        Button(action: { showingImportPicker = true }) {
+                            Label("Import Measurement", systemImage: "square.and.arrow.down")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive, action: deleteAll) {
+                            Label("Delete All", systemImage: "trash")
+                        }
+                        .disabled(analyzer.savedMeasurements.isEmpty)
+                    } label: {
+                        Label("More", systemImage: "ellipsis.circle")
                     }
-                    .disabled(analyzer.savedMeasurements.isEmpty)
-                } label: {
-                    Label("More", systemImage: "ellipsis.circle")
                 }
             }
             #else
             ToolbarItem(placement: .primaryAction) {
+                if isComparing {
+                    Button(action: openComparison) {
+                        Label("Compare (\(selectedCompareIDs.count))", systemImage: "waveform.path")
+                    }
+                    .disabled(selectedCompareIDs.count < 2)
+                } else {
+                    Button(action: { isComparing = true }) {
+                        Label("Compare…", systemImage: "waveform.path")
+                    }
+                    .disabled(comparableMeasurements.count < 2)
+                    .help("Select measurements to overlay on a comparison chart")
+                }
+            }
+
+            ToolbarItem(placement: .primaryAction) {
                 Button(action: { showingImportPicker = true }) {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
+                .disabled(isComparing)
             }
-            
+
             ToolbarItem(placement: .primaryAction) {
                 Button(role: .destructive, action: deleteAll) {
                     Label("Delete All", systemImage: "trash")
                 }
-                .disabled(analyzer.savedMeasurements.isEmpty)
+                .disabled(analyzer.savedMeasurements.isEmpty || isComparing)
             }
             #endif
         }
@@ -361,6 +401,62 @@ struct MeasurementsListView: View {
         #endif
     }
     
+    // MARK: - Compare Mode Helpers
+
+    /// Guitar measurements that have a spectrum snapshot (eligible for comparison).
+    private var comparableMeasurements: [TapToneMeasurement] {
+        analyzer.savedMeasurements.filter { $0.spectrumSnapshot != nil }
+    }
+
+    /// Whether a measurement can be selected in compare mode.
+    private func isComparable(_ measurement: TapToneMeasurement) -> Bool {
+        measurement.spectrumSnapshot != nil
+    }
+
+    /// The measurements currently selected for comparison, in list order.
+    private var selectedCompareMeasurements: [TapToneMeasurement] {
+        analyzer.savedMeasurements.filter { selectedCompareIDs.contains($0.id) }
+    }
+
+    private func toggleCompareSelection(for measurement: TapToneMeasurement) {
+        guard isComparable(measurement) else { return }
+        if selectedCompareIDs.contains(measurement.id) {
+            selectedCompareIDs.remove(measurement.id)
+        } else {
+            selectedCompareIDs.insert(measurement.id)
+        }
+    }
+
+    private func exitCompareMode() {
+        isComparing = false
+        selectedCompareIDs = []
+    }
+
+    private func openComparison() {
+        guard selectedCompareIDs.count >= 2 else { return }
+        analyzer.loadComparison(measurements: selectedCompareMeasurements)
+        exitCompareMode()
+        dismiss()
+    }
+
+    /// Row content that adds a selection checkbox overlay when in compare mode.
+    @ViewBuilder
+    private func compareRowContent(for measurement: TapToneMeasurement) -> some View {
+        if isComparing {
+            HStack(spacing: 10) {
+                let comparable = isComparable(measurement)
+                let selected = selectedCompareIDs.contains(measurement.id)
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundColor(selected ? .accentColor : (comparable ? .secondary : .secondary.opacity(0.4)))
+                MeasurementRowView(measurement: measurement)
+                    .opacity(comparable ? 1.0 : 0.4)
+            }
+        } else {
+            MeasurementRowView(measurement: measurement)
+        }
+    }
+
     private func importFromFile(url: URL) {
         do {
             let data: Data

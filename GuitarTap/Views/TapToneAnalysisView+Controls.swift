@@ -58,14 +58,14 @@ extension TapToneAnalysisView {
                     }
                     .buttonStyle(.bordered)
                     .tint(.blue)
-                    .disabled(tap.currentPeaks.isEmpty)
+                    .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                     .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                     Button(action: { showingSaveSheet = true }) {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .buttonStyle(.bordered)
-                    .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty)
+                    .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                     .accessibilityLabel("Save")
                     .hint(HintText.save)
 
@@ -141,7 +141,7 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 // Save button
@@ -149,7 +149,7 @@ extension TapToneAnalysisView {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty)
+                .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                 .hint(HintText.save)
             }
 
@@ -222,7 +222,7 @@ extension TapToneAnalysisView {
             }
             .buttonStyle(.bordered)
             .tint(.blue)
-            .disabled(tap.currentPeaks.isEmpty)
+            .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
             .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
             // Save button
@@ -230,7 +230,7 @@ extension TapToneAnalysisView {
                 Label("Save", systemImage: "square.and.arrow.down")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty)
+            .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
             .hint(HintText.save)
 
             // Measurements button
@@ -282,7 +282,7 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 // Save button
@@ -290,7 +290,7 @@ extension TapToneAnalysisView {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty)
+                .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                 .hint(HintText.save)
             }
 
@@ -348,7 +348,7 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 // Save button
@@ -356,7 +356,7 @@ extension TapToneAnalysisView {
                     Image(systemName: "square.and.arrow.down")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty)
+                .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                 .hint(HintText.save)
             }
 
@@ -414,57 +414,66 @@ extension TapToneAnalysisView {
     @ViewBuilder
     var compactStatusBar: some View {
         HStack(spacing: 8) {
-            // Tap detection indicator
-            Circle()
-                .fill(tap.tapDetected ? Color.green : Color.gray.opacity(0.3))
-                .frame(width: 10, height: 10)
-
-            // Status message - shows rich model state messages
-            Text(tap.statusMessage)
-                .font(.caption)
-                .foregroundColor(tap.tapDetected ? .green : .secondary)
-                .lineLimit(1)
-
-            // Magnitude
-            Text("\(tap.averageMagnitude, specifier: "%.0f")dB")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-
-            // Progress indicator (inline)
-            if tap.currentTapCount > 0 {
-                Text("\(tap.currentTapCount)/\(tap.numberOfTaps)")
+            if !tap.comparisonSpectra.isEmpty {
+                // Comparison mode: show count and clear affordance
+                Image(systemName: "waveform.path")
+                    .foregroundColor(.accentColor)
                     .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.blue)
+                Text("Comparing \(tap.comparisonSpectra.count) measurements")
+                    .font(.caption)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                Spacer()
+                Text("New Tap to exit")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                // Normal tap detection state
+                Circle()
+                    .fill(tap.tapDetected ? Color.green : Color.gray.opacity(0.3))
+                    .frame(width: 10, height: 10)
+
+                Text(tap.statusMessage)
+                    .font(.caption)
+                    .foregroundColor(tap.tapDetected ? .green : .secondary)
                     .lineLimit(1)
 
-                ProgressView(value: tap.tapProgress)
-                    .progressViewStyle(.linear)
-                    .frame(width: 50)
-            }
-
-            Spacer()
-
-            // Peak info when running
-            if fft.isRunning {
-                Text("Peak: \(fft.peakMagnitude, specifier: "%.1f") dB @ \(fft.peakFrequency, specifier: "%.1f") Hz")
+                Text("\(tap.averageMagnitude, specifier: "%.0f")dB")
                     .font(.caption)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.secondary)
                     .lineLimit(1)
-            }
 
-            // Frozen indicator
-            if tap.isSpectrumFrozen {
-                Image(systemName: "pause.circle.fill")
-                    .foregroundColor(.orange)
-                    .font(.caption)
-            }
+                if tap.currentTapCount > 0 {
+                    Text("\(tap.currentTapCount)/\(tap.numberOfTaps)")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                        .lineLimit(1)
 
-            // Running indicator
-            Circle()
-                .fill(fft.isRunning ? .green : .red)
-                .frame(width: 8, height: 8)
+                    ProgressView(value: tap.tapProgress)
+                        .progressViewStyle(.linear)
+                        .frame(width: 50)
+                }
+
+                Spacer()
+
+                if fft.isRunning {
+                    Text("Peak: \(fft.peakMagnitude, specifier: "%.1f") dB @ \(fft.peakFrequency, specifier: "%.1f") Hz")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .lineLimit(1)
+                }
+
+                if tap.isSpectrumFrozen {
+                    Image(systemName: "pause.circle.fill")
+                        .foregroundColor(.orange)
+                        .font(.caption)
+                }
+
+                Circle()
+                    .fill(fft.isRunning ? .green : .red)
+                    .frame(width: 8, height: 8)
+            }
         }
         .padding(.horizontal)
         .padding(.vertical, 4)
@@ -479,72 +488,81 @@ extension TapToneAnalysisView {
     @ViewBuilder
     var fullStatusBar: some View {
         VStack(spacing: 6) {
-            // Progress bar (when tapping)
-            if tap.currentTapCount > 0 {
-                ProgressView(value: tap.tapProgress)
-                    .progressViewStyle(.linear)
-            }
+            if !tap.comparisonSpectra.isEmpty {
+                // Comparison mode: replace tap detection state with comparison info
+                HStack(spacing: 12) {
+                    Image(systemName: "waveform.path")
+                        .foregroundColor(.accentColor)
+                    Text("Comparing \(tap.comparisonSpectra.count) measurements")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Spacer()
+                    Text("Press New Tap to exit comparison")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                // Normal tap detection state
+                if tap.currentTapCount > 0 {
+                    ProgressView(value: tap.tapProgress)
+                        .progressViewStyle(.linear)
+                }
 
-            HStack(spacing: 12) {
-                // Tap detection status
-                Circle()
-                    .fill(tap.tapDetected ? Color.green : Color.gray.opacity(0.3))
-                    .frame(width: 10, height: 10)
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(tap.tapDetected ? Color.green : Color.gray.opacity(0.3))
+                        .frame(width: 10, height: 10)
 
-                Text(tap.tapDetected ? "Tap Detected!" : "Waiting for tap...")
-                    .font(.subheadline)
-                    .foregroundColor(tap.tapDetected ? .green : .secondary)
-
-                Text("•")
-                    .foregroundColor(.secondary)
-
-                // Current magnitude
-                Text("\(tap.averageMagnitude, specifier: "%.1f") dB")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                // Frozen indicator
-                if tap.isSpectrumFrozen {
-                    HStack(spacing: 4) {
-                        Image(systemName: "pause.circle.fill")
-                            .foregroundColor(.orange)
-                        Text("Frozen")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                    }
+                    Text(tap.tapDetected ? "Tap Detected!" : "Waiting for tap...")
+                        .font(.subheadline)
+                        .foregroundColor(tap.tapDetected ? .green : .secondary)
 
                     Text("•")
-                        .font(.caption)
                         .foregroundColor(.secondary)
-                }
 
-                // FFT Status info
-                if fft.isRunning {
-                    Text("Peak: \(fft.peakMagnitude, specifier: "%.1f") dB @ \(fft.peakFrequency, specifier: "%.1f") Hz")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                } else {
-                    Text("Starting...")
-                        .font(.caption)
+                    Text("\(tap.averageMagnitude, specifier: "%.1f") dB")
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
-                }
 
-                // Sequence status
-                Circle()
-                    .fill(tap.isDetecting ? .green : .orange)
-                    .frame(width: 8, height: 8)
+                    Spacer()
 
-                Text(tap.statusMessage)
-                    .font(.caption)
-                    .foregroundColor(tap.isDetecting ? .primary : .orange)
+                    if tap.isSpectrumFrozen {
+                        HStack(spacing: 4) {
+                            Image(systemName: "pause.circle.fill")
+                                .foregroundColor(.orange)
+                            Text("Frozen")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                        Text("•")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
 
-                if tap.currentTapCount > 0 {
-                    Text("\(tap.currentTapCount)/\(tap.numberOfTaps)")
+                    if fft.isRunning {
+                        Text("Peak: \(fft.peakMagnitude, specifier: "%.1f") dB @ \(fft.peakFrequency, specifier: "%.1f") Hz")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    } else {
+                        Text("Starting...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Circle()
+                        .fill(tap.isDetecting ? .green : .orange)
+                        .frame(width: 8, height: 8)
+
+                    Text(tap.statusMessage)
                         .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .foregroundColor(tap.isDetecting ? .primary : .orange)
+
+                    if tap.currentTapCount > 0 {
+                        Text("\(tap.currentTapCount)/\(tap.numberOfTaps)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                    }
                 }
             }
         }
@@ -637,9 +655,9 @@ extension TapToneAnalysisView {
                         .font(.subheadline)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!fft.isRunning ||
+                .disabled(tap.comparisonSpectra.isEmpty && (!fft.isRunning ||
                           !tap.isReadyForDetection ||
-                          tap.isDetecting)
+                          tap.isDetecting))
                 .hint(HintText.newTap)
 
                 // Pause/Resume button - for multi-tap and plate/brace sequences
@@ -931,9 +949,9 @@ extension TapToneAnalysisView {
                     Label("New Tap", systemImage: "hand.tap")
                 }
                 .buttonStyle(.bordered)
-                .disabled(!fft.isRunning ||
+                .disabled(tap.comparisonSpectra.isEmpty && (!fft.isRunning ||
                           !tap.isReadyForDetection ||
-                          tap.isDetecting)
+                          tap.isDetecting))
                 .hint(HintText.newTap)
 
                 // Pause/Resume button - for multi-tap and plate/brace sequences

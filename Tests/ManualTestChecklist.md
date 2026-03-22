@@ -654,6 +654,158 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 
 ---
 
+## CP — Comparison Mode (Manual)
+
+### CP1 — Enter and exit compare mode
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
+
+**Preconditions:** At least 2 saved guitar measurements exist in the Measurements list.
+
+- [ ] Open the **Measurements** list
+- [ ] Tap/click **Compare**
+- [ ] Verify the list enters selection mode (checkboxes appear, Import and Delete All are disabled)
+- [ ] Tap/click **Cancel** (or the Compare button again if applicable)
+- [ ] Verify the list returns to normal mode
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### CP2 — Plate/brace measurements not selectable in compare mode
+**Platforms:** iOS · iPadOS · macOS    **Priority:** Medium
+
+**Preconditions:** The Measurements list contains at least one plate or brace measurement and at least one guitar measurement.
+
+- [ ] Enter compare mode (tap **Compare**)
+- [ ] Tap a plate or brace measurement row
+- [ ] Verify it does not become selected (no checkmark appears)
+- [ ] Verify the **Compare Selected** button does not activate for plate/brace-only selection
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### CP3 — Compare Selected loads overlay on main chart
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
+
+**Preconditions:** At least 2 saved guitar measurements with spectrum snapshots exist.
+
+- [ ] Enter compare mode
+- [ ] Select exactly 2 guitar measurements
+- [ ] Verify **Compare Selected (2)** button is now enabled
+- [ ] Tap/click **Compare Selected (2)**
+- [ ] Verify the Measurements list closes and the main view reappears
+- [ ] Verify the main chart shows 2 coloured curves (not the normal red curve)
+- [ ] Verify a legend is visible (either on the chart or in the status bar area)
+- [ ] Verify the status bar shows "Comparing 2 measurements" and "Press New Tap to exit comparison"
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### CP4 — Compare up to 5 measurements
+**Platforms:** iOS · iPadOS · macOS    **Priority:** Medium
+
+**Preconditions:** At least 5 saved guitar measurements with spectrum snapshots exist.
+
+- [ ] Enter compare mode and select 5 guitar measurements
+- [ ] Confirm **Compare Selected (5)** is enabled
+- [ ] Tap/click **Compare Selected (5)**
+- [ ] Verify 5 coloured curves appear on the chart, each in a distinct colour (blue, orange, green, purple, teal)
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### CP5 — New Tap exits comparison mode
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
+
+**Preconditions:** Comparison mode is active (CP3 completed).
+
+- [ ] Confirm the chart shows multiple coloured comparison curves
+- [ ] Press/click **New Tap**
+- [ ] Verify the chart returns to the normal single red curve (or live spectrum)
+- [ ] Verify the status bar returns to tap detection state
+- [ ] Verify the Results panel no longer shows "Comparing N measurements"
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### CP6 — Comparison mode disables Save and Annotations
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
+
+**Preconditions:** Comparison mode is active.
+
+- [ ] Verify the **Save** button is visually disabled (greyed out)
+- [ ] Verify the **Annotations** button is visually disabled
+- [ ] Attempt to click/tap Save — confirm nothing happens and no sheet appears
+- [ ] Press **New Tap** to exit; verify both buttons re-enable
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### CP7 — Results panel during comparison
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
+
+**Preconditions:** Comparison mode is active.
+
+- [ ] Open the **Results** panel
+- [ ] Verify the header badge shows "Comparison" (purple) instead of the measurement type (e.g. "Classical")
+- [ ] Verify the peaks list shows "Comparing N measurements" instead of individual peak rows
+- [ ] Verify Ring-Out Time and Tap Tone Ratio sections are **not** shown
+- [ ] Verify **Export PDF Report** button is **not** shown
+- [ ] Verify **Export Spectrum** button **is** shown
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### CP8 — Export Spectrum in comparison mode
+**Platforms:** iOS · iPadOS · macOS    **Priority:** High
+
+**Preconditions:** Comparison mode is active with 2+ measurements.
+
+- [ ] Open the Results panel (or use the export action from the main view)
+- [ ] Tap/click **Export Spectrum**
+- [ ] Open the saved PNG image
+- [ ] Verify the image shows all comparison curves (one per selected measurement)
+- [ ] Verify the image shows a legend with coloured line swatches and measurement labels (not "Guitar Modes")
+- [ ] Verify no peak annotation boxes appear on the image
+- [ ] Verify the header says "Comparing N measurements" (not "Detected Peaks: 0")
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### CP9 — Auto dB in comparison mode
+**Platforms:** iOS · iPadOS · macOS    **Priority:** Medium
+
+**Preconditions:** Comparison mode is active. The comparison curves are partially off-screen.
+
+- [ ] Tap/click the **Auto dB** button
+- [ ] Verify the dB axis adjusts so all comparison curves are visible within the chart bounds
+- [ ] Confirm no curve is clipped at the top or bottom of the chart
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
+### CP10 — Cursor/crosshair works during comparison
+**Platforms:** iOS · iPadOS · macOS    **Priority:** Medium
+
+**Preconditions:** Comparison mode is active with 2+ curves visible.
+
+- [ ] Move the cursor over the chart (macOS) or enable and drag the crosshair (iOS/iPadOS)
+- [ ] Verify a vertical cursor line appears that snaps to the nearest comparison curve
+- [ ] Verify a frequency and magnitude readout is displayed
+- [ ] Confirm no crash occurs
+
+- [ ] **Pass**   - [ ] **Fail**     Notes: _______________________________________
+
+---
+
 ## U — Cross-Platform UI (Manual)
 
 ### U1 — All primary controls present on iPhone
@@ -936,8 +1088,9 @@ Platform(s) tested: `[ ]` iPhone   `[ ]` iPad   `[ ]` macOS
 | C — Chart Interaction | 11 | | | |
 | D — Draggable Annotations | 8 | | | |
 | R — Persistence & Export | 4 | | | |
+| CP — Comparison Mode | 10 | | | |
 | U — Cross-Platform UI | 12 | | | |
 | K — Regression Smoke | 6 | | | |
-| **Total** | **61** | | | |
+| **Total** | **71** | | | |
 
 **Overall result:** Pass / Fail / Partial      **Sign-off:** _______________________________

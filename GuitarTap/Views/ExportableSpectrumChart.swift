@@ -495,7 +495,11 @@ func makeExportableSpectrumView(
                     .fontWeight(.semibold)
             }
 
-            if !peaks.isEmpty {
+            if !materialSpectra.isEmpty {
+                Text("Comparing \(materialSpectra.count) measurements")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            } else if !peaks.isEmpty {
                 Text("Detected Peaks: \(peaks.count)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -557,23 +561,42 @@ func makeExportableSpectrumView(
             .padding(.vertical, 8)
         }
 
-        // Mode Legend
-        HStack(spacing: 20) {
-            Text("Guitar Modes:")
-                .font(.caption)
-                .fontWeight(.semibold)
+        // Legend: comparison curve labels or guitar mode key
+        if !materialSpectra.isEmpty {
+            HStack(spacing: 20) {
+                Text("Measurements:")
+                    .font(.caption)
+                    .fontWeight(.semibold)
 
-            ForEach([GuitarMode.air, .top, .back, .dipole, .ringMode], id: \.self) { mode in
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(mode.color)
-                        .frame(width: 12, height: 12)
-                    Text(mode.displayName)
-                        .font(.caption)
+                ForEach(Array(materialSpectra.enumerated()), id: \.offset) { _, series in
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(series.color)
+                            .frame(width: 24, height: 4)
+                        Text(series.label)
+                            .font(.caption)
+                    }
                 }
             }
+            .padding()
+        } else {
+            HStack(spacing: 20) {
+                Text("Guitar Modes:")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+
+                ForEach([GuitarMode.air, .top, .back, .dipole, .ringMode], id: \.self) { mode in
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(mode.color)
+                            .frame(width: 12, height: 12)
+                        Text(mode.displayName)
+                            .font(.caption)
+                    }
+                }
+            }
+            .padding()
         }
-        .padding()
     }
     .background(Color.white)
     .padding()

@@ -172,7 +172,11 @@ Saves the current measurement — enabled only when the spectrum is frozen and p
 
 ### ![](/tmp/guitar-tap-symbols/list.bullet.clipboard.png){height=14pt width=14pt} Measurements
 
-Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device.
+Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison.
+
+### ![](/tmp/guitar-tap-symbols/waveform.path.png){height=14pt width=14pt} Compare Measurements
+
+In the Measurements list, tap Compare to enter selection mode. Tap 2–5 saved guitar measurements to select them (plate and brace measurements cannot be compared). Tap Compare Selected (N) to overlay all selected spectra on the main chart as colour-coded curves with a legend. The chart, cursor, zoom, and pan all work normally. Press New Tap to exit comparison and return to single-measurement mode. While comparing: Save and Annotations are disabled; Export Spectrum produces an image with all curves and a legend; Export PDF Report is not available.
 
 ### ![](/tmp/guitar-tap-symbols/chart.bar.png){height=14pt width=14pt} Metrics
 
@@ -272,9 +276,9 @@ The decay time (ring-out) appears in Results. A longer decay on the top plate ty
 
 The Helmholtz air resonance is easily produced by holding the assembled body near the microphone and clapping your palm over the sound hole. It does not require tapping the wood itself.
 
-### Comparing Plates
+### Comparing Guitar Measurements
 
-Save a measurement for each plate with a descriptive location label (wood species, dimensions, sequence number). Use the Measurements list to review and compare side by side, or export measurements as .guitartap files for transfer between devices.
+Save a measurement for each build stage or tap location with a descriptive label. Use the Measurements list Compare button to overlay 2–5 saved guitar measurements as colour-coded spectra on the main chart — ideal for tracking how bracing or finishing changes the resonant modes over time. Export measurements as .guitartap files for transfer between devices.
 
 ### PDF Reports
 

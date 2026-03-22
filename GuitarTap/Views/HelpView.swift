@@ -245,8 +245,13 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Measurements",
-                    body: "Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device.",
+                    body: "Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison.",
                     systemImages: ["list.bullet.clipboard"]
+                )
+                helpRow(
+                    title: "Compare Measurements",
+                    body: "In the Measurements list, tap Compare to enter selection mode. Tap 2–5 saved guitar measurements to select them (plate and brace measurements cannot be compared). Tap Compare Selected (N) to overlay all selected spectra on the main chart as colour-coded curves with a legend. The chart, cursor, zoom, and pan all work normally. Press New Tap to exit comparison and return to single-measurement mode. While comparing: Save and Annotations are disabled; Export Spectrum produces an image with all curves and a legend; Export PDF Report is not available.",
+                    systemImages: ["waveform.path"]
                 )
                 helpRow(
                     title: "Metrics",
@@ -366,8 +371,8 @@ After all taps, tap Results to see:
                     body: "The Helmholtz air resonance is easily produced by holding the assembled body near the microphone and clapping your palm over the sound hole. It does not require tapping the wood itself."
                 )
                 helpRow(
-                    title: "Comparing Plates",
-                    body: "Save a measurement for each plate with a descriptive location label (wood species, dimensions, sequence number). Use the Measurements list to review and compare side by side, or export measurements as .guitartap files for transfer between devices."
+                    title: "Comparing Guitar Measurements",
+                    body: "Save a measurement for each build stage or tap location with a descriptive label. Use the Measurements list Compare button to overlay 2–5 saved guitar measurements as colour-coded spectra on the main chart — ideal for tracking how bracing or finishing changes the resonant modes over time. Export measurements as .guitartap files for transfer between devices."
                 )
                 helpRow(
                     title: "PDF Reports",

@@ -126,12 +126,21 @@ struct TapAnalysisResultsView: View {
                         
                         Spacer()
                         
-                        Text(measurementType.shortName)
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(measurementType.isGuitar ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
-                            .cornerRadius(4)
+                        if !analyzer.comparisonSpectra.isEmpty {
+                            Text("Comparison")
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.purple.opacity(0.2))
+                                .cornerRadius(4)
+                        } else {
+                            Text(measurementType.shortName)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(measurementType.isGuitar ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
+                                .cornerRadius(4)
+                        }
                     }
                 }
                 
@@ -145,8 +154,8 @@ struct TapAnalysisResultsView: View {
                 } else if measurementType == .brace {
                     Divider()
                     bracePropertiesSection
-                } else {
-                    // Guitar-specific sections
+                } else if analyzer.comparisonSpectra.isEmpty {
+                    // Guitar-specific sections (hidden during comparison)
                     Divider()
                     
                     // Ring-out time (decay)
@@ -173,7 +182,7 @@ struct TapAnalysisResultsView: View {
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity)
                     }
-                    if let exportPDF = onExportPDFReport {
+                    if let exportPDF = onExportPDFReport, analyzer.comparisonSpectra.isEmpty {
                         Button {
                             exportPDF()
                         } label: {
@@ -190,10 +199,12 @@ struct TapAnalysisResultsView: View {
     
     // MARK: - Computed Properties
     
-    /// Combined peaks with mode classifications, filtered to the current frequency range and sorted by frequency
+    /// Combined peaks with mode classifications, filtered to the current frequency range and sorted by frequency.
+    /// Returns empty when a comparison overlay is active (peaks belong to the previous measurement, not the comparison).
     /// Optionally filters out unknown modes based on user setting (guitar mode only)
     private var sortedPeaksWithModes: [(peak: ResonantPeak, mode: GuitarMode)] {
-        analyzer.currentPeaks
+        guard analyzer.comparisonSpectra.isEmpty else { return [] }
+        return analyzer.currentPeaks
             .filter { peak in
                 // For plate/brace mode, don't filter by display range — the selected peaks
                 // must always appear in results regardless of the current zoom level.
@@ -271,10 +282,18 @@ struct TapAnalysisResultsView: View {
             }
             
             if sortedPeaksWithModes.isEmpty {
-                Text("No peaks detected in visible range")
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding()
+                if !analyzer.comparisonSpectra.isEmpty {
+                    Label("Comparing \(analyzer.comparisonSpectra.count) measurements", systemImage: "waveform.path")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                } else {
+                    Text("No peaks detected in visible range")
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     // For plate measurements, show selectable peaks

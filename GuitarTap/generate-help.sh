@@ -318,6 +318,7 @@ fi
 if command -v pandoc &>/dev/null; then
     # LaTeX header: use Arial Unicode MS (ships with macOS) as a fallback font
     # for the Unicode characters Helvetica Neue doesn't cover (arrows, modifiers, etc.)
+    rm -f /tmp/guitar-tap-help-*.tex
     LATEX_HEADER="$(mktemp /tmp/guitar-tap-help-XXXXXX.tex)"
     cat > "$LATEX_HEADER" <<'TEXEOF'
 \usepackage{fontspec}
