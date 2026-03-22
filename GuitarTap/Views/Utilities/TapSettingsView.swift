@@ -120,6 +120,9 @@ struct TapSettingsView: View {
     @State var showingCalibrationError = false
     @State var selectedCalibrationID: UUID?
 
+    // Advanced section expansion state
+    @State private var showingAdvanced = false
+
     // Computed property for compact layout
     var isCompact: Bool {
         #if os(iOS)
@@ -181,11 +184,19 @@ struct TapSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                measurementTypeSection
-                displayRangeSection
-                analysisSettingsSection
                 audioInputSection
-                fftProcessingSection
+                measurementTypeSection
+                Section {
+                    DisclosureGroup(isExpanded: $showingAdvanced) {
+                        displayRangeSectionContent
+                        analysisSettingsSectionContent
+                        fftProcessingSectionContent
+                    } label: {
+                        Label("Advanced", systemImage: "gearshape.2")
+                            .font(.headline)
+                    }
+                    .disclosureGroupStyle(FormDisclosureGroupStyle())
+                }
                 aboutSection
             }
             .legacyScrollers()

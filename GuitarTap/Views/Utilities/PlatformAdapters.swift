@@ -437,6 +437,38 @@ struct AlwaysVisibleScrollView<Content: View>: View {
 }
 #endif
 
+// MARK: - Form-Compatible Disclosure Group Style
+
+/// A `DisclosureGroupStyle` that works correctly inside a SwiftUI `Form` with
+/// `.formStyle(.grouped)` on macOS, where the automatic style's click target
+/// is intercepted by the form row and the toggle never fires.
+///
+/// Uses a plain `Button` with `.contentShape(Rectangle())` so the entire label
+/// row is tappable, matching the custom style pattern from Apple's documentation.
+struct FormDisclosureGroupStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            withAnimation {
+                configuration.isExpanded.toggle()
+            }
+        } label: {
+            HStack {
+                configuration.label
+                Spacer()
+                Image(systemName: configuration.isExpanded ? "chevron.up" : "chevron.down")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+
+        if configuration.isExpanded {
+            configuration.content
+        }
+    }
+}
+
 // MARK: - Legacy Scroller Patcher (macOS)
 
 #if os(macOS)

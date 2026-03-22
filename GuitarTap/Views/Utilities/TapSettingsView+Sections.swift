@@ -80,15 +80,6 @@ extension TapSettingsView {
                 }
                 .padding(.vertical, 4)
 
-                // Unknown modes toggle
-                Toggle(isOn: $showUnknownModes) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Show Unknown Modes")
-                        Text("Display peaks that don't fall within known mode ranges")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
             }
 
             // Show dimensions for plate mode
@@ -364,69 +355,78 @@ extension TapSettingsView {
     // MARK: - Display Range Section
 
     @ViewBuilder
+    var displayRangeSectionContent: some View {
+        Label("Display Settings", systemImage: "chart.xyaxis.line")
+            .font(.headline)
+            .padding(.top, 4)
+
+        // Frequency Range
+        if isCompact {
+            compactFrequencyRangeView(
+                title: "Frequency Range",
+                minBinding: $minFreqInput,
+                maxBinding: $maxFreqInput,
+                unit: "Hz",
+                description: "Frequency range shown in the spectrum chart"
+            )
+        } else {
+            regularFrequencyRangeView(
+                title: "Frequency Range",
+                minBinding: $minFreqInput,
+                maxBinding: $maxFreqInput,
+                unit: "Hz",
+                description: "Frequency range shown in the spectrum chart"
+            )
+        }
+
+        // Magnitude Range
+        if isCompact {
+            compactFrequencyRangeView(
+                title: "Magnitude Range",
+                minBinding: $minDBInput,
+                maxBinding: $maxDBInput,
+                unit: "dB",
+                description: "Magnitude range shown in the spectrum chart"
+            )
+        } else {
+            regularFrequencyRangeView(
+                title: "Magnitude Range",
+                minBinding: $minDBInput,
+                maxBinding: $maxDBInput,
+                unit: "dB",
+                description: "Magnitude range shown in the spectrum chart"
+            )
+        }
+
+        Button {
+            saveCurrentView()
+        } label: {
+            HStack {
+                Spacer()
+                Image(systemName: "square.and.arrow.down")
+                Text("Save Current View")
+                Spacer()
+            }
+            .font(.subheadline)
+        }
+        .padding(.top, 8)
+        Button(role: .destructive) {
+            resetDisplaySettingsToDefaults()
+        } label: {
+            HStack {
+                Spacer()
+                Image(systemName: "arrow.counterclockwise.circle")
+                Text("Reset to Defaults")
+                Spacer()
+            }
+            .font(.subheadline)
+        }
+    }
+
+    @ViewBuilder
     var displayRangeSection: some View {
         Section {
-            // Frequency Range
-            if isCompact {
-                compactFrequencyRangeView(
-                    title: "Frequency Range",
-                    minBinding: $minFreqInput,
-                    maxBinding: $maxFreqInput,
-                    unit: "Hz",
-                    description: "Frequency range shown in the spectrum chart"
-                )
-            } else {
-                regularFrequencyRangeView(
-                    title: "Frequency Range",
-                    minBinding: $minFreqInput,
-                    maxBinding: $maxFreqInput,
-                    unit: "Hz",
-                    description: "Frequency range shown in the spectrum chart"
-                )
-            }
-
-            // Magnitude Range
-            if isCompact {
-                compactFrequencyRangeView(
-                    title: "Magnitude Range",
-                    minBinding: $minDBInput,
-                    maxBinding: $maxDBInput,
-                    unit: "dB",
-                    description: "Magnitude range shown in the spectrum chart"
-                )
-            } else {
-                regularFrequencyRangeView(
-                    title: "Magnitude Range",
-                    minBinding: $minDBInput,
-                    maxBinding: $maxDBInput,
-                    unit: "dB",
-                    description: "Magnitude range shown in the spectrum chart"
-                )
-            }
-
-            Button {
-                saveCurrentView()
-            } label: {
-                HStack {
-                    Spacer()
-                    Image(systemName: "square.and.arrow.down")
-                    Text("Save Current View")
-                    Spacer()
-                }
-                .font(.subheadline)
-            }
-            .padding(.top, 8)
-            Button(role: .destructive) {
-                resetDisplaySettingsToDefaults()
-            } label: {
-                HStack {
-                    Spacer()
-                    Image(systemName: "arrow.counterclockwise.circle")
-                    Text("Reset to Defaults")
-                    Spacer()
-                }
-                .font(.subheadline)
-            }
+            displayRangeSectionContent
         } header: {
             Label("Display Settings", systemImage: "chart.xyaxis.line")
                 .font(.headline)
@@ -439,9 +439,24 @@ extension TapSettingsView {
     // MARK: - Analysis Settings Section
 
     @ViewBuilder
-    var analysisSettingsSection: some View {
-        Section {
-            // Analysis Frequency Range
+    var analysisSettingsSectionContent: some View {
+        Label("Analysis Settings", systemImage: "waveform.path.ecg")
+            .font(.headline)
+            .padding(.top, 4)
+
+        // Show Unknown Modes (guitar only)
+        if selectedMeasurementType.isGuitar {
+            Toggle(isOn: $showUnknownModes) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Show Unknown Modes")
+                    Text("Display peaks that don't fall within known mode ranges")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+
+        // Analysis Frequency Range
             if isCompact {
                 compactFrequencyRangeView(
                     title: "Analysis Frequency Range",
@@ -606,6 +621,12 @@ extension TapSettingsView {
                 .font(.subheadline)
             }
             .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    var analysisSettingsSection: some View {
+        Section {
+            analysisSettingsSectionContent
         } header: {
             Label("Analysis Settings", systemImage: "waveform.path.ecg")
                 .font(.headline)
@@ -749,9 +770,12 @@ extension TapSettingsView {
     // MARK: - FFT Processing Section
 
     @ViewBuilder
-    var fftProcessingSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
+    var fftProcessingSectionContent: some View {
+        Label("FFT Processing", systemImage: "waveform.path")
+            .font(.headline)
+            .padding(.top, 4)
+
+        VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Hop Size Overlap")
                         .font(.subheadline)
@@ -812,6 +836,12 @@ extension TapSettingsView {
                 // Update metrics when hop size changes
                 // Note: This will only take effect after the analyzer is restarted
             }
+    }
+
+    @ViewBuilder
+    var fftProcessingSection: some View {
+        Section {
+            fftProcessingSectionContent
         } header: {
             Label("FFT Processing", systemImage: "waveform.path")
                 .font(.headline)

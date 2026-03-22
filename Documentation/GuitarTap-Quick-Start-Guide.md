@@ -15,9 +15,17 @@ Three main workflows are supported:
 
 The first time the app launches it will ask for microphone permission. Tap OK. Without it the analyzer cannot run.
 
+### Select Audio Input
+
+Open Settings. The Audio Input & Calibration section appears at the top. Choose your microphone or audio interface here. If you have a calibration file for your measurement mic, import it in this section too.
+
 ### Choose a Measurement Type
 
-Open Settings and pick Classical Guitar, Flamenco, Steel String, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated.
+In Settings, the Measurement Type section is directly below Audio Input. Pick Classical Guitar, Flamenco, Steel String, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated.
+
+### Advanced Settings
+
+Display range, analysis range, and FFT processing options are grouped under the Advanced section at the bottom of Settings. These rarely need changing after initial setup — expand the section by tapping the Advanced row.
 
 ### Quiet Environment
 
@@ -31,7 +39,7 @@ Guitar mode identifies the key structural resonances of a completed body: Air (H
 
 ### Step 1 — Configure
 
-In Settings choose the guitar type (Classical, Flamenco, or Acoustic/Steel String). Each type has calibrated frequency windows for each mode. You can view those windows in the Settings Measurement Type section.
+In Settings choose the guitar type (Classical, Flamenco, or Acoustic/Steel String) in the Measurement Type section. Each type has calibrated frequency windows for each mode, shown there. The Show Unknown Modes toggle is in the Advanced section.
 
 ### Step 2 — Position the Microphone
 
@@ -160,7 +168,7 @@ Drag any peak label to reposition it and avoid overlaps. To reset an individual 
 
 ### ![](/tmp/guitar-tap-symbols/square.and.arrow.down.png){height=14pt width=14pt} Save
 
-Saves the current measurement — enabled only when peaks are detected. Enter a location label and optional notes.
+Saves the current measurement — enabled only when the spectrum is frozen and peaks have been detected. Enter a location label and optional notes.
 
 ### ![](/tmp/guitar-tap-symbols/list.bullet.clipboard.png){height=14pt width=14pt} Measurements
 
@@ -182,7 +190,7 @@ The ellipsis button in the top-right corner of the spectrum opens the Chart Opti
 
 The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom of both axes or each individual axis (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.
 
-## ![](/tmp/guitar-tap-symbols/slider.horizontal.3.png){height=18pt width=18pt} Tap Controls (main view)
+## ![](/tmp/guitar-tap-symbols/slider.horizontal.3.png){height=18pt width=18pt} Tap Controls
 
 ### Taps (stepper)
 
@@ -191,10 +199,6 @@ How many taps to average together (1–10). Averaging reduces noise from tap-pos
 ### Threshold (slider)
 
 The signal level that triggers tap detection. If taps are being missed, move the slider left (lower). If ambient noise triggers false detections, move it right (higher). Displayed in dB.
-
-### Hysteresis (slider)
-
-How far the signal must drop below the detection threshold before the detector resets and is ready for the next tap. A higher value prevents a single loud tap from triggering multiple detections.
 
 ### Peak Min (slider)
 
@@ -206,41 +210,49 @@ Each slider has a small ↺ button that resets it to the factory default value.
 
 ## ![](/tmp/guitar-tap-symbols/gearshape.png){height=18pt width=18pt} Settings Reference
 
+### Audio Input & Calibration
+
+Shown at the top of Settings. Select your microphone or audio interface here. Import a frequency-response calibration file (.txt/.cal) to compensate for microphone coloration; calibrations are automatically associated with each device.
+
 ### Measurement Type
 
-Classical Guitar, Flamenco, Acoustic/Steel String, Material (Plate), or Material (Brace). Determines which mode frequency windows are applied and which calculations appear in Results.
+Shown below Audio Input. Choose Classical Guitar, Flamenco, Acoustic/Steel String, Material (Plate), or Material (Brace). Determines which mode frequency windows are applied and which calculations appear in Results.
+
+### Advanced (collapsed section)
+
+Tap the Advanced row to expand Display Settings, Analysis Settings, and FFT Processing. These options rarely need changing after initial setup.
 
 ### Show Unknown Modes
 
-Guitar mode only. When off, peaks outside the known mode frequency windows are hidden, reducing clutter.
+Guitar mode only — found in Advanced → Analysis Settings. When off, peaks outside the known mode frequency windows are hidden, reducing clutter.
 
 ### Display Frequency Range
 
-Sets the horizontal zoom of the spectrum chart. Narrow the range to zoom in on a region of interest. Use Save Current View to persist the current pan/zoom as the default.
+Advanced → Display Settings. Sets the horizontal zoom of the spectrum chart. Narrow the range to zoom in on a region of interest. Use Save Current View to persist the current pan/zoom as the default.
 
 ### Display Magnitude Range
 
-Sets the vertical scale (dB). Use Auto dB in the main view for a quick fit, or set explicit Min/Max here.
+Advanced → Display Settings. Sets the vertical scale (dB). Use Auto dB in the main view for a quick fit, or set explicit Min/Max here.
 
 ### Analysis Frequency Range
 
-Peaks outside this window are ignored during detection. Narrow it to exclude spurious low-frequency rumble or high-frequency noise.
+Advanced → Analysis Settings. Peaks outside this window are ignored during detection. Narrow it to exclude spurious low-frequency rumble or high-frequency noise.
 
 ### Peak Min
 
-Same control as Peak Min on the main view — also accessible here. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported; adjusting it on a frozen spectrum re-runs peak finding and updates selections (auto if untouched, carry-forward by frequency if manually changed). In brace/plate mode the measurement capture uses its own adaptive noise floor, so Peak Min only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB.
+Advanced → Analysis Settings. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported; adjusting it on a frozen spectrum re-runs peak finding and updates selections. In brace/plate mode it only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB.
+
+### Hysteresis Margin
+
+Advanced → Analysis Settings. How far the signal must drop below the detection threshold before the detector resets and is ready for the next tap. A higher value prevents a single loud tap from triggering multiple detections. Range: 1–10 dB; default is 6 dB.
 
 ### Maximum Peaks
 
-Caps the number of peaks reported. Set to All to include every peak above the threshold. Fewer peaks reduces visual clutter when testing assembled guitars.
+Advanced → Analysis Settings. Caps the number of peaks reported. Set to All to include every peak above the threshold. Fewer peaks reduces visual clutter when testing assembled guitars.
 
-### Microphone Selection
+### FFT Processing
 
-If multiple inputs are available (e.g. USB measurement mic or audio interface), you can select the input device here. Changes take effect the next time the analyzer is started.
-
-### Calibration
-
-Import a frequency-response calibration file for a measurement microphone. The correction is applied to all future spectra, compensating for microphone coloration. Calibration files must be in the REW/TXT format supported by the app.
+Advanced → FFT Processing. Controls the hop-size overlap between FFT windows. Higher overlap provides smoother results but reduces frame rate. Changes take effect the next time the analyzer is started.
 
 ## ![](/tmp/guitar-tap-symbols/lightbulb.png){height=18pt width=18pt} Tips & Technique
 

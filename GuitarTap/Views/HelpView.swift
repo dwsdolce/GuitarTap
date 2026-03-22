@@ -63,8 +63,16 @@ Three main workflows are supported:
                     body: "The first time the app launches it will ask for microphone permission. Tap OK. Without it the analyzer cannot run."
                 )
                 helpRow(
+                    title: "Select Audio Input",
+                    body: "Open Settings. The Audio Input & Calibration section appears at the top. Choose your microphone or audio interface here. If you have a calibration file for your measurement mic, import it in this section too."
+                )
+                helpRow(
                     title: "Choose a Measurement Type",
-                    body: "Open Settings and pick Classical Guitar, Flamenco, Steel String, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated."
+                    body: "In Settings, the Measurement Type section is directly below Audio Input. Pick Classical Guitar, Flamenco, Steel String, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated."
+                )
+                helpRow(
+                    title: "Advanced Settings",
+                    body: "Display range, analysis range, and FFT processing options are grouped under the Advanced section at the bottom of Settings. These rarely need changing after initial setup — expand the section by tapping the Advanced row."
                 )
                 helpRow(
                     title: "Quiet Environment",
@@ -82,7 +90,7 @@ Three main workflows are supported:
                 )
                 helpRow(
                     title: "Step 1 — Configure",
-                    body: "In Settings choose the guitar type (Classical, Flamenco, or Acoustic/Steel String). Each type has calibrated frequency windows for each mode. You can view those windows in the Settings Measurement Type section."
+                    body: "In Settings choose the guitar type (Classical, Flamenco, or Acoustic/Steel String) in the Measurement Type section. Each type has calibrated frequency windows for each mode, shown there. The Show Unknown Modes toggle is in the Advanced section."
                 )
                 helpRow(
                     title: "Step 2 — Position the Microphone",
@@ -232,7 +240,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Save",
-                    body: "Saves the current measurement — enabled only when peaks are detected. Enter a location label and optional notes.",
+                    body: "Saves the current measurement — enabled only when the spectrum is frozen and peaks have been detected. Enter a location label and optional notes.",
                     systemImages: ["square.and.arrow.down"]
                 )
                 helpRow(
@@ -292,44 +300,48 @@ After all taps, tap Results to see:
             // ── Settings Reference ────────────────────────────────────────
             Section {
                 helpRow(
+                    title: "Audio Input & Calibration",
+                    body: "Shown at the top of Settings. Select your microphone or audio interface here. Import a frequency-response calibration file (.txt/.cal) to compensate for microphone coloration; calibrations are automatically associated with each device."
+                )
+                helpRow(
                     title: "Measurement Type",
-                    body: "Classical Guitar, Flamenco, Acoustic/Steel String, Material (Plate), or Material (Brace). Determines which mode frequency windows are applied and which calculations appear in Results."
+                    body: "Shown below Audio Input. Choose Classical Guitar, Flamenco, Acoustic/Steel String, Material (Plate), or Material (Brace). Determines which mode frequency windows are applied and which calculations appear in Results."
+                )
+                helpRow(
+                    title: "Advanced (collapsed section)",
+                    body: "Tap the Advanced row to expand Display Settings, Analysis Settings, and FFT Processing. These options rarely need changing after initial setup."
                 )
                 helpRow(
                     title: "Show Unknown Modes",
-                    body: "Guitar mode only. When off, peaks outside the known mode frequency windows are hidden, reducing clutter."
+                    body: "Guitar mode only — found in Advanced → Analysis Settings. When off, peaks outside the known mode frequency windows are hidden, reducing clutter."
                 )
                 helpRow(
                     title: "Display Frequency Range",
-                    body: "Sets the horizontal zoom of the spectrum chart. Narrow the range to zoom in on a region of interest. Use Save Current View to persist the current pan/zoom as the default."
+                    body: "Advanced → Display Settings. Sets the horizontal zoom of the spectrum chart. Narrow the range to zoom in on a region of interest. Use Save Current View to persist the current pan/zoom as the default."
                 )
                 helpRow(
                     title: "Display Magnitude Range",
-                    body: "Sets the vertical scale (dB). Use Auto dB in the main view for a quick fit, or set explicit Min/Max here."
+                    body: "Advanced → Display Settings. Sets the vertical scale (dB). Use Auto dB in the main view for a quick fit, or set explicit Min/Max here."
                 )
                 helpRow(
                     title: "Analysis Frequency Range",
-                    body: "Peaks outside this window are ignored during detection. Narrow it to exclude spurious low-frequency rumble or high-frequency noise."
+                    body: "Advanced → Analysis Settings. Peaks outside this window are ignored during detection. Narrow it to exclude spurious low-frequency rumble or high-frequency noise."
                 )
                 helpRow(
                     title: "Peak Min",
-                    body: "Same control as Peak Min on the main view — also accessible here. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported; adjusting it on a frozen spectrum re-runs peak finding and updates selections (auto if untouched, carry-forward by frequency if manually changed). In brace/plate mode the measurement capture uses its own adaptive noise floor, so Peak Min only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB."
+                    body: "Advanced → Analysis Settings. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported; adjusting it on a frozen spectrum re-runs peak finding and updates selections. In brace/plate mode it only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB."
                 )
                 helpRow(
                     title: "Hysteresis Margin",
-                    body: "How far the signal must drop below the detection threshold before the detector resets and is ready for the next tap. A higher value prevents a single loud tap from triggering multiple detections. Range: 1–10 dB; default is 6 dB."
+                    body: "Advanced → Analysis Settings. How far the signal must drop below the detection threshold before the detector resets and is ready for the next tap. A higher value prevents a single loud tap from triggering multiple detections. Range: 1–10 dB; default is 6 dB."
                 )
                 helpRow(
                     title: "Maximum Peaks",
-                    body: "Caps the number of peaks reported. Set to All to include every peak above the threshold. Fewer peaks reduces visual clutter when testing assembled guitars."
+                    body: "Advanced → Analysis Settings. Caps the number of peaks reported. Set to All to include every peak above the threshold. Fewer peaks reduces visual clutter when testing assembled guitars."
                 )
                 helpRow(
-                    title: "Microphone Selection",
-                    body: "If multiple inputs are available (e.g. USB measurement mic or audio interface), you can select the input device here. Changes take effect the next time the analyzer is started."
-                )
-                helpRow(
-                    title: "Calibration",
-                    body: "Import a frequency-response calibration file for a measurement microphone. The correction is applied to all future spectra, compensating for microphone coloration. Calibration files must be in the REW/TXT format supported by the app."
+                    title: "FFT Processing",
+                    body: "Advanced → FFT Processing. Controls the hop-size overlap between FFT windows. Higher overlap provides smoother results but reduces frame rate. Changes take effect the next time the analyzer is started."
                 )
             } header: {
                 Label("Settings Reference", systemImage: "gearshape")
