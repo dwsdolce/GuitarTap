@@ -296,7 +296,7 @@ Scroll over the chart to zoom — the axis depends on where the pointer is: over
 
 ### Air (Helmholtz) mode
 
-The resonance of the air mass in the sound hole, analogous to blowing across a bottle. Typically 80–130 Hz for classical guitar.
+The resonance of the air mass in the sound hole, analogous to blowing across a bottle. Typically 80–110 Hz for classical guitar.
 
 ### Top / Back mode
 

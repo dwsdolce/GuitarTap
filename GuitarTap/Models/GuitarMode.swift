@@ -31,7 +31,7 @@
 /// Four legacy raw values are retained for backward compatibility with measurements saved
 /// under older naming conventions.  They are mapped to their modern equivalents by
 /// ``normalized`` and ``displayName``.
-import Foundation
+import SwiftUI
 
 /// A resonance mode classification for a completed guitar body.
 ///
@@ -94,6 +94,23 @@ enum GuitarMode: String, Codable {
     ///
     /// - Warning: Retained for backward compatibility only.  ``normalized`` maps this to `.back`.
     case monopole = "Monopole"
+
+    // MARK: - Current Case Enumeration
+
+    /// All current (non-legacy) cases in display order.
+    ///
+    /// Use this instead of `CaseIterable` to exclude the legacy backward-compatibility cases
+    /// from pickers, suggestion lists, and anywhere the full canonical set is needed.
+    static let currentCases: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes, .unknown]
+
+    /// Extended mode label strings using acoustical physics (T(m,n)) notation.
+    ///
+    /// Presented as secondary choices in the mode-override picker for users who prefer
+    /// the academic designation system over the luthier-friendly names in ``currentCases``.
+    static let additionalModeLabels: [String] = [
+        "Helmholtz T(1,1)_1", "Top T(1,1)_2", "Back T(1,1)_3",
+        "Cross Dipole T(2,1)", "Long Dipole T(1,2)", "Quadrapole T(2,2)", "Cross Tripole T(3,1)"
+    ]
 
     // MARK: - Classification
 
@@ -192,3 +209,68 @@ enum GuitarMode: String, Codable {
         }
     }
 }
+// MARK: - Display Properties
+
+extension GuitarMode {
+
+    /// Display color for a guitar mode, derived from `self.normalized`.
+    ///
+    /// Legacy enum cases are collapsed to their canonical equivalents via
+    /// `normalized` before the color is resolved, so all historical variants
+    /// of e.g. `.air` map to `.cyan`.
+    var color: Color {
+        switch self.normalized {
+        case .air:        return .cyan
+        case .top:        return .green
+        case .back:       return .orange
+        case .dipole:     return .red
+        case .ringMode:   return .purple
+        case .upperModes: return .gray
+        case .unknown:    return .secondary
+        default:          return .secondary
+        }
+    }
+
+    /// Short mode abbreviation for compact UI display (e.g., "Air", "DP").
+    var abbreviation: String {
+        switch self.normalized {
+        case .air:        return "Air"
+        case .top:        return "Top"
+        case .back:       return "Back"
+        case .dipole:     return "DP"
+        case .ringMode:   return "Ring"
+        case .upperModes: return "Upper"
+        case .unknown:    return "?"
+        default:          return "?"
+        }
+    }
+
+    /// Human-readable description of the acoustic mode, suitable for tooltips and detail views.
+    var description: String {
+        switch self.normalized {
+        case .air:        return "Air resonance (Helmholtz) - the 'breathing' of the guitar body"
+        case .top:        return "Main top plate resonance"
+        case .back:       return "Back plate resonance"
+        case .dipole:     return "Top plate moving out of phase (dipole)"
+        case .ringMode:   return "Higher frequency body resonances"
+        case .upperModes: return "Upper harmonic modes"
+        case .unknown:    return "Unclassified frequency"
+        default:          return "Unclassified frequency"
+        }
+    }
+
+    /// SF Symbols name representing this guitar mode visually.
+    var icon: String {
+        switch self.normalized {
+        case .air:        return "wind"
+        case .top:        return "arrow.up.and.down"
+        case .back:       return "square.fill"
+        case .dipole:     return "circle.lefthalf.filled"
+        case .ringMode:   return "circle.dashed"
+        case .upperModes: return "waveform"
+        case .unknown:    return "questionmark.circle"
+        default:          return "questionmark.circle"
+        }
+    }
+}
+

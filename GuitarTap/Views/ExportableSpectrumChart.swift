@@ -155,23 +155,10 @@ struct ExportableSpectrumChart: View {
             .filter { $0 >= lo && $0 <= hi }
     }
 
-    private func modeColor(for mode: GuitarMode) -> Color {
-        switch mode.normalized {
-        case .air: return .cyan
-        case .top: return .green
-        case .back: return .orange
-        case .dipole: return .red
-        case .ringMode: return .purple
-        case .upperModes: return .gray
-        case .unknown: return .secondary
-        default: return .secondary
-        }
-    }
-
-    /// Returns the appropriate color for a peak based on measurement type and selection
+    /// Returns the appropriate color for a peak based on measurement type and selection.
     private func peakColor(for peak: ResonantPeak) -> Color {
         if measurementType.isGuitar {
-            return modeColor(for: GuitarMode.classify(frequency: peak.frequency))
+            return GuitarMode.classify(frequency: peak.frequency).color
         } else {
             // Plate/brace mode: color by L/C/FLC selection
             if peak.id == selectedLongitudinalPeakID {
@@ -205,19 +192,6 @@ struct ExportableSpectrumChart: View {
             } else {
                 return "Peak"
             }
-        }
-    }
-
-    private func modeAbbreviation(for mode: GuitarMode) -> String {
-        switch mode.normalized {
-        case .air: return "Air"
-        case .top: return "Top"
-        case .back: return "Back"
-        case .dipole: return "DP"
-        case .ringMode: return "Ring"
-        case .upperModes: return "Upper"
-        case .unknown: return "?"
-        default: return "?"
         }
     }
 
@@ -275,16 +249,16 @@ struct ExportableSpectrumChart: View {
                     if showModeBoundaries {
                         ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
                             RuleMark(x: .value("Boundary", boundary.frequency))
-                                .foregroundStyle(modeColor(for: boundary.mode).opacity(0.3))
+                                .foregroundStyle(boundary.mode.color.opacity(0.3))
                                 .lineStyle(StrokeStyle(lineWidth: 2, dash: [8, 8]))
                                 .annotation(position: .top, alignment: .center) {
                                     if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
-                                        Text(modeAbbreviation(for: boundary.mode))
+                                        Text(boundary.mode.abbreviation)
                                             .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(modeColor(for: boundary.mode))
+                                            .foregroundColor(boundary.mode.color)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 4)
-                                            .background(modeColor(for: boundary.mode).opacity(0.15))
+                                            .background(boundary.mode.color.opacity(0.15))
                                             .cornerRadius(6)
                                     }
                                 }
@@ -385,6 +359,8 @@ struct ExportableSpectrumChart: View {
 
                                         // Only show pitch info for guitar mode
                                         if measurementType.isGuitar, let pitchNote = peak.pitchNote {
+                                            let sign = (peak.pitchCents ?? 0) >= 0 ? "+" : ""
+                                            let centsStr = peak.pitchCents.map { "\(sign)\(Int($0.rounded())) ¢" } ?? ""
                                             HStack(spacing: 4) {
                                                 Image(systemName: "music.note")
                                                     .font(.system(size: 14))
@@ -392,6 +368,11 @@ struct ExportableSpectrumChart: View {
                                                 Text(pitchNote)
                                                     .font(.system(size: 16, weight: .bold))
                                                     .foregroundColor(.purple)
+                                                if !centsStr.isEmpty {
+                                                    Text(centsStr)
+                                                        .font(.system(size: 14))
+                                                        .foregroundColor(.purple.opacity(0.8))
+                                                }
                                             }
                                         }
 

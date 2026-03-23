@@ -399,7 +399,7 @@ After all taps, tap Results to see:
             Section {
                 helpRow(
                     title: "Air (Helmholtz) mode",
-                    body: "The resonance of the air mass in the sound hole, analogous to blowing across a bottle. Typically 80–130 Hz for classical guitar."
+                    body: "The resonance of the air mass in the sound hole, analogous to blowing across a bottle. Typically 80–110 Hz for classical guitar."
                 )
                 helpRow(
                     title: "Top / Back mode",

@@ -1,7 +1,7 @@
 /// # TapDisplaySettings
 ///
-/// Global settings store and related domain enums for GuitarTap's analysis
-/// and display configuration.
+/// Global `UserDefaults`-backed settings store for GuitarTap's analysis and display
+/// configuration.
 ///
 /// ## Overview
 ///
@@ -10,32 +10,25 @@
 /// involved; views read settings at construction time and re-read them when
 /// the user changes a value through the settings UI.
 ///
-/// ## Type hierarchy
+/// Domain model types used by these settings live in the Models group:
+/// ``MeasurementType``, ``GuitarType``, ``PlateStiffnessPreset``.
 ///
-/// ```
-/// MeasurementType (Codable)
-///   └── GuitarType (Codable)
-///         ├── ModeRanges  — classification frequency bands
-///         └── DecayThresholds — ring-out quality cutoffs
+/// ## Settings groups
 ///
-/// PlateStiffnessPreset (Codable) — f_vs preset or .custom
-///
-/// TapDisplaySettings (struct, no instances)
-///   ├── Measurement type & guitar type
-///   ├── Plate dimensions (length, width, thickness, mass in mm / g)
-///   ├── Brace dimensions (separate from plate)
-///   ├── Gore thicknessing inputs (body length, body width, f_vs preset)
-///   ├── Per-type display frequency range (min/max Hz, stored per MeasurementType)
-///   ├── Per-type dB range (min/max dB)
-///   ├── Analysis frequency range (Hz)
-///   ├── Peak detection parameters (threshold, max peaks, hysteresis, etc.)
-///   └── Tap counting and sequencing parameters
-/// ```
+/// - Measurement type & guitar type
+/// - Plate dimensions (length, width, thickness, mass in mm / g)
+/// - Brace dimensions (separate from plate)
+/// - Gore thicknessing inputs (body length, body width, f_vs preset)
+/// - Per-type display frequency range (min/max Hz, stored per MeasurementType)
+/// - Per-type dB range (min/max dB)
+/// - Analysis frequency range (Hz)
+/// - Peak detection parameters (threshold, max peaks, hysteresis, etc.)
+/// - Tap counting and sequencing parameters
 ///
 /// ## Guitar type vs measurement type
 ///
-/// `GuitarType` (`.classical`, `.flamenco`, `.acoustic`) is a subset of
-/// `MeasurementType`.  The `guitarType` property is provided for backward
+/// ``GuitarType`` (`.classical`, `.flamenco`, `.acoustic`) is a subset of
+/// ``MeasurementType``.  The `guitarType` property is provided for backward
 /// compatibility; new code should use `measurementType` instead.
 ///
 /// ## UserDefaults key naming
@@ -53,262 +46,6 @@
 //
 
 import Foundation
-
-// MARK: - Measurement Type
-
-/// The kind of tap tone measurement being performed.
-///
-/// Guitar types (`.classical`, `.flamenco`, `.acoustic`) use guitar-body mode
-/// classification (air, top, back, dipole, ring).  Material types (`.plate`,
-/// `.brace`) use a multi-tap capture sequence and compute Young's modulus.
-enum MeasurementType: String, Codable, CaseIterable, Identifiable {
-    case classical = "Classical Guitar"
-    case flamenco = "Flamenco Guitar"
-    case acoustic = "Acoustic Guitar"
-    case plate = "Material (Plate)"
-    case brace = "Material (Brace)"
-    
-    var id: String { rawValue }
-    
-    /// Short name for display
-    var shortName: String {
-        switch self {
-        case .classical: return "Classical"
-        case .flamenco: return "Flamenco"
-        case .acoustic: return "Acoustic"
-        case .plate: return "Plate"
-        case .brace: return "Brace"
-        }
-    }
-    
-    /// Description of the measurement type
-    var description: String {
-        switch self {
-        case .classical:
-            return "Nylon string, fan-braced, deep body"
-        case .flamenco:
-            return "Nylon string, light bracing, shallow body"
-        case .acoustic:
-            return "Steel string, X-braced (Dreadnought, OM, etc.)"
-        case .plate:
-            return "Rectangular wood plate for calculating stiffness and sound radiation"
-        case .brace:
-            return "Brace strip — measures longitudinal stiffness (fL only)"
-        }
-    }
-    
-    /// Whether this is a guitar measurement (vs plate/brace)
-    var isGuitar: Bool {
-        switch self {
-        case .classical, .flamenco, .acoustic:
-            return true
-        case .plate, .brace:
-            return false
-        }
-    }
-    
-    /// Whether this is a brace measurement (single longitudinal tap only)
-    var isBrace: Bool {
-        switch self {
-        case .brace: return true
-        default: return false
-        }
-    }
-    
-    /// Convert to GuitarType if applicable
-    var guitarType: GuitarType? {
-        switch self {
-        case .classical: return .classical
-        case .flamenco: return .flamenco
-        case .acoustic: return .acoustic
-        case .plate, .brace: return nil
-        }
-    }
-    
-    /// Create from GuitarType
-    static func from(_ guitarType: GuitarType) -> MeasurementType {
-        switch guitarType {
-        case .classical: return .classical
-        case .flamenco: return .flamenco
-        case .acoustic: return .acoustic
-        }
-    }
-}
-
-// MARK: - Guitar Type
-
-/// The kind of guitar body, which determines mode frequency classification ranges.
-///
-/// Each guitar type has a distinct set of `ModeRanges` reflecting its typical
-/// construction (body depth, bracing style, string tension), and separate
-/// `DecayThresholds` calibrated to expected ring-out times.
-enum GuitarType: String, Codable, CaseIterable, Identifiable {
-    case classical = "Classical"
-    case flamenco = "Flamenco"
-    case acoustic = "Acoustic"
-    
-    var id: String { rawValue }
-    
-    /// Description of the guitar type
-    var description: String {
-        switch self {
-        case .classical:
-            return "Nylon string, fan-braced, deep body"
-        case .flamenco:
-            return "Nylon string, light bracing, shallow body"
-        case .acoustic:
-            return "Steel string, X-braced (Dreadnought, OM, etc.)"
-        }
-    }
-    
-    /// Frequency classification bands for each guitar body mode, in Hz.
-    ///
-    /// Used by `GuitarMode.classify(frequency:guitarType:)` to assign a mode
-    /// label to each detected peak.  Bands are non-overlapping and cover the
-    /// full audible spectrum via `upperModes`.
-    struct ModeRanges {
-        /// Helmholtz air resonance band, in Hz.
-        let air: ClosedRange<Float>
-        /// Main top plate bending mode band, in Hz.
-        let top: ClosedRange<Float>
-        /// Back plate bending mode band, in Hz.
-        let back: ClosedRange<Float>
-        /// Dipole (top-plate out-of-phase) mode band, in Hz.
-        let dipole: ClosedRange<Float>
-        /// Ring mode band, in Hz.
-        let ringMode: ClosedRange<Float>
-        /// Upper harmonic modes band (extends to 20 kHz), in Hz.
-        let upperModes: ClosedRange<Float>
-    }
-    
-    /// Get the frequency ranges for this guitar type
-    var modeRanges: ModeRanges {
-        switch self {
-        case .classical:
-            return ModeRanges(
-                air: 80...110,        // Lower air resonance due to deeper body
-                top: 170...230,       // Main top resonance
-                back: 190...280,      // Back resonance (extended to 280 Hz to capture higher back modes)
-                dipole: 330...430,    // Dipole mode
-                ringMode: 580...820,  // Ring mode
-                upperModes: 820...20000
-            )
-        case .flamenco:
-            return ModeRanges(
-                air: 85...115,        // Slightly higher due to shallower body
-                top: 190...250,       // Higher due to thinner, lighter top
-                back: 180...240,      // Cypress back, lighter construction
-                dipole: 350...450,    // Dipole mode
-                ringMode: 600...850,  // Ring mode
-                upperModes: 850...20000
-            )
-        case .acoustic:
-            return ModeRanges(
-                air: 90...120,        // Higher due to smaller/tighter body
-                top: 150...210,       // Lower due to stiffer X-bracing
-                back: 210...290,      // Back resonance
-                dipole: 360...460,    // Dipole mode
-                ringMode: 620...880,  // Ring mode
-                upperModes: 880...20000
-            )
-        }
-    }
-    
-    
-    /// Ring-out time quality thresholds, in seconds.
-    ///
-    /// Used by `Float.decayQuality(for:)` to convert a numeric ring-out time
-    /// into a qualitative label.  Thresholds differ between guitar types:
-    /// flamenco guitars are expected to decay quickly (percussive playing),
-    /// while classical guitars are expected to sustain longer.
-    struct DecayThresholds {
-        /// Ring-out times below this value are rated "Very Short", in seconds.
-        let veryShort: Float
-        /// Ring-out times below this value are rated "Short", in seconds.
-        let short: Float
-        /// Ring-out times below this value are rated "Moderate", in seconds.
-        let moderate: Float
-        /// Ring-out times below this value are rated "Good"; at or above is "Excellent", in seconds.
-        let good: Float
-    }
-    
-    /// Get decay quality thresholds for this guitar type
-    var decayThresholds: DecayThresholds {
-        switch self {
-        case .classical:
-            // Classical guitars have longer sustain due to deeper body and heavier bracing
-            return DecayThresholds(
-                veryShort: 0.15,
-                short: 0.35,
-                moderate: 0.60,
-                good: 1.0
-            )
-        case .flamenco:
-            // Flamenco guitars are designed for short, percussive decay
-            // Quick decay is a feature for clear rasgueados and golpe
-            return DecayThresholds(
-                veryShort: 0.08,
-                short: 0.20,
-                moderate: 0.35,
-                good: 0.55
-            )
-        case .acoustic:
-            // Steel-string guitars have punchier, shorter decay
-            return DecayThresholds(
-                veryShort: 0.10,
-                short: 0.25,
-                moderate: 0.45,
-                good: 0.75
-            )
-        }
-    }
-}
-
-// MARK: - Plate Stiffness Preset
-
-/// Named vibrational stiffness (f_vs) presets for Gore Equation 4.5-7.
-///
-/// The Gore target thickness formula requires a vibrational stiffness
-/// parameter that varies by instrument type and plate role.  The `.custom`
-/// case defers to the `TapDisplaySettings.customPlateStiffness` value.
-///
-/// Reference values (f_vs):
-/// - Steel-string top: 75
-/// - Steel-string back: 55
-/// - Classical top: 60
-/// - Classical back: 50
-///
-/// - SeeAlso: `PlateProperties.goreTargetThickness(bodyLengthMm:bodyWidthMm:vibrationalStiffness:)`
-enum PlateStiffnessPreset: String, CaseIterable, Identifiable, Codable {
-    case steelStringTop = "Steel String Top"
-    case steelStringBack = "Steel String Back"
-    case classicalTop = "Classical Top"
-    case classicalBack = "Classical Back"
-    case custom = "Custom"
-
-    var id: String { rawValue }
-
-    /// The vibrational stiffness value (f_vs) for this preset
-    var value: Float {
-        switch self {
-        case .steelStringTop:  return 75
-        case .steelStringBack: return 55
-        case .classicalTop:    return 60
-        case .classicalBack:   return 50
-        case .custom:          return 0  // use customPlateStiffness
-        }
-    }
-
-    var shortName: String {
-        switch self {
-        case .steelStringTop:  return "SS Top (75)"
-        case .steelStringBack: return "SS Back (55)"
-        case .classicalTop:    return "Classical Top (60)"
-        case .classicalBack:   return "Classical Back (50)"
-        case .custom:          return "Custom"
-        }
-    }
-}
 
 /// Global, `UserDefaults`-backed settings for spectrum display and analysis
 /// configuration.

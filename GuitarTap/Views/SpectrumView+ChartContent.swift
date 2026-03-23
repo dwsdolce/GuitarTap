@@ -67,18 +67,18 @@ extension SpectrumView {
         if showModeBoundaries && measurementType.isGuitar {
             ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
                 RuleMark(x: .value("Boundary", boundary.frequency))
-                    .foregroundStyle(modeColor(for: boundary.mode).opacity(0.3))
+                    .foregroundStyle(boundary.mode.color.opacity(0.3))
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
                     .annotation(position: .top, alignment: .center) {
                         // Only show mode name at start of range (lower boundary)
                         if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
-                            Text(modeAbbreviation(for: boundary.mode))
+                            Text(boundary.mode.abbreviation)
                                 .font(.caption2)
                                 .fontWeight(.semibold)
-                                .foregroundColor(modeColor(for: boundary.mode))
+                                .foregroundColor(boundary.mode.color)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
-                                .background(modeColor(for: boundary.mode).opacity(0.15))
+                                .background(boundary.mode.color.opacity(0.15))
                                 .cornerRadius(4)
                         }
                     }
@@ -190,7 +190,7 @@ extension SpectrumView {
     func peakColor(for peak: ResonantPeak) -> Color {
         if measurementType.isGuitar {
             // Guitar mode: color by guitar mode classification
-            return modeColor(for: GuitarMode.classify(frequency: peak.frequency))
+            return GuitarMode.classify(frequency: peak.frequency).color
         } else {
             // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {
@@ -202,34 +202,6 @@ extension SpectrumView {
             } else {
                 return .secondary // Unselected = gray
             }
-        }
-    }
-
-    /// Returns the color associated with a guitar mode
-    func modeColor(for mode: GuitarMode) -> Color {
-        switch mode.normalized {
-        case .air: return .cyan
-        case .top: return .green
-        case .back: return .orange
-        case .dipole: return .red
-        case .ringMode: return .purple
-        case .upperModes: return .gray
-        case .unknown: return .secondary
-        default: return .secondary
-        }
-    }
-
-    /// Returns abbreviated mode name for boundary labels
-    func modeAbbreviation(for mode: GuitarMode) -> String {
-        switch mode.normalized {
-        case .air: return "Air"
-        case .top: return "Top"
-        case .back: return "Back"
-        case .dipole: return "DP"
-        case .ringMode: return "Ring"
-        case .upperModes: return "Upper"
-        case .unknown: return "?"
-        default: return "?"
         }
     }
 

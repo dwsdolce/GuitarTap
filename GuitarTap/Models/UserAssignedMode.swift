@@ -86,20 +86,16 @@ enum UserAssignedMode: Codable, Equatable, Hashable {
 
     // MARK: - Suggestion Lists
 
-    /// Standard guitar tap-tone mode label strings, matching ``GuitarMode/displayName`` values.
+    /// Standard guitar tap-tone mode label strings, derived from ``GuitarMode/currentCases``.
     ///
     /// Presented as the primary choices in the mode-override picker.
-    static let guitarTapModes: [String] = [
-        "Air (Helmholtz)", "Top", "Back", "Dipole", "Ring Mode", "Upper Modes", "Unknown"
-    ]
+    static let guitarTapModes: [String] = GuitarMode.currentCases.map(\.displayName)
 
     /// Extended mode label strings using acoustical physics notation.
     ///
     /// Presented as secondary choices for users who prefer the T(m,n) mode designation system.
-    static let additionalModes: [String] = [
-        "Helmholtz T(1,1)_1", "Top T(1,1)_2", "Back T(1,1)_3",
-        "Cross Dipole T(2,1)", "Long Dipole T(1,2)", "Quadrapole T(2,2)", "Cross Tripole T(3,1)"
-    ]
+    /// Sourced from ``GuitarMode/additionalModeLabels``.
+    static let additionalModes: [String] = GuitarMode.additionalModeLabels
 
     /// All suggestion strings presented in the override picker, combining ``guitarTapModes``
     /// and ``additionalModes``.

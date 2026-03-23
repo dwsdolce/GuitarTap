@@ -2,7 +2,7 @@
 ///
 /// General-purpose Swift and SwiftUI extensions used throughout GuitarTap.
 ///
-/// This file contains four groups of extensions:
+/// This file contains three groups of extensions:
 ///
 /// 1. **`Comparable.clamped(to:)`** — generic range clamping available on all
 ///    `Comparable` types (Int, Float, CGFloat, etc.).
@@ -13,11 +13,7 @@
 ///    `GuitarType.DecayThresholds`; tap tone ratio quality is hardcoded to
 ///    the luthier target range of 1.9–2.1.
 ///
-/// 3. **`GuitarMode` extensions** — display properties (`color`, `abbreviation`,
-///    `description`, `icon`) derived from the normalized mode value, ensuring
-///    that legacy enum cases map consistently to their canonical equivalents.
-///
-/// 4. **`View.hint(_:)`** and **`HintText`** — a platform-adaptive `.help()`/
+/// 3. **`View.hint(_:)`** and **`HintText`** — a platform-adaptive `.help()`/
 ///    `.accessibilityHint()` modifier, plus a centralised enum of all UI hint
 ///    strings used by toolbar buttons and controls.
 ///
@@ -174,95 +170,6 @@ extension Float {
             return .red
         default:
             return .gray
-        }
-    }
-}
-
-// MARK: - GuitarMode Extensions
-
-extension GuitarMode {
-    /// Display color for a guitar mode, derived from `self.normalized`.
-    ///
-    /// Legacy enum cases are collapsed to their canonical equivalents via
-    /// `normalized` before the color is resolved, so all historical variants
-    /// of, e.g., `.air` map to `.cyan`.
-    var color: Color {
-        switch self.normalized {
-        case .air:
-            return .cyan
-        case .top:
-            return .green
-        case .back:
-            return .orange
-        case .dipole:
-            return .red
-        case .ringMode:
-            return .purple
-        case .upperModes:
-            return .gray
-        case .unknown:
-            return .secondary
-        default:
-            return .secondary
-        }
-    }
-    
-    /// Short mode abbreviation for compact UI display (e.g., "Air", "DP").
-    var abbreviation: String {
-        switch self.normalized {
-        case .air:
-            return "Air"
-        case .top:
-            return "Top"
-        case .back:
-            return "Back"
-        case .dipole:
-            return "DP"
-        case .ringMode:
-            return "Ring"
-        case .upperModes:
-            return "Upper"
-        case .unknown:
-            return "?"
-        default:
-            return "?"
-        }
-    }
-    
-    /// Human-readable description of the acoustic mode, suitable for tooltips
-    /// and detail views.
-    var description: String {
-        switch self.normalized {
-        case .air:
-            return "Air resonance (Helmholtz) - the 'breathing' of the guitar body"
-        case .top:
-            return "Main top plate resonance"
-        case .back:
-            return "Back plate resonance"
-        case .dipole:
-            return "Top plate moving out of phase (dipole)"
-        case .ringMode:
-            return "Higher frequency body resonances"
-        case .upperModes:
-            return "Upper harmonic modes"
-        case .unknown:
-            return "Unclassified frequency"
-        default:
-            return "Unclassified frequency"
-        }
-    }
-    
-    /// SF Symbols name representing this guitar mode visually.
-    var icon: String {
-        switch self.normalized {
-        case .air: return "wind"
-        case .top: return "arrow.up.and.down"
-        case .back: return "square.fill"
-        case .dipole: return "circle.lefthalf.filled"
-        case .ringMode: return "circle.dashed"
-        case .upperModes: return "waveform"
-        case .unknown: return "questionmark.circle"
-        default: return "questionmark.circle"
         }
     }
 }

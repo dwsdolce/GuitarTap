@@ -542,6 +542,7 @@ private struct PeakAnnotationLabel: View {
 
             // Pitch information if available (only show for guitar mode)
             if measurementType.isGuitar, let pitchNote = peak.pitchNote, let pitchCents = peak.pitchCents {
+                let sign = pitchCents >= 0 ? "+" : ""
                 HStack(spacing: 2) {
                     Image(systemName: "music.note")
                         .font(.system(size: 8))
@@ -550,12 +551,10 @@ private struct PeakAnnotationLabel: View {
                         .font(.caption2)
                         .fontWeight(.bold)
                         .foregroundColor(.purple)
+                    Text("\(sign)\(Int(round(pitchCents))) ¢")
+                        .font(.caption2)
+                        .foregroundColor(.purple.opacity(0.8))
                 }
-
-                let sign = pitchCents >= 0 ? "+" : ""
-                Text("\(sign)\(Int(round(pitchCents))) ¢")
-                    .font(.caption2)
-                    .foregroundColor(.purple.opacity(0.8))
             }
 
             Text(peak.frequency.formattedAsFrequency())
