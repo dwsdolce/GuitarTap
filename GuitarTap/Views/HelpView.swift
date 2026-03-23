@@ -306,7 +306,7 @@ After all taps, tap Results to see:
             Section {
                 helpRow(
                     title: "Audio Input & Calibration",
-                    body: "Shown at the top of Settings. Select your microphone or audio interface here. Import a frequency-response calibration file (.txt/.cal) to compensate for microphone coloration; calibrations are automatically associated with each device."
+                    body: "Shown at the top of Settings. Select your microphone or audio interface here. Import a frequency-response calibration file (.txt/.cal) to compensate for microphone coloration; calibrations are automatically associated with each device. Audio input and calibration changes take effect immediately and are not affected by Cancel."
                 )
                 helpRow(
                     title: "Measurement Type",

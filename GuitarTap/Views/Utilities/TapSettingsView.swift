@@ -216,7 +216,7 @@ struct TapSettingsView: View {
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Apply") {
+                    Button("Done") {
                         applySettings()
                     }
                     .fontWeight(.semibold)

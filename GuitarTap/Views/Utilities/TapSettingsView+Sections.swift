@@ -761,7 +761,7 @@ extension TapSettingsView {
                 Label("Audio Input & Calibration", systemImage: "mic.fill")
                     .font(.headline)
             } footer: {
-                Text("Select audio input device. Import a calibration file (.txt or .cal) from your measurement microphone to compensate for its frequency response. Calibrations are automatically associated with each device.")
+                Text("Audio input and calibration changes take effect immediately and are not affected by Cancel. Calibrations are automatically associated with each device.")
                     .font(.caption)
             }
         }

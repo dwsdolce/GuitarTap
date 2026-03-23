@@ -216,7 +216,7 @@ Each slider has a small ↺ button that resets it to the factory default value.
 
 ### Audio Input & Calibration
 
-Shown at the top of Settings. Select your microphone or audio interface here. Import a frequency-response calibration file (.txt/.cal) to compensate for microphone coloration; calibrations are automatically associated with each device.
+Shown at the top of Settings. Select your microphone or audio interface here. Import a frequency-response calibration file (.txt/.cal) to compensate for microphone coloration; calibrations are automatically associated with each device. Audio input and calibration changes take effect immediately and are not affected by Cancel.
 
 ### Measurement Type
 
