@@ -305,6 +305,13 @@ final class TapToneAnalyzer: ObservableObject {
     /// ``annotationVisibilityMode`` to `.selected`.
     @Published var selectedPeakIDs: Set<UUID> = []
 
+    /// The peak the user has focused by clicking a dot in the chart or a row in the results panel.
+    ///
+    /// Only one peak can be highlighted at a time. Setting this to a peak's UUID highlights
+    /// the corresponding dot (chart) and row (results). Setting to `nil` clears the highlight.
+    /// Both chart and results panel observe this via `@ObservedObject` on the shared analyzer.
+    @Published var highlightedPeakID: UUID? = nil
+
     /// Whether the user has manually modified peak selections since the last auto-selection.
     ///
     /// When `false`, changing Peak Min on a frozen guitar spectrum re-runs

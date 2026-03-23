@@ -140,8 +140,17 @@ struct SpectrumView: View {
     /// Whether to use logarithmic scale for the frequency axis
     @Binding var isLogarithmic: Bool
 
-    /// Optional array of peaks to annotate on the chart
+    /// All detected peaks — every peak gets a dot on the chart regardless of annotation visibility.
     var peaks: [ResonantPeak]?
+
+    /// The subset of peaks that should show annotation labels.
+    ///
+    /// When `nil`, `visiblePeaks` falls back to `peaks` filtered by frequency range
+    /// (the behaviour before annotation visibility was introduced).  When provided,
+    /// the caller is responsible for applying the annotation visibility filter so that
+    /// `SpectrumView` does not need to know about `selectedPeakIDs` or
+    /// `annotationVisibilityMode`.
+    var annotationPeaks: [ResonantPeak]? = nil
 
     /// Whether to show mode boundary markers
     var showModeBoundaries: Bool = true
@@ -187,6 +196,21 @@ struct SpectrumView: View {
 
     /// Per-peak user mode overrides — passed through to annotation labels (guitar mode only)
     var modeOverrides: [UUID: UserAssignedMode] = [:]
+
+    /// The currently highlighted peak ID — bidirectional link between chart dots and results rows.
+    ///
+    /// A non-nil value causes the corresponding dot to render at full size with a white ring.
+    /// Tapping the dot (or a results row) toggles this value. Passed as a `Binding` so changes
+    /// propagate back to the shared analyzer.
+    var highlightedPeakID: Binding<UUID?> = .constant(nil)
+
+    /// Plain (non-binding) copy of ``highlightedPeakID`` for use inside `@ChartContentBuilder`.
+    ///
+    /// `@ChartContentBuilder` closures do not observe `Binding` changes on their own; reading
+    /// `highlightedPeakID.wrappedValue` there would not trigger a re-render. Exposing the
+    /// value as a plain stored-equivalent computed property ensures SwiftUI's view diffing
+    /// detects the change and re-evaluates `peakAnnotationContent`.
+    var currentHighlightedPeakID: UUID? { highlightedPeakID.wrappedValue }
 
     // MARK: - Gesture State
 
@@ -317,22 +341,37 @@ struct SpectrumView: View {
         return boundaries
     }
 
-    /// Returns peaks that are visible in the current frequency range
-    /// Optionally filters out unknown modes based on user setting (guitar mode only)
-    var visiblePeaks: [ResonantPeak] {
+    /// Returns all peaks in the current frequency range, regardless of annotation visibility mode.
+    ///
+    /// Used for the always-visible dot layer so every detected peak has a dot even when
+    /// annotations are hidden. Applies the same unknown-mode filter as ``visiblePeaks``.
+    var allPeaksInRange: [ResonantPeak] {
         let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
+        if !measurementType.isGuitar { return filtered }
+        if TapDisplaySettings.showUnknownModes { return filtered }
+        return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
+    }
 
-        // In plate/brace mode, show all peaks (no guitar mode filtering)
-        if !measurementType.isGuitar {
-            return filtered
+    /// Returns the peaks that should show annotation labels.
+    ///
+    /// When an explicit ``annotationPeaks`` list is provided by the caller, that list is
+    /// filtered to the visible frequency range and returned directly — the caller has
+    /// already applied the annotation visibility mode filter.
+    ///
+    /// When `annotationPeaks` is `nil`, falls back to ``peaks`` with the same
+    /// frequency-range and unknown-mode filters applied (legacy behaviour for call sites
+    /// that don't need separate dot/label control).
+    var visiblePeaks: [ResonantPeak] {
+        // If the caller supplied a pre-filtered annotation list, use it
+        if let explicit = annotationPeaks {
+            return explicit.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq }
         }
 
-        // Filter out unknown modes if setting is disabled (guitar mode only)
-        if TapDisplaySettings.showUnknownModes {
-            return filtered
-        } else {
-            return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
-        }
+        // Legacy fallback: filter all peaks by frequency range
+        let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
+        if !measurementType.isGuitar { return filtered }
+        if TapDisplaySettings.showUnknownModes { return filtered }
+        return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
     }
 
     /// Calculates appropriate frequency values for axis labels based on the current zoom level.
@@ -725,8 +764,60 @@ struct SpectrumView: View {
                     }
                 })
                 #endif
+                // Tap gesture to highlight the nearest peak dot
+                .onTapGesture { location in
+                    guard resolvedPlotFrame.contains(location) else { return }
+                    if let peak = nearestPeak(to: location, in: resolvedPlotFrame) {
+                        if highlightedPeakID.wrappedValue == peak.id {
+                            highlightedPeakID.wrappedValue = nil
+                        } else {
+                            highlightedPeakID.wrappedValue = peak.id
+                        }
+                    }
+                }
             }
         }
+    }
+
+    /// Returns the peak whose chart position is closest to the given tap location,
+    /// or `nil` if no peak is within 30 points.
+    private func nearestPeak(to location: CGPoint, in plotFrame: CGRect) -> ResonantPeak? {
+        let hitRadius: CGFloat = 30
+        var closest: (peak: ResonantPeak, dist: CGFloat)? = nil
+        for peak in allPeaksInRange {
+            let px = chartX(frequency: peak.frequency, in: plotFrame)
+            let clampedMag = max(minDB, min(maxDB, peak.magnitude))
+            let py = chartY(magnitude: clampedMag, in: plotFrame)
+            let dist = hypot(location.x - px, location.y - py)
+            if dist < hitRadius {
+                if closest == nil || dist < closest!.dist {
+                    closest = (peak, dist)
+                }
+            }
+        }
+        return closest?.peak
+    }
+
+    /// Converts a frequency value to an x-coordinate within the given plot frame.
+    private func chartX(frequency: Float, in plotFrame: CGRect) -> CGFloat {
+        if isLogarithmic {
+            let logMin = log10(Double(minFreq))
+            let logMax = log10(Double(maxFreq))
+            let logRange = logMax - logMin
+            guard logRange > 0, minFreq > 0, maxFreq > 0 else { return plotFrame.minX }
+            let norm = (log10(Double(frequency)) - logMin) / logRange
+            return plotFrame.minX + CGFloat(norm) * plotFrame.width
+        } else {
+            let norm = CGFloat(frequency - minFreq) / CGFloat(maxFreq - minFreq)
+            return plotFrame.minX + norm * plotFrame.width
+        }
+    }
+
+    /// Converts a magnitude (dB) value to a y-coordinate within the given plot frame.
+    /// Charts render y from top (maxDB) to bottom (minDB).
+    private func chartY(magnitude: Float, in plotFrame: CGRect) -> CGFloat {
+        let norm = CGFloat(magnitude - minDB) / CGFloat(maxDB - minDB)
+        return plotFrame.minY + (1.0 - norm) * plotFrame.height
     }
 
     #if os(macOS)

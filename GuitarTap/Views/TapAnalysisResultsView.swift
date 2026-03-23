@@ -111,89 +111,98 @@ struct TapAnalysisResultsView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Header
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Analysis Results")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                    
-                    HStack {
-                        Text("Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+        ScrollViewReader { scrollProxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Analysis Results")
+                            .font(.headline)
+                            .fontWeight(.bold)
                         
-                        Spacer()
-                        
-                        if !analyzer.comparisonSpectra.isEmpty {
-                            Text("Comparison")
+                        HStack {
+                            Text("Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
                                 .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(Color.purple.opacity(0.2))
-                                .cornerRadius(4)
-                        } else {
-                            Text(measurementType.shortName)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(measurementType.isGuitar ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
-                                .cornerRadius(4)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            if !analyzer.comparisonSpectra.isEmpty {
+                                Text("Comparison")
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Color.purple.opacity(0.2))
+                                    .cornerRadius(4)
+                            } else {
+                                Text(measurementType.shortName)
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(measurementType.isGuitar ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
+                                    .cornerRadius(4)
+                            }
                         }
                     }
-                }
-                
-                // Current peaks display
-                peaksAndModesSection
-                
-                // Plate/brace-specific sections
-                if measurementType == .plate {
-                    Divider()
-                    platePropertiesSection
-                } else if measurementType == .brace {
-                    Divider()
-                    bracePropertiesSection
-                } else if analyzer.comparisonSpectra.isEmpty {
-                    // Guitar-specific sections (hidden during comparison)
-                    Divider()
                     
-                    // Ring-out time (decay)
-                    ringOutSection
+                    // Current peaks display
+                    peaksAndModesSection
                     
-                    Divider()
+                    // Plate/brace-specific sections
+                    if measurementType == .plate {
+                        Divider()
+                        platePropertiesSection
+                    } else if measurementType == .brace {
+                        Divider()
+                        bracePropertiesSection
+                    } else if analyzer.comparisonSpectra.isEmpty {
+                        // Guitar-specific sections (hidden during comparison)
+                        Divider()
+                        
+                        // Ring-out time (decay)
+                        ringOutSection
+                        
+                        Divider()
+                        
+                        // Tap tone ratio
+                        ratioSection
+                    }
                     
-                    // Tap tone ratio
-                    ratioSection
-                }
-                
-                // Status indicator
-                statusIndicator
+                    // Status indicator
+                    statusIndicator
 
-                // Export buttons
-                if onExportSpectrum != nil || onExportPDFReport != nil {
-                    Divider()
-                    if let exportSpectrum = onExportSpectrum {
-                        Button {
-                            exportSpectrum()
-                        } label: {
-                            Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+                    // Export buttons
+                    if onExportSpectrum != nil || onExportPDFReport != nil {
+                        Divider()
+                        if let exportSpectrum = onExportSpectrum {
+                            Button {
+                                exportSpectrum()
+                            } label: {
+                                Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+                            }
+                            .buttonStyle(.bordered)
+                            .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.bordered)
-                        .frame(maxWidth: .infinity)
+                        if let exportPDF = onExportPDFReport, analyzer.comparisonSpectra.isEmpty {
+                            Button {
+                                exportPDF()
+                            } label: {
+                                Label("Export PDF Report", systemImage: "doc.richtext")
+                            }
+                            .buttonStyle(.bordered)
+                            .frame(maxWidth: .infinity)
+                        }
                     }
-                    if let exportPDF = onExportPDFReport, analyzer.comparisonSpectra.isEmpty {
-                        Button {
-                            exportPDF()
-                        } label: {
-                            Label("Export PDF Report", systemImage: "doc.richtext")
-                        }
-                        .buttonStyle(.bordered)
-                        .frame(maxWidth: .infinity)
+                }
+                .padding()
+            }
+            .onChange(of: analyzer.highlightedPeakID) { _, newID in
+                if let id = newID {
+                    withAnimation {
+                        scrollProxy.scrollTo("peak-row-\(id)", anchor: .center)
                     }
                 }
             }
-            .padding()
         }
     }
     
@@ -490,6 +499,7 @@ struct TapAnalysisResultsView: View {
                     } else {
                         // Standard guitar mode display
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
+                            let isHighlighted = analyzer.highlightedPeakID == item.peak.id
                             CombinedPeakModeRowView(
                                 peak: item.peak,
                                 mode: item.mode,
@@ -506,6 +516,25 @@ struct TapAnalysisResultsView: View {
                                     analyzer.resetModeOverride(for: item.peak.id)
                                 }
                             )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(item.mode.color, lineWidth: isHighlighted ? 2 : 0)
+                            )
+                            .background(
+                                isHighlighted
+                                    ? item.mode.color.opacity(0.12)
+                                    : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 8)
+                            )
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if analyzer.highlightedPeakID == item.peak.id {
+                                    analyzer.highlightedPeakID = nil
+                                } else {
+                                    analyzer.highlightedPeakID = item.peak.id
+                                }
+                            }
+                            .id("peak-row-\(item.peak.id)")
                         }
                     }
                 }

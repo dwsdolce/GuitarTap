@@ -146,34 +146,8 @@ extension TapToneAnalysisView {
                     minDB: $minDB,
                     maxDB: $maxDB,
                     isLogarithmic: .constant(false),
-                    peaks: isComparing ? nil : tap.visiblePeaks,
-                    showModeBoundaries: true,
-                    onFrequencyRangeChanged: updateFrequencyInputFields,
-                    annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
-                    materialSpectra: materialSpectra,
-                    thresholdLines: isComparing ? [] : thresholds,
-                    onResetLabels: {
-                        tapToneAnalyzer.resetAllAnnotationOffsets()
-                    },
-                    hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
-                    isSpectrumFrozen: tap.isSpectrumFrozen,
-                    primaryCurveColor: .red,
-                    measurementType: TapDisplaySettings.measurementType,
-                    selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
-                    selectedCrossPeakID: tap.effectiveCrossPeakID,
-                    selectedFlcPeakID: tap.effectiveFlcPeakID,
-                    modeOverrides: tap.peakModeOverrides
-                )
-                #else
-                SpectrumView(
-                    frequencies: displayFrequencies,
-                    magnitudes: displayMagnitudes,
-                    minFreq: $minFreq,
-                    maxFreq: $maxFreq,
-                    minDB: $minDB,
-                    maxDB: $maxDB,
-                    isLogarithmic: .constant(false),
-                    peaks: isComparing ? nil : tap.visiblePeaks,
+                    peaks: isComparing ? nil : tap.currentPeaks,
+                    annotationPeaks: isComparing ? nil : tap.visiblePeaks,
                     showModeBoundaries: true,
                     onFrequencyRangeChanged: updateFrequencyInputFields,
                     annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
@@ -190,7 +164,37 @@ extension TapToneAnalysisView {
                     selectedCrossPeakID: tap.effectiveCrossPeakID,
                     selectedFlcPeakID: tap.effectiveFlcPeakID,
                     modeOverrides: tap.peakModeOverrides,
-                    crosshairMode: $crosshairMode
+                    highlightedPeakID: $tapToneAnalyzer.highlightedPeakID
+                )
+                #else
+                SpectrumView(
+                    frequencies: displayFrequencies,
+                    magnitudes: displayMagnitudes,
+                    minFreq: $minFreq,
+                    maxFreq: $maxFreq,
+                    minDB: $minDB,
+                    maxDB: $maxDB,
+                    isLogarithmic: .constant(false),
+                    peaks: isComparing ? nil : tap.currentPeaks,
+                    annotationPeaks: isComparing ? nil : tap.visiblePeaks,
+                    showModeBoundaries: true,
+                    onFrequencyRangeChanged: updateFrequencyInputFields,
+                    annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
+                    materialSpectra: materialSpectra,
+                    thresholdLines: isComparing ? [] : thresholds,
+                    onResetLabels: {
+                        tapToneAnalyzer.resetAllAnnotationOffsets()
+                    },
+                    hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
+                    isSpectrumFrozen: tap.isSpectrumFrozen,
+                    primaryCurveColor: .red,
+                    measurementType: TapDisplaySettings.measurementType,
+                    selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
+                    selectedCrossPeakID: tap.effectiveCrossPeakID,
+                    selectedFlcPeakID: tap.effectiveFlcPeakID,
+                    modeOverrides: tap.peakModeOverrides,
+                    crosshairMode: $crosshairMode,
+                    highlightedPeakID: $tapToneAnalyzer.highlightedPeakID
                 )
                 #endif
             }

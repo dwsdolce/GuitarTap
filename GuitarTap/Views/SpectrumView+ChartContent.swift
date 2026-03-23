@@ -86,24 +86,45 @@ extension SpectrumView {
         }
     }
 
-    /// `PointMark` dots at each visible peak, colour-coded by mode or by
-    /// plate/brace role (longitudinal = blue, cross = orange, FLC = purple).
+    /// `PointMark` dots for every peak in the visible frequency range.
     ///
-    /// A second invisible `PointMark` with a `Color.clear` annotation is placed
-    /// at each peak position to serve as a size placeholder for the draggable
-    /// overlay labels rendered in `PeakAnnotations`.
+    /// All peaks always show a dot regardless of annotation visibility mode.
+    /// The highlighted peak (``highlightedPeakID``) renders larger with a white ring.
+    /// A second invisible `PointMark` with a `Color.clear` annotation is placed at
+    /// each *annotation-visible* peak position to serve as a size placeholder for the
+    /// draggable overlay labels rendered in `PeakAnnotations`.
     @ChartContentBuilder
     var peakAnnotationContent: some ChartContent {
-        ForEach(visiblePeaks) { peak in
-            // Peak marker - color depends on measurement type
-            PointMark(
-                x: .value("Frequency", peak.frequency),
-                y: .value("Magnitude", peak.magnitude)
-            )
-            .foregroundStyle(peakColor(for: peak))
-            .symbolSize(100)
+        // Layer 1: always-visible dots for every peak in range
+        ForEach(allPeaksInRange) { peak in
+            let isHighlighted = currentHighlightedPeakID == peak.id
+            if isHighlighted {
+                // Highlighted peak: bright red star
+                PointMark(
+                    x: .value("Frequency", peak.frequency),
+                    y: .value("Magnitude", peak.magnitude)
+                )
+                .foregroundStyle(Color.red)
+                .symbol {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.red)
+                }
+                .symbolSize(120)
+            } else {
+                // Normal peak: small colored circle
+                PointMark(
+                    x: .value("Frequency", peak.frequency),
+                    y: .value("Magnitude", peak.magnitude)
+                )
+                .foregroundStyle(peakColor(for: peak))
+                .symbol(.circle)
+                .symbolSize(40)
+            }
+        }
 
-            // Static annotation (for positioning reference only)
+        // Layer 2: invisible placeholder annotations for draggable labels (annotation-visible peaks only)
+        ForEach(visiblePeaks) { peak in
             PointMark(
                 x: .value("Frequency", peak.frequency),
                 y: .value("Magnitude", peak.magnitude)
