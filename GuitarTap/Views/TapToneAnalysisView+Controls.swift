@@ -430,12 +430,12 @@ extension TapToneAnalysisView {
             } else {
                 // Normal tap detection state
                 Circle()
-                    .fill(tap.tapDetected ? Color.green : Color.gray.opacity(0.3))
+                    .fill(tap.isSpectrumFrozen ? Color.green : Color.gray.opacity(0.3))
                     .frame(width: 10, height: 10)
 
-                Text(tap.statusMessage)
+                Text(tap.isSpectrumFrozen ? "Tap Detected!" : "Waiting for tap...")
                     .font(.caption)
-                    .foregroundColor(tap.tapDetected ? .green : .secondary)
+                    .foregroundColor(tap.isSpectrumFrozen ? .green : .secondary)
                     .lineLimit(1)
 
                 Text("\(tap.averageMagnitude, specifier: "%.0f")dB")
@@ -510,12 +510,12 @@ extension TapToneAnalysisView {
 
                 HStack(spacing: 12) {
                     Circle()
-                        .fill(tap.tapDetected ? Color.green : Color.gray.opacity(0.3))
+                        .fill(tap.isSpectrumFrozen ? Color.green : Color.gray.opacity(0.3))
                         .frame(width: 10, height: 10)
 
-                    Text(tap.tapDetected ? "Tap Detected!" : "Waiting for tap...")
+                    Text(tap.isSpectrumFrozen ? "Tap Detected!" : "Waiting for tap...")
                         .font(.subheadline)
-                        .foregroundColor(tap.tapDetected ? .green : .secondary)
+                        .foregroundColor(tap.isSpectrumFrozen ? .green : .secondary)
 
                     Text("•")
                         .foregroundColor(.secondary)
