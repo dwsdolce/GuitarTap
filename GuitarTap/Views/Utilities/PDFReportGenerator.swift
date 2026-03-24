@@ -113,6 +113,12 @@ struct PDFReportData {
     /// Per-peak user mode overrides; empty means all peaks use auto-classification.
     var peakModeOverrides: [UUID: UserAssignedMode] = [:]
 
+    /// Context-aware mode classification for all peaks, keyed by peak UUID.
+    /// Computed via ``GuitarMode/classifyAll(_:guitarType:)`` so overlapping ranges
+    /// (e.g. classical Top/Back) resolve correctly.  Used by the peak table and
+    /// chart summary in place of per-frequency ``GuitarMode/classify(frequency:guitarType:)``.
+    var peakModes: [UUID: GuitarMode] = [:]
+
     // MARK: Microphone info
     /// Display name of the recording microphone, or `nil` if unavailable.
     let microphoneName: String?
@@ -217,6 +223,7 @@ struct PDFReportData {
             selectedCrossPeakID: measurement.selectedCrossPeakID,
             selectedFlcPeakID: measurement.selectedFlcPeakID,
             peakModeOverrides: measurement.peakModeOverrides ?? [:],
+            peakModes: GuitarMode.classifyAll(rangeFilteredPeaks, guitarType: guitarType),
             microphoneName: measurement.microphoneName,
             calibrationName: measurement.calibrationName,
             guitarBodyLength: anySnapshot?.guitarBodyLength ?? TapDisplaySettings.guitarBodyLength,
@@ -335,6 +342,7 @@ struct PDFReportGenerator {
             selectedCrossPeakID: measurement.selectedCrossPeakID,
             selectedFlcPeakID: measurement.selectedFlcPeakID,
             modeOverrides: measurement.peakModeOverrides ?? [:],
+            peakModes: GuitarMode.classifyAll(visiblePeaks),
             materialSpectra: materialSpectra,
             dateLabel: measurement.timestamp.formatted()
         )
@@ -577,7 +585,8 @@ private struct PDFReportContentView: View {
     private func effectiveModeLabel(for peak: ResonantPeak) -> (label: String, isOverridden: Bool) {
         switch data.peakModeOverrides[peak.id] ?? .auto {
         case .auto:
-            let mode = GuitarMode.classify(frequency: peak.frequency, guitarType: data.guitarType)
+            let mode = data.peakModes[peak.id]
+                ?? GuitarMode.classify(frequency: peak.frequency, guitarType: data.guitarType)
             return (mode.displayName, false)
         case .assigned(let label):
             return (label + " *", true)
@@ -586,7 +595,10 @@ private struct PDFReportContentView: View {
 
     private func peakRow(for peak: ResonantPeak) -> some View {
         let modeInfo = data.measurementType.isGuitar ? effectiveModeLabel(for: peak) : nil
-        let mode = GuitarMode.classify(frequency: peak.frequency, guitarType: data.guitarType)
+        // Use the context-aware mode map for color so overlap-zone peaks (e.g. classical
+        // Top/Back) get the right color; fall back to per-frequency classify only if absent.
+        let mode = data.peakModes[peak.id]
+            ?? GuitarMode.classify(frequency: peak.frequency, guitarType: data.guitarType)
 
         return HStack(spacing: 0) {
             Text(String(format: "%.1f Hz", peak.frequency))

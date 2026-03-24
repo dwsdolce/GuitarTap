@@ -334,7 +334,7 @@ final class TapToneAnalyzer: ObservableObject {
     func effectiveModeLabel(for peak: ResonantPeak) -> String {
         switch peakModeOverrides[peak.id] ?? .auto {
         case .auto:
-            return GuitarMode.classify(frequency: peak.frequency).displayName
+            return peakMode(for: peak).displayName
         case .assigned(let label):
             return label
         }

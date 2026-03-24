@@ -196,6 +196,7 @@ struct TapAnalysisResultsView: View {
                 }
                 .padding()
             }
+            #if os(macOS)
             .onChange(of: analyzer.highlightedPeakID) { _, newID in
                 if let id = newID {
                     withAnimation {
@@ -203,6 +204,7 @@ struct TapAnalysisResultsView: View {
                     }
                 }
             }
+            #endif
         }
     }
     
@@ -210,7 +212,11 @@ struct TapAnalysisResultsView: View {
     
     /// Combined peaks with mode classifications, filtered to the current frequency range and sorted by frequency.
     /// Returns empty when a comparison overlay is active (peaks belong to the previous measurement, not the comparison).
-    /// Optionally filters out unknown modes based on user setting (guitar mode only)
+    /// Optionally filters out unknown modes based on user setting (guitar mode only).
+    ///
+    /// Uses ``GuitarMode/classifyAll(_:guitarType:)`` for guitar measurements so that peaks
+    /// in overlapping mode ranges (e.g. classical Top 170–230 Hz / Back 190–280 Hz) are
+    /// assigned distinct modes rather than both being labeled "Top".
     private var sortedPeaksWithModes: [(peak: ResonantPeak, mode: GuitarMode)] {
         guard analyzer.comparisonSpectra.isEmpty else { return [] }
         return analyzer.currentPeaks
@@ -223,7 +229,9 @@ struct TapAnalysisResultsView: View {
                     : true
             }
             .map { peak in
-                (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+                // Use the analyzer's identifiedModes (computed via classifyAll) so that
+                // overlapping ranges (e.g. classical Top/Back) show distinct labels.
+                (peak: peak, mode: analyzer.peakMode(for: peak))
             }
             .filter { item in
                 // For plate/brace mode, show all peaks (don't filter by guitar mode)
@@ -499,7 +507,6 @@ struct TapAnalysisResultsView: View {
                     } else {
                         // Standard guitar mode display
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
-                            let isHighlighted = analyzer.highlightedPeakID == item.peak.id
                             CombinedPeakModeRowView(
                                 peak: item.peak,
                                 mode: item.mode,
@@ -516,12 +523,13 @@ struct TapAnalysisResultsView: View {
                                     analyzer.resetModeOverride(for: item.peak.id)
                                 }
                             )
+                            #if os(macOS)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .strokeBorder(item.mode.color, lineWidth: isHighlighted ? 2 : 0)
+                                    .strokeBorder(item.mode.color, lineWidth: analyzer.highlightedPeakID == item.peak.id ? 2 : 0)
                             )
                             .background(
-                                isHighlighted
+                                analyzer.highlightedPeakID == item.peak.id
                                     ? item.mode.color.opacity(0.12)
                                     : Color.clear,
                                 in: RoundedRectangle(cornerRadius: 8)
@@ -534,6 +542,7 @@ struct TapAnalysisResultsView: View {
                                     analyzer.highlightedPeakID = item.peak.id
                                 }
                             }
+                            #endif
                             .id("peak-row-\(item.peak.id)")
                         }
                     }

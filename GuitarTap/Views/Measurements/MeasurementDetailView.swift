@@ -221,6 +221,8 @@ struct MeasurementDetailView: View {
                         }
                     let selectedCount = filteredPeaks.filter { selectedIDs.contains($0.id) }.count
                     let unselectedCount = filteredPeaks.filter { !selectedIDs.contains($0.id) }.count
+                    // Context-aware mode map so overlapping ranges (e.g. classical Top/Back) show distinct labels.
+                    let modeMap: [UUID: GuitarMode] = isMaterialMeasurement ? [:] : GuitarMode.classifyAll(filteredPeaks)
 
                     GroupBox("Detected Peaks (\(selectedCount) selected\(unselectedCount > 0 ? ", \(unselectedCount) unselected" : ""))") {
                         if filteredPeaks.isEmpty {
@@ -232,7 +234,7 @@ struct MeasurementDetailView: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 ForEach(filteredPeaks) { peak in
                                     let isSelected = selectedIDs.contains(peak.id)
-                                    let mode = GuitarMode.classify(frequency: peak.frequency)
+                                    let mode = modeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)
                                     let effectiveLabel: String = {
                                         if isMaterialMeasurement {
                                             if peak.id == measurement.selectedLongitudinalPeakID { return "fL" }

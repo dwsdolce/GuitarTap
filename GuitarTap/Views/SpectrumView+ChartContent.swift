@@ -96,10 +96,12 @@ extension SpectrumView {
     @ChartContentBuilder
     var peakAnnotationContent: some ChartContent {
         // Layer 1: always-visible dots for every peak in range
+        // On macOS a highlighted peak renders as a bright red star; on iOS all peaks
+        // are plain circles since cross-highlight is not available there.
         ForEach(allPeaksInRange) { peak in
+            #if os(macOS)
             let isHighlighted = currentHighlightedPeakID == peak.id
             if isHighlighted {
-                // Highlighted peak: bright red star
                 PointMark(
                     x: .value("Frequency", peak.frequency),
                     y: .value("Magnitude", peak.magnitude)
@@ -112,7 +114,6 @@ extension SpectrumView {
                 }
                 .symbolSize(120)
             } else {
-                // Normal peak: small colored circle
                 PointMark(
                     x: .value("Frequency", peak.frequency),
                     y: .value("Magnitude", peak.magnitude)
@@ -121,6 +122,15 @@ extension SpectrumView {
                 .symbol(.circle)
                 .symbolSize(40)
             }
+            #else
+            PointMark(
+                x: .value("Frequency", peak.frequency),
+                y: .value("Magnitude", peak.magnitude)
+            )
+            .foregroundStyle(peakColor(for: peak))
+            .symbol(.circle)
+            .symbolSize(40)
+            #endif
         }
 
         // Layer 2: invisible placeholder annotations for draggable labels (annotation-visible peaks only)
@@ -199,19 +209,29 @@ extension SpectrumView {
 
     // MARK: - Color & Label Helpers
 
+    /// Context-aware mode classification for peaks, preferring the pre-computed map
+    /// passed in via ``peakModes`` (derived from ``TapToneAnalyzer/identifiedModes``).
+    ///
+    /// Falls back to computing a local ``GuitarMode/classifyAll(_:guitarType:)`` on
+    /// ``allPeaksInRange`` when ``peakModes`` is empty (e.g. in previews or comparison mode).
+    var peakModeMap: [UUID: GuitarMode] {
+        peakModes.isEmpty ? GuitarMode.classifyAll(allPeaksInRange) : peakModes
+    }
+
     /// Returns the display color for a peak marker.
     ///
-    /// In guitar mode, the color is determined by `GuitarMode.classify` (e.g. `.cyan`
-    /// for the air resonance).  In plate/brace mode, peaks are colored by their
-    /// selected role: blue for longitudinal, orange for cross-grain, purple for FLC,
-    /// and `.secondary` for unselected peaks.
+    /// In guitar mode, the color is determined by the context-aware ``peakModeMap``
+    /// (e.g. `.cyan` for the air resonance).  In plate/brace mode, peaks are colored
+    /// by their selected role: blue for longitudinal, orange for cross-grain, purple
+    /// for FLC, and `.secondary` for unselected peaks.
     ///
     /// - Parameter peak: The detected resonant peak to color.
     /// - Returns: A `Color` reflecting the peak's mode or plate role.
     func peakColor(for peak: ResonantPeak) -> Color {
         if measurementType.isGuitar {
-            // Guitar mode: color by guitar mode classification
-            return GuitarMode.classify(frequency: peak.frequency).color
+            // Guitar mode: context-aware classification avoids duplicate mode labels
+            // in overlapping ranges (e.g. classical Top/Back overlap at 190–230 Hz).
+            return (peakModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)).color
         } else {
             // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {

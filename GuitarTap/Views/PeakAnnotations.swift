@@ -92,12 +92,19 @@ struct PeakAnnotationsOverlay: View {
     /// Per-peak user-assigned mode overrides. Empty = auto-classification.
     var modeOverrides: [UUID: UserAssignedMode] = [:]
 
+    /// Context-aware mode map so overlapping ranges (e.g. classical Top/Back) resolve
+    /// to distinct modes across the full set of visible peaks.
+    private var peakModeMap: [UUID: GuitarMode] {
+        measurementType.isGuitar ? GuitarMode.classifyAll(peaks) : [:]
+    }
+
     var body: some View {
         ZStack {
             ForEach(peaks) { peak in
                 DraggablePeakAnnotation(
 
                     peak: peak,
+                    classifiedMode: peakModeMap[peak.id],
                     offset: annotationOffsets.wrappedValue[peak.id] ?? .zero,
                     chartGeometry: geometry,
                     plotFrame: plotFrame,
@@ -142,6 +149,10 @@ struct PeakAnnotationsOverlay: View {
 struct DraggablePeakAnnotation: View {
     /// The peak this annotation describes.
     let peak: ResonantPeak
+    /// Pre-computed context-aware mode (from ``GuitarMode/classifyAll(_:guitarType:)``).
+    /// When provided, used instead of the per-frequency ``GuitarMode/classify(frequency:)``
+    /// so that peaks in overlapping mode ranges display distinct labels.
+    var classifiedMode: GuitarMode? = nil
     /// Persisted drag offset from the default chart position (pt).
     let offset: CGPoint
     /// Full view geometry, used to resolve `plotFrame` origin.
@@ -193,8 +204,8 @@ struct DraggablePeakAnnotation: View {
 
     private var modeColor: Color {
         if measurementType.isGuitar {
-            // Guitar mode: color by guitar mode classification
-            let mode = GuitarMode.classify(frequency: peak.frequency).normalized
+            // Use context-aware classification if provided; fall back to per-frequency lookup.
+            let mode = (classifiedMode ?? GuitarMode.classify(frequency: peak.frequency)).normalized
             switch mode {
             case .air: return .cyan
             case .top: return .green
@@ -349,6 +360,7 @@ struct DraggablePeakAnnotation: View {
             PeakAnnotationLabel(
                 peak: peak,
                 modeColor: modeColor,
+                classifiedMode: classifiedMode,
                 isHovering: isHovering,
                 isDragging: isDragging,
                 isMoved: isMoved,
@@ -476,6 +488,10 @@ private struct PeakAnnotationLabel: View {
     let peak: ResonantPeak
     /// The mode color used for the border and mode-name text.
     let modeColor: Color
+    /// Pre-computed context-aware mode (from ``GuitarMode/classifyAll(_:guitarType:)``).
+    /// Passed through from `DraggablePeakAnnotation` so the label uses the same mode
+    /// as the dot color, avoiding the duplicate-Top issue in overlapping ranges.
+    var classifiedMode: GuitarMode? = nil
     /// `true` while the pointer hovers over this label (macOS).
     let isHovering: Bool
     /// `true` during an active drag gesture.
@@ -507,7 +523,7 @@ private struct PeakAnnotationLabel: View {
         if measurementType.isGuitar {
             switch modeOverrides[peak.id] ?? .auto {
             case .auto:
-                return GuitarMode.classify(frequency: peak.frequency).displayName
+                return (classifiedMode ?? GuitarMode.classify(frequency: peak.frequency)).displayName
             case .assigned(let label):
                 return label
             }

@@ -164,6 +164,7 @@ extension TapToneAnalysisView {
                     selectedCrossPeakID: tap.effectiveCrossPeakID,
                     selectedFlcPeakID: tap.effectiveFlcPeakID,
                     modeOverrides: tap.peakModeOverrides,
+                    peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
                     highlightedPeakID: $tapToneAnalyzer.highlightedPeakID
                 )
                 #else
@@ -193,8 +194,9 @@ extension TapToneAnalysisView {
                     selectedCrossPeakID: tap.effectiveCrossPeakID,
                     selectedFlcPeakID: tap.effectiveFlcPeakID,
                     modeOverrides: tap.peakModeOverrides,
-                    crosshairMode: $crosshairMode,
-                    highlightedPeakID: $tapToneAnalyzer.highlightedPeakID
+                    peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
+                    highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
+                    crosshairMode: $crosshairMode
                 )
                 #endif
             }

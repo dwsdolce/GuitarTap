@@ -99,6 +99,13 @@ struct ExportableSpectrumChart: View {
     /// peaks use automatic `GuitarMode` classification.
     var modeOverrides: [UUID: UserAssignedMode] = [:]
 
+    /// Pre-computed context-aware mode assignments, keyed by peak UUID.
+    ///
+    /// Pass `Dictionary(uniqueKeysWithValues: analyzer.identifiedModes.map { ($0.peak.id, $0.mode) })`
+    /// so peaks in overlapping ranges (e.g. classical Top/Back) get distinct labels.
+    /// When empty, the chart falls back to computing a local classification from ``visiblePeaks``.
+    var peakModes: [UUID: GuitarMode] = [:]
+
     /// Per-phase spectra overlay for plate/brace measurements. Each element
     /// provides a labeled, colored spectrum series drawn alongside the primary
     /// curve.
@@ -155,10 +162,19 @@ struct ExportableSpectrumChart: View {
             .filter { $0 >= lo && $0 <= hi }
     }
 
+    /// Context-aware mode map for all visible peaks, preferring the pre-computed map
+    /// from ``peakModes`` (derived from ``TapToneAnalyzer/identifiedModes``).
+    ///
+    /// Falls back to computing a local classification from ``visiblePeaks`` when
+    /// ``peakModes`` is empty (e.g. when called from the PDF generator without an analyzer).
+    private var peakModeMap: [UUID: GuitarMode] {
+        peakModes.isEmpty ? GuitarMode.classifyAll(visiblePeaks) : peakModes
+    }
+
     /// Returns the appropriate color for a peak based on measurement type and selection.
     private func peakColor(for peak: ResonantPeak) -> Color {
         if measurementType.isGuitar {
-            return GuitarMode.classify(frequency: peak.frequency).color
+            return (peakModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)).color
         } else {
             // Plate/brace mode: color by L/C/FLC selection
             if peak.id == selectedLongitudinalPeakID {
@@ -178,7 +194,7 @@ struct ExportableSpectrumChart: View {
         if measurementType.isGuitar {
             switch modeOverrides[peak.id] ?? .auto {
             case .auto:
-                return GuitarMode.classify(frequency: peak.frequency).displayName
+                return (peakModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)).displayName
             case .assigned(let label):
                 return label
             }
@@ -443,6 +459,7 @@ func makeExportableSpectrumView(
     selectedCrossPeakID: UUID? = nil,
     selectedFlcPeakID: UUID? = nil,
     modeOverrides: [UUID: UserAssignedMode] = [:],
+    peakModes: [UUID: GuitarMode] = [:],
     materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = [],
     dateLabel: String
 ) -> some View {
@@ -506,6 +523,7 @@ func makeExportableSpectrumView(
             selectedCrossPeakID: selectedCrossPeakID,
             selectedFlcPeakID: selectedFlcPeakID,
             modeOverrides: modeOverrides,
+            peakModes: peakModes,
             materialSpectra: materialSpectra
         )
         .frame(width: 1400, height: 800)
@@ -519,8 +537,9 @@ func makeExportableSpectrumView(
                     .padding(.horizontal)
 
                 HStack(spacing: 20) {
+                    let summaryModeMap = peakModes.isEmpty ? GuitarMode.classifyAll(peaks) : peakModes
                     ForEach(peaks.prefix(8).sorted(by: { $0.frequency < $1.frequency })) { peak in
-                        let mode = GuitarMode.classify(frequency: peak.frequency)
+                        let mode = summaryModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)
                         VStack(spacing: 4) {
                             Text("\(peak.frequency, specifier: "%.1f") Hz")
                                 .font(.caption)

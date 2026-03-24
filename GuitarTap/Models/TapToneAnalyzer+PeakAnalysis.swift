@@ -99,9 +99,10 @@ extension TapToneAnalyzer {
             // Auto-select all newly detected peaks so visibility mode "selected" shows everything by default
             selectedPeakIDs = Set(peaks.map { $0.id })
 
-            // Classify modes
+            // Classify modes using context-aware algorithm so overlapping ranges resolve correctly
+            let modeMap = GuitarMode.classifyAll(peaks)
             identifiedModes = peaks.map { peak in
-                (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+                (peak: peak, mode: modeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency))
             }
             
         }
@@ -139,8 +140,9 @@ extension TapToneAnalyzer {
 
         let peaks = findPeaks(magnitudes: frozenMagnitudes, frequencies: frozenFrequencies)
         currentPeaks = peaks
+        let frozenModeMap = GuitarMode.classifyAll(peaks)
         identifiedModes = peaks.map { peak in
-            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+            (peak: peak, mode: frozenModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency))
         }
 
         if !isGuitar {
@@ -457,8 +459,9 @@ extension TapToneAnalyzer {
     /// so that `identifiedModes` stays consistent with the updated
     /// ``GuitarMode/modeRange`` boundaries without requiring a new tap.
     func reclassifyPeaks() {
+        let modeMap = GuitarMode.classifyAll(currentPeaks)
         identifiedModes = currentPeaks.map { peak in
-            (peak: peak, mode: GuitarMode.classify(frequency: peak.frequency))
+            (peak: peak, mode: modeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency))
         }
     }
 

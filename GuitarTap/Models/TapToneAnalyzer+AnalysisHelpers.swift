@@ -46,6 +46,23 @@ extension TapToneAnalyzer {
         currentPeaks.filter { range.contains($0.frequency) }
     }
 
+    /// Returns the context-aware ``GuitarMode`` for a specific peak.
+    ///
+    /// Looks the peak up in ``identifiedModes``, which is computed via
+    /// ``GuitarMode/classifyAll(_:guitarType:)`` so that peaks in overlapping
+    /// mode ranges (e.g. classical Top/Back at 190–230 Hz) resolve to distinct
+    /// modes rather than both returning `.top`.
+    ///
+    /// Falls back to ``GuitarMode/classify(frequency:)`` if the peak is not
+    /// found in the current set (e.g. a historical peak from a saved measurement).
+    ///
+    /// - Parameter peak: The peak to classify.
+    /// - Returns: The ``GuitarMode`` assigned to this peak.
+    func peakMode(for peak: ResonantPeak) -> GuitarMode {
+        identifiedModes.first(where: { $0.peak.id == peak.id })?.mode
+            ?? GuitarMode.classify(frequency: peak.frequency)
+    }
+
     /// Returns the highest-magnitude peak that has been auto-classified or
     /// user-assigned to the given ``GuitarMode``.
     ///

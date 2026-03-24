@@ -165,6 +165,12 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | G11 | `displayName_nonEmpty` | U | iOS iPadOS mac | Low | `displayName` returns non-empty string for every case |
 | G12 | `modeRange_classicalAir_matchesModeRanges`, `modeRange_acousticTop_matchesModeRanges` | U | iOS iPadOS mac | Medium | `modeRange(for:)` returns the same range as `modeRanges.<mode>` for each guitar type |
 | G13 | `annotationVisibilityCycle_allToSelectedToNoneToAll` | U | iOS iPadOS mac | Medium | Cycle visits all three states in order |
+| G14 | `classical_twoOverlapPeaks_getDistinctTopAndBackLabels` | U | iOS iPadOS mac | High | Two peaks in the classical Top/Back overlap zone (190–230 Hz) are assigned different labels; the stronger-magnitude peak claims Top, the weaker gets Back |
+| G15 | `classical_overlapZone_weakerPeakIsBack_evenIfInsideTopRange` | U | iOS iPadOS mac | High | The weaker overlap-zone peak receives Back even though its frequency also falls inside the Top range — claiming prevents double-assignment |
+| G16 | `classical_singleOverlapPeak_isTop` | U | iOS iPadOS mac | Medium | A single peak in the overlap zone defaults to Top (first mode claimed), not Back |
+| G17 | `classifyAll_unknownPeak_fallsBackToClassify` | U | iOS iPadOS mac | Medium | A peak outside all mode ranges is labelled `.unknown` via the per-frequency fallback |
+| G18 | `classifyAll_nonOverlappingPeaks_matchClassify` | U | iOS iPadOS mac | Medium | For peaks in non-overlapping ranges, `classifyAll` produces the same result as `classify(frequency:)` |
+| G19 | `classifyAll_emptyInput_returnsEmptyMap` | U | iOS iPadOS mac | Low | Empty peak list returns an empty map without crashing |
 
 ---
 
@@ -217,6 +223,10 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | R8 | Export Measurement round-trip — export and re-import matches original | M | iOS iPadOS mac | High | Save a measurement; export as .guitartap file; import the file; open both in the detail view and verify all fields match |
 | R9 | Export PDF — file renders correctly | M | iOS iPadOS mac | Medium | Export PDF; open in Preview/Files; verify spectrum image, peaks table, and metadata are present |
 | R10 | Cross-device transfer via export/import | M | iOS iPadOS mac | Low | Export measurement as .guitartap file on one device; import on a second device; verify measurement appears |
+| R11 | `tapToneRatio_overlapZonePeaks_computesCorrectRatio` | U | iOS iPadOS mac | High | Classical guitar with Air at 95 Hz and Top at 210 Hz (overlap zone) — `tapToneRatio` finds both peaks via `classifyAll` and returns 210/95 |
+| R12 | `tapToneRatio_twoOverlapPeaks_usesSingleTopPeak` | U | iOS iPadOS mac | High | When two peaks are in the overlap zone, the ratio uses the stronger (Top-claiming) peak, not the weaker (Back-claiming) one |
+| R13 | `exportedJSON_overlapZonePeaks_haveDistinctModeLabels` | U | iOS iPadOS mac | High | Two overlap-zone peaks in an exported JSON measurement have different `modeLabel` values ("Top" and "Back"), not both "Top" |
+| R14 | `exportedJSON_userOverrideTakesPriority` | U | iOS iPadOS mac | High | A user-assigned mode label overrides the `classifyAll` result in the exported JSON `modeLabel` field |
 
 ---
 
@@ -312,10 +322,10 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | `TapDetectionTests.swift` | `TapDetection` (.serialized) | T1–T8 | ✅ Implemented |
 | `DSPTests.swift` | `ParabolicInterpolation`, `QFactorCalculation` | F1–F9 | ✅ Implemented |
 | `PeakFindingTests.swift` | `FindPeaks`, `RemoveDuplicatePeaks`, `SpectrumAveraging` | F10–F20, A2 | ✅ Implemented |
-| `GuitarModeTests.swift` | `GuitarModeClassification` | G1–G13 | ✅ Implemented |
+| `GuitarModeTests.swift` | `GuitarModeClassification`, `GuitarModeClassifyAll` | G1–G19 | ✅ Implemented |
 | `PitchTests.swift` | `PitchTests` | P1–P8 | ✅ Implemented |
 | `MaterialPropertiesTests.swift` | `MaterialDimensions`, `YoungModulus`, `SpeedOfSound`, `SpecificModulus`, `GoreTargetThickness` | M1–M14 | ✅ Implemented |
-| `MeasurementCodableTests.swift` | `ResonantPeakCodable`, `TapToneMeasurementCodable`, `FixtureLoading` (@MainActor) | R1–R6 | ✅ Implemented |
+| `MeasurementCodableTests.swift` | `ResonantPeakCodable`, `TapToneMeasurementCodable`, `FixtureLoading`, `TapToneRatio`, `MeasurementExportModeLabel` (@MainActor) | R1–R6, R11–R14 | ✅ Implemented |
 | `AnnotationStateTests.swift` | `AnnotationOffsets` (@MainActor), `PeakSelection`, `VisiblePeaks`, `ModeOverrides` (@MainActor, .serialized), `AnnotationVisibilityCycle` | D1–D10 | ✅ Implemented |
 | `SpectrumViewGestureTests.swift` | `FrequencyZoomTests`, `MagnitudeZoomTests`, `PanTests` | C1–C8 | ✅ Implemented (`TestHarness` pattern; no `SpectrumViewModel` extraction required) |
 
@@ -822,7 +832,7 @@ Each procedure follows the format:
 
 **Expected result:** The imported measurement's detail view looks identical to the original — same name, date, location/notes, same peaks with the same frequencies, magnitudes, and mode assignments in the Results panel, and the same spectrum appearance.
 
-> **Design note — auto label stability:** Mode labels stored as `.auto` (i.e. not manually overridden by the user) are re-evaluated at display time by `GuitarMode.classify()`. If classification boundaries change in a future app version, an auto-labelled peak may display a different mode name than when it was saved. Manually assigned labels are stored as literal strings and are immune to this. Peaks near boundaries (~195 Hz Air/Top) are most susceptible. This is expected behaviour, not a bug.
+> **Design note — auto label stability:** Mode labels stored as `.auto` (i.e. not manually overridden by the user) are re-evaluated at display time by `GuitarMode.classifyAll()`. If classification boundaries change in a future app version, an auto-labelled peak may display a different mode name than when it was saved. Manually assigned labels are stored as literal strings and are immune to this. Peaks near boundaries are most susceptible. This is expected behaviour, not a bug.
 
 ---
 

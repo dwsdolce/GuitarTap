@@ -277,8 +277,9 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///
     /// Returns `nil` when either an Air or a Top peak cannot be found in ``peaks``.
     var tapToneRatio: Float? {
-        guard let airPeak = peaks.first(where: { GuitarMode.classify(frequency: $0.frequency).normalized == .air }),
-              let topPeak = peaks.first(where: { GuitarMode.classify(frequency: $0.frequency).normalized == .top }) else {
+        let modeMap = GuitarMode.classifyAll(peaks)
+        guard let airPeak = peaks.first(where: { (modeMap[$0.id] ?? GuitarMode.classify(frequency: $0.frequency)).normalized == .air }),
+              let topPeak = peaks.first(where: { (modeMap[$0.id] ?? GuitarMode.classify(frequency: $0.frequency)).normalized == .top }) else {
             return nil
         }
         return topPeak.frequency / airPeak.frequency
@@ -384,6 +385,8 @@ struct TapToneMeasurement: Identifiable, Codable {
         // Encode peaks with a resolved modeLabel injected into each peak entry
         let mt = resolvedMeasurementType ?? TapDisplaySettings.measurementType
         let gt = resolvedGuitarType ?? TapDisplaySettings.guitarType
+        // Compute context-aware mode map once so overlapping ranges resolve correctly
+        let exportModeMap: [UUID: GuitarMode] = mt.isGuitar ? GuitarMode.classifyAll(peaks, guitarType: gt) : [:]
         var peaksContainer = container.nestedUnkeyedContainer(forKey: .peaks)
         for peak in peaks {
             var peakContainer = peaksContainer.nestedContainer(keyedBy: PeakExportCodingKeys.self)
@@ -402,7 +405,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             if mt.isGuitar {
                 switch peakModeOverrides?[peak.id] ?? .auto {
                 case .auto:
-                    label = GuitarMode.classify(frequency: peak.frequency, guitarType: gt).displayName
+                    label = (exportModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency, guitarType: gt)).displayName
                 case .assigned(let customLabel):
                     label = customLabel
                 }

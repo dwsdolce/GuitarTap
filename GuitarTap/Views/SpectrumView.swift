@@ -197,6 +197,14 @@ struct SpectrumView: View {
     /// Per-peak user mode overrides — passed through to annotation labels (guitar mode only)
     var modeOverrides: [UUID: UserAssignedMode] = [:]
 
+    /// Context-aware mode classification for all peaks in this view, keyed by peak UUID.
+    ///
+    /// Callers should pass `Dictionary(uniqueKeysWithValues: analyzer.identifiedModes.map { ($0.peak.id, $0.mode) })`
+    /// so that mode assignments computed via ``GuitarMode/classifyAll(_:guitarType:)`` are reused
+    /// rather than recomputed per-view. When empty, ``peakColor(for:)`` falls back to computing
+    /// a local mode map from ``allPeaksInRange``.
+    var peakModes: [UUID: GuitarMode] = [:]
+
     /// The currently highlighted peak ID — bidirectional link between chart dots and results rows.
     ///
     /// A non-nil value causes the corresponding dot to render at full size with a white ring.
@@ -764,7 +772,9 @@ struct SpectrumView: View {
                     }
                 })
                 #endif
-                // Tap gesture to highlight the nearest peak dot
+                #if os(macOS)
+                // Tap gesture to highlight the nearest peak dot (macOS only — on iOS the
+                // results panel is modal and cross-highlight has no practical use)
                 .onTapGesture { location in
                     guard resolvedPlotFrame.contains(location) else { return }
                     if let peak = nearestPeak(to: location, in: resolvedPlotFrame) {
@@ -775,6 +785,7 @@ struct SpectrumView: View {
                         }
                     }
                 }
+                #endif
             }
         }
     }

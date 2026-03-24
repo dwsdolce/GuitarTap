@@ -9,7 +9,7 @@
 //  Also loads the real test fixture (Tests/chris-1771351833.json) to confirm
 //  the production JSON format decodes without error.
 //
-//  Test plan coverage: R3, R4
+//  Test plan coverage: R1–R6, R11–R14
 //
 
 import Testing
@@ -255,6 +255,102 @@ struct TapToneMeasurementCodableTests {
         #expect(offset != nil, "Annotation offset should survive round-trip")
         #expect(abs((offset?.x ?? 0) - 15.5) < 0.001)
         #expect(abs((offset?.y ?? 0) - (-8.25)) < 0.001)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - tapToneRatio uses classifyAll
+// ---------------------------------------------------------------------------
+
+@Suite("TapToneRatio")
+@MainActor
+struct TapToneRatioTests {
+
+    // A peak in the classical Top/Back overlap zone (190–230 Hz) should be
+    // found as the Top peak for ratio calculation purposes, not missed because
+    // a naive per-frequency classify might label it differently when context
+    // is taken into account.
+    @Test func tapToneRatio_overlapZonePeaks_computesCorrectRatio() {
+        // Air at 95 Hz, Top at 210 Hz (inside classical overlap zone)
+        let airPeak = ResonantPeak(frequency: 95,  magnitude: -28)
+        let topPeak = ResonantPeak(frequency: 210, magnitude: -20)
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let measurement = TapToneMeasurement(peaks: [airPeak, topPeak], spectrum: snapshot)
+        let ratio = measurement.tapToneRatio
+        #expect(ratio != nil, "tapToneRatio should find air and top peaks")
+        // 210 / 95 ≈ 2.21 — verify to within 1%
+        let expected: Float = 210.0 / 95.0
+        #expect(abs((ratio ?? 0) - expected) < 0.01)
+    }
+
+    // When two peaks are in the overlap zone, only one should be claimed as Top.
+    // The ratio must use the stronger one (Top), not both.
+    @Test func tapToneRatio_twoOverlapPeaks_usesSingleTopPeak() {
+        let airPeak     = ResonantPeak(frequency: 95,  magnitude: -28)
+        let strongerTop = ResonantPeak(frequency: 205, magnitude: -18) // → Top
+        let weakerBack  = ResonantPeak(frequency: 220, magnitude: -25) // → Back
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let measurement = TapToneMeasurement(peaks: [airPeak, strongerTop, weakerBack], spectrum: snapshot)
+        let ratio = measurement.tapToneRatio
+        #expect(ratio != nil)
+        // Ratio must use strongerTop (205 Hz), not weakerBack (220 Hz)
+        let expected: Float = 205.0 / 95.0
+        #expect(abs((ratio ?? 0) - expected) < 0.01,
+                "Ratio should use the stronger Top peak (205 Hz), not Back (220 Hz)")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - JSON export modeLabel uses classifyAll
+// ---------------------------------------------------------------------------
+
+@Suite("MeasurementExportModeLabel")
+@MainActor
+struct MeasurementExportModeLabelTests {
+
+    // Two peaks in the classical Top/Back overlap zone should produce different
+    // modeLabel values in the exported JSON — "Top" for the stronger and "Back"
+    // for the weaker.
+    @Test func exportedJSON_overlapZonePeaks_haveDistinctModeLabels() throws {
+        let strongerPeak = ResonantPeak(frequency: 210, magnitude: -18)
+        let weakerPeak   = ResonantPeak(frequency: 220, magnitude: -26)
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let measurement = TapToneMeasurement(peaks: [strongerPeak, weakerPeak], spectrum: snapshot)
+        let data = try JSONEncoder().encode(measurement)
+        let json = try #require(String(data: data, encoding: .utf8))
+        // Both mode labels must appear somewhere in the JSON
+        #expect(json.contains("\"Top\""),  "Stronger peak should be labeled Top in JSON export")
+        #expect(json.contains("\"Back\""), "Weaker peak should be labeled Back in JSON export")
+    }
+
+    // A user override must still take priority over classifyAll in the export.
+    @Test func exportedJSON_userOverrideTakesPriority() throws {
+        let peak = ResonantPeak(frequency: 210, magnitude: -20)
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let measurement = TapToneMeasurement(
+            peaks: [peak],
+            spectrum: snapshot,
+            peakModeOverrides: [peak.id: .assigned("Custom Label")]
+        )
+        let data = try JSONEncoder().encode(measurement)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(json.contains("\"Custom Label\""), "User override should appear in JSON export")
     }
 }
 

@@ -145,6 +145,55 @@ enum GuitarMode: String, Codable {
         }
     }
 
+    /// Classifies a set of peaks into guitar modes using a context-aware claiming algorithm.
+    ///
+    /// Unlike ``classify(frequency:guitarType:)``, which maps each frequency independently,
+    /// this method processes all peaks together so that overlapping mode ranges (e.g. the
+    /// Top/Back overlap zone for classical guitar) resolve correctly: the first peak
+    /// claimed by a lower-frequency mode cannot be re-claimed by a higher-frequency mode.
+    ///
+    /// **Algorithm:**
+    /// 1. Sorts the canonical modes (Air, Top, Back, Dipole, Ring, Upper) by ascending
+    ///    lower-bound of their frequency range for the given guitar type.
+    /// 2. For each mode in that order, picks the highest-magnitude unclaimed peak whose
+    ///    frequency lies within the mode's range, then marks that peak as claimed.
+    /// 3. Any remaining peaks that were not claimed by a named mode are classified via
+    ///    the standard per-frequency ``classify(frequency:guitarType:)`` lookup
+    ///    (they will typically resolve to `.unknown`).
+    ///
+    /// - Parameters:
+    ///   - peaks: The detected peaks to classify.
+    ///   - guitarType: The guitar type whose mode-range bands are used. Defaults to
+    ///     ``TapDisplaySettings/guitarType`` when omitted.
+    /// - Returns: A dictionary mapping each peak's `UUID` to its ``GuitarMode``.
+    static func classifyAll(
+        _ peaks: [ResonantPeak],
+        guitarType: GuitarType = TapDisplaySettings.guitarType
+    ) -> [UUID: GuitarMode] {
+        let orderedModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
+            .sorted { $0.modeRange(for: guitarType).lowerBound < $1.modeRange(for: guitarType).lowerBound }
+
+        var result: [UUID: GuitarMode] = [:]
+        var claimedIDs = Set<UUID>()
+
+        for mode in orderedModes {
+            let range = mode.modeRange(for: guitarType)
+            if let best = peaks
+                .filter({ range.contains($0.frequency) && !claimedIDs.contains($0.id) })
+                .max(by: { $0.magnitude < $1.magnitude }) {
+                result[best.id] = mode
+                claimedIDs.insert(best.id)
+            }
+        }
+
+        // Classify any unclaimed peaks using the standard per-frequency lookup
+        for peak in peaks where result[peak.id] == nil {
+            result[peak.id] = classify(frequency: peak.frequency, guitarType: guitarType)
+        }
+
+        return result
+    }
+
     // MARK: - Frequency Ranges
 
     /// The classification frequency range for this mode using the current guitar type setting.
