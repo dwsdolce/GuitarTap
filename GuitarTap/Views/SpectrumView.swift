@@ -410,12 +410,13 @@ struct SpectrumView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            ZStack {
                 Text("FFT Peaks")
                     .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
-                Spacer()
-
+                HStack {
+                    Spacer()
                 #if os(macOS)
                 Button {
                     showingControlsHelp.toggle()
@@ -506,6 +507,7 @@ struct SpectrumView: View {
                     )
                 }
                 #endif
+                }
             }
             .padding(.bottom, 8)
 
