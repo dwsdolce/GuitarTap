@@ -217,7 +217,7 @@ struct MeasurementDetailView: View {
                         .filter { peak in
                             isMaterialMeasurement ||
                             TapDisplaySettings.showUnknownModes ||
-                            GuitarMode.classify(frequency: peak.frequency).normalized != .unknown
+                            GuitarMode.isKnown(frequency: peak.frequency)
                         }
                     let selectedCount = filteredPeaks.filter { selectedIDs.contains($0.id) }.count
                     let unselectedCount = filteredPeaks.filter { !selectedIDs.contains($0.id) }.count
@@ -234,7 +234,7 @@ struct MeasurementDetailView: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 ForEach(filteredPeaks) { peak in
                                     let isSelected = selectedIDs.contains(peak.id)
-                                    let mode = modeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)
+                                    let mode = modeMap[peak.id] ?? .unknown
                                     let effectiveLabel: String = {
                                         if isMaterialMeasurement {
                                             if peak.id == measurement.selectedLongitudinalPeakID { return "fL" }

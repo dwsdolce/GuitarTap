@@ -205,7 +205,7 @@ struct DraggablePeakAnnotation: View {
     private var modeColor: Color {
         if measurementType.isGuitar {
             // Use context-aware classification if provided; fall back to per-frequency lookup.
-            let mode = (classifiedMode ?? GuitarMode.classify(frequency: peak.frequency)).normalized
+            let mode = (classifiedMode ?? .unknown).normalized
             switch mode {
             case .air: return .cyan
             case .top: return .green
@@ -523,7 +523,7 @@ private struct PeakAnnotationLabel: View {
         if measurementType.isGuitar {
             switch modeOverrides[peak.id] ?? .auto {
             case .auto:
-                return (classifiedMode ?? GuitarMode.classify(frequency: peak.frequency)).displayName
+                return (classifiedMode ?? .unknown).displayName
             case .assigned(let label):
                 return label
             }

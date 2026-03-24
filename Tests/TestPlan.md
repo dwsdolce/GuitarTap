@@ -169,8 +169,9 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | G15 | `classical_overlapZone_weakerPeakIsBack_evenIfInsideTopRange` | U | iOS iPadOS mac | High | The weaker overlap-zone peak receives Back even though its frequency also falls inside the Top range — claiming prevents double-assignment |
 | G16 | `classical_singleOverlapPeak_isTop` | U | iOS iPadOS mac | Medium | A single peak in the overlap zone defaults to Top (first mode claimed), not Back |
 | G17 | `classifyAll_unknownPeak_fallsBackToClassify` | U | iOS iPadOS mac | Medium | A peak outside all mode ranges is labelled `.unknown` via the per-frequency fallback |
-| G18 | `classifyAll_nonOverlappingPeaks_matchClassify` | U | iOS iPadOS mac | Medium | For peaks in non-overlapping ranges, `classifyAll` produces the same result as `classify(frequency:)` |
+| G18 | `classifyAll_nonOverlappingPeaks_classifyCorrectly` | U | iOS iPadOS mac | Medium | For peaks in non-overlapping ranges, `classifyAll` assigns the expected mode label to each peak |
 | G19 | `classifyAll_emptyInput_returnsEmptyMap` | U | iOS iPadOS mac | Low | Empty peak list returns an empty map without crashing |
+| G20 | `classifyAll_secondPeakInSameRange_stillClassifiedCorrectly` | U | iOS iPadOS mac | Medium | When two peaks share a non-overlapping range, the weaker (unclaimed) one falls to step 3 of the algorithm where the private `classify()` path is exercised — it still resolves to the correct mode, not `.unknown` |
 
 ---
 
@@ -322,7 +323,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | `TapDetectionTests.swift` | `TapDetection` (.serialized) | T1–T8 | ✅ Implemented |
 | `DSPTests.swift` | `ParabolicInterpolation`, `QFactorCalculation` | F1–F9 | ✅ Implemented |
 | `PeakFindingTests.swift` | `FindPeaks`, `RemoveDuplicatePeaks`, `SpectrumAveraging` | F10–F20, A2 | ✅ Implemented |
-| `GuitarModeTests.swift` | `GuitarModeClassification`, `GuitarModeClassifyAll` | G1–G19 | ✅ Implemented |
+| `GuitarModeTests.swift` | `GuitarModeClassification`, `GuitarModeClassifyAll` | G1–G20 | ✅ Implemented |
 | `PitchTests.swift` | `PitchTests` | P1–P8 | ✅ Implemented |
 | `MaterialPropertiesTests.swift` | `MaterialDimensions`, `YoungModulus`, `SpeedOfSound`, `SpecificModulus`, `GoreTargetThickness` | M1–M14 | ✅ Implemented |
 | `MeasurementCodableTests.swift` | `ResonantPeakCodable`, `TapToneMeasurementCodable`, `FixtureLoading`, `TapToneRatio`, `MeasurementExportModeLabel` (@MainActor) | R1–R6, R11–R14 | ✅ Implemented |

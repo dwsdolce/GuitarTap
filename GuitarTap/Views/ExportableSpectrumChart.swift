@@ -150,7 +150,7 @@ struct ExportableSpectrumChart: View {
         if shouldShowUnknown {
             return filtered
         } else {
-            return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
+            return filtered.filter { GuitarMode.isKnown(frequency: $0.frequency) }
         }
     }
 
@@ -174,7 +174,7 @@ struct ExportableSpectrumChart: View {
     /// Returns the appropriate color for a peak based on measurement type and selection.
     private func peakColor(for peak: ResonantPeak) -> Color {
         if measurementType.isGuitar {
-            return (peakModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)).color
+            return (peakModeMap[peak.id] ?? .unknown).color
         } else {
             // Plate/brace mode: color by L/C/FLC selection
             if peak.id == selectedLongitudinalPeakID {
@@ -194,7 +194,7 @@ struct ExportableSpectrumChart: View {
         if measurementType.isGuitar {
             switch modeOverrides[peak.id] ?? .auto {
             case .auto:
-                return (peakModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)).displayName
+                return (peakModeMap[peak.id] ?? .unknown).displayName
             case .assigned(let label):
                 return label
             }
@@ -539,7 +539,7 @@ func makeExportableSpectrumView(
                 HStack(spacing: 20) {
                     let summaryModeMap = peakModes.isEmpty ? GuitarMode.classifyAll(peaks) : peakModes
                     ForEach(peaks.prefix(8).sorted(by: { $0.frequency < $1.frequency })) { peak in
-                        let mode = summaryModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)
+                        let mode = summaryModeMap[peak.id] ?? .unknown
                         VStack(spacing: 4) {
                             Text("\(peak.frequency, specifier: "%.1f") Hz")
                                 .font(.caption)

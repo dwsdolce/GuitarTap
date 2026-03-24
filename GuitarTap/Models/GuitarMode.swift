@@ -114,24 +114,13 @@ enum GuitarMode: String, Codable {
 
     // MARK: - Classification
 
-    /// Classifies a frequency into a guitar mode using the currently selected guitar type.
-    ///
-    /// The guitar type is read from ``TapDisplaySettings/guitarType`` at call time.
-    ///
-    /// - Parameter frequency: The peak frequency to classify, in Hz.
-    /// - Returns: The ``GuitarMode`` whose ``GuitarType/ModeRanges`` band contains `frequency`,
-    ///   or ``unknown`` if no band matches.
-    static func classify(frequency: Float) -> GuitarMode {
-        return classify(frequency: frequency, guitarType: TapDisplaySettings.guitarType)
-    }
-
     /// Classifies a frequency into a guitar mode for a specific guitar type.
     ///
     /// - Parameters:
     ///   - frequency: The peak frequency to classify, in Hz.
     ///   - guitarType: The guitar type whose mode-range bands are used for classification.
     /// - Returns: The matching ``GuitarMode``, or ``unknown`` if no band matches.
-    static func classify(frequency: Float, guitarType: GuitarType) -> GuitarMode {
+    private static func classify(frequency: Float, guitarType: GuitarType) -> GuitarMode {
         let ranges = guitarType.modeRanges
 
         switch frequency {
@@ -157,9 +146,11 @@ enum GuitarMode: String, Codable {
     ///    lower-bound of their frequency range for the given guitar type.
     /// 2. For each mode in that order, picks the highest-magnitude unclaimed peak whose
     ///    frequency lies within the mode's range, then marks that peak as claimed.
-    /// 3. Any remaining peaks that were not claimed by a named mode are classified via
-    ///    the standard per-frequency ``classify(frequency:guitarType:)`` lookup
-    ///    (they will typically resolve to `.unknown`).
+    /// 3. Any remaining unclaimed peaks are classified via the per-frequency
+    ///    ``classify(frequency:guitarType:)`` lookup. Peaks outside all mode ranges
+    ///    resolve to `.unknown`; peaks inside a range resolve to that mode (including
+    ///    overlap-zone frequencies, which always resolve to the earlier/lower mode
+    ///    since that mode's `case` appears first in the `classify` switch statement).
     ///
     /// - Parameters:
     ///   - peaks: The detected peaks to classify.
@@ -192,6 +183,22 @@ enum GuitarMode: String, Codable {
         }
 
         return result
+    }
+
+    /// Returns `true` if `frequency` falls within any named mode range for the given guitar type.
+    ///
+    /// Use this for filtering peaks by visibility (the "hide unknown modes" setting) instead of
+    /// calling ``classify(frequency:guitarType:)`` and comparing against `.unknown`. This avoids
+    /// any ambiguity around the overlap zone: a frequency in the Top/Back overlap is always
+    /// "known" regardless of which mode `classifyAll` ultimately assigns it to.
+    ///
+    /// - Parameters:
+    ///   - frequency: The peak frequency to test, in Hz.
+    ///   - guitarType: The guitar type whose mode-range bands are used.
+    static func isKnown(frequency: Float, guitarType: GuitarType = TapDisplaySettings.guitarType) -> Bool {
+        let r = guitarType.modeRanges
+        return r.air.contains(frequency) || r.top.contains(frequency) || r.back.contains(frequency)
+            || r.dipole.contains(frequency) || r.ringMode.contains(frequency) || r.upperModes.contains(frequency)
     }
 
     // MARK: - Frequency Ranges

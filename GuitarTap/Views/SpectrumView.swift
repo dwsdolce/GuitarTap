@@ -357,7 +357,7 @@ struct SpectrumView: View {
         let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
         if !measurementType.isGuitar { return filtered }
         if TapDisplaySettings.showUnknownModes { return filtered }
-        return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
+        return filtered.filter { GuitarMode.isKnown(frequency: $0.frequency) }
     }
 
     /// Returns the peaks that should show annotation labels.
@@ -379,7 +379,7 @@ struct SpectrumView: View {
         let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
         if !measurementType.isGuitar { return filtered }
         if TapDisplaySettings.showUnknownModes { return filtered }
-        return filtered.filter { GuitarMode.classify(frequency: $0.frequency).normalized != .unknown }
+        return filtered.filter { GuitarMode.isKnown(frequency: $0.frequency) }
     }
 
     /// Calculates appropriate frequency values for axis labels based on the current zoom level.

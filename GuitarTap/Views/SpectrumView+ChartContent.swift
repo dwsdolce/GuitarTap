@@ -231,7 +231,7 @@ extension SpectrumView {
         if measurementType.isGuitar {
             // Guitar mode: context-aware classification avoids duplicate mode labels
             // in overlapping ranges (e.g. classical Top/Back overlap at 190–230 Hz).
-            return (peakModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency)).color
+            return (peakModeMap[peak.id] ?? .unknown).color
         } else {
             // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {

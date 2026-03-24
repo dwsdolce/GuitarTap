@@ -779,9 +779,7 @@ extension TapToneAnalyzer {
         
         // Classify modes using context-aware algorithm so overlapping ranges resolve correctly
         let captureModeMap = GuitarMode.classifyAll(peaksFromAveragedSpectrum)
-        identifiedModes = peaksFromAveragedSpectrum.map { peak in
-            (peak: peak, mode: captureModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency))
-        }
+        identifiedModes = peaksFromAveragedSpectrum.map { (peak: $0, mode: captureModeMap[$0.id] ?? .unknown) }
         
         // Update status
         statusMessage = "Analysis complete! \(peaksFromAveragedSpectrum.count) peaks identified (from \(capturedTaps.count) averaged taps)."

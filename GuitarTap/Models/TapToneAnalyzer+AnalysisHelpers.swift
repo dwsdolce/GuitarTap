@@ -53,14 +53,14 @@ extension TapToneAnalyzer {
     /// mode ranges (e.g. classical Top/Back at 190–230 Hz) resolve to distinct
     /// modes rather than both returning `.top`.
     ///
-    /// Falls back to ``GuitarMode/classify(frequency:)`` if the peak is not
-    /// found in the current set (e.g. a historical peak from a saved measurement).
+    /// Falls back to ``GuitarMode/classifyAll(_:guitarType:)`` on a single-element
+    /// array if the peak is not found in the current set (e.g. a stale reference).
     ///
     /// - Parameter peak: The peak to classify.
     /// - Returns: The ``GuitarMode`` assigned to this peak.
     func peakMode(for peak: ResonantPeak) -> GuitarMode {
         identifiedModes.first(where: { $0.peak.id == peak.id })?.mode
-            ?? GuitarMode.classify(frequency: peak.frequency)
+            ?? GuitarMode.classifyAll([peak])[peak.id] ?? .unknown
     }
 
     /// Returns the highest-magnitude peak that has been auto-classified or

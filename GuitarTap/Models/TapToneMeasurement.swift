@@ -278,8 +278,8 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// Returns `nil` when either an Air or a Top peak cannot be found in ``peaks``.
     var tapToneRatio: Float? {
         let modeMap = GuitarMode.classifyAll(peaks)
-        guard let airPeak = peaks.first(where: { (modeMap[$0.id] ?? GuitarMode.classify(frequency: $0.frequency)).normalized == .air }),
-              let topPeak = peaks.first(where: { (modeMap[$0.id] ?? GuitarMode.classify(frequency: $0.frequency)).normalized == .top }) else {
+        guard let airPeak = peaks.first(where: { (modeMap[$0.id] ?? .unknown).normalized == .air }),
+              let topPeak = peaks.first(where: { (modeMap[$0.id] ?? .unknown).normalized == .top }) else {
             return nil
         }
         return topPeak.frequency / airPeak.frequency
@@ -405,7 +405,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             if mt.isGuitar {
                 switch peakModeOverrides?[peak.id] ?? .auto {
                 case .auto:
-                    label = (exportModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency, guitarType: gt)).displayName
+                    label = (exportModeMap[peak.id] ?? .unknown).displayName
                 case .assigned(let customLabel):
                     label = customLabel
                 }

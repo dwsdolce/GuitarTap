@@ -101,9 +101,7 @@ extension TapToneAnalyzer {
 
             // Classify modes using context-aware algorithm so overlapping ranges resolve correctly
             let modeMap = GuitarMode.classifyAll(peaks)
-            identifiedModes = peaks.map { peak in
-                (peak: peak, mode: modeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency))
-            }
+            identifiedModes = peaks.map { (peak: $0, mode: modeMap[$0.id] ?? .unknown) }
             
         }
         
@@ -141,9 +139,7 @@ extension TapToneAnalyzer {
         let peaks = findPeaks(magnitudes: frozenMagnitudes, frequencies: frozenFrequencies)
         currentPeaks = peaks
         let frozenModeMap = GuitarMode.classifyAll(peaks)
-        identifiedModes = peaks.map { peak in
-            (peak: peak, mode: frozenModeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency))
-        }
+        identifiedModes = peaks.map { (peak: $0, mode: frozenModeMap[$0.id] ?? .unknown) }
 
         if !isGuitar {
             // Plate/brace: the frozen peaks are final gated-capture results — select all.
@@ -460,9 +456,7 @@ extension TapToneAnalyzer {
     /// ``GuitarMode/modeRange`` boundaries without requiring a new tap.
     func reclassifyPeaks() {
         let modeMap = GuitarMode.classifyAll(currentPeaks)
-        identifiedModes = currentPeaks.map { peak in
-            (peak: peak, mode: modeMap[peak.id] ?? GuitarMode.classify(frequency: peak.frequency))
-        }
+        identifiedModes = currentPeaks.map { (peak: $0, mode: modeMap[$0.id] ?? .unknown) }
     }
 
     /// Removes peaks that are closer than 2 Hz apart, keeping only the

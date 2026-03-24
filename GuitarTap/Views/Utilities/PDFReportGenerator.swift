@@ -585,8 +585,7 @@ private struct PDFReportContentView: View {
     private func effectiveModeLabel(for peak: ResonantPeak) -> (label: String, isOverridden: Bool) {
         switch data.peakModeOverrides[peak.id] ?? .auto {
         case .auto:
-            let mode = data.peakModes[peak.id]
-                ?? GuitarMode.classify(frequency: peak.frequency, guitarType: data.guitarType)
+            let mode = data.peakModes[peak.id] ?? .unknown
             return (mode.displayName, false)
         case .assigned(let label):
             return (label + " *", true)
@@ -595,10 +594,7 @@ private struct PDFReportContentView: View {
 
     private func peakRow(for peak: ResonantPeak) -> some View {
         let modeInfo = data.measurementType.isGuitar ? effectiveModeLabel(for: peak) : nil
-        // Use the context-aware mode map for color so overlap-zone peaks (e.g. classical
-        // Top/Back) get the right color; fall back to per-frequency classify only if absent.
-        let mode = data.peakModes[peak.id]
-            ?? GuitarMode.classify(frequency: peak.frequency, guitarType: data.guitarType)
+        let mode = data.peakModes[peak.id] ?? .unknown
 
         return HStack(spacing: 0) {
             Text(String(format: "%.1f Hz", peak.frequency))
