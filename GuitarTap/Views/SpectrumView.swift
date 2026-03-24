@@ -613,7 +613,8 @@ struct SpectrumView: View {
                         selectedLongitudinalPeakID: selectedLongitudinalPeakID,
                         selectedCrossPeakID: selectedCrossPeakID,
                         selectedFlcPeakID: selectedFlcPeakID,
-                        modeOverrides: modeOverrides
+                        modeOverrides: modeOverrides,
+                        peakModes: peakModes
                     )
 
                     #if os(macOS)

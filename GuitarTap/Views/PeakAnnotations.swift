@@ -92,10 +92,20 @@ struct PeakAnnotationsOverlay: View {
     /// Per-peak user-assigned mode overrides. Empty = auto-classification.
     var modeOverrides: [UUID: UserAssignedMode] = [:]
 
-    /// Context-aware mode map so overlapping ranges (e.g. classical Top/Back) resolve
-    /// to distinct modes across the full set of visible peaks.
+    /// Pre-computed mode assignments from the analyzer (keyed by peak UUID).
+    ///
+    /// When non-empty this map is used directly, ensuring annotations show the
+    /// same mode labels as the Results panel (both derived from the same
+    /// ``GuitarMode/classifyAll(_:guitarType:)`` call on the full peak set).
+    /// Falls back to a local `classifyAll(peaks)` call only when empty
+    /// (e.g. in standalone Previews or legacy call sites).
+    var peakModes: [UUID: GuitarMode] = [:]
+
+    /// Context-aware mode map: uses the pre-computed `peakModes` when available,
+    /// otherwise falls back to classifying the visible subset locally.
     private var peakModeMap: [UUID: GuitarMode] {
-        measurementType.isGuitar ? GuitarMode.classifyAll(peaks) : [:]
+        guard measurementType.isGuitar else { return [:] }
+        return peakModes.isEmpty ? GuitarMode.classifyAll(peaks) : peakModes
     }
 
     var body: some View {

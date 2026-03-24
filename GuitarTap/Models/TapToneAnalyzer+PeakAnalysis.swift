@@ -362,10 +362,15 @@ extension TapToneAnalyzer {
         
         // Step 3: Build final peak list with mode priority.
         // First, include the strongest peak from each known mode (guaranteed slots).
+        // Deduplicate the guaranteed-slot peaks by frequency before inserting them:
+        // a peak in the Top/Back overlap zone is found independently by both mode
+        // range scans and ends up in strongestPeakPerMode under two different keys
+        // (with two different UUIDs). removeDuplicatePeaks collapses them to one.
         var finalPeaks: [ResonantPeak] = []
         var includedPeakIDs = Set<UUID>()
-        
-        for (_, peak) in strongestPeakPerMode {
+
+        let guaranteedPeaks = removeDuplicatePeaks(Array(strongestPeakPerMode.values))
+        for peak in guaranteedPeaks {
             finalPeaks.append(peak)
             includedPeakIDs.insert(peak.id)
         }
@@ -393,59 +398,32 @@ extension TapToneAnalyzer {
         return finalPeaks.sorted(by: { $0.magnitude > $1.magnitude })
     }
     
-    /// Selects one peak per guitar mode using a lowest-frequency-first priority
-    /// rule, so overlapping mode ranges always resolve in favour of the lower mode.
+    /// Returns the set of peak IDs auto-selected by guitar mode: one peak per
+    /// named mode, chosen as the strongest (highest magnitude) peak that
+    /// ``GuitarMode/classifyAll(_:guitarType:)`` assigns to that mode.
     ///
-    /// The algorithm:
-    /// 1. Orders known modes by the lower bound of their ``GuitarType/modeRanges``
-    ///    band, ascending.
-    /// 2. Walks them in that order. For each mode it picks the highest-magnitude
-    ///    peak whose frequency lies inside the mode's range and has not already
-    ///    been claimed by a lower-frequency mode.
-    /// 3. Claiming is done by both UUID and frequency proximity (±3 Hz), so when
-    ///    overlapping mode ranges cause `findPeaks` to produce two near-duplicate
-    ///    entries for the same physical resonance, the second mode cannot re-select it.
-    /// 4. Returns the `UUID` set of the selected peaks.
+    /// Multiple peaks can share the same mode label (e.g. two peaks in the Air
+    /// range); only the loudest representative of each mode is selected.
+    /// Peaks classified as `.unknown` are never auto-selected but can be toggled
+    /// individually in the results panel.
     ///
-    /// Peaks whose frequency falls outside all mode ranges (`.unknown`) are
-    /// **not** auto-selected; the user can toggle them individually in the
-    /// results panel.
-    ///
-    /// - Parameter peaks: The candidate peak array to select from. Defaults
-    ///   to `currentPeaks`.
-    /// - Returns: A `Set<UUID>` containing at most one peak ID per mode.
+    /// - Parameter peaks: The candidate peak array to classify. Defaults to
+    ///   `currentPeaks`.
+    /// - Returns: A `Set<UUID>` containing at most one peak ID per named mode.
     func guitarModeSelectedPeakIDs(from peaks: [ResonantPeak]? = nil) -> Set<UUID> {
         let candidates = peaks ?? currentPeaks
-        let guitarType = TapDisplaySettings.guitarType
+        let modeMap = GuitarMode.classifyAll(candidates)
+        let claimedModes: Set<GuitarMode> = [.air, .top, .back, .dipole, .ringMode, .upperModes]
 
-        // Canonical modern modes ordered by ascending lower-bound of their classification range.
-        // Legacy cases are excluded because findPeaks() works with normalised modes.
-        let orderedModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
-            .sorted { $0.modeRange(for: guitarType).lowerBound < $1.modeRange(for: guitarType).lowerBound }
-
-        var selected = Set<UUID>()
-        // Track claimed frequencies (not just IDs) so that when mode ranges overlap
-        // and findPeaks produces two near-duplicate peaks at the same physical frequency,
-        // the second mode doesn't re-select what is effectively the same resonance.
-        var claimedFrequencies: [Float] = []
-        let duplicateTolerance: Float = 3.0   // Hz — tighter than removeDuplicatePeaks (2 Hz) + interpolation jitter
-
-        for mode in orderedModes {
-            let range = mode.modeRange(for: guitarType)
-            // Find the highest-magnitude peak within this mode's range that has not
-            // already been claimed by a lower-frequency mode (by ID or by frequency proximity).
-            if let best = candidates
-                .filter({ peak in
-                    range.contains(peak.frequency) &&
-                    !selected.contains(peak.id) &&
-                    !claimedFrequencies.contains(where: { abs($0 - peak.frequency) <= duplicateTolerance })
-                })
-                .max(by: { $0.magnitude < $1.magnitude }) {
-                selected.insert(best.id)
-                claimedFrequencies.append(best.frequency)
+        // Group peaks by their assigned mode, keeping only named modes.
+        var bestPerMode: [GuitarMode: ResonantPeak] = [:]
+        for peak in candidates {
+            guard let mode = modeMap[peak.id], claimedModes.contains(mode) else { continue }
+            if bestPerMode[mode] == nil || peak.magnitude > bestPerMode[mode]!.magnitude {
+                bestPerMode[mode] = peak
             }
         }
-        return selected
+        return Set(bestPerMode.values.map { $0.id })
     }
 
     /// Re-runs mode classification on `currentPeaks` using the active guitar
