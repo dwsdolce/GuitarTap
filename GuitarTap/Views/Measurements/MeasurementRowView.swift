@@ -20,6 +20,7 @@ import SwiftUI
 
 struct MeasurementRowView: View {
     let measurement: TapToneMeasurement
+    var isHovered: Bool = false
     
     // Break down complex expressions for better compilation
     private var peaksText: String {
@@ -64,6 +65,20 @@ struct MeasurementRowView: View {
                     Text(measurement.timestamp, style: .time)
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    // Disclosure chevron — standard affordance for a clickable detail row
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    #if os(macOS)
+                    // Ellipsis hint — appears on hover to signal right-click context menu
+                    Image(systemName: "ellipsis.circle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .opacity(isHovered ? 1.0 : 0.0)
+                        .animation(.easeInOut(duration: 0.15), value: isHovered)
+                    #endif
                 }
             }
             

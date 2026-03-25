@@ -749,7 +749,7 @@ extension TapSettingsView {
                 // Delete calibrations (if any exist)
                 if !storedCalibrations.isEmpty {
                     Button(role: .destructive) {
-                        deleteAllCalibrations()
+                        showingDeleteAllCalibrationsConfirmation = true
                     } label: {
                         HStack {
                             Image(systemName: "trash")

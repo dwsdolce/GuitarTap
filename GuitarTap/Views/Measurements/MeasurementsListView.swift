@@ -65,6 +65,9 @@ struct MeasurementsListView: View {
     // Compare mode state
     @State private var isComparing: Bool = false
     @State private var selectedCompareIDs: Set<UUID> = []
+    @State private var hoveredMeasurementID: UUID?
+    @State private var measurementPendingDelete: TapToneMeasurement?
+    @State private var showingDeleteAllConfirmation = false
     #if os(macOS)
     @State private var detailWindowController: NSWindowController?
     #endif
@@ -197,8 +200,20 @@ struct MeasurementsListView: View {
                             }
                         }) {
                             compareRowContent(for: measurement)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        #if os(macOS)
+                        .onHover { inside in
+                            hoveredMeasurementID = inside ? measurement.id : nil
+                            if inside {
+                                NSCursor.pointingHand.push()
+                            } else {
+                                NSCursor.pop()
+                            }
+                        }
+                        #endif
+                        .help(isComparing ? "Toggle selection for comparison" : "Click to view measurement details")
                         .contextMenu {
                             Button(action: {
                                 analyzer.loadMeasurement(measurement)
@@ -243,19 +258,43 @@ struct MeasurementsListView: View {
                             Divider()
                             
                             Button(role: .destructive, action: {
-                                analyzer.deleteMeasurement(measurement)
+                                measurementPendingDelete = measurement
                             }) {
                                 Label("Delete", systemImage: "trash")
                             }
                         }
                     }
                     .onDelete { indexSet in
-                        indexSet.forEach { index in
-                            analyzer.deleteMeasurement(analyzer.savedMeasurements[index])
+                        if let index = indexSet.first {
+                            measurementPendingDelete = analyzer.savedMeasurements[index]
                         }
                     }
                 }
             }
+        }
+        .alert("Delete Measurement?", isPresented: Binding(
+            get: { measurementPendingDelete != nil },
+            set: { if !$0 { measurementPendingDelete = nil } }
+        )) {
+            Button("Delete", role: .destructive) {
+                if let measurement = measurementPendingDelete {
+                    analyzer.deleteMeasurement(measurement)
+                }
+                measurementPendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                measurementPendingDelete = nil
+            }
+        } message: {
+            if let measurement = measurementPendingDelete {
+                Text("Are you sure you want to delete \"\(measurement.tapLocation ?? "Measurement")\"? This cannot be undone.")
+            }
+        }
+        .alert("Delete All Measurements?", isPresented: $showingDeleteAllConfirmation) {
+            Button("Delete All", role: .destructive) { deleteAll() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete all \(analyzer.savedMeasurements.count) saved measurements. This cannot be undone.")
         }
         .navigationTitle("Saved Measurements")
         .toolbar {
@@ -288,7 +327,7 @@ struct MeasurementsListView: View {
 
                         Divider()
 
-                        Button(role: .destructive, action: deleteAll) {
+                        Button(role: .destructive, action: { showingDeleteAllConfirmation = true }) {
                             Label("Delete All", systemImage: "trash")
                         }
                         .disabled(analyzer.savedMeasurements.isEmpty)
@@ -321,7 +360,7 @@ struct MeasurementsListView: View {
             }
 
             ToolbarItem(placement: .primaryAction) {
-                Button(role: .destructive, action: deleteAll) {
+                Button(role: .destructive, action: { showingDeleteAllConfirmation = true }) {
                     Label("Delete All", systemImage: "trash")
                 }
                 .disabled(analyzer.savedMeasurements.isEmpty || isComparing)
@@ -442,6 +481,7 @@ struct MeasurementsListView: View {
     /// Row content that adds a selection checkbox overlay when in compare mode.
     @ViewBuilder
     private func compareRowContent(for measurement: TapToneMeasurement) -> some View {
+        let isHovered = hoveredMeasurementID == measurement.id
         if isComparing {
             HStack(spacing: 10) {
                 let comparable = isComparable(measurement)
@@ -449,11 +489,11 @@ struct MeasurementsListView: View {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundColor(selected ? .accentColor : (comparable ? .secondary : .secondary.opacity(0.4)))
-                MeasurementRowView(measurement: measurement)
+                MeasurementRowView(measurement: measurement, isHovered: isHovered)
                     .opacity(comparable ? 1.0 : 0.4)
             }
         } else {
-            MeasurementRowView(measurement: measurement)
+            MeasurementRowView(measurement: measurement, isHovered: isHovered)
         }
     }
 

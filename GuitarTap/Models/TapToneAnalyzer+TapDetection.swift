@@ -116,13 +116,17 @@ extension TapToneAnalyzer {
             let headroom = max(tapDetectionThreshold - noiseFloorEstimate, 10.0)
             effectiveRisingThreshold  = noiseFloorEstimate + headroom
             effectiveFallingThreshold = noiseFloorEstimate + max(headroom - hysteresisMargin, 4.0)
+            print("TAP_DEBUG [detectTap] RELATIVE mode | peakMag=\(String(format: "%.2f", peakMagnitude)) noiseFloor=\(String(format: "%.2f", noiseFloorEstimate)) headroom=\(String(format: "%.2f", headroom)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) fallingThresh=\(String(format: "%.2f", effectiveFallingThreshold)) isAboveThreshold=\(isAboveThreshold)")
         } else {
             effectiveRisingThreshold  = tapDetectionThreshold
             effectiveFallingThreshold = tapDetectionThreshold - hysteresisMargin
+            print("TAP_DEBUG [detectTap] ABSOLUTE mode | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) fallingThresh=\(String(format: "%.2f", effectiveFallingThreshold)) isAboveThreshold=\(isAboveThreshold)")
         }
 
         // Check if we're still in warm-up period (prevents false detections on startup)
         if let startTime = analyzerStartTime, now.timeIntervalSince(startTime) < warmupPeriod {
+            let remaining = warmupPeriod - now.timeIntervalSince(startTime)
+            print("TAP_DEBUG [detectTap] WARMUP in progress | remaining=\(String(format: "%.2f", remaining))s peakMag=\(String(format: "%.2f", peakMagnitude))")
             tapDetected = false
             statusMessage = "Initializing... (\(String(format: "%.1f", warmupPeriod - now.timeIntervalSince(startTime)))s)"
             justExitedWarmup = true  // Mark that next frame is first after warm-up
@@ -143,9 +147,10 @@ extension TapToneAnalyzer {
                 let h = max(tapDetectionThreshold - noiseFloorEstimate, 10.0)
                 let risingAnchored = noiseFloorEstimate + h
                 isAboveThreshold = peakMagnitude > risingAnchored
-
+                print("TAP_DEBUG [detectTap] WARMUP EXIT (relative) | peakMag=\(String(format: "%.2f", peakMagnitude)) noiseFloorAnchored=\(String(format: "%.2f", noiseFloorEstimate)) risingAnchored=\(String(format: "%.2f", risingAnchored)) isAboveThreshold=\(isAboveThreshold)")
             } else {
                 isAboveThreshold = peakMagnitude > effectiveRisingThreshold
+                print("TAP_DEBUG [detectTap] WARMUP EXIT (absolute) | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAboveThreshold=\(isAboveThreshold)")
             }
             // Don't detect on this frame - just sync the state
             tapDetected = false
@@ -155,6 +160,8 @@ extension TapToneAnalyzer {
 
         // Check cooldown
         if let lastTap = lastTapTime, now.timeIntervalSince(lastTap) < tapCooldown {
+            let cooldownRemaining = tapCooldown - now.timeIntervalSince(lastTap)
+            print("TAP_DEBUG [detectTap] COOLDOWN active | remaining=\(String(format: "%.3f", cooldownRemaining))s peakMag=\(String(format: "%.2f", peakMagnitude))")
             tapDetected = false
             return
         }
@@ -178,9 +185,12 @@ extension TapToneAnalyzer {
             (peakMagnitude > fallingThreshold) :
             (peakMagnitude > risingThreshold)
 
+        print("TAP_DEBUG [detectTap] HYSTERESIS eval | peakMag=\(String(format: "%.2f", peakMagnitude)) wasAbove=\(isAboveThreshold) nowAbove=\(currentlyAboveThreshold) risingThresh=\(String(format: "%.2f", risingThreshold)) fallingThresh=\(String(format: "%.2f", fallingThreshold)) isDetecting=\(isDetecting) currentTapCount=\(currentTapCount)")
+
         if currentlyAboveThreshold != isAboveThreshold {
             // Update status message when signal settles after a tap in multi-tap mode
             if !currentlyAboveThreshold && isAboveThreshold && currentTapCount > 0 && currentTapCount < numberOfTaps {
+                print("TAP_DEBUG [detectTap] SIGNAL SETTLED | tap \(currentTapCount)/\(numberOfTaps) — signal dropped below falling threshold")
                 statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
             }
         }
@@ -188,6 +198,7 @@ extension TapToneAnalyzer {
         // Detect tap only when crossing from below to above threshold (rising edge only)
         if currentlyAboveThreshold && !isAboveThreshold {
             // Rising edge detected!
+            print("TAP_DEBUG [detectTap] RISING EDGE FIRED | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", risingThreshold)) tapCount=\(currentTapCount+1)/\(numberOfTaps)")
             tapDetected = true
             lastTapTime = now
             
@@ -199,6 +210,14 @@ extension TapToneAnalyzer {
             // Handle tap in multi-tap sequence
             handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
         } else {
+            if currentlyAboveThreshold && isAboveThreshold {
+                // Stays above — still in ring-out, no new tap
+            } else if !currentlyAboveThreshold && !isAboveThreshold {
+                // Stays below — waiting for tap
+            } else {
+                // Falling edge (was above, now below)
+                print("TAP_DEBUG [detectTap] FALLING EDGE | peakMag=\(String(format: "%.2f", peakMagnitude)) fallingThresh=\(String(format: "%.2f", fallingThreshold)) — signal settled, ready for next tap")
+            }
             tapDetected = false
         }
         
@@ -225,9 +244,12 @@ extension TapToneAnalyzer {
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
+
+        print("TAP_DEBUG [handleTapDetection] ENTERED | measurementType=\(measurementType) isPlateMode=\(isPlateMode) isBraceMode=\(isBraceMode) currentTapCount=\(currentTapCount) numberOfTaps=\(numberOfTaps)")
         
         // Handle plate/brace mode with phase-based capture
         if isPlateMode || isBraceMode {
+            print("TAP_DEBUG [handleTapDetection] Routing to handlePlateTapDetection | phase=\(materialTapPhase)")
             handlePlateTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: time)
             return
         }
@@ -239,6 +261,7 @@ extension TapToneAnalyzer {
         // Increment tap count
         currentTapCount += 1
         tapProgress = Float(currentTapCount) / Float(numberOfTaps)
+        print("TAP_DEBUG [handleTapDetection] GUITAR TAP STORED | currentTapCount=\(currentTapCount) numberOfTaps=\(numberOfTaps) tapProgress=\(String(format: "%.2f", tapProgress))")
         
         // Start decay tracking for ring-out time measurement.
         // This continues for 3 seconds after the tap to capture full decay.
@@ -335,11 +358,14 @@ extension TapToneAnalyzer {
         isDetecting = false
 
         let phase = materialTapPhase
+        print("TAP_DEBUG [handlePlateTapDetection] ENTERED | phase=\(phase) materialCapturedTaps.count=\(materialCapturedTaps.count) numberOfTaps=\(numberOfTaps)")
         switch phase {
         case .capturingLongitudinal, .capturingCross, .waitingForCrossTap,
              .capturingFlc, .waitingForFlcTap:
+            print("TAP_DEBUG [handlePlateTapDetection] Starting gated capture for phase=\(phase)")
             startGatedCapture(phase: phase)
         case .notStarted, .complete:
+            print("TAP_DEBUG [handlePlateTapDetection] UNEXPECTED TAP | phase=\(phase) — tap ignored")
             print("⚠️ Unexpected tap in plate phase: \(phase)")
         }
     }
@@ -625,6 +651,7 @@ extension TapToneAnalyzer {
     ///   restart the warm-up timer and destabilise `isAboveThreshold` via
     ///   the `justExitedWarmup` sync path.
     func reEnableDetectionForNextPlateTap() {
+        print("TAP_DEBUG [reEnableDetectionForNextPlateTap] Scheduling re-enable after cooldown=\(tapCooldown)s")
         DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
             guard let self = self else { return }
             let currentLevel = self.fftAnalyzer.inputLevelDB
@@ -632,6 +659,7 @@ extension TapToneAnalyzer {
             self.isAboveThreshold = currentLevel > fallingThreshold
             self.isDetecting = true
             self.tapDetected = false
+            print("TAP_DEBUG [reEnableDetectionForNextPlateTap] Re-enabled | currentLevel=\(String(format: "%.2f", currentLevel)) fallingThreshold=\(String(format: "%.2f", fallingThreshold)) isAboveThreshold=\(self.isAboveThreshold) isDetecting=\(self.isDetecting)")
             // Do NOT reset analyzerStartTime here — that would restart warmup and
             // destabilise isAboveThreshold via the justExitedWarmup sync path.
         }

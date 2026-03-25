@@ -119,6 +119,7 @@ struct TapSettingsView: View {
     @State var calibrationImportError: String?
     @State var showingCalibrationError = false
     @State var selectedCalibrationID: UUID?
+    @State var showingDeleteAllCalibrationsConfirmation = false
 
     // Advanced section expansion state
     @State private var showingAdvanced = false
@@ -231,6 +232,12 @@ struct TapSettingsView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(calibrationImportError ?? "Unknown error")
+            }
+            .alert("Delete All Calibrations?", isPresented: $showingDeleteAllCalibrationsConfirmation) {
+                Button("Delete All", role: .destructive) { deleteAllCalibrations() }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This will permanently delete all \(storedCalibrations.count) saved calibrations. This cannot be undone.")
             }
             .fileImporter(
                 isPresented: $showingCalibrationImporter,

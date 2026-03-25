@@ -68,6 +68,42 @@ struct SaveMeasurementSheet: View {
     
     @ViewBuilder
     private var formContent: some View {
+        #if os(macOS)
+        // Plain VStack layout — matches the iOS grouped form appearance
+        // without macOS Form's label/value column behaviour.
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Save Measurement")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Tap Location (Optional)")
+                    .font(.headline)
+                TextField("Tap Location", text: $tapLocation, prompt: Text("Bridge, Soundhole, Upper Bout..."))
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Notes (Optional)")
+                    .font(.headline)
+                TextEditor(text: $notes)
+                    .font(.body)
+                    .frame(minHeight: 80, idealHeight: 120)
+                    .background(Color(NSColor.textBackgroundColor))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                    )
+                Text("Add any observations about this measurement")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(20)
+        #else
         Form {
             Section {
                 TextField("Tap Location", text: $tapLocation, prompt: Text("Bridge, Soundhole, Upper Bout..."))
@@ -76,14 +112,11 @@ struct SaveMeasurementSheet: View {
                 Text("Tap Location (Optional)")
                     .font(.headline)
             }
-            
+
             Section {
                 TextEditor(text: $notes)
                     .frame(minHeight: 80, idealHeight: 120)
                     .font(.body)
-                    #if os(macOS)
-                    .background(Color(NSColor.textBackgroundColor))
-                    #endif
             } header: {
                 Text("Notes (Optional)")
                     .font(.headline)
@@ -94,5 +127,6 @@ struct SaveMeasurementSheet: View {
             }
         }
         .formStyle(.grouped)
+        #endif
     }
 }
