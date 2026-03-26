@@ -63,11 +63,15 @@ extension TapToneAnalysisView {
     /// For guitar mode this returns only `comparisonSpectra` (empty when no comparison is loaded).
     /// For plate/brace mode this returns the per-phase spectra (longitudinal/cross/FLC).
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] {
+        // Comparison mode takes priority over everything else — when the user has
+        // selected measurements to compare, show those overlays regardless of
+        // measurement type (guitar, plate, or brace).
+        if !tap.comparisonSpectra.isEmpty {
+            return tap.comparisonSpectra
+        }
         let measurementType = TapDisplaySettings.measurementType
         if measurementType.isGuitar {
-            // In guitar mode, comparison overlays replace the single red primary curve
-            // when present; otherwise returns [] so the primary red curve is used.
-            return tap.comparisonSpectra
+            return []
         }
         var result: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
         if let spec = tap.longitudinalSpectrum {

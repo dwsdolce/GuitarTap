@@ -776,6 +776,8 @@ extension TapToneAnalyzer {
         currentPeaks = peaksFromAveragedSpectrum
         selectedPeakIDs = guitarModeSelectedPeakIDs(from: peaksFromAveragedSpectrum)
         userHasModifiedPeakSelection = false
+        loadedMeasurementPeaks = nil      // New live result — no longer remapping from a loaded measurement
+        selectedPeakFrequencies = []      // Reset frequency cache for the new live session
         
         // Classify modes using context-aware algorithm so overlapping ranges resolve correctly
         let captureModeMap = GuitarMode.classifyAll(peaksFromAveragedSpectrum)

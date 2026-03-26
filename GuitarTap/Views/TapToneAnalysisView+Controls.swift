@@ -65,7 +65,7 @@ extension TapToneAnalysisView {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .buttonStyle(.bordered)
-                    .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                    .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                     .accessibilityLabel("Save")
                     .hint(HintText.save)
 
@@ -149,7 +149,7 @@ extension TapToneAnalysisView {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                 .hint(HintText.save)
             }
 
@@ -230,7 +230,7 @@ extension TapToneAnalysisView {
                 Label("Save", systemImage: "square.and.arrow.down")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+            .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
             .hint(HintText.save)
 
             // Measurements button
@@ -290,7 +290,7 @@ extension TapToneAnalysisView {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                 .hint(HintText.save)
             }
 
@@ -356,7 +356,7 @@ extension TapToneAnalysisView {
                     Image(systemName: "square.and.arrow.down")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!tap.isSpectrumFrozen || tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
                 .hint(HintText.save)
             }
 

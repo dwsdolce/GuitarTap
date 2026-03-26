@@ -320,6 +320,28 @@ final class TapToneAnalyzer: ObservableObject {
     /// Reset to `false` by ``resetToAutoSelection()`` or by a new tap sequence completing.
     var userHasModifiedPeakSelection: Bool = false
 
+    /// The original peak array from the most recently loaded measurement.
+    ///
+    /// Retained so that ``recalculateFrozenPeaksIfNeeded()`` can remap
+    /// ``peakAnnotationOffsets``, ``peakModeOverrides``, and ``selectedPeakIDs``
+    /// by frequency proximity when Peak Min changes generate new UUIDs.
+    /// `nil` when no measurement has been loaded, or after a new tap sequence starts.
+    var loadedMeasurementPeaks: [ResonantPeak]? = nil
+
+    /// Frequencies (Hz) of the currently selected peaks, kept in sync with
+    /// `selectedPeakIDs` whenever a non-empty peak set is available.  Used as
+    /// a stable carry-forward reference in `recalculateFrozenPeaksIfNeeded()`
+    /// so that selection survives Peak Min being raised above all peaks and
+    /// then lowered again (at which point `selectedPeakIDs` holds stale UUIDs
+    /// that no longer exist in the current peak set).
+    var selectedPeakFrequencies: [Float] = []
+
+    /// Suppresses `recalculateFrozenPeaksIfNeeded()` while `loadMeasurement` is
+    /// restoring state.  During a load the saved peaks are already correct; we
+    /// must not re-run `findPeaks()` with a potentially-wrong guitar type before
+    /// the view has had a chance to apply `loadedGuitarType`.
+    var isLoadingMeasurement: Bool = false
+
     /// Controls which annotations are rendered on the spectrum chart.
     /// Initialised from UserDefaults so the last-used mode is restored on launch.
     @Published var annotationVisibilityMode: AnnotationVisibilityMode = TapDisplaySettings.annotationVisibilityMode

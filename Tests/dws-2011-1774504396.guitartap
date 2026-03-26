@@ -5,16 +5,16 @@
     "decayTime" : 0.13714492,
     "guitarType" : "Classical",
     "hysteresisMargin" : 3,
-    "id" : "05BB339C-92C9-4F0C-BCC3-3BA41959334D",
+    "id" : "AE14200A-8180-474E-BCEF-F3D18C9275AF",
     "measurementType" : "Classical Guitar",
     "microphoneName" : "Umik-1  Gain: 18dB",
     "microphoneUID" : "AppleUSBAudioEngine:miniDSP:Umik-1  Gain: 18dB:000-0000:1",
-    "notes" : "10 taps with UMIK-1",
+    "notes" : "10 taps with UMIK-1\"",
     "numberOfTaps" : 10,
     "peakAnnotationOffsets" : [
 
     ],
-    "peakThreshold" : -78,
+    "peakThreshold" : -100,
     "peaks" : [
       {
         "bandwidth" : 8.7890625,
@@ -29,23 +29,11 @@
         "timestamp" : "2026-03-22T19:17:26Z"
       },
       {
-        "bandwidth" : 8.7890625,
-        "frequency" : 199.27838,
-        "id" : "C4195906-BBBA-481F-8ADB-7DFDDE6715BE",
-        "magnitude" : -42.36521,
-        "modeLabel" : "Top",
-        "pitchCents" : 28.738021519345896,
-        "pitchFrequency" : 195.99771799087463,
-        "pitchNote" : "G3",
-        "quality" : 22.666666,
-        "timestamp" : "2026-03-22T19:17:26Z"
-      },
-      {
         "bandwidth" : 4.3945312,
         "frequency" : 225.06671,
         "id" : "91364C60-D496-4FC3-8722-3DCA0875C653",
         "magnitude" : -45.80821,
-        "modeLabel" : "Top",
+        "modeLabel" : "Back",
         "pitchCents" : 39.41899978010967,
         "pitchFrequency" : 219.99999999999997,
         "pitchNote" : "A3",
@@ -593,12 +581,20 @@
         "timestamp" : "2026-03-22T19:17:26Z"
       }
     ],
+    "selectedPeakFrequencies" : [
+      199.27838,
+      225.06671,
+      96.770355,
+      390.96902,
+      626.99774,
+      825.33734
+    ],
     "selectedPeakIDs" : [
-      "2FEC9C06-E2BE-4F97-8034-EE23A40EA382",
-      "84DD5C67-F485-4342-8326-052B1CDA2B26",
-      "49C7EEF6-F442-4694-97B5-9B718E8427BC",
       "07CE2ADE-1092-45B3-A75F-EB3742A317BD",
       "BD4A9ED0-4872-41E8-A69A-C117C8B20BBF",
+      "84DD5C67-F485-4342-8326-052B1CDA2B26",
+      "49C7EEF6-F442-4694-97B5-9B718E8427BC",
+      "2FEC9C06-E2BE-4F97-8034-EE23A40EA382",
       "91364C60-D496-4FC3-8722-3DCA0875C653"
     ],
     "spectrumSnapshot" : {
@@ -616,6 +612,6 @@
     },
     "tapDetectionThreshold" : -55,
     "tapLocation" : "DWS 2011",
-    "timestamp" : "2026-03-22T19:17:52Z"
+    "timestamp" : "2026-03-26T05:53:16Z"
   }
 ]

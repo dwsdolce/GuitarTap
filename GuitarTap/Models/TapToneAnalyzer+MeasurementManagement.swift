@@ -208,6 +208,9 @@ extension TapToneAnalyzer {
             crossSnapshot: measurementType == .plate ? crossSnapshot : nil,
             flcSnapshot: measurementType == .plate ? flcSnapshot : nil,
             selectedPeakIDs: selectedPeakIDs.isEmpty ? nil : Array(selectedPeakIDs),
+            selectedPeakFrequencies: selectedPeakIDs.isEmpty ? nil : currentPeaks
+                .filter { selectedPeakIDs.contains($0.id) }
+                .map { $0.frequency },
             annotationVisibilityMode: annotationVisibilityMode,
             peakModeOverrides: peakModeOverrides.isEmpty ? nil : peakModeOverrides,
             microphoneName: microphoneName,
@@ -298,6 +301,14 @@ extension TapToneAnalyzer {
     /// - Parameter measurement: The ``TapToneMeasurement`` to load.
     func loadMeasurement(_ measurement: TapToneMeasurement) {
         print("🔄 Loading measurement...")
+        // Suppress recalculateFrozenPeaksIfNeeded() for the duration of the load.
+        // The saved peaks are already correct; re-running findPeaks() would
+        // generate wrong UUIDs and may classify with a stale guitar type.
+        isLoadingMeasurement = true
+        defer { isLoadingMeasurement = false }
+
+        // Loading a new measurement exits comparison mode.
+        comparisonSpectra = []
 
         // Track the original timestamp so the Results-panel PDF can use it
         sourceMeasurementTimestamp = measurement.timestamp
@@ -365,15 +376,21 @@ extension TapToneAnalyzer {
                 loadedShowUnknownModes = showUnknown
             }
             
-            // Restore guitarType setting if available
+            // Restore guitarType setting if available.
+            // Apply directly to TapDisplaySettings now (synchronous) so that
+            // reclassifyPeaks() below uses the correct mode ranges.  Also
+            // publish loadedGuitarType so the view's bound control updates.
             if let guitarType = snapshot.guitarType {
                 print("  🎸 Publishing guitarType: \(guitarType.rawValue)")
+                TapDisplaySettings.guitarType = guitarType
                 loadedGuitarType = guitarType
             }
             
-            // Restore measurementType setting if available
+            // Restore measurementType setting if available.
+            // Apply directly so that reclassifyPeaks() uses the correct type.
             if let measurementType = snapshot.measurementType {
                 print("  📐 Publishing measurementType: \(measurementType.shortName)")
+                TapDisplaySettings.measurementType = measurementType
                 loadedMeasurementType = measurementType
             }
             
@@ -442,8 +459,12 @@ extension TapToneAnalyzer {
         print("  🟠 Restored cross-grain peak: \(selectedCrossPeak?.frequency ?? -1) Hz")
         print("  🟣 Restored FLC peak: \(selectedFlcPeak?.frequency ?? -1) Hz")
         
-        // Stop tap detection when loading a measurement (frozen state)
+        // Stop tap detection when loading a measurement (frozen state).
+        // Clear isDetectionPaused too — if a tap sequence was paused before loading,
+        // the analyzeMagnitudes loop would otherwise keep overwriting currentPeaks
+        // with fresh live-audio peaks on every FFT frame.
         isDetecting = false
+        isDetectionPaused = false
         currentTapCount = 0
         tapProgress = 0.0
         statusMessage = "Loaded measurement (frozen). Press 'Resume' or 'New Tap' to continue."
@@ -455,15 +476,27 @@ extension TapToneAnalyzer {
             print("  🏷️ Restored \(offsets.count) annotation offsets")
         }
         
+        // Retain the original saved peaks so recalculateFrozenPeaksIfNeeded() can
+        // remap selectedPeakIDs, peakAnnotationOffsets, and peakModeOverrides by
+        // frequency when Peak Min changes generate new UUIDs.
+        loadedMeasurementPeaks = measurement.peaks
+
         // Restore selected peak IDs; if none saved, default to selecting all peaks.
-        // Mark as user-modified so Peak Min adjustments carry selections forward by
-        // frequency proximity rather than clobbering the restored state with auto-selection.
         if let saved = measurement.selectedPeakIDs {
             selectedPeakIDs = Set(saved)
         } else {
             selectedPeakIDs = Set(measurement.peaks.map { $0.id })
         }
+        // Mark as user-modified so recalculateFrozenPeaksIfNeeded uses frequency-proximity
+        // carry-forward (referencing loadedMeasurementPeaks) rather than auto-selection.
         userHasModifiedPeakSelection = true
+        // Seed the stable frequency cache from the loaded selection so that
+        // recalculateFrozenPeaksIfNeeded() can carry forward selections even
+        // after Peak Min is raised above all peaks (at which point selectedPeakIDs
+        // holds stale UUIDs that no longer exist in the re-analyzed peak set).
+        selectedPeakFrequencies = measurement.peaks
+            .filter { selectedPeakIDs.contains($0.id) }
+            .map { $0.frequency }
         print("  ⭐ Restored \(selectedPeakIDs.count) selected peaks")
 
         // Restore annotation visibility mode; default to .all if not saved

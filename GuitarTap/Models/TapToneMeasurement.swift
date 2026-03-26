@@ -94,6 +94,13 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// `nil` means all peaks are considered selected (backward-compatible default).
     let selectedPeakIDs: [UUID]?
 
+    /// Frequencies (Hz) of the selected peaks, parallel to ``selectedPeakIDs``.
+    ///
+    /// Used to re-match selections after `findPeaks()` re-runs with a new threshold
+    /// (which generates new UUIDs). Frequencies are stable across re-analysis;
+    /// UUIDs are not.
+    let selectedPeakFrequencies: [Float]?
+
     /// The annotation visibility mode (show all / show selected / hide all) that was active
     /// when the measurement was saved.
     let annotationVisibilityMode: AnnotationVisibilityMode?
@@ -172,7 +179,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case tapDetectionThreshold, hysteresisMargin, numberOfTaps, peakThreshold
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
         case longitudinalSnapshot, crossSnapshot, flcSnapshot
-        case selectedPeakIDs, annotationVisibilityMode
+        case selectedPeakIDs, selectedPeakFrequencies, annotationVisibilityMode
         case peakModeOverrides
         case microphoneName, microphoneUID, calibrationName
         // Encode-only convenience fields for external consumers
@@ -233,6 +240,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          crossSnapshot: SpectrumSnapshot? = nil,
          flcSnapshot: SpectrumSnapshot? = nil,
          selectedPeakIDs: [UUID]? = nil,
+         selectedPeakFrequencies: [Float]? = nil,
          annotationVisibilityMode: AnnotationVisibilityMode? = nil,
          peakModeOverrides: [UUID: UserAssignedMode]? = nil,
          microphoneName: String? = nil,
@@ -257,6 +265,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.crossSnapshot = crossSnapshot
         self.flcSnapshot = flcSnapshot
         self.selectedPeakIDs = selectedPeakIDs
+        self.selectedPeakFrequencies = selectedPeakFrequencies
         self.annotationVisibilityMode = annotationVisibilityMode
         self.peakModeOverrides = peakModeOverrides
         self.microphoneName = microphoneName
@@ -323,7 +332,8 @@ struct TapToneMeasurement: Identifiable, Codable {
         longitudinalSnapshot = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .longitudinalSnapshot)
         crossSnapshot        = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .crossSnapshot)
         flcSnapshot          = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .flcSnapshot)
-        selectedPeakIDs      = try container.decodeIfPresent([UUID].self, forKey: .selectedPeakIDs)
+        selectedPeakIDs          = try container.decodeIfPresent([UUID].self,  forKey: .selectedPeakIDs)
+        selectedPeakFrequencies  = try container.decodeIfPresent([Float].self, forKey: .selectedPeakFrequencies)
         annotationVisibilityMode = try container.decodeIfPresent(AnnotationVisibilityMode.self, forKey: .annotationVisibilityMode)
         peakModeOverrides    = try container.decodeIfPresent([UUID: UserAssignedMode].self, forKey: .peakModeOverrides)
         microphoneName       = try container.decodeIfPresent(String.self, forKey: .microphoneName)
@@ -367,7 +377,8 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(longitudinalSnapshot, forKey: .longitudinalSnapshot)
         try container.encodeIfPresent(crossSnapshot,    forKey: .crossSnapshot)
         try container.encodeIfPresent(flcSnapshot,      forKey: .flcSnapshot)
-        try container.encodeIfPresent(selectedPeakIDs,  forKey: .selectedPeakIDs)
+        try container.encodeIfPresent(selectedPeakIDs,         forKey: .selectedPeakIDs)
+        try container.encodeIfPresent(selectedPeakFrequencies, forKey: .selectedPeakFrequencies)
         try container.encodeIfPresent(annotationVisibilityMode, forKey: .annotationVisibilityMode)
         try container.encodeIfPresent(peakModeOverrides, forKey: .peakModeOverrides)
         try container.encodeIfPresent(microphoneName,   forKey: .microphoneName)

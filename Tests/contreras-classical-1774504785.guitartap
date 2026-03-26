@@ -4,7 +4,7 @@
     "decayTime" : 0.09321606,
     "guitarType" : "Classical",
     "hysteresisMargin" : 3,
-    "id" : "F230AA83-0DC8-43B5-978A-526934F70345",
+    "id" : "7FFF5156-5AED-45B1-9628-584A7DE0F9D7",
     "measurementType" : "Classical Guitar",
     "microphoneName" : "MacBook Pro Microphone",
     "microphoneUID" : "BuiltInMicrophoneDevice",
@@ -19,18 +19,6 @@
         "bandwidth" : 8.7890625,
         "frequency" : 212.24847,
         "id" : "95037FB0-44FE-4163-9937-CBCD57BC1469",
-        "magnitude" : -41.359554,
-        "modeLabel" : "Top",
-        "pitchCents" : 37.90079003635015,
-        "pitchFrequency" : 207.65234878997254,
-        "pitchNote" : "G#3",
-        "quality" : 24.166666,
-        "timestamp" : "2026-03-09T18:46:19Z"
-      },
-      {
-        "bandwidth" : 8.7890625,
-        "frequency" : 212.24847,
-        "id" : "827F6E9B-82E1-4D45-8821-AF89D9753CFB",
         "magnitude" : -41.359554,
         "modeLabel" : "Top",
         "pitchCents" : 37.90079003635015,
@@ -556,9 +544,20 @@
         "timestamp" : "2026-03-09T18:46:19Z"
       }
     ],
+    "selectedPeakFrequencies" : [
+      212.24847,
+      275.4543,
+      364.49875,
+      102.9767,
+      600.702,
+      864.13196
+    ],
     "selectedPeakIDs" : [
-      "B448E526-2459-46FF-9527-7183BA5AD04A",
       "402B2BF7-EBEE-451A-AEC1-CA0FC4082F3B",
+      "77C21136-1FD8-4EE4-9704-F9A28D942F69",
+      "7D642277-4C39-455D-A9D5-76201355B508",
+      "B448E526-2459-46FF-9527-7183BA5AD04A",
+      "1A4862BB-871D-40CC-96C4-873DFB1FEF87",
       "95037FB0-44FE-4163-9937-CBCD57BC1469"
     ],
     "spectrumSnapshot" : {
@@ -576,6 +575,6 @@
     },
     "tapDetectionThreshold" : -64,
     "tapLocation" : "Contreras Classical",
-    "timestamp" : "2026-03-15T19:00:06Z"
+    "timestamp" : "2026-03-26T05:59:45Z"
   }
 ]
