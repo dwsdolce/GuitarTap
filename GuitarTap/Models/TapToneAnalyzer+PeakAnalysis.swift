@@ -253,7 +253,7 @@ extension TapToneAnalyzer {
         // --- Live-tap path (no loaded measurement) ---
         // Mode assignments keyed by frequency. Stable across slider moves; cleared only
         // when peaks go to zero (identifiedModes = []).
-        var modesByFrequency: [(frequency: Float, mode: GuitarMode)] = identifiedModes.map {
+        let modesByFrequency: [(frequency: Float, mode: GuitarMode)] = identifiedModes.map {
             ($0.peak.frequency, $0.mode)
         }
 
