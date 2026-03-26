@@ -210,6 +210,26 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 
 ---
 
+#### PR — Frozen Peak Recalculation
+
+| ID | Name | Type | Platforms | Priority | Description |
+|---|---|---|---|---|---|
+| PR1 | `isLoadingMeasurement_suppressesRecalculation` | U | iOS iPadOS mac | High | While `isLoadingMeasurement` is `true`, calling `recalculateFrozenPeaksIfNeeded()` returns immediately without modifying `currentPeaks` |
+| PR1b | `afterLoadingCompletes_recalculationRuns` | U | iOS iPadOS mac | High | After `isLoadingMeasurement` returns to `false`, recalculation proceeds and peaks above threshold survive |
+| PR2a | `loadedPeaks_aboveThreshold_areKept` | U | iOS iPadOS mac | High | Peaks in `loadedMeasurementPeaks` at or above `peakThreshold` appear in `currentPeaks`; peaks below are excluded |
+| PR2b | `loadedPeaks_allBelowThreshold_clearsBothCollections` | U | iOS iPadOS mac | High | When all saved peaks fall below threshold, both `currentPeaks` and `identifiedModes` are cleared |
+| PR2c | `loadedPath_usesSavedPeaks_notFrozenSpectrum` | U | iOS iPadOS mac | High | When `loadedMeasurementPeaks` is set, the saved peaks are used directly rather than re-running `findPeaks()` on the frozen spectrum |
+| PR3a | `loadedPath_annotationOffset_remappedByFrequency` | U | iOS iPadOS mac | Medium | Annotation offsets stored for saved-peak UUIDs are transferred to the matching peaks in `currentPeaks` by frequency proximity (±5 Hz) |
+| PR3b | `loadedPath_offsetForFilteredOutPeak_isDropped` | U | iOS iPadOS mac | Medium | Annotation offsets for peaks that drop below the threshold are removed from `peakAnnotationOffsets` |
+| PR4 | `loadedPath_modeOverride_remappedByFrequency` | U | iOS iPadOS mac | Medium | User-assigned mode overrides are remapped to the surviving peaks by frequency proximity |
+| PR4b | `loadedPath_overrideForFilteredOutPeak_isDropped` | U | iOS iPadOS mac | Medium | Mode overrides for peaks that drop below the threshold are removed from `peakModeOverrides` |
+| PR5a | `loadedPath_manualSelection_carriedForwardByFrequency` | U | iOS iPadOS mac | High | When `userHasModifiedPeakSelection` is `true`, previously-selected frequencies are re-selected in the new peak set by proximity; unselected peaks remain unselected |
+| PR5b | `loadedPath_autoSelection_reRunsWhenNotModified` | U | iOS iPadOS mac | High | When `userHasModifiedPeakSelection` is `false`, auto-selection is re-run from scratch via `guitarModeSelectedPeakIDs(from:)` |
+| PR6 | `liveTapPath_emptyPeaks_preservesSelectedPeakIDs` | U | iOS iPadOS mac | High | On the live-tap path, when all peaks fall below threshold `currentPeaks` and `identifiedModes` are cleared but `selectedPeakIDs` is preserved so selections can be remapped when the threshold is lowered again |
+| PR7 | `liveTapPath_annotationOffset_remappedByFrequency` | U | iOS iPadOS mac | Medium | On the live-tap path, annotation offsets are remapped to the new UUIDs produced by a fresh `findPeaks()` pass using frequency proximity |
+
+---
+
 #### R — Persistence / Codable
 
 | ID | Name | Type | Platforms | Priority | Description |
@@ -276,6 +296,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | G | Guitar mode classification | U |
 | P | Pitch | U |
 | M | Material properties | U |
+| PR | Frozen peak recalculation | U |
 | R | Persistence / codable | U + M |
 | U | Cross-platform UI | M |
 | K | Regression smoke tests | M |
@@ -329,6 +350,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | `MeasurementCodableTests.swift` | `ResonantPeakCodable`, `TapToneMeasurementCodable`, `FixtureLoading`, `TapToneRatio`, `MeasurementExportModeLabel` (@MainActor) | R1–R6, R11–R14 | ✅ Implemented |
 | `AnnotationStateTests.swift` | `AnnotationOffsets` (@MainActor), `PeakSelection`, `VisiblePeaks`, `ModeOverrides` (@MainActor, .serialized), `AnnotationVisibilityCycle` | D1–D10 | ✅ Implemented |
 | `SpectrumViewGestureTests.swift` | `FrequencyZoomTests`, `MagnitudeZoomTests`, `PanTests` | C1–C8 | ✅ Implemented (`TestHarness` pattern; no `SpectrumViewModel` extraction required) |
+| `FrozenPeakRecalculationTests.swift` | `FrozenPeakRecalculation_LoadingGuardTests`, `FrozenPeakRecalculation_LoadedMeasurementPathTests`, `FrozenPeakRecalculation_OffsetRemappingTests`, `FrozenPeakRecalculation_OverrideRemappingTests`, `FrozenPeakRecalculation_SelectionCarryForwardTests`, `FrozenPeakRecalculation_EmptyPeaksGuardTests`, `FrozenPeakRecalculation_LiveTapPathTests` | PR1–PR7 | ✅ Implemented |
 
 ### 2.5 Prioritised backlog
 
