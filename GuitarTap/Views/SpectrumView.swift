@@ -175,8 +175,8 @@ struct SpectrumView: View {
     var hasLabelsToReset: Bool = false
 
     /// When true the cursor/crosshair snaps to the nearest waveform point instead of floating freely.
-    /// Should be set to true when the spectrum is frozen (post-tap capture).
-    var isSpectrumFrozen: Bool = false
+    /// Should be set to true when a measurement is complete (post-tap capture).
+    var isMeasurementComplete: Bool = false
 
     /// Color of the primary (single) spectrum line. Used to tint the cursor readout label
     /// so it matches the waveform. Only relevant when `materialSpectra` is empty.

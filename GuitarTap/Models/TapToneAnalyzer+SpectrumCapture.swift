@@ -492,9 +492,6 @@ extension TapToneAnalyzer {
         selectedLongitudinalPeak = longitudinalPeaks.first(where: { $0.id == dominantPeak.id }) ?? dominantPeak
         print("🔵 Auto-selected longitudinal peak: \(dominantPeak.frequency) Hz")
 
-        frozenFrequencies = avgFreqs
-        frozenMagnitudes  = avgMags
-        isSpectrumFrozen  = true
         currentPeaks      = longitudinalPeaks
         selectedPeakIDs   = Set(longitudinalPeaks.map { $0.id })
         materialCapturedTaps = []
@@ -506,8 +503,9 @@ extension TapToneAnalyzer {
             } else {
                 currentPeaks = [dominantPeak]
             }
-            isSpectrumFrozen = false; frozenFrequencies = []; frozenMagnitudes = []
+            frozenFrequencies = []; frozenMagnitudes = []
             materialTapPhase = .complete
+            isMeasurementComplete = true
             tapProgress = 1.0
             statusMessage = "Complete - check Results"
             print("✅ Brace measurement complete: fL=\(dominantPeak.frequency) Hz")
@@ -519,7 +517,7 @@ extension TapToneAnalyzer {
                 self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
                 self.isDetecting = true; self.tapDetected = false
                 self.materialTapPhase = .capturingCross
-                self.isSpectrumFrozen = false; self.frozenFrequencies = []; self.frozenMagnitudes = []
+                self.frozenFrequencies = []; self.frozenMagnitudes = []
                 self.analyzerStartTime = Date()
             }
         }
@@ -559,7 +557,7 @@ extension TapToneAnalyzer {
 
         if TapDisplaySettings.measureFlc {
             currentPeaks = combinePlatePeaks()
-            frozenFrequencies = avgFreqs; frozenMagnitudes = avgMags; isSpectrumFrozen = true
+            frozenFrequencies = []; frozenMagnitudes = []
             materialTapPhase = .waitingForFlcTap
             statusMessage = "fC: \(String(format: "%.1f", dominantPeak.frequency)) Hz — set up for FLC tap"
             DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
@@ -567,7 +565,7 @@ extension TapToneAnalyzer {
                 self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
                 self.isDetecting = true; self.tapDetected = false
                 self.materialTapPhase = .capturingFlc
-                self.isSpectrumFrozen = false; self.frozenFrequencies = []; self.frozenMagnitudes = []
+                self.frozenFrequencies = []; self.frozenMagnitudes = []
                 self.analyzerStartTime = Date()
             }
         } else {
@@ -577,8 +575,8 @@ extension TapToneAnalyzer {
             sel.append(selectedCrossPeak ?? dominantPeak)
             currentPeaks = sel
             selectedPeakIDs = Set(sel.map { $0.id })
-            isSpectrumFrozen = false; frozenFrequencies = []; frozenMagnitudes = []
-            materialTapPhase = .complete; tapProgress = 1.0
+            frozenFrequencies = []; frozenMagnitudes = []
+            materialTapPhase = .complete; isMeasurementComplete = true; tapProgress = 1.0
             let fLStr = selectedLongitudinalPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
             statusMessage = "Complete — fL: \(fLStr) Hz, fC: \(String(format: "%.1f", dominantPeak.frequency)) Hz"
             print("✅ Plate complete: fL=\(fLStr) Hz, fC=\(dominantPeak.frequency) Hz")
@@ -624,8 +622,8 @@ extension TapToneAnalyzer {
         sel.append(selectedFlcPeak ?? dominantPeak)
         currentPeaks = sel
         selectedPeakIDs = Set(sel.map { $0.id })
-        isSpectrumFrozen = false; frozenFrequencies = []; frozenMagnitudes = []
-        materialTapPhase = .complete; tapProgress = 1.0
+        frozenFrequencies = []; frozenMagnitudes = []
+        materialTapPhase = .complete; isMeasurementComplete = true; tapProgress = 1.0
         statusMessage = "Complete - check Results"
         print("✅ Plate complete: L=\(longitudinalPeaks.first?.frequency ?? 0) C=\(crossPeaks.first?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
     }
@@ -758,11 +756,11 @@ extension TapToneAnalyzer {
         // Average the per-tap magnitude spectra in the frequency domain
         let (avgMagnitudes, avgFrequencies) = averageSpectra(from: capturedTaps)
         
-        // Freeze the averaged spectrum for display
+        // Store the averaged spectrum for display and peak recalculation
         frozenFrequencies = avgFrequencies
         frozenMagnitudes = avgMagnitudes
-        isSpectrumFrozen = true
-        print("📸 Spectrum frozen with averaged data from \(capturedTaps.count) taps")
+        isMeasurementComplete = true
+        print("📸 Guitar spectrum captured from \(capturedTaps.count) averaged taps")
         
         // Find peaks in the AVERAGED spectrum so they align with what's displayed.
         // This ensures peak markers sit on actual peaks in the averaged waveform.

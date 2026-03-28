@@ -411,10 +411,6 @@ extension TapToneAnalyzer {
 
             }
             
-            // Freeze averaged spectrum
-            frozenFrequencies = avgFreqs
-            frozenMagnitudes = avgMags
-            isSpectrumFrozen = true
             currentPeaks = longitudinalPeaks
             
             materialCapturedTaps = []
@@ -431,11 +427,10 @@ extension TapToneAnalyzer {
                 } else {
                     currentPeaks = []
                 }
-                // Clear frozen spectrum — display uses per-phase spectra directly
-                isSpectrumFrozen = false
                 frozenFrequencies = []
                 frozenMagnitudes = []
                 materialTapPhase = .complete
+                isMeasurementComplete = true
                 tapProgress = 1.0
                 let avgNote = total > 1 ? " (\(total) taps averaged)" : ""
                 statusMessage = "Complete\(avgNote) - check Results"
@@ -455,7 +450,6 @@ extension TapToneAnalyzer {
                     self.isDetecting = true
                     self.tapDetected = false
                     self.materialTapPhase = .capturingCross
-                    self.isSpectrumFrozen = false
                     self.frozenFrequencies = []
                     self.frozenMagnitudes = []
                     self.analyzerStartTime = Date()
@@ -522,10 +516,8 @@ extension TapToneAnalyzer {
             if measureFlc {
                 // Move to FLC phase
                 currentPeaks = combinePlatePeaks()
-                frozenFrequencies = avgFreqs
-                frozenMagnitudes = avgMags
-                isSpectrumFrozen = true
-                
+                frozenFrequencies = []
+                frozenMagnitudes = []
                 materialTapPhase = .waitingForFlcTap
                 let avgNote = total > 1 ? " (\(total) taps averaged)" : ""
                 statusMessage = "C captured\(avgNote) - set up for FLC tap"
@@ -538,7 +530,6 @@ extension TapToneAnalyzer {
                     self.isDetecting = true
                     self.tapDetected = false
                     self.materialTapPhase = .capturingFlc
-                    self.isSpectrumFrozen = false
                     self.frozenFrequencies = []
                     self.frozenMagnitudes = []
                     self.analyzerStartTime = Date()
@@ -555,11 +546,10 @@ extension TapToneAnalyzer {
                    let p = crossPeaks.first(where: { $0.id == selID }) { selectedPeaks.append(p) }
                 else if let p = crossPeaks.first { selectedPeaks.append(p) }
                 currentPeaks = selectedPeaks
-                // Clear frozen spectrum — display uses per-phase spectra directly
-                isSpectrumFrozen = false
                 frozenFrequencies = []
                 frozenMagnitudes = []
                 materialTapPhase = .complete
+                isMeasurementComplete = true
                 tapProgress = 1.0
                 let avgNote = total > 1 ? " (\(total) taps averaged each)" : ""
                 statusMessage = "Complete\(avgNote) - check Results"
@@ -628,11 +618,10 @@ extension TapToneAnalyzer {
                let p = flcPeaks.first(where: { $0.id == selID }) { selectedPeaks.append(p) }
             else if let p = flcPeaks.first { selectedPeaks.append(p) }
             currentPeaks = selectedPeaks
-            // Clear frozen spectrum — display uses per-phase spectra directly
-            isSpectrumFrozen = false
             frozenFrequencies = []
             frozenMagnitudes = []
             materialTapPhase = .complete
+            isMeasurementComplete = true
             tapProgress = 1.0
             let avgNote = total > 1 ? " (\(total) taps averaged each)" : ""
             statusMessage = "Complete\(avgNote) - check Results"

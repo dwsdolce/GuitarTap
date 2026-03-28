@@ -154,8 +154,8 @@ extension TapToneAnalysisView {
     func createExportableSpectrumView() -> some View {
         let isComparing = !tap.comparisonSpectra.isEmpty
         return makeExportableSpectrumView(
-            frequencies: tap.isSpectrumFrozen ? tap.frozenFrequencies : fft.frequencies,
-            magnitudes: tap.isSpectrumFrozen ? tap.frozenMagnitudes : fft.magnitudes,
+            frequencies: tap.isMeasurementComplete ? tap.frozenFrequencies : fft.frequencies,
+            magnitudes: tap.isMeasurementComplete ? tap.frozenMagnitudes : fft.magnitudes,
             minFreq: minFreq,
             maxFreq: maxFreq,
             minDB: minDB,

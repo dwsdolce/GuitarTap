@@ -173,8 +173,8 @@ extension TapToneAnalyzer {
         let snapshot: SpectrumSnapshot?
         if includeSpectrum && measurementType.isGuitar {
             snapshot = spectrumSnapshot ?? SpectrumSnapshot(
-                frequencies: isSpectrumFrozen ? frozenFrequencies : fftAnalyzer.frequencies,
-                magnitudes: isSpectrumFrozen ? frozenMagnitudes : fftAnalyzer.magnitudes,
+                frequencies: isMeasurementComplete ? frozenFrequencies : fftAnalyzer.frequencies,
+                magnitudes: isMeasurementComplete ? frozenMagnitudes : fftAnalyzer.magnitudes,
                 minFreq: TapDisplaySettings.minFrequency,
                 maxFreq: TapDisplaySettings.maxFrequency,
                 minDB: TapDisplaySettings.minMagnitude,
@@ -229,8 +229,13 @@ extension TapToneAnalyzer {
     ///
     /// - Parameter measurement: The ``TapToneMeasurement`` to delete.
     func deleteMeasurement(_ measurement: TapToneMeasurement) {
-        savedMeasurements.removeAll(where: { $0.id == measurement.id })
-        
+        // Remove only the first occurrence matching this id. Using firstIndex rather than
+        // removeAll ensures that if the same file was imported twice (producing two entries
+        // with identical ids) only the intended entry is deleted.
+        if let index = savedMeasurements.firstIndex(where: { $0.id == measurement.id }) {
+            savedMeasurements.remove(at: index)
+        }
+
         // Persist to disk
         persistMeasurements()
     }
@@ -348,16 +353,15 @@ extension TapToneAnalyzer {
         // For plate/brace: use per-phase spectra for display (no frozen spectrum needed).
         // For guitar: restore the single frozen spectrum as before.
         if hasMaterialSpectra {
-            isSpectrumFrozen = false
             frozenFrequencies = []
             frozenMagnitudes = []
             materialTapPhase = .complete
         } else if let snapshot = measurement.spectrumSnapshot {
             frozenFrequencies = snapshot.frequencies
             frozenMagnitudes = snapshot.magnitudes
-            isSpectrumFrozen = true
         } else {
-            isSpectrumFrozen = true
+            frozenFrequencies = []
+            frozenMagnitudes = []
         }
         
         // Restore display settings from any available snapshot (prefer longitudinal for plate/brace)
@@ -465,6 +469,7 @@ extension TapToneAnalyzer {
         // with fresh live-audio peaks on every FFT frame.
         isDetecting = false
         isDetectionPaused = false
+        isMeasurementComplete = true
         currentTapCount = 0
         tapProgress = 0.0
         statusMessage = "Loaded measurement (frozen). Press 'Resume' or 'New Tap' to continue."

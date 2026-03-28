@@ -430,12 +430,12 @@ extension TapToneAnalysisView {
             } else {
                 // Normal tap detection state
                 Circle()
-                    .fill(tap.isSpectrumFrozen ? Color.green : Color.gray.opacity(0.3))
+                    .fill(tap.isMeasurementComplete ? Color.green : Color.gray.opacity(0.3))
                     .frame(width: 10, height: 10)
 
-                Text(tap.isSpectrumFrozen ? "Tap Detected!" : "Waiting for tap...")
+                Text(tap.isMeasurementComplete ? "Tap Detected!" : "Waiting for tap...")
                     .font(.caption)
-                    .foregroundColor(tap.isSpectrumFrozen ? .green : .secondary)
+                    .foregroundColor(tap.isMeasurementComplete ? .green : .secondary)
                     .lineLimit(1)
 
                 Text("\(tap.averageMagnitude, specifier: "%.0f")dB")
@@ -464,7 +464,7 @@ extension TapToneAnalysisView {
                         .lineLimit(1)
                 }
 
-                if tap.isSpectrumFrozen {
+                if tap.isMeasurementComplete {
                     Image(systemName: "pause.circle.fill")
                         .foregroundColor(.orange)
                         .font(.caption)
@@ -510,12 +510,12 @@ extension TapToneAnalysisView {
 
                 HStack(spacing: 12) {
                     Circle()
-                        .fill(tap.isSpectrumFrozen ? Color.green : Color.gray.opacity(0.3))
+                        .fill(tap.isMeasurementComplete ? Color.green : Color.gray.opacity(0.3))
                         .frame(width: 10, height: 10)
 
-                    Text(tap.isSpectrumFrozen ? "Tap Detected!" : "Waiting for tap...")
+                    Text(tap.isMeasurementComplete ? "Tap Detected!" : "Waiting for tap...")
                         .font(.subheadline)
-                        .foregroundColor(tap.isSpectrumFrozen ? .green : .secondary)
+                        .foregroundColor(tap.isMeasurementComplete ? .green : .secondary)
 
                     Text("•")
                         .foregroundColor(.secondary)
@@ -526,11 +526,11 @@ extension TapToneAnalysisView {
 
                     Spacer()
 
-                    if tap.isSpectrumFrozen {
+                    if tap.isMeasurementComplete {
                         HStack(spacing: 4) {
                             Image(systemName: "pause.circle.fill")
                                 .foregroundColor(.orange)
-                            Text("Frozen")
+                            Text("Complete")
                                 .font(.caption)
                                 .foregroundColor(.orange)
                         }

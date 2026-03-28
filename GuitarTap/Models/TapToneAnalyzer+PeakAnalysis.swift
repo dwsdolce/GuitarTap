@@ -90,9 +90,9 @@ extension TapToneAnalyzer {
         }
         
         // Analyze peaks if detection is enabled, paused (spectrum stays live), or in capture window.
-        // Do not overwrite currentPeaks after a plate/brace measurement is complete —
-        // those peaks are the final selected L/C/FLC peaks and must not be replaced by live audio.
-        if (isDetecting || isDetectionPaused || captureTimer != nil) && materialTapPhase != .complete {
+        // Do not overwrite currentPeaks once a measurement is complete — for guitar that means the
+        // frozen averaged spectrum peaks; for plate/brace the final L/C/FLC peaks.
+        if (isDetecting || isDetectionPaused || captureTimer != nil) && !isMeasurementComplete {
             // Find peaks in spectrum
             let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
             currentPeaks = peaks
@@ -134,7 +134,7 @@ extension TapToneAnalyzer {
         // When loadedMeasurementPeaks is set, filter those peaks by the current
         // threshold instead of re-analyzing the spectrum.
         guard !isLoadingMeasurement else { return }
-        guard isSpectrumFrozen,
+        guard isMeasurementComplete,
               !frozenFrequencies.isEmpty,
               !frozenMagnitudes.isEmpty else { return }
 

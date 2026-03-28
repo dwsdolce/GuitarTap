@@ -14,7 +14,7 @@
 /// ``start()`` auto-starts a tap sequence only on the **first user-initiated launch** — not
 /// on engine restarts triggered by device/route changes.  The guard condition checks that:
 /// - no sequence is already active (`!isDetecting`)
-/// - the spectrum is not frozen (`!isSpectrumFrozen`)
+/// - no measurement is complete (`!isMeasurementComplete`)
 /// - detection is not paused (`!isDetectionPaused`)
 /// - no taps have been counted yet (`currentTapCount == 0`)
 ///
@@ -51,11 +51,7 @@ extension TapToneAnalyzer {
         // Evaluate the auto-start guard after pending state changes have settled.
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            // For guitar measurements isSpectrumFrozen signals a loaded state.
-            // For plate/brace measurements, materialTapPhase == .complete signals a loaded state
-            // (their spectra are stored per-phase so isSpectrumFrozen is intentionally false).
-            let hasLoadedMeasurement = self.isSpectrumFrozen || self.materialTapPhase == .complete
-            if !self.isDetecting && !hasLoadedMeasurement && !self.isDetectionPaused
+            if !self.isDetecting && !self.isMeasurementComplete && !self.isDetectionPaused
                 && self.currentTapCount == 0 {
                 self.startTapSequence()
             }
@@ -104,10 +100,10 @@ extension TapToneAnalyzer {
             self.decayTrackingTimer?.invalidate()
             self.decayTrackingTimer = nil
 
-            // Unfreeze the spectrum so the live FFT is shown.
-            self.isSpectrumFrozen    = false
+            // Clear frozen spectrum data.
             self.frozenFrequencies   = []
             self.frozenMagnitudes    = []
+            self.isMeasurementComplete = false
 
             // Clear annotation label offsets.
             self.peakAnnotationOffsets = [:]
@@ -165,6 +161,7 @@ extension TapToneAnalyzer {
 
             // Starting a new tap always clears any active comparison overlay.
             self.comparisonSpectra = []
+            self.isMeasurementComplete = false
 
             // Clear per-sequence accumulated data.
             self.capturedTaps        = []
@@ -226,8 +223,7 @@ extension TapToneAnalyzer {
             // Reset the warm-up timer for this new sequence.
             self.analyzerStartTime = Date()
 
-            // Unfreeze the spectrum so the live FFT is shown while waiting for taps.
-            self.isSpectrumFrozen  = false
+            // Clear frozen spectrum data so the live FFT is shown while waiting for taps.
             self.frozenFrequencies = []
             self.frozenMagnitudes  = []
 
@@ -363,8 +359,7 @@ extension TapToneAnalyzer {
             self.decayTrackingTimer?.invalidate()
             self.decayTrackingTimer = nil
 
-            // Unfreeze the spectrum.
-            self.isSpectrumFrozen  = false
+            // Clear frozen spectrum data.
             self.frozenFrequencies = []
             self.frozenMagnitudes  = []
 

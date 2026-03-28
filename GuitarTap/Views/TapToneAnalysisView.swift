@@ -520,11 +520,11 @@ struct TapToneAnalysisView: View {
                 }
             }
         }
-        .onChange(of: tapToneAnalyzer.isSpectrumFrozen) { _, isFrozen in
-            // Disable auto-scale when spectrum is frozen (tap detected)
-            if isFrozen && isAutoScaleEnabled {
+        .onChange(of: tapToneAnalyzer.isMeasurementComplete) { _, isComplete in
+            // Disable auto-scale when measurement is complete (tap detected)
+            if isComplete && isAutoScaleEnabled {
                 isAutoScaleEnabled = false
-                print("🔄 Auto-scale dB disabled - tap detected, spectrum frozen")
+                print("🔄 Auto-scale dB disabled - measurement complete")
             }
         }
         .onAppear {

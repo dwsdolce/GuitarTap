@@ -152,12 +152,12 @@ extension SpectrumView {
 
     /// Converts a raw screen location into a `CursorSnapState`.
     ///
-    /// Behaviour depends on `isSpectrumFrozen` and `materialSpectra`:
+    /// Behaviour depends on `isMeasurementComplete` and `materialSpectra`:
     ///
-    /// - **Live spectrum** (`isSpectrumFrozen == false` and no material spectra):
+    /// - **Live spectrum** (`isMeasurementComplete == false` and no material spectra):
     ///   Returns the raw data-coordinate position with no series lock
     ///   (free-floating cursor readout).
-    /// - **Frozen spectrum** or **plate/brace multi-phase** display:
+    /// - **Measurement complete** or **plate/brace multi-phase** display:
     ///   Runs `nearestSeriesIndex` to select the nearest curve, then
     ///   calls `snapToWaveform` on that series to obtain an interpolated
     ///   `(frequency, magnitude)` pair.  Updates `lockedSeriesIndex` in place.
@@ -181,8 +181,8 @@ extension SpectrumView {
         guard let rawFreq = proxy.value(atX: plotLocal.x, as: Double.self),
               let rawDB   = proxy.value(atY: plotLocal.y, as: Double.self) else { return nil }
 
-        // Snap when the spectrum is frozen (guitar) or when plate/brace spectra are loaded
-        guard isSpectrumFrozen || !materialSpectra.isEmpty else {
+        // Snap when measurement is complete (guitar or plate/brace) or when phase spectra are loaded
+        guard isMeasurementComplete || !materialSpectra.isEmpty else {
             return CursorSnapState(frequency: rawFreq, magnitude: rawDB,
                                    seriesIndex: nil, curveColor: primaryCurveColor)
         }

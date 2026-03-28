@@ -275,15 +275,12 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Frequencies of the frozen (post-tap-sequence) spectrum, in Hz.
     ///
-    /// Populated when `isSpectrumFrozen` becomes `true`.
+    /// Populated for guitar measurements when `isMeasurementComplete` becomes `true`.
+    /// Not used for plate/brace measurements (per-phase spectra are stored separately).
     @Published var frozenFrequencies: [Float] = []
 
     /// Magnitudes of the frozen (post-tap-sequence) spectrum, in dBFS.
     @Published var frozenMagnitudes: [Float] = []
-
-    /// `true` when the spectrum chart should display the frozen post-sequence data
-    /// rather than the live FFT stream.
-    @Published var isSpectrumFrozen: Bool = false
 
     // MARK: - Published Annotation & Selection State
 
@@ -441,6 +438,14 @@ final class TapToneAnalyzer: ObservableObject {
     /// Progresses from `.notStarted` through `.capturingLongitudinal`, `.waitingForCrossTap`,
     /// `.capturingCross` (and optionally FLC phases) to `.complete`.
     @Published var materialTapPhase: MaterialTapPhase = .notStarted
+
+    /// `true` when a measurement is complete and ready for review — whether it is a guitar
+    /// measurement (frozen spectrum) or a plate/brace measurement (`materialTapPhase == .complete`).
+    ///
+    /// Used as a unified guard to prevent auto-starting a new tap sequence when the analyzer
+    /// engine restarts (e.g. after an AirDrop or returning from background).  Cleared by
+    /// `reset()`, `startTapSequence()`, and `newMeasurement()`.
+    @Published var isMeasurementComplete: Bool = false
 
     /// Averaged FFT spectrum from the longitudinal (along-grain) tap, once captured.
     ///

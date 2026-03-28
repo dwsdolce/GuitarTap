@@ -51,11 +51,11 @@ extension TapToneAnalysisView {
 
     // Computed properties to explicitly depend on @Published properties
     var displayFrequencies: [Float] {
-        tap.isSpectrumFrozen ? tap.frozenFrequencies : fft.frequencies
+        tap.isMeasurementComplete ? tap.frozenFrequencies : fft.frequencies
     }
 
     var displayMagnitudes: [Float] {
-        tap.isSpectrumFrozen ? tap.frozenMagnitudes : fft.magnitudes
+        tap.isMeasurementComplete ? tap.frozenMagnitudes : fft.magnitudes
     }
 
     /// Per-phase spectra for plate/brace measurements, plus any active comparison overlays.
@@ -161,7 +161,7 @@ extension TapToneAnalysisView {
                         tapToneAnalyzer.resetAllAnnotationOffsets()
                     },
                     hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
-                    isSpectrumFrozen: tap.isSpectrumFrozen,
+                    isMeasurementComplete: tap.isMeasurementComplete,
                     primaryCurveColor: .red,
                     measurementType: TapDisplaySettings.measurementType,
                     selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
@@ -191,7 +191,7 @@ extension TapToneAnalysisView {
                         tapToneAnalyzer.resetAllAnnotationOffsets()
                     },
                     hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
-                    isSpectrumFrozen: tap.isSpectrumFrozen,
+                    isMeasurementComplete: tap.isMeasurementComplete,
                     primaryCurveColor: .red,
                     measurementType: TapDisplaySettings.measurementType,
                     selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
@@ -205,7 +205,7 @@ extension TapToneAnalysisView {
                 #endif
             }
             // Force view to update when any relevant state changes
-            .id("\(tap.isSpectrumFrozen)-\(fft.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
+            .id("\(tap.isMeasurementComplete)-\(fft.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
             .frame(minHeight: 200, maxHeight: .infinity)
             #if os(iOS)
             .padding(isPhoneLandscape ? .horizontal : .all)

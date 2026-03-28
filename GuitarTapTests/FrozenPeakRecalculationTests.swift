@@ -38,9 +38,9 @@ private func makePeak(frequency: Float, magnitude: Float = -20) -> ResonantPeak 
 }
 
 /// Freeze the SUT with an already-computed peak set (bypasses live audio).
-/// Sets isSpectrumFrozen, minimal frozen data, and currentPeaks.
+/// Sets isMeasurementComplete, minimal frozen data, and currentPeaks.
 private func freeze(_ sut: TapToneAnalyzer, peaks: [ResonantPeak]) {
-    sut.isSpectrumFrozen = true
+    sut.isMeasurementComplete = true
     // Provide non-empty frozen arrays so the guard passes.
     sut.frozenFrequencies = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
     sut.frozenMagnitudes  = [Float](repeating: -100, count: 11)
@@ -331,7 +331,7 @@ struct FrozenPeakRecalculation_EmptyPeaksGuardTests {
         // Build a genuinely flat frozen spectrum (all bins at noise floor).
         let binCount = 512
         let binWidth = Float(24000) / Float(binCount - 1)
-        sut.isSpectrumFrozen = true
+        sut.isMeasurementComplete = true
         sut.frozenFrequencies = (0..<binCount).map { Float($0) * binWidth }
         sut.frozenMagnitudes  = [Float](repeating: -100, count: binCount)
         sut.minFrequency = 50
@@ -392,7 +392,7 @@ struct FrozenPeakRecalculation_LiveTapPathTests {
             let d = f - peakHz
             mags[i] = max(-100, -20 + (-d * d / (2 * sigma * sigma)))
         }
-        sut.isSpectrumFrozen = true
+        sut.isMeasurementComplete = true
         sut.frozenFrequencies = freqs
         sut.frozenMagnitudes  = mags
 
