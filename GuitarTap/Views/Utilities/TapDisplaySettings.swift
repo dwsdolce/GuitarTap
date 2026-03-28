@@ -5,7 +5,7 @@
 ///
 /// ## Overview
 ///
-/// All settings are persisted to `UserDefaults.standard` via static computed
+/// All settings are persisted to `defaults` via static computed
 /// properties on the `TapDisplaySettings` struct.  No `ObservableObject` is
 /// involved; views read settings at construction time and re-read them when
 /// the user changes a value through the settings UI.
@@ -52,7 +52,7 @@ import Foundation
 ///
 /// `TapDisplaySettings` is a namespace of static properties; it is never
 /// instantiated.  Every property is a computed `static var` that reads from
-/// and writes to `UserDefaults.standard` using a private key constant.
+/// and writes to `defaults` using a private key constant.
 ///
 /// Settings are grouped by function:
 /// - **Measurement type** — which kind of analysis is active.
@@ -66,6 +66,16 @@ import Foundation
 ///
 /// - SeeAlso: `TapSettingsView`, `TapToneAnalyzer`, `SpectrumView`
 struct TapDisplaySettings {
+
+    // MARK: - UserDefaults Instance
+    //
+    // All reads and writes go through this property. In production it points to
+    // defaults. Tests can redirect it to an isolated named suite so
+    // they never touch real user data:
+    //
+    //   TapDisplaySettings.defaults = UserDefaults(suiteName: "com.guitartap.tests")!
+    //
+    static var defaults: UserDefaults = UserDefaults.standard
 
     // MARK: - UserDefaults Keys
 
@@ -119,14 +129,14 @@ struct TapDisplaySettings {
     /// The currently selected measurement type (persisted in UserDefaults)
     static var measurementType: MeasurementType {
         get {
-            if let rawValue = UserDefaults.standard.string(forKey: measurementTypeKey),
+            if let rawValue = defaults.string(forKey: measurementTypeKey),
                let type = MeasurementType(rawValue: rawValue) {
                 return type
             }
             return .acoustic  // Default to steel-string guitar
         }
         set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: measurementTypeKey)
+            defaults.set(newValue.rawValue, forKey: measurementTypeKey)
         }
     }
     
@@ -141,14 +151,14 @@ struct TapDisplaySettings {
                 return type
             }
             // Fall back to stored guitarType for backward compatibility
-            if let rawValue = UserDefaults.standard.string(forKey: guitarTypeKey),
+            if let rawValue = defaults.string(forKey: guitarTypeKey),
                let type = GuitarType(rawValue: rawValue) {
                 return type
             }
             return .acoustic  // Default to steel-string
         }
         set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: guitarTypeKey)
+            defaults.set(newValue.rawValue, forKey: guitarTypeKey)
             // Also update measurementType
             measurementType = MeasurementType.from(newValue)
         }
@@ -159,44 +169,44 @@ struct TapDisplaySettings {
     /// Plate length in mm (along grain direction)
     static var plateLength: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: plateLengthKey)
+            let value = defaults.float(forKey: plateLengthKey)
             return value > 0 ? value : 500.0  // Default 500mm
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: plateLengthKey)
+            defaults.set(newValue, forKey: plateLengthKey)
         }
     }
     
     /// Plate width in mm (cross grain direction)
     static var plateWidth: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: plateWidthKey)
+            let value = defaults.float(forKey: plateWidthKey)
             return value > 0 ? value : 200.0  // Default 200mm
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: plateWidthKey)
+            defaults.set(newValue, forKey: plateWidthKey)
         }
     }
     
     /// Plate thickness in mm
     static var plateThickness: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: plateThicknessKey)
+            let value = defaults.float(forKey: plateThicknessKey)
             return value > 0 ? value : 3.0  // Default 3mm
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: plateThicknessKey)
+            defaults.set(newValue, forKey: plateThicknessKey)
         }
     }
     
     /// Plate mass in grams
     static var plateMass: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: plateMassKey)
+            let value = defaults.float(forKey: plateMassKey)
             return value > 0 ? value : 100.0  // Default 100g
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: plateMassKey)
+            defaults.set(newValue, forKey: plateMassKey)
         }
     }
 
@@ -205,47 +215,47 @@ struct TapDisplaySettings {
     /// Guitar body length (neck join to tail, finished dimensions) in mm
     static var guitarBodyLength: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: guitarBodyLengthKey)
+            let value = defaults.float(forKey: guitarBodyLengthKey)
             return value > 0 ? value : 490.0  // Default 490mm
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: guitarBodyLengthKey)
+            defaults.set(newValue, forKey: guitarBodyLengthKey)
         }
     }
 
     /// Guitar lower bout width (finished dimensions) in mm
     static var guitarBodyWidth: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: guitarBodyWidthKey)
+            let value = defaults.float(forKey: guitarBodyWidthKey)
             return value > 0 ? value : 390.0  // Default 390mm
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: guitarBodyWidthKey)
+            defaults.set(newValue, forKey: guitarBodyWidthKey)
         }
     }
 
     /// Selected plate vibrational stiffness preset
     static var plateStiffnessPreset: PlateStiffnessPreset {
         get {
-            if let raw = UserDefaults.standard.string(forKey: plateStiffnessPresetKey),
+            if let raw = defaults.string(forKey: plateStiffnessPresetKey),
                let preset = PlateStiffnessPreset(rawValue: raw) {
                 return preset
             }
             return .steelStringTop
         }
         set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: plateStiffnessPresetKey)
+            defaults.set(newValue.rawValue, forKey: plateStiffnessPresetKey)
         }
     }
 
     /// Custom plate vibrational stiffness value (used when preset is .custom)
     static var customPlateStiffness: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: customPlateStiffnessKey)
+            let value = defaults.float(forKey: customPlateStiffnessKey)
             return value > 0 ? value : 75.0
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: customPlateStiffnessKey)
+            defaults.set(newValue, forKey: customPlateStiffnessKey)
         }
     }
 
@@ -260,38 +270,38 @@ struct TapDisplaySettings {
     /// Brace length in mm (along grain direction)
     static var braceLength: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: braceLengthKey)
+            let value = defaults.float(forKey: braceLengthKey)
             return value > 0 ? value : 300.0  // Default 300mm
         }
-        set { UserDefaults.standard.set(newValue, forKey: braceLengthKey) }
+        set { defaults.set(newValue, forKey: braceLengthKey) }
     }
     
     /// Brace width in mm (across grain — the narrow horizontal cross-section when lying flat)
     static var braceWidth: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: braceWidthKey)
+            let value = defaults.float(forKey: braceWidthKey)
             return value > 0 ? value : 6.0  // Default 6mm
         }
-        set { UserDefaults.standard.set(newValue, forKey: braceWidthKey) }
+        set { defaults.set(newValue, forKey: braceWidthKey) }
     }
     
     /// Brace height in mm — the vertical cross-section dimension when the brace lies flat.
     /// This is the dimension in the bending/vibration direction (t in the formula).
     static var braceThickness: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: braceThicknessKey)
+            let value = defaults.float(forKey: braceThicknessKey)
             return value > 0 ? value : 12.0  // Default 12mm
         }
-        set { UserDefaults.standard.set(newValue, forKey: braceThicknessKey) }
+        set { defaults.set(newValue, forKey: braceThicknessKey) }
     }
     
     /// Brace mass in grams
     static var braceMass: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: braceMassKey)
+            let value = defaults.float(forKey: braceMassKey)
             return value > 0 ? value : 8.0  // Default 8g
         }
-        set { UserDefaults.standard.set(newValue, forKey: braceMassKey) }
+        set { defaults.set(newValue, forKey: braceMassKey) }
     }
     
     // MARK: - Unknown Mode Display Setting
@@ -300,13 +310,13 @@ struct TapDisplaySettings {
     static var showUnknownModes: Bool {
         get {
             // Default to true (show unknown modes)
-            if UserDefaults.standard.object(forKey: showUnknownModesKey) == nil {
+            if defaults.object(forKey: showUnknownModesKey) == nil {
                 return true
             }
-            return UserDefaults.standard.bool(forKey: showUnknownModesKey)
+            return defaults.bool(forKey: showUnknownModesKey)
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: showUnknownModesKey)
+            defaults.set(newValue, forKey: showUnknownModesKey)
         }
     }
     
@@ -317,14 +327,14 @@ struct TapDisplaySettings {
     /// Defaults to `.selected` on first launch.
     static var annotationVisibilityMode: AnnotationVisibilityMode {
         get {
-            if let raw = UserDefaults.standard.string(forKey: annotationVisibilityModeKey),
+            if let raw = defaults.string(forKey: annotationVisibilityModeKey),
                let mode = AnnotationVisibilityMode(rawValue: raw) {
                 return mode
             }
             return .selected
         }
         set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: annotationVisibilityModeKey)
+            defaults.set(newValue.rawValue, forKey: annotationVisibilityModeKey)
         }
     }
 
@@ -376,33 +386,33 @@ struct TapDisplaySettings {
     /// Persisted minimum frequency for display for a specific measurement type (Hz)
     static func minFrequency(for type: MeasurementType) -> Float {
         let key = displayMinFreqKey(for: type)
-        let value = UserDefaults.standard.float(forKey: key)
+        let value = defaults.float(forKey: key)
         if value != 0 { return value }
         // Migrate legacy single-key value if present
-        let legacy = UserDefaults.standard.float(forKey: displayMinFreqKey)
+        let legacy = defaults.float(forKey: displayMinFreqKey)
         return legacy != 0 ? legacy : defaultMinFrequency(for: type)
     }
     
     static func setMinFrequency(_ value: Float, for type: MeasurementType) {
-        UserDefaults.standard.set(value, forKey: displayMinFreqKey(for: type))
+        defaults.set(value, forKey: displayMinFreqKey(for: type))
     }
     
     /// Persisted maximum frequency for display for a specific measurement type (Hz)
     static func maxFrequency(for type: MeasurementType) -> Float {
         let key = displayMaxFreqKey(for: type)
-        let value = UserDefaults.standard.float(forKey: key)
+        let value = defaults.float(forKey: key)
         if value != 0 { return value }
         // Migrate legacy single-key value if present, but only for non-brace types
         // (brace has a different default and shouldn't inherit an old guitar setting)
         if type != .brace {
-            let legacy = UserDefaults.standard.float(forKey: displayMaxFreqKey)
+            let legacy = defaults.float(forKey: displayMaxFreqKey)
             if legacy != 0 { return legacy }
         }
         return defaultMaxFrequency(for: type)
     }
     
     static func setMaxFrequency(_ value: Float, for type: MeasurementType) {
-        UserDefaults.standard.set(value, forKey: displayMaxFreqKey(for: type))
+        defaults.set(value, forKey: displayMaxFreqKey(for: type))
     }
     
     /// Persisted minimum frequency for display using the current measurement type (Hz)
@@ -421,13 +431,13 @@ struct TapDisplaySettings {
     static var minMagnitude: Float {
         get {
             // Use object check since 0 is a valid value for dB
-            if UserDefaults.standard.object(forKey: displayMinDBKey) == nil {
+            if defaults.object(forKey: displayMinDBKey) == nil {
                 return defaultMinMagnitude
             }
-            return UserDefaults.standard.float(forKey: displayMinDBKey)
+            return defaults.float(forKey: displayMinDBKey)
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: displayMinDBKey)
+            defaults.set(newValue, forKey: displayMinDBKey)
         }
     }
     
@@ -435,13 +445,13 @@ struct TapDisplaySettings {
     static var maxMagnitude: Float {
         get {
             // Use object check since 0 is a valid value for dB
-            if UserDefaults.standard.object(forKey: displayMaxDBKey) == nil {
+            if defaults.object(forKey: displayMaxDBKey) == nil {
                 return defaultMaxMagnitude
             }
-            return UserDefaults.standard.float(forKey: displayMaxDBKey)
+            return defaults.float(forKey: displayMaxDBKey)
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: displayMaxDBKey)
+            defaults.set(newValue, forKey: displayMaxDBKey)
         }
     }
     
@@ -462,22 +472,22 @@ struct TapDisplaySettings {
     /// Persisted minimum frequency for analysis (Hz)
     static var analysisMinFrequency: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: analysisMinFreqKey)
+            let value = defaults.float(forKey: analysisMinFreqKey)
             return value != 0 ? value : defaultAnalysisMinFrequency
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: analysisMinFreqKey)
+            defaults.set(newValue, forKey: analysisMinFreqKey)
         }
     }
     
     /// Persisted maximum frequency for analysis (Hz)
     static var analysisMaxFrequency: Float {
         get {
-            let value = UserDefaults.standard.float(forKey: analysisMaxFreqKey)
+            let value = defaults.float(forKey: analysisMaxFreqKey)
             return value != 0 ? value : defaultAnalysisMaxFrequency
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: analysisMaxFreqKey)
+            defaults.set(newValue, forKey: analysisMaxFreqKey)
         }
     }
     
@@ -485,13 +495,13 @@ struct TapDisplaySettings {
     static var peakThreshold: Float {
         get {
             // Use object check since negative values are common for dB
-            if UserDefaults.standard.object(forKey: peakThresholdKey) == nil {
+            if defaults.object(forKey: peakThresholdKey) == nil {
                 return defaultPeakThreshold
             }
-            return UserDefaults.standard.float(forKey: peakThresholdKey)
+            return defaults.float(forKey: peakThresholdKey)
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: peakThresholdKey)
+            defaults.set(newValue, forKey: peakThresholdKey)
         }
     }
     
@@ -500,14 +510,14 @@ struct TapDisplaySettings {
     static var maxPeaks: Int {
         get {
             // Use object check to distinguish between "not set" and "set to 0"
-            if UserDefaults.standard.object(forKey: maxPeaksKey) == nil {
+            if defaults.object(forKey: maxPeaksKey) == nil {
                 return defaultMaxPeaks
             }
-            return UserDefaults.standard.integer(forKey: maxPeaksKey)
+            return defaults.integer(forKey: maxPeaksKey)
         }
         set {
             // Allow 0 (all peaks) or any positive value
-            UserDefaults.standard.set(max(0, newValue), forKey: maxPeaksKey)
+            defaults.set(max(0, newValue), forKey: maxPeaksKey)
         }
     }
     
@@ -520,13 +530,13 @@ struct TapDisplaySettings {
     static var hopSizeOverlap: Float {
         get {
             // Use object check since 0 is a valid value
-            if UserDefaults.standard.object(forKey: hopSizeOverlapKey) == nil {
+            if defaults.object(forKey: hopSizeOverlapKey) == nil {
                 return defaultHopSizeOverlap
             }
-            return UserDefaults.standard.float(forKey: hopSizeOverlapKey)
+            return defaults.float(forKey: hopSizeOverlapKey)
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: hopSizeOverlapKey)
+            defaults.set(newValue, forKey: hopSizeOverlapKey)
         }
     }
     
@@ -542,13 +552,13 @@ struct TapDisplaySettings {
     static var tapDetectionThreshold: Float {
         get {
             // Use object check since negative values are common for dB
-            if UserDefaults.standard.object(forKey: tapDetectionThresholdKey) == nil {
+            if defaults.object(forKey: tapDetectionThresholdKey) == nil {
                 return defaultTapDetectionThreshold
             }
-            return UserDefaults.standard.float(forKey: tapDetectionThresholdKey)
+            return defaults.float(forKey: tapDetectionThresholdKey)
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: tapDetectionThresholdKey)
+            defaults.set(newValue, forKey: tapDetectionThresholdKey)
         }
     }
     
@@ -557,13 +567,13 @@ struct TapDisplaySettings {
     /// Defaults to false since it's an advanced measurement
     static var measureFlc: Bool {
         get {
-            if UserDefaults.standard.object(forKey: measureFlcKey) == nil {
+            if defaults.object(forKey: measureFlcKey) == nil {
                 return false
             }
-            return UserDefaults.standard.bool(forKey: measureFlcKey)
+            return defaults.bool(forKey: measureFlcKey)
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: measureFlcKey)
+            defaults.set(newValue, forKey: measureFlcKey)
         }
     }
     
@@ -571,13 +581,13 @@ struct TapDisplaySettings {
     static var hysteresisMargin: Float {
         get {
             // Use object check since 0 could theoretically be a valid value
-            if UserDefaults.standard.object(forKey: hysteresisMarginKey) == nil {
+            if defaults.object(forKey: hysteresisMarginKey) == nil {
                 return defaultHysteresisMargin
             }
-            return UserDefaults.standard.float(forKey: hysteresisMarginKey)
+            return defaults.float(forKey: hysteresisMarginKey)
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: hysteresisMarginKey)
+            defaults.set(newValue, forKey: hysteresisMarginKey)
         }
     }
     

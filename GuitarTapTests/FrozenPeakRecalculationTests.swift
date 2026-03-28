@@ -51,9 +51,8 @@ private func freeze(_ sut: TapToneAnalyzer, peaks: [ResonantPeak]) {
 // MARK: - PR1: isLoadingMeasurement guard
 // ---------------------------------------------------------------------------
 
-@Suite("FrozenPeakRecalculation_LoadingGuard")
+@Suite("FrozenPeakRecalculation_LoadingGuard", .serialized)
 struct FrozenPeakRecalculation_LoadingGuardTests {
-
     // PR1: While isLoadingMeasurement is true, changing peakThreshold must NOT
     // overwrite currentPeaks with a fresh findPeaks() pass.
     @Test func isLoadingMeasurement_suppressesRecalculation() {
@@ -92,9 +91,8 @@ struct FrozenPeakRecalculation_LoadingGuardTests {
 // MARK: - PR2: loadedMeasurementPeaks threshold-filter path
 // ---------------------------------------------------------------------------
 
-@Suite("FrozenPeakRecalculation_LoadedMeasurementPath")
+@Suite("FrozenPeakRecalculation_LoadedMeasurementPath", .serialized)
 struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
-
     // PR2a: Peaks in loadedMeasurementPeaks that are above peakThreshold are kept.
     @Test func loadedPeaks_aboveThreshold_areKept() {
         let sut = makeSUT()
@@ -151,9 +149,8 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
 // MARK: - PR3: Annotation offset remapping by frequency proximity
 // ---------------------------------------------------------------------------
 
-@Suite("FrozenPeakRecalculation_OffsetRemapping")
+@Suite("FrozenPeakRecalculation_OffsetRemapping", .serialized)
 struct FrozenPeakRecalculation_OffsetRemappingTests {
-
     // PR3a: When loadedMeasurementPeaks has a peak at 200 Hz with a stored
     // annotation offset, and the threshold is lowered to reveal it, the offset
     // is remapped to the new UUID of that peak in currentPeaks.
@@ -201,9 +198,8 @@ struct FrozenPeakRecalculation_OffsetRemappingTests {
 // MARK: - PR4: Mode override remapping by frequency proximity
 // ---------------------------------------------------------------------------
 
-@Suite("FrozenPeakRecalculation_OverrideRemapping")
+@Suite("FrozenPeakRecalculation_OverrideRemapping", .serialized)
 struct FrozenPeakRecalculation_OverrideRemappingTests {
-
     // PR4: A user-assigned mode override stored against a saved peak UUID is
     // remapped to the corresponding peak in currentPeaks after a threshold change.
     @Test func loadedPath_modeOverride_remappedByFrequency() {
@@ -251,9 +247,8 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
 // MARK: - PR5: Selection carry-forward by frequency proximity (manual mode)
 // ---------------------------------------------------------------------------
 
-@Suite("FrozenPeakRecalculation_SelectionCarryForward")
+@Suite("FrozenPeakRecalculation_SelectionCarryForward", .serialized)
 struct FrozenPeakRecalculation_SelectionCarryForwardTests {
-
     // PR5a: When userHasModifiedPeakSelection is true and the threshold is
     // lowered to show more peaks, the previously-selected frequencies are
     // re-selected in the new peak set by proximity (±5 Hz).
@@ -317,9 +312,8 @@ struct FrozenPeakRecalculation_SelectionCarryForwardTests {
 // MARK: - PR6: Empty-peaks guard preserves selectedPeakIDs
 // ---------------------------------------------------------------------------
 
-@Suite("FrozenPeakRecalculation_EmptyPeaksGuard")
+@Suite("FrozenPeakRecalculation_EmptyPeaksGuard", .serialized)
 struct FrozenPeakRecalculation_EmptyPeaksGuardTests {
-
     // PR6: When all peaks fall below the threshold on the live-tap path,
     // selectedPeakIDs is intentionally preserved so the selection can be
     // remapped when the threshold is lowered again.
@@ -365,9 +359,8 @@ struct FrozenPeakRecalculation_EmptyPeaksGuardTests {
 // MARK: - PR7: Live-tap path remaps offsets and overrides by frequency
 // ---------------------------------------------------------------------------
 
-@Suite("FrozenPeakRecalculation_LiveTapPath")
+@Suite("FrozenPeakRecalculation_LiveTapPath", .serialized)
 struct FrozenPeakRecalculation_LiveTapPathTests {
-
     // PR7: On the live-tap path (no loadedMeasurementPeaks), annotation offsets
     // stored for the previous UUIDs are remapped by frequency proximity to the
     // new UUIDs produced by a fresh findPeaks() pass.

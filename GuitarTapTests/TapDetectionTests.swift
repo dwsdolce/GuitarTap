@@ -24,6 +24,7 @@ import Foundation
 
 /// Build a non-running TapToneAnalyzer in guitar mode (absolute threshold)
 /// with its warm-up period satisfied so detectTap can fire.
+///
 @MainActor
 private func makeSUT(
     threshold: Float = -40,
@@ -64,13 +65,11 @@ private let fakeFreqs: [Float] = (0..<64).map { Float($0) * 375 }
 @MainActor
 struct TapDetectionTests {
 
-    // Save and restore measurementType around every test so that concurrent
-    // suites writing UserDefaults cannot corrupt the value mid-test.
-    private let savedMeasurementType = TapDisplaySettings.measurementType
+    // TapDisplaySettings is redirected to an isolated UserDefaults suite by
+    // TestRunner.setUp() so test runs never touch real user settings.
+    // Reset to .acoustic before each test so tests that set .plate don't
+    // affect subsequent tests in the same run.
     init() { TapDisplaySettings.measurementType = .acoustic }
-    // Swift Testing calls deinit after each test in a .serialized suite.
-    // Restoring here ensures the suite leaves UserDefaults clean regardless
-    // of which test ran last.
 
     // T1: Rising edge above threshold sets tapDetected = true.
     @Test func aboveThreshold_setsTapDetected() {
@@ -200,7 +199,7 @@ struct TapDetectionTests {
     // absolute tapDetectionThreshold.
     @Test func plateMode_usesRelativeNoiseFloor() {
         TapDisplaySettings.measurementType = .plate
-        defer { TapDisplaySettings.measurementType = savedMeasurementType }
+        defer { TapDisplaySettings.measurementType = .acoustic }
 
         let fft = RealtimeFFTAnalyzer()
         let sut = TapToneAnalyzer(fftAnalyzer: fft)
@@ -231,7 +230,7 @@ struct TapDetectionTests {
     // T7: Noise floor EMA converges toward signal when below threshold.
     @Test func noiseFloorEMA_convergesWithRepeatedBelowThresholdFrames() {
         TapDisplaySettings.measurementType = .plate
-        defer { TapDisplaySettings.measurementType = savedMeasurementType }
+        defer { TapDisplaySettings.measurementType = .acoustic }
 
         let fft = RealtimeFFTAnalyzer()
         let sut = TapToneAnalyzer(fftAnalyzer: fft)
