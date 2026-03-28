@@ -259,6 +259,10 @@ struct FrozenPeakRecalculation_SelectionCarryForwardTests {
     // re-selected in the new peak set by proximity (±5 Hz).
     @Test func loadedPath_manualSelection_carriedForwardByFrequency() {
         let sut = makeSUT()
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .acoustic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let selectedPeak   = makePeak(frequency: 200, magnitude: -20)
         let unselectedPeak = makePeak(frequency: 500, magnitude: -20)
 

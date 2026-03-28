@@ -325,12 +325,15 @@ struct MeasurementsListView: View {
                     }
                     .disabled(selectedCompareIDs.count < 2)
                 } else {
+                    Button(action: { isComparing = true }) {
+                        Label("Compare", systemImage: "waveform.path")
+                    }
+                    .disabled(comparableMeasurements.count < 2)
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if !isComparing {
                     Menu {
-                        Button(action: { isComparing = true }) {
-                            Label("Compare Measurements…", systemImage: "waveform.path")
-                        }
-                        .disabled(comparableMeasurements.count < 2)
-
                         Button(action: { showingImportPicker = true }) {
                             Label("Import Measurement", systemImage: "square.and.arrow.down")
                         }
