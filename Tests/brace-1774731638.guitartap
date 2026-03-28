@@ -4,7 +4,7 @@
     "calibrationName" : "7108913",
     "guitarType" : "Acoustic",
     "hysteresisMargin" : 3,
-    "id" : "B2679934-4A3A-472C-ABE5-233C2F9767ED",
+    "id" : "D20B797C-08F0-4408-86E6-77F22F99ADA8",
     "longitudinalSnapshot" : {
       "braceLength" : 556,
       "braceMass" : 128,
@@ -50,11 +50,11 @@
       512.10333
     ],
     "selectedPeakIDs" : [
-      "2F6ED23A-20DE-432B-B176-73E357C7D3E8",
-      "1342CA8C-5B9B-441E-A4B7-0ECED84ECF0A"
+      "1342CA8C-5B9B-441E-A4B7-0ECED84ECF0A",
+      "2F6ED23A-20DE-432B-B176-73E357C7D3E8"
     ],
     "tapDetectionThreshold" : -62,
     "tapLocation" : "Brace",
-    "timestamp" : "2026-03-26T06:10:13Z"
+    "timestamp" : "2026-03-28T21:00:38Z"
   }
 ]

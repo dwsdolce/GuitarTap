@@ -4,7 +4,7 @@
     "decayTime" : 0.12370002,
     "guitarType" : "Classical",
     "hysteresisMargin" : 3,
-    "id" : "8BC37888-7B8C-47A1-9091-489EF603A981",
+    "id" : "9714C73B-6D00-484D-88AB-50BA106CC7D9",
     "measurementType" : "Classical Guitar",
     "microphoneName" : "MacBook Pro Microphone",
     "microphoneUID" : "BuiltInMicrophoneDevice",
@@ -614,10 +614,10 @@
     ],
     "selectedPeakIDs" : [
       "66F732C5-4391-4FE5-9D7A-E4A04A34987B",
-      "3448C6D1-3012-4F07-96A2-4DCA747A6FE5",
-      "FEEAEBB1-F891-43EF-87B9-3BE6B2AA315F",
       "028C1092-7DA3-4035-8970-2CCA38CAD7DD",
       "A3C1BD0A-B3D9-42EA-A486-186665524D91",
+      "3448C6D1-3012-4F07-96A2-4DCA747A6FE5",
+      "FEEAEBB1-F891-43EF-87B9-3BE6B2AA315F",
       "121DB636-45A6-45C0-BCD9-D886712BE41F"
     ],
     "spectrumSnapshot" : {
@@ -635,6 +635,6 @@
     },
     "tapDetectionThreshold" : -55,
     "tapLocation" : "DWS 2024",
-    "timestamp" : "2026-03-26T05:37:12Z"
+    "timestamp" : "2026-03-28T20:58:45Z"
   }
 ]
