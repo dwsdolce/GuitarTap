@@ -75,7 +75,17 @@ struct TapDisplaySettings {
     //
     //   TapDisplaySettings.defaults = UserDefaults(suiteName: "com.guitartap.tests")!
     //
-    static var defaults: UserDefaults = UserDefaults.standard
+    static var defaults: UserDefaults = {
+        // When running under XCTest, use an isolated suite so tests never
+        // pollute the user's real UserDefaults.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            let suiteName = "com.guitartap.tests"
+            let isolated = UserDefaults(suiteName: suiteName)!
+            isolated.removePersistentDomain(forName: suiteName)
+            return isolated
+        }
+        return .standard
+    }()
 
     // MARK: - UserDefaults Keys
 
