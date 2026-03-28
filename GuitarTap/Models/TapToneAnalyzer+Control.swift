@@ -51,7 +51,11 @@ extension TapToneAnalyzer {
         // Evaluate the auto-start guard after pending state changes have settled.
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            if !self.isDetecting && !self.isSpectrumFrozen && !self.isDetectionPaused
+            // For guitar measurements isSpectrumFrozen signals a loaded state.
+            // For plate/brace measurements, materialTapPhase == .complete signals a loaded state
+            // (their spectra are stored per-phase so isSpectrumFrozen is intentionally false).
+            let hasLoadedMeasurement = self.isSpectrumFrozen || self.materialTapPhase == .complete
+            if !self.isDetecting && !hasLoadedMeasurement && !self.isDetectionPaused
                 && self.currentTapCount == 0 {
                 self.startTapSequence()
             }
