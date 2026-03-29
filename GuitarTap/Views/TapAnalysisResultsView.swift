@@ -112,99 +112,153 @@ struct TapAnalysisResultsView: View {
     
     var body: some View {
         ScrollViewReader { scrollProxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Fixed header
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
                         Text("Analysis Results")
                             .font(.headline)
                             .fontWeight(.bold)
-                        
-                        HStack {
-                            Text("Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Spacer()
-                            
-                            if !analyzer.comparisonSpectra.isEmpty {
-                                Text("Comparison")
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 2)
-                                    .background(Color.purple.opacity(0.2))
-                                    .cornerRadius(4)
-                            } else {
-                                Text(measurementType.shortName)
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 2)
-                                    .background(measurementType.isGuitar ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
-                                    .cornerRadius(4)
-                            }
-                        }
-                    }
-                    
-                    // Current peaks display
-                    peaksAndModesSection
-                    
-                    // Plate/brace-specific sections
-                    if measurementType == .plate {
-                        Divider()
-                        platePropertiesSection
-                    } else if measurementType == .brace {
-                        Divider()
-                        bracePropertiesSection
-                    } else if analyzer.comparisonSpectra.isEmpty {
-                        // Guitar-specific sections (hidden during comparison)
-                        Divider()
-                        
-                        // Ring-out time (decay)
-                        ringOutSection
-                        
-                        Divider()
-                        
-                        // Tap tone ratio
-                        ratioSection
-                    }
-                    
-                    // Status indicator
-                    statusIndicator
 
-                    // Export buttons
+                        Spacer()
+
+                        if !analyzer.comparisonSpectra.isEmpty {
+                            Text("Comparison")
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.purple.opacity(0.2))
+                                .cornerRadius(4)
+                        } else {
+                            Text(measurementType.shortName)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(measurementType.isGuitar ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
+                                .cornerRadius(4)
+                        }
+                    }
+
+                    HStack {
+                        Text("Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Spacer()
+
+                        // Select All / Select None / Reset to Auto buttons
+                        if !sortedPeaksWithModes.isEmpty {
+                            HStack(spacing: 8) {
+                                Button {
+                                    analyzer.selectAllPeaks()
+                                } label: {
+                                    Image(systemName: "checkmark.circle")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.mini)
+                                .disabled(analyzer.selectedPeakIDs.count == analyzer.currentPeaks.count)
+                                .help("Select all peaks")
+
+                                Button {
+                                    analyzer.selectNoPeaks()
+                                } label: {
+                                    Image(systemName: "xmark.circle")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.mini)
+                                .disabled(analyzer.selectedPeakIDs.isEmpty)
+                                .help("Deselect all peaks")
+
+                                if measurementType.isGuitar {
+                                    Button {
+                                        analyzer.resetToAutoSelection()
+                                    } label: {
+                                        Image(systemName: "wand.and.stars")
+                                            .font(.caption)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.mini)
+                                    .disabled(!analyzer.userHasModifiedPeakSelection)
+                                    .help("Reset to automatic mode selection")
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding([.horizontal, .top])
+                .padding(.bottom, 8)
+
+                Divider()
+
+                // Scrollable peaks list (plus plate/brace properties which can be long)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        peaksAndModesSection
+
+                        // Plate/brace properties scroll with the peaks since they can be tall
+                        if measurementType == .plate {
+                            Divider()
+                            platePropertiesSection
+                        } else if measurementType == .brace {
+                            Divider()
+                            bracePropertiesSection
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                }
+                #if os(macOS)
+                .onChange(of: analyzer.highlightedPeakID) { _, newID in
+                    if let id = newID {
+                        withAnimation {
+                            scrollProxy.scrollTo("peak-row-\(id)", anchor: .center)
+                        }
+                    }
+                }
+                #endif
+
+                Divider()
+
+                // Fixed footer: compact analysis summary + export buttons
+                VStack(alignment: .leading, spacing: 8) {
+                    // Guitar-specific compact summary (hidden during comparison or for plate/brace)
+                    if measurementType.isGuitar && analyzer.comparisonSpectra.isEmpty {
+                        guitarAnalysisSummary
+                    }
+
+                    // Status indicator + export buttons
                     if onExportSpectrum != nil || onExportPDFReport != nil {
-                        Divider()
-                        if let exportSpectrum = onExportSpectrum {
-                            Button {
-                                exportSpectrum()
-                            } label: {
-                                Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+                        HStack {
+                            statusIndicator
+                            Spacer()
+                            if let exportSpectrum = onExportSpectrum {
+                                Button {
+                                    exportSpectrum()
+                                } label: {
+                                    Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
                             }
-                            .buttonStyle(.bordered)
-                            .frame(maxWidth: .infinity)
-                        }
-                        if let exportPDF = onExportPDFReport, analyzer.comparisonSpectra.isEmpty {
-                            Button {
-                                exportPDF()
-                            } label: {
-                                Label("Export PDF Report", systemImage: "doc.richtext")
+                            if let exportPDF = onExportPDFReport, analyzer.comparisonSpectra.isEmpty {
+                                Button {
+                                    exportPDF()
+                                } label: {
+                                    Label("Export PDF", systemImage: "doc.richtext")
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
                             }
-                            .buttonStyle(.bordered)
-                            .frame(maxWidth: .infinity)
                         }
+                    } else {
+                        statusIndicator
                     }
                 }
-                .padding()
+                .padding([.horizontal, .bottom])
+                .padding(.top, 8)
             }
-            #if os(macOS)
-            .onChange(of: analyzer.highlightedPeakID) { _, newID in
-                if let id = newID {
-                    withAnimation {
-                        scrollProxy.scrollTo("peak-row-\(id)", anchor: .center)
-                    }
-                }
-            }
-            #endif
         }
     }
     
@@ -245,59 +299,6 @@ struct TapAnalysisResultsView: View {
     
     private var peaksAndModesSection: some View {
         GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
-                // Header with visibility controls
-                HStack {
-                    Text(!measurementType.isGuitar ? "Detected Peaks" : "Detected Peaks & Modes")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    
-                    Spacer()
-                    
-                    // Select All / Select None / Reset to Auto buttons
-                    if !sortedPeaksWithModes.isEmpty {
-                        HStack(spacing: 8) {
-                            Button {
-                                analyzer.selectAllPeaks()
-                            } label: {
-                                Image(systemName: "checkmark.circle")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.mini)
-                            .disabled(analyzer.selectedPeakIDs.count == analyzer.currentPeaks.count)
-                            .help("Select all peaks")
-
-                            Button {
-                                analyzer.selectNoPeaks()
-                            } label: {
-                                Image(systemName: "xmark.circle")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.mini)
-                            .disabled(analyzer.selectedPeakIDs.isEmpty)
-                            .help("Deselect all peaks")
-
-                            if measurementType.isGuitar {
-                                Button {
-                                    analyzer.resetToAutoSelection()
-                                } label: {
-                                    Image(systemName: "wand.and.stars")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.mini)
-                                .disabled(!analyzer.userHasModifiedPeakSelection)
-                                .help("Reset to automatic mode selection")
-                            }
-                        }
-                    }
-                }
-                
-                Divider()
-            }
-            
             if sortedPeaksWithModes.isEmpty {
                 if !analyzer.comparisonSpectra.isEmpty {
                     Label("Comparing \(analyzer.comparisonSpectra.count) measurements", systemImage: "waveform.path")
@@ -623,6 +624,68 @@ struct TapAnalysisResultsView: View {
         }
     }
     
+    /// Compact horizontal summary of ring-out time and tap tone ratio for the guitar footer.
+    private var guitarAnalysisSummary: some View {
+        HStack(spacing: 12) {
+            // Ring-out time
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Ring-Out")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                if let decayTime = analyzer.currentDecayTime {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(String(format: "%.2fs", decayTime))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text(decayTime.decayQuality)
+                            .font(.caption)
+                            .foregroundColor(decayTime.decayQualityColor)
+                    }
+                    Text("–\(Int(analyzer.decayThreshold)) dB")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("Waiting…")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Divider()
+                .frame(height: 36)
+
+            // Tap tone ratio
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Tap Ratio")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                if let ratio = analyzer.calculateTapToneRatio() {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(String(format: "%.2f:1", ratio))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text(ratio.tapToneRatioQuality)
+                            .font(.caption)
+                            .foregroundColor(ratio.tapToneRatioQualityColor)
+                    }
+                    Text("Ideal: 1.9–2.1")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("Need Air & Top")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(Color.secondary.opacity(0.07))
+        .cornerRadius(8)
+    }
+
     private var statusIndicator: some View {
         HStack {
             Circle()
