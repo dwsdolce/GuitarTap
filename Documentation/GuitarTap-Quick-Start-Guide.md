@@ -172,7 +172,7 @@ Saves the current measurement — enabled only when the spectrum is frozen and p
 
 ### ![](/tmp/guitar-tap-symbols/list.bullet.clipboard.png){height=14pt width=14pt} Measurements
 
-Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison.
+Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Edit Location & Notes, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison. The location and notes can also be edited from the Edit button in the Measurement Details toolbar.
 
 ### ![](/tmp/guitar-tap-symbols/waveform.path.png){height=14pt width=14pt} Compare Measurements
 

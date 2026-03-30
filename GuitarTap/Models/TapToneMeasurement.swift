@@ -235,7 +235,9 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///   - microphoneName: Human-readable device name at time of recording.
     ///   - microphoneUID: Device UID at time of recording.
     ///   - calibrationName: Active calibration profile name, if any.
-    init(peaks: [ResonantPeak],
+    init(id: UUID = UUID(),
+         timestamp: Date = Date(),
+         peaks: [ResonantPeak],
          decayTime: Float? = nil,
          tapLocation: String? = nil,
          notes: String? = nil,
@@ -258,8 +260,8 @@ struct TapToneMeasurement: Identifiable, Codable {
          microphoneName: String? = nil,
          microphoneUID: String? = nil,
          calibrationName: String? = nil) {
-        self.id = UUID()
-        self.timestamp = Date()
+        self.id = id
+        self.timestamp = timestamp
         self.peaks = peaks
         self.decayTime = decayTime
         self.tapLocation = tapLocation
@@ -283,6 +285,39 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.microphoneName = microphoneName
         self.microphoneUID = microphoneUID
         self.calibrationName = calibrationName
+    }
+
+    /// Returns a copy of the measurement with only `tapLocation` and `notes` replaced.
+    ///
+    /// All other fields — including `id` and `timestamp` — are preserved exactly.
+    func with(tapLocation: String?, notes: String?) -> TapToneMeasurement {
+        return TapToneMeasurement(
+            id: id,
+            timestamp: timestamp,
+            peaks: peaks,
+            decayTime: decayTime,
+            tapLocation: tapLocation,
+            notes: notes,
+            spectrum: spectrumSnapshot,
+            annotationOffsets: peakAnnotationOffsets,
+            tapDetectionThreshold: tapDetectionThreshold,
+            hysteresisMargin: hysteresisMargin,
+            numberOfTaps: numberOfTaps,
+            peakThreshold: peakThreshold,
+            selectedLongitudinalPeakID: selectedLongitudinalPeakID,
+            selectedCrossPeakID: selectedCrossPeakID,
+            selectedFlcPeakID: selectedFlcPeakID,
+            longitudinalSnapshot: longitudinalSnapshot,
+            crossSnapshot: crossSnapshot,
+            flcSnapshot: flcSnapshot,
+            selectedPeakIDs: selectedPeakIDs,
+            selectedPeakFrequencies: selectedPeakFrequencies,
+            annotationVisibilityMode: annotationVisibilityMode,
+            peakModeOverrides: peakModeOverrides,
+            microphoneName: microphoneName,
+            microphoneUID: microphoneUID,
+            calibrationName: calibrationName
+        )
     }
 
     // MARK: - Computed Properties

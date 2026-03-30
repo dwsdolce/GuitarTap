@@ -61,13 +61,14 @@ struct MeasurementsListView: View {
     @State private var showingImportPicker = false
     @State private var importError: String?
     @State private var importSuccess: String?
-    @State private var selectedMeasurement: TapToneMeasurement?
+    @State private var selectedDetailTarget: (index: Int, measurement: TapToneMeasurement)?
     // Compare mode state
     @State private var isComparing: Bool = false
-    @State private var selectedCompareIDs: Set<UUID> = []
-    @State private var hoveredMeasurementID: UUID?
-    @State private var measurementPendingDelete: TapToneMeasurement?
+    @State private var selectedCompareIndices: Set<Int> = []
+    @State private var hoveredMeasurementIndex: Int?
+    @State private var measurementPendingDelete: (index: Int, measurement: TapToneMeasurement)?
     @State private var showingDeleteAllConfirmation = false
+    @State private var editTarget: (index: Int, measurement: TapToneMeasurement)?
     #if os(macOS)
     @State private var detailWindowController: NSWindowController?
     #endif
@@ -140,8 +141,13 @@ struct MeasurementsListView: View {
                 .sheet(isPresented: $showingExport) {
                     ExportView(text: exportText)
                 }
-                .sheet(item: $selectedMeasurement) { measurement in
-                    MeasurementDetailView(measurement: measurement, analyzer: analyzer)
+                .sheet(isPresented: Binding(
+                    get: { selectedDetailTarget != nil },
+                    set: { if !$0 { selectedDetailTarget = nil } }
+                )) {
+                    if let target = selectedDetailTarget {
+                        MeasurementDetailView(index: target.index, measurement: target.measurement, analyzer: analyzer)
+                    }
                 }
                 .sheet(isPresented: $showingImportPicker) {
                     DocumentPickerView { url in
@@ -200,22 +206,22 @@ struct MeasurementsListView: View {
                             .foregroundColor(.secondary)
                     }
                     
-                    ForEach(analyzer.savedMeasurements) { measurement in
+                    ForEach(Array(analyzer.savedMeasurements.enumerated()), id: \.offset) { index, measurement in
                         // Use Button for both platforms - macOS opens window, iOS shows sheet
                         Button(action: {
                             if isComparing {
-                                toggleCompareSelection(for: measurement)
+                                toggleCompareSelection(at: index, for: measurement)
                             } else {
-                                showDetail(for: measurement)
+                                showDetail(index: index, measurement: measurement)
                             }
                         }) {
-                            compareRowContent(for: measurement)
+                            compareRowContent(at: index, for: measurement)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         #if os(macOS)
                         .onHover { inside in
-                            hoveredMeasurementID = inside ? measurement.id : nil
+                            hoveredMeasurementIndex = inside ? index : nil
                             if inside {
                                 NSCursor.pointingHand.push()
                             } else {
@@ -234,11 +240,17 @@ struct MeasurementsListView: View {
                             Divider()
                             
                             Button(action: {
-                                showDetail(for: measurement)
+                                showDetail(index: index, measurement: measurement)
                             }) {
                                 Label("View Details", systemImage: "eye")
                             }
-                            
+
+                            Button(action: {
+                                editTarget = (index: index, measurement: measurement)
+                            }) {
+                                Label("Edit Location & Notes", systemImage: "pencil")
+                            }
+
                             Button(action: {
                                 exportSingleMeasurement(measurement)
                             }) {
@@ -268,7 +280,7 @@ struct MeasurementsListView: View {
                             Divider()
                             
                             Button(role: .destructive, action: {
-                                measurementPendingDelete = measurement
+                                measurementPendingDelete = (index: index, measurement: measurement)
                             }) {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -276,7 +288,7 @@ struct MeasurementsListView: View {
                     }
                     .onDelete { indexSet in
                         if let index = indexSet.first {
-                            measurementPendingDelete = analyzer.savedMeasurements[index]
+                            measurementPendingDelete = (index: index, measurement: analyzer.savedMeasurements[index])
                         }
                     }
                 }
@@ -287,8 +299,8 @@ struct MeasurementsListView: View {
             set: { if !$0 { measurementPendingDelete = nil } }
         )) {
             Button("Delete", role: .destructive) {
-                if let measurement = measurementPendingDelete {
-                    analyzer.deleteMeasurement(measurement)
+                if let target = measurementPendingDelete {
+                    analyzer.deleteMeasurement(at: target.index)
                 }
                 measurementPendingDelete = nil
             }
@@ -296,8 +308,8 @@ struct MeasurementsListView: View {
                 measurementPendingDelete = nil
             }
         } message: {
-            if let measurement = measurementPendingDelete {
-                Text("Are you sure you want to delete \"\(measurement.tapLocation ?? "Measurement")\"? This cannot be undone.")
+            if let target = measurementPendingDelete {
+                Text("Are you sure you want to delete \"\(target.measurement.tapLocation ?? "Measurement")\"? This cannot be undone.")
             }
         }
         .alert("Delete All Measurements?", isPresented: $showingDeleteAllConfirmation) {
@@ -305,6 +317,14 @@ struct MeasurementsListView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This will permanently delete all \(analyzer.savedMeasurements.count) saved measurements. This cannot be undone.")
+        }
+        .sheet(isPresented: Binding(
+            get: { editTarget != nil },
+            set: { if !$0 { editTarget = nil } }
+        )) {
+            if let target = editTarget {
+                EditMeasurementView(index: target.index, measurement: target.measurement, analyzer: analyzer)
+            }
         }
         .navigationTitle("Saved Measurements")
         .toolbar {
@@ -320,10 +340,10 @@ struct MeasurementsListView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if isComparing {
                     Button(action: openComparison) {
-                        Text("Compare (\(selectedCompareIDs.count))")
+                        Text("Compare (\(selectedCompareIndices.count))")
                             .fontWeight(.semibold)
                     }
-                    .disabled(selectedCompareIDs.count < 2)
+                    .disabled(selectedCompareIndices.count < 2)
                 } else {
                     Button(action: { isComparing = true }) {
                         Label("Compare", systemImage: "waveform.path")
@@ -353,9 +373,9 @@ struct MeasurementsListView: View {
             ToolbarItem(placement: .primaryAction) {
                 if isComparing {
                     Button(action: openComparison) {
-                        Label("Compare (\(selectedCompareIDs.count))", systemImage: "waveform.path")
+                        Label("Compare (\(selectedCompareIndices.count))", systemImage: "waveform.path")
                     }
-                    .disabled(selectedCompareIDs.count < 2)
+                    .disabled(selectedCompareIndices.count < 2)
                 } else {
                     Button(action: { isComparing = true }) {
                         Label("Compare…", systemImage: "waveform.path")
@@ -430,10 +450,10 @@ struct MeasurementsListView: View {
         analyzer.savedMeasurements.removeAll()
     }
     
-    private func showDetail(for measurement: TapToneMeasurement) {
+    private func showDetail(index: Int, measurement: TapToneMeasurement) {
         #if os(macOS)
         // On macOS, open in a new window to avoid nested sheet issues
-        let detailView = MeasurementDetailView(measurement: measurement, analyzer: analyzer)
+        let detailView = MeasurementDetailView(index: index, measurement: measurement, analyzer: analyzer)
         let hostingController = NSHostingController(rootView: detailView)
         
         let window = NSWindow(contentViewController: hostingController)
@@ -449,7 +469,7 @@ struct MeasurementsListView: View {
         detailWindowController = windowController
         #else
         // On iOS, use sheet with item binding
-        selectedMeasurement = measurement
+        selectedDetailTarget = (index: index, measurement: measurement)
         #endif
     }
     
@@ -467,25 +487,27 @@ struct MeasurementsListView: View {
 
     /// The measurements currently selected for comparison, in list order.
     private var selectedCompareMeasurements: [TapToneMeasurement] {
-        analyzer.savedMeasurements.filter { selectedCompareIDs.contains($0.id) }
+        analyzer.savedMeasurements.enumerated()
+            .filter { selectedCompareIndices.contains($0.offset) }
+            .map { $0.element }
     }
 
-    private func toggleCompareSelection(for measurement: TapToneMeasurement) {
+    private func toggleCompareSelection(at index: Int, for measurement: TapToneMeasurement) {
         guard isComparable(measurement) else { return }
-        if selectedCompareIDs.contains(measurement.id) {
-            selectedCompareIDs.remove(measurement.id)
+        if selectedCompareIndices.contains(index) {
+            selectedCompareIndices.remove(index)
         } else {
-            selectedCompareIDs.insert(measurement.id)
+            selectedCompareIndices.insert(index)
         }
     }
 
     private func exitCompareMode() {
         isComparing = false
-        selectedCompareIDs = []
+        selectedCompareIndices = []
     }
 
     private func openComparison() {
-        guard selectedCompareIDs.count >= 2 else { return }
+        guard selectedCompareIndices.count >= 2 else { return }
         analyzer.loadComparison(measurements: selectedCompareMeasurements)
         exitCompareMode()
         dismiss()
@@ -493,12 +515,12 @@ struct MeasurementsListView: View {
 
     /// Row content that adds a selection checkbox overlay when in compare mode.
     @ViewBuilder
-    private func compareRowContent(for measurement: TapToneMeasurement) -> some View {
-        let isHovered = hoveredMeasurementID == measurement.id
+    private func compareRowContent(at index: Int, for measurement: TapToneMeasurement) -> some View {
+        let isHovered = hoveredMeasurementIndex == index
         if isComparing {
             HStack(spacing: 10) {
                 let comparable = isComparable(measurement)
-                let selected = selectedCompareIDs.contains(measurement.id)
+                let selected = selectedCompareIndices.contains(index)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundColor(selected ? .accentColor : (comparable ? .secondary : .secondary.opacity(0.4)))

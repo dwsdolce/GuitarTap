@@ -355,6 +355,95 @@ struct MeasurementExportModeLabelTests {
 }
 
 // ---------------------------------------------------------------------------
+// MARK: - updateMeasurement(at:tapLocation:notes:)
+// ---------------------------------------------------------------------------
+
+@Suite("UpdateMeasurement")
+@MainActor
+struct UpdateMeasurementTests {
+
+    private func makeAnalyzerWithMeasurements(_ measurements: [TapToneMeasurement]) -> TapToneAnalyzer {
+        let analyzer = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        analyzer.savedMeasurements = measurements
+        return analyzer
+    }
+
+    private func makeMeasurement(location: String? = nil, notes: String? = nil) -> TapToneMeasurement {
+        TapToneMeasurement(peaks: [], tapLocation: location, notes: notes)
+    }
+
+    // Updating by index changes only the targeted entry's location and notes.
+    @Test func update_byIndex_changesOnlyTargetedEntry() {
+        let m0 = makeMeasurement(location: "Bridge", notes: "First")
+        let m1 = makeMeasurement(location: "Soundhole", notes: "Second")
+        let analyzer = makeAnalyzerWithMeasurements([m0, m1])
+
+        analyzer.updateMeasurement(at: 0, tapLocation: "Upper Bout", notes: "Edited")
+
+        #expect(analyzer.savedMeasurements[0].tapLocation == "Upper Bout")
+        #expect(analyzer.savedMeasurements[0].notes == "Edited")
+        #expect(analyzer.savedMeasurements[1].tapLocation == "Soundhole", "Second entry must not be affected")
+        #expect(analyzer.savedMeasurements[1].notes == "Second", "Second entry must not be affected")
+    }
+
+    // Editing one of two duplicates (same id, different index) leaves the other unchanged.
+    @Test func update_duplicateImport_onlyEditedIndexChanges() {
+        let original = makeMeasurement(location: "Top", notes: "Original")
+        // Simulate importing the same file twice — both entries share the same id.
+        let analyzer = makeAnalyzerWithMeasurements([original, original])
+
+        analyzer.updateMeasurement(at: 1, tapLocation: "Back", notes: "Copy")
+
+        #expect(analyzer.savedMeasurements[0].tapLocation == "Top",  "First duplicate must not change")
+        #expect(analyzer.savedMeasurements[0].notes == "Original",   "First duplicate must not change")
+        #expect(analyzer.savedMeasurements[1].tapLocation == "Back", "Second duplicate should be updated")
+        #expect(analyzer.savedMeasurements[1].notes == "Copy",       "Second duplicate should be updated")
+        // Both entries still share the original id
+        #expect(analyzer.savedMeasurements[0].id == analyzer.savedMeasurements[1].id,
+                "id must be preserved through the update")
+    }
+
+    // Passing nil clears the fields.
+    @Test func update_nilValues_clearFields() {
+        let m = makeMeasurement(location: "Bridge", notes: "Some notes")
+        let analyzer = makeAnalyzerWithMeasurements([m])
+
+        analyzer.updateMeasurement(at: 0, tapLocation: nil, notes: nil)
+
+        #expect(analyzer.savedMeasurements[0].tapLocation == nil)
+        #expect(analyzer.savedMeasurements[0].notes == nil)
+    }
+
+    // An out-of-range index is a no-op.
+    @Test func update_outOfRangeIndex_isNoOp() {
+        let m = makeMeasurement(location: "Bridge")
+        let analyzer = makeAnalyzerWithMeasurements([m])
+
+        analyzer.updateMeasurement(at: 99, tapLocation: "Changed", notes: nil)
+
+        #expect(analyzer.savedMeasurements[0].tapLocation == "Bridge", "Out-of-range update must not modify array")
+        #expect(analyzer.savedMeasurements.count == 1)
+    }
+
+    // The id and all other fields are preserved after an update.
+    @Test func update_preservesIdAndOtherFields() {
+        let peak = ResonantPeak(frequency: 195, magnitude: -22)
+        let m = TapToneMeasurement(peaks: [peak], decayTime: 0.5, tapLocation: "Old", notes: "Old notes")
+        let originalID = m.id
+        let analyzer = makeAnalyzerWithMeasurements([m])
+
+        analyzer.updateMeasurement(at: 0, tapLocation: "New", notes: "New notes")
+
+        let updated = analyzer.savedMeasurements[0]
+        #expect(updated.id == originalID, "id must be preserved")
+        #expect(updated.peaks.count == 1,  "peaks must be preserved")
+        #expect(updated.decayTime == 0.5,  "decayTime must be preserved")
+        #expect(updated.tapLocation == "New")
+        #expect(updated.notes == "New notes")
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MARK: - Fixture loading test  (R4)
 // ---------------------------------------------------------------------------
 

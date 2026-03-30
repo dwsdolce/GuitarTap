@@ -33,7 +33,8 @@
 import SwiftUI
 
 struct MeasurementDetailView: View {
-    let measurement: TapToneMeasurement
+    let index: Int
+    @State var measurement: TapToneMeasurement
     @ObservedObject var analyzer: TapToneAnalyzer
     @Environment(\.dismiss) var dismiss
     @State private var showingExport = false
@@ -42,6 +43,7 @@ struct MeasurementDetailView: View {
     @State private var isGeneratingReport = false
     @State private var chartImage: Image?
     @State private var showingLoadConfirmation = false
+    @State private var showingEdit = false
     
     var body: some View {
         #if os(macOS)
@@ -54,6 +56,13 @@ struct MeasurementDetailView: View {
                         Label("Load", systemImage: "arrow.down.doc")
                     }
                     .help("Load this measurement into the main analysis view")
+                }
+
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: { showingEdit = true }) {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    .help("Edit location and notes for this measurement")
                 }
                 
                 ToolbarItem(placement: .primaryAction) {
@@ -72,6 +81,15 @@ struct MeasurementDetailView: View {
             }
             .sheet(isPresented: $showingExport) {
                 ExportView(text: exportText)
+            }
+            .sheet(isPresented: $showingEdit) {
+                EditMeasurementView(index: index, measurement: measurement, analyzer: analyzer)
+                    .onDisappear {
+                        // Refresh local copy in case location/notes were edited
+                        if analyzer.savedMeasurements.indices.contains(index) {
+                            measurement = analyzer.savedMeasurements[index]
+                        }
+                    }
             }
             .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
                 Button("Cancel", role: .cancel) {}
@@ -110,6 +128,12 @@ struct MeasurementDetailView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
+                        Button(action: { showingEdit = true }) {
+                            Label("Edit Location & Notes", systemImage: "pencil")
+                        }
+
+                        Divider()
+
                         Button(action: { exportMeasurement() }) {
                             Label("Export Data (JSON)", systemImage: "square.and.arrow.up")
                         }
@@ -117,12 +141,21 @@ struct MeasurementDetailView: View {
                             Label("Export PDF Report", systemImage: "doc.richtext")
                         }
                     } label: {
-                        Label("Export", systemImage: "square.and.arrow.up")
+                        Label("More", systemImage: "ellipsis.circle")
                     }
                 }
             }
             .sheet(isPresented: $showingExport) {
                 ExportView(text: exportText)
+            }
+            .sheet(isPresented: $showingEdit) {
+                EditMeasurementView(index: index, measurement: measurement, analyzer: analyzer)
+                    .onDisappear {
+                        // Refresh local copy in case location/notes were edited
+                        if analyzer.savedMeasurements.indices.contains(index) {
+                            measurement = analyzer.savedMeasurements[index]
+                        }
+                    }
             }
             .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
                 Button("Cancel", role: .cancel) {}

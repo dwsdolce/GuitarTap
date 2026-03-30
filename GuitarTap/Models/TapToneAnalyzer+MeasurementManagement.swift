@@ -52,7 +52,16 @@ extension TapToneAnalyzer {
     ///
     /// Located in the app's `Documents` directory, which is iCloud-backed on
     /// iOS and accessible via Files on macOS.
+    ///
+    /// When running under XCTest (`XCTestConfigurationFilePath` is set in the
+    /// process environment) a temporary directory is used instead, so tests
+    /// never read from or write to the user's real measurements file.
     static var measurementsFileURL: URL {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return FileManager.default.temporaryDirectory
+                .appendingPathComponent("com.guitartap.tests")
+                .appendingPathComponent("saved_measurements.json")
+        }
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         return documentsDirectory.appendingPathComponent("saved_measurements.json")
     }
@@ -99,6 +108,10 @@ extension TapToneAnalyzer {
         let snapshot = savedMeasurements
         DispatchQueue.global(qos: .utility).async {
             do {
+                try FileManager.default.createDirectory(
+                    at: fileURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -225,18 +238,34 @@ extension TapToneAnalyzer {
         persistMeasurements()
     }
     
-    /// Removes a measurement from `savedMeasurements` and persists the change.
+    /// Replaces the `tapLocation` and `notes` fields of the measurement at a
+    /// specific array index, preserving all other data unchanged.
     ///
-    /// - Parameter measurement: The ``TapToneMeasurement`` to delete.
-    func deleteMeasurement(_ measurement: TapToneMeasurement) {
-        // Remove only the first occurrence matching this id. Using firstIndex rather than
-        // removeAll ensures that if the same file was imported twice (producing two entries
-        // with identical ids) only the intended entry is deleted.
-        if let index = savedMeasurements.firstIndex(where: { $0.id == measurement.id }) {
-            savedMeasurements.remove(at: index)
-        }
+    /// Uses the caller-supplied index rather than `id` matching so that
+    /// duplicate imports (which share the same `id`) are treated independently.
+    ///
+    /// - Parameters:
+    ///   - index: Position in `savedMeasurements` to update.
+    ///   - tapLocation: New location label, or `nil` to clear it.
+    ///   - notes: New free-form notes, or `nil` to clear them.
+    func updateMeasurement(at index: Int,
+                           tapLocation: String?,
+                           notes: String?) {
+        guard savedMeasurements.indices.contains(index) else { return }
+        savedMeasurements[index] = savedMeasurements[index].with(tapLocation: tapLocation, notes: notes)
+        persistMeasurements()
+    }
 
-        // Persist to disk
+    /// Removes the measurement at the given index from `savedMeasurements` and persists the change.
+    ///
+    /// Using a positional index rather than id matching ensures that duplicate imports
+    /// (which share the same id) are treated independently — only the specific entry
+    /// at `index` is removed.
+    ///
+    /// - Parameter index: The position in `savedMeasurements` to delete.
+    func deleteMeasurement(at index: Int) {
+        guard savedMeasurements.indices.contains(index) else { return }
+        savedMeasurements.remove(at: index)
         persistMeasurements()
     }
     
