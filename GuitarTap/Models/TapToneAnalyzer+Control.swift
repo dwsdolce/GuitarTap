@@ -133,6 +133,7 @@ extension TapToneAnalyzer {
             self.gatedAccumBuffer = []
             self.mpmLock.unlock()
 
+            self.displayMode = .live
             self.statusMessage = "Tap the guitar to begin"
         }
     }
@@ -161,6 +162,7 @@ extension TapToneAnalyzer {
 
             // Starting a new tap always clears any active comparison overlay.
             self.comparisonSpectra = []
+            self.displayMode = .live
             self.isMeasurementComplete = false
 
             // Clear per-sequence accumulated data.

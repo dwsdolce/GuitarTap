@@ -3,7 +3,7 @@
 //  GuitarTapTests
 //
 //  Tests for the spectrum comparison overlay feature:
-//  loadComparison(), clearComparison(), and the comparisonSpectra property.
+//  loadComparison(), clearComparison(), comparisonSpectra, and displayMode.
 //
 //  All tests operate on TapToneAnalyzer state directly;
 //  no audio hardware or async timing is involved.
@@ -66,6 +66,7 @@ struct ComparisonLoadTests {
         sut.loadComparison(measurements: [m1, m2])
 
         #expect(sut.comparisonSpectra.count == 2, "Expected 2 comparison entries, got \(sut.comparisonSpectra.count)")
+        #expect(sut.displayMode == .comparison, "displayMode should be .comparison after loadComparison")
     }
 
     // CP-U2: Labels use tapLocation when present; fall back to formatted timestamp.
@@ -136,6 +137,7 @@ struct ComparisonClearTests {
         sut.clearComparison()
 
         #expect(sut.comparisonSpectra.isEmpty, "comparisonSpectra should be empty after clearComparison()")
+        #expect(sut.displayMode == .live, "displayMode should be .live after clearComparison()")
     }
 
     // CP-U7: Loading an empty array also results in empty comparisonSpectra.
@@ -146,5 +148,55 @@ struct ComparisonClearTests {
         sut.loadComparison(measurements: [])
 
         #expect(sut.comparisonSpectra.isEmpty, "Loading an empty array should clear comparisonSpectra")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - displayMode transition tests
+// ---------------------------------------------------------------------------
+
+@Suite("DisplayModeTransitions")
+@MainActor
+struct DisplayModeTransitionTests {
+
+    // displayMode starts as .live on a fresh analyzer.
+    @Test func initialDisplayMode_isLive() {
+        let sut = makeSUT()
+        #expect(sut.displayMode == .live)
+    }
+
+    // loadComparison sets displayMode to .comparison.
+    @Test func loadComparison_setsDisplayModeToComparison() {
+        let sut = makeSUT()
+        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
+        #expect(sut.displayMode == .comparison)
+    }
+
+    // clearComparison sets displayMode back to .live.
+    @Test func clearComparison_setsDisplayModeToLive() {
+        let sut = makeSUT()
+        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
+        sut.clearComparison()
+        #expect(sut.displayMode == .live)
+    }
+
+    // loadMeasurement sets displayMode to .frozen.
+    @Test func loadMeasurement_setsDisplayModeToFrozen() {
+        let sut = makeSUT()
+        let m = makeMeasurement(tapLocation: "Bridge")
+        sut.loadMeasurement(m)
+        #expect(sut.displayMode == .frozen)
+    }
+
+    // loadMeasurement while in comparison also exits comparison and sets .frozen.
+    @Test func loadMeasurement_duringComparison_setsDisplayModeToFrozen() {
+        let sut = makeSUT()
+        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
+        #expect(sut.displayMode == .comparison)
+
+        sut.loadMeasurement(makeMeasurement(tapLocation: "Neck"))
+
+        #expect(sut.displayMode == .frozen)
+        #expect(sut.comparisonSpectra.isEmpty, "comparisonSpectra should be cleared when loading a measurement")
     }
 }

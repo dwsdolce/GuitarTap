@@ -221,7 +221,7 @@ extension TapToneAnalysisView {
     func autoScaleDB() {
         // When comparing, scale to fit all comparison curves; otherwise use the displayed spectrum.
         let sourceMagnitudes: [Float]
-        if !tap.comparisonSpectra.isEmpty {
+        if tap.displayMode == .comparison {
             sourceMagnitudes = tap.comparisonSpectra.flatMap { $0.magnitudes }
         } else {
             sourceMagnitudes = displayMagnitudes

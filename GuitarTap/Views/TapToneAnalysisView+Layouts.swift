@@ -431,7 +431,7 @@ extension TapToneAnalysisView {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tap.comparisonSpectra.isEmpty && (!fft.isRunning ||
+                .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
                           !tap.isReadyForDetection ||
                           tap.isDetecting))
                 .hint(HintText.newTap)

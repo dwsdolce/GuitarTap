@@ -122,7 +122,7 @@ struct TapAnalysisResultsView: View {
 
                         Spacer()
 
-                        if !analyzer.comparisonSpectra.isEmpty {
+                        if analyzer.displayMode == .comparison {
                             Text("Comparison")
                                 .font(.caption)
                                 .padding(.horizontal, 8)
@@ -198,12 +198,14 @@ struct TapAnalysisResultsView: View {
                         peaksAndModesSection
 
                         // Plate/brace properties scroll with the peaks since they can be tall
-                        if measurementType == .plate {
-                            Divider()
-                            platePropertiesSection
-                        } else if measurementType == .brace {
-                            Divider()
-                            bracePropertiesSection
+                        if analyzer.displayMode != .comparison {
+                            if measurementType == .plate {
+                                Divider()
+                                platePropertiesSection
+                            } else if measurementType == .brace {
+                                Divider()
+                                bracePropertiesSection
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -224,7 +226,7 @@ struct TapAnalysisResultsView: View {
                 // Fixed footer: compact analysis summary + export buttons
                 VStack(alignment: .leading, spacing: 8) {
                     // Guitar-specific compact summary (hidden during comparison or for plate/brace)
-                    if measurementType.isGuitar && analyzer.comparisonSpectra.isEmpty {
+                    if measurementType.isGuitar && analyzer.displayMode != .comparison {
                         guitarAnalysisSummary
                     }
 
@@ -242,7 +244,7 @@ struct TapAnalysisResultsView: View {
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
                             }
-                            if let exportPDF = onExportPDFReport, analyzer.comparisonSpectra.isEmpty {
+                            if let exportPDF = onExportPDFReport, analyzer.displayMode != .comparison {
                                 Button {
                                     exportPDF()
                                 } label: {
@@ -272,7 +274,7 @@ struct TapAnalysisResultsView: View {
     /// in overlapping mode ranges (e.g. classical Top 170–230 Hz / Back 190–280 Hz) are
     /// assigned distinct modes rather than both being labeled "Top".
     private var sortedPeaksWithModes: [(peak: ResonantPeak, mode: GuitarMode)] {
-        guard analyzer.comparisonSpectra.isEmpty else { return [] }
+        guard analyzer.displayMode != .comparison else { return [] }
         return analyzer.currentPeaks
             .filter { peak in
                 // For plate/brace mode, don't filter by display range — the selected peaks
@@ -300,7 +302,7 @@ struct TapAnalysisResultsView: View {
     private var peaksAndModesSection: some View {
         GroupBox {
             if sortedPeaksWithModes.isEmpty {
-                if !analyzer.comparisonSpectra.isEmpty {
+                if analyzer.displayMode == .comparison {
                     Label("Comparing \(analyzer.comparisonSpectra.count) measurements", systemImage: "waveform.path")
                         .font(.subheadline)
                         .foregroundColor(.secondary)

@@ -58,14 +58,14 @@ extension TapToneAnalysisView {
                     }
                     .buttonStyle(.bordered)
                     .tint(.blue)
-                    .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                    .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
                     .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                     Button(action: { showingSaveSheet = true }) {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .buttonStyle(.bordered)
-                    .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                    .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
                     .accessibilityLabel("Save")
                     .hint(HintText.save)
 
@@ -141,7 +141,7 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 // Save button
@@ -149,7 +149,7 @@ extension TapToneAnalysisView {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
                 .hint(HintText.save)
             }
 
@@ -222,7 +222,7 @@ extension TapToneAnalysisView {
             }
             .buttonStyle(.bordered)
             .tint(.blue)
-            .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+            .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
             .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
             // Save button
@@ -230,7 +230,7 @@ extension TapToneAnalysisView {
                 Label("Save", systemImage: "square.and.arrow.down")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+            .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
             .hint(HintText.save)
 
             // Measurements button
@@ -282,7 +282,7 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 // Save button
@@ -290,7 +290,7 @@ extension TapToneAnalysisView {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
                 .hint(HintText.save)
             }
 
@@ -348,7 +348,7 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 // Save button
@@ -356,7 +356,7 @@ extension TapToneAnalysisView {
                     Image(systemName: "square.and.arrow.down")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tap.currentPeaks.isEmpty || !tap.comparisonSpectra.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
                 .hint(HintText.save)
             }
 
@@ -414,7 +414,7 @@ extension TapToneAnalysisView {
     @ViewBuilder
     var compactStatusBar: some View {
         HStack(spacing: 8) {
-            if !tap.comparisonSpectra.isEmpty {
+            if tap.displayMode == .comparison {
                 // Comparison mode: show count and clear affordance
                 Image(systemName: "waveform.path")
                     .foregroundColor(.accentColor)
@@ -488,7 +488,7 @@ extension TapToneAnalysisView {
     @ViewBuilder
     var fullStatusBar: some View {
         VStack(spacing: 6) {
-            if !tap.comparisonSpectra.isEmpty {
+            if tap.displayMode == .comparison {
                 // Comparison mode: replace tap detection state with comparison info
                 HStack(spacing: 12) {
                     Image(systemName: "waveform.path")
@@ -655,7 +655,7 @@ extension TapToneAnalysisView {
                         .font(.subheadline)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tap.comparisonSpectra.isEmpty && (!fft.isRunning ||
+                .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
                           !tap.isReadyForDetection ||
                           tap.isDetecting))
                 .hint(HintText.newTap)
@@ -949,7 +949,7 @@ extension TapToneAnalysisView {
                     Label("New Tap", systemImage: "hand.tap")
                 }
                 .buttonStyle(.bordered)
-                .disabled(tap.comparisonSpectra.isEmpty && (!fft.isRunning ||
+                .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
                           !tap.isReadyForDetection ||
                           tap.isDetecting))
                 .hint(HintText.newTap)

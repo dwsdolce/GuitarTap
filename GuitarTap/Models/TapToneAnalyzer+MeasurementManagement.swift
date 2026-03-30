@@ -343,6 +343,7 @@ extension TapToneAnalyzer {
 
         // Loading a new measurement exits comparison mode.
         comparisonSpectra = []
+        displayMode = .frozen
 
         // Track the original timestamp so the Results-panel PDF can use it
         sourceMeasurementTimestamp = measurement.timestamp
@@ -693,10 +694,13 @@ extension TapToneAnalyzer {
             loadedMinDB   = snapshots.map(\.minDB).min()
             loadedMaxDB   = snapshots.map(\.maxDB).max()
         }
+
+        displayMode = .comparison
     }
 
     /// Removes all comparison overlay spectra from the main chart.
     func clearComparison() {
         comparisonSpectra = []
+        displayMode = .live
     }
 }

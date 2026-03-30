@@ -66,7 +66,7 @@ extension TapToneAnalysisView {
         // Comparison mode takes priority over everything else — when the user has
         // selected measurements to compare, show those overlays regardless of
         // measurement type (guitar, plate, or brace).
-        if !tap.comparisonSpectra.isEmpty {
+        if tap.displayMode == .comparison {
             return tap.comparisonSpectra
         }
         let measurementType = TapDisplaySettings.measurementType
@@ -139,7 +139,7 @@ extension TapToneAnalysisView {
             // Suppress single-measurement peak annotations while comparison is active —
             // the annotation positions belong to the previous measurement and would render
             // in the wrong place relative to the comparison curves.
-            let isComparing = !tap.comparisonSpectra.isEmpty
+            let isComparing = tap.displayMode == .comparison
             Group {
                 #if os(macOS)
                 SpectrumView(
@@ -252,8 +252,8 @@ extension TapToneAnalysisView {
 
     var decayTimeView: some View {
         Group {
-            if !TapDisplaySettings.measurementType.isGuitar {
-                // Plate/brace measurement instructions
+            if !TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison {
+                // Plate/brace measurement instructions (suppressed during comparison)
                 materialInstructionsView
             }
             // Guitar mode: Ring-Out Time and Tap Tone Ratio are in the Results panel
