@@ -150,17 +150,6 @@ extension TapSettingsView {
                         .foregroundColor(.secondary)
                 }
 
-                Divider()
-
-                Toggle(isOn: $measureFlc) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Measure FLC (Diagonal Tap)")
-                        Text("Add a 3rd tap: hold plate at midpoint of one long edge, tap near opposite corner. Measures shear stiffness for Gore target thickness.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
                 if let length = Float(plateLengthInput),
                    let width = Float(plateWidthInput),
                    let thickness = Float(plateThicknessInput),
@@ -175,6 +164,17 @@ extension TapSettingsView {
                         Text(String(format: "%.3f g/cm³", dims.densityGPerCm3))
                             .font(.subheadline)
                             .fontWeight(.medium)
+                    }
+                }
+
+                Divider()
+
+                Toggle(isOn: $measureFlc) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Measure FLC (Diagonal Tap)")
+                        Text("Add a 3rd tap: hold plate at midpoint of one long edge, tap near opposite corner. Measures shear stiffness for Gore target thickness.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
 
