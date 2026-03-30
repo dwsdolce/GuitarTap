@@ -695,7 +695,7 @@ extension TapToneAnalyzer {
             loadedMaxDB   = snapshots.map(\.maxDB).max()
         }
 
-        displayMode = .comparison
+        displayMode = comparisonSpectra.isEmpty ? .live : .comparison
     }
 
     /// Removes all comparison overlay spectra from the main chart.

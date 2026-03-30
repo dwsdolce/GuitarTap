@@ -148,6 +148,16 @@ struct ComparisonClearTests {
         sut.loadComparison(measurements: [])
 
         #expect(sut.comparisonSpectra.isEmpty, "Loading an empty array should clear comparisonSpectra")
+        #expect(sut.displayMode == .live, "displayMode should be .live when no spectra are loaded")
+    }
+
+    // CP-U8: All measurements lacking snapshots also leave displayMode as .live.
+    @Test func loadComparison_noSnapshots_leavesDisplayModeAsLive() {
+        let sut = makeSUT()
+        sut.loadComparison(measurements: [makeMeasurement(withSnapshot: false), makeMeasurement(withSnapshot: false)])
+
+        #expect(sut.comparisonSpectra.isEmpty)
+        #expect(sut.displayMode == .live, "displayMode should be .live when no measurements have snapshots")
     }
 }
 
