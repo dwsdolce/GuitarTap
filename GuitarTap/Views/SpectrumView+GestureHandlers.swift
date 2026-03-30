@@ -131,12 +131,12 @@ extension SpectrumView {
     /// - Option key: Pan magnitude (dB) axis
     ///
     /// - Parameters:
-    ///   - event: The scroll wheel event from AppKit
+    ///   - event: The coalesced scroll wheel event (already accumulated from raw NSEvents)
     ///   - plotFrame: The resolved chart plot frame in overlay-local coordinates
     ///   - proxy: The chart proxy for coordinate conversion
-    func handleScrollWheel(event: NSEvent, plotFrame: CGRect, proxy: ChartProxy) {
-        let scrollDeltaY = event.scrollingDeltaY
-        let scrollDeltaX = event.scrollingDeltaX
+    func handleScrollWheel(event: ScrollWheelEvent, plotFrame: CGRect, proxy: ChartProxy) {
+        let scrollDeltaY = event.deltaY
+        let scrollDeltaX = event.deltaX
 
         // Check modifiers - be explicit about checking individual flags
         let modifiers = event.modifierFlags
@@ -160,31 +160,24 @@ extension SpectrumView {
         // lastCursorPosition is kept current by the hover handler.
         let anchor = lastCursorPosition
 
-        // Check in order of priority
+        // Check in order of priority.
+        // No withAnimation: scroll wheel is continuous input — the chart must track
+        // the cursor directly. Animations compound across rapid events, causing the
+        // chart to snap through intermediate positions (the clutter effect).
         if hasCommand && !hasShift && !hasOption && !hasControl {
             // Command only: Zoom both axes around cursor
-            withAnimation(.easeOut(duration: 0.1)) {
-                handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
-            }
+            handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
         } else if hasControl && !hasCommand && !hasOption && !hasShift {
             // Control only: Zoom both axes around cursor (Windows-style Ctrl+wheel compat)
-            withAnimation(.easeOut(duration: 0.1)) {
-                handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
-            }
+            handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
         } else if hasOption && !hasCommand && !hasShift && !hasControl {
             // Option only: Pan Y (magnitude) axis
-            let translation = CGSize(width: 0, height: effectiveDelta)
-            withAnimation(.easeOut(duration: 0.1)) {
-                handlePan(translation: translation)
-            }
+            handlePan(translation: CGSize(width: 0, height: effectiveDelta))
         } else if hasShift && !hasCommand && !hasOption && !hasControl {
             // Shift only: Pan horizontally (frequency axis)
             // Shift often converts vertical scroll to horizontal, so check both deltas
             let effectiveScroll = abs(scrollDeltaX) > abs(scrollDeltaY) ? scrollDeltaX : scrollDeltaY
-            let translation = CGSize(width: effectiveScroll, height: 0)
-            withAnimation(.easeOut(duration: 0.1)) {
-                handlePan(translation: translation)
-            }
+            handlePan(translation: CGSize(width: effectiveScroll, height: 0))
         } else if !hasCommand && !hasShift && !hasOption && !hasControl {
             // No modifiers: behavior is context-sensitive based on where the pointer is.
             // Scroll wheel only sends vertical delta, so zoom factor is always driven by deltaY.
@@ -194,26 +187,13 @@ extension SpectrumView {
             }()
             switch region {
             case .plot:
-                // Over the plot: zoom both axes around cursor
-                withAnimation(.easeOut(duration: 0.1)) {
-                    handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
-                }
+                handleZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             case .xAxis:
-                // Over the x-axis area: zoom frequency axis only
-                withAnimation(.easeOut(duration: 0.1)) {
-                    handleFrequencyZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
-                }
+                handleFrequencyZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             case .yAxis:
-                // Over the y-axis area: zoom magnitude axis only
-                withAnimation(.easeOut(duration: 0.1)) {
-                    handleMagnitudeZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
-                }
+                handleMagnitudeZoom(scale: zoomFactor, cursorPosition: anchor, plotFrame: plotFrame, proxy: proxy)
             case .outside:
-                // Outside the chart: fall back to legacy pan-magnitude behavior
-                let translation = CGSize(width: 0, height: scrollDeltaY)
-                withAnimation(.easeOut(duration: 0.1)) {
-                    handlePan(translation: translation)
-                }
+                handlePan(translation: CGSize(width: 0, height: scrollDeltaY))
             }
         }
         // Ignore any combination of modifiers

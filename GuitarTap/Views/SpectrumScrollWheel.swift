@@ -39,13 +39,29 @@
 import SwiftUI
 import AppKit
 
+// MARK: - Scroll Event Value
+
+/// The coalesced values extracted from one or more `NSEvent` scroll wheel events.
+///
+/// Passed to the `onScrollWheel` handler instead of a raw `NSEvent` so that
+/// `ScrollWheelHostView` can accumulate and sum deltas from multiple raw events
+/// before delivering a single, reduced notification per display frame.
+struct ScrollWheelEvent {
+    /// Accumulated horizontal scroll delta (positive = right).
+    let deltaX: CGFloat
+    /// Accumulated vertical scroll delta (positive = down).
+    let deltaY: CGFloat
+    /// Modifier flags from the most-recent contributing raw event.
+    let modifierFlags: NSEvent.ModifierFlags
+}
+
 // MARK: - macOS Scroll Wheel Support
 
 /// A view modifier that places a `ScrollWheelMonitorView` in the background of
 /// any SwiftUI view to capture scroll wheel events with modifier key support.
 private struct ScrollWheelModifier: ViewModifier {
     /// The handler to invoke when a scroll wheel event is captured.
-    let onScrollWheel: (NSEvent) -> Void
+    let onScrollWheel: (ScrollWheelEvent) -> Void
     /// Called with the current mouse position (in the view's coordinate space)
     /// on every mouse-moved event. Use this to keep the cursor shape current.
     var cursorHandler: ((NSPoint) -> Void)?
@@ -61,7 +77,7 @@ private struct ScrollWheelModifier: ViewModifier {
 /// handler closure current as the SwiftUI state changes.
 private struct ScrollWheelMonitorView: NSViewRepresentable {
     /// The closure forwarded to the `ScrollWheelHostView`'s event monitor.
-    let onScrollWheel: (NSEvent) -> Void
+    let onScrollWheel: (ScrollWheelEvent) -> Void
     /// Called with the mouse position on every mouse-moved event while inside bounds.
     var cursorHandler: ((NSPoint) -> Void)?
 
@@ -91,11 +107,17 @@ private struct ScrollWheelMonitorView: NSViewRepresentable {
 /// even when SwiftUI re-renders (e.g. after scroll-wheel zoom) reset the system
 /// cursor — the next mouse-moved event immediately re-asserts the right cursor.
 ///
+/// **Scroll coalescing**: Rapid scroll-wheel events (e.g. trackpad at 60–120 Hz)
+/// are coalesced into one delivery per display frame (~16 ms).  Deltas and modifier
+/// flags are accumulated across events in the window and flushed as a single
+/// synthesised event, preventing the chart from queueing more re-renders than it
+/// can service and keeping zoom feel smooth.
+///
 /// - Note: `hitTest(_:)` returns `nil` so the view is invisible to AppKit's
 ///   normal hit-testing, leaving SwiftUI gesture recognisers unaffected.
 class ScrollWheelHostView: NSView {
-    /// Closure called when a qualifying scroll wheel event is captured.
-    var scrollHandler: ((NSEvent) -> Void)?
+    /// Closure called with each coalesced scroll wheel event.
+    var scrollHandler: ((ScrollWheelEvent) -> Void)?
     /// Closure called with the current mouse position (in view coordinates,
     /// y=0 at top) on every mouse-moved event while inside bounds.
     var cursorHandler: ((NSPoint) -> Void)?
@@ -105,6 +127,21 @@ class ScrollWheelHostView: NSView {
     private var mouseMovedMonitor: Any?
     /// `true` while the mouse cursor is inside this view's bounds.
     private var isMouseInside = false
+
+    // MARK: - Scroll coalescing state
+
+    /// Accumulated scroll deltas waiting to be flushed.
+    private var pendingDeltaX: CGFloat = 0
+    private var pendingDeltaY: CGFloat = 0
+    /// Modifier flags from the most recent pending event.
+    private var pendingModifiers: NSEvent.ModifierFlags = []
+    /// The most recent event — used as the template when synthesising the coalesced event.
+    private var pendingTemplate: NSEvent? = nil
+    /// Pending flush work item; cancelled when a new event arrives in the same frame.
+    private var pendingFlush: DispatchWorkItem? = nil
+
+    /// Interval between coalesced flushes — one display frame (≈16.7 ms at 60 Hz).
+    private static let coalesceInterval: TimeInterval = 1.0 / 60.0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -116,7 +153,9 @@ class ScrollWheelHostView: NSView {
     }
 
     private func setupEventMonitors() {
-        // Monitor scroll wheel events at the application level
+        // Monitor scroll wheel events at the application level.
+        // Events are coalesced: deltas are accumulated and flushed once per display
+        // frame so rapid trackpad events don't flood the chart with re-renders.
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
             guard let self = self, self.isMouseInside else {
                 return event  // Pass through if mouse not in our view
@@ -124,7 +163,7 @@ class ScrollWheelHostView: NSView {
             guard event.window == self.window else {
                 return event
             }
-            self.scrollHandler?(event)
+            self.accumulateScroll(event)
             // Return nil to prevent further propagation (consume the event)
             return nil
         }
@@ -143,6 +182,44 @@ class ScrollWheelHostView: NSView {
             }
             return event  // Don't consume mouse-moved events
         }
+    }
+
+    // MARK: - Scroll coalescing
+
+    /// Accumulates a raw scroll-wheel event's delta into the pending batch and
+    /// schedules a single flush after one display frame.  If a flush is already
+    /// pending it is cancelled and rescheduled so the window always stays
+    /// exactly one frame wide.
+    private func accumulateScroll(_ event: NSEvent) {
+        pendingDeltaX += event.scrollingDeltaX
+        pendingDeltaY += event.scrollingDeltaY
+        pendingModifiers = event.modifierFlags
+        pendingTemplate = event
+
+        // Cancel any previously scheduled flush and reschedule.
+        pendingFlush?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            self?.flushPendingScroll()
+        }
+        pendingFlush = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.coalesceInterval, execute: item)
+    }
+
+    /// Builds a `ScrollWheelEvent` from the accumulated deltas and dispatches
+    /// it to `scrollHandler`, then resets the pending state.
+    private func flushPendingScroll() {
+        guard pendingTemplate != nil else { return }
+        let dx = pendingDeltaX
+        let dy = pendingDeltaY
+        let mods = pendingModifiers
+
+        // Reset before calling the handler (handler may trigger more events)
+        pendingDeltaX = 0
+        pendingDeltaY = 0
+        pendingTemplate = nil
+        pendingFlush = nil
+
+        scrollHandler?(ScrollWheelEvent(deltaX: dx, deltaY: dy, modifierFlags: mods))
     }
 
     /// Returns the current mouse position in this view's coordinate space (y=0 at top).
@@ -211,7 +288,7 @@ extension View {
     ///   coordinate space (y=0 at top). Use this to keep the cursor shape correct
     ///   after SwiftUI re-renders triggered by scroll-wheel zoom.
     /// - Returns: The view with scroll wheel monitoring installed.
-    func onScrollWheel(_ handler: @escaping (NSEvent) -> Void,
+    func onScrollWheel(_ handler: @escaping (ScrollWheelEvent) -> Void,
                        cursorHandler: ((NSPoint) -> Void)? = nil) -> some View {
         self.modifier(ScrollWheelModifier(onScrollWheel: handler, cursorHandler: cursorHandler))
     }
