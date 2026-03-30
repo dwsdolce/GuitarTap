@@ -555,12 +555,11 @@ extension TapSettingsView {
                         captureAllPeaks = isOn
                         if isOn {
                             maxPeaks = 0  // 0 means "all peaks"
-                            maxPeaksInput = "All"
                         } else {
                             // Restore default when turning off
                             maxPeaks = TapDisplaySettings.defaultMaxPeaks
-                            maxPeaksInput = "\(maxPeaks)"
                         }
+                        maxPeaksInput = TapSettingsView.maxPeaksDisplayString(maxPeaks)
                     }
                 )) {
                     Text("Capture all peaks in analysis range")

@@ -187,8 +187,9 @@ extension TapSettingsView {
         analysisMaxFreqInput = String(format: "%.0f", TapDisplaySettings.defaultAnalysisMaxFrequency)
         peakThresholdInput = String(format: "%.0f", TapDisplaySettings.defaultPeakThreshold)
         maxPeaks = TapDisplaySettings.defaultMaxPeaks
-        maxPeaksInput = "\(TapDisplaySettings.defaultMaxPeaks)"
-        captureAllPeaks = false
+        // defaultMaxPeaks == 0 means "all peaks", so keep captureAllPeaks consistent
+        captureAllPeaks = TapDisplaySettings.defaultMaxPeaks == 0
+        maxPeaksInput = TapSettingsView.maxPeaksDisplayString(TapDisplaySettings.defaultMaxPeaks)
         hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
     }
 

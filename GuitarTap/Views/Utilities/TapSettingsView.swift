@@ -143,6 +143,11 @@ struct TapSettingsView: View {
     /// Called when the user presses Apply (not Cancel).
     var onApply: (() -> Void)?
 
+    /// Converts a maxPeaks integer to its display string (0 → "All", n → "n").
+    static func maxPeaksDisplayString(_ value: Int) -> String {
+        value == 0 ? "All" : "\(value)"
+    }
+
     init(minFreq: Binding<Float>,
          maxFreq: Binding<Float>,
          minDB: Binding<Float>,
@@ -179,7 +184,7 @@ struct TapSettingsView: View {
         // Initialize maxPeaks input - 0 means "all peaks"
         let peaksValue = maxPeaks.wrappedValue
         self._captureAllPeaks = State(initialValue: peaksValue == 0)
-        self._maxPeaksInput = State(initialValue: peaksValue == 0 ? "All" : "\(peaksValue)")
+        self._maxPeaksInput = State(initialValue: TapSettingsView.maxPeaksDisplayString(peaksValue))
     }
 
     var body: some View {
