@@ -86,6 +86,11 @@ extension TapToneAnalysisView {
         return result
     }
 
+    /// Chart title: the loaded measurement's location/name, or "New" when no measurement is loaded.
+    var chartTitle: String {
+        tap.loadedMeasurementName ?? "New"
+    }
+
     var realTimeSpectrumView: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Prepare threshold lines for the chart
@@ -169,7 +174,8 @@ extension TapToneAnalysisView {
                     selectedFlcPeakID: tap.effectiveFlcPeakID,
                     modeOverrides: tap.peakModeOverrides,
                     peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
-                    highlightedPeakID: $tapToneAnalyzer.highlightedPeakID
+                    highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
+                    chartTitle: "FFT Peaks — \(chartTitle)"
                 )
                 #else
                 SpectrumView(
@@ -200,6 +206,7 @@ extension TapToneAnalysisView {
                     modeOverrides: tap.peakModeOverrides,
                     peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
                     highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
+                    chartTitle: "FFT Peaks — \(chartTitle)",
                     crosshairMode: $crosshairMode
                 )
                 #endif

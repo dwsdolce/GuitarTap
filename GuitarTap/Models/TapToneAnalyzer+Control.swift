@@ -134,6 +134,7 @@ extension TapToneAnalyzer {
             self.mpmLock.unlock()
 
             self.displayMode = .live
+            self.loadedMeasurementName = nil
             self.statusMessage = "Tap the guitar to begin"
         }
     }
@@ -163,6 +164,7 @@ extension TapToneAnalyzer {
             // Starting a new tap always clears any active comparison overlay.
             self.comparisonSpectra = []
             self.displayMode = .live
+            self.loadedMeasurementName = nil
             self.isMeasurementComplete = false
 
             // Clear per-sequence accumulated data.

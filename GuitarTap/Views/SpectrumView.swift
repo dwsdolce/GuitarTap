@@ -220,6 +220,9 @@ struct SpectrumView: View {
     /// detects the change and re-evaluates `peakAnnotationContent`.
     var currentHighlightedPeakID: UUID? { highlightedPeakID.wrappedValue }
 
+    /// Title shown above the chart. Defaults to "FFT Peaks".
+    var chartTitle: String = "FFT Peaks"
+
     // MARK: - Gesture State
 
     /// Tracks drag offset during pan gestures (for live preview only)
@@ -411,7 +414,7 @@ struct SpectrumView: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                Text("FFT Peaks")
+                Text(chartTitle)
                     .font(.headline)
                     .frame(maxWidth: .infinity, alignment: .center)
 

@@ -348,6 +348,10 @@ extension TapToneAnalyzer {
         // Track the original timestamp so the Results-panel PDF can use it
         sourceMeasurementTimestamp = measurement.timestamp
 
+        // Expose the measurement name so the chart title can reflect it
+        let name = measurement.tapLocation.flatMap { $0.isEmpty ? nil : $0 }
+        loadedMeasurementName = name
+
         // Restore peaks
         currentPeaks = measurement.peaks
         
