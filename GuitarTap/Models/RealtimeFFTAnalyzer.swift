@@ -233,9 +233,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Initialize to -100 dB (very quiet) to prevent false "above threshold" detection on startup
     @Published var peakMagnitude: Float = -100
     
-    /// Fast input level in dB - updated on every audio buffer callback (~10Hz with 4096 buffer)
+    /// Fast input level in dB - updated on every audio buffer callback (~43Hz with 1024 buffer)
     /// Use this for decay tracking instead of peakMagnitude which only updates per FFT frame
     @Published var inputLevelDB: Float = -100
+
+    /// Input level gated to the FFT publish rate for display purposes.
+    /// Updates in lockstep with `magnitudes`/`peakMagnitude` (i.e. at the FFT frame rate),
+    /// so the status-bar level number refreshes at the same cadence as the graph.
+    @Published var displayLevelDB: Float = -100
     
     /// Maximum input level observed over the last `peakHoldDuration` seconds (dBFS).
     ///

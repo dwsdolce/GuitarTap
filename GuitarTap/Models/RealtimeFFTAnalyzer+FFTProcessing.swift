@@ -121,20 +121,20 @@ extension RealtimeFFTAnalyzer {
         rawSampleHandler?(samples, actualSampleRate)
         
         // Calculate fast input level (RMS) for decay tracking
-        // This updates on every audio buffer (~10Hz with 4096 buffer) instead of per FFT frame
+        // This updates on every audio buffer (~43Hz with 1024 buffer) instead of per FFT frame
         var rms: Float = 0
         vDSP_rmsqv(samples, 1, &rms, vDSP_Length(samples.count))
         let levelDB = rms > 0 ? 20 * log10(rms) : -100
-        let now = Date()
-        
+        let wallNow = Date()
+
         // Update input level and recent peak on main thread
         DispatchQueue.main.async {
             self.inputLevelDB = levelDB
-            
+
             // Track recent peak: update if current level is higher, or if peak has expired
-            if levelDB > self.recentPeakLevelDB || now.timeIntervalSince(self.recentPeakTime) > self.peakHoldDuration {
+            if levelDB > self.recentPeakLevelDB || wallNow.timeIntervalSince(self.recentPeakTime) > self.peakHoldDuration {
                 self.recentPeakLevelDB = levelDB
-                self.recentPeakTime = now
+                self.recentPeakTime = wallNow
             }
         }
         
@@ -351,6 +351,8 @@ extension RealtimeFFTAnalyzer {
                     self.peakMagnitude = peakMag
                     self.processingTimeMs = processingTime
                     self.avgProcessingTimeMs = avgTime
+                    // displayLevelDB updates at the same rate as the graph (gated by shouldPublish)
+                    self.displayLevelDB = self.inputLevelDB
                 }
             }
         }

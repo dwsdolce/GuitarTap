@@ -450,7 +450,7 @@ extension TapToneAnalysisView {
                     .foregroundColor(tap.isMeasurementComplete ? .green : .secondary)
                     .lineLimit(1)
 
-                Text("\(fft.peakMagnitude, specifier: "%.0f") dB")
+                Text("\(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, specifier: "%.0f") dB")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -551,7 +551,7 @@ extension TapToneAnalysisView {
                     Text("•")
                         .foregroundColor(.secondary)
 
-                    Text("\(fft.peakMagnitude, specifier: "%.1f") dB")
+                    Text("\(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, specifier: "%.1f") dB")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
