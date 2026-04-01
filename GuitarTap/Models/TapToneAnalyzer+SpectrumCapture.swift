@@ -272,7 +272,7 @@ extension TapToneAnalyzer {
         // Store spectrum so the UI can display it and the user can select alternate peaks
         materialCapturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: Date()))
         currentTapCount += 1
-        tapProgress = Float(currentTapCount) / Float(totalPlateTaps)
+        tapProgress = min(1.0, Float(currentTapCount) / Float(totalPlateTaps))
 
         // Route to phase handler, passing the full spectrum for display and the
         // dominant peak for auto-selection.

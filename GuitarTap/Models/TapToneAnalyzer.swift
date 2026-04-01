@@ -201,6 +201,20 @@ final class TapToneAnalyzer: ObservableObject {
             if isDetecting && currentTapCount == 0 {
                 statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
             }
+            // If the user reduces numberOfTaps to at or below the taps already captured
+            // mid-sequence, treat the already-captured taps as sufficient and process them.
+            if isDetecting && currentTapCount >= numberOfTaps && currentTapCount > 0 {
+                isDetecting = false
+                statusMessage = "All taps captured. Processing..."
+                DispatchQueue.main.asyncAfter(deadline: .now() + captureWindow) { [weak self] in
+                    self?.processMultipleTaps()
+                }
+            }
+            // If the user changes tap count manually, the loaded-settings warning
+            // is no longer relevant for this setting.
+            if numberOfTaps != loadedNumberOfTaps {
+                showLoadedSettingsWarning = false
+            }
         }
     }
 
@@ -216,7 +230,14 @@ final class TapToneAnalyzer: ObservableObject {
     /// combined with the noise-floor estimate to form a relative threshold.
     /// Persisted in ``TapDisplaySettings``.
     @Published var tapDetectionThreshold: Float = TapDisplaySettings.tapDetectionThreshold {
-        didSet { TapDisplaySettings.tapDetectionThreshold = tapDetectionThreshold }
+        didSet {
+            TapDisplaySettings.tapDetectionThreshold = tapDetectionThreshold
+            // If the user changes the threshold manually, the loaded-settings warning
+            // is no longer relevant for this setting.
+            if tapDetectionThreshold != loadedTapDetectionThreshold {
+                showLoadedSettingsWarning = false
+            }
+        }
     }
 
     /// Hysteresis margin in dB.
@@ -466,7 +487,14 @@ final class TapToneAnalyzer: ObservableObject {
     /// Used as a unified guard to prevent auto-starting a new tap sequence when the analyzer
     /// engine restarts (e.g. after an AirDrop or returning from background).  Cleared by
     /// `reset()`, `startTapSequence()`, and `newMeasurement()`.
-    @Published var isMeasurementComplete: Bool = false
+    @Published var isMeasurementComplete: Bool = false {
+        didSet {
+            // A successful new tap clears the loaded-settings warning — the user
+            // has now captured a measurement with the current (loaded) settings and
+            // knows what they are.
+            if isMeasurementComplete { showLoadedSettingsWarning = false }
+        }
+    }
 
     /// Averaged FFT spectrum from the longitudinal (along-grain) tap, once captured.
     ///
@@ -584,6 +612,12 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var loadedGuitarType: GuitarType?
     /// Measurement type (guitar / plate / brace) loaded from a saved measurement.
     @Published var loadedMeasurementType: MeasurementType?
+
+    /// True while the user should be reminded that threshold and tap-count settings
+    /// came from a loaded measurement rather than their own preferences.
+    /// Set when a measurement is loaded; cleared when a new tap is successfully
+    /// completed, when the user manually changes threshold or tap count, or on reset.
+    @Published var showLoadedSettingsWarning: Bool = false
 
     /// Warning message shown when the microphone used for a loaded measurement is unavailable
     /// on the current device.

@@ -260,7 +260,7 @@ extension TapToneAnalyzer {
         
         // Increment tap count
         currentTapCount += 1
-        tapProgress = Float(currentTapCount) / Float(numberOfTaps)
+        tapProgress = min(1.0, Float(currentTapCount) / Float(numberOfTaps))
         TAP_DEBUG("handleTapDetection", "GUITAR TAP STORED | currentTapCount=\(currentTapCount) numberOfTaps=\(numberOfTaps) tapProgress=\(String(format: "%.2f", tapProgress))")
         
         // Start decay tracking for ring-out time measurement.

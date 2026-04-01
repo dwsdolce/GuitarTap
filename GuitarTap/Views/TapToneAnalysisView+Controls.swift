@@ -427,6 +427,18 @@ extension TapToneAnalysisView {
                 Text("New Tap to exit")
                     .font(.caption)
                     .foregroundColor(.secondary)
+            } else if tap.showLoadedSettingsWarning {
+                // Warn that threshold and tap count came from a loaded measurement.
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                    .font(.caption)
+                    .opacity(warningIconOpacity)
+                Text("Loaded settings — Threshold: \(Int(tap.tapDetectionThreshold)) dB · Taps: \(tap.numberOfTaps)")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.orange)
+                    .lineLimit(1)
+                Spacer()
             } else {
                 // Normal tap detection state
                 Circle()
@@ -443,7 +455,7 @@ extension TapToneAnalysisView {
                     .foregroundColor(.secondary)
                     .lineLimit(1)
 
-                if tap.currentTapCount > 0 {
+                if tap.isDetecting && tap.currentTapCount > 0 {
                     Text("\(tap.currentTapCount)/\(tap.numberOfTaps)")
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -502,6 +514,25 @@ extension TapToneAnalysisView {
                         .foregroundColor(.secondary)
                 }
             } else {
+                // Warn that threshold and tap count came from a loaded measurement.
+                // Persists through New Tap until a successful capture or manual change.
+                if tap.showLoadedSettingsWarning {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                            .font(.subheadline)
+                            .opacity(warningIconOpacity)
+                        Text("Settings from loaded measurement — Threshold: \(Int(tap.tapDetectionThreshold)) dB · Taps: \(tap.numberOfTaps)")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.12))
+                    .cornerRadius(6)
+                }
                 // Normal tap detection state
                 if tap.currentTapCount > 0 {
                     ProgressView(value: tap.tapProgress)
@@ -557,7 +588,7 @@ extension TapToneAnalysisView {
                         .font(.caption)
                         .foregroundColor(tap.isDetecting ? .primary : .orange)
 
-                    if tap.currentTapCount > 0 {
+                    if tap.isDetecting && tap.currentTapCount > 0 {
                         Text("\(tap.currentTapCount)/\(tap.numberOfTaps)")
                             .font(.caption)
                             .fontWeight(.semibold)

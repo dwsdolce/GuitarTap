@@ -135,6 +135,7 @@ extension TapToneAnalyzer {
 
             self.displayMode = .live
             self.loadedMeasurementName = nil
+            self.showLoadedSettingsWarning = false
             self.statusMessage = "Tap the guitar to begin"
         }
     }

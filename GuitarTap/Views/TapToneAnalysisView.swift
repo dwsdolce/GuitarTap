@@ -122,6 +122,9 @@ struct TapToneAnalysisView: View {
     @State var selectedCrossPeakID: UUID?
     @State var selectedFlcPeakID: UUID?
 
+    /// Drives the repeating opacity throb on the loaded-settings warning icon.
+    @State var warningIconOpacity: Double = 1.0
+
     // Environment
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.verticalSizeClass) var verticalSizeClass
@@ -525,6 +528,17 @@ struct TapToneAnalysisView: View {
             if isComplete && isAutoScaleEnabled {
                 isAutoScaleEnabled = false
                 print("🔄 Auto-scale dB disabled - measurement complete")
+            }
+        }
+        .onChange(of: tapToneAnalyzer.showLoadedSettingsWarning) { _, active in
+            if active {
+                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                    warningIconOpacity = 0.2
+                }
+            } else {
+                withAnimation(.default) {
+                    warningIconOpacity = 1.0
+                }
             }
         }
         .onAppear {

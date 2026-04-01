@@ -605,6 +605,7 @@ extension TapToneAnalyzer {
             }
         }
 
+        showLoadedSettingsWarning = true
         print("✅ Loaded measurement with \(measurement.peaks.count) peaks (frozen)")
     }
 
