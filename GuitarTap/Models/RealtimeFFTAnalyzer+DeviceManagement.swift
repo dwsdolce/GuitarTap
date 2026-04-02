@@ -565,26 +565,10 @@ extension RealtimeFFTAnalyzer {
         let wasRunning = isRunning
         
         switch reason {
-        case .newDeviceAvailable:
-            print("🎤 New audio device connected")
-            // Reload device list when devices are added
+        case .newDeviceAvailable, .oldDeviceUnavailable:
             loadAvailableInputDevices()
-            
-            // If the engine was running, restart it to pick up the new device configuration
-            // This ensures the audio tap is properly reconfigured for the new route
             if wasRunning {
-                print("🔄 Restarting audio engine after device connection...")
-                restartEngineAfterRouteChange()
-            }
-            
-        case .oldDeviceUnavailable:
-            print("🎤 Audio device disconnected")
-            // Reload device list when devices are removed
-            loadAvailableInputDevices()
-            
-            // If the engine was running, restart it to use the fallback device
-            if wasRunning {
-                print("🔄 Restarting audio engine after device disconnection...")
+                print("🔄 Restarting audio engine after route change (\(reason))...")
                 restartEngineAfterRouteChange()
             }
             

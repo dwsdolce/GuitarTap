@@ -145,72 +145,7 @@ extension TapToneAnalysisView {
             // the annotation positions belong to the previous measurement and would render
             // in the wrong place relative to the comparison curves.
             let isComparing = tap.displayMode == .comparison
-            Group {
-                #if os(macOS)
-                SpectrumView(
-                    frequencies: displayFrequencies,
-                    magnitudes: displayMagnitudes,
-                    minFreq: $minFreq,
-                    maxFreq: $maxFreq,
-                    minDB: $minDB,
-                    maxDB: $maxDB,
-                    isLogarithmic: .constant(false),
-                    peaks: isComparing ? nil : tap.currentPeaks,
-                    annotationPeaks: isComparing ? nil : tap.visiblePeaks,
-                    showModeBoundaries: true,
-                    onFrequencyRangeChanged: updateFrequencyInputFields,
-                    annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
-                    materialSpectra: materialSpectra,
-                    thresholdLines: isComparing ? [] : thresholds,
-                    onResetLabels: {
-                        tapToneAnalyzer.resetAllAnnotationOffsets()
-                    },
-                    hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
-                    isMeasurementComplete: tap.isMeasurementComplete,
-                    primaryCurveColor: .red,
-                    measurementType: TapDisplaySettings.measurementType,
-                    selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
-                    selectedCrossPeakID: tap.effectiveCrossPeakID,
-                    selectedFlcPeakID: tap.effectiveFlcPeakID,
-                    modeOverrides: tap.peakModeOverrides,
-                    peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
-                    highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
-                    chartTitle: "FFT Peaks — \(chartTitle)"
-                )
-                #else
-                SpectrumView(
-                    frequencies: displayFrequencies,
-                    magnitudes: displayMagnitudes,
-                    minFreq: $minFreq,
-                    maxFreq: $maxFreq,
-                    minDB: $minDB,
-                    maxDB: $maxDB,
-                    isLogarithmic: .constant(false),
-                    peaks: isComparing ? nil : tap.currentPeaks,
-                    annotationPeaks: isComparing ? nil : tap.visiblePeaks,
-                    showModeBoundaries: true,
-                    onFrequencyRangeChanged: updateFrequencyInputFields,
-                    annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
-                    materialSpectra: materialSpectra,
-                    thresholdLines: isComparing ? [] : thresholds,
-                    onResetLabels: {
-                        tapToneAnalyzer.resetAllAnnotationOffsets()
-                    },
-                    hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
-                    isMeasurementComplete: tap.isMeasurementComplete,
-                    primaryCurveColor: .red,
-                    measurementType: TapDisplaySettings.measurementType,
-                    selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
-                    selectedCrossPeakID: tap.effectiveCrossPeakID,
-                    selectedFlcPeakID: tap.effectiveFlcPeakID,
-                    modeOverrides: tap.peakModeOverrides,
-                    peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
-                    highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
-                    chartTitle: "FFT Peaks — \(chartTitle)",
-                    crosshairMode: $crosshairMode
-                )
-                #endif
-            }
+            spectrumView(isComparing: isComparing, thresholds: thresholds)
             // Force view to update when any relevant state changes
             .id("\(tap.isMeasurementComplete)-\(fft.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
             .frame(minHeight: 200, maxHeight: .infinity)
@@ -255,6 +190,75 @@ extension TapToneAnalysisView {
                 }
             )
         }
+    }
+
+    /// Builds the `SpectrumView` with all shared parameters, injecting
+    /// `crosshairMode` on iOS only.
+    @ViewBuilder
+    func spectrumView(
+        isComparing: Bool,
+        thresholds: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])]
+    ) -> some View {
+        #if os(iOS)
+        SpectrumView(
+            frequencies: displayFrequencies,
+            magnitudes: displayMagnitudes,
+            minFreq: $minFreq,
+            maxFreq: $maxFreq,
+            minDB: $minDB,
+            maxDB: $maxDB,
+            isLogarithmic: .constant(false),
+            peaks: isComparing ? nil : tap.currentPeaks,
+            annotationPeaks: isComparing ? nil : tap.visiblePeaks,
+            showModeBoundaries: true,
+            onFrequencyRangeChanged: updateFrequencyInputFields,
+            annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
+            materialSpectra: materialSpectra,
+            thresholdLines: isComparing ? [] : thresholds,
+            onResetLabels: { tapToneAnalyzer.resetAllAnnotationOffsets() },
+            hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
+            isMeasurementComplete: tap.isMeasurementComplete,
+            primaryCurveColor: .red,
+            measurementType: TapDisplaySettings.measurementType,
+            selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
+            selectedCrossPeakID: tap.effectiveCrossPeakID,
+            selectedFlcPeakID: tap.effectiveFlcPeakID,
+            modeOverrides: tap.peakModeOverrides,
+            peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
+            highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
+            chartTitle: "FFT Peaks — \(chartTitle)",
+            crosshairMode: $crosshairMode
+        )
+        #else
+        SpectrumView(
+            frequencies: displayFrequencies,
+            magnitudes: displayMagnitudes,
+            minFreq: $minFreq,
+            maxFreq: $maxFreq,
+            minDB: $minDB,
+            maxDB: $maxDB,
+            isLogarithmic: .constant(false),
+            peaks: isComparing ? nil : tap.currentPeaks,
+            annotationPeaks: isComparing ? nil : tap.visiblePeaks,
+            showModeBoundaries: true,
+            onFrequencyRangeChanged: updateFrequencyInputFields,
+            annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
+            materialSpectra: materialSpectra,
+            thresholdLines: isComparing ? [] : thresholds,
+            onResetLabels: { tapToneAnalyzer.resetAllAnnotationOffsets() },
+            hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
+            isMeasurementComplete: tap.isMeasurementComplete,
+            primaryCurveColor: .red,
+            measurementType: TapDisplaySettings.measurementType,
+            selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
+            selectedCrossPeakID: tap.effectiveCrossPeakID,
+            selectedFlcPeakID: tap.effectiveFlcPeakID,
+            modeOverrides: tap.peakModeOverrides,
+            peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
+            highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
+            chartTitle: "FFT Peaks — \(chartTitle)"
+        )
+        #endif
     }
 
     var decayTimeView: some View {

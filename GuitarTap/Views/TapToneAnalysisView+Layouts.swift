@@ -120,15 +120,7 @@ extension TapToneAnalysisView {
             }
             .frame(minWidth: 400, minHeight: 500)
         }
-        .overlay {
-            if isExportingSpectrum {
-                LoadingOverlay(message: "Exporting spectrum...")
-            } else if isSavingMeasurement {
-                LoadingOverlay(message: "Saving measurement with chart image...")
-            } else if isGeneratingReport {
-                LoadingOverlay(message: "Generating PDF report...")
-            }
-        }
+        .overlay { loadingOverlay }
     }
 
     /// Left pane of the macOS split view: spectrum chart and decay info.
@@ -234,17 +226,21 @@ extension TapToneAnalysisView {
             )
             .interactiveDismissDisabled()
         }
-        .overlay {
-            if isExportingSpectrum {
-                LoadingOverlay(message: "Exporting spectrum...")
-            } else if isSavingMeasurement {
-                LoadingOverlay(message: "Saving measurement with chart image...")
-            } else if isGeneratingReport {
-                LoadingOverlay(message: "Generating PDF report...")
-            }
-        }
+        .overlay { loadingOverlay }
     }
     #endif
+
+    /// Overlay shown during long-running export/save operations.
+    @ViewBuilder
+    var loadingOverlay: some View {
+        if isExportingSpectrum {
+            LoadingOverlay(message: "Exporting spectrum...")
+        } else if isSavingMeasurement {
+            LoadingOverlay(message: "Saving measurement with chart image...")
+        } else if isGeneratingReport {
+            LoadingOverlay(message: "Generating PDF report...")
+        }
+    }
 
     /// Main content view shared across platforms
     @ViewBuilder

@@ -189,58 +189,15 @@ extension TapToneAnalyzer {
                 let seedMap = GuitarMode.classifyAll(savedPeaks)
                 modesByFrequency = savedPeaks.map { ($0.frequency, seedMap[$0.id] ?? .unknown) }
             }
-            let freshModeMap = GuitarMode.classifyAll(peaks)
-            identifiedModes = peaks.map { newPeak in
-                if let saved = modesByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
-                    return (peak: newPeak, mode: saved.mode)
-                }
-                return (peak: newPeak, mode: freshModeMap[newPeak.id] ?? .unknown)
-            }
-
-            // Remap annotation offsets by frequency proximity.
-            var newOffsets: [UUID: CGPoint] = [:]
-            for newPeak in peaks {
-                if let match = offsetsByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
-                    newOffsets[newPeak.id] = match.offset
-                }
-            }
-            peakAnnotationOffsets = newOffsets
-
-            // Remap mode overrides by frequency proximity.
-            var newOverrides: [UUID: UserAssignedMode] = [:]
-            for newPeak in peaks {
-                if let match = overridesByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
-                    newOverrides[newPeak.id] = match.override
-                }
-            }
-            peakModeOverrides = newOverrides
-
-            if !isGuitar {
-                selectedPeakIDs = Set(peaks.map { $0.id })
-                selectedPeakFrequencies = peaks.map { $0.frequency }
-            } else if userHasModifiedPeakSelection {
-                var carriedIDs = Set<UUID>()
-                var carriedFreqs: [Float] = []
-                for oldFreq in previouslySelectedFrequencies {
-                    if let closest = peaks
-                        .filter({ abs($0.frequency - oldFreq) <= tolerance })
-                        .min(by: { abs($0.frequency - oldFreq) < abs($1.frequency - oldFreq) }) {
-                        if carriedIDs.insert(closest.id).inserted {
-                            carriedFreqs.append(closest.frequency)
-                        }
-                    } else {
-                        // Peak is currently below threshold — keep its frequency in the
-                        // cache so it can be re-selected when the threshold is lowered again.
-                        carriedFreqs.append(oldFreq)
-                    }
-                }
-                selectedPeakIDs = carriedIDs
-                selectedPeakFrequencies = carriedFreqs
-            } else {
-                let autoIDs = guitarModeSelectedPeakIDs(from: peaks)
-                selectedPeakIDs = autoIDs
-                selectedPeakFrequencies = peaks.filter { autoIDs.contains($0.id) }.map { $0.frequency }
-            }
+            applyFrozenPeakState(
+                peaks: peaks,
+                modesByFrequency: modesByFrequency,
+                offsetsByFrequency: offsetsByFrequency,
+                overridesByFrequency: overridesByFrequency,
+                previouslySelectedFrequencies: previouslySelectedFrequencies,
+                isGuitar: isGuitar,
+                tolerance: tolerance
+            )
             return
         }
 
@@ -264,66 +221,15 @@ extension TapToneAnalyzer {
 
         currentPeaks = peaks
 
-        // Remap saved mode assignments to new peaks by frequency proximity.
-        // Fall back to classifyAll() for any peak that has no saved assignment.
-        let freshModeMap = GuitarMode.classifyAll(peaks)
-        identifiedModes = peaks.map { newPeak in
-            if let saved = modesByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
-                return (peak: newPeak, mode: saved.mode)
-            }
-            return (peak: newPeak, mode: freshModeMap[newPeak.id] ?? .unknown)
-        }
-
-        // Remap annotation offsets to new UUIDs by frequency proximity.
-        var newOffsets: [UUID: CGPoint] = [:]
-        for newPeak in peaks {
-            if let match = offsetsByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
-                newOffsets[newPeak.id] = match.offset
-            }
-        }
-        peakAnnotationOffsets = newOffsets
-
-        // Remap mode overrides to new UUIDs by frequency proximity.
-        var newOverrides: [UUID: UserAssignedMode] = [:]
-        for newPeak in peaks {
-            if let match = overridesByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
-                newOverrides[newPeak.id] = match.override
-            }
-        }
-        peakModeOverrides = newOverrides
-
-        if !isGuitar {
-            // Plate/brace: the frozen peaks are final gated-capture results — select all.
-            selectedPeakIDs = Set(peaks.map { $0.id })
-            selectedPeakFrequencies = peaks.map { $0.frequency }
-        } else if userHasModifiedPeakSelection {
-            // Carry forward by frequency proximity: for each previously-selected
-            // frequency pick the single closest new peak within tolerance.
-            // Peaks currently below the threshold are kept in the frequency cache
-            // so they are re-selected when the threshold is lowered again.
-            var carriedIDs = Set<UUID>()
-            var carriedFreqs: [Float] = []
-            for oldFreq in previouslySelectedFrequencies {
-                if let closest = peaks
-                    .filter({ abs($0.frequency - oldFreq) <= tolerance })
-                    .min(by: { abs($0.frequency - oldFreq) < abs($1.frequency - oldFreq) }) {
-                    if carriedIDs.insert(closest.id).inserted {
-                        carriedFreqs.append(closest.frequency)
-                    }
-                } else {
-                    // Peak is below threshold — preserve its frequency so it
-                    // is re-selected when the threshold is lowered again.
-                    carriedFreqs.append(oldFreq)
-                }
-            }
-            selectedPeakIDs = carriedIDs
-            selectedPeakFrequencies = carriedFreqs
-        } else {
-            // No user changes yet: re-run the mode-priority auto-selection.
-            let autoIDs = guitarModeSelectedPeakIDs(from: peaks)
-            selectedPeakIDs = autoIDs
-            selectedPeakFrequencies = peaks.filter { autoIDs.contains($0.id) }.map { $0.frequency }
-        }
+        applyFrozenPeakState(
+            peaks: peaks,
+            modesByFrequency: modesByFrequency,
+            offsetsByFrequency: offsetsByFrequency,
+            overridesByFrequency: overridesByFrequency,
+            previouslySelectedFrequencies: previouslySelectedFrequencies,
+            isGuitar: isGuitar,
+            tolerance: tolerance
+        )
     }
 
     /// Resets peak selections back to the automatic mode-priority algorithm and
@@ -442,27 +348,7 @@ extension TapToneAnalyzer {
                 }
                 guard isLocalMax else { continue }
 
-                // Refine peak location and magnitude with parabolic interpolation
-                let (interpFreq, interpMag) = parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i)
-
-                // Calculate Q factor using interpolated peak magnitude for accurate -3 dB threshold
-                let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i, peakMagnitude: interpMag)
-
-                // Calculate pitch information from interpolated frequency
-                let freq = Double(interpFreq)
-                let pitchNote = pitchCalculator.note(frequency: freq)
-                let pitchCents = pitchCalculator.cents(frequency: freq)
-                let pitchFreq = pitchCalculator.freq0(frequency: freq)
-
-                let peak = ResonantPeak(
-                    frequency: interpFreq,
-                    magnitude: interpMag,
-                    quality: quality,
-                    bandwidth: bandwidth,
-                    pitchNote: pitchNote,
-                    pitchCents: pitchCents,
-                    pitchFrequency: pitchFreq
-                )
+                let peak = makePeak(at: i, magnitudes: magnitudes, frequencies: frequencies)
                 // Track strongest peak for this mode only — do NOT add to allPeaks.
                 // Mode-range peaks go exclusively into strongestPeakPerMode so that
                 // the "remaining slots" fill in step 3 cannot re-introduce a weaker
@@ -527,27 +413,7 @@ extension TapToneAnalyzer {
                 
                 guard isLocalMax else { continue }
                 
-                // Refine peak location and magnitude with parabolic interpolation
-                let (interpFreq, interpMag) = parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i)
-                
-                // Calculate Q factor using interpolated peak magnitude for accurate -3 dB threshold
-                let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies, peakIndex: i, peakMagnitude: interpMag)
-                
-                // Calculate pitch information from interpolated frequency
-                let freq = Double(interpFreq)
-                let pitchNote = pitchCalculator.note(frequency: freq)
-                let pitchCents = pitchCalculator.cents(frequency: freq)
-                let pitchFreq = pitchCalculator.freq0(frequency: freq)
-                
-                let peak = ResonantPeak(
-                    frequency: interpFreq,
-                    magnitude: interpMag,
-                    quality: quality,
-                    bandwidth: bandwidth,
-                    pitchNote: pitchNote,
-                    pitchCents: pitchCents,
-                    pitchFrequency: pitchFreq
-                )
+                let peak = makePeak(at: i, magnitudes: magnitudes, frequencies: frequencies)
                 allPeaks.append(peak)
             }
         }
@@ -595,6 +461,120 @@ extension TapToneAnalyzer {
         return finalPeaks.sorted(by: { $0.magnitude > $1.magnitude })
     }
     
+    /// Applies the shared post-analysis state mutations common to both the
+    /// loaded-measurement and live-tap paths in ``recalculateFrozenPeaksIfNeeded()``.
+    ///
+    /// Specifically:
+    /// 1. Remaps mode classifications to the new peak UUIDs.
+    /// 2. Remaps annotation offsets to the new peak UUIDs by frequency proximity.
+    /// 3. Remaps mode overrides to the new peak UUIDs by frequency proximity.
+    /// 4. Updates `selectedPeakIDs` / `selectedPeakFrequencies` according to the
+    ///    current selection strategy (plate select-all, manual carry-forward, or
+    ///    guitar auto-selection).
+    ///
+    /// - Parameters:
+    ///   - peaks: The new peak array (already stored in `currentPeaks`).
+    ///   - modesByFrequency: Previously-saved `(frequency, mode)` pairs used to
+    ///     remap mode labels across UUID changes.
+    ///   - offsetsByFrequency: Previously-saved annotation offsets keyed by frequency.
+    ///   - overridesByFrequency: Previously-saved mode overrides keyed by frequency.
+    ///   - previouslySelectedFrequencies: Frequencies that were selected before
+    ///     the threshold change (used for manual carry-forward).
+    ///   - isGuitar: Whether the current measurement type is a guitar (vs plate/brace).
+    ///   - tolerance: Frequency proximity tolerance in Hz (default 5 Hz).
+    private func applyFrozenPeakState(
+        peaks: [ResonantPeak],
+        modesByFrequency: [(frequency: Float, mode: GuitarMode)],
+        offsetsByFrequency: [(frequency: Float, offset: CGPoint)],
+        overridesByFrequency: [(frequency: Float, override: UserAssignedMode)],
+        previouslySelectedFrequencies: [Float],
+        isGuitar: Bool,
+        tolerance: Float
+    ) {
+        // Remap mode classifications to new UUIDs.
+        let freshModeMap = GuitarMode.classifyAll(peaks)
+        identifiedModes = peaks.map { newPeak in
+            if let saved = modesByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
+                return (peak: newPeak, mode: saved.mode)
+            }
+            return (peak: newPeak, mode: freshModeMap[newPeak.id] ?? .unknown)
+        }
+
+        // Remap annotation offsets to new UUIDs by frequency proximity.
+        var newOffsets: [UUID: CGPoint] = [:]
+        for newPeak in peaks {
+            if let match = offsetsByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
+                newOffsets[newPeak.id] = match.offset
+            }
+        }
+        peakAnnotationOffsets = newOffsets
+
+        // Remap mode overrides to new UUIDs by frequency proximity.
+        var newOverrides: [UUID: UserAssignedMode] = [:]
+        for newPeak in peaks {
+            if let match = overridesByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
+                newOverrides[newPeak.id] = match.override
+            }
+        }
+        peakModeOverrides = newOverrides
+
+        if !isGuitar {
+            // Plate/brace: the frozen peaks are final gated-capture results — select all.
+            selectedPeakIDs = Set(peaks.map { $0.id })
+            selectedPeakFrequencies = peaks.map { $0.frequency }
+        } else if userHasModifiedPeakSelection {
+            // Carry forward by frequency proximity: for each previously-selected
+            // frequency pick the single closest new peak within tolerance.
+            // Peaks currently below the threshold are kept in the frequency cache
+            // so they are re-selected when the threshold is lowered again.
+            var carriedIDs = Set<UUID>()
+            var carriedFreqs: [Float] = []
+            for oldFreq in previouslySelectedFrequencies {
+                if let closest = peaks
+                    .filter({ abs($0.frequency - oldFreq) <= tolerance })
+                    .min(by: { abs($0.frequency - oldFreq) < abs($1.frequency - oldFreq) }) {
+                    if carriedIDs.insert(closest.id).inserted {
+                        carriedFreqs.append(closest.frequency)
+                    }
+                } else {
+                    // Peak is below threshold — preserve its frequency so it
+                    // is re-selected when the threshold is lowered again.
+                    carriedFreqs.append(oldFreq)
+                }
+            }
+            selectedPeakIDs = carriedIDs
+            selectedPeakFrequencies = carriedFreqs
+        } else {
+            // No user changes yet: re-run the mode-priority auto-selection.
+            let autoIDs = guitarModeSelectedPeakIDs(from: peaks)
+            selectedPeakIDs = autoIDs
+            selectedPeakFrequencies = peaks.filter { autoIDs.contains($0.id) }.map { $0.frequency }
+        }
+    }
+
+    /// Builds a ``ResonantPeak`` from a single FFT bin, applying parabolic
+    /// interpolation for sub-bin accuracy and computing the Q factor.
+    ///
+    /// - Parameters:
+    ///   - index: The bin index of the local maximum.
+    ///   - magnitudes: dBFS magnitude spectrum.
+    ///   - frequencies: Frequency axis (Hz) matching `magnitudes`.
+    /// - Returns: A fully-populated ``ResonantPeak``.
+    private func makePeak(at index: Int, magnitudes: [Float], frequencies: [Float]) -> ResonantPeak {
+        let (interpFreq, interpMag) = parabolicInterpolate(magnitudes: magnitudes, frequencies: frequencies, peakIndex: index)
+        let (quality, bandwidth) = calculateQFactor(magnitudes: magnitudes, frequencies: frequencies, peakIndex: index, peakMagnitude: interpMag)
+        let freq = Double(interpFreq)
+        return ResonantPeak(
+            frequency: interpFreq,
+            magnitude: interpMag,
+            quality: quality,
+            bandwidth: bandwidth,
+            pitchNote: pitchCalculator.note(frequency: freq),
+            pitchCents: pitchCalculator.cents(frequency: freq),
+            pitchFrequency: pitchCalculator.freq0(frequency: freq)
+        )
+    }
+
     /// Returns the set of peak IDs auto-selected by guitar mode: one peak per
     /// named mode, chosen as the strongest (highest magnitude) peak that
     /// ``GuitarMode/classifyAll(_:guitarType:)`` assigns to that mode.

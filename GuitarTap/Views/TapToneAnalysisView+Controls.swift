@@ -187,211 +187,120 @@ extension TapToneAnalysisView {
     #endif
 
     #if os(macOS)
-    /// macOS button layout - adapts to narrow windows using ViewThatFits
+    /// macOS button layout - adapts to narrow windows using ViewThatFits.
     @ViewBuilder
     var macosHeaderButtons: some View {
         ViewThatFits(in: .horizontal) {
-            // Wide layout - all buttons in one row
-            macosWideHeaderButtons
-
-            // Medium layout - two rows
-            macosMediumHeaderButtons
-
-            // Narrow layout - icon-only buttons
-            macosNarrowHeaderButtons
+            macosHeaderButtonRow(iconOnly: false, spacing: nil)       // Wide: single row, labeled
+            macosHeaderButtonGrid(iconOnly: false, spacing: 8)        // Medium: two rows, labeled
+            macosHeaderButtonGrid(iconOnly: true, spacing: 6)         // Narrow: two rows, icon-only
         }
     }
 
-    /// Wide macOS layout - all buttons in one row with full labels
+    /// Single-row macOS header button layout (wide window).
     @ViewBuilder
-    var macosWideHeaderButtons: some View {
-        HStack {
+    private func macosHeaderButtonRow(iconOnly: Bool, spacing: CGFloat?) -> some View {
+        HStack(spacing: spacing) {
             Spacer()
+            macosAutoDBButton(iconOnly: iconOnly)
+            macosAnnotationsButton(iconOnly: iconOnly)
+            macosSaveButton(iconOnly: iconOnly)
+            macosMeasurementsButton(iconOnly: iconOnly)
+            macosMetricsButton(iconOnly: iconOnly)
+            macosSettingsButton(iconOnly: iconOnly)
+        }
+    }
 
-            // Auto-scale dB toggle button (macOS)
-            Button(action: { toggleAutoScale() }) {
-                Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+    /// Two-row macOS header button layout (medium/narrow window).
+    @ViewBuilder
+    private func macosHeaderButtonGrid(iconOnly: Bool, spacing: CGFloat) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: spacing) {
+                Spacer()
+                macosAutoDBButton(iconOnly: iconOnly)
+                macosAnnotationsButton(iconOnly: iconOnly)
+                macosSaveButton(iconOnly: iconOnly)
             }
-            .buttonStyle(.bordered)
-            .tint(.blue)
-            .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
+            HStack(spacing: spacing) {
+                macosMeasurementsButton(iconOnly: iconOnly)
+                macosMetricsButton(iconOnly: iconOnly)
+                macosSettingsButton(iconOnly: iconOnly)
+                Spacer()
+            }
+        }
+    }
 
-            // Annotation visibility cycling button (macOS wide)
-            Button(action: { tap.cycleAnnotationVisibility() }) {
+    @ViewBuilder
+    private func macosAutoDBButton(iconOnly: Bool) -> some View {
+        let icon = isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle"
+        Button(action: { toggleAutoScale() }) {
+            if iconOnly { Image(systemName: icon) } else { Label("Auto dB", systemImage: icon) }
+        }
+        .buttonStyle(.bordered)
+        .tint(.blue)
+        .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
+    }
+
+    @ViewBuilder
+    private func macosAnnotationsButton(iconOnly: Bool) -> some View {
+        Button(action: { tap.cycleAnnotationVisibility() }) {
+            if iconOnly {
+                Image(systemName: tap.annotationVisibilityMode.iconName)
+            } else {
                 Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
             }
-            .buttonStyle(.bordered)
-            .tint(.blue)
-            .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
-            .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
-
-            // Save button
-            Button(action: { showingSaveSheet = true }) {
-                Label("Save", systemImage: "square.and.arrow.down")
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
-            .hint(HintText.save)
-
-            // Measurements button
-            Button(action: { showingMeasurements = true }) {
-                Label("Measurements", systemImage: "list.bullet.clipboard")
-                if !tap.savedMeasurements.isEmpty {
-                    Text("(\(tap.savedMeasurements.count))")
-                        .font(.caption)
-                }
-            }
-            .buttonStyle(.bordered)
-            .hint(HintText.measurements)
-
-            // Metrics button
-            Button(action: { showingMetrics = true }) {
-                Label("Metrics", systemImage: "chart.bar")
-            }
-            .buttonStyle(.bordered)
-            .hint(HintText.showMetrics)
-
-            // Settings button
-            Button(action: { showingSettings = true }) {
-                Label("Settings", systemImage: "gearshape")
-            }
-            .buttonStyle(.bordered)
-            .hint(HintText.settings)
         }
+        .buttonStyle(.bordered)
+        .tint(.blue)
+        .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+        .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
     }
 
-    /// Medium macOS layout - two rows with labels
     @ViewBuilder
-    var macosMediumHeaderButtons: some View {
-        VStack(spacing: 8) {
-            // Row 1: Primary controls
-            HStack(spacing: 8) {
-                Spacer()
+    private func macosSaveButton(iconOnly: Bool) -> some View {
+        Button(action: { showingSaveSheet = true }) {
+            if iconOnly { Image(systemName: "square.and.arrow.down") } else { Label("Save", systemImage: "square.and.arrow.down") }
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+        .hint(HintText.save)
+    }
 
-                // Auto-scale dB toggle button
-                Button(action: { toggleAutoScale() }) {
-                    Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
-                }
-                .buttonStyle(.bordered)
-                .tint(.blue)
-                .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
-
-                // Annotation visibility cycling button (macOS medium)
-                Button(action: { tap.cycleAnnotationVisibility() }) {
-                    Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
-                }
-                .buttonStyle(.bordered)
-                .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
-                .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
-
-                // Save button
-                Button(action: { showingSaveSheet = true }) {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
-                .hint(HintText.save)
-            }
-
-            // Row 2: Secondary controls
-            HStack(spacing: 8) {
-                // Measurements button
-                Button(action: { showingMeasurements = true }) {
+    @ViewBuilder
+    private func macosMeasurementsButton(iconOnly: Bool) -> some View {
+        Button(action: { showingMeasurements = true }) {
+            HStack(spacing: 2) {
+                if iconOnly {
+                    Image(systemName: "list.bullet.clipboard")
+                } else {
                     Label("Measurements", systemImage: "list.bullet.clipboard")
-                    if !tap.savedMeasurements.isEmpty {
-                        Text("(\(tap.savedMeasurements.count))")
-                            .font(.caption)
-                    }
                 }
-                .buttonStyle(.bordered)
-                .hint(HintText.measurements)
-
-                // Metrics button
-                Button(action: { showingMetrics = true }) {
-                    Label("Metrics", systemImage: "chart.bar")
+                if !tap.savedMeasurements.isEmpty {
+                    Text(iconOnly ? "\(tap.savedMeasurements.count)" : "(\(tap.savedMeasurements.count))")
+                        .font(iconOnly ? .caption2 : .caption)
                 }
-                .buttonStyle(.bordered)
-                .hint(HintText.showMetrics)
-
-                // Settings button
-                Button(action: { showingSettings = true }) {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.settings)
-
-                Spacer()
             }
         }
+        .buttonStyle(.bordered)
+        .hint(HintText.measurements)
     }
 
-    /// Narrow macOS layout - icon-only buttons in two rows
     @ViewBuilder
-    var macosNarrowHeaderButtons: some View {
-        VStack(spacing: 8) {
-            // Row 1: Primary controls - icon only
-            HStack(spacing: 6) {
-                Spacer()
-
-                // Auto-scale dB toggle button
-                Button(action: { toggleAutoScale() }) {
-                    Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
-                }
-                .buttonStyle(.bordered)
-                .tint(.blue)
-                .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
-
-                // Annotation visibility cycling button (macOS narrow)
-                Button(action: { tap.cycleAnnotationVisibility() }) {
-                    Image(systemName: tap.annotationVisibilityMode.iconName)
-                }
-                .buttonStyle(.bordered)
-                .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
-                .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
-
-                // Save button
-                Button(action: { showingSaveSheet = true }) {
-                    Image(systemName: "square.and.arrow.down")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
-                .hint(HintText.save)
-            }
-
-            // Row 2: Secondary controls - icon only
-            HStack(spacing: 6) {
-                // Measurements button
-                Button(action: { showingMeasurements = true }) {
-                    HStack(spacing: 2) {
-                        Image(systemName: "list.bullet.clipboard")
-                        if !tap.savedMeasurements.isEmpty {
-                            Text("\(tap.savedMeasurements.count)")
-                                .font(.caption2)
-                        }
-                    }
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.measurements)
-
-                // Metrics button
-                Button(action: { showingMetrics = true }) {
-                    Image(systemName: "chart.bar")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.showMetrics)
-
-                // Settings button
-                Button(action: { showingSettings = true }) {
-                    Image(systemName: "gearshape")
-                }
-                .buttonStyle(.bordered)
-                .hint(HintText.settings)
-
-                Spacer()
-            }
+    private func macosMetricsButton(iconOnly: Bool) -> some View {
+        Button(action: { showingMetrics = true }) {
+            if iconOnly { Image(systemName: "chart.bar") } else { Label("Metrics", systemImage: "chart.bar") }
         }
+        .buttonStyle(.bordered)
+        .hint(HintText.showMetrics)
+    }
+
+    @ViewBuilder
+    private func macosSettingsButton(iconOnly: Bool) -> some View {
+        Button(action: { showingSettings = true }) {
+            if iconOnly { Image(systemName: "gearshape") } else { Label("Settings", systemImage: "gearshape") }
+        }
+        .buttonStyle(.bordered)
+        .hint(HintText.settings)
     }
     #endif
 
@@ -602,6 +511,36 @@ extension TapToneAnalysisView {
         .background(Color.secondary.opacity(0.1))
     }
 
+    /// Reset button for the tap-detection threshold slider.
+    @ViewBuilder
+    var thresholdResetButton: some View {
+        Button(action: {
+            tapToneAnalyzer.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
+            TapDisplaySettings.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
+        }) {
+            Image(systemName: "arrow.counterclockwise")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Reset to default")
+    }
+
+    /// Reset button for the peak-minimum threshold slider.
+    @ViewBuilder
+    var peakMinResetButton: some View {
+        Button(action: {
+            tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
+            TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
+        }) {
+            Image(systemName: "arrow.counterclockwise")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Reset to default")
+    }
+
     /// Compact tap controls for iPhone
     @ViewBuilder
     var compactTapControls: some View {
@@ -637,15 +576,7 @@ extension TapToneAnalysisView {
                         .fontWeight(.medium)
                         .foregroundColor(.blue)
                         .fixedSize()
-                    Button(action: {
-                        tapToneAnalyzer.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
-                        TapDisplaySettings.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
+                    thresholdResetButton
                 }
 
                 HStack(spacing: 6) {
@@ -662,15 +593,7 @@ extension TapToneAnalysisView {
                         .fontWeight(.medium)
                         .foregroundColor(.green)
                         .fixedSize()
-                    Button(action: {
-                        tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
-                        TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
+                    peakMinResetButton
                 }
                 .disabled(!TapDisplaySettings.measurementType.isGuitar)
                 .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
@@ -790,16 +713,7 @@ extension TapToneAnalysisView {
                     .fontWeight(.medium)
                     .foregroundColor(.blue)
                     .fixedSize()
-                Button(action: {
-                    tapToneAnalyzer.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
-                    TapDisplaySettings.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
-                }) {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Reset to default")
+                thresholdResetButton
             }
             .hint(HintText.threshold)
 
@@ -821,16 +735,7 @@ extension TapToneAnalysisView {
                     .fontWeight(.medium)
                     .foregroundColor(.green)
                     .fixedSize()
-                Button(action: {
-                    tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
-                    TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
-                }) {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Reset to default")
+                peakMinResetButton
             }
             .disabled(!TapDisplaySettings.measurementType.isGuitar)
             .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
@@ -921,16 +826,7 @@ extension TapToneAnalysisView {
                         .fontWeight(.medium)
                         .foregroundColor(.blue)
                         .fixedSize()
-                    Button(action: {
-                        tapToneAnalyzer.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
-                        TapDisplaySettings.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Reset to default")
+                    thresholdResetButton
                 }
                 .hint(HintText.threshold)
 
@@ -952,16 +848,7 @@ extension TapToneAnalysisView {
                         .fontWeight(.medium)
                         .foregroundColor(.green)
                         .fixedSize()
-                    Button(action: {
-                        tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
-                        TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Reset to default")
+                    peakMinResetButton
                 }
                 .disabled(!TapDisplaySettings.measurementType.isGuitar)
                 .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)

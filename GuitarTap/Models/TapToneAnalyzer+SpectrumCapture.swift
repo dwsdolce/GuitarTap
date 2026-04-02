@@ -523,6 +523,43 @@ extension TapToneAnalyzer {
         }
     }
 
+    /// Builds the ordered list of resolved plate/brace peaks for display after
+    /// each gated-FFT capture phase completes.
+    ///
+    /// For each of the three plate peak slots (longitudinal, cross, FLC), the
+    /// method prefers the user- or auto-selected peak, then falls back to the
+    /// first peak from the corresponding captured array. Slots whose arrays are
+    /// empty are skipped. An explicit `override` peak (the just-captured
+    /// dominant peak) can replace the cross or FLC slot.
+    ///
+    /// - Parameters:
+    ///   - includeCross: Whether to include the cross-grain slot.
+    ///   - crossOverride: If non-nil, used as the cross-grain peak instead of
+    ///     `selectedCrossPeak` / `crossPeaks.first`.
+    ///   - includeFlc: Whether to include the FLC slot.
+    ///   - flcOverride: If non-nil, used as the FLC peak instead of
+    ///     `selectedFlcPeak` / `flcPeaks.first`.
+    /// - Returns: Ordered array `[longitudinal?, cross?, flc?]` with nils dropped.
+    private func resolvedPlatePeaks(
+        includeCross: Bool = true,
+        crossOverride: ResonantPeak? = nil,
+        includeFlc: Bool = false,
+        flcOverride: ResonantPeak? = nil
+    ) -> [ResonantPeak] {
+        var sel: [ResonantPeak] = []
+        if let p = selectedLongitudinalPeak { sel.append(p) }
+        else if let p = longitudinalPeaks.first { sel.append(p) }
+        if includeCross {
+            let cross = crossOverride ?? selectedCrossPeak ?? crossPeaks.first
+            if let p = cross { sel.append(p) }
+        }
+        if includeFlc {
+            let flc = flcOverride ?? selectedFlcPeak ?? flcPeaks.first
+            if let p = flc { sel.append(p) }
+        }
+        return sel
+    }
+
     /// Gated-FFT handler for the cross-grain capture phase.
     ///
     /// Accumulates cross-grain taps until `numberOfTaps` have been collected.
@@ -569,10 +606,7 @@ extension TapToneAnalyzer {
                 self.analyzerStartTime = Date()
             }
         } else {
-            var sel: [ResonantPeak] = []
-            if let p = selectedLongitudinalPeak { sel.append(p) }
-            else if let p = longitudinalPeaks.first { sel.append(p) }
-            sel.append(selectedCrossPeak ?? dominantPeak)
+            let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? dominantPeak)
             currentPeaks = sel
             selectedPeakIDs = Set(sel.map { $0.id })
             frozenFrequencies = []; frozenMagnitudes = []
@@ -614,12 +648,7 @@ extension TapToneAnalyzer {
         print("🟣 Auto-selected FLC peak: \(dominantPeak.frequency) Hz")
         materialCapturedTaps = []
 
-        var sel: [ResonantPeak] = []
-        if let p = selectedLongitudinalPeak { sel.append(p) }
-        else if let p = longitudinalPeaks.first { sel.append(p) }
-        if let p = selectedCrossPeak { sel.append(p) }
-        else if let p = crossPeaks.first { sel.append(p) }
-        sel.append(selectedFlcPeak ?? dominantPeak)
+        let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? dominantPeak)
         currentPeaks = sel
         selectedPeakIDs = Set(sel.map { $0.id })
         frozenFrequencies = []; frozenMagnitudes = []
