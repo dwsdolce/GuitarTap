@@ -280,11 +280,10 @@ extension TapToneAnalyzer {
     /// - Parameters:
     ///   - jsonData: Raw JSON data containing an array of encoded
     ///     ``TapToneMeasurement`` values.
-    ///   - baseURL: Unused. Kept for API compatibility.
     /// - Returns: The array of newly decoded measurements.
     /// - Throws: A decoding error if `jsonData` is not a valid
     ///   `[TapToneMeasurement]` JSON array.
-    func importMeasurements(from jsonData: Data, baseURL: URL? = nil) throws -> [TapToneMeasurement] {
+    func importMeasurements(from jsonData: Data) throws -> [TapToneMeasurement] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         
@@ -644,8 +643,8 @@ extension TapToneAnalyzer {
     /// - Returns: `true` if decoding succeeded and measurements were appended;
     ///   `false` otherwise.
     ///
-    /// - SeeAlso: ``importMeasurements(from:baseURL:)`` for the full import
-    ///   path with image loading and microphone warning support.
+    /// - SeeAlso: ``importMeasurements(from:)`` for the full import path with
+    ///   image loading and microphone warning support.
     func importMeasurements(json: String) -> Bool {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

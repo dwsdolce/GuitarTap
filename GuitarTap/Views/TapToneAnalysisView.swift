@@ -664,7 +664,7 @@ struct TapToneAnalysisView: View {
             defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
             let data = try Data(contentsOf: url)
-            let imported = try tapToneAnalyzer.importMeasurements(from: data, baseURL: url)
+            let imported = try tapToneAnalyzer.importMeasurements(from: data)
 
             var message: String
             if imported.count == 1, let measurement = imported.first {

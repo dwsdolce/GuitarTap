@@ -22,9 +22,6 @@
 ///    range, then fills remaining slots by magnitude.
 /// 3. **Mode classification** — each peak is mapped to a ``GuitarMode`` via
 ///    ``GuitarMode/classify(frequency:)``.
-/// 4. **Decay tracking** — ``trackDecay(peakMagnitude:)`` is always called,
-///    even when detection is paused, so ring-out time continues to be measured
-///    after a tap.
 ///
 /// ## Parabolic Interpolation
 /// All peak frequencies and magnitudes are refined with sub-bin accuracy using
@@ -105,9 +102,6 @@ extension TapToneAnalyzer {
             
         }
         
-        // Always track peak magnitude for decay analysis (even when not detecting taps)
-        // This ensures we can measure ring-out time after a tap is detected
-        trackDecay(peakMagnitude: peakMagnitude)
     }
 
     /// Re-runs peak finding on the frozen spectrum when the peak threshold changes.

@@ -545,7 +545,7 @@ struct MeasurementsListView: View {
             }
             
             data = try Data(contentsOf: url)
-            let importedMeasurements = try analyzer.importMeasurements(from: data, baseURL: url)
+            let importedMeasurements = try analyzer.importMeasurements(from: data)
             
             // If only 1 measurement was imported, automatically load it into the view
             var successMsg: String

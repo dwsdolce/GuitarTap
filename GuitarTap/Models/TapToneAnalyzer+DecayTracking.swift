@@ -17,8 +17,7 @@
 /// Instead, decay tracking uses `RealtimeFFTAnalyzer.inputLevelDB`, which
 /// updates at approximately 10 Hz via the fast `recentPeakLevelDB` polling
 /// subscription in the main `TapToneAnalyzer`.  The fast callback is
-/// ``trackDecayFast(inputLevel:)``; the legacy ``trackDecay(peakMagnitude:)``
-/// entry point is retained for API compatibility but is now a no-op.
+/// ``trackDecayFast(inputLevel:)``.
 ///
 /// ## Ring-Out Definition
 /// Ring-out time is measured as the elapsed time from the post-tap peak level
@@ -77,23 +76,6 @@ extension TapToneAnalyzer {
         decayTrackingTimer = nil
         
 
-    }
-    
-    /// Legacy slow-path decay tracker — now a no-op.
-    ///
-    /// Previously called once per FFT frame (≈ 1 Hz), which provided
-    /// insufficient time resolution for accurate ring-out measurement.
-    /// Superseded by ``trackDecayFast(inputLevel:)`` which runs at ≈ 10 Hz
-    /// using `inputLevelDB` from the fast polling subscription.
-    ///
-    /// - Parameter peakMagnitude: The current FFT peak magnitude in dBFS
-    ///   (ignored).
-    ///
-    /// - Warning: Deprecated in favour of ``trackDecayFast(inputLevel:)``.
-    ///   This method is retained only to avoid breaking callers.
-    func trackDecay(peakMagnitude: Float) {
-        // This function is kept for compatibility but decay tracking now uses trackDecayFast
-        // which is called ~10x per second instead of ~1x per second
     }
     
     /// Fast-path decay tracker called at ~10 Hz from the input-level polling
