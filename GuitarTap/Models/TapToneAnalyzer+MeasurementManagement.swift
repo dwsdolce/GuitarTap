@@ -295,14 +295,22 @@ extension TapToneAnalyzer {
         // Persist to disk
         persistMeasurements()
 
-        // Warn if any imported measurement's microphone is not currently available
-        let available = Set(fftAnalyzer.availableInputDevices.map(\.uid))
+        // Warn if any imported measurement's microphone is not currently available.
+        // A device is considered available if its UID matches (Swift/CoreAudio measurements) OR
+        // its name matches (Python companion app measurements, which store a "Name:SampleRate"
+        // fingerprint as the UID rather than a CoreAudio UID).
+        let availableUIDs  = Set(fftAnalyzer.availableInputDevices.map(\.uid))
+        let availableNames = Set(fftAnalyzer.availableInputDevices.map(\.name))
         var missingNames: [String] = []
         for m in measurements {
-            if let uid = m.microphoneUID, !available.contains(uid) {
-                let name = m.microphoneName ?? uid
-                if !missingNames.contains(name) {
-                    missingNames.append(name)
+            if let uid = m.microphoneUID {
+                let foundByUID  = availableUIDs.contains(uid)
+                let foundByName = !foundByUID && availableNames.contains(m.microphoneName ?? "")
+                if !foundByUID && !foundByName {
+                    let name = m.microphoneName ?? uid
+                    if !missingNames.contains(name) {
+                        missingNames.append(name)
+                    }
                 }
             }
         }
@@ -590,11 +598,18 @@ extension TapToneAnalyzer {
         }
         
         // Auto-select the recorded microphone if it is connected; warn if it is not.
+        // UID match is tried first (Swift/CoreAudio measurements). If that fails, fall back to
+        // name matching so that measurements saved by the Python companion app — which stores a
+        // "Name:SampleRate" fingerprint rather than a CoreAudio UID — still resolve correctly.
         if let uid = measurement.microphoneUID {
             let name = measurement.microphoneName ?? uid
-            if let match = fftAnalyzer.availableInputDevices.first(where: { $0.uid == uid }) {
+            let matchByUID  = fftAnalyzer.availableInputDevices.first(where: { $0.uid == uid })
+            let matchByName = matchByUID == nil
+                ? fftAnalyzer.availableInputDevices.first(where: { $0.name == measurement.microphoneName })
+                : nil
+            if let match = matchByUID ?? matchByName {
                 // Device is connected — switch to it; its paired calibration loads automatically.
-                if fftAnalyzer.selectedInputDevice?.uid != uid {
+                if fftAnalyzer.selectedInputDevice?.uid != match.uid {
                     try? fftAnalyzer.setInputDevice(match)
                     print("🎤 Auto-selected microphone '\(name)' for loaded measurement")
                 }
