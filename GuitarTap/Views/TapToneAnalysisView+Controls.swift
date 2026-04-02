@@ -844,9 +844,9 @@ extension TapToneAnalysisView {
                 Label("New Tap", systemImage: "hand.tap")
             }
             .buttonStyle(.bordered)
-            .disabled(!fft.isRunning ||
+            .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
                       !tap.isReadyForDetection ||
-                      tap.isDetecting)
+                      tap.isDetecting))
             .hint(HintText.newTap)
 
             // Pause/Resume button - for multi-tap and plate/brace sequences

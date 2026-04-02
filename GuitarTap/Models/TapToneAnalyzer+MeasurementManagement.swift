@@ -656,6 +656,7 @@ extension TapToneAnalyzer {
         }
         
         savedMeasurements.append(contentsOf: measurements)
+        persistMeasurements()
         return true
     }
 
