@@ -338,18 +338,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     var sampleRateListenerDeviceID: AudioDeviceID = 0
     #endif
     
-    /// Applies a calibration without persisting a device→calibration mapping.
-    ///
-    /// Used by `selectedInputDevice.didSet` when auto-loading a device-specific
-    /// calibration from `CalibrationStorage`. Setting `activeCalibration` directly
-    /// would trigger `activeCalibration.didSet`, which would re-save the mapping and
-    /// create a redundant write. The `isLoadingDeviceCalibration` guard breaks the loop.
-    func setCalibrationWithoutSavingDeviceMapping(_ calibration: MicrophoneCalibration?) {
-        isLoadingDeviceCalibration = true
-        activeCalibration = calibration
-        isLoadingDeviceCalibration = false
-    }
-
     /// Indicates whether the analyzer is currently running and processing audio.
     @Published var isRunning: Bool = false
 

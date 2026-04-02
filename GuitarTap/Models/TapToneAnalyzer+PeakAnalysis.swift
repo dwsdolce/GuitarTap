@@ -374,7 +374,7 @@ extension TapToneAnalyzer {
                 let isDuplicate = strongestPeakPerMode
                     .filter { $0.key != normalizedForCursor }
                     .values
-                    .contains { abs($0.frequency - claimed.frequency) < 2.0 }
+                    .contains { abs($0.frequency - claimed.frequency) < TapToneAnalyzer.peakProximityHz }
                 if isDuplicate {
                     strongestPeakPerMode.removeValue(forKey: normalizedForCursor)
                 } else {
@@ -628,7 +628,7 @@ extension TapToneAnalyzer {
     ///   higher magnitude).
     func removeDuplicatePeaks(_ peaks: [ResonantPeak]) -> [ResonantPeak] {
         var uniquePeaks: [ResonantPeak] = []
-        let frequencyTolerance: Float = 2.0  // Hz - peaks closer than this are considered duplicates
+        let frequencyTolerance = TapToneAnalyzer.peakProximityHz
         
         for peak in peaks {
             // Check if we already have a peak at this frequency

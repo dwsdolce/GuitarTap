@@ -326,54 +326,9 @@ struct TapAnalysisResultsView: View {
                                 isFlc: effectiveFlcPeakID == item.peak.id,
                                 showFlcButton: hasFlcMeasurement,
                                 isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
-                                onSelectLongitudinal: {
-                                    if effectiveLongitudinalPeakID == item.peak.id {
-                                        analyzer.userSelectedLongitudinalPeakID = nil
-                                        analyzer.selectedLongitudinalPeak = nil
-                                    } else {
-                                        analyzer.userSelectedLongitudinalPeakID = item.peak.id
-                                        if effectiveCrossPeakID == item.peak.id {
-                                            analyzer.userSelectedCrossPeakID = nil
-                                            analyzer.selectedCrossPeak = nil
-                                        }
-                                        if effectiveFlcPeakID == item.peak.id {
-                                            analyzer.userSelectedFlcPeakID = nil
-                                            analyzer.selectedFlcPeak = nil
-                                        }
-                                    }
-                                },
-                                onSelectCross: {
-                                    if effectiveCrossPeakID == item.peak.id {
-                                        analyzer.userSelectedCrossPeakID = nil
-                                        analyzer.selectedCrossPeak = nil
-                                    } else {
-                                        analyzer.userSelectedCrossPeakID = item.peak.id
-                                        if effectiveLongitudinalPeakID == item.peak.id {
-                                            analyzer.userSelectedLongitudinalPeakID = nil
-                                            analyzer.selectedLongitudinalPeak = nil
-                                        }
-                                        if effectiveFlcPeakID == item.peak.id {
-                                            analyzer.userSelectedFlcPeakID = nil
-                                            analyzer.selectedFlcPeak = nil
-                                        }
-                                    }
-                                },
-                                onSelectFlc: {
-                                    if effectiveFlcPeakID == item.peak.id {
-                                        analyzer.userSelectedFlcPeakID = nil
-                                        analyzer.selectedFlcPeak = nil
-                                    } else {
-                                        analyzer.userSelectedFlcPeakID = item.peak.id
-                                        if effectiveLongitudinalPeakID == item.peak.id {
-                                            analyzer.userSelectedLongitudinalPeakID = nil
-                                            analyzer.selectedLongitudinalPeak = nil
-                                        }
-                                        if effectiveCrossPeakID == item.peak.id {
-                                            analyzer.userSelectedCrossPeakID = nil
-                                            analyzer.selectedCrossPeak = nil
-                                        }
-                                    }
-                                },
+                                onSelectLongitudinal: { analyzer.selectLongitudinalPeak(item.peak.id) },
+                                onSelectCross: { analyzer.selectCrossPeak(item.peak.id) },
+                                onSelectFlc: { analyzer.selectFlcPeak(item.peak.id) },
                                 onToggleSelection: {
                                     analyzer.togglePeakSelection(item.peak.id)
                                 }

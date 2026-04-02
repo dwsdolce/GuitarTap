@@ -489,8 +489,7 @@ extension RealtimeFFTAnalyzer {
             devices.append(device)
             
             // Safe logging - only print known port types
-            let portTypeDescription = getPortTypeDescription(port.portType)
-            print("🎤 Found input device: \(port.portName) [\(portTypeDescription)] @ \(session.sampleRate) Hz")
+            print("🎤 Found input device: \(port.portName) [\(port.portType.description)] @ \(session.sampleRate) Hz")
         }
         
         DispatchQueue.main.async {
@@ -508,41 +507,7 @@ extension RealtimeFFTAnalyzer {
         print("🎤 Found \(devices.count) audio input device(s) total")
     }
     
-    /// Maps an `AVAudioSession.Port` to a user-readable string without
-    /// accessing the raw value of unknown cases, which can trigger internal
-    /// framework warnings on some OS versions.
-    ///
-    /// - Parameter portType: The `AVAudioSession.Port` to describe.
-    /// - Returns: A localisation-friendly string such as `"USB Audio"` or
-    ///   `"Built-in Microphone"`. Returns `"Audio Input"` for unrecognised
-    ///   port types.
-    func getPortTypeDescription(_ portType: AVAudioSession.Port) -> String {
-        switch portType {
-        case .builtInMic:
-            return "Built-in Microphone"
-        case .headsetMic:
-            return "Headset Microphone"
-        case .lineIn:
-            return "Line In"
-        case .airPlay:
-            return "AirPlay"
-        case .bluetoothA2DP:
-            return "Bluetooth A2DP"
-        case .bluetoothLE:
-            return "Bluetooth LE"
-        case .bluetoothHFP:
-            return "Bluetooth Hands-Free"
-        case .usbAudio:
-            return "USB Audio"
-        case .carAudio:
-            return "CarPlay"
-        case .virtual:
-            return "Virtual"
-        default:
-            // Don't print the raw value for unknown types as it may trigger warnings
-            return "Audio Input"
-        }
-    }
+
     
     /// Handles `AVAudioSession.routeChangeNotification` on iOS.
     ///
@@ -622,6 +587,18 @@ extension RealtimeFFTAnalyzer {
     /// Switches the audio input to the given device.
     ///
     /// **iOS:** Calls `AVAudioSession.setPreferredInput(_:)` with the device's
+    /// Applies a calibration without persisting a device→calibration mapping.
+    ///
+    /// Used by `selectedInputDevice.didSet` when auto-loading a device-specific
+    /// calibration from `CalibrationStorage`. Setting `activeCalibration` directly
+    /// would trigger `activeCalibration.didSet`, which would re-save the mapping and
+    /// create a redundant write. The `isLoadingDeviceCalibration` guard breaks the loop.
+    func setCalibrationWithoutSavingDeviceMapping(_ calibration: MicrophoneCalibration?) {
+        isLoadingDeviceCalibration = true
+        activeCalibration = calibration
+        isLoadingDeviceCalibration = false
+    }
+
     /// `port`. The engine does not need to restart.
     ///
     /// **macOS:** Stops the engine if running, sets `selectedInputDevice`
@@ -686,3 +663,29 @@ extension RealtimeFFTAnalyzer {
         #endif
     }
 }
+
+#if os(iOS)
+// MARK: - AVAudioSession.Port Display Name
+
+extension AVAudioSession.Port {
+    /// A user-readable display string for this port type.
+    ///
+    /// Avoids accessing the raw value of unknown cases, which can trigger
+    /// internal framework warnings on some OS versions.
+    var description: String {
+        switch self {
+        case .builtInMic:    return "Built-in Microphone"
+        case .headsetMic:    return "Headset Microphone"
+        case .lineIn:        return "Line In"
+        case .airPlay:       return "AirPlay"
+        case .bluetoothA2DP: return "Bluetooth A2DP"
+        case .bluetoothLE:   return "Bluetooth LE"
+        case .bluetoothHFP:  return "Bluetooth Hands-Free"
+        case .usbAudio:      return "USB Audio"
+        case .carAudio:      return "CarPlay"
+        case .virtual:       return "Virtual"
+        default:             return "Audio Input"
+        }
+    }
+}
+#endif

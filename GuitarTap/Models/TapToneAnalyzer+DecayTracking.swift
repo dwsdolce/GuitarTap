@@ -74,8 +74,9 @@ extension TapToneAnalyzer {
         isTrackingDecay = false
         decayTrackingTimer?.invalidate()
         decayTrackingTimer = nil
-        
-
+        // No further action needed: trackDecayFast's guard will no longer
+        // append samples, and currentDecayTime retains whatever value was
+        // established during the window (or nil if none was).
     }
     
     /// Fast-path decay tracker called at ~10 Hz from the input-level polling
@@ -98,11 +99,13 @@ extension TapToneAnalyzer {
         
         peakMagnitudeHistory.append((time: now, magnitude: inputLevel))
         
-        // Keep only recent history (5 seconds)
-        peakMagnitudeHistory = peakMagnitudeHistory.filter { now.timeIntervalSince($0.time) < 5.0 }
+        // Keep only recent history
+        let decayHistoryWindowSeconds: Double = 5.0
+        peakMagnitudeHistory = peakMagnitudeHistory.filter { now.timeIntervalSince($0.time) < decayHistoryWindowSeconds }
         
         // Calculate decay time if we have a tap and enough history
-        if let tapTime = lastTapTime, peakMagnitudeHistory.count > 10 {
+        let minimumDecayHistoryCount = 10
+        if let tapTime = lastTapTime, peakMagnitudeHistory.count > minimumDecayHistoryCount {
             currentDecayTime = measureDecayTime(tapTime: tapTime)
         }
     }

@@ -683,7 +683,7 @@ extension TapToneAnalyzer {
         // Replace any nearby peak with dominantPeak so UUID is always consistent.
         // This is critical: autoSelectedXxxPeakID == dominantPeak.id, so the peak
         // stored in the array must share that UUID for ID-based lookups to work.
-        if let idx = peaks.firstIndex(where: { abs($0.frequency - dominantPeak.frequency) < 2.0 }) {
+        if let idx = peaks.firstIndex(where: { abs($0.frequency - dominantPeak.frequency) < TapToneAnalyzer.peakProximityHz }) {
             peaks[idx] = dominantPeak
         } else {
             peaks.insert(dominantPeak, at: 0)

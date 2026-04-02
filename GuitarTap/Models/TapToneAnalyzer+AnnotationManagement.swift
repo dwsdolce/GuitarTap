@@ -114,4 +114,74 @@ extension TapToneAnalyzer {
             }
         }
     }
+
+    // MARK: - Plate Peak Selection
+
+    /// Toggles `peakID` as the user-selected longitudinal peak.
+    ///
+    /// Tapping an already-selected longitudinal peak deselects it. Selecting a
+    /// new peak also clears any conflicting cross or Flc user-selection for the
+    /// same peak ID, enforcing mutual exclusion across tap-type assignments.
+    ///
+    /// - Parameter peakID: The ``ResonantPeak/id`` to select or deselect.
+    func selectLongitudinalPeak(_ peakID: UUID) {
+        if effectiveLongitudinalPeakID == peakID {
+            userSelectedLongitudinalPeakID = nil
+            selectedLongitudinalPeak = nil
+        } else {
+            userSelectedLongitudinalPeakID = peakID
+            if effectiveCrossPeakID == peakID {
+                userSelectedCrossPeakID = nil
+                selectedCrossPeak = nil
+            }
+            if effectiveFlcPeakID == peakID {
+                userSelectedFlcPeakID = nil
+                selectedFlcPeak = nil
+            }
+        }
+    }
+
+    /// Toggles `peakID` as the user-selected cross peak.
+    ///
+    /// Mirrors the mutual-exclusion logic of ``selectLongitudinalPeak(_:)``.
+    ///
+    /// - Parameter peakID: The ``ResonantPeak/id`` to select or deselect.
+    func selectCrossPeak(_ peakID: UUID) {
+        if effectiveCrossPeakID == peakID {
+            userSelectedCrossPeakID = nil
+            selectedCrossPeak = nil
+        } else {
+            userSelectedCrossPeakID = peakID
+            if effectiveLongitudinalPeakID == peakID {
+                userSelectedLongitudinalPeakID = nil
+                selectedLongitudinalPeak = nil
+            }
+            if effectiveFlcPeakID == peakID {
+                userSelectedFlcPeakID = nil
+                selectedFlcPeak = nil
+            }
+        }
+    }
+
+    /// Toggles `peakID` as the user-selected Flc peak.
+    ///
+    /// Mirrors the mutual-exclusion logic of ``selectLongitudinalPeak(_:)``.
+    ///
+    /// - Parameter peakID: The ``ResonantPeak/id`` to select or deselect.
+    func selectFlcPeak(_ peakID: UUID) {
+        if effectiveFlcPeakID == peakID {
+            userSelectedFlcPeakID = nil
+            selectedFlcPeak = nil
+        } else {
+            userSelectedFlcPeakID = peakID
+            if effectiveLongitudinalPeakID == peakID {
+                userSelectedLongitudinalPeakID = nil
+                selectedLongitudinalPeak = nil
+            }
+            if effectiveCrossPeakID == peakID {
+                userSelectedCrossPeakID = nil
+                selectedCrossPeak = nil
+            }
+        }
+    }
 }

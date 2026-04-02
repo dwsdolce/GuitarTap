@@ -765,6 +765,13 @@ final class TapToneAnalyzer: ObservableObject {
 
     // MARK: - Private State
 
+    /// Frequency proximity tolerance used to identify near-duplicate peaks (Hz).
+    ///
+    /// Two peaks within this distance are considered the same physical resonance.
+    /// Shared by ``removeDuplicatePeaks(_:)`` in `+PeakAnalysis` and
+    /// ``buildAllPeaks(magnitudes:frequencies:dominantPeak:)`` in `+SpectrumCapture`.
+    static let peakProximityHz: Float = 2.0
+
     /// Combine cancellable storage for FFT and input-level subscriptions.
     var cancellables = Set<AnyCancellable>()
 
@@ -853,12 +860,12 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Wires up Combine subscriptions to ``fftAnalyzer``'s published properties.
     ///
-    /// Three subscriptions are created:
+    /// Four subscriptions are created:
     /// 1. **FFT magnitudes + peakMagnitude** — drives ``analyzeMagnitudes(_:frequencies:peakMagnitude:)``
     ///    for peak detection and guitar-mode tap detection (~1 Hz).
     /// 2. **inputLevelDB (fast)** — drives ``trackDecayFast(inputLevel:)`` for ring-out tracking (~10 Hz).
-    /// 3. **inputLevelDB (fast, plate/brace only)** — drives `detectTap(peakMagnitude:magnitudes:frequencies:)` for plate/brace mode,
-    ///    where the long-window FFT is unreliable for short transient taps.
+    /// 3. **inputLevelDB (fast, plate/brace only)** — drives `detectTap(peakMagnitude:magnitudes:frequencies:)`
+    ///    for plate/brace mode, where the long-window FFT is unreliable for short transient taps.
     /// 4. **routeChangeRestartCount** — triggers ``handleRouteChangeRestart()`` when the audio
     ///    engine restarts after a device/route change.
     func setupSubscriptions() {
