@@ -95,10 +95,7 @@ extension TapToneAnalyzer {
             self.isAboveThreshold    = false
             self.analyzerStartTime   = Date()  // Reset warm-up timer.
 
-            // Stop any in-progress decay tracking.
-            self.isTrackingDecay = false
-            self.decayTrackingTimer?.invalidate()
-            self.decayTrackingTimer = nil
+            self.resetDecayTracking()
 
             // Clear frozen spectrum data.
             self.frozenFrequencies   = []
@@ -108,30 +105,8 @@ extension TapToneAnalyzer {
             // Clear annotation label offsets.
             self.peakAnnotationOffsets = [:]
 
-            // Reset all plate/brace phase state.
-            self.materialTapPhase    = .notStarted
-            self.longitudinalSpectrum = nil
-            self.crossSpectrum       = nil
-            self.flcSpectrum         = nil
-            self.longitudinalPeaks   = []
-            self.crossPeaks          = []
-            self.flcPeaks            = []
-            self.autoSelectedLongitudinalPeakID = nil
-            self.autoSelectedCrossPeakID        = nil
-            self.autoSelectedFlcPeakID          = nil
-            self.selectedLongitudinalPeak        = nil
-            self.selectedCrossPeak               = nil
-            self.selectedFlcPeak                 = nil
-            self.userSelectedLongitudinalPeakID  = nil
-            self.userSelectedCrossPeakID         = nil
-            self.userSelectedFlcPeakID           = nil
-            self.materialCapturedTaps            = []
-
-            // Cancel any in-flight gated FFT capture cleanly.
-            self.gatedCaptureActive = false
-            self.mpmLock.lock()
-            self.gatedAccumBuffer = []
-            self.mpmLock.unlock()
+            // Reset all plate/brace phase state (notStarted — no active sequence).
+            self.resetMaterialPhaseState(to: .notStarted)
 
             self.displayMode = .live
             self.loadedMeasurementName = nil
@@ -179,40 +154,13 @@ extension TapToneAnalyzer {
             // relative-threshold calculation is accurate immediately.
             self.noiseFloorEstimate  = self.fftAnalyzer.inputLevelDB
 
-            // Reset decay tracking.
             self.currentDecayTime    = nil
             self.peakMagnitudeHistory = []
-            self.isTrackingDecay     = false
-            self.decayTrackingTimer?.invalidate()
-            self.decayTrackingTimer  = nil
+            self.resetDecayTracking()
 
             // Initialise plate/brace phase state.
-            if isPlateMode || isBraceMode {
-                self.materialTapPhase = .capturingLongitudinal
-                self.longitudinalSpectrum = nil
-                self.crossSpectrum        = nil
-                self.flcSpectrum          = nil
-                self.longitudinalPeaks    = []
-                self.crossPeaks           = []
-                self.flcPeaks             = []
-                self.autoSelectedLongitudinalPeakID = nil
-                self.autoSelectedCrossPeakID        = nil
-                self.autoSelectedFlcPeakID          = nil
-                self.selectedLongitudinalPeak        = nil
-                self.selectedCrossPeak               = nil
-                self.selectedFlcPeak                 = nil
-                self.userSelectedLongitudinalPeakID  = nil
-                self.userSelectedCrossPeakID         = nil
-                self.userSelectedFlcPeakID           = nil
-                self.materialCapturedTaps            = []
-                // Cancel any lingering in-flight capture from a previous sequence.
-                self.gatedCaptureActive = false
-                self.mpmLock.lock()
-                self.gatedAccumBuffer = []
-                self.mpmLock.unlock()
-            } else {
-                self.materialTapPhase = .notStarted
-            }
+            let newPhase: MaterialTapPhase = (isPlateMode || isBraceMode) ? .capturingLongitudinal : .notStarted
+            self.resetMaterialPhaseState(to: newPhase)
 
             // Always start with isAboveThreshold = false so the first real tap produces
             // a genuine rising edge.  The warm-up period suppresses detections for the
@@ -334,35 +282,10 @@ extension TapToneAnalyzer {
             self.isDetecting         = true
 
             // Reset plate/brace state back to the start of the sequence.
-            if isPlateMode || isBraceMode {
-                self.materialTapPhase = .capturingLongitudinal
-                self.longitudinalSpectrum = nil
-                self.crossSpectrum        = nil
-                self.flcSpectrum          = nil
-                self.longitudinalPeaks    = []
-                self.crossPeaks           = []
-                self.flcPeaks             = []
-                self.autoSelectedLongitudinalPeakID = nil
-                self.autoSelectedCrossPeakID        = nil
-                self.autoSelectedFlcPeakID          = nil
-                self.selectedLongitudinalPeak        = nil
-                self.selectedCrossPeak               = nil
-                self.selectedFlcPeak                 = nil
-                self.userSelectedLongitudinalPeakID  = nil
-                self.userSelectedCrossPeakID         = nil
-                self.userSelectedFlcPeakID           = nil
-                self.materialCapturedTaps            = []
-                // Abort any in-flight gated FFT capture.
-                self.gatedCaptureActive = false
-                self.mpmLock.lock()
-                self.gatedAccumBuffer = []
-                self.mpmLock.unlock()
-            }
+            let newPhase: MaterialTapPhase = (isPlateMode || isBraceMode) ? .capturingLongitudinal : .notStarted
+            self.resetMaterialPhaseState(to: newPhase)
 
-            // Stop decay tracking.
-            self.isTrackingDecay = false
-            self.decayTrackingTimer?.invalidate()
-            self.decayTrackingTimer = nil
+            self.resetDecayTracking()
 
             // Clear frozen spectrum data.
             self.frozenFrequencies = []
@@ -384,5 +307,44 @@ extension TapToneAnalyzer {
                 self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."
             }
         }
+    }
+
+    // MARK: - Private Helpers
+
+    /// Clears all plate/brace phase state and sets ``materialTapPhase`` to the given value.
+    ///
+    /// Call with `.notStarted` from ``reset()`` and with `.capturingLongitudinal` from
+    /// ``startTapSequence()`` / ``cancelTapSequence()`` when in plate or brace mode.
+    /// Also cancels any in-flight gated FFT capture.
+    private func resetMaterialPhaseState(to phase: MaterialTapPhase) {
+        materialTapPhase    = phase
+        longitudinalSpectrum = nil
+        crossSpectrum        = nil
+        flcSpectrum          = nil
+        longitudinalPeaks    = []
+        crossPeaks           = []
+        flcPeaks             = []
+        autoSelectedLongitudinalPeakID = nil
+        autoSelectedCrossPeakID        = nil
+        autoSelectedFlcPeakID          = nil
+        selectedLongitudinalPeak        = nil
+        selectedCrossPeak               = nil
+        selectedFlcPeak                 = nil
+        userSelectedLongitudinalPeakID  = nil
+        userSelectedCrossPeakID         = nil
+        userSelectedFlcPeakID           = nil
+        materialCapturedTaps            = []
+        // Cancel any in-flight gated FFT capture.
+        gatedCaptureActive = false
+        mpmLock.lock()
+        gatedAccumBuffer = []
+        mpmLock.unlock()
+    }
+
+    /// Stops any active decay tracking and clears the associated timer.
+    private func resetDecayTracking() {
+        isTrackingDecay = false
+        decayTrackingTimer?.invalidate()
+        decayTrackingTimer = nil
     }
 }
