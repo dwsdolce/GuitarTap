@@ -322,3 +322,76 @@ struct AnnotationVisibilityCycleTests {
         #expect(sut.annotationVisibilityMode == .all)
     }
 }
+
+// ---------------------------------------------------------------------------
+// MARK: - Plate Peak Selection  (PS1–PS6)
+// ---------------------------------------------------------------------------
+
+@Suite("PlatePeakSelection")
+@MainActor
+struct PlatePeakSelectionTests {
+
+    // PS1: selectLongitudinalPeak selects an unassigned peak.
+    @Test func selectLongitudinalPeak_selectsNewPeak() {
+        let sut = makeSUT()
+        let peakID = UUID()
+        sut.selectLongitudinalPeak(peakID)
+        #expect(sut.userSelectedLongitudinalPeakID == peakID,
+                "userSelectedLongitudinalPeakID should be set to the new peak")
+    }
+
+    // PS2: selectLongitudinalPeak deselects when called with the already-selected peak.
+    @Test func selectLongitudinalPeak_deselectsCurrentPeak() {
+        let sut = makeSUT()
+        let peakID = UUID()
+        sut.userSelectedLongitudinalPeakID = peakID
+        sut.selectLongitudinalPeak(peakID)
+        #expect(sut.userSelectedLongitudinalPeakID == nil,
+                "Selecting the already-selected longitudinal peak should deselect it")
+    }
+
+    // PS3: selectLongitudinalPeak clears a conflicting cross assignment.
+    @Test func selectLongitudinalPeak_clearsCrossConflict() {
+        let sut = makeSUT()
+        let sharedID = UUID()
+        sut.userSelectedCrossPeakID = sharedID
+        sut.selectLongitudinalPeak(sharedID)
+        #expect(sut.userSelectedLongitudinalPeakID == sharedID,
+                "Longitudinal should be set to the shared peak")
+        #expect(sut.userSelectedCrossPeakID == nil,
+                "Cross selection should be cleared when the same peak is selected as longitudinal")
+    }
+
+    // PS4: selectLongitudinalPeak clears a conflicting Flc assignment.
+    @Test func selectLongitudinalPeak_clearsFlcConflict() {
+        let sut = makeSUT()
+        let sharedID = UUID()
+        sut.userSelectedFlcPeakID = sharedID
+        sut.selectLongitudinalPeak(sharedID)
+        #expect(sut.userSelectedLongitudinalPeakID == sharedID)
+        #expect(sut.userSelectedFlcPeakID == nil,
+                "Flc selection should be cleared when the same peak is selected as longitudinal")
+    }
+
+    // PS5: selectCrossPeak clears a conflicting longitudinal assignment.
+    @Test func selectCrossPeak_clearsLongitudinalConflict() {
+        let sut = makeSUT()
+        let sharedID = UUID()
+        sut.userSelectedLongitudinalPeakID = sharedID
+        sut.selectCrossPeak(sharedID)
+        #expect(sut.userSelectedCrossPeakID == sharedID)
+        #expect(sut.userSelectedLongitudinalPeakID == nil,
+                "Longitudinal selection should be cleared when the same peak is selected as cross")
+    }
+
+    // PS6: selectFlcPeak clears a conflicting cross assignment.
+    @Test func selectFlcPeak_clearsCrossConflict() {
+        let sut = makeSUT()
+        let sharedID = UUID()
+        sut.userSelectedCrossPeakID = sharedID
+        sut.selectFlcPeak(sharedID)
+        #expect(sut.userSelectedFlcPeakID == sharedID)
+        #expect(sut.userSelectedCrossPeakID == nil,
+                "Cross selection should be cleared when the same peak is selected as Flc")
+    }
+}

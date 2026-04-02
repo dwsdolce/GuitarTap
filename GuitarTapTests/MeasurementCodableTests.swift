@@ -451,16 +451,16 @@ struct UpdateMeasurementTests {
 @MainActor
 struct FixtureLoadingTests {
 
-    // R4: The real test fixture (chris-1771351833.json) must decode without error.
-    // The fixture is a JSON array of TapToneMeasurement objects.
+    // R4: The real test fixture (contreras-classical-1774731564.guitartap) must decode without error.
+    // The fixture is a JSON array of TapToneMeasurement objects stored with the .guitartap extension.
     @Test func realFixture_decodesWithoutError() throws {
         // On device the test bundle is the only reliable source; on Mac the
         // fixture may also live next to the source tree.  Try bundle first so
         // this test works on both simulator/device and local Mac runs.
-        let fixtureName = "chris-1771351833"
+        let fixtureName = "contreras-classical-1774731564"
         let bundleURL = Bundle.allBundles
             .lazy
-            .compactMap { $0.url(forResource: fixtureName, withExtension: "json") }
+            .compactMap { $0.url(forResource: fixtureName, withExtension: "guitartap") }
             .first
 
         // Fall back to the source-relative path used during local development
@@ -468,9 +468,7 @@ struct FixtureLoadingTests {
             let thisFile = URL(fileURLWithPath: #file)
             let url = thisFile
                 .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("Tests")
-                .appendingPathComponent("\(fixtureName).json")
+                .appendingPathComponent("\(fixtureName).guitartap")
             return FileManager.default.fileExists(atPath: url.path) ? url : nil
         }()
 

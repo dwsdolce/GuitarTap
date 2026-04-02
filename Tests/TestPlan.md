@@ -151,6 +151,12 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | D13 | Annotation reset to default position | M | iOS iPadOS mac | Medium | Drag a label; double-tap it (iOS/iPadOS) or right-click and choose Reset Position (macOS); verify it snaps back to its default position |
 | D14 | Annotations hidden in `.none` visibility mode | M | iOS iPadOS mac | Medium | Tap Annotations button to cycle to None; verify all labels disappear |
 | D15 | `.selected` mode shows only Results-panel-selected labels | M | iOS iPadOS mac | Low | Ensure not all peaks are selected in Results panel; cycle Annotations to Selected; verify only selected-peak labels are visible |
+| PS1 | `selectLongitudinalPeak_selectsNewPeak` | U | iOS iPadOS mac | High | `selectLongitudinalPeak(_:)` sets `userSelectedLongitudinalPeakID` to the given UUID |
+| PS2 | `selectLongitudinalPeak_deselectsCurrentPeak` | U | iOS iPadOS mac | High | Calling `selectLongitudinalPeak(_:)` with the already-selected ID clears the selection |
+| PS3 | `selectLongitudinalPeak_clearsCrossConflict` | U | iOS iPadOS mac | High | Selecting a peak as longitudinal when it is already the cross peak clears `userSelectedCrossPeakID` |
+| PS4 | `selectLongitudinalPeak_clearsFlcConflict` | U | iOS iPadOS mac | High | Selecting a peak as longitudinal when it is already the Flc peak clears `userSelectedFlcPeakID` |
+| PS5 | `selectCrossPeak_clearsLongitudinalConflict` | U | iOS iPadOS mac | High | Selecting a peak as cross when it is already the longitudinal peak clears `userSelectedLongitudinalPeakID` |
+| PS6 | `selectFlcPeak_clearsCrossConflict` | U | iOS iPadOS mac | High | Selecting a peak as Flc when it is already the cross peak clears `userSelectedCrossPeakID` |
 
 ---
 
@@ -251,6 +257,30 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 
 ---
 
+#### DK — Decay Tracking
+
+| ID | Name | Type | Platforms | Priority | Description |
+|---|---|---|---|---|---|
+| DK1 | `measureDecayTime_emptyHistory_returnsNil` | U | iOS iPadOS mac | High | Empty `peakMagnitudeHistory` → `measureDecayTime` returns `nil` |
+| DK2 | `measureDecayTime_allSamplesBeforeTap_returnsNil` | U | iOS iPadOS mac | High | All history samples pre-date `tapTime` → post-tap slice is empty → `nil` |
+| DK3 | `measureDecayTime_signalNeverDecays_returnsNil` | U | iOS iPadOS mac | High | Signal peak minus max drop < `decayThreshold` → threshold never crossed → `nil` |
+| DK4 | `measureDecayTime_normalDecay_returnsPositiveTime` | U | iOS iPadOS mac | High | Signal drops past threshold → returns elapsed time ≈ expected interval |
+| DK5 | `measureDecayTime_immediateDecay_returnsShortPositiveTime` | U | iOS iPadOS mac | Medium | Threshold crossed immediately after peak → returns short but positive time |
+| DK6 | `trackDecayFast_notTracking_isNoOp` | U | iOS iPadOS mac | High | When `isTrackingDecay == false`, calling `trackDecayFast` does not modify `peakMagnitudeHistory` |
+| DK7 | `trackDecayFast_tracking_noTapTime_accumulates` | U | iOS iPadOS mac | Medium | When `isTrackingDecay == true` but `lastTapTime` is nil, samples accumulate and `currentDecayTime` stays nil |
+
+---
+
+#### IP — Import Persistence
+
+| ID | Name | Type | Platforms | Priority | Description |
+|---|---|---|---|---|---|
+| IP1 | `importMeasurementsJSON_persistsToDisk` | U | iOS iPadOS mac | High | `importMeasurements(json:)` writes `saved_measurements.json` to disk after a successful import |
+| IP2 | `importMeasurementsData_persistsToDisk` | U | iOS iPadOS mac | High | `importMeasurements(from:)` writes `saved_measurements.json` to disk after a successful import |
+| IP3 | `importMeasurementsJSON_appendsToExisting` | U | iOS iPadOS mac | Medium | Two successive calls to `importMeasurements(json:)` append to `savedMeasurements`, not replace |
+
+---
+
 #### U — Cross-Platform UI
 
 | ID | Name | Type | Platforms | Priority | Description |
@@ -275,7 +305,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | ID | Name | Type | Platforms | Priority | Description |
 |---|---|---|---|---|---|
 | K1 | App launches without crash | M | iOS iPadOS mac | High | Cold launch; verify main view appears within 3 s with no crash |
-| K2 | Chart renders with a saved measurement | M | iOS iPadOS mac | High | Load the `chris-1771351833.json` fixture via Files/import; verify spectrum chart appears with peak annotations |
+| K2 | Chart renders with a saved measurement | M | iOS iPadOS mac | High | Load the `contreras-classical-1774731564.guitartap` fixture via Files/import; verify spectrum chart appears with peak annotations |
 | K3 | Recording starts automatically on launch | M | iOS iPadOS mac | High | Launch app; verify `isRunning` indicator goes green within 3 s with no freeze |
 | K4 | Memory stable during extended recording | M | iOS iPadOS mac | Medium | Record continuously for 2 min; verify in Xcode Instruments that memory usage is stable (no runaway growth) |
 | K5 | App returns from background correctly | M | iOS iPadOS | High | Start recording; press Home; return to app; verify recording resumes or is in a consistent stopped state |
@@ -293,11 +323,14 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | S | Audio stack | M |
 | C | Chart interaction state | U + M |
 | D | Draggable annotations / display state | U + M |
+| PS | Plate peak selection (mutual-exclusion) | U |
 | G | Guitar mode classification | U |
 | P | Pitch | U |
 | M | Material properties | U |
 | PR | Frozen peak recalculation | U |
 | R | Persistence / codable | U + M |
+| DK | Decay tracking | U |
+| IP | Import persistence | U |
 | U | Cross-platform UI | M |
 | K | Regression smoke tests | M |
 
@@ -348,9 +381,11 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | `PitchTests.swift` | `PitchTests` | P1–P8 | ✅ Implemented |
 | `MaterialPropertiesTests.swift` | `MaterialDimensions`, `YoungModulus`, `SpeedOfSound`, `SpecificModulus`, `GoreTargetThickness` | M1–M14 | ✅ Implemented |
 | `MeasurementCodableTests.swift` | `ResonantPeakCodable`, `TapToneMeasurementCodable`, `FixtureLoading`, `TapToneRatio`, `MeasurementExportModeLabel` (@MainActor) | R1–R6, R11–R14 | ✅ Implemented |
-| `AnnotationStateTests.swift` | `AnnotationOffsets` (@MainActor), `PeakSelection`, `VisiblePeaks`, `ModeOverrides` (@MainActor, .serialized), `AnnotationVisibilityCycle` | D1–D10 | ✅ Implemented |
+| `AnnotationStateTests.swift` | `AnnotationOffsets` (@MainActor), `PeakSelection`, `VisiblePeaks`, `ModeOverrides` (@MainActor, .serialized), `AnnotationVisibilityCycle`, `PlatePeakSelection` (@MainActor) | D1–D10, PS1–PS6 | ✅ Implemented |
 | `SpectrumViewGestureTests.swift` | `FrequencyZoomTests`, `MagnitudeZoomTests`, `PanTests` | C1–C8 | ✅ Implemented (`TestHarness` pattern; no `SpectrumViewModel` extraction required) |
 | `FrozenPeakRecalculationTests.swift` | `FrozenPeakRecalculation_LoadingGuardTests`, `FrozenPeakRecalculation_LoadedMeasurementPathTests`, `FrozenPeakRecalculation_OffsetRemappingTests`, `FrozenPeakRecalculation_OverrideRemappingTests`, `FrozenPeakRecalculation_SelectionCarryForwardTests`, `FrozenPeakRecalculation_EmptyPeaksGuardTests`, `FrozenPeakRecalculation_LiveTapPathTests` | PR1–PR7 | ✅ Implemented |
+| `DecayTrackingTests.swift` | `DecayTracking` (@MainActor) | DK1–DK7 | ✅ Implemented |
+| `ImportPersistenceTests.swift` | `ImportPersistence` (@MainActor, .serialized) | IP1–IP3 | ✅ Implemented |
 
 ### 2.5 Prioritised backlog
 
