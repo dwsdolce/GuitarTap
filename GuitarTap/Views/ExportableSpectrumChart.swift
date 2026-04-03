@@ -441,7 +441,7 @@ struct ExportableSpectrumChart: View {
 /// mode legend — from explicit data parameters.
 ///
 /// Used by both the live export path (`TapToneAnalysisView+Export`) and the
-/// measurement export path (`PDFReportGenerator`) so that "Export Spectrum Image"
+/// measurement export path (`renderSpectrumImageForMeasurement`) so that "Export Spectrum Image"
 /// produces an identical image regardless of whether it is triggered from the live
 /// analysis view or from a saved measurement.
 ///
@@ -623,3 +623,82 @@ func makeExportableSpectrumView(
     .background(Color.white)
     .padding()
 }
+// MARK: - Render Spectrum Image for Measurement
+
+/// Renders the spectrum chart for a saved measurement to PNG data using `ImageRenderer`.
+///
+/// Builds the full composite export view (header + chart + peak summary + legend) from
+/// the measurement's stored snapshot data, producing output identical to the spectrum
+/// image exported from the live analysis view.
+///
+/// Used by both `exportSpectrumMeasurement` (direct PNG export) and
+/// `PDFReportGenerator` (PDF embedding), so both outputs are always consistent.
+///
+/// - Parameter measurement: The saved measurement to render a chart for.
+/// - Returns: PNG-encoded chart image, or `nil` if no snapshot is available.
+@MainActor
+func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Data? {
+    let primarySnapshot = measurement.spectrumSnapshot ?? measurement.longitudinalSnapshot
+    guard let snap = primarySnapshot else { return nil }
+
+    var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
+    if let longSnap = measurement.longitudinalSnapshot {
+        materialSpectra.append((longSnap.magnitudes, longSnap.frequencies, .blue, "Longitudinal"))
+    }
+    if let crossSnap = measurement.crossSnapshot {
+        materialSpectra.append((crossSnap.magnitudes, crossSnap.frequencies, .orange, "Cross-grain"))
+    }
+    if let flcSnap = measurement.flcSnapshot {
+        materialSpectra.append((flcSnap.magnitudes, flcSnap.frequencies, .purple, "FLC"))
+    }
+
+    let measurementType = snap.measurementType ?? .classical
+
+    // Mirror TapToneAnalyzer.visiblePeaks: filter by annotationVisibilityMode and selectedPeakIDs
+    let allPeaks = measurement.peaks
+    let visibilityMode = measurement.annotationVisibilityMode ?? .all
+    let selectedIDs = Set(measurement.selectedPeakIDs ?? allPeaks.map { $0.id })
+    let visiblePeaks: [ResonantPeak]
+    switch visibilityMode {
+    case .all:      visiblePeaks = allPeaks
+    case .selected: visiblePeaks = allPeaks.filter { selectedIDs.contains($0.id) }
+    case .none:     visiblePeaks = []
+    }
+
+    let compositeView = makeExportableSpectrumView(
+        frequencies: snap.frequencies,
+        magnitudes: snap.magnitudes,
+        minFreq: snap.minFreq,
+        maxFreq: snap.maxFreq,
+        minDB: snap.minDB,
+        maxDB: snap.maxDB,
+        peaks: visiblePeaks,
+        annotationOffsets: measurement.peakAnnotationOffsets ?? [:],
+        showUnknownModes: snap.showUnknownModes,
+        measurementType: measurementType,
+        selectedLongitudinalPeakID: measurement.selectedLongitudinalPeakID,
+        selectedCrossPeakID: measurement.selectedCrossPeakID,
+        selectedFlcPeakID: measurement.selectedFlcPeakID,
+        modeOverrides: measurement.peakModeOverrides ?? [:],
+        peakModes: GuitarMode.classifyAll(visiblePeaks),
+        materialSpectra: materialSpectra,
+        dateLabel: measurement.timestamp.formatted(),
+        chartTitle: "FFT Peaks — \(measurement.tapLocation ?? "New")"
+    )
+
+    let renderer = ImageRenderer(content: compositeView)
+    renderer.scale = 2.0
+
+    #if os(iOS)
+    guard let uiImage = renderer.uiImage,
+          let pngData = uiImage.pngData() else { return nil }
+    return pngData
+    #elseif os(macOS)
+    guard let nsImage = renderer.nsImage,
+          let tiffData = nsImage.tiffRepresentation,
+          let bitmapImage = NSBitmapImageRep(data: tiffData),
+          let pngData = bitmapImage.representation(using: .png, properties: [:]) else { return nil }
+    return pngData
+    #endif
+}
+

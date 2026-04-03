@@ -425,7 +425,7 @@ struct MeasurementsListView: View {
     @MainActor
     private func exportSpectrumMeasurement(_ measurement: TapToneMeasurement) {
         isExporting = true
-        let imageData = PDFReportGenerator.renderSpectrumImage(for: measurement)
+        let imageData = renderSpectrumImageForMeasurement(measurement)
         MeasurementFileExporter.exportSpectrumImage(imageData: imageData, basename: measurement.baseFilename) {
             self.isExporting = false
         }
@@ -434,7 +434,7 @@ struct MeasurementsListView: View {
     @MainActor
     private func exportPDFReport(for measurement: TapToneMeasurement) {
         isGeneratingReport = true
-        let spectrumImageData = PDFReportGenerator.renderSpectrumImage(for: measurement)
+        let spectrumImageData = renderSpectrumImageForMeasurement(measurement)
         let reportData = PDFReportData.from(measurement: measurement, spectrumImageData: spectrumImageData)
         guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
             print("❌ Failed to generate PDF report")

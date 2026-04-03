@@ -324,7 +324,7 @@ struct MeasurementDetailView: View {
     @MainActor
     private func generatePDFReport() {
         isGeneratingReport = true
-        let spectrumImageData = PDFReportGenerator.renderSpectrumImage(for: measurement)
+        let spectrumImageData = renderSpectrumImageForMeasurement(measurement)
         let reportData = PDFReportData.from(measurement: measurement, spectrumImageData: spectrumImageData)
         guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
             print("❌ Failed to generate PDF report")
