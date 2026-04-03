@@ -350,9 +350,16 @@ struct ExportableSpectrumChart: View {
                                         x: frame.minX + peakX,
                                         y: frame.minY + peakY
                                     )
+                                    // offset is stored in data-space (Hz delta, dB delta).
+                                    // Convert to pixels via (delta/range)*plotSize —
+                                    // mirrors DraggablePeakAnnotation.finalPosition in PeakAnnotations.swift.
                                     let offset = annotationOffsets[peak.id] ?? .zero
-                                    let annotationX = peakPosition.x + offset.x
-                                    let annotationY = peakPosition.y - 70 + offset.y
+                                    let freqRange = CGFloat(maxFreq - minFreq)
+                                    let dbRange   = CGFloat(maxDB   - minDB)
+                                    let pixelOffsetX = freqRange > 0 ? (offset.x / freqRange) * frame.width  : 0
+                                    let pixelOffsetY = dbRange   > 0 ? (offset.y / dbRange)   * frame.height : 0
+                                    let annotationX = peakPosition.x + pixelOffsetX
+                                    let annotationY = peakPosition.y - 70 + pixelOffsetY
 
                                     ConnectionLineShape(
                                         from: CGPoint(x: annotationX, y: annotationY + 50),
@@ -370,9 +377,15 @@ struct ExportableSpectrumChart: View {
                                         x: frame.minX + peakX,
                                         y: frame.minY + peakY
                                     )
+                                    // offset is stored in data-space (Hz delta, dB delta).
+                                    // Convert to pixels — mirrors DraggablePeakAnnotation.finalPosition.
                                     let offset = annotationOffsets[peak.id] ?? .zero
-                                    let annotationX = peakPosition.x + offset.x
-                                    let annotationY = peakPosition.y - 70 + offset.y
+                                    let freqRange = CGFloat(maxFreq - minFreq)
+                                    let dbRange   = CGFloat(maxDB   - minDB)
+                                    let pixelOffsetX = freqRange > 0 ? (offset.x / freqRange) * frame.width  : 0
+                                    let pixelOffsetY = dbRange   > 0 ? (offset.y / dbRange)   * frame.height : 0
+                                    let annotationX = peakPosition.x + pixelOffsetX
+                                    let annotationY = peakPosition.y - 70 + pixelOffsetY
 
                                     VStack(spacing: 6) {
                                         Text(peakModeLabel(for: peak))
