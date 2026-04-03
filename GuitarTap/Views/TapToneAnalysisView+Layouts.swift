@@ -109,7 +109,7 @@ extension TapToneAnalysisView {
                     FFTAnalysisMetricsView(analyzer: fft)
                         .padding()
                 }
-                .navigationTitle("FFT Metrics")
+                .navigationTitle("FFT Analysis Metrics")
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") {
@@ -198,7 +198,7 @@ extension TapToneAnalysisView {
                     FFTAnalysisMetricsView(analyzer: fft)
                         .padding()
                 }
-                .navigationTitle("FFT Metrics")
+                .navigationTitle("FFT Analysis Metrics")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {

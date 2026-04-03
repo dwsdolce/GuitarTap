@@ -30,11 +30,6 @@ struct FFTAnalysisMetricsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header
-            Text("FFT Analysis Metrics")
-                .font(.headline)
-                .fontWeight(.bold)
-            
             // Analysis Configuration Section
             GroupBox("Analysis Configuration") {
                 VStack(alignment: .leading, spacing: 8) {
@@ -48,7 +43,7 @@ struct FFTAnalysisMetricsView: View {
 
                     MetricRow(
                         label: "Bin Count",
-                        value: analyzer.frequencies.isEmpty ? "—" : "\(analyzer.frequencies.count)",
+                        value: analyzer.frequencies.isEmpty ? "—" : analyzer.frequencies.count.formatted(),
                         subtitle: "FFT output bins (guitar mode only)"
                     )
                     
@@ -57,7 +52,7 @@ struct FFTAnalysisMetricsView: View {
                     MetricRow(
                         label: "Sample Rate",
                         value: analyzer.actualSampleRate > 0
-                            ? String(format: "%.0f Hz", analyzer.actualSampleRate)
+                            ? "\(Int(analyzer.actualSampleRate).formatted()) Hz"
                             : "—",
                         subtitle: "Hardware capture rate"
                     )
