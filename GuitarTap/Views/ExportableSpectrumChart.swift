@@ -268,7 +268,12 @@ struct ExportableSpectrumChart: View {
                             RuleMark(x: .value("Boundary", boundary.frequency))
                                 .foregroundStyle(boundary.mode.color.opacity(0.3))
                                 .lineStyle(StrokeStyle(lineWidth: 2, dash: [8, 8]))
-                                .annotation(position: .top, alignment: .center) {
+                                .annotation(
+                                    position: .top,
+                                    alignment: .center,
+                                    spacing: 4,
+                                    overflowResolution: .init(x: .fit, y: .fit(to: .plot))
+                                ) {
                                     if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
                                         Text(boundary.mode.abbreviation)
                                             .font(.system(size: 14, weight: .semibold))
