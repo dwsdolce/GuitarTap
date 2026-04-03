@@ -85,6 +85,17 @@ extension ImageRenderer {
 /// dispatches to an `NSSavePanel` on macOS or a `UIActivityViewController`
 /// share sheet on iOS.
 struct FileExportHelper {
+
+    #if os(macOS)
+    /// Returns `~/Documents/GuitarTap`, creating the directory if needed.
+    private static var defaultSaveDirectory: URL {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/GuitarTap")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+    #endif
+
     /// Presents the platform-appropriate export UI for `data`.
     ///
     /// On macOS, an `NSSavePanel` is shown pre-configured with `contentType`
@@ -128,7 +139,8 @@ struct FileExportHelper {
         savePanel.allowedContentTypes = [contentType]
         savePanel.nameFieldStringValue = filename
         savePanel.canCreateDirectories = true
-        
+        savePanel.directoryURL = defaultSaveDirectory
+
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
                 do {

@@ -30,6 +30,18 @@ internal import UniformTypeIdentifiers
 /// to platform-appropriate destinations.
 struct MeasurementFileExporter {
 
+    // MARK: - Default Save Directory
+
+    #if os(macOS)
+    /// Returns `~/Documents/GuitarTap`, creating the directory if needed.
+    private static var defaultSaveDirectory: URL {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/GuitarTap")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+    #endif
+
     // MARK: - PDF Report Export
 
     /// Exports a PDF report using the platform share/save pattern.
@@ -107,6 +119,7 @@ struct MeasurementFileExporter {
         savePanel.nameFieldStringValue = "\(basename).pdf"
         savePanel.canCreateDirectories = true
         savePanel.message = "Save PDF Report"
+        savePanel.directoryURL = defaultSaveDirectory
 
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
@@ -181,6 +194,7 @@ struct MeasurementFileExporter {
         savePanel.nameFieldStringValue = "\(measurement.baseFilename).guitartap"
         savePanel.canCreateDirectories = true
         savePanel.message = "Save Measurement to Disk"
+        savePanel.directoryURL = defaultSaveDirectory
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
                 do {
@@ -322,6 +336,7 @@ struct MeasurementFileExporter {
         savePanel.nameFieldStringValue = "\(basename).png"
         savePanel.canCreateDirectories = true
         savePanel.message = "Save Spectrum Image"
+        savePanel.directoryURL = defaultSaveDirectory
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
                 do {

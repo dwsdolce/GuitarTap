@@ -179,6 +179,10 @@ struct ExportView: View {
         savePanel.allowedContentTypes = [.json]
         savePanel.nameFieldStringValue = "measurements-\(Date().timeIntervalSince1970).json"
         savePanel.canCreateDirectories = true
+        let guitarTapDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/GuitarTap")
+        try? FileManager.default.createDirectory(at: guitarTapDir, withIntermediateDirectories: true)
+        savePanel.directoryURL = guitarTapDir
         
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
