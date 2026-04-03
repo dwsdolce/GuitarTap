@@ -49,14 +49,23 @@ import SwiftUI
 
 extension TapToneAnalysisView {
 
-    // Computed properties to explicitly depend on @Published properties
-    var displayFrequencies: [Float] {
-        tap.isMeasurementComplete ? tap.frozenFrequencies : fft.frequencies
+    // Computed properties to explicitly depend on @Published properties.
+    // displayFrequencies and displayMagnitudes are derived from a single
+    // atomic snapshot so they always correspond to the same source — frozen
+    // or live — and therefore always have matching lengths.  Reading
+    // isMeasurementComplete twice (once per property) could produce
+    // mismatched lengths when the flag flips between the two evaluations,
+    // which causes SwiftUI Charts to render spurious vertical line artifacts.
+    private var displaySpectrum: (frequencies: [Float], magnitudes: [Float]) {
+        if tap.isMeasurementComplete {
+            return (tap.frozenFrequencies, tap.frozenMagnitudes)
+        } else {
+            return (fft.frequencies, fft.magnitudes)
+        }
     }
 
-    var displayMagnitudes: [Float] {
-        tap.isMeasurementComplete ? tap.frozenMagnitudes : fft.magnitudes
-    }
+    var displayFrequencies: [Float] { displaySpectrum.frequencies }
+    var displayMagnitudes:  [Float] { displaySpectrum.magnitudes  }
 
     /// Per-phase spectra for plate/brace measurements, plus any active comparison overlays.
     ///
@@ -212,6 +221,7 @@ extension TapToneAnalysisView {
             annotationPeaks: isComparing ? nil : tap.visiblePeaks,
             showModeBoundaries: true,
             onFrequencyRangeChanged: updateFrequencyInputFields,
+            onAxisRangeReset: applyAxisRange,
             annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
             materialSpectra: materialSpectra,
             thresholdLines: isComparing ? [] : thresholds,
@@ -242,6 +252,7 @@ extension TapToneAnalysisView {
             annotationPeaks: isComparing ? nil : tap.visiblePeaks,
             showModeBoundaries: true,
             onFrequencyRangeChanged: updateFrequencyInputFields,
+            onAxisRangeReset: applyAxisRange,
             annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
             materialSpectra: materialSpectra,
             thresholdLines: isComparing ? [] : thresholds,

@@ -59,7 +59,7 @@ import SwiftUI
 struct PeakAnnotationsOverlay: View {
     /// The peaks to annotate.
     let peaks: [ResonantPeak]
-    /// Two-way binding to the persisted label-drag offsets dictionary.
+    /// Two-way binding to the persisted label positions dictionary (absolute data-space: x = Hz, y = dB).
     let annotationOffsets: Binding<[UUID: CGPoint]>
     /// Full view geometry used to resolve chart-relative coordinates.
     let geometry: GeometryProxy
@@ -163,7 +163,8 @@ struct DraggablePeakAnnotation: View {
     /// When provided, used instead of the per-frequency ``GuitarMode/classify(frequency:)``
     /// so that peaks in overlapping mode ranges display distinct labels.
     var classifiedMode: GuitarMode? = nil
-    /// Persisted drag offset from the default chart position (pt).
+    /// Persisted label position in absolute data-space (x = Hz, y = dB).
+    /// `.zero` means no saved position; the default (70pt above peak) is used instead.
     let offset: CGPoint
     /// Full view geometry, used to resolve `plotFrame` origin.
     let chartGeometry: GeometryProxy
@@ -245,7 +246,7 @@ struct DraggablePeakAnnotation: View {
         offset.x != 0 || offset.y != 0
     }
 
-    /// Current label origin in view coordinates.
+    /// Current label origin in view coordinates (the default 70pt-above-peak position, ignoring any stored offset).
     /// Returns the drag-frozen value while a drag is active; otherwise computes fresh from current axis ranges.
     /// No `@State` writes needed — positions update automatically on every render when props change.
     private var chartPosition: CGPoint {
@@ -325,25 +326,29 @@ struct DraggablePeakAnnotation: View {
 
     /// Final position including user offset and drag.
     ///
-    /// `offset` is stored in data-space (x = Hz delta, y = dB delta); convert back
-    /// to pixels using the current axis ranges and plot frame before applying.
+    /// `offset` is stored in **absolute** data-space (x = Hz, y = dB); convert to
+    /// pixels using the current axis ranges and plot frame.
+    /// When `offset == .zero` (no stored position), falls back to `chartPosition`
+    /// (the 70pt-above-peak default).
     /// `dragOffset` is a transient live-drag value already in pixels.
     private var finalPosition: CGPoint {
         let freqRange = CGFloat(maxFreq - minFreq)
         let dbRange   = CGFloat(maxDB   - minDB)
-        let pixelOffsetX: CGFloat
-        let pixelOffsetY: CGFloat
-        if plotFrame.width > 0, plotFrame.height > 0, freqRange > 0, dbRange > 0 {
-            pixelOffsetX = (offset.x / freqRange) * plotFrame.width
-            pixelOffsetY = (offset.y / dbRange)   * plotFrame.height
-        } else {
-            pixelOffsetX = 0
-            pixelOffsetY = 0
+        guard plotFrame.width > 0, plotFrame.height > 0, freqRange > 0, dbRange > 0 else {
+            return CGPoint(x: chartPosition.x + dragOffset.width,
+                           y: chartPosition.y + dragOffset.height)
         }
-        return CGPoint(
-            x: chartPosition.x + pixelOffsetX + dragOffset.width,
-            y: chartPosition.y + pixelOffsetY + dragOffset.height
-        )
+        if offset == .zero {
+            // No saved position — use default (70pt above peak) plus any live drag.
+            return CGPoint(
+                x: chartPosition.x + dragOffset.width,
+                y: chartPosition.y + dragOffset.height
+            )
+        }
+        // Convert absolute data-space position to pixels.
+        let absX = plotFrame.minX + ((CGFloat(offset.x) - CGFloat(minFreq)) / freqRange) * plotFrame.width
+        let absY = plotFrame.minY + (1.0 - (CGFloat(offset.y) - CGFloat(minDB)) / dbRange) * plotFrame.height
+        return CGPoint(x: absX + dragOffset.width, y: absY + dragOffset.height)
     }
 
     var body: some View {
@@ -397,21 +402,21 @@ struct DraggablePeakAnnotation: View {
                         dragOffset = value.translation
                     }
                     .onEnded { value in
-                        // `offset` is stored in data-space (Hz delta, dB delta).
-                        // Convert it back to pixels, add the drag translation, then
-                        // convert the total back to data-space for storage.
+                        // Store the absolute data-space position of the label center.
+                        // Take the current finalPosition (which incorporates the live
+                        // dragOffset), then convert from pixels back to data-space (Hz, dB).
                         let freqRange = CGFloat(maxFreq - minFreq)
                         let dbRange   = CGFloat(maxDB   - minDB)
                         let dataOffset: CGPoint
                         if plotFrame.width > 0, plotFrame.height > 0, freqRange > 0, dbRange > 0 {
-                            let existingPixelX = (CGFloat(offset.x) / freqRange) * plotFrame.width
-                            let existingPixelY = (CGFloat(offset.y) / dbRange)   * plotFrame.height
-                            let totalPixelX = existingPixelX + value.translation.width
-                            let totalPixelY = existingPixelY + value.translation.height
-                            dataOffset = CGPoint(
-                                x: (totalPixelX / plotFrame.width)  * freqRange,
-                                y: (totalPixelY / plotFrame.height) * dbRange
-                            )
+                            // finalPosition before dragOffset is cleared gives the pixel
+                            // position of the label center at drag-end.
+                            let endPixelX = finalPosition.x
+                            let endPixelY = finalPosition.y
+                            // Convert pixels → absolute data-space.
+                            let absHz = CGFloat(minFreq) + ((endPixelX - plotFrame.minX) / plotFrame.width)  * freqRange
+                            let absDB = CGFloat(minDB)   + (1.0 - (endPixelY - plotFrame.minY) / plotFrame.height) * dbRange
+                            dataOffset = CGPoint(x: absHz, y: absDB)
                         } else {
                             dataOffset = .zero
                         }

@@ -65,9 +65,18 @@ import AppKit
 /// Each `SpectrumDataPoint` corresponds to one FFT bin.  The `Identifiable`
 /// conformance lets SwiftUI Charts efficiently track insertions and removals
 /// when the spectrum is refreshed.
+///
+/// - Important: `id` is derived from `frequency` so that the same bin always
+///   has the same identity across re-renders.  A random `UUID()` would make
+///   every data point appear new on every render pass, causing Swift Charts to
+///   treat the entire dataset as replaced and potentially flash during
+///   magnitude-only axis changes (e.g. "Reset Magnitude Axis to Defaults").
 struct SpectrumDataPoint: Identifiable {
-    /// Unique identifier for SwiftUI's identity system
-    let id = UUID()
+    /// Stable identifier based on the bin's frequency value.
+    ///
+    /// Using `frequency` as the identity means Swift Charts can reconcile
+    /// updated magnitudes against the same bin rather than replacing all marks.
+    var id: Float { frequency }
 
     /// The frequency of this bin in Hz
     let frequency: Float
@@ -157,6 +166,14 @@ struct SpectrumView: View {
 
     /// Callback invoked when the frequency range changes due to zoom/pan gestures
     var onFrequencyRangeChanged: (() -> Void)?
+
+    /// Callback invoked when an axis-reset menu item is chosen.
+    ///
+    /// The parent sets all four axis `@State` vars in one closure so SwiftUI
+    /// coalesces them into a single render pass, preventing the transient
+    /// `minDB > maxDB` state that causes the clamping artifact.
+    /// Signature: `(minFreq, maxFreq, minDB, maxDB) -> Void`
+    var onAxisRangeReset: ((Float, Float, Float, Float) -> Void)?
 
     /// Optional binding to annotation offsets for draggable labels
     var annotationOffsets: Binding<[UUID: CGPoint]>?
@@ -1016,8 +1033,16 @@ struct SpectrumView: View {
         .chartOverlay { proxy in
             annotationGeometryWrapper(proxy: proxy)
         }
-        .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
-        .chartYScale(domain: Double(minDB)...Double(maxDB))
+        // Guard against transient inverted ranges during axis-reset animations.
+        // If min >= max (which would produce an invalid ClosedRange and cause
+        // SwiftUI Charts to render garbage), fall back to safe sentinel values.
+        .chartXScale(domain: minFreq < maxFreq
+                        ? Double(minFreq)...Double(maxFreq)
+                        : Double(minFreq)...Double(minFreq + 100),
+                     type: isLogarithmic ? .log : .linear)
+        .chartYScale(domain: minDB < maxDB
+                        ? Double(minDB)...Double(maxDB)
+                        : Double(minDB)...Double(minDB + 10))
     }
 
     /// X-axis content builder

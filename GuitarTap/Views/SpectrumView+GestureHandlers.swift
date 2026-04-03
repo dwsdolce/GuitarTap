@@ -441,50 +441,63 @@ extension SpectrumView {
     }
 
     // MARK: - Axis Reset Helpers
+    //
+    // Each helper computes the target axis values then delivers them via
+    // ``onAxisRangeReset`` so the parent can set all four ``@State`` vars in
+    // one closure.  SwiftUI coalesces those assignments into a single render
+    // pass, preventing the transient ``minDB > maxDB`` state that causes the
+    // clamping artifact when two separate ``@Published`` writes arrive in
+    // successive update cycles.
 
     /// Resets both axes to the saved (persisted) display settings
     func resetBothAxesToSaved() {
-        minFreq = TapDisplaySettings.minFrequency
-        maxFreq = TapDisplaySettings.maxFrequency
-        minDB = TapDisplaySettings.minMagnitude
-        maxDB = TapDisplaySettings.maxMagnitude
+        let newMinFreq = TapDisplaySettings.minFrequency
+        let newMaxFreq = TapDisplaySettings.maxFrequency
+        let newMinDB   = TapDisplaySettings.minMagnitude
+        let newMaxDB   = TapDisplaySettings.maxMagnitude
+        onAxisRangeReset?(newMinFreq, newMaxFreq, newMinDB, newMaxDB)
         onFrequencyRangeChanged?()
     }
 
     /// Resets the frequency axis to the saved (persisted) display settings
     func resetFrequencyAxisToSaved() {
-        minFreq = TapDisplaySettings.minFrequency
-        maxFreq = TapDisplaySettings.maxFrequency
+        let newMinFreq = TapDisplaySettings.minFrequency
+        let newMaxFreq = TapDisplaySettings.maxFrequency
+        onAxisRangeReset?(newMinFreq, newMaxFreq, minDB, maxDB)
         onFrequencyRangeChanged?()
     }
 
     /// Resets the magnitude axis to the saved (persisted) display settings
     func resetMagnitudeAxisToSaved() {
-        minDB = TapDisplaySettings.minMagnitude
-        maxDB = TapDisplaySettings.maxMagnitude
+        let newMinDB = TapDisplaySettings.minMagnitude
+        let newMaxDB = TapDisplaySettings.maxMagnitude
+        onAxisRangeReset?(minFreq, maxFreq, newMinDB, newMaxDB)
     }
 
     /// Resets both axes to factory default values
     func resetBothAxesToDefaults() {
         let type = TapDisplaySettings.measurementType
-        minFreq = TapDisplaySettings.defaultMinFrequency(for: type)
-        maxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
-        minDB = TapDisplaySettings.defaultMinMagnitude
-        maxDB = TapDisplaySettings.defaultMaxMagnitude
+        let newMinFreq = TapDisplaySettings.defaultMinFrequency(for: type)
+        let newMaxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
+        let newMinDB   = TapDisplaySettings.defaultMinMagnitude
+        let newMaxDB   = TapDisplaySettings.defaultMaxMagnitude
+        onAxisRangeReset?(newMinFreq, newMaxFreq, newMinDB, newMaxDB)
         onFrequencyRangeChanged?()
     }
 
     /// Resets the frequency axis to factory default values
     func resetFrequencyAxisToDefaults() {
         let type = TapDisplaySettings.measurementType
-        minFreq = TapDisplaySettings.defaultMinFrequency(for: type)
-        maxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
+        let newMinFreq = TapDisplaySettings.defaultMinFrequency(for: type)
+        let newMaxFreq = TapDisplaySettings.defaultMaxFrequency(for: type)
+        onAxisRangeReset?(newMinFreq, newMaxFreq, minDB, maxDB)
         onFrequencyRangeChanged?()
     }
 
     /// Resets the magnitude axis to factory default values
     func resetMagnitudeAxisToDefaults() {
-        minDB = TapDisplaySettings.defaultMinMagnitude
-        maxDB = TapDisplaySettings.defaultMaxMagnitude
+        let newMinDB = TapDisplaySettings.defaultMinMagnitude
+        let newMaxDB = TapDisplaySettings.defaultMaxMagnitude
+        onAxisRangeReset?(minFreq, maxFreq, newMinDB, newMaxDB)
     }
 }

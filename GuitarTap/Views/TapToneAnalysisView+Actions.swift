@@ -177,7 +177,11 @@ extension TapToneAnalysisView {
             selectedFlcPeakID: tap.effectiveFlcPeakID,
             microphoneName: fft.selectedInputDevice?.name,
             microphoneUID: fft.selectedInputDevice?.uid,
-            calibrationName: fft.activeCalibration?.name
+            calibrationName: fft.activeCalibration?.name,
+            minFreq: minFreq,
+            maxFreq: maxFreq,
+            minDB: minDB,
+            maxDB: maxDB
         )
 
         tapLocation = ""
@@ -191,6 +195,23 @@ extension TapToneAnalysisView {
     func updateFrequencyInputFields() {
         minFreqInput = String(format: "%.0f", minFreq)
         maxFreqInput = String(format: "%.0f", maxFreq)
+    }
+
+    /// Apply all four axis values atomically — called by ``SpectrumView``'s
+    /// ``onAxisRangeReset`` callback so that all four ``@State`` vars are
+    /// mutated in a single closure.  SwiftUI coalesces the mutations into one
+    /// render pass, preventing the transient ``minDB > maxDB`` state that
+    /// causes the clamping artifact when individual ``@Binding`` writes arrive
+    /// in separate update cycles.
+    func applyAxisRange(minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float) {
+        self.minFreq    = minFreq
+        self.maxFreq    = maxFreq
+        self.minDB      = minDB
+        self.maxDB      = maxDB
+        self.minFreqInput = String(format: "%.0f", minFreq)
+        self.maxFreqInput = String(format: "%.0f", maxFreq)
+        self.minDBInput   = String(format: "%.0f", minDB)
+        self.maxDBInput   = String(format: "%.0f", maxDB)
     }
 
     /// Expand the frequency display range to ensure the given frequency is visible.

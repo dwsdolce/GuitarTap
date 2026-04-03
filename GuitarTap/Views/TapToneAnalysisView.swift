@@ -211,47 +211,27 @@ struct TapToneAnalysisView: View {
                 .onAppear { isLandscape = geo.size.width > geo.size.height }
                 .onChange(of: geo.size) { _, size in isLandscape = size.width > size.height }
         })
-        .onReceive(tapToneAnalyzer.$loadedMinFreq) { minFreq in
-            if let minFreq = minFreq {
-                print("  ⬇️ View received loadedMinFreq: \(minFreq)")
-                self.minFreq = minFreq
-                self.minFreqInput = String(format: "%.0f", minFreq)
-                // Clear the loaded value after applying (with small delay to ensure UI updates)
+        // Single receiver for all four axis bounds — applying them together in one
+        // render pass prevents transient states where e.g. minDB has the new value
+        // while maxDB is still old, which caused SwiftUI Charts to clamp every data
+        // point to the same level and render spurious vertical line artifacts.
+        .onReceive(tapToneAnalyzer.$loadedAxisRange) { range in
+            if let range = range {
+                print("  ⬇️ View received loadedAxisRange: \(range.minFreq)-\(range.maxFreq) Hz, \(range.minDB)-\(range.maxDB) dB")
+                self.minFreq = range.minFreq
+                self.maxFreq = range.maxFreq
+                self.minDB   = range.minDB
+                self.maxDB   = range.maxDB
+                self.minFreqInput = String(format: "%.0f", range.minFreq)
+                self.maxFreqInput = String(format: "%.0f", range.maxFreq)
+                self.minDBInput   = String(format: "%.0f", range.minDB)
+                self.maxDBInput   = String(format: "%.0f", range.maxDB)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.tapToneAnalyzer.loadedAxisRange = nil
                     self.tapToneAnalyzer.loadedMinFreq = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedMaxFreq) { maxFreq in
-            if let maxFreq = maxFreq {
-                print("  ⬇️ View received loadedMaxFreq: \(maxFreq)")
-                self.maxFreq = maxFreq
-                self.maxFreqInput = String(format: "%.0f", maxFreq)
-                // Clear the loaded value after applying (with small delay to ensure UI updates)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.tapToneAnalyzer.loadedMaxFreq = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedMinDB) { minDB in
-            if let minDB = minDB {
-                print("  ⬇️ View received loadedMinDB: \(minDB)")
-                self.minDB = minDB
-                self.minDBInput = String(format: "%.0f", minDB)
-                // Clear the loaded value after applying (with small delay to ensure UI updates)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedMinDB = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedMaxDB) { maxDB in
-            if let maxDB = maxDB {
-                print("  ⬇️ View received loadedMaxDB: \(maxDB)")
-                self.maxDB = maxDB
-                self.maxDBInput = String(format: "%.0f", maxDB)
-                // Clear the loaded value after applying (with small delay to ensure UI updates)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedMaxDB = nil
+                    self.tapToneAnalyzer.loadedMinDB   = nil
+                    self.tapToneAnalyzer.loadedMaxDB   = nil
                 }
             }
         }

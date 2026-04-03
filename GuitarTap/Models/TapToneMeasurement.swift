@@ -84,9 +84,10 @@ struct TapToneMeasurement: Identifiable, Codable {
 
     // MARK: - Annotation State
 
-    /// Custom screen-space offsets for draggable peak annotation labels, keyed by peak UUID.
+    /// Absolute data-space positions for draggable peak annotation labels, keyed by peak UUID.
     ///
-    /// Allows the user's manual label layout to survive a save/load cycle.
+    /// Each `CGPoint` stores the label-center position in data-space: `x` = frequency in Hz,
+    /// `y` = magnitude in dB. Allows the user's manual label layout to survive a save/load cycle.
     let peakAnnotationOffsets: [UUID: CGPoint]?
 
     /// UUIDs of peaks the user marked as significant results (deselected peaks are dimmed).
@@ -186,16 +187,17 @@ struct TapToneMeasurement: Identifiable, Codable {
         case measurementType, guitarType
     }
 
-    /// A serialisable annotation offset in data-space coordinates.
+    /// A serialisable annotation position in absolute data-space coordinates.
     ///
-    /// Stores the user's drag delta for a peak annotation label as physical units
-    /// rather than screen pixels, making the value meaningful to external consumers.
+    /// Stores the absolute label center position as physical units rather than
+    /// screen pixels, making the value meaningful to external consumers and
+    /// consistent across different chart sizes and platforms.
     ///
-    /// - `hzOffset`: horizontal displacement from the default label position, in Hz.
-    /// - `dbOffset`: vertical displacement from the default label position, in dB.
+    /// - `absFreqHz`: label center frequency in Hz.
+    /// - `absDB`: label center magnitude in dB.
     struct PeakAnnotationOffset: Codable {
-        let hzOffset: Double
-        let dbOffset: Double
+        let absFreqHz: Double
+        let absDB: Double
     }
 
     /// CodingKeys for the per-peak export container that injects a resolved `modeLabel`.
@@ -368,14 +370,16 @@ struct TapToneMeasurement: Identifiable, Codable {
         tapLocation      = try container.decodeIfPresent(String.self, forKey: .tapLocation)
         notes            = try container.decodeIfPresent(String.self, forKey: .notes)
         spectrumSnapshot = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .spectrumSnapshot)
-        // Decode as named-field struct (hzOffset/dbOffset) and convert to CGPoint for in-memory use.
+        // Decode as named-field struct (absFreqHz/absDB) and convert to CGPoint for in-memory use.
         // Also accepts legacy CGPoint encoding ({x:, y:}) from files written before this change.
-        // Try the new named format (hzOffset/dbOffset) first; fall back to legacy CGPoint {x:,y:}.
+        // Try the new named format (absFreqHz/absDB) first; fall back to legacy formats.
         let namedOffsets = (try? container.decodeIfPresent([UUID: PeakAnnotationOffset].self, forKey: .peakAnnotationOffsets)) ?? nil
         if let named = namedOffsets {
-            peakAnnotationOffsets = named.mapValues { CGPoint(x: $0.hzOffset, y: $0.dbOffset) }
+            peakAnnotationOffsets = named.mapValues { CGPoint(x: $0.absFreqHz, y: $0.absDB) }
         } else {
-            peakAnnotationOffsets = try container.decodeIfPresent([UUID: CGPoint].self, forKey: .peakAnnotationOffsets)
+            // Legacy: raw CGPoint or old hzOffset/dbOffset fields — treat as no position saved.
+            // Annotation labels will fall back to their default (70pt above peak) positions.
+            peakAnnotationOffsets = nil
         }
         tapDetectionThreshold = try container.decodeIfPresent(Float.self, forKey: .tapDetectionThreshold)
         hysteresisMargin = try container.decodeIfPresent(Float.self, forKey: .hysteresisMargin)
@@ -421,10 +425,11 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(tapLocation,      forKey: .tapLocation)
         try container.encodeIfPresent(notes,            forKey: .notes)
         try container.encodeIfPresent(spectrumSnapshot, forKey: .spectrumSnapshot)
-        // Encode offsets as named fields (hzOffset/dbOffset) rather than raw CGPoint {x:, y:}
+        // Encode positions as named fields (absFreqHz/absDB) rather than raw CGPoint {x:, y:}
         // so that external consumers (e.g. Python) can interpret the values correctly.
+        // Values are absolute data-space label-center positions (Hz, dB).
         let namedOffsets = peakAnnotationOffsets?.mapValues {
-            PeakAnnotationOffset(hzOffset: Double($0.x), dbOffset: Double($0.y))
+            PeakAnnotationOffset(absFreqHz: Double($0.x), absDB: Double($0.y))
         }
         try container.encodeIfPresent(namedOffsets, forKey: .peakAnnotationOffsets)
         try container.encodeIfPresent(tapDetectionThreshold, forKey: .tapDetectionThreshold)

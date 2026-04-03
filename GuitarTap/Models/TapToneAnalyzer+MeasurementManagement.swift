@@ -177,7 +177,11 @@ extension TapToneAnalyzer {
         selectedFlcPeakID: UUID? = nil,
         microphoneName: String? = nil,
         microphoneUID: String? = nil,
-        calibrationName: String? = nil
+        calibrationName: String? = nil,
+        minFreq: Float? = nil,
+        maxFreq: Float? = nil,
+        minDB: Float? = nil,
+        maxDB: Float? = nil
     ) {
         let measurementType = TapDisplaySettings.measurementType
         
@@ -188,10 +192,10 @@ extension TapToneAnalyzer {
             snapshot = spectrumSnapshot ?? SpectrumSnapshot(
                 frequencies: isMeasurementComplete ? frozenFrequencies : fftAnalyzer.frequencies,
                 magnitudes: isMeasurementComplete ? frozenMagnitudes : fftAnalyzer.magnitudes,
-                minFreq: TapDisplaySettings.minFrequency,
-                maxFreq: TapDisplaySettings.maxFrequency,
-                minDB: TapDisplaySettings.minMagnitude,
-                maxDB: TapDisplaySettings.maxMagnitude,
+                minFreq: minFreq ?? TapDisplaySettings.minFrequency,
+                maxFreq: maxFreq ?? TapDisplaySettings.maxFrequency,
+                minDB: minDB ?? TapDisplaySettings.minMagnitude,
+                maxDB: maxDB ?? TapDisplaySettings.maxMagnitude,
                 isLogarithmic: false,
                 showUnknownModes: TapDisplaySettings.showUnknownModes,
                 guitarType: TapDisplaySettings.guitarType,
@@ -393,27 +397,27 @@ extension TapToneAnalyzer {
         
         // For plate/brace: use per-phase spectra for display (no frozen spectrum needed).
         // For guitar: restore the single frozen spectrum as before.
+        // Use setFrozenSpectrum so both arrays update in one objectWillChange notification —
+        // assigning them separately produces a transient length mismatch that causes
+        // SwiftUI Charts to render spurious vertical line artifacts.
         if hasMaterialSpectra {
-            frozenFrequencies = []
-            frozenMagnitudes = []
+            setFrozenSpectrum(frequencies: [], magnitudes: [])
             materialTapPhase = .complete
         } else if let snapshot = measurement.spectrumSnapshot {
-            frozenFrequencies = snapshot.frequencies
-            frozenMagnitudes = snapshot.magnitudes
+            setFrozenSpectrum(frequencies: snapshot.frequencies, magnitudes: snapshot.magnitudes)
         } else {
-            frozenFrequencies = []
-            frozenMagnitudes = []
+            setFrozenSpectrum(frequencies: [], magnitudes: [])
         }
         
         // Restore display settings from any available snapshot (prefer longitudinal for plate/brace)
         let settingsSnapshot = measurement.longitudinalSnapshot ?? measurement.spectrumSnapshot
         if let snapshot = settingsSnapshot {
-            // Restore display ranges - publish these to trigger view updates
+            // Restore display ranges - use setLoadedAxisRange so all four bounds are
+            // published in a single objectWillChange notification, preventing transient
+            // mismatched-axis states that cause SwiftUI Charts rendering artifacts.
             print("  📊 Publishing display ranges: \(snapshot.minFreq)-\(snapshot.maxFreq) Hz, \(snapshot.minDB)-\(snapshot.maxDB) dB")
-            loadedMinFreq = snapshot.minFreq
-            loadedMaxFreq = snapshot.maxFreq
-            loadedMinDB = snapshot.minDB
-            loadedMaxDB = snapshot.maxDB
+            setLoadedAxisRange(minFreq: snapshot.minFreq, maxFreq: snapshot.maxFreq,
+                               minDB: snapshot.minDB, maxDB: snapshot.maxDB)
             
             // Restore showUnknownModes setting if available
             if let showUnknown = snapshot.showUnknownModes {
@@ -706,13 +710,15 @@ extension TapToneAnalyzer {
                     color: color, label: comparisonLabel(for: measurement))
         }
 
-        // Broadcast the union axis ranges so TapToneAnalysisView updates its display
+        // Broadcast the union axis ranges — use setLoadedAxisRange so all four bounds
+        // are published atomically, preventing transient axis mismatches.
         let snapshots = withSnapshots.compactMap { $0.spectrumSnapshot }
-        if !snapshots.isEmpty {
-            loadedMinFreq = snapshots.map(\.minFreq).min()
-            loadedMaxFreq = snapshots.map(\.maxFreq).max()
-            loadedMinDB   = snapshots.map(\.minDB).min()
-            loadedMaxDB   = snapshots.map(\.maxDB).max()
+        if !snapshots.isEmpty,
+           let minF = snapshots.map(\.minFreq).min(),
+           let maxF = snapshots.map(\.maxFreq).max(),
+           let minD = snapshots.map(\.minDB).min(),
+           let maxD = snapshots.map(\.maxDB).max() {
+            setLoadedAxisRange(minFreq: minF, maxFreq: maxF, minDB: minD, maxDB: maxD)
         }
 
         displayMode = comparisonSpectra.isEmpty ? .live : .comparison

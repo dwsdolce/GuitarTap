@@ -30,17 +30,17 @@ extension TapToneAnalyzer {
 
     // MARK: - Annotation Management
 
-    /// Stores a new drag-offset for the annotation callout of the given peak.
+    /// Stores an absolute label position for the annotation callout of the given peak.
     ///
     /// - Parameters:
     ///   - peakID: The ``ResonantPeak/id`` of the peak whose label is being
     ///     repositioned.
-    ///   - offset: The desired offset in **data-space** coordinates:
-    ///     `x` = frequency delta in Hz, `y` = magnitude delta in dB.
-    ///     `.zero` represents the default (no offset) position.
-    ///     Stored values are converted to/from pixels at render time using the
-    ///     current chart axis ranges, making offsets valid across platforms and
-    ///     screen sizes.
+    ///   - offset: The absolute label-center position in **data-space**:
+    ///     `x` = frequency in Hz, `y` = magnitude in dB.
+    ///     `.zero` represents "no saved position" — the default (70pt above peak)
+    ///     will be used at render time.
+    ///     Stored values are converted to pixels at render time using the current
+    ///     chart axis ranges, making positions valid across platforms and screen sizes.
     ///
     /// - Note: Safe to call from any thread; dispatches to the main queue when
     ///   needed.

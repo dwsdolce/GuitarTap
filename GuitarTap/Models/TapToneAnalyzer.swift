@@ -298,10 +298,32 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Populated for guitar measurements when `isMeasurementComplete` becomes `true`.
     /// Not used for plate/brace measurements (per-phase spectra are stored separately).
+    ///
+    /// - Important: Always assign this together with `frozenMagnitudes` via
+    ///   `setFrozenSpectrum(frequencies:magnitudes:)` so both arrays update in a
+    ///   single `objectWillChange` notification.  Assigning them separately triggers
+    ///   two render passes; between the first and second pass, the arrays have
+    ///   mismatched lengths, which causes SwiftUI Charts to draw spurious vertical
+    ///   line artifacts.
     @Published var frozenFrequencies: [Float] = []
 
     /// Magnitudes of the frozen (post-tap-sequence) spectrum, in dBFS.
+    ///
+    /// - Important: Always assign via `setFrozenSpectrum(frequencies:magnitudes:)`.
     @Published var frozenMagnitudes: [Float] = []
+
+    /// Assign both frozen arrays in a single `objectWillChange` notification.
+    ///
+    /// Calling this helper ensures that `frozenFrequencies` and `frozenMagnitudes`
+    /// are always updated atomically from SwiftUI's perspective: only one render
+    /// pass is triggered, so the two arrays are never transiently mismatched in
+    /// length.  All assignment sites should call this instead of setting the two
+    /// properties individually.
+    func setFrozenSpectrum(frequencies: [Float], magnitudes: [Float]) {
+        objectWillChange.send()
+        frozenFrequencies = frequencies
+        frozenMagnitudes  = magnitudes
+    }
 
     // MARK: - Published Annotation & Selection State
 
@@ -564,6 +586,29 @@ final class TapToneAnalyzer: ObservableObject {
 
     // MARK: - Loaded / Restored State
 
+    /// All four axis bounds from a saved measurement, published as a single unit.
+    ///
+    /// Wrapping the four values in one struct ensures the view's `onReceive` handler
+    /// fires once and applies all four bounds in the same render pass.  Publishing
+    /// them as four separate `@Published` optionals fired four `onReceive` deliveries
+    /// and four separate renders; between deliveries some bounds were updated while
+    /// others were still at their previous values, causing a transient `minDB ≈ maxDB`
+    /// state that made SwiftUI Charts clamp every data point to the same level and
+    /// render a burst of apparent vertical lines.
+    struct LoadedAxisRange {
+        let minFreq: Float
+        let maxFreq: Float
+        let minDB: Float
+        let maxDB: Float
+    }
+
+    /// Axis bounds loaded from a saved measurement (or comparison union).
+    ///
+    /// Set via `setLoadedAxisRange(minFreq:maxFreq:minDB:maxDB:)` so all four values
+    /// are published in a single `objectWillChange` notification.  Cleared (set to `nil`)
+    /// by the view after applying.
+    @Published var loadedAxisRange: LoadedAxisRange?
+
     /// Frequency range bounds loaded from a saved measurement.
     ///
     /// These are published so that the view layer can pick them up via `onReceive` and
@@ -576,6 +621,23 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var loadedMinDB: Float?
     /// Upper magnitude bound loaded from a saved measurement, in dBFS.
     @Published var loadedMaxDB: Float?
+
+    /// Publish all four axis bounds as a single atomic notification.
+    ///
+    /// Calling this helper instead of assigning the four `loaded*` properties
+    /// individually ensures the view receives one `onReceive` event and applies
+    /// all bounds in the same render pass, preventing transient mismatches.
+    func setLoadedAxisRange(minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float) {
+        objectWillChange.send()
+        loadedAxisRange = LoadedAxisRange(minFreq: minFreq, maxFreq: maxFreq,
+                                         minDB: minDB, maxDB: maxDB)
+        // Also keep the individual properties in sync for any existing call sites
+        // that still read them (e.g. tests).
+        loadedMinFreq = minFreq
+        loadedMaxFreq = maxFreq
+        loadedMinDB   = minDB
+        loadedMaxDB   = maxDB
+    }
 
     /// Analysis settings loaded from a saved measurement (tap detection threshold in dBFS).
     @Published var loadedTapDetectionThreshold: Float?

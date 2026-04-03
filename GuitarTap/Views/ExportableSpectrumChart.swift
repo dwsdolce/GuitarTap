@@ -79,7 +79,8 @@ struct ExportableSpectrumChart: View {
     var peaks: [ResonantPeak]?
     /// Whether to draw guitar mode boundary lines.
     var showModeBoundaries: Bool = true
-    /// Per-peak label drag offsets (CGPoint in chart-relative points).
+    /// Per-peak label positions in absolute data-space (x = Hz, y = dB).
+    /// When `.zero` or absent, the default position (70pt above peak) is used.
     var annotationOffsets: [UUID: CGPoint] = [:]
     /// Override for `TapDisplaySettings.showUnknownModes`. Pass `nil` to use
     /// the global setting.
@@ -209,6 +210,28 @@ struct ExportableSpectrumChart: View {
                 return "Peak"
             }
         }
+    }
+
+    /// Compute the annotation label center in chart-local pixels from a stored absolute
+    /// data-space position, the chart frame, and the axis bounds.
+    ///
+    /// - Returns: The pixel coordinate for the annotation card center.
+    ///   When ``annotationOffsets`` has no entry for the peak (or the stored value is `.zero`),
+    ///   the default position (70 pt above the peak marker) is returned.
+    private func annotationPosition(
+        for peak: ResonantPeak,
+        peakPosition: CGPoint,
+        frame: CGRect
+    ) -> CGPoint {
+        let offset = annotationOffsets[peak.id] ?? .zero
+        let freqRange = CGFloat(maxFreq - minFreq)
+        let dbRange   = CGFloat(maxDB   - minDB)
+        guard offset != .zero, freqRange > 0, dbRange > 0 else {
+            return CGPoint(x: peakPosition.x, y: peakPosition.y - 70)
+        }
+        let ax = frame.minX + ((offset.x - CGFloat(minFreq)) / freqRange) * frame.width
+        let ay = frame.minY + (1.0 - (offset.y - CGFloat(minDB)) / dbRange) * frame.height
+        return CGPoint(x: ax, y: ay)
     }
 
     private func isStartOfModeRange(_ frequency: Float, for mode: GuitarMode) -> Bool {
@@ -346,23 +369,10 @@ struct ExportableSpectrumChart: View {
                             ForEach(visiblePeaks) { peak in
                                 if let peakX = proxy.position(forX: peak.frequency),
                                    let peakY = proxy.position(forY: Double(peak.magnitude)) {
-                                    let peakPosition = CGPoint(
-                                        x: frame.minX + peakX,
-                                        y: frame.minY + peakY
-                                    )
-                                    // offset is stored in data-space (Hz delta, dB delta).
-                                    // Convert to pixels via (delta/range)*plotSize —
-                                    // mirrors DraggablePeakAnnotation.finalPosition in PeakAnnotations.swift.
-                                    let offset = annotationOffsets[peak.id] ?? .zero
-                                    let freqRange = CGFloat(maxFreq - minFreq)
-                                    let dbRange   = CGFloat(maxDB   - minDB)
-                                    let pixelOffsetX = freqRange > 0 ? (offset.x / freqRange) * frame.width  : 0
-                                    let pixelOffsetY = dbRange   > 0 ? (offset.y / dbRange)   * frame.height : 0
-                                    let annotationX = peakPosition.x + pixelOffsetX
-                                    let annotationY = peakPosition.y - 70 + pixelOffsetY
-
+                                    let peakPosition = CGPoint(x: frame.minX + peakX, y: frame.minY + peakY)
+                                    let annPos = annotationPosition(for: peak, peakPosition: peakPosition, frame: frame)
                                     ConnectionLineShape(
-                                        from: CGPoint(x: annotationX, y: annotationY + 50),
+                                        from: CGPoint(x: annPos.x, y: annPos.y + 50),
                                         to: peakPosition
                                     )
                                     .stroke(peakColor(for: peak).opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
@@ -373,19 +383,10 @@ struct ExportableSpectrumChart: View {
                             ForEach(visiblePeaks) { peak in
                                 if let peakX = proxy.position(forX: peak.frequency),
                                    let peakY = proxy.position(forY: Double(peak.magnitude)) {
-                                    let peakPosition = CGPoint(
-                                        x: frame.minX + peakX,
-                                        y: frame.minY + peakY
-                                    )
-                                    // offset is stored in data-space (Hz delta, dB delta).
-                                    // Convert to pixels — mirrors DraggablePeakAnnotation.finalPosition.
-                                    let offset = annotationOffsets[peak.id] ?? .zero
-                                    let freqRange = CGFloat(maxFreq - minFreq)
-                                    let dbRange   = CGFloat(maxDB   - minDB)
-                                    let pixelOffsetX = freqRange > 0 ? (offset.x / freqRange) * frame.width  : 0
-                                    let pixelOffsetY = dbRange   > 0 ? (offset.y / dbRange)   * frame.height : 0
-                                    let annotationX = peakPosition.x + pixelOffsetX
-                                    let annotationY = peakPosition.y - 70 + pixelOffsetY
+                                    let peakPosition = CGPoint(x: frame.minX + peakX, y: frame.minY + peakY)
+                                    let annPos = annotationPosition(for: peak, peakPosition: peakPosition, frame: frame)
+                                    let annotationX = annPos.x
+                                    let annotationY = annPos.y
 
                                     VStack(spacing: 6) {
                                         Text(peakModeLabel(for: peak))

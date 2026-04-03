@@ -97,9 +97,8 @@ extension TapToneAnalyzer {
 
             self.resetDecayTracking()
 
-            // Clear frozen spectrum data.
-            self.frozenFrequencies   = []
-            self.frozenMagnitudes    = []
+            // Clear frozen spectrum data (atomic — prevents transient length mismatch).
+            self.setFrozenSpectrum(frequencies: [], magnitudes: [])
             self.isMeasurementComplete = false
 
             // Clear annotation label offsets.
@@ -177,8 +176,7 @@ extension TapToneAnalyzer {
             self.analyzerStartTime = Date()
 
             // Clear frozen spectrum data so the live FFT is shown while waiting for taps.
-            self.frozenFrequencies = []
-            self.frozenMagnitudes  = []
+            self.setFrozenSpectrum(frequencies: [], magnitudes: [])
 
             self.isDetecting = true
 
@@ -287,9 +285,8 @@ extension TapToneAnalyzer {
 
             self.resetDecayTracking()
 
-            // Clear frozen spectrum data.
-            self.frozenFrequencies = []
-            self.frozenMagnitudes  = []
+            // Clear frozen spectrum data (atomic — prevents transient length mismatch).
+            self.setFrozenSpectrum(frequencies: [], magnitudes: [])
 
             // Reset the warm-up timer for the restarted sequence.
             self.analyzerStartTime = Date()
