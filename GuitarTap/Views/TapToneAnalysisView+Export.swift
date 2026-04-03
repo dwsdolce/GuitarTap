@@ -153,6 +153,8 @@ extension TapToneAnalysisView {
 
     func createExportableSpectrumView() -> some View {
         let isComparing = tap.displayMode == .comparison
+        let subtitle = tapLocation.isEmpty ? (tap.loadedMeasurementName ?? "New") : tapLocation
+        let chartTitle = "FFT Peaks — \(subtitle)"
         return makeExportableSpectrumView(
             frequencies: tap.isMeasurementComplete ? tap.frozenFrequencies : fft.frequencies,
             magnitudes: tap.isMeasurementComplete ? tap.frozenMagnitudes : fft.magnitudes,
@@ -170,7 +172,8 @@ extension TapToneAnalysisView {
             modeOverrides: tap.peakModeOverrides,
             peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
             materialSpectra: materialSpectra,
-            dateLabel: Date().formatted()
+            dateLabel: Date().formatted(),
+            chartTitle: chartTitle
         )
     }
 }

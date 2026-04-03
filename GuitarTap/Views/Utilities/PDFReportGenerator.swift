@@ -344,7 +344,8 @@ struct PDFReportGenerator {
             modeOverrides: measurement.peakModeOverrides ?? [:],
             peakModes: GuitarMode.classifyAll(visiblePeaks),
             materialSpectra: materialSpectra,
-            dateLabel: measurement.timestamp.formatted()
+            dateLabel: measurement.timestamp.formatted(),
+            chartTitle: "FFT Peaks — \(measurement.tapLocation ?? "New")"
         )
 
         let renderer = ImageRenderer(content: compositeView)

@@ -222,14 +222,15 @@ struct ExportableSpectrumChart: View {
             .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
     }
 
+    /// Title shown above the chart. Defaults to "FFT Peaks" to match the live view.
+    var chartTitle: String = "FFT Peaks"
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("FFT Peaks")
-                    .font(.system(size: 24, weight: .semibold))
-                Spacer()
-            }
-            .padding(.bottom, 16)
+            Text(chartTitle)
+                .font(.system(size: 24, weight: .semibold))
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.bottom, 16)
 
             ZStack(alignment: .topLeading) {
                 // The chart
@@ -461,7 +462,8 @@ func makeExportableSpectrumView(
     modeOverrides: [UUID: UserAssignedMode] = [:],
     peakModes: [UUID: GuitarMode] = [:],
     materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = [],
-    dateLabel: String
+    dateLabel: String,
+    chartTitle: String = "FFT Peaks"
 ) -> some View {
     let formatFreq: (Float) -> String = { freq in
         freq >= 1000 ? String(format: "%.1fk Hz", freq / 1000) : String(format: "%.0f Hz", freq)
@@ -524,7 +526,8 @@ func makeExportableSpectrumView(
             selectedFlcPeakID: selectedFlcPeakID,
             modeOverrides: modeOverrides,
             peakModes: peakModes,
-            materialSpectra: materialSpectra
+            materialSpectra: materialSpectra,
+            chartTitle: chartTitle
         )
         .frame(width: 1400, height: 800)
         .padding()
