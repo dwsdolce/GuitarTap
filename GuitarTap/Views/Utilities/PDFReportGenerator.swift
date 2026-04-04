@@ -852,7 +852,7 @@ private struct PDFReportContentView: View {
                     .foregroundColor(.secondary)
                 Text(props.overallQuality.rawValue)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(qualityColor(for: props.overallQuality))
+                    .foregroundColor(props.overallQuality.color)
                 Spacer()
             }
             .padding(8)
@@ -907,7 +907,7 @@ private struct PDFReportContentView: View {
                     .foregroundColor(.secondary)
                 Text(props.spruceQuality.rawValue)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(qualityColor(for: props.spruceQuality))
+                    .foregroundColor(props.spruceQuality.color)
                 Spacer()
             }
             .padding(8)
@@ -1007,20 +1007,10 @@ private struct PDFReportContentView: View {
                 .foregroundColor(.secondary)
             Text(String(format: "%.1f", value))
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(qualityColor(for: quality))
+                .foregroundColor(quality.color)
             Text("(\(quality.rawValue))")
                 .font(.system(size: 9))
-                .foregroundColor(qualityColor(for: quality))
-        }
-    }
-
-    private func qualityColor(for quality: WoodQuality) -> Color {
-        switch quality {
-        case .excellent: return Color(red: 0.0, green: 0.5, blue: 0.9)
-        case .veryGood: return Color(red: 0.0, green: 0.6, blue: 0.0)
-        case .good: return .green
-        case .fair: return .orange
-        case .poor: return .red
+                .foregroundColor(quality.color)
         }
     }
 

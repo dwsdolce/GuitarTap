@@ -766,7 +766,7 @@ struct TapAnalysisResultsView: View {
                                     Text(String(format: "%.1f", props.specificModulusLong))
                                         .font(.title2)
                                         .fontWeight(.bold)
-                                        .foregroundColor(qualityColor(for: props.spruceQualityLong))
+                                        .foregroundColor(props.spruceQualityLong.color)
                                     Text("GPa/(g/cm³)")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
@@ -774,7 +774,7 @@ struct TapAnalysisResultsView: View {
                                 Text(props.spruceQualityLong.rawValue)
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                    .foregroundColor(qualityColor(for: props.spruceQualityLong))
+                                    .foregroundColor(props.spruceQualityLong.color)
                             }
                             
                             Spacer()
@@ -787,7 +787,7 @@ struct TapAnalysisResultsView: View {
                                     Text(String(format: "%.1f", props.specificModulusCross))
                                         .font(.title2)
                                         .fontWeight(.bold)
-                                        .foregroundColor(qualityColor(for: props.spruceQualityCross))
+                                        .foregroundColor(props.spruceQualityCross.color)
                                     Text("GPa/(g/cm³)")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
@@ -795,7 +795,7 @@ struct TapAnalysisResultsView: View {
                                 Text(props.spruceQualityCross.rawValue)
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                    .foregroundColor(qualityColor(for: props.spruceQualityCross))
+                                    .foregroundColor(props.spruceQualityCross.color)
                             }
                         }
                     }
@@ -848,7 +848,7 @@ struct TapAnalysisResultsView: View {
                         Text(props.overallQuality.rawValue)
                             .font(.headline)
                             .fontWeight(.bold)
-                            .foregroundColor(qualityColor(for: props.overallQuality))
+                            .foregroundColor(props.overallQuality.color)
                     }
                     .padding(.vertical, 4)
 
@@ -944,7 +944,7 @@ struct TapAnalysisResultsView: View {
                             Text(String(format: "%.1f", props.specificModulusLong))
                                 .font(.title2)
                                 .fontWeight(.bold)
-                                .foregroundColor(qualityColor(for: props.spruceQuality))
+                                .foregroundColor(props.spruceQuality.color)
                             Text("GPa/(g/cm³)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -952,7 +952,7 @@ struct TapAnalysisResultsView: View {
                         Text(props.spruceQuality.rawValue)
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(qualityColor(for: props.spruceQuality))
+                            .foregroundColor(props.spruceQuality.color)
                     }
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
@@ -1080,15 +1080,7 @@ struct TapAnalysisResultsView: View {
         }
     }
     
-    private func qualityColor(for quality: WoodQuality) -> Color {
-        switch quality {
-        case .excellent: return .green
-        case .veryGood: return .mint
-        case .good: return .blue
-        case .fair: return .orange
-        case .poor: return .red
-        }
-    }
+
 }
 
 // MARK: - Plate/Brace Peak Row View

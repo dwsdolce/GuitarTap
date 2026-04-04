@@ -46,6 +46,7 @@
 /// | Speed of sound | `√(E/ρ)` (m/s) | Governs how quickly vibrations travel through the plate |
 /// | Radiation ratio | `c_L / ρ` | Efficiency of acoustic power radiation |
 import Foundation
+import SwiftUI
 
 // MARK: - MaterialDimensions
 
@@ -519,6 +520,20 @@ enum WoodQuality: String, CaseIterable {
         case .good:      return 3
         case .fair:      return 2
         case .poor:      return 1
+        }
+    }
+
+    /// Display colour for quality labels and PDF report cells.
+    ///
+    /// Single source of truth — both the UI (`TapAnalysisResultsView`) and the PDF
+    /// renderer (`PDFReportGenerator`) use this property so the two are always in sync.
+    var color: Color {
+        switch self {
+        case .excellent: return .green
+        case .veryGood:  return .mint
+        case .good:      return .blue
+        case .fair:      return .orange
+        case .poor:      return .red
         }
     }
 
