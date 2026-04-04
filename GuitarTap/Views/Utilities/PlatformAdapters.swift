@@ -139,10 +139,11 @@ struct FileExportHelper {
         savePanel.allowedContentTypes = [contentType]
         savePanel.nameFieldStringValue = filename
         savePanel.canCreateDirectories = true
-        savePanel.directoryURL = defaultSaveDirectory
+        savePanel.directoryURL = MeasurementFileExporter.lastUsedDirectory ?? defaultSaveDirectory
 
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
+                MeasurementFileExporter.lastUsedDirectory = url.deletingLastPathComponent()
                 do {
                     try data.write(to: url)
                     completion(true)

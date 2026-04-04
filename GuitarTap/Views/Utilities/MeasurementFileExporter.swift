@@ -40,6 +40,41 @@ struct MeasurementFileExporter {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
+
+    /// UserDefaults key for the bookmark data of the last-used export/import directory.
+    private static let lastUsedDirectoryKey = "GuitarTap.lastUsedExportDirectory"
+
+    /// The directory the user last saved to or opened from, persisted across launches
+    /// via a security-scoped bookmark in UserDefaults.  Shared across all save/open
+    /// panels so that the user's working location is remembered — mirrors expected
+    /// macOS spatial-memory UX.
+    static var lastUsedDirectory: URL? {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: lastUsedDirectoryKey) else { return nil }
+            var isStale = false
+            let url = try? URL(resolvingBookmarkData: data,
+                               options: .withSecurityScope,
+                               relativeTo: nil,
+                               bookmarkDataIsStale: &isStale)
+            if isStale { return nil }
+            return url
+        }
+        set {
+            guard let url = newValue,
+                  let data = try? url.bookmarkData(options: .withSecurityScope,
+                                                   includingResourceValuesForKeys: nil,
+                                                   relativeTo: nil) else {
+                UserDefaults.standard.removeObject(forKey: lastUsedDirectoryKey)
+                return
+            }
+            UserDefaults.standard.set(data, forKey: lastUsedDirectoryKey)
+        }
+    }
+
+    /// Returns `lastUsedDirectory` if set, otherwise `defaultSaveDirectory`.
+    static var startDirectory: URL {
+        lastUsedDirectory ?? defaultSaveDirectory
+    }
     #endif
 
     // MARK: - PDF Report Export
@@ -119,10 +154,11 @@ struct MeasurementFileExporter {
         savePanel.nameFieldStringValue = "\(basename).pdf"
         savePanel.canCreateDirectories = true
         savePanel.message = "Save PDF Report"
-        savePanel.directoryURL = defaultSaveDirectory
+        savePanel.directoryURL = startDirectory
 
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
+                lastUsedDirectory = url.deletingLastPathComponent()
                 do {
                     // Write atomically via a temp file so that if the destination is
                     // already open in another application (e.g. Acrobat) the write
@@ -194,9 +230,10 @@ struct MeasurementFileExporter {
         savePanel.nameFieldStringValue = "\(measurement.baseFilename).guitartap"
         savePanel.canCreateDirectories = true
         savePanel.message = "Save Measurement to Disk"
-        savePanel.directoryURL = defaultSaveDirectory
+        savePanel.directoryURL = startDirectory
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
+                lastUsedDirectory = url.deletingLastPathComponent()
                 do {
                     try json.write(to: url, atomically: true, encoding: .utf8)
                     print("✅ Saved measurement to: \(url.path)")
@@ -336,9 +373,10 @@ struct MeasurementFileExporter {
         savePanel.nameFieldStringValue = "\(basename).png"
         savePanel.canCreateDirectories = true
         savePanel.message = "Save Spectrum Image"
-        savePanel.directoryURL = defaultSaveDirectory
+        savePanel.directoryURL = startDirectory
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
+                lastUsedDirectory = url.deletingLastPathComponent()
                 do {
                     try imageData.write(to: url)
                     print("✅ Saved spectrum image to: \(url.path)")

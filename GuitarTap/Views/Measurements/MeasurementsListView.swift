@@ -105,6 +105,8 @@ struct MeasurementsListView: View {
                     importError = "Failed to open file: \(error.localizedDescription)"
                 }
             }
+            .fileDialogDefaultDirectory(MeasurementFileExporter.startDirectory)
+            .fileDialogCustomizationID("com.dolcesfogato.guitartap.measurement-dir")
             .alert("Import Error", isPresented: .constant(importError != nil)) {
                 Button("OK") { importError = nil }
             } message: {
@@ -533,6 +535,8 @@ struct MeasurementsListView: View {
     }
 
     private func importFromFile(url: URL) {
+        // Update the shared last-used directory so subsequent save panels open here.
+        MeasurementFileExporter.lastUsedDirectory = url.deletingLastPathComponent()
         do {
             let data: Data
             
