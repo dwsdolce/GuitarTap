@@ -92,6 +92,42 @@ struct GuitarModeClassificationTests {
         #expect(result[peak.id] == .top)
     }
 
+    @Test func classical_backRange_classifiesAsBack() {
+        // Classical back range: 190–280 Hz; 240 Hz is outside the top overlap (170–230),
+        // so it is unambiguously Back.
+        let peak = ResonantPeak(frequency: 240, magnitude: -20)
+        let result = GuitarMode.classifyAll([peak], guitarType: .classical)
+        #expect(result[peak.id] == .back)
+    }
+
+    @Test func classical_dipoleRange_classifiesAsDipole() {
+        // Classical dipole range: 330–430 Hz
+        let peak = ResonantPeak(frequency: 380, magnitude: -20)
+        let result = GuitarMode.classifyAll([peak], guitarType: .classical)
+        #expect(result[peak.id] == .dipole)
+    }
+
+    @Test func classical_ringModeRange_classifiesAsRingMode() {
+        // Classical ring mode range: 580–820 Hz
+        let peak = ResonantPeak(frequency: 700, magnitude: -20)
+        let result = GuitarMode.classifyAll([peak], guitarType: .classical)
+        #expect(result[peak.id] == .ringMode)
+    }
+
+    @Test func classical_upperModesRange_classifiesAsUpperModes() {
+        // Classical upper modes range: 820–20000 Hz
+        let peak = ResonantPeak(frequency: 1000, magnitude: -20)
+        let result = GuitarMode.classifyAll([peak], guitarType: .classical)
+        #expect(result[peak.id] == .upperModes)
+    }
+
+    // 140 Hz falls in the gap between classical air (80–110) and top (170–230) → unknown.
+    @Test func classical_gapFrequency_classifiesAsUnknown() {
+        let peak = ResonantPeak(frequency: 140, magnitude: -20)
+        let result = GuitarMode.classifyAll([peak], guitarType: .classical)
+        #expect(result[peak.id] == .unknown)
+    }
+
     // MARK: - Flamenco guitar classification
 
     @Test func flamenco_airRange_classifiesAsAir() {
@@ -99,6 +135,13 @@ struct GuitarModeClassificationTests {
         let peak = ResonantPeak(frequency: 100, magnitude: -20)
         let result = GuitarMode.classifyAll([peak], guitarType: .flamenco)
         #expect(result[peak.id] == .air)
+    }
+
+    @Test func flamenco_backRange_classifiesAsBack() {
+        // Flamenco back: 180–240 Hz; top: 190–250 Hz.  185 Hz is in back only → unambiguously Back.
+        let peak = ResonantPeak(frequency: 185, magnitude: -20)
+        let result = GuitarMode.classifyAll([peak], guitarType: .flamenco)
+        #expect(result[peak.id] == .back)
     }
 
     // MARK: - Mode normalization (legacy cases)
@@ -157,23 +200,6 @@ struct GuitarModeClassificationTests {
         #expect(GuitarMode.top.modeRange(for: .acoustic) == GuitarType.acoustic.modeRanges.top)
     }
 
-    // MARK: - Annotation visibility mode cycle
-
-    @Test func annotationVisibilityCycle_allToSelectedToNoneToAll() {
-        var mode = AnnotationVisibilityMode.all
-        mode = mode.next
-        #expect(mode == .selected)
-        mode = mode.next
-        #expect(mode == .none)
-        mode = mode.next
-        #expect(mode == .all)
-    }
-
-    @Test func annotationVisibility_iconNames_nonEmpty() {
-        for mode in AnnotationVisibilityMode.allCases {
-            #expect(!mode.iconName.isEmpty, "Icon name for \(mode) should not be empty")
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------

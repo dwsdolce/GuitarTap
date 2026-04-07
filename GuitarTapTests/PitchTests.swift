@@ -126,4 +126,70 @@ struct PitchTests {
         let formatted = p.formattedNote(frequency: 440)
         #expect(formatted.contains("A4"), "Formatted note should contain 'A4': \(formatted)")
     }
+
+    // A sharp frequency shows '+' and a flat frequency shows '-' in the formatted output.
+    @Test func formattedNote_includesSign() {
+        let p = Pitch(a4: 440)
+        let sharp = p.formattedNote(frequency: 442)
+        #expect(sharp.contains("+"), "Sharp note should show '+' in formatted output: \(sharp)")
+        let flat = p.formattedNote(frequency: 438)
+        #expect(flat.contains("-"), "Flat note should show '-' in formatted output: \(flat)")
+    }
+
+    // MARK: - Cents sign
+
+    // Frequency below the nearest note → negative cents.
+    @Test func cents_negativeWhenFlat() {
+        let p = Pitch(a4: 440)
+        let c = p.cents(frequency: 438)   // just below A4
+        #expect(c < 0, "Flat frequency should give negative cents; got \(c)")
+    }
+
+    // Frequency above the nearest note → positive cents.
+    @Test func cents_positiveWhenSharp() {
+        let p = Pitch(a4: 440)
+        let c = p.cents(frequency: 442)   // just above A4
+        #expect(c > 0, "Sharp frequency should give positive cents; got \(c)")
+    }
+
+    // MARK: - In-tune boundary cases
+
+    // 9.9 cents sharp (just inside default 10-cent threshold) → in tune.
+    @Test func justUnder10CentsSharp_isInTune() {
+        let p = Pitch(a4: 440)
+        let freq = 440.0 * pow(2.0, 9.9 / 1200.0)
+        #expect(p.isInTune(frequency: freq), "9.9 cents sharp should be in tune")
+    }
+
+    // 11 cents sharp (outside default 10-cent threshold) → out of tune.
+    @Test func elevenCentsSharp_isNotInTune() {
+        let p = Pitch(a4: 440)
+        let freq = 440.0 * pow(2.0, 11.0 / 1200.0)
+        #expect(!p.isInTune(frequency: freq), "11 cents sharp should NOT be in tune")
+    }
+
+    // 15 cents flat (outside default 10-cent threshold) → out of tune.
+    @Test func fifteenCentsFlat_isNotInTune() {
+        let p = Pitch(a4: 440)
+        let freq = 440.0 * pow(2.0, -15.0 / 1200.0)
+        #expect(!p.isInTune(frequency: freq), "15 cents flat should NOT be in tune")
+    }
+
+    // Custom threshold parameter is respected.
+    @Test func customThreshold_isRespected() {
+        let p = Pitch(a4: 440)
+        let fiveCentsSharp = 440.0 * pow(2.0, 5.0 / 1200.0)
+        #expect(p.isInTune(frequency: fiveCentsSharp, threshold: 10), "5 cents is in tune at 10-cent threshold")
+        #expect(!p.isInTune(frequency: fiveCentsSharp, threshold: 4),  "5 cents is NOT in tune at 4-cent threshold")
+    }
+
+    // MARK: - A4 reference at 432 Hz
+
+    // freq0 for A4 under a 432 Hz reference should return 432, not 440.
+    @Test func a4Tuning432_changesNoteFrequency() {
+        let p432 = Pitch(a4: 432)
+        #expect(p432.note(frequency: 432) == "A4")
+        let f0 = p432.freq0(frequency: 432)
+        #expect(abs(f0 - 432) < 0.01, "freq0 should return 432 Hz under 432 Hz A4 reference, got \(f0)")
+    }
 }

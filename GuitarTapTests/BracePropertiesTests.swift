@@ -88,6 +88,13 @@ struct BraceYoungModulusTests {
                 "Doubling length at constant density should increase EL 16× (L⁴), got ratio = \(ratio)")
     }
 
+    // youngsModulusLongGPa is youngsModulusLong expressed in GPa (÷1e9).
+    @Test func youngsModulusLong_gpaPropertyIsCorrect() {
+        let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
+        #expect(abs(props.youngsModulusLongGPa - props.youngsModulusLong / 1e9) < 1e-5,
+                "youngsModulusLongGPa should equal youngsModulusLong / 1e9")
+    }
+
     // BraceProperties uses 22.37332, not 22.37. Verify the constant is applied.
     @Test func youngsModulusLong_usesPreciseBeamConstant() {
         let d = realBraceDimensions
@@ -125,6 +132,14 @@ struct BraceSpeedOfSoundTests {
         let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
         #expect(abs(props.speedOfSoundLong - 5240.4) < 10,
                 "c should be ≈5240 m/s, got \(props.speedOfSoundLong) m/s")
+    }
+
+    // speedOfSoundLong = √(youngsModulusLong / density).
+    @Test func speedOfSoundLong_equalsSquareRootOfEOverRho() {
+        let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
+        let expected = sqrt(props.youngsModulusLong / realBraceDimensions.density)
+        #expect(abs(props.speedOfSoundLong - expected) < 0.01,
+                "speedOfSoundLong should equal sqrt(E / rho)")
     }
 
     // c = √(E/ρ): since E ∝ f², c ∝ f. Doubling fL should double c.

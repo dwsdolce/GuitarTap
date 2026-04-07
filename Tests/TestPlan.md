@@ -34,6 +34,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | F2 | `leftLeaningPeak_shiftedLeft` | U | iOS iPadOS mac | High | Left neighbour larger → offset < 0 |
 | F3 | `rightLeaningPeak_shiftedRight` | U | iOS iPadOS mac | High | Right neighbour larger → offset > 0 |
 | F4 | `edgeBinIndex0_returnsRawValues` | U | iOS iPadOS mac | Medium | Edge bin (index 0) → raw values returned without interpolation |
+| F4b | `edgeBinLastIndex_returnsRawValues` | U | iOS iPadOS mac | Medium | Edge bin (last index, no right neighbour) → raw values returned without crash; interpolated location stays within array bounds |
 | F5 | `flatTopDenomNearZero_noNaNorInf` | U | iOS iPadOS mac | High | Flat-top peak (denominator ≈ 0) → no NaN or infinity in output |
 | F6 | `interpolatedMagnitude_betweenNeighbours` | U | iOS iPadOS mac | Medium | Interpolated magnitude is between the peak bin and its neighbour |
 | F7 | `sharpPeak_returnsHighQ` | U | iOS iPadOS mac | High | Sharp peak (halfWidth=20 Hz) has higher Q than broad peak |
@@ -190,7 +191,8 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | P3–P4 | `a5_returnsA5`, `a3_returnsA3` | U | iOS iPadOS mac | Medium | Octave boundary cases |
 | P5 | `halfSemitoneOffset_isAbout50Cents` | U | iOS iPadOS mac | Medium | Frequency halfway between semitones → ≈50 cents |
 | P6 | `freq0_a4_returns440` | U | iOS iPadOS mac | Medium | `frequency(for:referencePitch:)` round-trip |
-| P7 | `exactPitch_isInTune` / `fifteenCentsSharp_isNotInTune` | U | iOS iPadOS mac | High | `isInTune` threshold (±10 cents) |
+| P7 | `exactPitch_isInTune` / `tenCentsSharp_isInTune` / `elevenCentsSharp_isNotInTune` | U | iOS iPadOS mac | High | `isInTune` sharp threshold (≤10 cents sharp → in tune; >10 cents sharp → out of tune) |
+| P7b | `eightCentsFlat_isInTune` / `fifteenCentsFlat_isNotInTune` | U | iOS iPadOS mac | High | `isInTune` flat threshold — symmetric: ≤10 cents flat → in tune; >10 cents flat → out of tune |
 | P8 | `a4Tuning432_shiftsNoteNames` | U | iOS iPadOS mac | Low | Non-standard reference pitch shifts note assignments |
 
 ---
@@ -213,6 +215,14 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | M12 | `goreThickness_spruceTop_isPlausible` | U | iOS iPadOS mac | High | Gore thickness in 1.5–6 mm |
 | M13 | `goreThickness_zeroBodyLength_returnsNil` | U | iOS iPadOS mac | Medium | Nil for degenerate input |
 | M14 | `goreThickness_higherTarget_thickerPlate` | U | iOS iPadOS mac | Medium | Monotonically increasing with vibrational stiffness target |
+| M15 | `youngsModulusLong_gpaPropertyIsCorrect` | U | iOS iPadOS mac | Medium | `youngsModulusLongGPa` computed property equals `youngsModulusLong / 1e9` for `PlateProperties` |
+| M16 | `youngsModulusCross_gpaPropertyIsCorrect` | U | iOS iPadOS mac | Medium | `youngsModulusCrossGPa` computed property equals `youngsModulusCross / 1e9` for `PlateProperties` |
+| M17 | `speedOfSoundLong_equalsSquareRootOfEOverRho` | U | iOS iPadOS mac | Medium | `speedOfSoundLong` equals √(youngsModulusLong / density) for `PlateProperties` |
+| M18 | `spruceQualityLong_excellent_forHighSpecificModulus` | U | iOS iPadOS mac | High | High specific modulus (EL/ρ ≥ excellent threshold) → `spruceQualityLong` returns `.excellent` |
+| M19 | `spruceQualityLong_returnsWoodQualityValue` | U | iOS iPadOS mac | Medium | `spruceQualityLong` returns a valid `WoodQuality` enum case for typical spruce properties |
+| M20 | `overallQuality_usesWeightedNumericScore` | U | iOS iPadOS mac | Medium | `overallQuality` combines component quality scores using the weighted formula and returns the expected composite quality |
+| M21 | `braceYoungsModulusLong_gpaPropertyIsCorrect` | U | iOS iPadOS mac | Medium | `youngsModulusLongGPa` computed property equals `youngsModulusLong / 1e9` for `BraceProperties` |
+| M22 | `braceSpeedOfSoundLong_equalsSquareRootOfEOverRho` | U | iOS iPadOS mac | Medium | `speedOfSoundLong` equals √(youngsModulusLong / density) for `BraceProperties` |
 
 ---
 
@@ -254,6 +264,27 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | R12 | `tapToneRatio_twoOverlapPeaks_usesSingleTopPeak` | U | iOS iPadOS mac | High | When two peaks are in the overlap zone, the ratio uses the stronger (Top-claiming) peak, not the weaker (Back-claiming) one |
 | R13 | `exportedJSON_overlapZonePeaks_haveDistinctModeLabels` | U | iOS iPadOS mac | High | Two overlap-zone peaks in an exported JSON measurement have different `modeLabel` values ("Top" and "Back"), not both "Top" |
 | R14 | `exportedJSON_userOverrideTakesPriority` | U | iOS iPadOS mac | High | A user-assigned mode label overrides the `classifyAll` result in the exported JSON `modeLabel` field |
+| R15 | `emptyAnnotationOffsets_roundTrip` | U | iOS iPadOS mac | Medium | `TapToneMeasurement` with no annotation offsets round-trips without error and offsets remain empty |
+| R16 | `annotationOffsets_multiPeak_allPreserved` | U | iOS iPadOS mac | Medium | `annotationOffsets` dictionary with multiple UUID keys survives JSON round-trip with all entries intact (D1 multi-peak scenario) |
+| R17 | `peakSelection_selectedPeakIDs_roundTrip` | U | iOS iPadOS mac | High | `selectedPeakIDs` set survives JSON encode/decode (D3 scenario) |
+| R17b | `peakSelection_selectedPeakIDs_nilWhenEmpty` | U | iOS iPadOS mac | Medium | `selectedPeakIDs` encodes as absent key when empty; decodes back to empty set (D3b scenario) |
+| R17c | `peakSelection_nil_decodesAsAll` | U | iOS iPadOS mac | Medium | Missing `selectedPeakIDs` key in JSON decodes as the full set of peak UUIDs (nil → all selected) |
+| R18 | `annotationVisibilityMode_all_roundTrip` | U | iOS iPadOS mac | High | `.all` visibility mode survives JSON encode/decode (D4 scenario) |
+| R18b | `annotationVisibilityMode_selected_roundTrip` | U | iOS iPadOS mac | Medium | `.selected` visibility mode survives JSON encode/decode (D5 scenario) |
+| R18c | `annotationVisibilityMode_none_roundTrip` | U | iOS iPadOS mac | Medium | `.none` visibility mode survives JSON encode/decode (D6 scenario) |
+| R18d | `annotationVisibilityMode_missingKey_defaultsToAll` | U | iOS iPadOS mac | Medium | Missing `annotationVisibilityMode` key in JSON decodes as `.all` (CI5 compatibility scenario) |
+| R19 | `modeOverrides_assigned_roundTrip` | U | iOS iPadOS mac | High | `peakModeOverrides` with `.assigned` entries survives JSON encode/decode (D7 scenario) |
+| R19b | `modeOverrides_auto_roundTrip` | U | iOS iPadOS mac | Medium | `peakModeOverrides` with `.auto` entries survives JSON encode/decode (D8 scenario) |
+| R19c | `modeOverrides_empty_roundTrip` | U | iOS iPadOS mac | Medium | Empty `peakModeOverrides` dictionary round-trips without error |
+| R19d | `modeOverrides_missingKey_decodesAsEmpty` | U | iOS iPadOS mac | Medium | Missing `peakModeOverrides` key decodes as empty dictionary (auto-type compatibility) |
+| R20 | `peakSelectionTracking_longitudinal_roundTrip` | U | iOS iPadOS mac | High | `userSelectedLongitudinalPeakID` UUID survives JSON encode/decode (PS1 scenario) |
+| R20b | `peakSelectionTracking_cross_roundTrip` | U | iOS iPadOS mac | High | `userSelectedCrossPeakID` UUID survives JSON encode/decode (PS2 scenario) |
+| R20c | `peakSelectionTracking_flc_roundTrip` | U | iOS iPadOS mac | High | `userSelectedFlcPeakID` UUID survives JSON encode/decode (PS3 scenario) |
+| R20d | `peakSelectionTracking_nil_roundTrip` | U | iOS iPadOS mac | Medium | Nil selection fields round-trip as absent JSON keys |
+| R20e | `peakSelectionTracking_userModified_roundTrip` | U | iOS iPadOS mac | Medium | `userHasModifiedPeakSelection` bool survives JSON encode/decode |
+| R20f | `peakSelectionTracking_missingKey_defaultsFalse` | U | iOS iPadOS mac | Medium | Missing `userHasModifiedPeakSelection` key decodes as `false` |
+| R21 | `spectrumSnapshot_newMeasurement_isNil` | U | iOS iPadOS mac | High | A freshly created `TapToneMeasurement` has no `spectrumSnapshot` (field is nil/absent) |
+| R21b | `spectrumSnapshot_withSnapshot_stored` | U | iOS iPadOS mac | High | A `spectrumSnapshot` assigned to a measurement survives JSON encode/decode intact |
 
 ---
 
@@ -375,12 +406,13 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | File | Suites | IDs covered | Status |
 |---|---|---|---|
 | `TapDetectionTests.swift` | `TapDetection` (.serialized) | T1–T8 | ✅ Implemented |
-| `DSPTests.swift` | `ParabolicInterpolation`, `QFactorCalculation` | F1–F9 | ✅ Implemented |
+| `DSPTests.swift` | `ParabolicInterpolation`, `QFactorCalculation` | F1–F4, F4b, F5–F9 | ✅ Implemented |
 | `PeakFindingTests.swift` | `FindPeaks`, `RemoveDuplicatePeaks`, `SpectrumAveraging` | F10–F20, A2 | ✅ Implemented |
 | `GuitarModeTests.swift` | `GuitarModeClassification`, `GuitarModeClassifyAll` | G1–G20 | ✅ Implemented |
-| `PitchTests.swift` | `PitchTests` | P1–P8 | ✅ Implemented |
-| `MaterialPropertiesTests.swift` | `MaterialDimensions`, `YoungModulus`, `SpeedOfSound`, `SpecificModulus`, `GoreTargetThickness` | M1–M14 | ✅ Implemented |
-| `MeasurementCodableTests.swift` | `ResonantPeakCodable`, `TapToneMeasurementCodable`, `FixtureLoading`, `TapToneRatio`, `MeasurementExportModeLabel` (@MainActor) | R1–R6, R11–R14 | ✅ Implemented |
+| `PitchTests.swift` | `PitchTests` | P1–P8, P7b | ✅ Implemented |
+| `PlatePropertiesTests.swift` | `MaterialDimensions`, `YoungModulus`, `SpeedOfSound`, `SpecificModulus`, `GoreTargetThickness`, `PlateQuality` | M1–M20 | ✅ Implemented |
+| `BracePropertiesTests.swift` | `BraceDimensions`, `BraceYoungModulus`, `BraceSpeedOfSound` | M21–M22 | ✅ Implemented |
+| `MeasurementCodableTests.swift` | `ResonantPeakCodable`, `TapToneMeasurementCodable`, `FixtureLoading`, `TapToneRatio`, `MeasurementExportModeLabel` (@MainActor), `AnnotationOffsetsCodable`, `PeakSelectionOnMeasurement`, `AnnotationVisibilityModeCodable`, `ModeOverridesCodable`, `PeakSelectionTrackingCodable`, `SpectrumSnapshotOnMeasurement` | R1–R6, R11–R21b | ✅ Implemented |
 | `AnnotationStateTests.swift` | `AnnotationOffsets` (@MainActor), `PeakSelection`, `VisiblePeaks`, `ModeOverrides` (@MainActor, .serialized), `AnnotationVisibilityCycle`, `PlatePeakSelection` (@MainActor) | D1–D10, PS1–PS6 | ✅ Implemented |
 | `SpectrumViewGestureTests.swift` | `FrequencyZoomTests`, `MagnitudeZoomTests`, `PanTests` | C1–C8 | ✅ Implemented (`TestHarness` pattern; no `SpectrumViewModel` extraction required) |
 | `FrozenPeakRecalculationTests.swift` | `FrozenPeakRecalculation_LoadingGuardTests`, `FrozenPeakRecalculation_LoadedMeasurementPathTests`, `FrozenPeakRecalculation_OffsetRemappingTests`, `FrozenPeakRecalculation_OverrideRemappingTests`, `FrozenPeakRecalculation_SelectionCarryForwardTests`, `FrozenPeakRecalculation_EmptyPeaksGuardTests`, `FrozenPeakRecalculation_LiveTapPathTests` | PR1–PR7 | ✅ Implemented |

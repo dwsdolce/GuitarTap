@@ -536,7 +536,9 @@ struct MeasurementsListView: View {
 
     private func importFromFile(url: URL) {
         // Update the shared last-used directory so subsequent save panels open here.
+        #if os(macOS)
         MeasurementFileExporter.lastUsedDirectory = url.deletingLastPathComponent()
+        #endif
         do {
             let data: Data
             

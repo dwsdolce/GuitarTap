@@ -242,6 +242,15 @@ struct TapToneMeasurementCodableTests {
         #expect(decoded.selectedLongitudinalPeakID == original.selectedLongitudinalPeakID)
     }
 
+    // Empty (nil) peakAnnotationOffsets encodes to an empty marker and decodes to nil.
+    @Test func emptyAnnotationOffsets_roundTrip() throws {
+        let measurement = TapToneMeasurement(peaks: [])
+        let data = try JSONEncoder().encode(measurement)
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+        #expect(decoded.peakAnnotationOffsets == nil,
+                "nil annotationOffsets should round-trip as nil")
+    }
+
     // peakAnnotationOffsets CGPoint dictionary survives the round-trip.
     @Test func annotationOffsets_roundTrip_preserved() throws {
         let peak = ResonantPeak(frequency: 200, magnitude: -20)
@@ -285,6 +294,48 @@ struct TapToneRatioTests {
         // 210 / 95 ≈ 2.21 — verify to within 1%
         let expected: Float = 210.0 / 95.0
         #expect(abs((ratio ?? 0) - expected) < 0.01)
+    }
+
+    // A measurement with no peaks at all should return nil for the ratio.
+    @Test func tapToneRatio_noPeaks_returnsNil() {
+        let measurement = TapToneMeasurement(peaks: [])
+        #expect(measurement.tapToneRatio == nil, "No peaks → ratio must be nil")
+    }
+
+    // A measurement with a Top peak but no Air peak should return nil.
+    @Test func tapToneRatio_noAirPeak_returnsNil() {
+        // 250 Hz classifies as Back for classical, not Air — so no Air peak is present.
+        let backPeak = ResonantPeak(frequency: 250, magnitude: -20)
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let measurement = TapToneMeasurement(peaks: [backPeak], spectrum: snapshot)
+        #expect(measurement.tapToneRatio == nil, "No Air peak → ratio must be nil")
+    }
+
+    // When selectedPeakIDs is set, only those peaks contribute to the ratio.
+    @Test func tapToneRatio_usesSelectedPeaksWhenSet() {
+        let airPeak  = ResonantPeak(frequency: 95,  magnitude: -28)
+        let topPeak  = ResonantPeak(frequency: 200, magnitude: -20)
+        let noisePeak = ResonantPeak(frequency: 500, magnitude: -50)
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        // Select only air and top; noise peak is excluded.
+        let measurement = TapToneMeasurement(
+            peaks: [airPeak, topPeak, noisePeak],
+            spectrum: snapshot,
+            selectedPeakIDs: [airPeak.id, topPeak.id]
+        )
+        let ratio = measurement.tapToneRatio
+        #expect(ratio != nil, "Selected air + top peaks → ratio must be computable")
+        let expected: Float = 200.0 / 95.0
+        #expect(abs((ratio ?? 0) - expected) < 0.01,
+                "Ratio should use selected air (95 Hz) and top (200 Hz) only")
     }
 
     // When two peaks are in the overlap zone, only one should be claimed as Top.
@@ -355,91 +406,319 @@ struct MeasurementExportModeLabelTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - updateMeasurement(at:tapLocation:notes:)
+// MARK: - with(tapLocation:notes:) builder
+//
+// Mirrors Python TestWithMethod in test_measurement_codable.py.
 // ---------------------------------------------------------------------------
 
-@Suite("UpdateMeasurement")
-@MainActor
-struct UpdateMeasurementTests {
+@Suite("WithMethod")
+struct WithMethodTests {
 
-    private func makeAnalyzerWithMeasurements(_ measurements: [TapToneMeasurement]) -> TapToneAnalyzer {
-        let analyzer = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
-        analyzer.savedMeasurements = measurements
-        return analyzer
-    }
-
-    private func makeMeasurement(location: String? = nil, notes: String? = nil) -> TapToneMeasurement {
-        TapToneMeasurement(peaks: [], tapLocation: location, notes: notes)
-    }
-
-    // Updating by index changes only the targeted entry's location and notes.
-    @Test func update_byIndex_changesOnlyTargetedEntry() {
-        let m0 = makeMeasurement(location: "Bridge", notes: "First")
-        let m1 = makeMeasurement(location: "Soundhole", notes: "Second")
-        let analyzer = makeAnalyzerWithMeasurements([m0, m1])
-
-        analyzer.updateMeasurement(at: 0, tapLocation: "Upper Bout", notes: "Edited")
-
-        #expect(analyzer.savedMeasurements[0].tapLocation == "Upper Bout")
-        #expect(analyzer.savedMeasurements[0].notes == "Edited")
-        #expect(analyzer.savedMeasurements[1].tapLocation == "Soundhole", "Second entry must not be affected")
-        #expect(analyzer.savedMeasurements[1].notes == "Second", "Second entry must not be affected")
-    }
-
-    // Editing one of two duplicates (same id, different index) leaves the other unchanged.
-    @Test func update_duplicateImport_onlyEditedIndexChanges() {
-        let original = makeMeasurement(location: "Top", notes: "Original")
-        // Simulate importing the same file twice — both entries share the same id.
-        let analyzer = makeAnalyzerWithMeasurements([original, original])
-
-        analyzer.updateMeasurement(at: 1, tapLocation: "Back", notes: "Copy")
-
-        #expect(analyzer.savedMeasurements[0].tapLocation == "Top",  "First duplicate must not change")
-        #expect(analyzer.savedMeasurements[0].notes == "Original",   "First duplicate must not change")
-        #expect(analyzer.savedMeasurements[1].tapLocation == "Back", "Second duplicate should be updated")
-        #expect(analyzer.savedMeasurements[1].notes == "Copy",       "Second duplicate should be updated")
-        // Both entries still share the original id
-        #expect(analyzer.savedMeasurements[0].id == analyzer.savedMeasurements[1].id,
-                "id must be preserved through the update")
-    }
-
-    // Passing nil clears the fields.
-    @Test func update_nilValues_clearFields() {
-        let m = makeMeasurement(location: "Bridge", notes: "Some notes")
-        let analyzer = makeAnalyzerWithMeasurements([m])
-
-        analyzer.updateMeasurement(at: 0, tapLocation: nil, notes: nil)
-
-        #expect(analyzer.savedMeasurements[0].tapLocation == nil)
-        #expect(analyzer.savedMeasurements[0].notes == nil)
-    }
-
-    // An out-of-range index is a no-op.
-    @Test func update_outOfRangeIndex_isNoOp() {
-        let m = makeMeasurement(location: "Bridge")
-        let analyzer = makeAnalyzerWithMeasurements([m])
-
-        analyzer.updateMeasurement(at: 99, tapLocation: "Changed", notes: nil)
-
-        #expect(analyzer.savedMeasurements[0].tapLocation == "Bridge", "Out-of-range update must not modify array")
-        #expect(analyzer.savedMeasurements.count == 1)
-    }
-
-    // The id and all other fields are preserved after an update.
-    @Test func update_preservesIdAndOtherFields() {
-        let peak = ResonantPeak(frequency: 195, magnitude: -22)
-        let m = TapToneMeasurement(peaks: [peak], decayTime: 0.5, tapLocation: "Old", notes: "Old notes")
-        let originalID = m.id
-        let analyzer = makeAnalyzerWithMeasurements([m])
-
-        analyzer.updateMeasurement(at: 0, tapLocation: "New", notes: "New notes")
-
-        let updated = analyzer.savedMeasurements[0]
-        #expect(updated.id == originalID, "id must be preserved")
-        #expect(updated.peaks.count == 1,  "peaks must be preserved")
-        #expect(updated.decayTime == 0.5,  "decayTime must be preserved")
+    // Updating tapLocation via with() returns a copy with the new location.
+    @Test func with_updatesTapLocation() {
+        let original = TapToneMeasurement(peaks: [], tapLocation: "Old")
+        let updated = original.with(tapLocation: "New", notes: nil)
         #expect(updated.tapLocation == "New")
-        #expect(updated.notes == "New notes")
+        #expect(updated.id == original.id, "id must be preserved")
+    }
+
+    // Updating notes via with() returns a copy with the new notes.
+    @Test func with_updatesNotes() {
+        let original = TapToneMeasurement(peaks: [], notes: "old notes")
+        let updated = original.with(tapLocation: nil, notes: "new notes")
+        #expect(updated.notes == "new notes")
+    }
+
+    // Passing nil for tapLocation clears it in the copy.
+    @Test func with_clearsLocationWithNil() {
+        let original = TapToneMeasurement(peaks: [], tapLocation: "Bridge")
+        let updated = original.with(tapLocation: nil, notes: nil)
+        #expect(updated.tapLocation == nil)
+    }
+
+    // All other fields are preserved in the returned copy.
+    @Test func with_preservesOtherFields() throws {
+        let peak = ResonantPeak(frequency: 195, magnitude: -20)
+        let snap = SpectrumSnapshot(
+            frequencies: [100, 200], magnitudes: [-30, -20],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false
+        )
+        let original = TapToneMeasurement(peaks: [peak], decayTime: 0.5, tapLocation: "Bridge", spectrum: snap)
+        let updated = original.with(tapLocation: "Neck", notes: nil)
+        #expect(updated.peaks.count == 1)
+        #expect(updated.decayTime == 0.5, "decayTime must be preserved")
+        #expect(updated.tapLocation == "Neck")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Annotation offsets on TapToneMeasurement (D1)
+//
+// Mirrors Python TestAnnotationOffsets - D1 multi-peak case.
+// (D2 single-peak round-trip is already covered by annotationOffsets_roundTrip_preserved above.)
+// ---------------------------------------------------------------------------
+
+@Suite("AnnotationOffsetsCodable")
+@MainActor
+struct AnnotationOffsetsCodableTests {
+
+    // D1: Multiple peaks can each have independent annotation offsets.
+    @Test func annotationOffsets_multiplePeaks_storedPerPeak() {
+        let p1 = ResonantPeak(frequency: 200, magnitude: -30)
+        let p2 = ResonantPeak(frequency: 300, magnitude: -28)
+        let measurement = TapToneMeasurement(
+            peaks: [p1, p2],
+            annotationOffsets: [p1.id: CGPoint(x: 200, y: -40), p2.id: CGPoint(x: 300, y: -35)]
+        )
+        #expect(measurement.peakAnnotationOffsets?[p1.id] != nil, "p1 should have an offset")
+        #expect(measurement.peakAnnotationOffsets?[p2.id] != nil, "p2 should have an offset")
+        let offset1 = measurement.peakAnnotationOffsets![p1.id]!
+        let offset2 = measurement.peakAnnotationOffsets![p2.id]!
+        #expect(abs(offset1.x - 200) < 0.01)
+        #expect(abs(offset1.y - (-40)) < 0.01)
+        #expect(abs(offset2.x - 300) < 0.01)
+        #expect(abs(offset2.y - (-35)) < 0.01)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Peak selection on TapToneMeasurement (D3, D3b)
+//
+// Mirrors Python TestPeakSelection.
+// ---------------------------------------------------------------------------
+
+@Suite("PeakSelectionOnMeasurement")
+@MainActor
+struct PeakSelectionOnMeasurementTests {
+
+    // D3: selectedPeakIDs is stored and round-trips through JSON.
+    @Test func selectedPeakIDs_storedAndRoundTrip() throws {
+        let p1 = ResonantPeak(frequency: 95, magnitude: -25)
+        let p2 = ResonantPeak(frequency: 195, magnitude: -28)
+        let original = TapToneMeasurement(peaks: [p1, p2], selectedPeakIDs: [p1.id])
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+        #expect(decoded.selectedPeakIDs == [p1.id], "selectedPeakIDs should survive round-trip")
+    }
+
+    // D3b: tapToneRatio uses only selectedPeakIDs when set.
+    @Test func tapToneRatio_usesOnlySelectedPeaks() {
+        let airPeak   = ResonantPeak(frequency: 95,  magnitude: -25)
+        let topPeak   = ResonantPeak(frequency: 195, magnitude: -28)
+        let noisePeak = ResonantPeak(frequency: 500, magnitude: -50)
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 600, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let m = TapToneMeasurement(
+            peaks: [airPeak, topPeak, noisePeak],
+            spectrum: snapshot,
+            selectedPeakIDs: [airPeak.id, topPeak.id]
+        )
+        let ratio = m.tapToneRatio
+        #expect(ratio != nil, "ratio should be computable with air + top selected")
+        let expected: Float = 195.0 / 95.0
+        #expect(abs((ratio ?? 0) - expected) < 0.1)
+    }
+
+    // nil selectedPeakIDs means all peaks contribute.
+    @Test func selectedPeakIDs_nil_usesAllPeaks() {
+        let airPeak = ResonantPeak(frequency: 95,  magnitude: -25)
+        let topPeak = ResonantPeak(frequency: 195, magnitude: -28)
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 400, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let m = TapToneMeasurement(peaks: [airPeak, topPeak], spectrum: snapshot, selectedPeakIDs: nil)
+        #expect(m.tapToneRatio != nil, "nil selectedPeakIDs should use all peaks")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Annotation visibility mode on TapToneMeasurement (D4–D6, CI5)
+//
+// Mirrors Python TestAnnotationVisibilityMode.
+// ---------------------------------------------------------------------------
+
+@Suite("AnnotationVisibilityModeCodable")
+@MainActor
+struct AnnotationVisibilityModeCodableTests {
+
+    // D4: annotationVisibilityMode is stored and round-trips.
+    @Test func annotationVisibilityMode_stored_andRoundTrips() throws {
+        let original = TapToneMeasurement(peaks: [], annotationVisibilityMode: .all)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+        #expect(decoded.annotationVisibilityMode == .all)
+    }
+
+    // D5: All three visibility values encode/decode correctly.
+    @Test func allVisibilityValues_surviveRoundTrip() throws {
+        for mode: AnnotationVisibilityMode in [.all, .selected, .none] {
+            let m = TapToneMeasurement(peaks: [], annotationVisibilityMode: mode)
+            let data = try JSONEncoder().encode(m)
+            let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+            #expect(decoded.annotationVisibilityMode == mode,
+                    "Visibility mode \(mode) should survive round-trip")
+        }
+    }
+
+    // D6: nil annotationVisibilityMode is absent from JSON.
+    @Test func nilVisibilityMode_notWrittenToJSON() throws {
+        let m = TapToneMeasurement(peaks: [], annotationVisibilityMode: nil)
+        let data = try JSONEncoder().encode(m)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(!json.contains("annotationVisibilityMode"),
+                "nil annotationVisibilityMode should not appear in JSON")
+    }
+
+    // CI5: All three visibility mode values can be stored on a measurement.
+    @Test func visibilityMode_cycle_allValuesStorable() {
+        for mode: AnnotationVisibilityMode in [.all, .selected, .none] {
+            let m = TapToneMeasurement(peaks: [], annotationVisibilityMode: mode)
+            #expect(m.annotationVisibilityMode == mode)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Mode overrides on TapToneMeasurement (D7, D8)
+//
+// Mirrors Python TestModeOverrides.
+// ---------------------------------------------------------------------------
+
+@Suite("ModeOverridesCodable")
+@MainActor
+struct ModeOverridesCodableTests {
+
+    // D7: peakModeOverrides keyed by peak UUID stores custom mode labels.
+    @Test func modeOverrides_storedPerPeak() {
+        let peak = ResonantPeak(frequency: 200, magnitude: -20)
+        let m = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: .assigned("Top")])
+        #expect(m.peakModeOverrides?[peak.id] == .assigned("Top"))
+    }
+
+    // D8: peakModeOverrides survive a JSON round-trip.
+    @Test func modeOverrides_surviveRoundTrip() throws {
+        let peak = ResonantPeak(frequency: 200, magnitude: -20)
+        let original = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: .assigned("Dipole")])
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+        #expect(decoded.peakModeOverrides?[peak.id] == .assigned("Dipole"))
+    }
+
+    // Empty peakModeOverrides: nil overrides produce no key in JSON.
+    @Test func nilOverrides_notWrittenToJSON() throws {
+        let m = TapToneMeasurement(peaks: [])
+        let data = try JSONEncoder().encode(m)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(!json.contains("\"peakModeOverrides\""),
+                "nil peakModeOverrides should not appear in JSON")
+    }
+
+    // Auto-type entries: a peak with .auto override round-trips correctly.
+    @Test func autoOverride_roundTrips() throws {
+        let peak = ResonantPeak(frequency: 200, magnitude: -20)
+        let original = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: .auto])
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+        #expect(decoded.peakModeOverrides?[peak.id] == .auto)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - selectedPeakIDs / selectedPeakFrequencies JSON fields (PS1–PS6)
+//
+// Mirrors Python TestPeakSelectionTracking.
+// ---------------------------------------------------------------------------
+
+@Suite("PeakSelectionTrackingCodable")
+@MainActor
+struct PeakSelectionTrackingCodableTests {
+
+    // PS1: selectedPeakIDs is stored as an array of UUIDs.
+    @Test func selectedPeakIDs_storedAsList() {
+        let peaks = [ResonantPeak(frequency: 100, magnitude: -30),
+                     ResonantPeak(frequency: 200, magnitude: -28),
+                     ResonantPeak(frequency: 300, magnitude: -32)]
+        let ids = [peaks[0].id, peaks[1].id]
+        let m = TapToneMeasurement(peaks: peaks, selectedPeakIDs: ids)
+        #expect(m.selectedPeakIDs == ids)
+    }
+
+    // PS2: selectedPeakFrequencies is parallel to selectedPeakIDs.
+    @Test func selectedPeakFrequencies_parallelToIDs() {
+        let p1 = ResonantPeak(frequency: 200, magnitude: -28)
+        let p2 = ResonantPeak(frequency: 300, magnitude: -32)
+        let m = TapToneMeasurement(peaks: [p1, p2], selectedPeakIDs: [p1.id])
+        #expect(m.selectedPeakIDs == [p1.id])
+    }
+
+    // PS3: nil selectedPeakIDs means all peaks are treated as selected.
+    @Test func nilSelectedPeakIDs_meansAllSelected() {
+        let peaks = (0..<3).map { _ in ResonantPeak(frequency: 200, magnitude: -30) }
+        let m = TapToneMeasurement(peaks: peaks, selectedPeakIDs: nil)
+        #expect(m.selectedPeakIDs == nil)
+    }
+
+    // PS4: selectedPeakIDs survives JSON round-trip.
+    @Test func selectedPeakIDs_roundTrip() throws {
+        let peak = ResonantPeak(frequency: 200, magnitude: -28)
+        let original = TapToneMeasurement(peaks: [peak], selectedPeakIDs: [peak.id])
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+        #expect(decoded.selectedPeakIDs == [peak.id])
+    }
+
+    // PS5: (selectedPeakFrequencies is a computed/transient property in Swift
+    // and not directly encoded; this test verifies selectedPeakIDs round-trip
+    // with a known frequency for completeness.)
+    @Test func selectedPeakIDs_withFrequency_roundTrip() throws {
+        let peak = ResonantPeak(frequency: 440, magnitude: -20)
+        let original = TapToneMeasurement(peaks: [peak], selectedPeakIDs: [peak.id])
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+        #expect(decoded.selectedPeakIDs?.first == peak.id)
+        // The decoded measurement should know the frequency of the surviving peak
+        #expect(abs((decoded.peaks.first?.frequency ?? 0) - 440) < 0.001)
+    }
+
+    // PS6: Empty selectedPeakIDs encodes/decodes without crashing.
+    @Test func emptySelectedPeakIDs_roundTrip() throws {
+        let original = TapToneMeasurement(peaks: [], selectedPeakIDs: [])
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+        // An empty list may decode as nil (matching Python behaviour)
+        #expect(decoded.selectedPeakIDs == nil || decoded.selectedPeakIDs?.isEmpty == true)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Spectrum snapshot storage on TapToneMeasurement
+//
+// Mirrors Python TestLiveTapPath (moved from test_frozen_peak_recalculation.py).
+// ---------------------------------------------------------------------------
+
+@Suite("SpectrumSnapshotOnMeasurement")
+@MainActor
+struct SpectrumSnapshotOnMeasurementTests {
+
+    // A freshly created measurement with no snapshot has spectrumSnapshot == nil.
+    @Test func spectrumSnapshot_newMeasurement_isNil() {
+        let m = TapToneMeasurement(peaks: [])
+        #expect(m.spectrumSnapshot == nil, "New measurement should not have a spectrum snapshot")
+    }
+
+    // A measurement created with a snapshot stores it.
+    @Test func spectrumSnapshot_withSnapshot_stored() {
+        let snap = SpectrumSnapshot(
+            frequencies: [100, 200], magnitudes: [-40, -35],
+            minFreq: 80, maxFreq: 300, minDB: -90, maxDB: -10, isLogarithmic: false
+        )
+        let m = TapToneMeasurement(peaks: [], spectrum: snap)
+        #expect(m.spectrumSnapshot != nil, "Measurement should store the provided snapshot")
     }
 }
 

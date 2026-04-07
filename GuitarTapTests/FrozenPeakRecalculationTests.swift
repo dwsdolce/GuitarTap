@@ -356,6 +356,137 @@ struct FrozenPeakRecalculation_EmptyPeaksGuardTests {
 }
 
 // ---------------------------------------------------------------------------
+// MARK: - RecalculateFrozenPeaksIntegration: end-to-end entry point tests
+//
+// Mirrors Python TestRecalculateFrozenPeaksIfNeeded (PR-A1-A5).
+// Constructs real spectra with a known peak via a Gaussian magnitude profile,
+// calls recalculateFrozenPeaksIfNeeded(), and asserts on currentPeaks.
+// ---------------------------------------------------------------------------
+
+/// Build a synthetic frozen spectrum with a single Gaussian peak at `peakHz`.
+/// Returns `(frequencies, magnitudes)` each with `binCount` Float elements.
+private func makeGaussianSpectrum(
+    peakHz: Float,
+    peakDb: Float = -20,
+    floorDb: Float = -100,
+    sampleRate: Float = 48000,
+    binCount: Int = 2048
+) -> ([Float], [Float]) {
+    let binWidth = sampleRate / Float(binCount * 2)
+    let sigma: Float = 4.0 / 2.355   // ~4 Hz FWHM
+    var freqs = [Float](repeating: 0, count: binCount)
+    var mags  = [Float](repeating: floorDb, count: binCount)
+    for i in 0..<binCount {
+        let f = Float(i) * binWidth
+        freqs[i] = f
+        let d = f - peakHz
+        let g = peakDb + (-d * d / (2 * sigma * sigma))
+        mags[i] = max(floorDb, g)
+    }
+    return (freqs, mags)
+}
+
+@Suite("RecalculateFrozenPeaksIntegration", .serialized)
+struct RecalculateFrozenPeaksIntegrationTests {
+    // PR-A1: The frozen-spectrum path detects a known peak.
+    @Test func frozenSpectrum_detectsKnownPeak() {
+        let sut = makeSUT()
+        sut.loadedMeasurementPeaks = nil
+        sut.minFrequency = 80
+        sut.maxFrequency = 1200
+        sut.peakThreshold = -60
+
+        let targetHz: Float = 200
+        let (freqs, mags) = makeGaussianSpectrum(peakHz: targetHz, peakDb: -20)
+        sut.isMeasurementComplete = true
+        sut.frozenFrequencies = freqs
+        sut.frozenMagnitudes  = mags
+
+        sut.recalculateFrozenPeaksIfNeeded()
+
+        #expect(!sut.currentPeaks.isEmpty,
+                "Frozen-spectrum path should detect the \(targetHz) Hz peak")
+        let detected = sut.currentPeaks.map(\.frequency)
+        #expect(detected.contains(where: { abs($0 - targetHz) < 20 }),
+                "Expected a peak near \(targetHz) Hz; got \(detected)")
+    }
+
+    // PR-A2: Raising peak_threshold removes sub-threshold peaks on recalculate.
+    @Test func frozenSpectrum_raisedThreshold_removesWeakPeak() {
+        let sut = makeSUT()
+        sut.loadedMeasurementPeaks = nil
+        sut.minFrequency = 80
+        sut.maxFrequency = 1200
+
+        let (freqs, mags) = makeGaussianSpectrum(peakHz: 200, peakDb: -50, floorDb: -100)
+        sut.isMeasurementComplete = true
+        sut.frozenFrequencies = freqs
+        sut.frozenMagnitudes  = mags
+
+        // Low threshold: peak should be detected.
+        sut.peakThreshold = -60
+        sut.recalculateFrozenPeaksIfNeeded()
+        let detectedLow = sut.currentPeaks.map(\.frequency)
+        #expect(detectedLow.contains(where: { abs($0 - 200) < 20 }),
+                "Peak should be detected at low threshold")
+
+        // Raise threshold: weak peak should be removed.
+        sut.peakThreshold = -40
+        sut.recalculateFrozenPeaksIfNeeded()
+        let detectedHigh = sut.currentPeaks.map(\.frequency)
+        #expect(!detectedHigh.contains(where: { abs($0 - 200) < 20 }),
+                "Weak peak should be absent after raising threshold")
+    }
+
+    // PR-A3: Loaded-measurement path filters by threshold.
+    @Test func loadedMeasurement_filtersAboveThresholdOnly() {
+        let sut = makeSUT()
+        let above = makePeak(frequency: 200, magnitude: -25)
+        let below = makePeak(frequency: 400, magnitude: -65)
+        freeze(sut, peaks: [above, below])
+        sut.loadedMeasurementPeaks = [above, below]
+        sut.peakThreshold = -60
+
+        sut.recalculateFrozenPeaksIfNeeded()
+
+        let freqs = sut.currentPeaks.map(\.frequency)
+        #expect(freqs.count == 1, "Only the above-threshold peak should remain; got \(freqs)")
+        #expect(freqs.contains(where: { abs($0 - 200) < 1 }),
+                "Surviving peak should be at 200 Hz; got \(freqs)")
+    }
+
+    // PR-A4: All loaded peaks below threshold → currentPeaks is empty.
+    @Test func loadedMeasurement_allBelowThreshold_yieldsEmpty() {
+        let sut = makeSUT()
+        let p1 = makePeak(frequency: 200, magnitude: -70)
+        let p2 = makePeak(frequency: 400, magnitude: -65)
+        freeze(sut, peaks: [p1, p2])
+        sut.loadedMeasurementPeaks = [p1, p2]
+        sut.peakThreshold = -60
+
+        sut.recalculateFrozenPeaksIfNeeded()
+
+        #expect(sut.currentPeaks.isEmpty,
+                "No peaks should remain when all are below threshold")
+    }
+
+    // PR-A5: Empty frozenMagnitudes yields no peaks and does not crash.
+    @Test func emptyFrozenMagnitudes_yieldsNoPeaks() {
+        let sut = makeSUT()
+        sut.loadedMeasurementPeaks = nil
+        sut.isMeasurementComplete = true
+        sut.frozenFrequencies = []
+        sut.frozenMagnitudes  = []
+        sut.peakThreshold = -60
+
+        // Must not crash:
+        sut.recalculateFrozenPeaksIfNeeded()
+
+        #expect(sut.currentPeaks.isEmpty)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MARK: - PR7: Live-tap path remaps offsets and overrides by frequency
 // ---------------------------------------------------------------------------
 
