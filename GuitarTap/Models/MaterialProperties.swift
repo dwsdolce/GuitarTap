@@ -19,7 +19,7 @@
 /// the Euler–Bernoulli free-free beam equation.  A third optional tap at 45° (the FLC or
 /// "diagonal" tap) yields the shear modulus `G_LC`.
 ///
-/// ## Free-Free Beam Equation (Haines / Coates)
+/// ## Free-Free Beam Equation
 ///
 /// ```
 /// E = 48 × π² × ρ × f² × L⁴ / (β × L)²
@@ -29,12 +29,16 @@
 /// - `ρ` = density (kg/m³)
 /// - `f` = fundamental bending frequency (Hz)
 /// - `L` = beam length (m) — use plate length for L-tap, plate width for C-tap
-/// - `(βL)² = 22.37` for the first free-free bending mode
+/// - `(βL)² = 22.37` for the first free-free bending mode — first root of
+///   `cos(βL)·cosh(βL) = 1`, i.e. βL = 4.7300… (Blevins 1979, Table 8-1).
+///   Applied to lutherie wood by Haines (1979, 2000) — see
+///   *Documentation/tonewood-references.md* for full citations.
 ///
 /// ## Gore Plate Equations
 ///
 /// ``PlateProperties`` also implements the more accurate plate-theory approach from
-/// *Gore, W., "Contemporary Acoustic Guitar Design and Build" (2011)*.  The plate
+/// *Gore, T. & Gilet, G., "Contemporary Acoustic Guitar Design and Build", 2nd ed. (2016)*
+/// (Vol. 1 ISBN: 978-0-9871174-2-7).  The plate
 /// equations account for Poisson coupling between the two axes and give more accurate
 /// modulus values for thin plates (typical guitar-top ratios of L/t ≈ 50–150).
 ///
@@ -489,9 +493,11 @@ struct PlateProperties {
 
 /// A subjective quality rating for a tonewood sample based on its specific modulus.
 ///
-/// Thresholds are calibrated against published ranges for instrument-grade tonewoods.
+/// Thresholds are calibrated against published ranges for instrument-grade tonewoods
+/// (Gore & Gilet 2011/2016; Brémaud 2012; Wegst 2006).
 /// The grading scales differ by wood species (spruce vs cedar) and measurement direction
 /// (longitudinal vs cross-grain) because the physical ranges are very different.
+/// Full citations in *Documentation/tonewood-references.md*.
 enum WoodQuality: String, CaseIterable {
 
     /// Exceptional instrument-grade material; master-grade or AAA classification.
@@ -559,7 +565,12 @@ enum WoodQuality: String, CaseIterable {
 
     /// Evaluates the quality of a wood sample from its specific modulus value.
     ///
-    /// Thresholds are based on published instrument-grade quality ranges:
+    /// Thresholds are based on published instrument-grade quality ranges.
+    ///
+    /// **Source:** Gore, T. & Gilet, G., *Contemporary Acoustic Guitar Design and Build*,
+    /// 2nd ed. (2016), Vol. 1 (ISBN: 978-0-9871174-2-7).  See also Brémaud (2012) and
+    /// Wegst (2006) for corroborating species data.  Full citations in
+    /// *Documentation/tonewood-references.md*.
     ///
     /// | Species | Direction | Excellent | Very Good | Good | Fair | Poor |
     /// |---------|-----------|-----------|-----------|------|------|------|
@@ -702,7 +713,8 @@ struct BraceProperties {
 ///
 /// These typical values can be used to contextualise measurements from tap tests, or as
 /// starting points when a reference sample is not available.  Values are approximate averages
-/// from the lutherie literature.
+/// consistent with: Haines et al. (1977), Brémaud (2012), Wegst (2006), and Bucur (2006).
+/// Full citations in *Documentation/tonewood-references.md*.
 struct TonewoodReference {
 
     /// Typical acoustic properties of Sitka Spruce, the most common guitar-top wood.
