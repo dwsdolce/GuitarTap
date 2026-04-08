@@ -34,18 +34,6 @@ extension TapToneAnalyzer {
 
     // MARK: - Analysis Helpers
 
-    /// Returns all currently detected peaks whose frequency falls within the
-    /// specified range.
-    ///
-    /// - Parameter range: A closed frequency range in Hz (e.g. `80...200` for
-    ///   the Air mode region).
-    /// - Returns: The subset of ``currentPeaks`` with
-    ///   `frequency ∈ [range.lowerBound, range.upperBound]`, in the same order
-    ///   as the source array (descending magnitude).
-    func getPeaks(in range: ClosedRange<Float>) -> [ResonantPeak] {
-        currentPeaks.filter { range.contains($0.frequency) }
-    }
-
     /// Returns the context-aware ``GuitarMode`` for a specific peak.
     ///
     /// Looks the peak up in ``identifiedModes``, which is computed via
@@ -103,29 +91,4 @@ extension TapToneAnalyzer {
         return topPeak.frequency / airPeak.frequency
     }
 
-    /// Compares the current live peaks against the peaks stored in a saved
-    /// measurement, matching each saved peak to the nearest live peak by
-    /// frequency.
-    ///
-    /// For each peak in `measurement.peaks` the method finds the live peak
-    /// whose frequency is closest (by absolute difference in Hz) and reports
-    /// the signed frequency delta.
-    ///
-    /// - Parameter measurement: The historical ``TapToneMeasurement`` to
-    ///   compare against.
-    /// - Returns: An array of tuples — one per saved peak — each containing:
-    ///   - `current`: The live ``ResonantPeak`` closest in frequency to the
-    ///     saved peak, or `nil` if `currentPeaks` is empty.
-    ///   - `saved`: The original ``ResonantPeak`` from the measurement.
-    ///   - `difference`: `current.frequency − saved.frequency` in Hz; positive
-    ///     means the current peak is higher, negative means it is lower.  Zero
-    ///     when no current peak is available.
-    func compareTo(_ measurement: TapToneMeasurement) -> [(current: ResonantPeak?, saved: ResonantPeak, difference: Float)] {
-        measurement.peaks.map { savedPeak in
-            // Find the live peak whose frequency is nearest to the saved peak
-            let currentPeak = currentPeaks.min(by: { abs($0.frequency - savedPeak.frequency) < abs($1.frequency - savedPeak.frequency) })
-            let difference = currentPeak.map { $0.frequency - savedPeak.frequency } ?? 0
-            return (current: currentPeak, saved: savedPeak, difference: difference)
-        }
-    }
 }
