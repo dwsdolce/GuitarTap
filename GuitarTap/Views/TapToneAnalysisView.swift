@@ -209,6 +209,42 @@ struct TapToneAnalysisView: View {
     }
 
     var body: some View {
+        layoutContent
+            .modifier(LoadedSettingsModifier(tap: tapToneAnalyzer,
+                                            minFreq: $minFreq, maxFreq: $maxFreq,
+                                            minDB: $minDB, maxDB: $maxDB,
+                                            minFreqInput: $minFreqInput, maxFreqInput: $maxFreqInput,
+                                            minDBInput: $minDBInput, maxDBInput: $maxDBInput,
+                                            selectedLongitudinalPeakID: $selectedLongitudinalPeakID,
+                                            selectedCrossPeakID: $selectedCrossPeakID,
+                                            selectedFlcPeakID: $selectedFlcPeakID,
+                                            expandFreqRange: expandFreqRangeToInclude))
+            .modifier(AutoScaleModifier(fft: fftAnalyzer, tap: tapToneAnalyzer,
+                                        isAutoScaleEnabled: $isAutoScaleEnabled,
+                                        autoScaleAction: autoScaleDB))
+            .modifier(LifecycleModifier(fft: fftAnalyzer, tap: tapToneAnalyzer,
+                                        isAutoScaleEnabled: isAutoScaleEnabled,
+                                        warningIconOpacity: $warningIconOpacity,
+                                        showingMicrophonePermissionAlert: $showingMicrophonePermissionAlert,
+                                        openURLImportSuccess: $openURLImportSuccess,
+                                        openURLImportError: $openURLImportError,
+                                        toggleAnalyzer: toggleAnalyzer,
+                                        startAnalyzer: startAnalyzer,
+                                        importMeasurementFromURL: importMeasurementFromURL))
+        #if os(macOS)
+            .focusedSceneValue(\.saveMeasurement, { showingSaveSheet = true })
+            .focusedSceneValue(\.exportSpectrum, { exportCurrentSpectrum() })
+            .focusedSceneValue(\.exportPDF, { exportPDFReport() })
+            .focusedSceneValue(\.autoScaleDB, { autoScaleDB() })
+            .focusedSceneValue(\.cycleAnnotations, { tap.cycleAnnotationVisibility() })
+            .focusedSceneValue(\.showMetrics, { showingMetrics = true })
+            .focusedSceneValue(\.showMeasurements, { showingMeasurements = true })
+        #endif
+    }
+
+    // MARK: - Layout content
+
+    private var layoutContent: some View {
         Group {
             #if os(macOS)
             macOSLayout
@@ -221,430 +257,6 @@ struct TapToneAnalysisView: View {
                 .onAppear { isLandscape = geo.size.width > geo.size.height }
                 .onChange(of: geo.size) { _, size in isLandscape = size.width > size.height }
         })
-        // Single receiver for all four axis bounds — applying them together in one
-        // render pass prevents transient states where e.g. minDB has the new value
-        // while maxDB is still old, which caused SwiftUI Charts to clamp every data
-        // point to the same level and render spurious vertical line artifacts.
-        .onReceive(tapToneAnalyzer.$loadedAxisRange) { range in
-            if let range = range {
-                print("  ⬇️ View received loadedAxisRange: \(range.minFreq)-\(range.maxFreq) Hz, \(range.minDB)-\(range.maxDB) dB")
-                self.minFreq = range.minFreq
-                self.maxFreq = range.maxFreq
-                self.minDB   = range.minDB
-                self.maxDB   = range.maxDB
-                self.minFreqInput = String(format: "%.0f", range.minFreq)
-                self.maxFreqInput = String(format: "%.0f", range.maxFreq)
-                self.minDBInput   = String(format: "%.0f", range.minDB)
-                self.maxDBInput   = String(format: "%.0f", range.maxDB)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedAxisRange = nil
-                    self.tapToneAnalyzer.loadedMinFreq = nil
-                    self.tapToneAnalyzer.loadedMaxFreq = nil
-                    self.tapToneAnalyzer.loadedMinDB   = nil
-                    self.tapToneAnalyzer.loadedMaxDB   = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedTapDetectionThreshold) { threshold in
-            if threshold != nil {
-                print("  ⬇️ View received loadedTapDetectionThreshold: \(threshold!)")
-                // Settings are already updated in the analyzer via bindings
-                // Clear the loaded value after a small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedTapDetectionThreshold = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedHysteresisMargin) { hysteresis in
-            if hysteresis != nil {
-                print("  ⬇️ View received loadedHysteresisMargin: \(hysteresis!)")
-                // Clear the loaded value after a small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedHysteresisMargin = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedNumberOfTaps) { taps in
-            if taps != nil {
-                print("  ⬇️ View received loadedNumberOfTaps: \(taps!)")
-                // Clear the loaded value after a small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedNumberOfTaps = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedPeakThreshold) { threshold in
-            if let threshold = threshold {
-                print("  ⬇️ View received loadedPeakThreshold: \(threshold)")
-                TapDisplaySettings.peakThreshold = threshold
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedPeakThreshold = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedShowUnknownModes) { showUnknown in
-            if let showUnknown = showUnknown {
-                print("  ⬇️ View received loadedShowUnknownModes: \(showUnknown)")
-                TapDisplaySettings.showUnknownModes = showUnknown
-                // Clear the loaded value after a small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedShowUnknownModes = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedGuitarType) { guitarType in
-            if let guitarType = guitarType {
-                print("  ⬇️ View received loadedGuitarType: \(guitarType.rawValue)")
-                TapDisplaySettings.guitarType = guitarType
-                // Clear the loaded value after a small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedGuitarType = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedMeasurementType) { measurementType in
-            if let measurementType = measurementType {
-                print("  ⬇️ View received loadedMeasurementType: \(measurementType.shortName)")
-                TapDisplaySettings.measurementType = measurementType
-                // Clear the loaded value after a small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedMeasurementType = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedSelectedLongitudinalPeakID) { peakID in
-            if let peakID = peakID {
-                print("  ⬇️ View received loadedSelectedLongitudinalPeakID: \(peakID)")
-                self.selectedLongitudinalPeakID = peakID
-                // Clear the loaded value after a small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedSelectedLongitudinalPeakID = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedSelectedCrossPeakID) { peakID in
-            if let peakID = peakID {
-                print("  ⬇️ View received loadedSelectedCrossPeakID: \(peakID)")
-                self.selectedCrossPeakID = peakID
-                // Clear the loaded value after a small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedSelectedCrossPeakID = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedSelectedFlcPeakID) { peakID in
-            if let peakID = peakID {
-                print("  ⬇️ View received loadedSelectedFlcPeakID: \(peakID)")
-                self.selectedFlcPeakID = peakID
-                // Clear the loaded value after a small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedSelectedFlcPeakID = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedPlateLength) { length in
-            if let length = length {
-                print("  ⬇️ View received loadedPlateLength: \(length)mm")
-                if TapDisplaySettings.measurementType.isBrace {
-                    TapDisplaySettings.braceLength = length
-                } else {
-                    TapDisplaySettings.plateLength = length
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedPlateLength = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedPlateWidth) { width in
-            if let width = width {
-                if TapDisplaySettings.measurementType.isBrace {
-                    TapDisplaySettings.braceWidth = width
-                } else {
-                    TapDisplaySettings.plateWidth = width
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedPlateWidth = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedPlateThickness) { thickness in
-            if let thickness = thickness {
-                if TapDisplaySettings.measurementType.isBrace {
-                    TapDisplaySettings.braceThickness = thickness
-                } else {
-                    TapDisplaySettings.plateThickness = thickness
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedPlateThickness = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedPlateMass) { mass in
-            if let mass = mass {
-                if TapDisplaySettings.measurementType.isBrace {
-                    TapDisplaySettings.braceMass = mass
-                } else {
-                    TapDisplaySettings.plateMass = mass
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedPlateMass = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedGuitarBodyLength) { value in
-            if let value = value {
-                TapDisplaySettings.guitarBodyLength = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedGuitarBodyLength = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedGuitarBodyWidth) { value in
-            if let value = value {
-                TapDisplaySettings.guitarBodyWidth = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedGuitarBodyWidth = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedPlateStiffnessPreset) { preset in
-            if let preset = preset {
-                TapDisplaySettings.plateStiffnessPreset = preset
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedPlateStiffnessPreset = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedCustomPlateStiffness) { value in
-            if let value = value {
-                TapDisplaySettings.customPlateStiffness = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedCustomPlateStiffness = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedMeasureFlc) { value in
-            if let value = value {
-                TapDisplaySettings.measureFlc = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedMeasureFlc = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedBraceLength) { value in
-            if let value = value {
-                TapDisplaySettings.braceLength = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedBraceLength = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedBraceWidth) { value in
-            if let value = value {
-                TapDisplaySettings.braceWidth = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedBraceWidth = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedBraceThickness) { value in
-            if let value = value {
-                TapDisplaySettings.braceThickness = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedBraceThickness = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$loadedBraceMass) { value in
-            if let value = value {
-                TapDisplaySettings.braceMass = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.tapToneAnalyzer.loadedBraceMass = nil
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$autoSelectedLongitudinalPeakID) { peakID in
-            // When plate measurement auto-selects a longitudinal peak, update the view state
-            if let peakID = peakID {
-                self.selectedLongitudinalPeakID = peakID
-                // Expand display range to include this peak
-                if let peak = tapToneAnalyzer.longitudinalPeaks.first(where: { $0.id == peakID }) {
-                    expandFreqRangeToInclude(peak.frequency)
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$autoSelectedCrossPeakID) { peakID in
-            // When plate measurement auto-selects a cross-grain peak, update the view state
-            if let peakID = peakID {
-                self.selectedCrossPeakID = peakID
-                // Expand display range to include this peak
-                if let peak = tapToneAnalyzer.crossPeaks.first(where: { $0.id == peakID }) {
-                    expandFreqRangeToInclude(peak.frequency)
-                }
-            }
-        }
-        .onReceive(tapToneAnalyzer.$autoSelectedFlcPeakID) { peakID in
-            // When plate measurement auto-selects an FLC peak, update the view state
-            if let peakID = peakID {
-                self.selectedFlcPeakID = peakID
-                // Expand display range to include this peak
-                if let peak = tapToneAnalyzer.flcPeaks.first(where: { $0.id == peakID }) {
-                    expandFreqRangeToInclude(peak.frequency)
-                }
-            }
-        }
-        .onReceive(fftAnalyzer.$magnitudes) { newMagnitudes in
-            // Auto-scale dB when enabled and spectrum updates
-            // Note: Check for non-empty magnitudes that aren't all -100 (initialization value)
-            let hasValidData = !newMagnitudes.isEmpty && newMagnitudes.contains { $0 > -99 }
-            if isAutoScaleEnabled && hasValidData && fftAnalyzer.isRunning {
-                autoScaleDB()
-            }
-        }
-        .onChange(of: fftAnalyzer.isRunning) { _, isNowRunning in
-            // When analyzer starts running, perform initial auto-scale if enabled
-            if isNowRunning && isAutoScaleEnabled {
-                // Wait a moment for first valid data to arrive
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    if self.isAutoScaleEnabled && self.fftAnalyzer.isRunning {
-                        print("🔄 Auto-scale: Performing initial scale on analyzer start")
-                        self.autoScaleDB()
-                    }
-                }
-            }
-        }
-        .onChange(of: tapToneAnalyzer.isMeasurementComplete) { _, isComplete in
-            // Disable auto-scale when measurement is complete (tap detected)
-            if isComplete && isAutoScaleEnabled {
-                isAutoScaleEnabled = false
-                print("🔄 Auto-scale dB disabled - measurement complete")
-            }
-        }
-        .onChange(of: tapToneAnalyzer.showLoadedSettingsWarning) { _, active in
-            if active {
-                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
-                    warningIconOpacity = 0.2
-                }
-            } else {
-                withAnimation(.default) {
-                    warningIconOpacity = 1.0
-                }
-            }
-        }
-        .onAppear {
-            // Auto-start the analyzer when the view first appears.
-            // Guard against toggling off an already-running engine — on macOS, closing the
-            // window hides the view without destroying the @StateObject, so onAppear fires
-            // again on reopen.  Calling toggleAnalyzer() when the engine is already running
-            // would stop it, leaving the app in a permanently-stalled "Starting..." state.
-            if !fft.isRunning {
-                toggleAnalyzer()
-            }
-        }
-        #if os(macOS)
-        .onAppear {
-            // On macOS, System Settings can force-restart the app after revoking microphone
-            // access. Delay slightly so the window is fully presented before showing the alert.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let status = AVCaptureDevice.authorizationStatus(for: .audio)
-                if status == .denied || status == .restricted {
-                    showingMicrophonePermissionAlert = true
-                }
-            }
-        }
-        .onChange(of: fftAnalyzer.microphonePermissionDenied) { _, isDenied in
-            // Fired when the 3-second post-start TCC check confirms permission is denied.
-            // This catches the macOS TCC cache lag case where authorizationStatus briefly
-            // reports .authorized after a forced restart even though the mic is still blocked.
-            if isDenied {
-                showingMicrophonePermissionAlert = true
-                fftAnalyzer.microphonePermissionDenied = false
-            }
-        }
-        #endif
-        #if os(iOS)
-        // Stop the engine when the app moves to the background (iOS will suspend audio anyway,
-        // and keeping AVAudioEngine running burns battery and risks an OS kill).
-        // Restart automatically when the scene becomes active again.
-        // Note: .inactive fires for many transient system overlays (alerts, Control Centre,
-        // notifications) — stopping/restarting on those causes a false tap from the audio
-        // engine reinitialising.  Only .background signals a genuine move out of foreground.
-        .onChange(of: scenePhase) { _, newPhase in
-            switch newPhase {
-            case .background:
-                if fft.isRunning {
-                    tap.stop()
-                }
-            case .active:
-                if !fft.isRunning {
-                    toggleAnalyzer()
-                }
-            default:
-                break
-            }
-        }
-        #endif
-        #if os(macOS)
-        // Stop the engine when the window is minimized to the Dock and restart when restored.
-        // This mirrors the iOS background behaviour and avoids unnecessary CPU/audio use
-        // while the window is hidden.
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { _ in
-            if fft.isRunning {
-                tap.stop()
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification)) { _ in
-            if !fft.isRunning {
-                startAnalyzer()
-            }
-        }
-        #endif
-        .alert("Microphone Access Required", isPresented: $showingMicrophonePermissionAlert) {
-            Button("Open Settings") {
-                #if os(iOS)
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
-                }
-                #elseif os(macOS)
-                // The newer .extension URL is unreliable on non-developer/non-admin accounts
-                // (can route to wrong pane). The legacy preference: scheme works consistently
-                // across all account types on macOS Ventura, Sonoma, and Sequoia.
-                let micPrivacyURLs = [
-                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
-                    "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone"
-                ]
-                for urlString in micPrivacyURLs {
-                    if let url = URL(string: urlString), NSWorkspace.shared.open(url) {
-                        break
-                    }
-                }
-                #endif
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("GuitarTap needs microphone access to analyse tap tones. Please enable it in System Settings → Privacy & Security → Microphone.")
-        }
-        // Handle files opened via AirDrop, Files app, or other system mechanisms
-        .onReceive(NotificationCenter.default.publisher(for: .openMeasurementFile)) { notification in
-            guard let url = notification.object as? URL else { return }
-            importMeasurementFromURL(url)
-        }
-        .alert("Import Successful", isPresented: .init(
-            get: { openURLImportSuccess != nil },
-            set: { if !$0 { openURLImportSuccess = nil } }
-        )) {
-            Button("OK", role: .cancel) { openURLImportSuccess = nil }
-        } message: {
-            Text(openURLImportSuccess ?? "")
-        }
-        .alert("Import Error", isPresented: .init(
-            get: { openURLImportError != nil },
-            set: { if !$0 { openURLImportError = nil } }
-        )) {
-            Button("OK", role: .cancel) { openURLImportError = nil }
-        } message: {
-            Text(openURLImportError ?? "")
-        }
     }
 
     /// Import a measurement JSON file that was opened via AirDrop or the Files app.
@@ -672,6 +284,412 @@ struct TapToneAnalysisView: View {
         } catch {
             openURLImportError = "Failed to import: \(error.localizedDescription)"
         }
+    }
+}
+
+// MARK: - ViewModifiers (extracted to keep body type-checker tractable)
+
+/// Applies all `.onReceive` handlers for `loaded*` measurement settings published
+/// by `TapToneAnalyzer` when a saved measurement is restored.
+private struct LoadedSettingsModifier: ViewModifier {
+    @ObservedObject var tap: TapToneAnalyzer
+
+    @Binding var minFreq: Float
+    @Binding var maxFreq: Float
+    @Binding var minDB: Float
+    @Binding var maxDB: Float
+    @Binding var minFreqInput: String
+    @Binding var maxFreqInput: String
+    @Binding var minDBInput: String
+    @Binding var maxDBInput: String
+    @Binding var selectedLongitudinalPeakID: UUID?
+    @Binding var selectedCrossPeakID: UUID?
+    @Binding var selectedFlcPeakID: UUID?
+    let expandFreqRange: (Float) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            // Single receiver for all four axis bounds — applying them together in one
+            // render pass prevents transient states where e.g. minDB has the new value
+            // while maxDB is still old, which caused SwiftUI Charts to clamp every data
+            // point to the same level and render spurious vertical line artifacts.
+            .onReceive(tap.$loadedAxisRange) { range in
+                if let range = range {
+                    print("  ⬇️ View received loadedAxisRange: \(range.minFreq)-\(range.maxFreq) Hz, \(range.minDB)-\(range.maxDB) dB")
+                    minFreq = range.minFreq
+                    maxFreq = range.maxFreq
+                    minDB   = range.minDB
+                    maxDB   = range.maxDB
+                    minFreqInput = String(format: "%.0f", range.minFreq)
+                    maxFreqInput = String(format: "%.0f", range.maxFreq)
+                    minDBInput   = String(format: "%.0f", range.minDB)
+                    maxDBInput   = String(format: "%.0f", range.maxDB)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        tap.loadedAxisRange = nil
+                        tap.loadedMinFreq = nil
+                        tap.loadedMaxFreq = nil
+                        tap.loadedMinDB   = nil
+                        tap.loadedMaxDB   = nil
+                    }
+                }
+            }
+            .onReceive(tap.$loadedTapDetectionThreshold) { threshold in
+                if threshold != nil {
+                    print("  ⬇️ View received loadedTapDetectionThreshold: \(threshold!)")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedTapDetectionThreshold = nil }
+                }
+            }
+            .onReceive(tap.$loadedHysteresisMargin) { hysteresis in
+                if hysteresis != nil {
+                    print("  ⬇️ View received loadedHysteresisMargin: \(hysteresis!)")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedHysteresisMargin = nil }
+                }
+            }
+            .onReceive(tap.$loadedNumberOfTaps) { taps in
+                if taps != nil {
+                    print("  ⬇️ View received loadedNumberOfTaps: \(taps!)")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedNumberOfTaps = nil }
+                }
+            }
+            .onReceive(tap.$loadedPeakThreshold) { threshold in
+                if let threshold = threshold {
+                    print("  ⬇️ View received loadedPeakThreshold: \(threshold)")
+                    TapDisplaySettings.peakThreshold = threshold
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedPeakThreshold = nil }
+                }
+            }
+            .onReceive(tap.$loadedShowUnknownModes) { showUnknown in
+                if let showUnknown = showUnknown {
+                    print("  ⬇️ View received loadedShowUnknownModes: \(showUnknown)")
+                    TapDisplaySettings.showUnknownModes = showUnknown
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedShowUnknownModes = nil }
+                }
+            }
+            .onReceive(tap.$loadedGuitarType) { guitarType in
+                if let guitarType = guitarType {
+                    print("  ⬇️ View received loadedGuitarType: \(guitarType.rawValue)")
+                    TapDisplaySettings.guitarType = guitarType
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedGuitarType = nil }
+                }
+            }
+            .onReceive(tap.$loadedMeasurementType) { measurementType in
+                if let measurementType = measurementType {
+                    print("  ⬇️ View received loadedMeasurementType: \(measurementType.shortName)")
+                    TapDisplaySettings.measurementType = measurementType
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedMeasurementType = nil }
+                }
+            }
+            .onReceive(tap.$loadedSelectedLongitudinalPeakID) { peakID in
+                if let peakID = peakID {
+                    print("  ⬇️ View received loadedSelectedLongitudinalPeakID: \(peakID)")
+                    selectedLongitudinalPeakID = peakID
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedLongitudinalPeakID = nil }
+                }
+            }
+            .onReceive(tap.$loadedSelectedCrossPeakID) { peakID in
+                if let peakID = peakID {
+                    print("  ⬇️ View received loadedSelectedCrossPeakID: \(peakID)")
+                    selectedCrossPeakID = peakID
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedCrossPeakID = nil }
+                }
+            }
+            .onReceive(tap.$loadedSelectedFlcPeakID) { peakID in
+                if let peakID = peakID {
+                    print("  ⬇️ View received loadedSelectedFlcPeakID: \(peakID)")
+                    selectedFlcPeakID = peakID
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedFlcPeakID = nil }
+                }
+            }
+            .onReceive(tap.$loadedPlateLength) { length in
+                if let length = length {
+                    print("  ⬇️ View received loadedPlateLength: \(length)mm")
+                    if TapDisplaySettings.measurementType.isBrace {
+                        TapDisplaySettings.braceLength = length
+                    } else {
+                        TapDisplaySettings.plateLength = length
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedPlateLength = nil }
+                }
+            }
+            .onReceive(tap.$loadedPlateWidth) { width in
+                if let width = width {
+                    if TapDisplaySettings.measurementType.isBrace {
+                        TapDisplaySettings.braceWidth = width
+                    } else {
+                        TapDisplaySettings.plateWidth = width
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedPlateWidth = nil }
+                }
+            }
+            .onReceive(tap.$loadedPlateThickness) { thickness in
+                if let thickness = thickness {
+                    if TapDisplaySettings.measurementType.isBrace {
+                        TapDisplaySettings.braceThickness = thickness
+                    } else {
+                        TapDisplaySettings.plateThickness = thickness
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedPlateThickness = nil }
+                }
+            }
+            .onReceive(tap.$loadedPlateMass) { mass in
+                if let mass = mass {
+                    if TapDisplaySettings.measurementType.isBrace {
+                        TapDisplaySettings.braceMass = mass
+                    } else {
+                        TapDisplaySettings.plateMass = mass
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedPlateMass = nil }
+                }
+            }
+            .onReceive(tap.$loadedGuitarBodyLength) { value in
+                if let value = value {
+                    TapDisplaySettings.guitarBodyLength = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedGuitarBodyLength = nil }
+                }
+            }
+            .onReceive(tap.$loadedGuitarBodyWidth) { value in
+                if let value = value {
+                    TapDisplaySettings.guitarBodyWidth = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedGuitarBodyWidth = nil }
+                }
+            }
+            .onReceive(tap.$loadedPlateStiffnessPreset) { preset in
+                if let preset = preset {
+                    TapDisplaySettings.plateStiffnessPreset = preset
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedPlateStiffnessPreset = nil }
+                }
+            }
+            .onReceive(tap.$loadedCustomPlateStiffness) { value in
+                if let value = value {
+                    TapDisplaySettings.customPlateStiffness = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedCustomPlateStiffness = nil }
+                }
+            }
+            .onReceive(tap.$loadedMeasureFlc) { value in
+                if let value = value {
+                    TapDisplaySettings.measureFlc = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedMeasureFlc = nil }
+                }
+            }
+            .onReceive(tap.$loadedBraceLength) { value in
+                if let value = value {
+                    TapDisplaySettings.braceLength = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedBraceLength = nil }
+                }
+            }
+            .onReceive(tap.$loadedBraceWidth) { value in
+                if let value = value {
+                    TapDisplaySettings.braceWidth = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedBraceWidth = nil }
+                }
+            }
+            .onReceive(tap.$loadedBraceThickness) { value in
+                if let value = value {
+                    TapDisplaySettings.braceThickness = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedBraceThickness = nil }
+                }
+            }
+            .onReceive(tap.$loadedBraceMass) { value in
+                if let value = value {
+                    TapDisplaySettings.braceMass = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedBraceMass = nil }
+                }
+            }
+            .onReceive(tap.$autoSelectedLongitudinalPeakID) { peakID in
+                if let peakID = peakID {
+                    selectedLongitudinalPeakID = peakID
+                    if let peak = tap.longitudinalPeaks.first(where: { $0.id == peakID }) {
+                        expandFreqRange(peak.frequency)
+                    }
+                }
+            }
+            .onReceive(tap.$autoSelectedCrossPeakID) { peakID in
+                if let peakID = peakID {
+                    selectedCrossPeakID = peakID
+                    if let peak = tap.crossPeaks.first(where: { $0.id == peakID }) {
+                        expandFreqRange(peak.frequency)
+                    }
+                }
+            }
+            .onReceive(tap.$autoSelectedFlcPeakID) { peakID in
+                if let peakID = peakID {
+                    selectedFlcPeakID = peakID
+                    if let peak = tap.flcPeaks.first(where: { $0.id == peakID }) {
+                        expandFreqRange(peak.frequency)
+                    }
+                }
+            }
+    }
+}
+
+/// Applies `.onReceive`/`.onChange` modifiers that drive the auto-scale dB feature.
+private struct AutoScaleModifier: ViewModifier {
+    @ObservedObject var fft: RealtimeFFTAnalyzer
+    @ObservedObject var tap: TapToneAnalyzer
+    @Binding var isAutoScaleEnabled: Bool
+    let autoScaleAction: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(fft.$magnitudes) { newMagnitudes in
+                let hasValidData = !newMagnitudes.isEmpty && newMagnitudes.contains { $0 > -99 }
+                if isAutoScaleEnabled && hasValidData && fft.isRunning {
+                    autoScaleAction()
+                }
+            }
+            .onChange(of: fft.isRunning) { _, isNowRunning in
+                if isNowRunning && isAutoScaleEnabled {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        if isAutoScaleEnabled && fft.isRunning {
+                            print("🔄 Auto-scale: Performing initial scale on analyzer start")
+                            autoScaleAction()
+                        }
+                    }
+                }
+            }
+            .onChange(of: tap.isMeasurementComplete) { _, isComplete in
+                if isComplete && isAutoScaleEnabled {
+                    isAutoScaleEnabled = false
+                    print("🔄 Auto-scale dB disabled - measurement complete")
+                }
+            }
+    }
+}
+
+/// Applies lifecycle modifiers: `.onAppear`, platform-specific window/scene observers,
+/// microphone permission alert, and file-import alerts.
+private struct LifecycleModifier: ViewModifier {
+    @ObservedObject var fft: RealtimeFFTAnalyzer
+    @ObservedObject var tap: TapToneAnalyzer
+    let isAutoScaleEnabled: Bool
+    @Binding var warningIconOpacity: Double
+    @Binding var showingMicrophonePermissionAlert: Bool
+    @Binding var openURLImportSuccess: String?
+    @Binding var openURLImportError: String?
+    let toggleAnalyzer: () -> Void
+    let startAnalyzer: () -> Void
+    let importMeasurementFromURL: (URL) -> Void
+
+    #if os(iOS)
+    @Environment(\.scenePhase) private var scenePhase
+    #endif
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: tap.showLoadedSettingsWarning) { _, active in
+                if active {
+                    withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                        warningIconOpacity = 0.2
+                    }
+                } else {
+                    withAnimation(.default) {
+                        warningIconOpacity = 1.0
+                    }
+                }
+            }
+            .onAppear {
+                // Auto-start the analyzer when the view first appears.
+                // Guard against toggling off an already-running engine — on macOS, closing the
+                // window hides the view without destroying the @StateObject, so onAppear fires
+                // again on reopen.  Calling toggleAnalyzer() when the engine is already running
+                // would stop it, leaving the app in a permanently-stalled "Starting..." state.
+                if !fft.isRunning {
+                    toggleAnalyzer()
+                }
+            }
+            #if os(macOS)
+            .onAppear {
+                // On macOS, System Settings can force-restart the app after revoking microphone
+                // access. Delay slightly so the window is fully presented before showing the alert.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    let status = AVCaptureDevice.authorizationStatus(for: .audio)
+                    if status == .denied || status == .restricted {
+                        showingMicrophonePermissionAlert = true
+                    }
+                }
+            }
+            .onChange(of: fft.microphonePermissionDenied) { _, isDenied in
+                // Fired when the 3-second post-start TCC check confirms permission is denied.
+                // This catches the macOS TCC cache lag case where authorizationStatus briefly
+                // reports .authorized after a forced restart even though the mic is still blocked.
+                if isDenied {
+                    showingMicrophonePermissionAlert = true
+                    fft.microphonePermissionDenied = false
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { _ in
+                // Stop the engine when the window is minimized to the Dock and restart when restored.
+                // This mirrors the iOS background behaviour and avoids unnecessary CPU/audio use
+                // while the window is hidden.
+                if fft.isRunning { tap.stop() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification)) { _ in
+                if !fft.isRunning { startAnalyzer() }
+            }
+            #endif
+            #if os(iOS)
+            // Stop the engine when the app moves to the background (iOS will suspend audio anyway,
+            // and keeping AVAudioEngine running burns battery and risks an OS kill).
+            // Restart automatically when the scene becomes active again.
+            // Note: .inactive fires for many transient system overlays (alerts, Control Centre,
+            // notifications) — stopping/restarting on those causes a false tap from the audio
+            // engine reinitialising.  Only .background signals a genuine move out of foreground.
+            .onChange(of: scenePhase) { _, newPhase in
+                switch newPhase {
+                case .background:
+                    if fft.isRunning { tap.stop() }
+                case .active:
+                    if !fft.isRunning { toggleAnalyzer() }
+                default:
+                    break
+                }
+            }
+            #endif
+            .alert("Microphone Access Required", isPresented: $showingMicrophonePermissionAlert) {
+                Button("Open Settings") {
+                    #if os(iOS)
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                    #elseif os(macOS)
+                    // The newer .extension URL is unreliable on non-developer/non-admin accounts
+                    // (can route to wrong pane). The legacy preference: scheme works consistently
+                    // across all account types on macOS Ventura, Sonoma, and Sequoia.
+                    let micPrivacyURLs = [
+                        "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+                        "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone"
+                    ]
+                    for urlString in micPrivacyURLs {
+                        if let url = URL(string: urlString), NSWorkspace.shared.open(url) {
+                            break
+                        }
+                    }
+                    #endif
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("GuitarTap needs microphone access to analyse tap tones. Please enable it in System Settings → Privacy & Security → Microphone.")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openMeasurementFile)) { notification in
+                guard let url = notification.object as? URL else { return }
+                importMeasurementFromURL(url)
+            }
+            .alert("Import Successful", isPresented: .init(
+                get: { openURLImportSuccess != nil },
+                set: { if !$0 { openURLImportSuccess = nil } }
+            )) {
+                Button("OK", role: .cancel) { openURLImportSuccess = nil }
+            } message: {
+                Text(openURLImportSuccess ?? "")
+            }
+            .alert("Import Error", isPresented: .init(
+                get: { openURLImportError != nil },
+                set: { if !$0 { openURLImportError = nil } }
+            )) {
+                Button("OK", role: .cancel) { openURLImportError = nil }
+            } message: {
+                Text(openURLImportError ?? "")
+            }
     }
 }
 

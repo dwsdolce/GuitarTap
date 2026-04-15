@@ -191,7 +191,7 @@ extension View {
         #if os(macOS)
         self.help(text)
         #else
-        self.accessibilityHint(text)
+        self
         #endif
     }
 }

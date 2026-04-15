@@ -55,7 +55,7 @@ Coloured markers label each resonant peak with its mode, frequency, and pitch. I
 
 ### Step 5 — Read the Results
 
-On iOS/iPadOS, tap Results to open the results panel. On macOS, the results panel is always visible on the right side of the window. The panel shows the peak list with frequency, magnitude, Q factor, bandwidth, and pitch. Decay time (ring-out in seconds) and Tap Tone Ratio (Top ÷ Air) are shown when applicable. Typical top/air ratios range from 1.8 to 2.4 for quality instruments.
+On iPhone, tap the Results button (doc icon) in the toolbar to open the results panel as a sheet. On iPad and macOS the results panel is always visible on the right side of the screen or window. The panel shows the peak list with frequency, magnitude, Q factor, bandwidth, and pitch. Decay time (ring-out in seconds) and Tap Tone Ratio (Top ÷ Air) are shown when applicable. Typical top/air ratios range from 1.8 to 2.4 for quality instruments.
 
 ### Multi-Tap Averaging
 
@@ -150,9 +150,17 @@ Temporarily suspends tap detection while keeping the spectrum live. Useful betwe
 
 Aborts a multi-tap or plate measurement sequence and discards the partial data.
 
-### ![](/tmp/guitar-tap-symbols/doc.text.png){height=14pt width=14pt} Results (iOS/iPadOS)
+### ![](/tmp/guitar-tap-symbols/doc.text.png){height=14pt width=14pt} Results
 
-Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons. On macOS this button is not shown — the results panel is permanently visible on the right side of the window.
+Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons. On iPad (horizontal layout) and macOS this button is not shown — the results panel is permanently visible on the right side of the screen/window.
+
+### Toolbar Layout (iPhone) *(iOS only)*
+
+On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Auto dB; trailing (right) side — Metrics, Settings. In landscape orientation, the leading side also includes Crosshair and Annotations, and the trailing side adds Save and Measurements.
+
+### Toolbar Layout (iPad) *(iOS only)*
+
+On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings. The tap controls (taps, threshold, peak min) remain below the toolbar.
 
 ### ![](/tmp/guitar-tap-symbols/arrow.up.arrow.down.circle.png){height=14pt width=14pt} Auto dB
 
@@ -162,7 +170,7 @@ Scales the magnitude axis to fit the current signal. Tap it after each measureme
 
 Cycles through three label modes: All peaks annotated, Selected peaks only, or None.
 
-### ![](/tmp/guitar-tap-symbols/tag.png){height=14pt width=14pt} Peak Labels
+### Peak Labels
 
 Drag any peak label to reposition it and avoid overlaps. To reset an individual label: double-tap it (iOS/iPadOS) or right-click it and choose "Reset Position" (macOS). To reset all labels at once: use the ellipsis menu's "Reset Labels" (iOS/iPadOS) or right-click the chart area (not a label) and choose "Reset Labels" (macOS).
 

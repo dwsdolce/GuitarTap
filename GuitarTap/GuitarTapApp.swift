@@ -99,6 +99,49 @@ let appTitle: String = {
 }()
 
 #if os(macOS)
+// MARK: - Focused Scene Values
+
+/// Keys that `TapToneAnalysisView` publishes into the focused scene so that
+/// `AppCommands` can drive them from the menu bar without a direct view reference.
+private struct SaveMeasurementKey: FocusedValueKey { typealias Value = () -> Void }
+private struct ExportSpectrumKey: FocusedValueKey { typealias Value = () -> Void }
+private struct ExportPDFKey: FocusedValueKey { typealias Value = () -> Void }
+private struct AutoScaleDBKey: FocusedValueKey { typealias Value = () -> Void }
+private struct CycleAnnotationsKey: FocusedValueKey { typealias Value = () -> Void }
+private struct ShowMetricsKey: FocusedValueKey { typealias Value = () -> Void }
+private struct ShowMeasurementsKey: FocusedValueKey { typealias Value = () -> Void }
+
+extension FocusedValues {
+    var saveMeasurement: (() -> Void)? {
+        get { self[SaveMeasurementKey.self] }
+        set { self[SaveMeasurementKey.self] = newValue }
+    }
+    var exportSpectrum: (() -> Void)? {
+        get { self[ExportSpectrumKey.self] }
+        set { self[ExportSpectrumKey.self] = newValue }
+    }
+    var exportPDF: (() -> Void)? {
+        get { self[ExportPDFKey.self] }
+        set { self[ExportPDFKey.self] = newValue }
+    }
+    var autoScaleDB: (() -> Void)? {
+        get { self[AutoScaleDBKey.self] }
+        set { self[AutoScaleDBKey.self] = newValue }
+    }
+    var cycleAnnotations: (() -> Void)? {
+        get { self[CycleAnnotationsKey.self] }
+        set { self[CycleAnnotationsKey.self] = newValue }
+    }
+    var showMetrics: (() -> Void)? {
+        get { self[ShowMetricsKey.self] }
+        set { self[ShowMetricsKey.self] = newValue }
+    }
+    var showMeasurements: (() -> Void)? {
+        get { self[ShowMeasurementsKey.self] }
+        set { self[ShowMeasurementsKey.self] = newValue }
+    }
+}
+
 // MARK: - macOS Menu Commands
 
 /// macOS menu bar command definitions for GuitarTap.
@@ -106,20 +149,84 @@ let appTitle: String = {
 /// Removes the default "New Window" item (the app uses a single `Window` scene)
 /// and replaces the standard Help menu entry with a button that opens the
 /// dedicated Help window (`id: "help"`) via the `openWindow` environment action.
+///
+/// File and View menu items delegate to the focused scene via `@FocusedValue`
+/// so they always target the active `TapToneAnalysisView`.
 struct AppCommands: Commands {
-    @Environment(\.openWindow) private var openWindow
+    @FocusedValue(\.saveMeasurement) private var saveMeasurement
+    @FocusedValue(\.exportSpectrum) private var exportSpectrum
+    @FocusedValue(\.exportPDF) private var exportPDF
+    @FocusedValue(\.autoScaleDB) private var autoScaleDB
+    @FocusedValue(\.cycleAnnotations) private var cycleAnnotations
+    @FocusedValue(\.showMetrics) private var showMetrics
+    @FocusedValue(\.showMeasurements) private var showMeasurements
 
     var body: some Commands {
         // Remove the "New Window" menu command while preserving the standard app menu
         CommandGroup(replacing: .newItem) {}
 
-        // Replace the default Help menu with one that opens our Help window
-        CommandGroup(replacing: .help) {
-            Button("\(appTitle) Help") {
-                openWindow(id: "help")
+        // File menu — Save and Export actions
+        CommandGroup(after: .saveItem) {
+            Button("Save Measurement…") {
+                saveMeasurement?()
             }
-            .keyboardShortcut("?", modifiers: .command)
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(saveMeasurement == nil)
+
+            Divider()
+
+            Button("Export Spectrum Image…") {
+                exportSpectrum?()
+            }
+            .keyboardShortcut("e", modifiers: .command)
+            .disabled(exportSpectrum == nil)
+
+            Button("Export PDF Report…") {
+                exportPDF?()
+            }
+            .keyboardShortcut("e", modifiers: [.command, .shift])
+            .disabled(exportPDF == nil)
         }
+
+        // View menu — inject display controls after the sidebar group so they
+        // appear in the existing View menu rather than creating a duplicate.
+        CommandGroup(after: .sidebar) {
+            Divider()
+
+            Button("Auto dB") {
+                autoScaleDB?()
+            }
+            .keyboardShortcut("0", modifiers: .command)
+            .disabled(autoScaleDB == nil)
+
+            Button("Cycle Annotations") {
+                cycleAnnotations?()
+            }
+            .keyboardShortcut("`", modifiers: .command)
+            .disabled(cycleAnnotations == nil)
+
+            Divider()
+
+            Button("Show Metrics") {
+                showMetrics?()
+            }
+            .keyboardShortcut("m", modifiers: .command)
+            .disabled(showMetrics == nil)
+
+            Button("Show Measurements") {
+                showMeasurements?()
+            }
+            .keyboardShortcut("l", modifiers: .command)
+            .disabled(showMeasurements == nil)
+        }
+
+        // Remove Edit menu groups that have no use in GuitarTap (no undo/redo
+        // support, no document editing, find, spell-check, or text transformations).
+        CommandGroup(replacing: .undoRedo) {}
+        CommandGroup(replacing: .textEditing) {}
+
+        // Keep the default Help menu as-is; the system Help menu item
+        // is sufficient and the search field works for menu navigation.
     }
 }
 #endif
@@ -148,13 +255,20 @@ struct GuitarTapApp: App {
         .defaultSize(width: 1200, height: 800)
         .commands { AppCommands() }
 
-        // Help window - opened from the Help menu
+        // Help window - opened via the Help menu item.
+        // .commandsRemoved() prevents SwiftUI from adding a "Help" entry to
+        // the Window menu for this scene.
         Window("Help", id: "help") {
             NavigationStack {
                 HelpView()
             }
+            .onAppear {
+                // Prevent the Help window from being restored on next launch.
+                NSApp.windows.first { $0.title == "Help" }?.isRestorable = false
+            }
         }
         .defaultSize(width: 520, height: 620)
+        .commandsRemoved()
         #else
         // On iOS, WindowGroup is appropriate
         WindowGroup {

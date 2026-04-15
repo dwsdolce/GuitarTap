@@ -32,7 +32,7 @@
 ///   layout wraps `mainContentView` in a `NavigationView` to provide a nav bar
 ///   for toolbar items on compact devices.
 /// - **iPhone landscape**: A horizontal split with a 200 pt scrollable control
-///   panel on the left and the spectrum on the right.
+///   panel on the left and the spectrum on the right. Results use a sheet.
 ///
 /// A `LoadingOverlay` is shown during spectrum export, measurement save, and
 /// PDF report generation on both platforms.
@@ -265,10 +265,15 @@ extension TapToneAnalysisView {
 
     #if os(iOS)
     /// iPad horizontal layout - spectrum on the left, results panel on the right (like macOS).
+    /// Toolbar mirrors iPhone landscape: leading has Auto dB/Crosshair/Annotations,
+    /// trailing has Save/Measurements/Metrics/Settings. The header shows only tap controls.
     @ViewBuilder
     var iPadHorizontalLayout: some View {
         VStack(spacing: 0) {
-            headerView
+            // Tap sequence controls only — action/view buttons are in the toolbar
+            regularTapControls
+                .padding(.horizontal)
+                .padding(.top, 8)
 
             Divider()
 
@@ -307,7 +312,38 @@ extension TapToneAnalysisView {
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // Left: Auto dB, Crosshair, Annotations — mirrors iPhone landscape
+            ToolbarItemGroup(placement: .topBarLeading) {
+                Button(action: { toggleAutoScale() }) {
+                    Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                }
+                .tint(.blue)
+                .accessibilityLabel("Auto dB")
+                .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
+
+                Button(action: { crosshairMode.toggle() }) {
+                    Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
+                }
+                .tint(crosshairMode ? .blue : nil)
+                .accessibilityLabel("Crosshair")
+
+                Button(action: { tap.cycleAnnotationVisibility() }) {
+                    Image(systemName: tap.annotationVisibilityMode.iconName)
+                }
+                .tint(.blue)
+                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
+            }
+
+            // Right: Save, Measurements, Metrics, Settings — mirrors iPhone landscape
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Button(action: { showingSaveSheet = true }) {
+                    Image(systemName: "square.and.arrow.down")
+                }
+                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                .accessibilityLabel("Save")
+                .hint(HintText.save)
+
                 Button(action: { showingMeasurements = true }) {
                     Image(systemName: "list.bullet.clipboard")
                 }
@@ -329,7 +365,7 @@ extension TapToneAnalysisView {
         }
     }
 
-    /// iPhone landscape layout - controls on left, spectrum in the middle, results on the right
+    /// iPhone landscape layout - controls on left, spectrum on the right
     @ViewBuilder
     var phoneLandscapeLayout: some View {
         HStack(spacing: 0) {
@@ -346,7 +382,7 @@ extension TapToneAnalysisView {
 
             Divider()
 
-            // Centre: spectrum and status — claims remaining space before results pane sizes itself
+            // Right: spectrum and status — fills remaining space
             VStack(spacing: 0) {
                 // Spectrum view - fills available space
                 realTimeSpectrumView
@@ -357,25 +393,18 @@ extension TapToneAnalysisView {
                 compactStatusBar
             }
             .frame(maxWidth: .infinity)
-
-            Divider()
-
-            // Right side: analysis results panel
-            TapAnalysisResultsView(
-                analyzer: tap,
-                fftAnalyzer: fft,
-                minFreq: minFreq,
-                maxFreq: maxFreq,
-                onExportSpectrum: { exportCurrentSpectrum() },
-                onExportPDFReport: { exportPDFReport() }
-            )
-            .fixedSize(horizontal: true, vertical: false)
         }
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Left: Auto dB, Crosshair, Annotations
+            // Left: Results, Auto dB, Crosshair, Annotations
             ToolbarItemGroup(placement: .topBarLeading) {
+                Button(action: { showResults() }) {
+                    Image(systemName: "doc.text")
+                }
+                .accessibilityLabel("Results")
+                .hint(HintText.showResults)
+
                 Button(action: { toggleAutoScale() }) {
                     Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
@@ -557,8 +586,19 @@ extension TapToneAnalysisView {
     @ViewBuilder
     var standardVerticalLayout: some View {
         VStack(spacing: 0) {
-            // Header with controls
+            // Header: iPad uses toolbar for action buttons, so only tap controls shown here.
+            // iPhone uses the full headerView (icon button row + compact tap controls).
+            #if os(iOS)
+            if useCompactLayout {
+                headerView
+            } else {
+                regularTapControls
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+            }
+            #else
             headerView
+            #endif
 
             Divider()
 
@@ -594,7 +634,7 @@ extension TapToneAnalysisView {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if useCompactLayout {
-                // Left: Results, Auto dB
+                // iPhone — Left: Results, Auto dB
                 ToolbarItemGroup(placement: .topBarLeading) {
                     Button(action: { showingResults.toggle() }) {
                         Image(systemName: "doc.text")
@@ -610,7 +650,7 @@ extension TapToneAnalysisView {
                     .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
                 }
 
-                // Right: Metrics, Settings
+                // iPhone — Right: Metrics, Settings
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button(action: { showingMetrics.toggle() }) {
                         Image(systemName: "chart.bar")
@@ -624,8 +664,63 @@ extension TapToneAnalysisView {
                     .accessibilityLabel("Settings")
                     .hint(HintText.settings)
                 }
+            } else {
+                // iPad — Left: Results, Auto dB, Crosshair, Annotations
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button(action: { showResults() }) {
+                        Image(systemName: "doc.text")
+                    }
+                    .accessibilityLabel("Results")
+                    .hint(HintText.showResults)
 
+                    Button(action: { toggleAutoScale() }) {
+                        Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                    }
+                    .tint(.blue)
+                    .accessibilityLabel("Auto dB")
+                    .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
+                    Button(action: { crosshairMode.toggle() }) {
+                        Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
+                    }
+                    .tint(crosshairMode ? .blue : nil)
+                    .accessibilityLabel("Crosshair")
+
+                    Button(action: { tap.cycleAnnotationVisibility() }) {
+                        Image(systemName: tap.annotationVisibilityMode.iconName)
+                    }
+                    .tint(.blue)
+                    .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                    .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
+                }
+
+                // iPad — Right: Save, Measurements, Metrics, Settings
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: { showingSaveSheet = true }) {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                    .accessibilityLabel("Save")
+                    .hint(HintText.save)
+
+                    Button(action: { showingMeasurements = true }) {
+                        Image(systemName: "list.bullet.clipboard")
+                    }
+                    .accessibilityLabel("Measurements")
+                    .hint(HintText.measurements)
+
+                    Button(action: { showingMetrics.toggle() }) {
+                        Image(systemName: "chart.bar")
+                    }
+                    .accessibilityLabel("Metrics")
+                    .hint(HintText.showMetrics)
+
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                    .hint(HintText.settings)
+                }
             }
         }
         #endif

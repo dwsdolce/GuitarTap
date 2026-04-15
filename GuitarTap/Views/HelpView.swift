@@ -106,7 +106,7 @@ Three main workflows are supported:
                 )
                 helpRow(
                     title: "Step 5 — Read the Results",
-                    body: "On iOS/iPadOS, tap Results to open the results panel. On macOS, the results panel is always visible on the right side of the window. The panel shows the peak list with frequency, magnitude, Q factor, bandwidth, and pitch. Decay time (ring-out in seconds) and Tap Tone Ratio (Top ÷ Air) are shown when applicable. Typical top/air ratios range from 1.8 to 2.4 for quality instruments."
+                    body: "On iPhone, tap the Results button (doc icon) in the toolbar to open the results panel as a sheet. On iPad and macOS the results panel is always visible on the right side of the screen or window. The panel shows the peak list with frequency, magnitude, Q factor, bandwidth, and pitch. Decay time (ring-out in seconds) and Tap Tone Ratio (Top ÷ Air) are shown when applicable. Typical top/air ratios range from 1.8 to 2.4 for quality instruments."
                 )
                 helpRow(
                     title: "Multi-Tap Averaging",
@@ -219,10 +219,20 @@ After all taps, tap Results to see:
                     systemImages: ["xmark.circle"]
                 )
                 helpRow(
-                    title: "Results (iOS/iPadOS)",
-                    body: "Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons. On macOS this button is not shown — the results panel is permanently visible on the right side of the window.",
+                    title: "Results",
+                    body: "Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons. On iPad (horizontal layout) and macOS this button is not shown — the results panel is permanently visible on the right side of the screen/window.",
                     systemImages: ["doc.text"]
                 )
+                #if os(iOS)
+                helpRow(
+                    title: "Toolbar Layout (iPhone)",
+                    body: "On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Auto dB; trailing (right) side — Metrics, Settings. In landscape orientation, the leading side also includes Crosshair and Annotations, and the trailing side adds Save and Measurements."
+                )
+                helpRow(
+                    title: "Toolbar Layout (iPad)",
+                    body: "On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings. The tap controls (taps, threshold, peak min) remain below the toolbar."
+                )
+                #endif
                 helpRow(
                     title: "Auto dB",
                     body: "Scales the magnitude axis to fit the current signal. Tap it after each measurement to keep peaks visible.",
@@ -235,8 +245,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Peak Labels",
-                    body: "Drag any peak label to reposition it and avoid overlaps. To reset an individual label: double-tap it (iOS/iPadOS) or right-click it and choose \"Reset Position\" (macOS). To reset all labels at once: use the ellipsis menu's \"Reset Labels\" (iOS/iPadOS) or right-click the chart area (not a label) and choose \"Reset Labels\" (macOS).",
-                    systemImages: ["tag"]
+                    body: "Drag any peak label to reposition it and avoid overlaps. To reset an individual label: double-tap it (iOS/iPadOS) or right-click it and choose \"Reset Position\" (macOS). To reset all labels at once: use the ellipsis menu's \"Reset Labels\" (iOS/iPadOS) or right-click the chart area (not a label) and choose \"Reset Labels\" (macOS)."
                 )
                 helpRow(
                     title: "Save",
