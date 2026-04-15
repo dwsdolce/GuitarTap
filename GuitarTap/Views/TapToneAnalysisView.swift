@@ -92,6 +92,7 @@ struct TapToneAnalysisView: View {
     @State var showingMetrics = false
     @State var showingResults = false
     @State var showingSettings = false
+    @State var showingHelp = false
     @State var isExportingSpectrum = false
     @State var isSavingMeasurement = false
     @State var isGeneratingReport = false
@@ -239,6 +240,7 @@ struct TapToneAnalysisView: View {
             .focusedSceneValue(\.cycleAnnotations, { tap.cycleAnnotationVisibility() })
             .focusedSceneValue(\.showMetrics, { showingMetrics = true })
             .focusedSceneValue(\.showMeasurements, { showingMeasurements = true })
+            .focusedSceneValue(\.showSettings, { showingSettings = true })
         #endif
     }
 

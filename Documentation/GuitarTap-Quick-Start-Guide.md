@@ -156,11 +156,27 @@ Opens the analysis results panel: peak list, decay time, plate properties, quali
 
 ### Toolbar Layout (iPhone) *(iOS only)*
 
-On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Auto dB; trailing (right) side — Metrics, Settings. In landscape orientation, the leading side also includes Crosshair and Annotations, and the trailing side adds Save and Measurements.
+On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Auto dB; trailing (right) side — Metrics, Settings. In landscape orientation, the leading side also includes Crosshair and Annotations, and the trailing side adds Save, Measurements, and Help (?).
 
 ### Toolbar Layout (iPad) *(iOS only)*
 
-On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings. The tap controls (taps, threshold, peak min) remain below the toolbar.
+On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings, Help (?). The tap controls (taps, threshold, peak min) remain below the toolbar.
+
+### Menu Bar — GuitarTap Menu *(macOS only)*
+
+Settings… (⌘,) opens the Settings sheet.
+
+### Menu Bar — File Menu *(macOS only)*
+
+Save Measurement… (⌘S) saves the current spectrum. Export Spectrum Image… (⌘E) saves the chart as a PNG. Export PDF Report… (⇧⌘E) generates a PDF summary of the current measurement.
+
+### Menu Bar — View Menu *(macOS only)*
+
+Auto dB (⌘0) scales the magnitude axis to fit the current signal. Cycle Annotations (⌘`) steps through All / Selected / None label modes. Show Metrics (⌘M) opens the FFT engine statistics panel. Show Measurements (⌘L) opens the saved measurements list.
+
+### Menu Bar — Help Menu *(macOS only)*
+
+The Search field in the Help menu searches all menu items by name. Click 'GuitarTap Help' to open this Quick-Start Guide window.
 
 ### ![](/tmp/guitar-tap-symbols/arrow.up.arrow.down.circle.png){height=14pt width=14pt} Auto dB
 

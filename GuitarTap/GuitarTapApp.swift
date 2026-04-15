@@ -110,6 +110,7 @@ private struct AutoScaleDBKey: FocusedValueKey { typealias Value = () -> Void }
 private struct CycleAnnotationsKey: FocusedValueKey { typealias Value = () -> Void }
 private struct ShowMetricsKey: FocusedValueKey { typealias Value = () -> Void }
 private struct ShowMeasurementsKey: FocusedValueKey { typealias Value = () -> Void }
+private struct ShowSettingsKey: FocusedValueKey { typealias Value = () -> Void }
 
 extension FocusedValues {
     var saveMeasurement: (() -> Void)? {
@@ -140,6 +141,10 @@ extension FocusedValues {
         get { self[ShowMeasurementsKey.self] }
         set { self[ShowMeasurementsKey.self] = newValue }
     }
+    var showSettings: (() -> Void)? {
+        get { self[ShowSettingsKey.self] }
+        set { self[ShowSettingsKey.self] = newValue }
+    }
 }
 
 // MARK: - macOS Menu Commands
@@ -160,10 +165,20 @@ struct AppCommands: Commands {
     @FocusedValue(\.cycleAnnotations) private var cycleAnnotations
     @FocusedValue(\.showMetrics) private var showMetrics
     @FocusedValue(\.showMeasurements) private var showMeasurements
+    @FocusedValue(\.showSettings) private var showSettings
 
     var body: some Commands {
         // Remove the "New Window" menu command while preserving the standard app menu
         CommandGroup(replacing: .newItem) {}
+
+        // App menu — Settings item with standard ⌘, shortcut
+        CommandGroup(after: .appInfo) {
+            Button("Settings…") {
+                showSettings?()
+            }
+            .keyboardShortcut(",", modifiers: .command)
+            .disabled(showSettings == nil)
+        }
 
         // File menu — Save and Export actions
         CommandGroup(after: .saveItem) {

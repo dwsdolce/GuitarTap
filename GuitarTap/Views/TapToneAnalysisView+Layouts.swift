@@ -228,6 +228,16 @@ extension TapToneAnalysisView {
             )
             .interactiveDismissDisabled()
         }
+        .sheet(isPresented: $showingHelp) {
+            NavigationStack {
+                HelpView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showingHelp = false }
+                        }
+                    }
+            }
+        }
         .overlay { loadingOverlay }
     }
     #endif
@@ -335,7 +345,7 @@ extension TapToneAnalysisView {
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
             }
 
-            // Right: Save, Measurements, Metrics, Settings — mirrors iPhone landscape
+            // Right: Save, Measurements, Metrics, Settings, Help — mirrors iPhone landscape
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button(action: { showingSaveSheet = true }) {
                     Image(systemName: "square.and.arrow.down")
@@ -361,6 +371,11 @@ extension TapToneAnalysisView {
                 }
                 .accessibilityLabel("Settings")
                 .hint(HintText.settings)
+
+                Button(action: { showingHelp = true }) {
+                    Image(systemName: "questionmark.circle")
+                }
+                .accessibilityLabel("Help")
             }
         }
     }
@@ -426,7 +441,7 @@ extension TapToneAnalysisView {
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
             }
 
-            // Right: Save, Measurements, Metrics, Settings
+            // Right: Save, Measurements, Metrics, Settings, Help
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button(action: { showingSaveSheet = true }) {
                     Image(systemName: "square.and.arrow.down")
@@ -452,6 +467,11 @@ extension TapToneAnalysisView {
                 }
                 .accessibilityLabel("Settings")
                 .hint(HintText.settings)
+
+                Button(action: { showingHelp = true }) {
+                    Image(systemName: "questionmark.circle")
+                }
+                .accessibilityLabel("Help")
             }
         }
     }
@@ -694,7 +714,7 @@ extension TapToneAnalysisView {
                     .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
                 }
 
-                // iPad — Right: Save, Measurements, Metrics, Settings
+                // iPad — Right: Save, Measurements, Metrics, Settings, Help
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button(action: { showingSaveSheet = true }) {
                         Image(systemName: "square.and.arrow.down")
@@ -720,6 +740,11 @@ extension TapToneAnalysisView {
                     }
                     .accessibilityLabel("Settings")
                     .hint(HintText.settings)
+
+                    Button(action: { showingHelp = true }) {
+                        Image(systemName: "questionmark.circle")
+                    }
+                    .accessibilityLabel("Help")
                 }
             }
         }

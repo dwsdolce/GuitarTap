@@ -133,6 +133,8 @@ while i < len(lines):
     # Platform conditionals
     if stripped.startswith('#if os(iOS)'):
         platform = 'ios_only'; ios_depth += 1; i += 1; continue
+    if stripped.startswith('#elseif os(macOS)') and ios_depth > 0:
+        platform = 'macos_only'; i += 1; continue
     if stripped.startswith('#else') and ios_depth > 0:
         platform = 'macos_only'; i += 1; continue
     if stripped.startswith('#endif') and ios_depth > 0:

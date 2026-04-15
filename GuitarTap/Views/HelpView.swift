@@ -226,11 +226,28 @@ After all taps, tap Results to see:
                 #if os(iOS)
                 helpRow(
                     title: "Toolbar Layout (iPhone)",
-                    body: "On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Auto dB; trailing (right) side — Metrics, Settings. In landscape orientation, the leading side also includes Crosshair and Annotations, and the trailing side adds Save and Measurements."
+                    body: "On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Auto dB; trailing (right) side — Metrics, Settings. In landscape orientation, the leading side also includes Crosshair and Annotations, and the trailing side adds Save, Measurements, and Help (?)."
                 )
                 helpRow(
                     title: "Toolbar Layout (iPad)",
-                    body: "On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings. The tap controls (taps, threshold, peak min) remain below the toolbar."
+                    body: "On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings, Help (?). The tap controls (taps, threshold, peak min) remain below the toolbar."
+                )
+                #elseif os(macOS)
+                helpRow(
+                    title: "Menu Bar — GuitarTap Menu",
+                    body: "Settings… (⌘,) opens the Settings sheet."
+                )
+                helpRow(
+                    title: "Menu Bar — File Menu",
+                    body: "Save Measurement… (⌘S) saves the current spectrum. Export Spectrum Image… (⌘E) saves the chart as a PNG. Export PDF Report… (⇧⌘E) generates a PDF summary of the current measurement."
+                )
+                helpRow(
+                    title: "Menu Bar — View Menu",
+                    body: "Auto dB (⌘0) scales the magnitude axis to fit the current signal. Cycle Annotations (⌘`) steps through All / Selected / None label modes. Show Metrics (⌘M) opens the FFT engine statistics panel. Show Measurements (⌘L) opens the saved measurements list."
+                )
+                helpRow(
+                    title: "Menu Bar — Help Menu",
+                    body: "The Search field in the Help menu searches all menu items by name. Click 'GuitarTap Help' to open this Quick-Start Guide window."
                 )
                 #endif
                 helpRow(
