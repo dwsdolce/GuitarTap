@@ -419,12 +419,23 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// The subset of ``currentPeaks`` that should be rendered as annotations given
     /// the current ``annotationVisibilityMode``.
+    ///
+    /// In guitar mode, peaks classified as Unknown are excluded when
+    /// ``TapDisplaySettings/showUnknownModes`` is `false`, keeping the chart
+    /// consistent with the Analysis Results panel.
     var visiblePeaks: [ResonantPeak] {
+        let candidates: [ResonantPeak]
         switch annotationVisibilityMode {
-        case .all:      return currentPeaks
-        case .selected: return currentPeaks.filter { selectedPeakIDs.contains($0.id) }
+        case .all:      candidates = currentPeaks
+        case .selected: candidates = currentPeaks.filter { selectedPeakIDs.contains($0.id) }
         case .none:     return []
         }
+        // Filter unknown-mode peaks in guitar mode when the setting is off
+        guard TapDisplaySettings.measurementType.isGuitar,
+              !TapDisplaySettings.showUnknownModes else {
+            return candidates
+        }
+        return candidates.filter { GuitarMode.isKnown(frequency: $0.frequency) }
     }
 
     // MARK: - Plate / Brace Measurement State

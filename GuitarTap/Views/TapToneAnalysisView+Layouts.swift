@@ -151,7 +151,8 @@ extension TapToneAnalysisView {
     #endif
 
     #if os(iOS)
-    /// iOS layout - always uses sheets for Results and Metrics
+    /// iOS layout - uses sheets for Results and Metrics, except on iPad horizontal
+    /// where the results panel is shown inline (like macOS).
     @ViewBuilder
     var iOSLayout: some View {
         NavigationView {
@@ -170,6 +171,7 @@ extension TapToneAnalysisView {
             )
             .interactiveDismissDisabled()
         }
+        // Results sheet is only used on non-iPad-horizontal layouts
         .sheet(isPresented: $showingResults) {
             NavigationView {
                 TapAnalysisResultsView(
@@ -249,8 +251,11 @@ extension TapToneAnalysisView {
         if isPhoneLandscape {
             // iPhone landscape: horizontal layout with controls on left
             phoneLandscapeLayout
+        } else if isIPadHorizontal {
+            // iPad horizontal: show results panel inline like macOS
+            iPadHorizontalLayout
         } else {
-            // iPhone portrait, iPad, and macOS: vertical layout
+            // iPhone portrait and iPad portrait: vertical layout with sheet for results
             standardVerticalLayout
         }
         #else
@@ -259,7 +264,72 @@ extension TapToneAnalysisView {
     }
 
     #if os(iOS)
-    /// iPhone landscape layout - controls on left, spectrum on right
+    /// iPad horizontal layout - spectrum on the left, results panel on the right (like macOS).
+    @ViewBuilder
+    var iPadHorizontalLayout: some View {
+        VStack(spacing: 0) {
+            headerView
+
+            Divider()
+
+            HStack(spacing: 0) {
+                // Left pane: spectrum chart + decay info.
+                // minWidth prevents a zero-size layout pass from producing NaN
+                // coordinates in the annotations canvas.
+                GeometryReader { _ in
+                    VStack(spacing: 20) {
+                        realTimeSpectrumView
+                        decayTimeView
+                            .padding(.horizontal)
+                    }
+                    .padding(.vertical)
+                }
+                .frame(minWidth: 200, maxWidth: .infinity)
+
+                Divider()
+
+                // Right pane: scrollable analysis results, sized to its content
+                TapAnalysisResultsView(
+                    analyzer: tap,
+                    fftAnalyzer: fft,
+                    minFreq: minFreq,
+                    maxFreq: maxFreq,
+                    onExportSpectrum: { exportCurrentSpectrum() },
+                    onExportPDFReport: { exportPDFReport() }
+                )
+                .fixedSize(horizontal: true, vertical: false)
+            }
+
+            Divider()
+
+            statusBarView
+        }
+        .navigationTitle(appTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button(action: { showingMeasurements = true }) {
+                    Image(systemName: "list.bullet.clipboard")
+                }
+                .accessibilityLabel("Measurements")
+                .hint(HintText.measurements)
+
+                Button(action: { showingMetrics.toggle() }) {
+                    Image(systemName: "chart.bar")
+                }
+                .accessibilityLabel("Metrics")
+                .hint(HintText.showMetrics)
+
+                Button(action: { showingSettings = true }) {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+                .hint(HintText.settings)
+            }
+        }
+    }
+
+    /// iPhone landscape layout - controls on left, spectrum in the middle, results on the right
     @ViewBuilder
     var phoneLandscapeLayout: some View {
         HStack(spacing: 0) {
@@ -276,7 +346,7 @@ extension TapToneAnalysisView {
 
             Divider()
 
-            // Right side: spectrum and status
+            // Centre: spectrum and status — claims remaining space before results pane sizes itself
             VStack(spacing: 0) {
                 // Spectrum view - fills available space
                 realTimeSpectrumView
@@ -286,18 +356,26 @@ extension TapToneAnalysisView {
                 Divider()
                 compactStatusBar
             }
+            .frame(maxWidth: .infinity)
+
+            Divider()
+
+            // Right side: analysis results panel
+            TapAnalysisResultsView(
+                analyzer: tap,
+                fftAnalyzer: fft,
+                minFreq: minFreq,
+                maxFreq: maxFreq,
+                onExportSpectrum: { exportCurrentSpectrum() },
+                onExportPDFReport: { exportPDFReport() }
+            )
+            .fixedSize(horizontal: true, vertical: false)
         }
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Left: Results, Auto dB, Crosshair, Annotations
+            // Left: Auto dB, Crosshair, Annotations
             ToolbarItemGroup(placement: .topBarLeading) {
-                Button(action: { showingResults.toggle() }) {
-                    Image(systemName: "doc.text")
-                }
-                .accessibilityLabel("Results")
-                .hint(HintText.showResults)
-
                 Button(action: { toggleAutoScale() }) {
                     Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }

@@ -160,6 +160,16 @@ struct TapToneAnalysisView: View {
         #endif
     }
 
+    /// Returns true if running on iPad in a regular (horizontal) size class.
+    /// In this layout, the results panel is shown inline like macOS instead of as a sheet.
+    var isIPadHorizontal: Bool {
+        #if os(iOS)
+        return !isPhone && horizontalSizeClass == .regular
+        #else
+        return false
+        #endif
+    }
+
     /// Cancel button should only be enabled during active multi-tap detection
     var cancelButtonEnabled: Bool {
         // Must be multi-tap mode

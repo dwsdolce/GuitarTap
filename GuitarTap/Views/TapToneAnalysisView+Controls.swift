@@ -113,12 +113,14 @@ extension TapToneAnalysisView {
             HStack(spacing: 8) {
                 Spacer()
 
-                // Results button
-                Button(action: { showResults() }) {
-                    Label("Results", systemImage: "doc.text")
+                // Results button - only shown when not in horizontal layout (where results are always visible)
+                if !isIPadHorizontal {
+                    Button(action: { showResults() }) {
+                        Label("Results", systemImage: "doc.text")
+                    }
+                    .buttonStyle(.bordered)
+                    .hint(HintText.showResults)
                 }
-                .buttonStyle(.bordered)
-                .hint(HintText.showResults)
 
                 // Auto-scale dB toggle button (iPad)
                 Button(action: { toggleAutoScale() }) {
