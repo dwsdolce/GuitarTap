@@ -51,6 +51,11 @@
 			path = GuitarTap;
 			sourceTree = "<group>";
 		};
+		8975FA652F8EB6E900561C35 /* Documentation */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Documentation;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +80,7 @@
 			isa = PBXGroup;
 			children = (
 				89DA15642F5BFFFE004BF162 /* guitar_tap.xctestplan */,
+				8975FA652F8EB6E900561C35 /* Documentation */,
 				8902969A2F09D3F200B236AD /* GuitarTap */,
 				0CBE6B61B2B84CE89B019FE4 /* GuitarTapTests */,
 				8965D5BD2F061CE300243E14 /* Products */,
