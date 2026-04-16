@@ -150,7 +150,8 @@ extension TapToneAnalysisView {
                 Button(action: { showingSaveSheet = true }) {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
+                .tint(.blue)
                 .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
                 .hint(HintText.save)
             }
@@ -263,7 +264,8 @@ extension TapToneAnalysisView {
         Button(action: { showingSaveSheet = true }) {
             if iconOnly { Image(systemName: "square.and.arrow.down") } else { Label("Save", systemImage: "square.and.arrow.down") }
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.bordered)
+        .tint(.blue)
         .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
         .hint(HintText.save)
     }
