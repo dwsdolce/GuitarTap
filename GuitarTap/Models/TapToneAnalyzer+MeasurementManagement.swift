@@ -126,29 +126,73 @@ extension TapToneAnalyzer {
 
     // MARK: - Measurement Management
     
+    /// Builds a per-phase ``SpectrumSnapshot`` from magnitude/frequency arrays.
+    ///
+    /// Mirrors Python's ``_make_phase_snapshot`` on the model. The helper is a
+    /// model method (not a view-local function) because the model owns the
+    /// per-phase spectrum data (`longitudinalSpectrum`, `crossSpectrum`,
+    /// `flcSpectrum`) and builds all snapshots internally.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: dB magnitude array for this phase.
+    ///   - frequencies: Hz frequency array for this phase.
+    ///   - minFreq: Visible axis minimum frequency, from the view.
+    ///   - maxFreq: Visible axis maximum frequency, from the view.
+    ///   - minDB: Visible axis minimum dB, from the view.
+    ///   - maxDB: Visible axis maximum dB, from the view.
+    private func makePhaseSnapshot(
+        magnitudes: [Float],
+        frequencies: [Float],
+        minFreq: Float,
+        maxFreq: Float,
+        minDB: Float,
+        maxDB: Float
+    ) -> SpectrumSnapshot {
+        let measurementType = TapDisplaySettings.measurementType
+        return SpectrumSnapshot(
+            frequencies: frequencies,
+            magnitudes: magnitudes,
+            minFreq: minFreq,
+            maxFreq: maxFreq,
+            minDB: minDB,
+            maxDB: maxDB,
+            isLogarithmic: false,
+            showUnknownModes: TapDisplaySettings.showUnknownModes,
+            guitarType: TapDisplaySettings.guitarType,
+            measurementType: measurementType,
+            maxPeaks: maxPeaks,
+            plateLength: measurementType == .plate ? TapDisplaySettings.plateLength : nil,
+            plateWidth: measurementType == .plate ? TapDisplaySettings.plateWidth : nil,
+            plateThickness: measurementType == .plate ? TapDisplaySettings.plateThickness : nil,
+            plateMass: measurementType == .plate ? TapDisplaySettings.plateMass : nil,
+            guitarBodyLength: measurementType == .plate ? TapDisplaySettings.guitarBodyLength : nil,
+            guitarBodyWidth: measurementType == .plate ? TapDisplaySettings.guitarBodyWidth : nil,
+            plateStiffnessPreset: measurementType == .plate ? TapDisplaySettings.plateStiffnessPreset : nil,
+            customPlateStiffness: measurementType == .plate ? TapDisplaySettings.customPlateStiffness : nil,
+            measureFlc: measurementType == .plate ? TapDisplaySettings.measureFlc : nil,
+            braceLength: measurementType == .brace ? TapDisplaySettings.braceLength : nil,
+            braceWidth: measurementType == .brace ? TapDisplaySettings.braceWidth : nil,
+            braceThickness: measurementType == .brace ? TapDisplaySettings.braceThickness : nil,
+            braceMass: measurementType == .brace ? TapDisplaySettings.braceMass : nil
+        )
+    }
+
     /// Captures the current analyser state into a new ``TapToneMeasurement``
     /// and appends it to `savedMeasurements`.
     ///
     /// For **guitar** measurements a combined `SpectrumSnapshot` is built from
-    /// the frozen or live spectrum. For **plate/brace** measurements the
-    /// combined snapshot is `nil`; per-phase snapshots should be passed in
-    /// `longitudinalSnapshot`, `crossSnapshot`, and `flcSnapshot`.
+    /// the frozen or live spectrum. For **plate/brace** measurements all three
+    /// per-phase snapshots are built internally from `longitudinalSpectrum`,
+    /// `crossSpectrum`, and `flcSpectrum` using `makePhaseSnapshot`.
     ///
     /// - Parameters:
     ///   - tapLocation: A short label for where the measurement was taken,
     ///     e.g. `"Top — Bridge"`.
     ///   - notes: Free-text user notes to attach to the measurement.
-    ///   - includeSpectrum: When `true` and the measurement type is guitar,
-    ///     a `SpectrumSnapshot` is generated from the current (frozen or live)
-    ///     FFT data.
-    ///   - spectrumSnapshot: Pre-built guitar spectrum snapshot. If `nil` and
-    ///     `includeSpectrum` is `true`, one is built from the live/frozen FFT.
-    ///   - longitudinalSnapshot: Pre-built spectrum snapshot for the
-    ///     longitudinal phase (plate/brace measurements).
-    ///   - crossSnapshot: Pre-built spectrum snapshot for the cross-grain
-    ///     phase (plate measurements).
-    ///   - flcSnapshot: Pre-built spectrum snapshot for the FLC phase (plate
-    ///     measurements with FLC enabled).
+    ///   - includeSpectrum: When `true`, spectrum snapshots are generated.
+    ///   - spectrumSnapshot: Optional override for the guitar snapshot. If
+    ///     `nil` and `includeSpectrum` is `true`, one is built from the
+    ///     live/frozen FFT.
     ///   - annotationOffsets: Custom annotation drag offsets to persist. If
     ///     `nil`, `peakAnnotationOffsets` is used.
     ///   - selectedLongitudinalPeakID: UUID of the user/auto-selected
@@ -168,9 +212,6 @@ extension TapToneAnalyzer {
         notes: String? = nil,
         includeSpectrum: Bool = true,
         spectrumSnapshot: SpectrumSnapshot? = nil,
-        longitudinalSnapshot: SpectrumSnapshot? = nil,
-        crossSnapshot: SpectrumSnapshot? = nil,
-        flcSnapshot: SpectrumSnapshot? = nil,
         annotationOffsets: [UUID: CGPoint]? = nil,
         selectedLongitudinalPeakID: UUID? = nil,
         selectedCrossPeakID: UUID? = nil,
@@ -184,18 +225,27 @@ extension TapToneAnalyzer {
         maxDB: Float? = nil
     ) {
         let measurementType = TapDisplaySettings.measurementType
-        
-        // For guitar measurements: save a single spectrum snapshot as before.
-        // For plate/brace: per-phase snapshots are used instead; no combined snapshot needed.
+
+        // Resolve axis range — fall back to TapDisplaySettings when not passed by view.
+        // Mirrors Python: _min_freq = min_freq if min_freq is not None else TDS.min_frequency()
+        let _minFreq = minFreq ?? TapDisplaySettings.minFrequency
+        let _maxFreq = maxFreq ?? TapDisplaySettings.maxFrequency
+        let _minDB   = minDB   ?? TapDisplaySettings.minMagnitude
+        let _maxDB   = maxDB   ?? 0.0
+
+        // Build guitar SpectrumSnapshot internally from frozen/live FFT.
+        // Mirrors Python: guitar_snapshot = spectrum_snapshot or SpectrumSnapshot(...)
         let snapshot: SpectrumSnapshot?
         if includeSpectrum && measurementType.isGuitar {
+            let freqs = isMeasurementComplete ? frozenFrequencies : fftAnalyzer.frequencies
+            let mags  = isMeasurementComplete ? frozenMagnitudes  : fftAnalyzer.magnitudes
             snapshot = spectrumSnapshot ?? SpectrumSnapshot(
-                frequencies: isMeasurementComplete ? frozenFrequencies : fftAnalyzer.frequencies,
-                magnitudes: isMeasurementComplete ? frozenMagnitudes : fftAnalyzer.magnitudes,
-                minFreq: minFreq ?? TapDisplaySettings.minFrequency,
-                maxFreq: maxFreq ?? TapDisplaySettings.maxFrequency,
-                minDB: minDB ?? TapDisplaySettings.minMagnitude,
-                maxDB: maxDB ?? TapDisplaySettings.maxMagnitude,
+                frequencies: freqs,
+                magnitudes: mags,
+                minFreq: _minFreq,
+                maxFreq: _maxFreq,
+                minDB: _minDB,
+                maxDB: _maxDB,
                 isLogarithmic: false,
                 showUnknownModes: TapDisplaySettings.showUnknownModes,
                 guitarType: TapDisplaySettings.guitarType,
@@ -205,7 +255,32 @@ extension TapToneAnalyzer {
         } else {
             snapshot = nil
         }
-        
+
+        // Build per-phase snapshots internally from model state.
+        // Mirrors Python: longitudinal_snapshot = self._make_phase_snapshot(...)
+        let phaseArgs = (minFreq: _minFreq, maxFreq: _maxFreq, minDB: _minDB, maxDB: _maxDB)
+        let longitudinalSnapshot: SpectrumSnapshot? = {
+            guard includeSpectrum, !measurementType.isGuitar,
+                  let spec = longitudinalSpectrum else { return nil }
+            return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies,
+                                     minFreq: phaseArgs.minFreq, maxFreq: phaseArgs.maxFreq,
+                                     minDB: phaseArgs.minDB, maxDB: phaseArgs.maxDB)
+        }()
+        let crossSnapshot: SpectrumSnapshot? = {
+            guard includeSpectrum, measurementType == .plate,
+                  let spec = crossSpectrum else { return nil }
+            return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies,
+                                     minFreq: phaseArgs.minFreq, maxFreq: phaseArgs.maxFreq,
+                                     minDB: phaseArgs.minDB, maxDB: phaseArgs.maxDB)
+        }()
+        let flcSnapshot: SpectrumSnapshot? = {
+            guard includeSpectrum, measurementType == .plate,
+                  let spec = flcSpectrum else { return nil }
+            return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies,
+                                     minFreq: phaseArgs.minFreq, maxFreq: phaseArgs.maxFreq,
+                                     minDB: phaseArgs.minDB, maxDB: phaseArgs.maxDB)
+        }()
+
         let measurement = TapToneMeasurement(
             peaks: currentPeaks,
             decayTime: currentDecayTime,
@@ -234,10 +309,10 @@ extension TapToneAnalyzer {
             microphoneUID: microphoneUID,
             calibrationName: calibrationName
         )
-        
+
         savedMeasurements.append(measurement)
         print("💾 Saved measurement with \(currentPeaks.count) peaks, type: \(measurementType.shortName)")
-        
+
         // Persist to disk
         persistMeasurements()
     }

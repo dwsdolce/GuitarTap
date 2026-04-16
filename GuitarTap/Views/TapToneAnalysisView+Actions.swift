@@ -115,62 +115,14 @@ extension TapToneAnalysisView {
     func saveMeasurement() {
         isSavingMeasurement = true
 
-        let measurementType = TapDisplaySettings.measurementType
-
-        // Build a helper to create a SpectrumSnapshot from a phase spectrum
-        func makePhaseSnapshot(magnitudes: [Float], frequencies: [Float]) -> SpectrumSnapshot {
-            SpectrumSnapshot(
-                frequencies: frequencies,
-                magnitudes: magnitudes,
-                minFreq: minFreq,
-                maxFreq: maxFreq,
-                minDB: minDB,
-                maxDB: maxDB,
-                isLogarithmic: false,
-                showUnknownModes: TapDisplaySettings.showUnknownModes,
-                guitarType: TapDisplaySettings.guitarType,
-                measurementType: measurementType,
-                maxPeaks: tap.maxPeaks,
-                plateLength: measurementType == .plate ? TapDisplaySettings.plateLength : nil,
-                plateWidth: measurementType == .plate ? TapDisplaySettings.plateWidth : nil,
-                plateThickness: measurementType == .plate ? TapDisplaySettings.plateThickness : nil,
-                plateMass: measurementType == .plate ? TapDisplaySettings.plateMass : nil,
-                guitarBodyLength: measurementType == .plate ? TapDisplaySettings.guitarBodyLength : nil,
-                guitarBodyWidth: measurementType == .plate ? TapDisplaySettings.guitarBodyWidth : nil,
-                plateStiffnessPreset: measurementType == .plate ? TapDisplaySettings.plateStiffnessPreset : nil,
-                customPlateStiffness: measurementType == .plate ? TapDisplaySettings.customPlateStiffness : nil,
-                measureFlc: measurementType == .plate ? TapDisplaySettings.measureFlc : nil,
-                braceLength: measurementType == .brace ? TapDisplaySettings.braceLength : nil,
-                braceWidth: measurementType == .brace ? TapDisplaySettings.braceWidth : nil,
-                braceThickness: measurementType == .brace ? TapDisplaySettings.braceThickness : nil,
-                braceMass: measurementType == .brace ? TapDisplaySettings.braceMass : nil
-            )
-        }
-
-        // For plate/brace: build per-phase snapshots. For guitar: build a single snapshot.
-        let longSnap: SpectrumSnapshot? = {
-            guard !measurementType.isGuitar,
-                  let spec = tap.longitudinalSpectrum else { return nil }
-            return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies)
-        }()
-        let crossSnap: SpectrumSnapshot? = {
-            guard measurementType == .plate,
-                  let spec = tap.crossSpectrum else { return nil }
-            return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies)
-        }()
-        let flcSnap: SpectrumSnapshot? = {
-            guard measurementType == .plate,
-                  let spec = tap.flcSpectrum else { return nil }
-            return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies)
-        }()
-
+        // Pass only view-layer state: axis range floats, device identity, and
+        // effective peak role IDs. The model builds all SpectrumSnapshot objects
+        // internally from its own state (frozen/live FFT, longitudinalSpectrum etc.)
+        // using makePhaseSnapshot. Mirrors Python TapToneAnalysisView.save_measurement().
         tapToneAnalyzer.saveMeasurement(
             tapLocation: tapLocation.isEmpty ? nil : tapLocation,
             notes: notes.isEmpty ? nil : notes,
             includeSpectrum: true,
-            longitudinalSnapshot: longSnap,
-            crossSnapshot: crossSnap,
-            flcSnapshot: flcSnap,
             annotationOffsets: tap.peakAnnotationOffsets,
             selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
             selectedCrossPeakID: tap.effectiveCrossPeakID,
