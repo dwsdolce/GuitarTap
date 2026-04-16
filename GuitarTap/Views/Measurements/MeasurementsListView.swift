@@ -105,7 +105,11 @@ struct MeasurementsListView: View {
                     importError = "Failed to open file: \(error.localizedDescription)"
                 }
             }
-            .fileDialogDefaultDirectory(MeasurementFileExporter.startDirectory)
+            // Use only a previously user-selected directory as the default — never a
+            // programmatically constructed path.  A synthetic ~/Documents/GuitarTap URL
+            // has no sandbox extension; the fileImporter may navigate there but the
+            // resulting URL can fail Data(contentsOf:) with EPERM.
+            .fileDialogDefaultDirectory(MeasurementFileExporter.lastUsedDirectory)
             .fileDialogCustomizationID("com.dolcesfogato.guitartap.measurement-dir")
             .alert("Import Error", isPresented: .constant(importError != nil)) {
                 Button("OK") { importError = nil }
@@ -569,8 +573,25 @@ struct MeasurementsListView: View {
             }
             importSuccess = successMsg
         } catch {
-            importError = "Failed to import: \(error.localizedDescription)"
+            importError = importErrorMessage(for: error, url: url)
         }
+    }
+
+    /// Returns a user-facing error message for an import failure.
+    /// Provides actionable guidance when the failure is a sandbox permission error.
+    private func importErrorMessage(for error: Error, url: URL) -> String {
+        let nsError = error as NSError
+        let isPermissionError = (nsError.domain == NSPOSIXErrorDomain && nsError.code == 1) ||
+                                (nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoPermissionError)
+        let isFormatError = nsError.domain == NSCocoaErrorDomain &&
+                            (nsError.code == NSFileReadCorruptFileError || nsError.code == 4864 /* Swift.DecodingError */)
+        if isPermissionError {
+            return "Could not read \"\(url.lastPathComponent)\": the system denied access (error \(nsError.code))."
+        }
+        if isFormatError {
+            return "Could not import \"\(url.lastPathComponent)\": the file is not a valid GuitarTap measurement."
+        }
+        return "Could not import \"\(url.lastPathComponent)\": \(error.localizedDescription)"
     }
 }
 

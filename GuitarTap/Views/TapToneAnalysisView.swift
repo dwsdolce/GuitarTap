@@ -284,7 +284,18 @@ struct TapToneAnalysisView: View {
             }
             openURLImportSuccess = message
         } catch {
-            openURLImportError = "Failed to import: \(error.localizedDescription)"
+            let nsError = error as NSError
+            let isPermissionError = (nsError.domain == NSPOSIXErrorDomain && nsError.code == 1) ||
+                                    (nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoPermissionError)
+            let isFormatError = nsError.domain == NSCocoaErrorDomain &&
+                                (nsError.code == NSFileReadCorruptFileError || nsError.code == 4864)
+            if isPermissionError {
+                openURLImportError = "Could not read \"\(url.lastPathComponent)\": the system denied access (error \(nsError.code))."
+            } else if isFormatError {
+                openURLImportError = "Could not import \"\(url.lastPathComponent)\": the file is not a valid GuitarTap measurement."
+            } else {
+                openURLImportError = "Could not import \"\(url.lastPathComponent)\": \(error.localizedDescription)"
+            }
         }
     }
 }

@@ -45,29 +45,23 @@ struct MeasurementFileExporter {
     private static let lastUsedDirectoryKey = "GuitarTap.lastUsedExportDirectory"
 
     /// The directory the user last saved to or opened from, persisted across launches
-    /// via a security-scoped bookmark in UserDefaults.  Shared across all save/open
-    /// panels so that the user's working location is remembered — mirrors expected
-    /// macOS spatial-memory UX.
+    /// as a plain path string in UserDefaults.  Used only as a starting location hint
+    /// for NSSavePanel / fileImporter — the panel itself grants access, so no
+    /// security-scoped bookmark is needed here.
     static var lastUsedDirectory: URL? {
         get {
-            guard let data = UserDefaults.standard.data(forKey: lastUsedDirectoryKey) else { return nil }
-            var isStale = false
-            let url = try? URL(resolvingBookmarkData: data,
-                               options: .withSecurityScope,
-                               relativeTo: nil,
-                               bookmarkDataIsStale: &isStale)
-            if isStale { return nil }
+            guard let path = UserDefaults.standard.string(forKey: lastUsedDirectoryKey) else { return nil }
+            let url = URL(fileURLWithPath: path, isDirectory: true)
+            // Verify the directory still exists before using it as a hint.
+            guard FileManager.default.fileExists(atPath: path) else { return nil }
             return url
         }
         set {
-            guard let url = newValue,
-                  let data = try? url.bookmarkData(options: .withSecurityScope,
-                                                   includingResourceValuesForKeys: nil,
-                                                   relativeTo: nil) else {
+            if let path = newValue?.path {
+                UserDefaults.standard.set(path, forKey: lastUsedDirectoryKey)
+            } else {
                 UserDefaults.standard.removeObject(forKey: lastUsedDirectoryKey)
-                return
             }
-            UserDefaults.standard.set(data, forKey: lastUsedDirectoryKey)
         }
     }
 

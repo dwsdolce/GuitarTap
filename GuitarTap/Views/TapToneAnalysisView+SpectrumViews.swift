@@ -56,8 +56,20 @@ extension TapToneAnalysisView {
     // isMeasurementComplete twice (once per property) could produce
     // mismatched lengths when the flag flips between the two evaluations,
     // which causes SwiftUI Charts to render spurious vertical line artifacts.
+    //
+    // Guard: when isMeasurementComplete is true but frozenFrequencies is still
+    // empty (transient race during loadMeasurement while the live FFT is still
+    // publishing), return empty arrays rather than the live 32768-bin data.
+    // This prevents the one-frame bar-forest artifact seen when a measurement
+    // is loaded while the audio engine is running.
     private var displaySpectrum: (frequencies: [Float], magnitudes: [Float]) {
         if tap.isMeasurementComplete {
+            // For plate/brace measurements frozen arrays are intentionally empty
+            // (phase spectra live in materialSpectra); always return them as-is.
+            // For guitar, guard against the transient empty-frozen / live-running race.
+            if tap.frozenFrequencies.isEmpty && tap.materialTapPhase != .complete {
+                return ([], [])
+            }
             return (tap.frozenFrequencies, tap.frozenMagnitudes)
         } else {
             return (fft.frequencies, fft.magnitudes)

@@ -365,7 +365,7 @@ extension TapToneAnalyzer {
     func importMeasurements(from jsonData: Data) throws -> [TapToneMeasurement] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        
+
         let measurements = try decoder.decode([TapToneMeasurement].self, from: jsonData)
         
         // Add imported measurements
