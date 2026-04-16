@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GuitarTap User Manual</title>
+  <style>
+/* ==========================================================================
+   GuitarTap User Manual — manual.css
+   Serves both HTML (web view) and PDF (WeasyPrint) output.
+   PDF-specific overrides are in the @media print block at the bottom.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Custom properties / theme
+   -------------------------------------------------------------------------- */
+:root {
+    --color-brand:       #1a6ab5;   /* GuitarTap blue */
+    --color-brand-dark:  #104d87;
+    --color-accent:      #e07a00;   /* amber accent */
+    --color-bg:          #ffffff;
+    --color-surface:     #f5f7fa;
+    --color-border:      #d0d7e0;
+    --color-text:        #1a1a1a;
+    --color-muted:       #5a6070;
+    --color-link:        #1a6ab5;
+    --color-note-bg:     #eef4fb;
+    --color-note-border: #7ab0de;
+    --color-warn-bg:     #fef8ec;
+    --color-warn-border: #e0a800;
+
+    --font-body:    system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-heading: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono:    "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+
+    --sidebar-width: 240px;
+    --content-max:   860px;
+    --line-height:   1.65;
+    --base-size:     16px;
+}
+
+/* --------------------------------------------------------------------------
+   Reset / base
+   -------------------------------------------------------------------------- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: var(--base-size);
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: var(--line-height);
+    color: var(--color-text);
+    background: var(--color-bg);
+}
+
+/* --------------------------------------------------------------------------
+   Layout — sidebar + content
+   -------------------------------------------------------------------------- */
+#layout {
+    display: flex;
+    align-items: flex-start;
+    min-height: 100vh;
+}
+
+/* Sidebar navigation */
+#sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    padding: 1.5rem 0.75rem 2rem;
+    font-size: 0.82rem;
+}
+
+#sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+#sidebar li {
+    margin: 0;
+}
+
+#sidebar a {
+    display: block;
+    padding: 0.18rem 0.5rem;
+    color: var(--color-text);
+    text-decoration: none;
+    border-radius: 4px;
+    line-height: 1.4;
+}
+
+#sidebar a:hover {
+    background: var(--color-border);
+    color: var(--color-brand);
+}
+
+#sidebar .nav-h1 > a {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--color-brand-dark);
+    margin-top: 0.75rem;
+    padding-top: 0.25rem;
+}
+
+#sidebar .nav-h2 > a {
+    padding-left: 1.0rem;
+    font-size: 0.82rem;
+}
+
+#sidebar .nav-h3 > a {
+    padding-left: 1.8rem;
+    font-size: 0.78rem;
+    color: var(--color-muted);
+}
+
+/* Active section highlight via :target (no JS needed) */
+:target {
+    scroll-margin-top: 1.5rem;
+}
+
+/* Main content area */
+#content {
+    flex: 1;
+    min-width: 0;
+    padding: 2.5rem 3rem 4rem;
+    max-width: var(--content-max);
+}
+
+/* --------------------------------------------------------------------------
+   Typography
+   -------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--color-brand-dark);
+    margin-top: 2.4rem;
+    margin-bottom: 0.6rem;
+}
+
+h1 {
+    font-size: 2rem;
+    border-bottom: 2px solid var(--color-brand);
+    padding-bottom: 0.4rem;
+    margin-top: 3rem;
+    color: var(--color-brand);
+}
+
+h2 {
+    font-size: 1.4rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.25rem;
+    margin-top: 2rem;
+}
+
+h3 {
+    font-size: 1.1rem;
+    color: var(--color-brand);
+    margin-top: 1.6rem;
+}
+
+h4 {
+    font-size: 1rem;
+    color: var(--color-text);
+    margin-top: 1.2rem;
+}
+
+p {
+    margin-bottom: 0.9rem;
+}
+
+a {
+    color: var(--color-link);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+ul, ol {
+    margin: 0.5rem 0 0.9rem 1.6rem;
+}
+
+li {
+    margin-bottom: 0.3rem;
+}
+
+code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 0.1em 0.35em;
+}
+
+pre {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.87rem;
+}
+
+strong {
+    font-weight: 700;
+}
+
+em {
+    font-style: italic;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 2rem 0;
+}
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.5rem;
+    font-size: 0.9rem;
+}
+
+thead {
+    background: var(--color-brand);
+    color: #fff;
+}
+
+th {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    font-weight: 600;
+}
+
+td {
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+}
+
+tr:nth-child(even) td {
+    background: var(--color-surface);
+}
+
+/* --------------------------------------------------------------------------
+   Images
+   -------------------------------------------------------------------------- */
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    display: block;
+    margin: 1rem auto;
+}
+
+/* Full-width screenshot */
+.screenshot {
+    width: 100%;
+}
+
+/* Side-by-side screenshots */
+.screenshot-pair {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+    align-items: flex-start;
+}
+
+.screenshot-pair img {
+    flex: 1;
+    min-width: 0;
+}
+
+figcaption, .caption {
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--color-muted);
+    margin-top: 0.3rem;
+    margin-bottom: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   Callout boxes
+   -------------------------------------------------------------------------- */
+.note, .tip, .warning, .caution {
+    border-left: 4px solid var(--color-note-border);
+    background: var(--color-note-bg);
+    border-radius: 0 6px 6px 0;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0 1.2rem;
+    font-size: 0.93rem;
+}
+
+.note::before {
+    content: "Note — ";
+    font-weight: 700;
+    color: var(--color-brand);
+}
+
+.tip {
+    border-color: #3aaa55;
+    background: #eefaf0;
+}
+
+.tip::before {
+    content: "Tip — ";
+    font-weight: 700;
+    color: #287a3a;
+}
+
+.warning {
+    border-color: var(--color-warn-border);
+    background: var(--color-warn-bg);
+}
+
+.warning::before {
+    content: "Warning — ";
+    font-weight: 700;
+    color: #9a6000;
+}
+
+.caution {
+    border-color: #cc3333;
+    background: #fef0f0;
+}
+
+.caution::before {
+    content: "Caution — ";
+    font-weight: 700;
+    color: #991a1a;
+}
+
+/* --------------------------------------------------------------------------
+   Platform-specific content blocks
+   -------------------------------------------------------------------------- */
+.ios-only, .macos-only, .windows-linux-only, .desktop-only {
+    padding: 0.1rem 0.8rem;
+    margin: 0.8rem 0;
+    border-left: 3px solid var(--color-border);
+}
+
+.ios-only {
+    border-color: #007aff;   /* iOS blue */
+}
+
+.macos-only {
+    border-color: #636366;   /* macOS grey */
+}
+
+.windows-linux-only, .desktop-only {
+    border-color: #0078d4;   /* Windows blue */
+}
+
+.platform-label {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1em 0.45em;
+    border-radius: 3px;
+    margin-bottom: 0.35rem;
+    color: #fff;
+}
+
+.ios-only      .platform-label { background: #007aff; }
+.macos-only    .platform-label { background: #636366; }
+.desktop-only  .platform-label,
+.windows-linux-only .platform-label { background: #0078d4; }
+
+/* --------------------------------------------------------------------------
+   Keyboard shortcut tokens
+   -------------------------------------------------------------------------- */
+kbd {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Steps list (numbered procedure)
+   -------------------------------------------------------------------------- */
+ol.steps {
+    counter-reset: steps;
+    list-style: none;
+    margin-left: 0;
+    padding-left: 0;
+}
+
+ol.steps li {
+    counter-increment: steps;
+    display: flex;
+    gap: 0.8rem;
+    margin-bottom: 0.75rem;
+    align-items: flex-start;
+}
+
+ol.steps li::before {
+    content: counter(steps);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.6rem;
+    height: 1.6rem;
+    background: var(--color-brand);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 50%;
+    margin-top: 0.05rem;
+}
+
+/* --------------------------------------------------------------------------
+   Title page
+   -------------------------------------------------------------------------- */
+#title-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 80vh;
+    padding: 3rem 2rem 4rem;
+    page-break-after: always;
+    break-after: page;
+}
+
+.title-logo-wrap {
+    margin-bottom: 2.5rem;
+}
+
+.title-logo {
+    width: 180px;
+    height: 180px;
+    border: none;
+    border-radius: 28px;   /* matches Apple icon rounding */
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    display: block;
+    margin: 0 auto;
+}
+
+.title-main {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--color-brand);
+    border: none;
+    margin: 0 0 0.3rem;
+    padding: 0;
+    letter-spacing: -0.01em;
+}
+
+.title-subtitle {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--color-brand-dark);
+    margin: 0 0 1rem;
+}
+
+.title-version {
+    font-size: 1rem;
+    color: var(--color-muted);
+    margin: 0 0 0.3rem;
+}
+
+.title-platforms {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    margin: 0;
+    letter-spacing: 0.03em;
+}
+
+.title-footer {
+    margin-top: 3rem;
+    border-top: 1px solid var(--color-border);
+    padding-top: 1.5rem;
+    width: 100%;
+    max-width: 420px;
+}
+
+.title-description {
+    font-size: 0.95rem;
+    color: var(--color-text);
+    margin-bottom: 0.75rem;
+    font-style: italic;
+}
+
+.title-copyright {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Hide title page h1 from the nav sidebar (it has no section content) */
+#sidebar .nav-h1:first-child a[href="#guitar-tap"] {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   TOC page (PDF / HTML)
+   -------------------------------------------------------------------------- */
+#toc-page {
+    page-break-after: always;  /* PDF: TOC on its own page */
+    break-after: page;
+    margin-bottom: 3rem;
+}
+
+.toc-title {
+    font-size: 1.7rem;
+    border-bottom: 2px solid var(--color-brand);
+    margin-bottom: 1.2rem;
+}
+
+.toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.toc-list li a {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    color: var(--color-text);
+    text-decoration: none;
+    padding: 0.15rem 0;
+    border-bottom: 1px dotted var(--color-border);
+}
+
+.toc-list li a:hover {
+    color: var(--color-brand);
+}
+
+.toc-h1 { font-weight: 700; font-size: 0.97rem; margin-top: 0.8rem; }
+.toc-h2 { padding-left: 1.2rem; font-size: 0.9rem; }
+.toc-h3 { padding-left: 2.4rem; font-size: 0.83rem; color: var(--color-muted); }
+
+/* Page number placeholder — WeasyPrint fills this via target-counter */
+.toc-page-num {
+    font-size: 0.85em;
+    color: var(--color-muted);
+    padding-left: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   PDF-only: WeasyPrint @media print overrides
+   -------------------------------------------------------------------------- */
+@media print {
+
+    /* Hide the HTML sidebar nav — replaced by PDF bookmark tree */
+    #sidebar {
+        display: none;
+    }
+
+    #layout {
+        display: block;
+    }
+
+    #content {
+        padding: 0;
+        max-width: none;
+    }
+
+    /* Page setup */
+    @page {
+        size: A4;
+        margin: 25mm 22mm 22mm 25mm;
+
+        @bottom-right {
+            content: counter(page);
+            font-size: 9pt;
+            color: #666;
+        }
+
+        @top-right {
+            content: "GuitarTap User Manual";
+            font-size: 8pt;
+            color: #666;
+        }
+    }
+
+    @page :first {
+        @bottom-right { content: none; }
+        @top-right    { content: none; }
+    }
+
+    /* PDF bookmarks — WeasyPrint native support */
+    h1 {
+        bookmark-level: 1;
+        bookmark-label: content();
+        bookmark-state: open;
+    }
+
+    h2 {
+        bookmark-level: 2;
+        bookmark-label: content();
+        bookmark-state: closed;
+    }
+
+    h3 {
+        bookmark-level: 3;
+        bookmark-label: content();
+        bookmark-state: closed;
+    }
+
+    /* TOC page numbers — filled by WeasyPrint */
+    .toc-page-num::after {
+        content: target-counter(attr(href url), page);
+    }
+
+    /* Title page — full page, no header/footer, no bookmark */
+    #title-page {
+        min-height: 0;
+        height: 240mm;   /* fill an A4 page */
+        page-break-after: always;
+        break-after: page;
+    }
+
+    .title-logo {
+        width: 140px;
+        height: 140px;
+    }
+
+    .title-main {
+        font-size: 28pt;
+        bookmark-level: none;
+    }
+
+    /* Page breaks */
+    h1 { page-break-before: always; break-before: page; }
+    h1:first-of-type { page-break-before: avoid; break-before: avoid; }
+    #toc-page + * h1 { page-break-before: always; }
+
+    h2, h3 {
+        page-break-after: avoid;
+        break-after: avoid;
+    }
+
+    table, figure, img {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* Keep table headers on each page */
+    thead { display: table-header-group; }
+
+    /* Links: show URL in parentheses for external links */
+    a[href^="http"]::after {
+        content: " (" attr(href) ")";
+        font-size: 0.8em;
+        color: var(--color-muted);
+    }
+
+    /* Don't annotate internal anchor links */
+    a[href^="#"]::after {
+        content: none;
+    }
+
+    /* Typography adjustments for print */
+    body {
+        font-size: 10.5pt;
+        line-height: 1.55;
+    }
+
+    h1 { font-size: 20pt; }
+    h2 { font-size: 14pt; }
+    h3 { font-size: 11pt; }
+    h4 { font-size: 10.5pt; }
+
+    code, pre {
+        font-size: 9pt;
+    }
+
+    /* Avoid widows and orphans */
+    p {
+        orphans: 3;
+        widows: 3;
+    }
+}
+
+</style>
+</head>
+<body>
+  <div id="layout">
+    <nav id="sidebar">
+<ul>
+<li class="nav-h1"><a href="#chapter-1-introduction">Chapter 1 — Introduction</a>
+<ul>
+  <li class="nav-h2"><a href="#11-what-guitar-tap-does">1.1 What Guitar Tap Does</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#12-what-you-need">1.2 What You Need</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#13-how-this-manual-is-organised">1.3 How This Manual Is Organised</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-2-getting-started">Chapter 2 — Getting Started</a>
+<ul>
+  <li class="nav-h2"><a href="#21-installing-the-app">2.1 Installing the App</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#22-granting-microphone-permission">2.2 Granting Microphone Permission</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#23-selecting-your-audio-input">2.3 Selecting Your Audio Input</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#24-importing-a-microphone-calibration-file">2.4 Importing a Microphone Calibration File</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#25-choosing-a-measurement-type">2.5 Choosing a Measurement Type</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#26-setting-the-threshold-finding-your-tap-level">2.6 Setting the Threshold — Finding Your Tap Level</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#27-setting-peak-min-filtering-the-peak-list-guitar-mode">2.7 Setting Peak Min — Filtering the Peak List (Guitar Mode)</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#28-your-first-tap-guitar-mode-walkthrough">2.8 Your First Tap — Guitar Mode Walkthrough</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-3-guitar-mode">Chapter 3 — Guitar Mode</a>
+<ul>
+  <li class="nav-h2"><a href="#31-overview-of-guitar-resonances">3.1 Overview of Guitar Resonances</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#32-setting-up-for-guitar-mode">3.2 Setting Up for Guitar Mode</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#33-microphone-placement">3.3 Microphone Placement</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#34-single-tap-measurement">3.4 Single Tap Measurement</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#35-multi-tap-averaging">3.5 Multi-Tap Averaging</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#36-inspecting-and-adjusting-peak-selections">3.6 Inspecting and Adjusting Peak Selections</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#37-overriding-mode-classification">3.7 Overriding Mode Classification</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#38-reading-the-results-panel">3.8 Reading the Results Panel</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#39-comparing-guitar-measurements">3.9 Comparing Guitar Measurements</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-4-plate-mode">Chapter 4 — Plate Mode</a>
+<ul>
+  <li class="nav-h2"><a href="#41-overview-of-plate-material-measurements">4.1 Overview of Plate Material Measurements</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#42-preparing-the-sample">4.2 Preparing the Sample</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#43-entering-dimensions-in-settings">4.3 Entering Dimensions in Settings</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#44-the-22-suspension-technique">4.4 The 22% Suspension Technique</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#45-tap-1-longitudinal">4.5 Tap 1 — Longitudinal</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#46-tap-2-cross-grain">4.6 Tap 2 — Cross-Grain</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#47-tap-3-flc-optional">4.7 Tap 3 — FLC (Optional)</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#48-reading-plate-results">4.8 Reading Plate Results</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#49-interpreting-and-comparing-plate-results">4.9 Interpreting and Comparing Plate Results</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-5-brace-mode">Chapter 5 — Brace Mode</a>
+<ul>
+  <li class="nav-h2"><a href="#51-overview">5.1 Overview</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#52-setting-up-brace-dimensions">5.2 Setting Up Brace Dimensions</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#53-technique">5.3 Technique</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#54-reading-brace-results">5.4 Reading Brace Results</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#55-using-brace-mode-to-compare-stock">5.5 Using Brace Mode to Compare Stock</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-6-working-with-the-spectrum">Chapter 6 — Working with the Spectrum</a>
+<ul>
+  <li class="nav-h2"><a href="#61-live-vs-frozen-spectrum">6.1 Live vs. Frozen Spectrum</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#62-zooming-and-panning-iosipados">6.2 Zooming and Panning — iOS/iPadOS</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#63-zooming-and-panning-macos">6.3 Zooming and Panning — macOS</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#64-auto-db">6.4 Auto dB</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#65-the-crosshair-iosipados">6.5 The Crosshair (iOS/iPadOS)</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#66-peak-labels">6.6 Peak Labels</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#67-annotation-modes">6.7 Annotation Modes</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#68-saving-the-current-view-as-default">6.8 Saving the Current View as Default</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-7-saving-exporting-and-sharing-measurements">Chapter 7 — Saving, Exporting, and Sharing Measurements</a>
+<ul>
+  <li class="nav-h2"><a href="#71-saving-a-measurement">7.1 Saving a Measurement</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#72-viewing-saved-measurements">7.2 Viewing Saved Measurements</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#73-loading-a-measurement-into-the-view">7.3 Loading a Measurement into the View</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#74-viewing-measurement-details">7.4 Viewing Measurement Details</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#75-editing-location-and-notes">7.5 Editing Location and Notes</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#76-exporting-a-spectrum-image">7.6 Exporting a Spectrum Image</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#77-exporting-a-pdf-report">7.7 Exporting a PDF Report</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#78-exporting-a-guitartap-file">7.8 Exporting a .guitartap File</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#79-importing-a-measurement">7.9 Importing a Measurement</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#710-sharing-between-ios-and-macos">7.10 Sharing Between iOS and macOS</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#711-deleting-measurements">7.11 Deleting Measurements</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-8-settings-reference">Chapter 8 — Settings Reference</a>
+<ul>
+  <li class="nav-h2"><a href="#81-opening-settings">8.1 Opening Settings</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#82-audio-input-calibration">8.2 Audio Input &amp; Calibration</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#83-measurement-type">8.3 Measurement Type</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#84-advanced-display-settings">8.4 Advanced — Display Settings</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#85-advanced-analysis-settings">8.5 Advanced — Analysis Settings</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#86-advanced-fft-processing">8.6 Advanced — FFT Processing</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-9-controls-reference">Chapter 9 — Controls Reference</a>
+<ul>
+  <li class="nav-h2"><a href="#91-toolbar-ios-iphone-portrait">9.1 Toolbar — iOS iPhone (Portrait)</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#92-toolbar-ios-iphone-landscape">9.2 Toolbar — iOS iPhone (Landscape)</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#93-toolbar-ios-ipad-portrait-and-landscape">9.3 Toolbar — iOS iPad (Portrait and Landscape)</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#94-menu-bar-macos-windows-and-linux">9.4 Menu Bar — macOS, Windows, and Linux</a>
+  <ul>
+    <li class="nav-h3"><a href="#94a-menu-bar-macos">9.4a Menu Bar — macOS</a></li>
+    <li class="nav-h3"><a href="#94b-menu-bar-windows-and-linux-python-desktop-app">9.4b Menu Bar — Windows and Linux (Python desktop app)</a></li>
+  </ul></li>
+  <li class="nav-h2"><a href="#95-individual-controls">9.5 Individual Controls</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#96-tap-controls">9.6 Tap Controls</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#97-spectrum-chart-interactions">9.7 Spectrum Chart Interactions</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-10-tips-technique-and-troubleshooting">Chapter 10 — Tips, Technique, and Troubleshooting</a>
+<ul>
+  <li class="nav-h2"><a href="#101-tap-technique">10.1 Tap Technique</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#102-consistent-microphone-position">10.2 Consistent Microphone Position</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#103-dealing-with-background-noise">10.3 Dealing with Background Noise</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#104-air-mode-technique">10.4 Air Mode Technique</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#105-ring-out-and-decay-time">10.5 Ring-Out and Decay Time</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#106-multi-tap-averaging-strategy">10.6 Multi-Tap Averaging Strategy</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#107-common-problems">10.7 Common Problems</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#chapter-11-glossary">Chapter 11 — Glossary</a>
+<ul>
+</ul></li>
+<li class="nav-h1"><a href="#appendix-a-keyboard-shortcuts-macos">Appendix A — Keyboard Shortcuts (macOS)</a>
+<ul>
+</ul></li>
+<li class="nav-h1"><a href="#appendix-b-file-formats">Appendix B — File Formats</a>
+<ul>
+  <li class="nav-h2"><a href="#guitartap">.guitartap</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#calibration-files-txt-cal">Calibration Files (.txt / .cal)</a>
+  <ul>
+  </ul></li>
+</ul></li>
+<li class="nav-h1"><a href="#frequency-hz-magnitude-db">Frequency (Hz)   Magnitude (dB)</a>
+<ul>
+  <li class="nav-h2"><a href="#exported-formats">Exported Formats</a>
+  <ul>
+  </ul></li>
+</ul></li>
+</ul>
+</nav>
+
+    <main id="content">
+      <div id="title-page">
+  <div class="title-logo-wrap">
+    <img src="../../GuitarTap/guitar-tap.png" alt="Guitar Tap logo" class="title-logo">
+  </div>
+  <div class="title-text">
+    <h1 class="title-main">Guitar Tap</h1>
+    <p class="title-subtitle">User Manual</p>
+    <p class="title-version">Version 1.0</p>
+    <p class="title-platforms">iOS/iPadOS &nbsp;·&nbsp; macOS &nbsp;·&nbsp; Windows &nbsp;·&nbsp; Linux</p>
+  </div>
+  <div class="title-footer">
+    <p class="title-description">Acoustic resonance analysis for luthiers and tonewood researchers.</p>
+    <p class="title-copyright">Copyright &copy; 2026 David W. Smith dba Dolce Sfogato.<br>All rights reserved.</p>
+  </div>
+</div>
+
+      <div id="toc-page">
+<h1 class="toc-title">Contents</h1>
+<ul class="toc-list">
+  <li class="toc-h1"><a href="#chapter-1-introduction">Chapter 1 — Introduction<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#11-what-guitar-tap-does">1.1 What Guitar Tap Does<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#12-what-you-need">1.2 What You Need<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#13-how-this-manual-is-organised">1.3 How This Manual Is Organised<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-2-getting-started">Chapter 2 — Getting Started<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#21-installing-the-app">2.1 Installing the App<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#22-granting-microphone-permission">2.2 Granting Microphone Permission<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#23-selecting-your-audio-input">2.3 Selecting Your Audio Input<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#24-importing-a-microphone-calibration-file">2.4 Importing a Microphone Calibration File<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#25-choosing-a-measurement-type">2.5 Choosing a Measurement Type<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#26-setting-the-threshold-finding-your-tap-level">2.6 Setting the Threshold — Finding Your Tap Level<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#27-setting-peak-min-filtering-the-peak-list-guitar-mode">2.7 Setting Peak Min — Filtering the Peak List (Guitar Mode)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#28-your-first-tap-guitar-mode-walkthrough">2.8 Your First Tap — Guitar Mode Walkthrough<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-3-guitar-mode">Chapter 3 — Guitar Mode<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#31-overview-of-guitar-resonances">3.1 Overview of Guitar Resonances<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#32-setting-up-for-guitar-mode">3.2 Setting Up for Guitar Mode<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#33-microphone-placement">3.3 Microphone Placement<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#34-single-tap-measurement">3.4 Single Tap Measurement<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#35-multi-tap-averaging">3.5 Multi-Tap Averaging<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#36-inspecting-and-adjusting-peak-selections">3.6 Inspecting and Adjusting Peak Selections<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#37-overriding-mode-classification">3.7 Overriding Mode Classification<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#38-reading-the-results-panel">3.8 Reading the Results Panel<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#39-comparing-guitar-measurements">3.9 Comparing Guitar Measurements<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-4-plate-mode">Chapter 4 — Plate Mode<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#41-overview-of-plate-material-measurements">4.1 Overview of Plate Material Measurements<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#42-preparing-the-sample">4.2 Preparing the Sample<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#43-entering-dimensions-in-settings">4.3 Entering Dimensions in Settings<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#44-the-22-suspension-technique">4.4 The 22% Suspension Technique<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#45-tap-1-longitudinal">4.5 Tap 1 — Longitudinal<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#46-tap-2-cross-grain">4.6 Tap 2 — Cross-Grain<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#47-tap-3-flc-optional">4.7 Tap 3 — FLC (Optional)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#48-reading-plate-results">4.8 Reading Plate Results<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#49-interpreting-and-comparing-plate-results">4.9 Interpreting and Comparing Plate Results<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-5-brace-mode">Chapter 5 — Brace Mode<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#51-overview">5.1 Overview<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#52-setting-up-brace-dimensions">5.2 Setting Up Brace Dimensions<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#53-technique">5.3 Technique<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#54-reading-brace-results">5.4 Reading Brace Results<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#55-using-brace-mode-to-compare-stock">5.5 Using Brace Mode to Compare Stock<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-6-working-with-the-spectrum">Chapter 6 — Working with the Spectrum<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#61-live-vs-frozen-spectrum">6.1 Live vs. Frozen Spectrum<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#62-zooming-and-panning-iosipados">6.2 Zooming and Panning — iOS/iPadOS<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#63-zooming-and-panning-macos">6.3 Zooming and Panning — macOS<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#64-auto-db">6.4 Auto dB<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#65-the-crosshair-iosipados">6.5 The Crosshair (iOS/iPadOS)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#66-peak-labels">6.6 Peak Labels<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#67-annotation-modes">6.7 Annotation Modes<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#68-saving-the-current-view-as-default">6.8 Saving the Current View as Default<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-7-saving-exporting-and-sharing-measurements">Chapter 7 — Saving, Exporting, and Sharing Measurements<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#71-saving-a-measurement">7.1 Saving a Measurement<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#72-viewing-saved-measurements">7.2 Viewing Saved Measurements<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#73-loading-a-measurement-into-the-view">7.3 Loading a Measurement into the View<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#74-viewing-measurement-details">7.4 Viewing Measurement Details<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#75-editing-location-and-notes">7.5 Editing Location and Notes<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#76-exporting-a-spectrum-image">7.6 Exporting a Spectrum Image<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#77-exporting-a-pdf-report">7.7 Exporting a PDF Report<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#78-exporting-a-guitartap-file">7.8 Exporting a .guitartap File<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#79-importing-a-measurement">7.9 Importing a Measurement<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#710-sharing-between-ios-and-macos">7.10 Sharing Between iOS and macOS<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#711-deleting-measurements">7.11 Deleting Measurements<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-8-settings-reference">Chapter 8 — Settings Reference<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#81-opening-settings">8.1 Opening Settings<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#82-audio-input-calibration">8.2 Audio Input &amp; Calibration<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#83-measurement-type">8.3 Measurement Type<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#84-advanced-display-settings">8.4 Advanced — Display Settings<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#85-advanced-analysis-settings">8.5 Advanced — Analysis Settings<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#86-advanced-fft-processing">8.6 Advanced — FFT Processing<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-9-controls-reference">Chapter 9 — Controls Reference<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#91-toolbar-ios-iphone-portrait">9.1 Toolbar — iOS iPhone (Portrait)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#92-toolbar-ios-iphone-landscape">9.2 Toolbar — iOS iPhone (Landscape)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#93-toolbar-ios-ipad-portrait-and-landscape">9.3 Toolbar — iOS iPad (Portrait and Landscape)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#94-menu-bar-macos-windows-and-linux">9.4 Menu Bar — macOS, Windows, and Linux<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#94a-menu-bar-macos">9.4a Menu Bar — macOS<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#94b-menu-bar-windows-and-linux-python-desktop-app">9.4b Menu Bar — Windows and Linux (Python desktop app)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#95-individual-controls">9.5 Individual Controls<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#96-tap-controls">9.6 Tap Controls<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#97-spectrum-chart-interactions">9.7 Spectrum Chart Interactions<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-10-tips-technique-and-troubleshooting">Chapter 10 — Tips, Technique, and Troubleshooting<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#101-tap-technique">10.1 Tap Technique<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#102-consistent-microphone-position">10.2 Consistent Microphone Position<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#103-dealing-with-background-noise">10.3 Dealing with Background Noise<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#104-air-mode-technique">10.4 Air Mode Technique<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#105-ring-out-and-decay-time">10.5 Ring-Out and Decay Time<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#106-multi-tap-averaging-strategy">10.6 Multi-Tap Averaging Strategy<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#107-common-problems">10.7 Common Problems<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#chapter-11-glossary">Chapter 11 — Glossary<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#appendix-a-keyboard-shortcuts-macos">Appendix A — Keyboard Shortcuts (macOS)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#appendix-b-file-formats">Appendix B — File Formats<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#guitartap">.guitartap<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#calibration-files-txt-cal">Calibration Files (.txt / .cal)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#frequency-hz-magnitude-db">Frequency (Hz)   Magnitude (dB)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#exported-formats">Exported Formats<span class="toc-page-num"></span></a></li>
+</ul>
+</div>
+
+      <h1 id="chapter-1-introduction">Chapter 1 — Introduction</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="11-what-guitar-tap-does">1.1 What Guitar Tap Does</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="12-what-you-need">1.2 What You Need</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="13-how-this-manual-is-organised">1.3 How This Manual Is Organised</h2>
+
+<!-- TODO: Write section -->
+
+<h1 id="chapter-2-getting-started">Chapter 2 — Getting Started</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="21-installing-the-app">2.1 Installing the App</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="22-granting-microphone-permission">2.2 Granting Microphone Permission</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="23-selecting-your-audio-input">2.3 Selecting Your Audio Input</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="24-importing-a-microphone-calibration-file">2.4 Importing a Microphone Calibration File</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="25-choosing-a-measurement-type">2.5 Choosing a Measurement Type</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="26-setting-the-threshold-finding-your-tap-level">2.6 Setting the Threshold — Finding Your Tap Level</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="27-setting-peak-min-filtering-the-peak-list-guitar-mode">2.7 Setting Peak Min — Filtering the Peak List (Guitar Mode)</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="28-your-first-tap-guitar-mode-walkthrough">2.8 Your First Tap — Guitar Mode Walkthrough</h2>
+
+<!-- TODO: Write section -->
+
+<h1 id="chapter-3-guitar-mode">Chapter 3 — Guitar Mode</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="31-overview-of-guitar-resonances">3.1 Overview of Guitar Resonances</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="32-setting-up-for-guitar-mode">3.2 Setting Up for Guitar Mode</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="33-microphone-placement">3.3 Microphone Placement</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="34-single-tap-measurement">3.4 Single Tap Measurement</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="35-multi-tap-averaging">3.5 Multi-Tap Averaging</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="36-inspecting-and-adjusting-peak-selections">3.6 Inspecting and Adjusting Peak Selections</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="37-overriding-mode-classification">3.7 Overriding Mode Classification</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="38-reading-the-results-panel">3.8 Reading the Results Panel</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="39-comparing-guitar-measurements">3.9 Comparing Guitar Measurements</h2>
+
+<!-- TODO: Write section -->
+
+<h1 id="chapter-4-plate-mode">Chapter 4 — Plate Mode</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="41-overview-of-plate-material-measurements">4.1 Overview of Plate Material Measurements</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="42-preparing-the-sample">4.2 Preparing the Sample</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="43-entering-dimensions-in-settings">4.3 Entering Dimensions in Settings</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="44-the-22-suspension-technique">4.4 The 22% Suspension Technique</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="45-tap-1-longitudinal">4.5 Tap 1 — Longitudinal</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="46-tap-2-cross-grain">4.6 Tap 2 — Cross-Grain</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="47-tap-3-flc-optional">4.7 Tap 3 — FLC (Optional)</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="48-reading-plate-results">4.8 Reading Plate Results</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="49-interpreting-and-comparing-plate-results">4.9 Interpreting and Comparing Plate Results</h2>
+
+<!-- TODO: Write section -->
+
+<h1 id="chapter-5-brace-mode">Chapter 5 — Brace Mode</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="51-overview">5.1 Overview</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="52-setting-up-brace-dimensions">5.2 Setting Up Brace Dimensions</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="53-technique">5.3 Technique</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="54-reading-brace-results">5.4 Reading Brace Results</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="55-using-brace-mode-to-compare-stock">5.5 Using Brace Mode to Compare Stock</h2>
+
+<!-- TODO: Write section -->
+
+<h1 id="chapter-6-working-with-the-spectrum">Chapter 6 — Working with the Spectrum</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="61-live-vs-frozen-spectrum">6.1 Live vs. Frozen Spectrum</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="62-zooming-and-panning-iosipados">6.2 Zooming and Panning — iOS/iPadOS</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="63-zooming-and-panning-macos">6.3 Zooming and Panning — macOS</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="64-auto-db">6.4 Auto dB</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="65-the-crosshair-iosipados">6.5 The Crosshair (iOS/iPadOS)</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="66-peak-labels">6.6 Peak Labels</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="67-annotation-modes">6.7 Annotation Modes</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="68-saving-the-current-view-as-default">6.8 Saving the Current View as Default</h2>
+
+<!-- TODO: Write section -->
+
+<h1 id="chapter-7-saving-exporting-and-sharing-measurements">Chapter 7 — Saving, Exporting, and Sharing Measurements</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="71-saving-a-measurement">7.1 Saving a Measurement</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="72-viewing-saved-measurements">7.2 Viewing Saved Measurements</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="73-loading-a-measurement-into-the-view">7.3 Loading a Measurement into the View</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="74-viewing-measurement-details">7.4 Viewing Measurement Details</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="75-editing-location-and-notes">7.5 Editing Location and Notes</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="76-exporting-a-spectrum-image">7.6 Exporting a Spectrum Image</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="77-exporting-a-pdf-report">7.7 Exporting a PDF Report</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="78-exporting-a-guitartap-file">7.8 Exporting a .guitartap File</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="79-importing-a-measurement">7.9 Importing a Measurement</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="710-sharing-between-ios-and-macos">7.10 Sharing Between iOS and macOS</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="711-deleting-measurements">7.11 Deleting Measurements</h2>
+
+<!-- TODO: Write section -->
+
+<h1 id="chapter-8-settings-reference">Chapter 8 — Settings Reference</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="81-opening-settings">8.1 Opening Settings</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="82-audio-input-calibration">8.2 Audio Input &amp; Calibration</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="83-measurement-type">8.3 Measurement Type</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="84-advanced-display-settings">8.4 Advanced — Display Settings</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="85-advanced-analysis-settings">8.5 Advanced — Analysis Settings</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="86-advanced-fft-processing">8.6 Advanced — FFT Processing</h2>
+
+<!-- TODO: Write section -->
+
+<h1 id="chapter-9-controls-reference">Chapter 9 — Controls Reference</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="91-toolbar-ios-iphone-portrait">9.1 Toolbar — iOS iPhone (Portrait)</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="92-toolbar-ios-iphone-landscape">9.2 Toolbar — iOS iPhone (Landscape)</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="93-toolbar-ios-ipad-portrait-and-landscape">9.3 Toolbar — iOS iPad (Portrait and Landscape)</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="94-menu-bar-macos-windows-and-linux">9.4 Menu Bar — macOS, Windows, and Linux</h2>
+
+<!-- TODO: Write section -->
+
+<h3 id="94a-menu-bar-macos">9.4a Menu Bar — macOS</h3>
+
+<!-- TODO: Write section -->
+
+<h3 id="94b-menu-bar-windows-and-linux-python-desktop-app">9.4b Menu Bar — Windows and Linux (Python desktop app)</h3>
+
+<!-- TODO: Write section -->
+
+<h2 id="95-individual-controls">9.5 Individual Controls</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="96-tap-controls">9.6 Tap Controls</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="97-spectrum-chart-interactions">9.7 Spectrum Chart Interactions</h2>
+
+<p>See Chapter 6 for a complete reference to spectrum chart gestures and interactions.</p>
+<h1 id="chapter-10-tips-technique-and-troubleshooting">Chapter 10 — Tips, Technique, and Troubleshooting</h1>
+
+<!-- STATUS: STUB — needs full content -->
+
+<h2 id="101-tap-technique">10.1 Tap Technique</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="102-consistent-microphone-position">10.2 Consistent Microphone Position</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="103-dealing-with-background-noise">10.3 Dealing with Background Noise</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="104-air-mode-technique">10.4 Air Mode Technique</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="105-ring-out-and-decay-time">10.5 Ring-Out and Decay Time</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="106-multi-tap-averaging-strategy">10.6 Multi-Tap Averaging Strategy</h2>
+
+<!-- TODO: Write section -->
+
+<h2 id="107-common-problems">10.7 Common Problems</h2>
+
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Likely cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No tap detected</td>
+<td>Threshold too high</td>
+<td>Lower Threshold slider</td>
+</tr>
+<tr>
+<td>False detections</td>
+<td>Threshold too low or noisy room</td>
+<td>Raise Threshold; use Pause between taps</td>
+</tr>
+<tr>
+<td>Peaks missing</td>
+<td>Peak Min too high</td>
+<td>Lower Peak Min slider</td>
+</tr>
+<tr>
+<td>Unknown peaks everywhere</td>
+<td>Analysis range too wide</td>
+<td>Narrow analysis range in Advanced settings</td>
+</tr>
+<tr>
+<td>Spectrum doesn't update</td>
+<td>Microphone permission not granted</td>
+<td>Check System Settings (macOS) or iOS Settings</td>
+</tr>
+<tr>
+<td>Plate calculation missing</td>
+<td>Dimensions not entered</td>
+<td>Open Settings → Measurement Type → Material</td>
+</tr>
+<tr>
+<td>Gore thickness not shown</td>
+<td>FLC not captured or not enabled</td>
+<td>Enable Measure FLC in Settings</td>
+</tr>
+<tr>
+<td>Results panel not visible</td>
+<td>macOS: window too narrow</td>
+<td>Widen the window</td>
+</tr>
+</tbody>
+</table>
+<h1 id="chapter-11-glossary">Chapter 11 — Glossary</h1>
+
+<!-- STATUS: STUB — needs full definitions -->
+
+<p><strong>Air (Helmholtz) mode</strong> — The resonance of the air cavity inside the instrument body, excited by the motion of air through the sound hole. Also called the Helmholtz resonance.</p>
+<p><strong>Bandwidth (−3 dB)</strong> — The width of a spectral peak measured at 3 dB below its maximum. Narrower bandwidth (higher Q) indicates lower damping.</p>
+<p><strong>Cross/Long ratio</strong> — The ratio of cross-grain Young's modulus to longitudinal Young's modulus (E_C / E_L). For spruce, typically 0.04–0.08.</p>
+<p><strong>Decay time</strong> — The time (in seconds) for a tap response to decay to 1/e of its peak amplitude. A measure of structural damping; higher values indicate lower damping.</p>
+<p><strong>Dipole mode</strong> — A bending mode of the guitar top plate where the upper and lower bouts move in opposite phase.</p>
+<p><strong>E_C (Young's modulus, cross-grain)</strong> — Stiffness of the wood measured perpendicular to the grain direction (radial or tangential). Expressed in GPa.</p>
+<p><strong>E_L (Young's modulus, longitudinal)</strong> — Stiffness of the wood measured along the grain direction. Expressed in GPa. The primary stiffness parameter for tonewood selection.</p>
+<p><strong>FFT (Fast Fourier Transform)</strong> — The algorithm used to convert the time-domain microphone signal into the frequency-domain spectrum displayed by the app.</p>
+<p><strong>FLC tap</strong> — A third tap measurement (Flat Long/Cross) used in Plate mode to estimate the shear modulus, which is required for the Gore target thickness calculation.</p>
+<p><strong>Free-free beam</strong> — A beam supported only at its nodal points (22% from each end), leaving it free to vibrate without damping at the supports. The standard suspension technique for Plate and Brace mode measurements.</p>
+<p><strong>Gore target thickness</strong> — The recommended final thickness for a guitar top or back plate, calculated from the plate dimensions, Young's moduli, and a stiffness target, following the method described by Trevor Gore.</p>
+<p><strong>Q factor</strong> — Quality factor; the ratio of a resonant peak's centre frequency to its −3 dB bandwidth. Q = f₀ / Δf. Higher Q indicates lower damping.</p>
+<p><strong>Radiation ratio (R)</strong> — A figure of merit for tonewood; R = c_L / √ρ = √(E_L/ρ³). Higher values indicate a lighter, stiffer wood that radiates sound more efficiently.</p>
+<p><strong>Ring mode</strong> — A symmetric bending mode of the guitar top plate involving the rim of the lower bout.</p>
+<p><strong>Specific modulus (E/ρ)</strong> — Young's modulus divided by density. Also written as c² (where c is the speed of sound in the material). A key predictor of tap tone quality.</p>
+<p><strong>Speed of sound (c)</strong> — The speed at which a longitudinal stress wave travels through the wood: c_L = √(E_L / ρ). Expressed in m/s.</p>
+<p><strong>Tap Tone Ratio</strong> — The ratio of the top mode frequency to the air mode frequency (f_top / f_air). Typical range for a well-voiced guitar: 1.8–2.4.</p>
+<p><strong>Top / Back mode</strong> — The fundamental bending mode of the guitar top plate or back plate, respectively; often the strongest peak in a guitar tap spectrum.</p>
+<p><strong>Unknown mode</strong> — A detected spectral peak that does not fall within any defined frequency window for the selected guitar type. Shown with a "?" label when Show Unknown Modes is enabled.</p>
+<p><strong>Upper modes</strong> — Resonant modes above the main top and back modes; their significance increases with frequency and build stage.</p>
+<h1 id="appendix-a-keyboard-shortcuts-macos">Appendix A — Keyboard Shortcuts (macOS)</h1>
+
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⌘,</td>
+<td>Settings</td>
+</tr>
+<tr>
+<td>⌘S</td>
+<td>Save Measurement…</td>
+</tr>
+<tr>
+<td>⌘E</td>
+<td>Export Spectrum Image…</td>
+</tr>
+<tr>
+<td>⇧⌘E</td>
+<td>Export PDF Report…</td>
+</tr>
+<tr>
+<td>⌘0</td>
+<td>Auto dB</td>
+</tr>
+<tr>
+<td>⌘`</td>
+<td>Cycle Annotations</td>
+</tr>
+<tr>
+<td>⌘M</td>
+<td>Show Metrics</td>
+</tr>
+<tr>
+<td>⌘L</td>
+<td>Show Measurements</td>
+</tr>
+</tbody>
+</table>
+<div class="note">Keyboard shortcuts apply to the macOS native app only. The Python desktop app on Windows and Linux uses equivalent menu items; shortcut keys may differ by platform.</div>
+
+<h1 id="appendix-b-file-formats">Appendix B — File Formats</h1>
+
+<h2 id="guitartap">.guitartap</h2>
+
+<p>A JSON-based measurement container. Contains:</p>
+<ul>
+<li>All detected peaks (frequency, magnitude, Q, bandwidth, mode assignment, annotation offset, manual overrides)</li>
+<li>Spectrum snapshot: Base64-encoded little-endian float32 array of magnitude values</li>
+<li>Settings at time of capture (measurement type, frequency windows, Peak Min, analysis range)</li>
+<li>Metadata: capture date, device, location label, notes</li>
+</ul>
+<p>Compatible between iOS, iPadOS, and macOS versions of GuitarTap. Can be round-tripped: exported on iOS, imported on macOS, and vice versa.</p>
+<h2 id="calibration-files-txt-cal">Calibration Files (.txt / .cal)</h2>
+
+<p>Frequency response compensation data for a measurement microphone. Format: two-column plain text, one frequency–magnitude pair per line.</p>
+<pre><code>&lt;h1 id=&quot;frequency-hz-magnitude-db&quot;&gt;Frequency (Hz)   Magnitude (dB)&lt;/h1&gt;
+20.0               -1.2
+50.0               -0.4
+100.0               0.0
+...
+20000.0            -3.1
+</code></pre>
+<p>The app applies the inverse of the calibration curve to the incoming spectrum, correcting for microphone frequency response deviations.</p>
+<h2 id="exported-formats">Exported Formats</h2>
+
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Extension</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Measurement data</td>
+<td>.guitartap</td>
+<td>Full peak data + spectrum (JSON)</td>
+</tr>
+<tr>
+<td>Spectrum image</td>
+<td>.png</td>
+<td>Chart as rendered on screen</td>
+</tr>
+<tr>
+<td>PDF report</td>
+<td>.pdf</td>
+<td>Spectrum chart + peak table + analysis summary</td>
+</tr>
+</tbody>
+</table>
+    </main>
+  </div>
+</body>
+</html>

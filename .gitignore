@@ -35,3 +35,6 @@ Package.resolved
 ## Carthage
 Carthage/Build/
 
+## Python documentation venv
+.venv/
+

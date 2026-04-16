@@ -1,0 +1,265 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.6 Chrome/144.0.7559.236 Electron/40.8.4 Safari/537.36" version="29.6.6">
+  <diagram name="Diagram 1 — Background Thread" id="d1">
+    <mxGraphModel dx="2037" dy="1281" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg_lane" parent="1" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" value="RealtimeFFTAnalyzer.processAudioBuffer() &#xa;called on audio capture queue as a callback when a buffer is called." vertex="1">
+          <mxGeometry height="353" width="741" x="13" y="154" as="geometry" />
+        </mxCell>
+        <mxCell id="fork" parent="bg_lane" style="shape=mxgraph.flowchart.start_2;fillColor=#000000;strokeColor=#000000;" value="" vertex="1">
+          <mxGeometry height="20" width="20" x="360" y="53" as="geometry" />
+        </mxCell>
+        <mxCell id="rms" parent="bg_lane" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" value="RMS level computation" vertex="1">
+          <mxGeometry height="40" width="180" x="27" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="rawSample" parent="bg_lane" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" value="rawSampleHandler&#xa;→ accumulateGatedSamples()" vertex="1">
+          <mxGeometry height="40" width="220" x="260" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="rawSample_note" parent="bg_lane" style="text;html=1;align=center;fontSize=9;fontStyle=2;" value="pre-roll ring buffer +&#xa;gated accumulator,&#xa;always running" vertex="1">
+          <mxGeometry height="50" width="96" x="328" y="172" as="geometry" />
+        </mxCell>
+        <mxCell id="inputBuf" parent="bg_lane" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" value="inputBuffer accumulation&#xa;(bufferAccessQueue)" vertex="1">
+          <mxGeometry height="40" width="200" x="518" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fork_rms" edge="1" parent="bg_lane" source="fork" style="edgeStyle=orthogonalEdgeStyle;" target="rms">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fork_raw" edge="1" parent="bg_lane" source="fork" style="edgeStyle=orthogonalEdgeStyle;" target="rawSample">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fork_buf" edge="1" parent="bg_lane" source="fork" style="edgeStyle=orthogonalEdgeStyle;" target="inputBuf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="perfFFT" parent="bg_lane" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" value="performFFT(on:)" vertex="1">
+          <mxGeometry height="40" width="200" x="518" y="258" as="geometry" />
+        </mxCell>
+        <mxCell id="fft_cond" parent="bg_lane" style="text;html=1;align=center;fontSize=9;fontStyle=2;" value="when inputBuffer.count ≥ fftSize" vertex="1">
+          <mxGeometry height="24" width="135" x="472" y="226" as="geometry" />
+        </mxCell>
+        <mxCell id="e_buf_fft" edge="1" parent="bg_lane" source="inputBuf" style="edgeStyle=orthogonalEdgeStyle;" target="perfFFT">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="main_lane" parent="1" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;" value="Main Thread  (DispatchQueue.main)" vertex="1">
+          <mxGeometry height="815" width="744" x="13" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="pub_level" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=10;" value="@Published inputLevelDB&#xa;recentPeakLevelDB" vertex="1">
+          <mxGeometry height="50" width="200" x="17" y="49" as="geometry" />
+        </mxCell>
+        <mxCell id="pub_level_rate" parent="main_lane" style="text;html=1;align=center;fontSize=9;fontStyle=2;" value="~43 Hz" vertex="1">
+          <mxGeometry height="18" width="200" x="60" y="94" as="geometry" />
+        </mxCell>
+        <mxCell id="pub_mags" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=10;" value="@Published magnitudes&#xa;peakMagnitude" vertex="1">
+          <mxGeometry height="50" width="200" x="518" y="49" as="geometry" />
+        </mxCell>
+        <mxCell id="pub_mags_rate" parent="main_lane" style="text;html=1;align=center;fontSize=9;fontStyle=2;" value="~2.7 Hz" vertex="1">
+          <mxGeometry height="18" width="200" x="640" y="94" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-1" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=10;" value="sink on $inputLevelDB&#xa;(plate/brace only, ~43 Hz)" vertex="1">
+          <mxGeometry height="50" width="220" x="7" y="128" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-2" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=10;" value="sink on $magnitudes&#xa;(all modes, ~2.7 Hz)" vertex="1">
+          <mxGeometry height="50" width="220" x="508" y="128" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-3" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="analyzeMagnitudes()" vertex="1">
+          <mxGeometry height="40" width="220" x="508" y="221" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-4" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-2" style="edgeStyle=orthogonalEdgeStyle;" target="Y5oCWhH3KMIzaOyOsqL6-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-5" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="detectTap(levelDB)" vertex="1">
+          <mxGeometry height="40" width="220" x="7" y="221" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-6" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-1" style="edgeStyle=orthogonalEdgeStyle;" target="Y5oCWhH3KMIzaOyOsqL6-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-7" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="detectTap(peakMagnitude)" vertex="1">
+          <mxGeometry height="40" width="220" x="508" y="298" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-8" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-3" style="edgeStyle=orthogonalEdgeStyle;" target="Y5oCWhH3KMIzaOyOsqL6-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-30" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;curved=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="Y5oCWhH3KMIzaOyOsqL6-20">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="380" y="491" />
+              <mxPoint x="621" y="491" />
+            </Array>
+            <mxPoint x="390" y="481" as="sourcePoint" />
+            <mxPoint x="631" y="491" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-9" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" value="handleTapDetection()" vertex="1">
+          <mxGeometry height="50" width="240" x="260" y="419" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-10" parent="main_lane" style="text;html=1;align=center;fontSize=9;fontStyle=2;" value="(common path)" vertex="1">
+          <mxGeometry height="18" width="90" x="401" y="378" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-11" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-5" style="edgeStyle=orthogonalEdgeStyle;" target="Y5oCWhH3KMIzaOyOsqL6-9">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="117" y="367" />
+              <mxPoint x="380" y="367" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-12" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-7" style="edgeStyle=orthogonalEdgeStyle;" target="Y5oCWhH3KMIzaOyOsqL6-9">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="621" y="368" />
+              <mxPoint x="380" y="368" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-14" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="capturedTaps[]" vertex="1">
+          <mxGeometry height="40" width="160" x="37" y="553" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-15" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="processMultipleTaps()" vertex="1">
+          <mxGeometry height="40" width="160" x="37" y="642" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-16" parent="main_lane" style="ellipse;whiteSpace=wrap;fillColor=#000000;strokeColor=#000000;fontColor=#ffffff;fontSize=10;" value="[END]" vertex="1">
+          <mxGeometry height="30" width="64" x="85" y="748" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-17" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-13" style="edgeStyle=orthogonalEdgeStyle;" target="Y5oCWhH3KMIzaOyOsqL6-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-18" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-14" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;fontStyle=2;" target="Y5oCWhH3KMIzaOyOsqL6-15" value="after N taps">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-19" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-15" style="edgeStyle=orthogonalEdgeStyle;" target="Y5oCWhH3KMIzaOyOsqL6-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-31" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-20" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;curved=0;" target="Y5oCWhH3KMIzaOyOsqL6-21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-20" parent="main_lane" style="text;html=1;align=center;fontStyle=1;fontSize=10;verticalAlign=middle;" value="Plate/Brace mode" vertex="1">
+          <mxGeometry height="21" width="119" x="561.5" y="507" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-21" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="handlePlateTapDetection()" vertex="1">
+          <mxGeometry height="40" width="200" x="521" y="553" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-22" parent="main_lane" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="startGatedCapture()&#xa;sets gatedCaptureActive = true&#xa;seeds buffer with pre-roll&#xa;schedules 2s safety timeout" vertex="1">
+          <mxGeometry height="70" width="200" x="521" y="624" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-23" parent="main_lane" style="ellipse;whiteSpace=wrap;fillColor=#000000;strokeColor=#000000;fontColor=#ffffff;fontSize=10;" value="[END]&#xa;main thread free" vertex="1">
+          <mxGeometry height="40" width="104" x="573" y="743" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-25" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-21" style="edgeStyle=orthogonalEdgeStyle;" target="Y5oCWhH3KMIzaOyOsqL6-22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-26" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-22" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;fontStyle=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="Y5oCWhH3KMIzaOyOsqL6-23" value="returns">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="773.9999999999995" y="717.9999999999998" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-27" edge="1" parent="main_lane" source="Y5oCWhH3KMIzaOyOsqL6-9" style="edgeStyle=orthogonalEdgeStyle;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="Y5oCWhH3KMIzaOyOsqL6-13" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="380" y="491" />
+              <mxPoint x="226" y="491" />
+              <mxPoint x="226" y="492" />
+              <mxPoint x="117" y="492" />
+            </Array>
+            <mxPoint x="475" y="982" as="sourcePoint" />
+            <mxPoint x="227" y="511" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Y5oCWhH3KMIzaOyOsqL6-13" parent="main_lane" style="text;html=1;align=center;fontStyle=1;fontSize=10;verticalAlign=middle;" value="Guitar mode" vertex="1">
+          <mxGeometry height="15" width="72" x="81" y="513" as="geometry" />
+        </mxCell>
+        <mxCell id="mic" parent="1" style="rounded=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=11;" value="Audio Capture&#xa;RealtimeFFTAnalyzer.start()" vertex="1">
+          <mxGeometry height="50" width="260" x="253.5" y="57" as="geometry" />
+        </mxCell>
+        <mxCell id="tap_label" parent="1" style="text;html=1;align=center;fontSize=10;fontStyle=2;" value="1 024-sample tap buffers @ hardware rate&#xa;(AVAudioEngine installTap)" vertex="1">
+          <mxGeometry height="36" width="193" x="391" y="113" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mic_q" edge="1" parent="1" source="mic" style="edgeStyle=orthogonalEdgeStyle;" target="bg_lane">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_rms_pub" edge="1" parent="1" source="rms" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;fontStyle=2;fontSize=9;" target="pub_level" value="DispatchQueue.main.async">
+          <mxGeometry relative="1" x="0.232" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="128" y="477" />
+              <mxPoint x="128" y="477" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_fft_pub" edge="1" parent="1" source="perfFFT" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;fontStyle=2;fontSize=9;" target="pub_mags" value="DispatchQueue.main.async">
+          <mxGeometry relative="1" x="-0.6827" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-1" parent="1" style="text;html=1;align=center;fontStyle=1;fontSize=13;" value="Background Thread filling gated buffer → Main Thread Activation 2" vertex="1">
+          <mxGeometry height="30" width="960" x="795" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-2" parent="1" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" value="audioProcessingQueue  (background)" vertex="1">
+          <mxGeometry height="260" width="960" x="775" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-3" parent="3t_ENfWHB4QApHf4URPl-2" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" value="accumulateGatedSamples()&#xa;called every 1 024 samples&#xa;appends to gatedAccumBuffer&#xa;while gatedCaptureActive == true" vertex="1">
+          <mxGeometry height="80" width="260" x="80" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-4" parent="3t_ENfWHB4QApHf4URPl-2" style="rhombus;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" value="gatedAccumBuffer.count&#xa;≥ gatedCaptureSamples?" vertex="1">
+          <mxGeometry height="80" width="200" x="400" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-5" parent="3t_ENfWHB4QApHf4URPl-2" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" value="gatedCaptureActive = false&#xa;copy captured samples" vertex="1">
+          <mxGeometry height="50" width="200" x="680" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-6" parent="3t_ENfWHB4QApHf4URPl-2" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=10;" value="DispatchQueue.main.async&#xa;{ finishGatedFFTCapture(...) }" vertex="1">
+          <mxGeometry height="50" width="200" x="680" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-7" parent="3t_ENfWHB4QApHf4URPl-2" style="text;html=1;align=center;fontSize=9;fontStyle=2;" value="background thread&#xa;continues normally" vertex="1">
+          <mxGeometry height="36" width="200" x="680" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-8" edge="1" parent="3t_ENfWHB4QApHf4URPl-2" source="3t_ENfWHB4QApHf4URPl-3" style="edgeStyle=orthogonalEdgeStyle;" target="3t_ENfWHB4QApHf4URPl-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-9" edge="1" parent="3t_ENfWHB4QApHf4URPl-2" source="3t_ENfWHB4QApHf4URPl-4" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;" target="3t_ENfWHB4QApHf4URPl-5" value="yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-10" edge="1" parent="3t_ENfWHB4QApHf4URPl-2" source="3t_ENfWHB4QApHf4URPl-5" style="edgeStyle=orthogonalEdgeStyle;" target="3t_ENfWHB4QApHf4URPl-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-11" parent="1" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;" value="Main Thread — Activation 2  (posted by background thread)" vertex="1">
+          <mxGeometry height="420" width="960" x="775" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-12" parent="3t_ENfWHB4QApHf4URPl-11" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;" value="finishGatedFFTCapture()" vertex="1">
+          <mxGeometry height="50" width="220" x="380" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-13" parent="3t_ENfWHB4QApHf4URPl-11" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="computeGatedFFT(samples:sampleRate:)" vertex="1">
+          <mxGeometry height="50" width="220" x="380" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-14" parent="3t_ENfWHB4QApHf4URPl-11" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="findDominantPeak()" vertex="1">
+          <mxGeometry height="50" width="220" x="380" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-15" parent="3t_ENfWHB4QApHf4URPl-11" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="handleLongitudinal&#xa;GatedProgress()" vertex="1">
+          <mxGeometry height="50" width="180" x="140" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-16" parent="3t_ENfWHB4QApHf4URPl-11" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="handleCross&#xa;GatedProgress()" vertex="1">
+          <mxGeometry height="50" width="180" x="400" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-17" parent="3t_ENfWHB4QApHf4URPl-11" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="handleFlc&#xa;GatedProgress()" vertex="1">
+          <mxGeometry height="50" width="180" x="660" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-18" edge="1" parent="3t_ENfWHB4QApHf4URPl-11" source="3t_ENfWHB4QApHf4URPl-12" style="edgeStyle=orthogonalEdgeStyle;" target="3t_ENfWHB4QApHf4URPl-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-19" edge="1" parent="3t_ENfWHB4QApHf4URPl-11" source="3t_ENfWHB4QApHf4URPl-13" style="edgeStyle=orthogonalEdgeStyle;" target="3t_ENfWHB4QApHf4URPl-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-20" edge="1" parent="3t_ENfWHB4QApHf4URPl-11" source="3t_ENfWHB4QApHf4URPl-14" style="edgeStyle=orthogonalEdgeStyle;" target="3t_ENfWHB4QApHf4URPl-15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-21" edge="1" parent="3t_ENfWHB4QApHf4URPl-11" source="3t_ENfWHB4QApHf4URPl-14" style="edgeStyle=orthogonalEdgeStyle;" target="3t_ENfWHB4QApHf4URPl-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-22" edge="1" parent="3t_ENfWHB4QApHf4URPl-11" source="3t_ENfWHB4QApHf4URPl-14" style="edgeStyle=orthogonalEdgeStyle;" target="3t_ENfWHB4QApHf4URPl-17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3t_ENfWHB4QApHf4URPl-23" edge="1" parent="1" source="3t_ENfWHB4QApHf4URPl-6" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;fontStyle=2;fontSize=9;" target="3t_ENfWHB4QApHf4URPl-12" value="posts to main queue">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,707 @@
+/* ==========================================================================
+   GuitarTap User Manual — manual.css
+   Serves both HTML (web view) and PDF (WeasyPrint) output.
+   PDF-specific overrides are in the @media print block at the bottom.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Custom properties / theme
+   -------------------------------------------------------------------------- */
+:root {
+    --color-brand:       #1a6ab5;   /* GuitarTap blue */
+    --color-brand-dark:  #104d87;
+    --color-accent:      #e07a00;   /* amber accent */
+    --color-bg:          #ffffff;
+    --color-surface:     #f5f7fa;
+    --color-border:      #d0d7e0;
+    --color-text:        #1a1a1a;
+    --color-muted:       #5a6070;
+    --color-link:        #1a6ab5;
+    --color-note-bg:     #eef4fb;
+    --color-note-border: #7ab0de;
+    --color-warn-bg:     #fef8ec;
+    --color-warn-border: #e0a800;
+
+    --font-body:    system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-heading: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono:    "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+
+    --sidebar-width: 240px;
+    --content-max:   860px;
+    --line-height:   1.65;
+    --base-size:     16px;
+}
+
+/* --------------------------------------------------------------------------
+   Reset / base
+   -------------------------------------------------------------------------- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: var(--base-size);
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: var(--line-height);
+    color: var(--color-text);
+    background: var(--color-bg);
+}
+
+/* --------------------------------------------------------------------------
+   Layout — sidebar + content
+   -------------------------------------------------------------------------- */
+#layout {
+    display: flex;
+    align-items: flex-start;
+    min-height: 100vh;
+}
+
+/* Sidebar navigation */
+#sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    padding: 1.5rem 0.75rem 2rem;
+    font-size: 0.82rem;
+}
+
+#sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+#sidebar li {
+    margin: 0;
+}
+
+#sidebar a {
+    display: block;
+    padding: 0.18rem 0.5rem;
+    color: var(--color-text);
+    text-decoration: none;
+    border-radius: 4px;
+    line-height: 1.4;
+}
+
+#sidebar a:hover {
+    background: var(--color-border);
+    color: var(--color-brand);
+}
+
+#sidebar .nav-h1 > a {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--color-brand-dark);
+    margin-top: 0.75rem;
+    padding-top: 0.25rem;
+}
+
+#sidebar .nav-h2 > a {
+    padding-left: 1.0rem;
+    font-size: 0.82rem;
+}
+
+#sidebar .nav-h3 > a {
+    padding-left: 1.8rem;
+    font-size: 0.78rem;
+    color: var(--color-muted);
+}
+
+/* Active section highlight via :target (no JS needed) */
+:target {
+    scroll-margin-top: 1.5rem;
+}
+
+/* Main content area */
+#content {
+    flex: 1;
+    min-width: 0;
+    padding: 2.5rem 3rem 4rem;
+    max-width: var(--content-max);
+}
+
+/* --------------------------------------------------------------------------
+   Typography
+   -------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--color-brand-dark);
+    margin-top: 2.4rem;
+    margin-bottom: 0.6rem;
+}
+
+h1 {
+    font-size: 2rem;
+    border-bottom: 2px solid var(--color-brand);
+    padding-bottom: 0.4rem;
+    margin-top: 3rem;
+    color: var(--color-brand);
+}
+
+h2 {
+    font-size: 1.4rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.25rem;
+    margin-top: 2rem;
+}
+
+h3 {
+    font-size: 1.1rem;
+    color: var(--color-brand);
+    margin-top: 1.6rem;
+}
+
+h4 {
+    font-size: 1rem;
+    color: var(--color-text);
+    margin-top: 1.2rem;
+}
+
+p {
+    margin-bottom: 0.9rem;
+}
+
+a {
+    color: var(--color-link);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+ul, ol {
+    margin: 0.5rem 0 0.9rem 1.6rem;
+}
+
+li {
+    margin-bottom: 0.3rem;
+}
+
+code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 0.1em 0.35em;
+}
+
+pre {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.87rem;
+}
+
+strong {
+    font-weight: 700;
+}
+
+em {
+    font-style: italic;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 2rem 0;
+}
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.5rem;
+    font-size: 0.9rem;
+}
+
+thead {
+    background: var(--color-brand);
+    color: #fff;
+}
+
+th {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    font-weight: 600;
+}
+
+td {
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+}
+
+tr:nth-child(even) td {
+    background: var(--color-surface);
+}
+
+/* --------------------------------------------------------------------------
+   Images
+   -------------------------------------------------------------------------- */
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    display: block;
+    margin: 1rem auto;
+}
+
+/* Full-width screenshot */
+.screenshot {
+    width: 100%;
+}
+
+/* Side-by-side screenshots */
+.screenshot-pair {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+    align-items: flex-start;
+}
+
+.screenshot-pair img {
+    flex: 1;
+    min-width: 0;
+}
+
+figcaption, .caption {
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--color-muted);
+    margin-top: 0.3rem;
+    margin-bottom: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   Callout boxes
+   -------------------------------------------------------------------------- */
+.note, .tip, .warning, .caution {
+    border-left: 4px solid var(--color-note-border);
+    background: var(--color-note-bg);
+    border-radius: 0 6px 6px 0;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0 1.2rem;
+    font-size: 0.93rem;
+}
+
+.note::before {
+    content: "Note — ";
+    font-weight: 700;
+    color: var(--color-brand);
+}
+
+.tip {
+    border-color: #3aaa55;
+    background: #eefaf0;
+}
+
+.tip::before {
+    content: "Tip — ";
+    font-weight: 700;
+    color: #287a3a;
+}
+
+.warning {
+    border-color: var(--color-warn-border);
+    background: var(--color-warn-bg);
+}
+
+.warning::before {
+    content: "Warning — ";
+    font-weight: 700;
+    color: #9a6000;
+}
+
+.caution {
+    border-color: #cc3333;
+    background: #fef0f0;
+}
+
+.caution::before {
+    content: "Caution — ";
+    font-weight: 700;
+    color: #991a1a;
+}
+
+/* --------------------------------------------------------------------------
+   Platform-specific content blocks
+   -------------------------------------------------------------------------- */
+.ios-only, .macos-only, .windows-linux-only, .desktop-only {
+    padding: 0.1rem 0.8rem;
+    margin: 0.8rem 0;
+    border-left: 3px solid var(--color-border);
+}
+
+.ios-only {
+    border-color: #007aff;   /* iOS blue */
+}
+
+.macos-only {
+    border-color: #636366;   /* macOS grey */
+}
+
+.windows-linux-only, .desktop-only {
+    border-color: #0078d4;   /* Windows blue */
+}
+
+.platform-label {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1em 0.45em;
+    border-radius: 3px;
+    margin-bottom: 0.35rem;
+    color: #fff;
+}
+
+.ios-only      .platform-label { background: #007aff; }
+.macos-only    .platform-label { background: #636366; }
+.desktop-only  .platform-label,
+.windows-linux-only .platform-label { background: #0078d4; }
+
+/* --------------------------------------------------------------------------
+   Keyboard shortcut tokens
+   -------------------------------------------------------------------------- */
+kbd {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Steps list (numbered procedure)
+   -------------------------------------------------------------------------- */
+ol.steps {
+    counter-reset: steps;
+    list-style: none;
+    margin-left: 0;
+    padding-left: 0;
+}
+
+ol.steps li {
+    counter-increment: steps;
+    display: flex;
+    gap: 0.8rem;
+    margin-bottom: 0.75rem;
+    align-items: flex-start;
+}
+
+ol.steps li::before {
+    content: counter(steps);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.6rem;
+    height: 1.6rem;
+    background: var(--color-brand);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 50%;
+    margin-top: 0.05rem;
+}
+
+/* --------------------------------------------------------------------------
+   Title page
+   -------------------------------------------------------------------------- */
+#title-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 80vh;
+    padding: 3rem 2rem 4rem;
+    page-break-after: always;
+    break-after: page;
+}
+
+.title-logo-wrap {
+    margin-bottom: 2.5rem;
+}
+
+.title-logo {
+    width: 180px;
+    height: 180px;
+    border: none;
+    border-radius: 28px;   /* matches Apple icon rounding */
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    display: block;
+    margin: 0 auto;
+}
+
+.title-main {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--color-brand);
+    border: none;
+    margin: 0 0 0.3rem;
+    padding: 0;
+    letter-spacing: -0.01em;
+}
+
+.title-subtitle {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--color-brand-dark);
+    margin: 0 0 1rem;
+}
+
+.title-version {
+    font-size: 1rem;
+    color: var(--color-muted);
+    margin: 0 0 0.3rem;
+}
+
+.title-platforms {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    margin: 0;
+    letter-spacing: 0.03em;
+}
+
+.title-footer {
+    margin-top: 3rem;
+    border-top: 1px solid var(--color-border);
+    padding-top: 1.5rem;
+    width: 100%;
+    max-width: 420px;
+}
+
+.title-description {
+    font-size: 0.95rem;
+    color: var(--color-text);
+    margin-bottom: 0.75rem;
+    font-style: italic;
+}
+
+.title-copyright {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Hide title page h1 from the nav sidebar (it has no section content) */
+#sidebar .nav-h1:first-child a[href="#guitar-tap"] {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   TOC page (PDF / HTML)
+   -------------------------------------------------------------------------- */
+#toc-page {
+    page-break-after: always;  /* PDF: TOC on its own page */
+    break-after: page;
+    margin-bottom: 3rem;
+}
+
+.toc-title {
+    font-size: 1.7rem;
+    border-bottom: 2px solid var(--color-brand);
+    margin-bottom: 1.2rem;
+}
+
+.toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.toc-list li a {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    color: var(--color-text);
+    text-decoration: none;
+    padding: 0.15rem 0;
+    border-bottom: 1px dotted var(--color-border);
+}
+
+.toc-list li a:hover {
+    color: var(--color-brand);
+}
+
+.toc-h1 { font-weight: 700; font-size: 0.97rem; margin-top: 0.8rem; }
+.toc-h2 { padding-left: 1.2rem; font-size: 0.9rem; }
+.toc-h3 { padding-left: 2.4rem; font-size: 0.83rem; color: var(--color-muted); }
+
+/* Page number placeholder — WeasyPrint fills this via target-counter */
+.toc-page-num {
+    font-size: 0.85em;
+    color: var(--color-muted);
+    padding-left: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   PDF-only: WeasyPrint @media print overrides
+   -------------------------------------------------------------------------- */
+@media print {
+
+    /* Hide the HTML sidebar nav — replaced by PDF bookmark tree */
+    #sidebar {
+        display: none;
+    }
+
+    #layout {
+        display: block;
+    }
+
+    #content {
+        padding: 0;
+        max-width: none;
+    }
+
+    /* Page setup */
+    @page {
+        size: A4;
+        margin: 25mm 22mm 22mm 25mm;
+
+        @bottom-right {
+            content: counter(page);
+            font-size: 9pt;
+            color: #666;
+        }
+
+        @top-right {
+            content: "GuitarTap User Manual";
+            font-size: 8pt;
+            color: #666;
+        }
+    }
+
+    @page :first {
+        @bottom-right { content: none; }
+        @top-right    { content: none; }
+    }
+
+    /* PDF bookmarks — WeasyPrint native support */
+    h1 {
+        bookmark-level: 1;
+        bookmark-label: content();
+        bookmark-state: open;
+    }
+
+    h2 {
+        bookmark-level: 2;
+        bookmark-label: content();
+        bookmark-state: closed;
+    }
+
+    h3 {
+        bookmark-level: 3;
+        bookmark-label: content();
+        bookmark-state: closed;
+    }
+
+    /* TOC page numbers — filled by WeasyPrint */
+    .toc-page-num::after {
+        content: target-counter(attr(href url), page);
+    }
+
+    /* Title page — full page, no header/footer, no bookmark */
+    #title-page {
+        min-height: 0;
+        height: 240mm;   /* fill an A4 page */
+        page-break-after: always;
+        break-after: page;
+    }
+
+    .title-logo {
+        width: 140px;
+        height: 140px;
+    }
+
+    .title-main {
+        font-size: 28pt;
+        bookmark-level: none;
+    }
+
+    /* Page breaks */
+    h1 { page-break-before: always; break-before: page; }
+    h1:first-of-type { page-break-before: avoid; break-before: avoid; }
+    #toc-page + * h1 { page-break-before: always; }
+
+    h2, h3 {
+        page-break-after: avoid;
+        break-after: avoid;
+    }
+
+    table, figure, img {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* Keep table headers on each page */
+    thead { display: table-header-group; }
+
+    /* Links: show URL in parentheses for external links */
+    a[href^="http"]::after {
+        content: " (" attr(href) ")";
+        font-size: 0.8em;
+        color: var(--color-muted);
+    }
+
+    /* Don't annotate internal anchor links */
+    a[href^="#"]::after {
+        content: none;
+    }
+
+    /* Typography adjustments for print */
+    body {
+        font-size: 10.5pt;
+        line-height: 1.55;
+    }
+
+    h1 { font-size: 20pt; }
+    h2 { font-size: 14pt; }
+    h3 { font-size: 11pt; }
+    h4 { font-size: 10.5pt; }
+
+    code, pre {
+        font-size: 9pt;
+    }
+
+    /* Avoid widows and orphans */
+    p {
+        orphans: 3;
+        widows: 3;
+    }
+}

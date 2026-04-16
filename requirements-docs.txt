@@ -1,0 +1,21 @@
+# Documentation generation dependencies
+# Used by generate-manual.sh (and potentially generate-help.sh) to produce HTML and PDF output.
+#
+# Prerequisites (native library, not a Python package):
+#   macOS:   brew install pango
+#   Linux:   sudo apt-get install libpango-1.0-0 libpangoft2-1.0-0
+#
+# macOS note: if using python.org Python (not Homebrew Python), WeasyPrint cannot
+# find Homebrew's libgobject/libpango at runtime. The generate-manual.sh script
+# works around this by exporting:
+#   export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_FALLBACK_LIBRARY_PATH
+# before invoking WeasyPrint. No need to recreate the venv with Homebrew Python.
+#
+# Setup:
+#   python3.14 -m venv .venv
+#   .venv/bin/pip install -r requirements-docs.txt
+#
+# Python version: 3.14 (match /Users/dws/src/guitar_tap)
+
+weasyprint
+markdown
