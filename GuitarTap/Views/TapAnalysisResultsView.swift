@@ -207,8 +207,24 @@ struct TapAnalysisResultsView: View {
                         // Plate/brace properties scroll with the peaks since they can be tall
                         if analyzer.displayMode != .comparison {
                             if measurementType == .plate && analyzer.isMeasurementComplete {
+                                // Gore Target Thickness immediately after peaks — it's the key result
+                                Divider()
+                                goreThicknessSectionView
+
+                                // Plate Properties and other calculations
                                 Divider()
                                 platePropertiesSection
+
+                                // Process instructions at the end — reference only after measurement
+                                Divider()
+                                plateProcessInstructionsSection
+                            } else if measurementType == .brace && analyzer.isMeasurementComplete {
+                                Divider()
+                                bracePropertiesSection
+
+                                // Process instructions at the end
+                                Divider()
+                                braceProcessInstructionsSection
                             } else if measurementType == .brace {
                                 Divider()
                                 bracePropertiesSection
@@ -409,76 +425,11 @@ struct TapAnalysisResultsView: View {
                             )
                         }
                         
-                        // Instructions and guidance
-                        // fixedSize allows text to wrap at the panel width instead of
-                        // expanding the panel to the ideal (single-line) text width.
-                        VStack(alignment: .leading, spacing: 6) {
-                            Divider()
-                                .padding(.vertical, 4)
-                            
-                            Text(includesFlcTap ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(alignment: .top, spacing: 6) {
-                                    Circle()
-                                        .fill(Color.blue)
-                                        .frame(width: 8, height: 8)
-                                        .padding(.top, 2)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("**1. Longitudinal (L) Tap**")
-                                            .font(.caption2)
-                                        Text("Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                                }
-
-                                HStack(alignment: .top, spacing: 6) {
-                                    Circle()
-                                        .fill(Color.orange)
-                                        .frame(width: 8, height: 8)
-                                        .padding(.top, 2)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("**2. Cross-grain (C) Tap**")
-                                            .font(.caption2)
-                                        Text("Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                                }
-
-                                if includesFlcTap {
-                                    HStack(alignment: .top, spacing: 6) {
-                                        Circle()
-                                            .fill(Color.purple)
-                                            .frame(width: 8, height: 8)
-                                            .padding(.top, 2)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("**3. FLC (Diagonal) Tap**")
-                                                .font(.caption2)
-                                            Text("Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
-                                                .font(.caption2)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                                    }
-                                }
-                            }
-                            .frame(maxWidth: instructionTextMaxWidth)
-
-                            Text("The strongest peak from each tap is auto-selected. Adjust selections above if needed.")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .italic()
-                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                                .padding(.top, 2)
+                        // Instructions shown inline while measurement is in progress only.
+                        // After completion they move to the end of the scroll view.
+                        if !analyzer.isMeasurementComplete {
+                            plateMeasurementInstructions
                         }
-                        .frame(maxWidth: instructionTextMaxWidth)
-                        .padding(.top, 4)
                     } else if measurementType == .brace {
                         // Brace mode — fL selection only
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
@@ -503,39 +454,11 @@ struct TapAnalysisResultsView: View {
                             )
                         }
                         
-                        // Brace instructions
-                        VStack(alignment: .leading, spacing: 6) {
-                            Divider()
-                                .padding(.vertical, 4)
-                            
-                            Text("Single-Tap Measurement (fL only):")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                            
-                            HStack(alignment: .top, spacing: 6) {
-                                Circle()
-                                    .fill(Color.blue)
-                                    .frame(width: 8, height: 8)
-                                    .padding(.top, 2)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("**1. Longitudinal (fL) Tap**")
-                                        .font(.caption2)
-                                    Text("Hold brace at 22% from one end along the length. Tap center.")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                            }
-                            
-                            Text("The strongest peak is auto-selected. Adjust if needed.")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .italic()
-                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                                .padding(.top, 2)
+                        // Instructions shown inline while measurement is in progress only.
+                        // After completion they move to the end of the scroll view.
+                        if !analyzer.isMeasurementComplete {
+                            braceMeasurementInstructions
                         }
-                        .frame(maxWidth: instructionTextMaxWidth)
-                        .padding(.top, 4)
                     } else {
                         // Standard guitar mode display
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
@@ -926,8 +849,6 @@ struct TapAnalysisResultsView: View {
                     }
                     .padding(.vertical, 4)
 
-                    // Gore Target Thickness
-                    goreThicknessView(for: props)
                 }
             } else {
                 VStack(spacing: 12) {
@@ -952,6 +873,18 @@ struct TapAnalysisResultsView: View {
         }
     }
     
+    // MARK: - Gore Thickness Section (standalone, shown immediately after peaks)
+
+    /// Gore Target Thickness as a standalone section, shown immediately after the peak list.
+    @ViewBuilder
+    private var goreThicknessSectionView: some View {
+        if let props = calculatedPlateProperties {
+            GroupBox("Gore Target Thickness") {
+                goreThicknessView(for: props)
+            }
+        }
+    }
+
     // MARK: - Brace Properties Section
     
     /// Computed brace properties based on the selected fL peak and dimensions
@@ -1067,13 +1000,7 @@ struct TapAnalysisResultsView: View {
         let fvs        = TapDisplaySettings.plateStiffness
         let preset     = TapDisplaySettings.plateStiffnessPreset
 
-        Divider()
-
         VStack(alignment: .leading, spacing: 10) {
-            Text("Gore Target Thickness")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-
             if let hd = props.goreTargetThickness(
                 bodyLengthMm: bodyLength,
                 bodyWidthMm: bodyWidth,
@@ -1136,8 +1063,134 @@ struct TapAnalysisResultsView: View {
         .cornerRadius(8)
     }
 
+    // MARK: - Measurement Process Instructions
+
+    /// Plate tap instructions content — shared between inline (in-progress) and
+    /// end-of-scroll (post-completion) placements.
+    @ViewBuilder
+    private var plateMeasurementInstructions: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Divider()
+                .padding(.vertical, 4)
+
+            Text(includesFlcTap ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
+                .font(.caption)
+                .fontWeight(.semibold)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 6) {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("**1. Longitudinal (L) Tap**")
+                            .font(.caption2)
+                        Text("Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                }
+
+                HStack(alignment: .top, spacing: 6) {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("**2. Cross-grain (C) Tap**")
+                            .font(.caption2)
+                        Text("Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                }
+
+                if includesFlcTap {
+                    HStack(alignment: .top, spacing: 6) {
+                        Circle()
+                            .fill(Color.purple)
+                            .frame(width: 8, height: 8)
+                            .padding(.top, 2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("**3. FLC (Diagonal) Tap**")
+                                .font(.caption2)
+                            Text("Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                    }
+                }
+            }
+            .frame(maxWidth: instructionTextMaxWidth)
+
+            Text("The strongest peak from each tap is auto-selected. Adjust selections above if needed.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .italic()
+                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                .padding(.top, 2)
+        }
+        .frame(maxWidth: instructionTextMaxWidth)
+        .padding(.top, 4)
+    }
+
+    /// Brace tap instructions content — shared between inline and end-of-scroll placements.
+    @ViewBuilder
+    private var braceMeasurementInstructions: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Divider()
+                .padding(.vertical, 4)
+
+            Text("Single-Tap Measurement (fL only):")
+                .font(.caption)
+                .fontWeight(.semibold)
+
+            HStack(alignment: .top, spacing: 6) {
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 8, height: 8)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("**1. Longitudinal (fL) Tap**")
+                        .font(.caption2)
+                    Text("Hold brace at 22% from one end along the length. Tap center.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+            }
+
+            Text("The strongest peak is auto-selected. Adjust if needed.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .italic()
+                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                .padding(.top, 2)
+        }
+        .frame(maxWidth: instructionTextMaxWidth)
+        .padding(.top, 4)
+    }
+
+    /// Process instructions shown at the end of the scroll view after a plate measurement is complete.
+    private var plateProcessInstructionsSection: some View {
+        GroupBox("Measurement Process") {
+            plateMeasurementInstructions
+        }
+    }
+
+    /// Process instructions shown at the end of the scroll view after a brace measurement is complete.
+    private var braceProcessInstructionsSection: some View {
+        GroupBox("Measurement Process") {
+            braceMeasurementInstructions
+        }
+    }
+
     // MARK: - Helper Views
-    
+
     private func propertyRow(title: String, longValue: String, crossValue: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
