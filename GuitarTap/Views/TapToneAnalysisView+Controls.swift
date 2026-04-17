@@ -615,7 +615,8 @@ extension TapToneAnalysisView {
                 .buttonStyle(.borderedProminent)
                 .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
                           !tap.isReadyForDetection ||
-                          tap.isDetecting))
+                          tap.isDetecting ||
+                          !tap.isMeasurementComplete))
                 .hint(HintText.newTap)
 
                 // Pause/Resume button - for multi-tap and plate/brace sequences
@@ -755,7 +756,8 @@ extension TapToneAnalysisView {
             .buttonStyle(.bordered)
             .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
                       !tap.isReadyForDetection ||
-                      tap.isDetecting))
+                      tap.isDetecting ||
+                      !tap.isMeasurementComplete))
             .hint(HintText.newTap)
 
             // Pause/Resume button - for multi-tap and plate/brace sequences
@@ -873,7 +875,8 @@ extension TapToneAnalysisView {
                 .buttonStyle(.bordered)
                 .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
                           !tap.isReadyForDetection ||
-                          tap.isDetecting))
+                          tap.isDetecting ||
+                          !tap.isMeasurementComplete))
                 .hint(HintText.newTap)
 
                 // Pause/Resume button - for multi-tap and plate/brace sequences
