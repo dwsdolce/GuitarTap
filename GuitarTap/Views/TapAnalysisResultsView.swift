@@ -109,6 +109,13 @@ struct TapAnalysisResultsView: View {
             || analyzer.autoSelectedFlcPeakID != nil
             || analyzer.selectedFlcPeak != nil
     }
+
+    /// Whether this plate measurement includes (or will include) the FLC tap.
+    /// During a live measurement in progress: reflects the `measureFlc` setting.
+    /// After completion or when loaded: reflects actual measurement data.
+    private var includesFlcTap: Bool {
+        analyzer.isMeasurementComplete ? hasFlcMeasurement : TapDisplaySettings.measureFlc
+    }
     
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -199,7 +206,7 @@ struct TapAnalysisResultsView: View {
 
                         // Plate/brace properties scroll with the peaks since they can be tall
                         if analyzer.displayMode != .comparison {
-                            if measurementType == .plate {
+                            if measurementType == .plate && analyzer.isMeasurementComplete {
                                 Divider()
                                 platePropertiesSection
                             } else if measurementType == .brace {
@@ -308,11 +315,78 @@ struct TapAnalysisResultsView: View {
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding()
-                } else {
+                } else if measurementType != .plate {
                     Text("No peaks detected in visible range")
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding()
+                } else {
+                    // Plate mode with no peaks yet: show process instructions so the
+                    // user knows what to do before making the first tap.
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(includesFlcTap ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .top, spacing: 6) {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 8, height: 8)
+                                    .padding(.top, 2)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("**1. Longitudinal (L) Tap**")
+                                        .font(.caption2)
+                                    Text("Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                            }
+
+                            HStack(alignment: .top, spacing: 6) {
+                                Circle()
+                                    .fill(Color.orange)
+                                    .frame(width: 8, height: 8)
+                                    .padding(.top, 2)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("**2. Cross-grain (C) Tap**")
+                                        .font(.caption2)
+                                    Text("Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                            }
+
+                            if includesFlcTap {
+                                HStack(alignment: .top, spacing: 6) {
+                                    Circle()
+                                        .fill(Color.purple)
+                                        .frame(width: 8, height: 8)
+                                        .padding(.top, 2)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("**3. FLC (Diagonal) Tap**")
+                                            .font(.caption2)
+                                        Text("Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: instructionTextMaxWidth)
+
+                        Text("The strongest peak from each tap is auto-selected. Adjust selections above if needed.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .italic()
+                            .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                            .padding(.top, 2)
+                    }
+                    .frame(maxWidth: instructionTextMaxWidth)
+                    .padding(8)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 12) {
@@ -342,7 +416,7 @@ struct TapAnalysisResultsView: View {
                             Divider()
                                 .padding(.vertical, 4)
                             
-                            Text(hasFlcMeasurement ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
+                            Text(includesFlcTap ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
                                 .font(.caption)
                                 .fontWeight(.semibold)
                             
@@ -377,7 +451,7 @@ struct TapAnalysisResultsView: View {
                                     .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                                 }
 
-                                if hasFlcMeasurement {
+                                if includesFlcTap {
                                     HStack(alignment: .top, spacing: 6) {
                                         Circle()
                                             .fill(Color.purple)

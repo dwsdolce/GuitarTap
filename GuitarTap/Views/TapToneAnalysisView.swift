@@ -171,13 +171,13 @@ struct TapToneAnalysisView: View {
         #endif
     }
 
-    /// Cancel button should only be enabled during active multi-tap detection
+    /// Cancel button is enabled during any active tap detection sequence.
     var cancelButtonEnabled: Bool {
-        // Must be multi-tap mode
-        guard tapToneAnalyzer.numberOfTaps > 1 else { return false }
-        // Must be actively detecting
         guard tapToneAnalyzer.isDetecting else { return false }
-        // Must not have completed all taps
+        // For plate/brace: always available during an active multi-phase sequence.
+        guard TapDisplaySettings.measurementType.isGuitar else { return true }
+        // Guitar: only useful in multi-tap mode before all taps are captured.
+        guard tapToneAnalyzer.numberOfTaps > 1 else { return false }
         guard tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps else { return false }
         return true
     }

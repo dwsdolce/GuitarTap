@@ -141,7 +141,9 @@ struct TapSettingsView: View {
     }
 
     /// Called when the user presses Apply (not Cancel).
-    var onApply: (() -> Void)?
+    /// The `Bool` parameter is `true` when the measurement type or FLC toggle changed,
+    /// indicating that the current measurement should be cancelled and restarted.
+    var onApply: ((_ measurementChanged: Bool) -> Void)?
 
     /// Converts a maxPeaks integer to its display string (0 → "All", n → "n").
     static func maxPeaksDisplayString(_ value: Int) -> String {
@@ -158,7 +160,7 @@ struct TapSettingsView: View {
          maxPeaks: Binding<Int>,
          hysteresisMargin: Binding<Float>,
          fftAnalyzer: RealtimeFFTAnalyzer,
-         onApply: (() -> Void)? = nil) {
+         onApply: ((_ measurementChanged: Bool) -> Void)? = nil) {
 
         self._minFreq = minFreq
         self._maxFreq = maxFreq

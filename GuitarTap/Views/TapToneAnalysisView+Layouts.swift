@@ -99,7 +99,13 @@ extension TapToneAnalysisView {
                 maxPeaks: $tapToneAnalyzer.maxPeaks,
                 hysteresisMargin: $tapToneAnalyzer.hysteresisMargin,
                 fftAnalyzer: fft,
-                onApply: { tapToneAnalyzer.reclassifyPeaks() }
+                onApply: { measurementChanged in
+                    if measurementChanged {
+                        tapToneAnalyzer.startTapSequence()
+                    } else {
+                        tapToneAnalyzer.reclassifyPeaks()
+                    }
+                }
             )
             .interactiveDismissDisabled()
         }
@@ -224,7 +230,13 @@ extension TapToneAnalysisView {
                 maxPeaks: $tapToneAnalyzer.maxPeaks,
                 hysteresisMargin: $tapToneAnalyzer.hysteresisMargin,
                 fftAnalyzer: fft,
-                onApply: { tapToneAnalyzer.reclassifyPeaks() }
+                onApply: { measurementChanged in
+                    if measurementChanged {
+                        tapToneAnalyzer.startTapSequence()
+                    } else {
+                        tapToneAnalyzer.reclassifyPeaks()
+                    }
+                }
             )
             .interactiveDismissDisabled()
         }
@@ -490,6 +502,7 @@ extension TapToneAnalysisView {
                         in: 1...10)
                     .labelsHidden()
                     .accessibilityLabel("Number of taps: \(tap.numberOfTaps)")
+                    .disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)
                     .hint(HintText.taps)
                 Text("\(tap.numberOfTaps)")
                     .font(.caption)
@@ -592,7 +605,13 @@ extension TapToneAnalysisView {
             // Progress
             if tap.currentTapCount > 0 {
                 VStack(spacing: 4) {
-                    Text("\(tap.currentTapCount)/\(tap.numberOfTaps)")
+                    let totalPhases = TapDisplaySettings.measureFlc ? 3 : 2
+                    let phaseLabel = TapDisplaySettings.measurementType == .plate
+                        ? (tap.numberOfTaps > 1
+                            ? "Phase \(materialPhaseStep)/\(totalPhases) · Tap \(max(0, tap.currentTapCount - (materialPhaseStep - 1) * tap.numberOfTaps))/\(tap.numberOfTaps)"
+                            : "Phase \(materialPhaseStep)/\(totalPhases)")
+                        : "Tap \(tap.currentTapCount)/\(tap.numberOfTaps)"
+                    Text(phaseLabel)
                         .font(.caption)
                         .fontWeight(.semibold)
                     ProgressView(value: tap.tapProgress)

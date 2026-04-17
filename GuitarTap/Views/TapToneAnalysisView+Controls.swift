@@ -369,7 +369,13 @@ extension TapToneAnalysisView {
                     .lineLimit(1)
 
                 if tap.isDetecting && tap.currentTapCount > 0 {
-                    Text("\(tap.currentTapCount)/\(tap.numberOfTaps)")
+                    let totalPhases = TapDisplaySettings.measureFlc ? 3 : 2
+                    let phaseLabel = TapDisplaySettings.measurementType == .plate
+                        ? (tap.numberOfTaps > 1
+                            ? "Phase \(materialPhaseStep)/\(totalPhases) · Tap \(max(0, tap.currentTapCount - (materialPhaseStep - 1) * tap.numberOfTaps))/\(tap.numberOfTaps)"
+                            : "Phase \(materialPhaseStep)/\(totalPhases)")
+                        : "Tap \(tap.currentTapCount)/\(tap.numberOfTaps)"
+                    Text(phaseLabel)
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.blue)
@@ -502,7 +508,13 @@ extension TapToneAnalysisView {
                         .foregroundColor(tap.isDetecting ? .primary : .orange)
 
                     if tap.isDetecting && tap.currentTapCount > 0 {
-                        Text("\(tap.currentTapCount)/\(tap.numberOfTaps)")
+                        let totalPhases = TapDisplaySettings.measureFlc ? 3 : 2
+                        let phaseLabel = TapDisplaySettings.measurementType == .plate
+                            ? (tap.numberOfTaps > 1
+                                ? "Phase \(materialPhaseStep)/\(totalPhases) · Tap \(max(0, tap.currentTapCount - (materialPhaseStep - 1) * tap.numberOfTaps))/\(tap.numberOfTaps)"
+                                : "Phase \(materialPhaseStep)/\(totalPhases)")
+                            : "Tap \(tap.currentTapCount)/\(tap.numberOfTaps)"
+                        Text(phaseLabel)
                             .font(.caption)
                             .fontWeight(.semibold)
                             .foregroundColor(.blue)
@@ -559,6 +571,7 @@ extension TapToneAnalysisView {
                     Stepper("\(tap.numberOfTaps)",
                             value: $tapToneAnalyzer.numberOfTaps,
                             in: 1...10)
+                        .disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)
                         .frame(maxWidth: 120)
                         .hint(HintText.taps)
 
@@ -697,6 +710,7 @@ extension TapToneAnalysisView {
                         value: $tapToneAnalyzer.numberOfTaps,
                         in: 1...10)
                     .labelsHidden()
+                    .disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)
             }
             .hint(HintText.taps)
 
@@ -811,6 +825,7 @@ extension TapToneAnalysisView {
                             value: $tapToneAnalyzer.numberOfTaps,
                             in: 1...10)
                         .labelsHidden()
+                        .disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)
                 }
                 .hint(HintText.taps)
 

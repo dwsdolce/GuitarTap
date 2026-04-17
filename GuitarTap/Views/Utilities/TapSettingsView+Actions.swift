@@ -31,10 +31,18 @@ extension TapSettingsView {
     // MARK: - Actions
 
     func applySettings() {
+        // Capture the current values before overwriting so we can detect changes.
+        let previousMeasurementType = TapDisplaySettings.measurementType
+        let previousMeasureFlc = TapDisplaySettings.measureFlc
+
         // Save measurement type and unknown mode setting
         TapDisplaySettings.measurementType = selectedMeasurementType
         TapDisplaySettings.showUnknownModes = showUnknownModes
         TapDisplaySettings.measureFlc = measureFlc
+
+        // Detect whether the measurement type or FLC toggle changed.
+        let measurementChanged = selectedMeasurementType != previousMeasurementType
+            || measureFlc != previousMeasureFlc
 
         // Save plate dimensions
         if selectedMeasurementType == .plate {
@@ -156,7 +164,7 @@ extension TapSettingsView {
         analysisMaxFreqInput = String(format: "%.0f", validatedAnalysisFreq.max)
         peakThresholdInput = String(format: "%.0f", clampedThreshold)
 
-        onApply?()
+        onApply?(measurementChanged)
         dismiss()
     }
 
