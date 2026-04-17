@@ -182,14 +182,8 @@ struct TapToneAnalysisView: View {
         return true
     }
 
-    /// Pause/Resume button is enabled during any active multi-tap, plate, or brace sequence
+    /// Pause/Resume button is enabled during any active tap detection sequence
     var pauseResumeButtonEnabled: Bool {
-        // In plate/brace mode, detection management is always relevant
-        if !TapDisplaySettings.measurementType.isGuitar {
-            return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
-        }
-        // In guitar mode, only enabled for multi-tap sequences
-        guard tapToneAnalyzer.numberOfTaps > 1 else { return false }
         return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
     }
 

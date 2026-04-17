@@ -144,7 +144,7 @@ Arms the detector for the next tap (or begins a plate measurement sequence). A g
 
 ### ![](/tmp/guitar-tap-symbols/pause.circle.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/play.circle.png){height=14pt width=14pt} Pause / Resume
 
-Temporarily suspends tap detection while keeping the spectrum live. Useful between taps in a multi-tap sequence.
+Temporarily suspends tap detection while keeping the spectrum live. Use it to experiment with threshold and peak settings, let the ring-out decay between taps in a multi-tap sequence, or reposition a plate or brace before continuing.
 
 ### ![](/tmp/guitar-tap-symbols/xmark.circle.png){height=14pt width=14pt} Cancel
 

@@ -210,7 +210,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Pause / Resume",
-                    body: "Temporarily suspends tap detection while keeping the spectrum live. Useful between taps in a multi-tap sequence.",
+                    body: "Temporarily suspends tap detection while keeping the spectrum live. Use it to experiment with threshold and peak settings, let the ring-out decay between taps in a multi-tap sequence, or reposition a plate or brace before continuing.",
                     systemImages: ["pause.circle", "play.circle"]
                 )
                 helpRow(

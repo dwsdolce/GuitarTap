@@ -87,27 +87,27 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 ### 2.6 Setting the Threshold — Finding Your Tap Level
 - What the Threshold slider controls: the signal level that triggers tap detection
 - Why it needs to be set for your specific microphone, room, and tapping style before relying on results
-- **Step 1 — Raise Threshold to maximum (−20 dB):** this prevents any tap from triggering detection, leaving the spectrum live
-- **Step 2 — Make a representative tap** and observe the peak magnitude on the live spectrum; note the highest dB level reached (the spectrum stays live because threshold is too high to trigger)
-- **Step 3 — Lower Threshold** to approximately 6–10 dB below the observed peak level, giving headroom for variation while staying well above background noise
-- **Step 4 — Test:** press New Tap and make the same tap; confirm the spectrum freezes and a "tap registered" indicator appears
+- **Step 1 — Press Pause** (press New Tap first if a previous measurement is frozen): detection is suspended and the spectrum stays live; you can tap freely without triggering a measurement
+- **Step 2 — Make a representative tap** and observe the peak magnitude on the live spectrum; note the highest dB level reached
+- **Step 3 — Adjust Threshold** to approximately 6–10 dB below the observed peak level, giving headroom for variation while staying well above background noise
+- **Step 4 — Press Resume, then test:** make the same tap; confirm the spectrum freezes and a "tap registered" indicator appears
 - Iterating: if the tap is missed, lower the threshold; if ambient noise triggers false detections, raise it
-- Relationship to Hysteresis Margin: the detector resets only when the signal drops this far below the threshold — default 6 dB is a good starting point
+- Relationship to Hysteresis Margin: the detector resets only when the signal drops this far below the threshold — default 3 dB is a good starting point
 - Note: Threshold affects all three measurement modes equally
 
 ### 2.7 Setting Peak Min — Filtering the Peak List (Guitar Mode)
 - What Peak Min controls: the minimum magnitude (dB) a spectral peak must reach to be annotated on the chart and included in guitar mode analysis
 - **Why this step applies mainly to guitar mode:** in Plate and Brace modes the tap capture uses its own adaptive noise floor; Peak Min only affects which peaks are *displayed* on the chart, not which ones are selected for the calculation
-- **Step 1 — Make a tap with Threshold set correctly** (from §2.6) so the spectrum freezes
-- **Step 2 — Raise Peak Min to maximum** on the frozen spectrum: observe only the strongest peaks remain annotated — these are likely the true structural resonances
-- **Step 3 — Lower Peak Min gradually** until the peaks of interest appear; stop before noise peaks clutter the chart
+- **Step 1 — Press Pause** (press New Tap first if a previous measurement is frozen): the spectrum stays live and peaks update in real time; adjust Threshold and Peak Min freely without risking an accidental tap trigger
+- **Step 2 — Make representative taps** while paused and observe which peaks appear; raise Peak Min until noise peaks disappear, lower it until the structural resonances are visible
+- **Step 3 — Press Resume** when the settings look right, then make the real measurement tap
 - **Step 4 — Verify the Results panel** shows the expected modes; use the wand button to re-run automatic selection if needed after adjusting Peak Min on a frozen spectrum
-- Saving the adjusted values: Settings → Advanced → Display Settings → Save Current View persists the display range; Peak Min and Threshold are saved automatically between sessions
+- Saving the adjusted values: Peak Min and Threshold are saved automatically between sessions
 
 ### 2.8 Your First Tap — Guitar Mode Walkthrough
 - Position the microphone (5–15 cm from sound hole or tap point)
-- Set Threshold and Peak Min as described in §2.6 and §2.7
-- Press New Tap to arm the detector
+- Press Pause to set Threshold and Peak Min as described in §2.6 and §2.7 (the analyzer is already running on first launch)
+- Press Resume to arm the detector
 - Give the guitar a knuckle rap or use the bouncy ball on a stick
 - Observe the frozen spectrum and annotated peaks
 - Open the Results panel and review frequencies, decay time, and tap tone ratio
@@ -119,11 +119,10 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 - [ ] Windows Microphone permission in Settings
 - [ ] Settings sheet — Audio Input section (iOS, macOS, and Windows/Linux desktop)
 - [ ] Settings sheet — Measurement Type section
-- [ ] Threshold slider at maximum (−20 dB) with live spectrum showing a tap impulse
-- [ ] Threshold slider lowered to working level after reading tap magnitude
-- [ ] Peak Min at maximum on frozen spectrum (only strong peaks visible)
-- [ ] Peak Min lowered to working level (all relevant peaks visible, noise excluded)
-- [ ] New Tap button highlighted, status bar showing "Armed"
+- [ ] New Tap armed then Pause pressed — live spectrum with tap impulse visible
+- [ ] Threshold slider being adjusted while paused (live spectrum active)
+- [ ] Peak Min being adjusted while paused (peaks updating in real time)
+- [ ] Resume pressed — detector armed, status bar showing ready state
 - [ ] Frozen spectrum immediately after a tap
 - [ ] Results panel open alongside spectrum (iPad/macOS/desktop)
 - [ ] Save Measurement sheet
