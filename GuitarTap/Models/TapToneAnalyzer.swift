@@ -442,8 +442,8 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Current phase of the multi-tap material measurement sequence.
     ///
-    /// Progresses from `.notStarted` through `.capturingLongitudinal`, `.waitingForCrossTap`,
-    /// `.capturingCross` (and optionally FLC phases) to `.complete`.
+    /// Progresses from `.notStarted` through `.capturingLongitudinal`, `.reviewingLongitudinal`,
+    /// `.capturingCross`, `.reviewingCross` (and optionally FLC phases) to `.complete`.
     @Published var materialTapPhase: MaterialTapPhase = .notStarted
 
     /// `true` when a measurement is complete and ready for review — whether it is a guitar

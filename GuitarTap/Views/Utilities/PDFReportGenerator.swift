@@ -326,8 +326,8 @@ private struct PDFReportContentView: View {
             Spacer().frame(height: 14)
             peaksSection
             Spacer().frame(height: 14)
-            tapInstructionsSection
             analysisSection
+            tapInstructionsSection
             footerSection
         }
         .padding(margin)
@@ -668,6 +668,11 @@ private struct PDFReportContentView: View {
         switch data.measurementType {
         case .plate:
             if let props = data.plateProperties {
+                // Gore Target Thickness is the key result — show it first, immediately after peaks.
+                goreThicknessPDFSection(props)
+                Spacer().frame(height: 14)
+                sectionDivider
+                Spacer().frame(height: 14)
                 plateSection(props)
             }
         case .brace:
@@ -858,8 +863,6 @@ private struct PDFReportContentView: View {
             .padding(8)
             .background(Color.gray.opacity(0.07))
             .cornerRadius(4)
-
-            goreThicknessPDFSection(props)
         }
     }
 

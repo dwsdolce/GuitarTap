@@ -171,8 +171,21 @@ struct TapToneAnalysisView: View {
         #endif
     }
 
+    /// Returns true when the analyzer is in a plate/brace review phase.
+    var isInReviewPhase: Bool {
+        switch tapToneAnalyzer.materialTapPhase {
+        case .reviewingLongitudinal, .reviewingCross, .reviewingFlc:
+            return !TapDisplaySettings.measurementType.isGuitar
+        default:
+            return false
+        }
+    }
+
     /// Cancel button is enabled during any active tap detection sequence.
+    /// During a review phase it acts as "Redo" and is always enabled.
     var cancelButtonEnabled: Bool {
+        // "Redo" is available whenever we are in a review phase.
+        if isInReviewPhase { return true }
         guard tapToneAnalyzer.isDetecting else { return false }
         // For plate/brace: always available during an active multi-phase sequence.
         guard TapDisplaySettings.measurementType.isGuitar else { return true }
@@ -182,9 +195,27 @@ struct TapToneAnalysisView: View {
         return true
     }
 
-    /// Pause/Resume button is enabled during any active tap detection sequence
+    /// Pause/Resume button is enabled during any active tap detection sequence.
+    /// During a review phase it acts as "Accept" and is always enabled.
     var pauseResumeButtonEnabled: Bool {
+        if isInReviewPhase { return true }
         return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
+    }
+
+    /// New Tap button is disabled only when there is nothing to start over from.
+    ///
+    /// For guitar mode it is disabled mid-sequence (the user must finish or cancel first).
+    /// For plate/brace mode it is always enabled so the user can start over at any point,
+    /// including while in a review phase or mid-capture.
+    var newTapButtonDisabled: Bool {
+        guard tapToneAnalyzer.displayMode != .comparison else { return false }
+        guard fft.isRunning && tapToneAnalyzer.isReadyForDetection else { return true }
+        // Plate/brace: always allow starting over (even during capture or review).
+        if !TapDisplaySettings.measurementType.isGuitar { return false }
+        // Guitar: disabled while a sequence is in progress and not yet complete.
+        if tapToneAnalyzer.isDetecting { return true }
+        if !tapToneAnalyzer.isMeasurementComplete { return true }
+        return false
     }
 
     /// Creates the view and its paired audio analyzers.

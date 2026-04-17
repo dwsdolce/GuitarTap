@@ -306,6 +306,142 @@ extension TapToneAnalyzer {
         }
     }
 
+    // MARK: - Phase Review (Accept / Redo)
+
+    /// Accepts the current review-phase spectrum and advances to the next capture phase.
+    ///
+    /// Called when the user taps "Accept" (the repurposed Pause button) during a
+    /// `reviewingLongitudinal`, `reviewingCross`, or `reviewingFlc` state.
+    ///
+    /// - For `reviewingLongitudinal`: unfreezes the spectrum and transitions to `.capturingCross`.
+    /// - For `reviewingCross`: transitions to `.waitingForFlcTap` (FLC enabled) or `.complete`.
+    /// - For `reviewingFlc`: marks the measurement complete.
+    func acceptCurrentPhase() {
+        let measureFlc = TapDisplaySettings.measureFlc
+        switch materialTapPhase {
+        case .reviewingLongitudinal:
+            print("✅ Accepted L tap — advancing to cross-grain")
+            materialTapPhase = .capturingCross
+            setFrozenSpectrum(frequencies: [], magnitudes: [])
+            isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
+            analyzerStartTime = Date()
+            isDetecting = true
+            tapDetected = false
+            statusMessage = "Rotate 90° and tap for C"
+
+        case .reviewingCross:
+            if measureFlc {
+                print("✅ Accepted C tap — advancing to FLC")
+                materialTapPhase = .waitingForFlcTap
+                statusMessage = "Set up for FLC tap, then tap"
+                // Re-enable detection for the FLC phase after the cooldown.
+                DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
+                    guard let self = self else { return }
+                    self.materialTapPhase = .capturingFlc
+                    self.setFrozenSpectrum(frequencies: [], magnitudes: [])
+                    self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
+                    self.analyzerStartTime = Date()
+                    self.isDetecting = true
+                    self.tapDetected = false
+                }
+            } else {
+                print("✅ Accepted C tap — measurement complete")
+                let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? crossPeaks.first)
+                currentPeaks = sel
+                selectedPeakIDs = Set(sel.map { $0.id })
+                setFrozenSpectrum(frequencies: [], magnitudes: [])
+                materialTapPhase = .complete
+                isMeasurementComplete = true
+                tapProgress = 1.0
+                let fLStr = selectedLongitudinalPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
+                let fCStr = selectedCrossPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
+                statusMessage = "Complete — fL: \(fLStr) Hz, fC: \(fCStr) Hz"
+            }
+
+        case .reviewingFlc:
+            print("✅ Accepted FLC tap — measurement complete")
+            let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? flcPeaks.first)
+            currentPeaks = sel
+            selectedPeakIDs = Set(sel.map { $0.id })
+            setFrozenSpectrum(frequencies: [], magnitudes: [])
+            materialTapPhase = .complete
+            isMeasurementComplete = true
+            tapProgress = 1.0
+            statusMessage = "Complete - check Results"
+
+        default:
+            print("⚠️ acceptCurrentPhase called in unexpected phase: \(materialTapPhase)")
+        }
+    }
+
+    /// Clears the current phase's captured data and restarts detection for that phase.
+    ///
+    /// Called when the user taps "Redo" (the repurposed Cancel button) during a
+    /// `reviewingLongitudinal`, `reviewingCross`, or `reviewingFlc` state.
+    /// Only the data for the current phase is cleared — earlier phases are preserved.
+    func redoCurrentPhase() {
+        switch materialTapPhase {
+        case .reviewingLongitudinal:
+            print("🔄 Redo L phase — clearing longitudinal data")
+            longitudinalSpectrum = nil
+            longitudinalPeaks = []
+            autoSelectedLongitudinalPeakID = nil
+            selectedLongitudinalPeak = nil
+            userSelectedLongitudinalPeakID = nil
+            materialCapturedTaps = []
+            currentTapCount = 0
+            tapProgress = 0.0
+            materialTapPhase = .capturingLongitudinal
+            setFrozenSpectrum(frequencies: [], magnitudes: [])
+            isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
+            analyzerStartTime = Date()
+            isDetecting = true
+            tapDetected = false
+            statusMessage = "Ready for L tap — tap again"
+
+        case .reviewingCross:
+            print("🔄 Redo C phase — clearing cross-grain data")
+            crossSpectrum = nil
+            crossPeaks = []
+            autoSelectedCrossPeakID = nil
+            selectedCrossPeak = nil
+            userSelectedCrossPeakID = nil
+            materialCapturedTaps = []
+            let lCount = (longitudinalSpectrum != nil) ? numberOfTaps : 0
+            currentTapCount = lCount
+            tapProgress = Float(lCount) / Float(totalPlateTaps)
+            materialTapPhase = .capturingCross
+            setFrozenSpectrum(frequencies: [], magnitudes: [])
+            isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
+            analyzerStartTime = Date()
+            isDetecting = true
+            tapDetected = false
+            statusMessage = "Ready for C tap — tap again"
+
+        case .reviewingFlc:
+            print("🔄 Redo FLC phase — clearing FLC data")
+            flcSpectrum = nil
+            flcPeaks = []
+            autoSelectedFlcPeakID = nil
+            selectedFlcPeak = nil
+            userSelectedFlcPeakID = nil
+            materialCapturedTaps = []
+            let lcCount = (longitudinalSpectrum != nil && crossSpectrum != nil) ? numberOfTaps * 2 : 0
+            currentTapCount = lcCount
+            tapProgress = Float(lcCount) / Float(totalPlateTaps)
+            materialTapPhase = .capturingFlc
+            setFrozenSpectrum(frequencies: [], magnitudes: [])
+            isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
+            analyzerStartTime = Date()
+            isDetecting = true
+            tapDetected = false
+            statusMessage = "Ready for FLC tap — tap again"
+
+        default:
+            print("⚠️ redoCurrentPhase called in unexpected phase: \(materialTapPhase)")
+        }
+    }
+
     // MARK: - Private Helpers
 
     /// Clears all plate/brace phase state and sets ``materialTapPhase`` to the given value.

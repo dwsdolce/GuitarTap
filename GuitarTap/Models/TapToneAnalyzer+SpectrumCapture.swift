@@ -225,7 +225,7 @@ extension TapToneAnalyzer {
             case .capturingLongitudinal:
                 // fL: longitudinal stiffness mode, typically 70–400 Hz
                 hpsMinHz = 50; hpsMaxHz = 500
-            case .capturingCross, .waitingForCrossTap:
+            case .capturingCross:
                 // fC: cross-grain stiffness mode, typically 30–200 Hz
                 hpsMinHz = 20; hpsMaxHz = 250
             case .capturingFlc, .waitingForFlcTap:
@@ -281,7 +281,7 @@ extension TapToneAnalyzer {
             handleLongitudinalGatedProgress(magnitudes: magnitudes,
                                             frequencies: frequencies,
                                             dominantPeak: dominantPeak)
-        case .capturingCross, .waitingForCrossTap:
+        case .capturingCross:
             handleCrossGatedProgress(magnitudes: magnitudes,
                                      frequencies: frequencies,
                                      dominantPeak: dominantPeak)
@@ -289,7 +289,8 @@ extension TapToneAnalyzer {
             handleFlcGatedProgress(magnitudes: magnitudes,
                                    frequencies: frequencies,
                                    dominantPeak: dominantPeak)
-        case .notStarted, .complete:
+        case .notStarted, .complete,
+             .reviewingLongitudinal, .reviewingCross, .reviewingFlc:
             print("⚠️ Unexpected gated FFT capture in phase: \(phase)")
         }
     }
@@ -460,7 +461,7 @@ extension TapToneAnalyzer {
     /// ``buildAllPeaks(magnitudes:frequencies:dominantPeak:)`` to populate the
     /// full peak list for manual override.
     ///
-    /// Transitions to `.waitingForCrossTap` (plate) or `.complete` (brace)
+    /// Transitions to `.reviewingLongitudinal` (plate) or `.complete` (brace)
     /// when `numberOfTaps` longitudinal taps have been collected.
     ///
     /// - Parameters:
@@ -510,16 +511,12 @@ extension TapToneAnalyzer {
             statusMessage = "Complete - check Results"
             print("✅ Brace measurement complete: fL=\(dominantPeak.frequency) Hz")
         } else {
-            materialTapPhase = .waitingForCrossTap
-            statusMessage = "fL: \(String(format: "%.1f", dominantPeak.frequency)) Hz — rotate 90° for C tap"
-            DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
-                guard let self = self else { return }
-                self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
-                self.isDetecting = true; self.tapDetected = false
-                self.materialTapPhase = .capturingCross
-                self.setFrozenSpectrum(frequencies: [], magnitudes: [])
-                self.analyzerStartTime = Date()
-            }
+            // Freeze the L spectrum for display and pause at the review state.
+            // The user must press Accept (advance to C) or Redo (re-capture L).
+            setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
+            materialTapPhase = .reviewingLongitudinal
+            isDetecting = false
+            statusMessage = "fL: \(String(format: "%.1f", dominantPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
         }
     }
 
@@ -540,7 +537,7 @@ extension TapToneAnalyzer {
     ///   - flcOverride: If non-nil, used as the FLC peak instead of
     ///     `selectedFlcPeak` / `flcPeaks.first`.
     /// - Returns: Ordered array `[longitudinal?, cross?, flc?]` with nils dropped.
-    private func resolvedPlatePeaks(
+    func resolvedPlatePeaks(
         includeCross: Bool = true,
         crossOverride: ResonantPeak? = nil,
         includeFlc: Bool = false,
@@ -592,29 +589,13 @@ extension TapToneAnalyzer {
         print("🟠 Auto-selected cross-grain peak: \(dominantPeak.frequency) Hz")
         materialCapturedTaps = []
 
-        if TapDisplaySettings.measureFlc {
-            currentPeaks = combinePlatePeaks()
-            setFrozenSpectrum(frequencies: [], magnitudes: [])
-            materialTapPhase = .waitingForFlcTap
-            statusMessage = "fC: \(String(format: "%.1f", dominantPeak.frequency)) Hz — set up for FLC tap"
-            DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
-                guard let self = self else { return }
-                self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
-                self.isDetecting = true; self.tapDetected = false
-                self.materialTapPhase = .capturingFlc
-                self.setFrozenSpectrum(frequencies: [], magnitudes: [])
-                self.analyzerStartTime = Date()
-            }
-        } else {
-            let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? dominantPeak)
-            currentPeaks = sel
-            selectedPeakIDs = Set(sel.map { $0.id })
-            setFrozenSpectrum(frequencies: [], magnitudes: [])
-            materialTapPhase = .complete; isMeasurementComplete = true; tapProgress = 1.0
-            let fLStr = selectedLongitudinalPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
-            statusMessage = "Complete — fL: \(fLStr) Hz, fC: \(String(format: "%.1f", dominantPeak.frequency)) Hz"
-            print("✅ Plate complete: fL=\(fLStr) Hz, fC=\(dominantPeak.frequency) Hz")
-        }
+        // Freeze the C spectrum for display and pause at the review state.
+        // The user must press Accept (advance to FLC or complete) or Redo (re-capture C).
+        currentPeaks = combinePlatePeaks()
+        setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
+        materialTapPhase = .reviewingCross
+        isDetecting = false
+        statusMessage = "fC: \(String(format: "%.1f", dominantPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
     }
 
     /// Gated-FFT handler for the FLC (shear/diagonal) capture phase.
@@ -648,13 +629,16 @@ extension TapToneAnalyzer {
         print("🟣 Auto-selected FLC peak: \(dominantPeak.frequency) Hz")
         materialCapturedTaps = []
 
+        // Freeze the FLC spectrum for display and pause at the review state.
+        // The user must press Accept (complete) or Redo (re-capture FLC).
         let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? dominantPeak)
         currentPeaks = sel
         selectedPeakIDs = Set(sel.map { $0.id })
-        setFrozenSpectrum(frequencies: [], magnitudes: [])
-        materialTapPhase = .complete; isMeasurementComplete = true; tapProgress = 1.0
-        statusMessage = "Complete - check Results"
-        print("✅ Plate complete: L=\(longitudinalPeaks.first?.frequency ?? 0) C=\(crossPeaks.first?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
+        setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
+        materialTapPhase = .reviewingFlc
+        isDetecting = false
+        statusMessage = "fLC: \(String(format: "%.1f", dominantPeak.frequency)) Hz — Accept to complete or Redo to re-tap"
+        print("📊 FLC review: L=\(longitudinalPeaks.first?.frequency ?? 0) C=\(crossPeaks.first?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
     }
 
     /// Builds a display-ready peak list from a gated-FFT spectrum, ensuring

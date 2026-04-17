@@ -54,8 +54,8 @@
 /// accumulating from the continuous FFT. The phase state machine progresses:
 ///
 /// ```
-/// notStarted → capturingLongitudinal → waitingForCrossTap
-///           → capturingCross → [waitingForFlcTap → capturingFlc →] complete
+/// notStarted → capturingLongitudinal → reviewingLongitudinal
+///           → capturingCross → reviewingCross → [waitingForFlcTap → capturingFlc → reviewingFlc →] complete
 /// ```
 ///
 /// Each phase uses a dedicated gated-FFT handler in `TapToneAnalyzer+SpectrumCapture`
@@ -365,11 +365,12 @@ extension TapToneAnalyzer {
         let phase = materialTapPhase
         TAP_DEBUG("handlePlateTapDetection", "ENTERED | phase=\(phase) materialCapturedTaps.count=\(materialCapturedTaps.count) numberOfTaps=\(numberOfTaps)")
         switch phase {
-        case .capturingLongitudinal, .capturingCross, .waitingForCrossTap,
+        case .capturingLongitudinal, .capturingCross,
              .capturingFlc, .waitingForFlcTap:
             TAP_DEBUG("handlePlateTapDetection", "Starting gated capture for phase=\(phase)")
             startGatedCapture(phase: phase)
-        case .notStarted, .complete:
+        case .notStarted, .complete,
+             .reviewingLongitudinal, .reviewingCross, .reviewingFlc:
             TAP_DEBUG("handlePlateTapDetection", "UNEXPECTED TAP | phase=\(phase) — tap ignored")
             print("⚠️ Unexpected tap in plate phase: \(phase)")
         }

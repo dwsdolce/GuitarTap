@@ -18,12 +18,16 @@
 /// ```
 /// notStarted
 ///   └─▶ capturingLongitudinal   (tap along grain)
-///         └─▶ waitingForCrossTap
-///               └─▶ capturingCross          (tap across grain, plate rotated 90°)
-///                     ├─▶ waitingForFlcTap  (if measureFlc == true)
-///                     │     └─▶ capturingFlc   (diagonal corner tap)
-///                     │           └─▶ complete
-///                     └─▶ complete           (if measureFlc == false)
+///         └─▶ reviewingLongitudinal          (frozen — user reviews L spectrum)
+///               ├─▶ capturingLongitudinal    (Redo: clear L data, re-capture)
+///               └─▶ capturingCross           (Accept: advance to cross-grain)
+///                     └─▶ reviewingCross         (frozen — user reviews C spectrum)
+///                           ├─▶ capturingCross   (Redo: clear C data, re-capture)
+///                           ├─▶ capturingFlc     (Accept + measureFlc == true)
+///                           │     └─▶ reviewingFlc   (frozen — user reviews FLC spectrum)
+///                           │           ├─▶ capturingFlc  (Redo)
+///                           │           └─▶ complete      (Accept)
+///                           └─▶ complete         (Accept + measureFlc == false)
 /// ```
 ///
 /// ## Brace Measurement State Machine (1 tap)
@@ -57,12 +61,16 @@ enum MaterialTapPhase: String {
     /// A longitudinal (along-grain) gated FFT capture is actively accumulating samples.
     case capturingLongitudinal = "Capturing Longitudinal"
 
-    /// The longitudinal capture is complete; the app is waiting for the user to
-    /// rotate the plate 90° and perform the cross-grain tap.
-    case waitingForCrossTap = "Waiting for Cross-grain Tap"
+    /// The longitudinal capture is complete; the user is reviewing the frozen L spectrum
+    /// before accepting it (advancing to C) or redoing the phase.
+    case reviewingLongitudinal = "Reviewing Longitudinal"
 
     /// A cross-grain gated FFT capture is actively accumulating samples.
     case capturingCross = "Capturing Cross-grain"
+
+    /// The cross-grain capture is complete; the user is reviewing the frozen C spectrum
+    /// before accepting it or redoing the phase.
+    case reviewingCross = "Reviewing Cross-grain"
 
     /// Both longitudinal and cross captures are complete; the app is waiting for the
     /// optional FLC (diagonal / shear) tap.
@@ -73,6 +81,10 @@ enum MaterialTapPhase: String {
 
     /// An FLC (diagonal) gated FFT capture is actively accumulating samples.
     case capturingFlc = "Capturing FLC"
+
+    /// The FLC capture is complete; the user is reviewing the frozen FLC spectrum
+    /// before accepting it or redoing the phase.
+    case reviewingFlc = "Reviewing FLC"
 
     /// All required taps have been captured and processed.
     ///
@@ -91,16 +103,20 @@ enum MaterialTapPhase: String {
             return "Press New Tap to begin measurement"
         case .capturingLongitudinal:
             return "Processing longitudinal tap..."
-        case .waitingForCrossTap:
-            return "Now rotate plate 90° and tap again for cross-grain"
+        case .reviewingLongitudinal:
+            return "L tap captured — Accept to continue or Redo to re-tap"
         case .capturingCross:
             return "Processing cross-grain tap..."
+        case .reviewingCross:
+            return "C tap captured — Accept to continue or Redo to re-tap"
         case .waitingForFlcTap:
             // FLC technique: hold at the midpoint of one long edge, tap near the opposite corner
             // at approximately 22% from both the end and the side (node of the shear mode).
             return "Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side)"
         case .capturingFlc:
             return "Processing FLC tap..."
+        case .reviewingFlc:
+            return "FLC tap captured — Accept to complete or Redo to re-tap"
         case .complete:
             return "Measurement complete"
         }
@@ -109,13 +125,15 @@ enum MaterialTapPhase: String {
     /// Abbreviated status string for display in compact UI elements such as the status bar.
     var shortStatus: String {
         switch self {
-        case .notStarted:           return "Ready"
-        case .capturingLongitudinal: return "L tap..."
-        case .waitingForCrossTap:   return "Tap for C"
-        case .capturingCross:       return "C tap..."
-        case .waitingForFlcTap:     return "Tap for FLC"
-        case .capturingFlc:         return "FLC tap..."
-        case .complete:             return "Done"
+        case .notStarted:              return "Ready"
+        case .capturingLongitudinal:   return "L tap..."
+        case .reviewingLongitudinal:   return "Review L"
+        case .capturingCross:          return "C tap..."
+        case .reviewingCross:          return "Review C"
+        case .waitingForFlcTap:        return "Tap for FLC"
+        case .capturingFlc:            return "FLC tap..."
+        case .reviewingFlc:            return "Review FLC"
+        case .complete:                return "Done"
         }
     }
 }

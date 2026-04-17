@@ -618,7 +618,7 @@ extension TapToneAnalysisView {
 
             // Row 2: Action buttons - all buttons always visible to prevent layout shifts
             HStack(spacing: 8) {
-                // New Tap button
+                // New Tap button — also available mid-sequence to start over
                 Button(action: {
                     tap.startTapSequence()
                 }) {
@@ -626,47 +626,68 @@ extension TapToneAnalysisView {
                         .font(.subheadline)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
-                          !tap.isReadyForDetection ||
-                          tap.isDetecting ||
-                          !tap.isMeasurementComplete))
+                .disabled(newTapButtonDisabled)
                 .hint(HintText.newTap)
 
-                // Pause/Resume button - for multi-tap and plate/brace sequences
+                // Pause/Resume button — becomes "Accept" during plate/brace review phases
                 Button(action: {
-                    if tap.isDetectionPaused {
+                    if isInReviewPhase {
+                        tapToneAnalyzer.acceptCurrentPhase()
+                    } else if tap.isDetectionPaused {
                         tapToneAnalyzer.resumeTapDetection()
                     } else {
                         tapToneAnalyzer.pauseTapDetection()
                     }
                 }) {
-                    Label(
-                        tap.isDetectionPaused ? "Resume" : "Pause",
-                        systemImage: tap.isDetectionPaused ? "play.circle" : "pause.circle"
-                    )
-                    .font(.subheadline)
+                    if isInReviewPhase {
+                        Label("Accept", systemImage: "checkmark.circle")
+                            .font(.subheadline)
+                    } else {
+                        Label(
+                            tap.isDetectionPaused ? "Resume" : "Pause",
+                            systemImage: tap.isDetectionPaused ? "play.circle" : "pause.circle"
+                        )
+                        .font(.subheadline)
+                    }
                 }
                 .buttonStyle(.bordered)
+                .tint(isInReviewPhase ? .green : nil)
                 .disabled(!pauseResumeButtonEnabled)
-                .hint(tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
+                .hint(isInReviewPhase ? "Accept this tap and continue" :
+                      tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
 
-                // Cancel button - only enabled during active multi-tap detection
+                // Cancel button — becomes "Redo" during plate/brace review phases
                 Button(action: {
-                    tap.cancelTapSequence()
+                    if isInReviewPhase {
+                        tapToneAnalyzer.redoCurrentPhase()
+                    } else {
+                        tap.cancelTapSequence()
+                    }
                 }) {
-                    Label("Cancel", systemImage: "xmark.circle")
+                    let (label, icon) = redoOrCancelLabel
+                    Label(label, systemImage: icon)
                         .font(.subheadline)
                         .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
                 }
                 .buttonStyle(.bordered)
                 .disabled(!cancelButtonEnabled)
-                .hint(HintText.cancel)
+                .hint(isInReviewPhase ? "Redo this tap phase" : HintText.cancel)
             }
         }
         .padding(12)
         .background(Color.secondary.opacity(0.1))
         .cornerRadius(8)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Returns the (label, systemImage) for the Cancel/Redo button based on current phase.
+    private var redoOrCancelLabel: (String, String) {
+        switch tap.materialTapPhase {
+        case .reviewingLongitudinal: return ("Redo L", "arrow.counterclockwise")
+        case .reviewingCross:        return ("Redo C", "arrow.counterclockwise")
+        case .reviewingFlc:          return ("Redo FLC", "arrow.counterclockwise")
+        default:                     return ("Cancel", "xmark.circle")
+        }
     }
 
     /// Regular tap controls for iPad and macOS.
@@ -761,46 +782,56 @@ extension TapToneAnalysisView {
 
             Spacer()
 
-            // Tap sequence buttons
+            // Tap sequence buttons — also available mid-sequence (plate/brace) to start over
             Button(action: {
                 tap.startTapSequence()
             }) {
                 Label("New Tap", systemImage: "hand.tap")
             }
             .buttonStyle(.bordered)
-            .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
-                      !tap.isReadyForDetection ||
-                      tap.isDetecting ||
-                      !tap.isMeasurementComplete))
+            .disabled(newTapButtonDisabled)
             .hint(HintText.newTap)
 
-            // Pause/Resume button - for multi-tap and plate/brace sequences
+            // Pause/Resume button — becomes "Accept" during plate/brace review phases
             Button(action: {
-                if tap.isDetectionPaused {
+                if isInReviewPhase {
+                    tapToneAnalyzer.acceptCurrentPhase()
+                } else if tap.isDetectionPaused {
                     tapToneAnalyzer.resumeTapDetection()
                 } else {
                     tapToneAnalyzer.pauseTapDetection()
                 }
             }) {
-                Label(
-                    tap.isDetectionPaused ? "Resume" : "Pause",
-                    systemImage: tap.isDetectionPaused ? "play.circle" : "pause.circle"
-                )
+                if isInReviewPhase {
+                    Label("Accept", systemImage: "checkmark.circle")
+                } else {
+                    Label(
+                        tap.isDetectionPaused ? "Resume" : "Pause",
+                        systemImage: tap.isDetectionPaused ? "play.circle" : "pause.circle"
+                    )
+                }
             }
             .buttonStyle(.bordered)
+            .tint(isInReviewPhase ? .green : nil)
             .disabled(!pauseResumeButtonEnabled)
-            .hint(tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
+            .hint(isInReviewPhase ? "Accept this tap and continue" :
+                  tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
 
-            // Cancel button - only enabled during active multi-tap detection
+            // Cancel/Redo button — becomes "Redo [phase]" during plate/brace review phases
             Button(action: {
-                tap.cancelTapSequence()
+                if isInReviewPhase {
+                    tapToneAnalyzer.redoCurrentPhase()
+                } else {
+                    tap.cancelTapSequence()
+                }
             }) {
-                Label("Cancel", systemImage: "xmark.circle")
+                let (label, icon) = redoOrCancelLabel
+                Label(label, systemImage: icon)
                     .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
             }
             .buttonStyle(.bordered)
             .disabled(!cancelButtonEnabled)
-            .hint(HintText.cancel)
+            .hint(isInReviewPhase ? "Redo this tap phase" : HintText.cancel)
         }
     }
 
@@ -881,46 +912,56 @@ extension TapToneAnalysisView {
             HStack(spacing: 8) {
                 Spacer()
 
-                // Tap sequence buttons
+                // Tap sequence buttons — also available mid-sequence (plate/brace) to start over
                 Button(action: {
                     tap.startTapSequence()
                 }) {
                     Label("New Tap", systemImage: "hand.tap")
                 }
                 .buttonStyle(.bordered)
-                .disabled(tap.displayMode != .comparison && (!fft.isRunning ||
-                          !tap.isReadyForDetection ||
-                          tap.isDetecting ||
-                          !tap.isMeasurementComplete))
+                .disabled(newTapButtonDisabled)
                 .hint(HintText.newTap)
 
-                // Pause/Resume button - for multi-tap and plate/brace sequences
+                // Pause/Resume button — becomes "Accept" during plate/brace review phases
                 Button(action: {
-                    if tap.isDetectionPaused {
+                    if isInReviewPhase {
+                        tapToneAnalyzer.acceptCurrentPhase()
+                    } else if tap.isDetectionPaused {
                         tapToneAnalyzer.resumeTapDetection()
                     } else {
                         tapToneAnalyzer.pauseTapDetection()
                     }
                 }) {
-                    Label(
-                        tap.isDetectionPaused ? "Resume" : "Pause",
-                        systemImage: tap.isDetectionPaused ? "play.circle" : "pause.circle"
-                    )
+                    if isInReviewPhase {
+                        Label("Accept", systemImage: "checkmark.circle")
+                    } else {
+                        Label(
+                            tap.isDetectionPaused ? "Resume" : "Pause",
+                            systemImage: tap.isDetectionPaused ? "play.circle" : "pause.circle"
+                        )
+                    }
                 }
                 .buttonStyle(.bordered)
+                .tint(isInReviewPhase ? .green : nil)
                 .disabled(!pauseResumeButtonEnabled)
-                .hint(tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
+                .hint(isInReviewPhase ? "Accept this tap and continue" :
+                      tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
 
-                // Cancel button - only enabled during active multi-tap detection
+                // Cancel/Redo button — becomes "Redo [phase]" during plate/brace review phases
                 Button(action: {
-                    tap.cancelTapSequence()
+                    if isInReviewPhase {
+                        tapToneAnalyzer.redoCurrentPhase()
+                    } else {
+                        tap.cancelTapSequence()
+                    }
                 }) {
-                    Label("Cancel", systemImage: "xmark.circle")
+                    let (label, icon) = redoOrCancelLabel
+                    Label(label, systemImage: icon)
                         .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
                 }
                 .buttonStyle(.bordered)
                 .disabled(!cancelButtonEnabled)
-                .hint(HintText.cancel)
+                .hint(isInReviewPhase ? "Redo this tap phase" : HintText.cancel)
             }
         }
     }
