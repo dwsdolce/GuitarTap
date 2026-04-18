@@ -368,7 +368,10 @@ extension TapToneAnalysisView {
                     .foregroundColor(.secondary)
                     .lineLimit(1)
 
-                if tap.isDetecting && tap.currentTapCount > 0 {
+                // For plate/brace: show step from phase 1 (consistent with all phases).
+                // For guitar: keep existing currentTapCount > 0 guard (no phase concept).
+                let isPlate = TapDisplaySettings.measurementType == .plate || TapDisplaySettings.measurementType == .brace
+                if tap.isDetecting && (isPlate || tap.currentTapCount > 0) {
                     let totalPhases = TapDisplaySettings.measureFlc ? 3 : 2
                     let phaseLabel = TapDisplaySettings.measurementType == .plate
                         ? (tap.numberOfTaps > 1
@@ -507,7 +510,10 @@ extension TapToneAnalysisView {
                         .font(.caption)
                         .foregroundColor(tap.isDetecting ? .primary : .orange)
 
-                    if tap.isDetecting && tap.currentTapCount > 0 {
+                    // For plate/brace: show step from phase 1 (consistent with all phases).
+                    // For guitar: keep existing currentTapCount > 0 guard (no phase concept).
+                    let isPlateOrBrace = TapDisplaySettings.measurementType == .plate || TapDisplaySettings.measurementType == .brace
+                    if tap.isDetecting && (isPlateOrBrace || tap.currentTapCount > 0) {
                         let totalPhases = TapDisplaySettings.measureFlc ? 3 : 2
                         let phaseLabel = TapDisplaySettings.measurementType == .plate
                             ? (tap.numberOfTaps > 1

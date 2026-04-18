@@ -379,7 +379,7 @@ extension TapToneAnalysisView {
         let isBrace = TapDisplaySettings.measurementType == .brace
         switch tap.materialTapPhase {
         case .notStarted:
-            return "Press 'New Tap' to Begin"
+            return "Press \u{2018}New Tap\u{2019} to Begin"
         case .capturingLongitudinal:
             return isBrace ? "Step 1: Longitudinal (fL) Mode" : "Step 1: Longitudinal (L) Mode"
         case .reviewingLongitudinal:
@@ -389,7 +389,7 @@ extension TapToneAnalysisView {
         case .reviewingCross:
             return "Review C Tap — Accept or Redo"
         case .waitingForFlcTap:
-            return "C Captured - Prepare for Step 3"
+            return "C Captured \u{2014} Prepare for Step 3"
         case .capturingFlc:
             return "Step 3: FLC (Diagonal) Mode"
         case .reviewingFlc:
@@ -405,10 +405,10 @@ extension TapToneAnalysisView {
         switch tap.materialTapPhase {
         case .notStarted:
             if isBrace {
-                return "Press 'New Tap' to begin the brace fL measurement."
+                return "Press \u{2018}New Tap\u{2019} to begin the brace fL measurement."
             }
             let tapWord = TapDisplaySettings.measureFlc ? "three-tap" : "two-tap"
-            return "Press 'New Tap' to begin the \(tapWord) plate measurement process."
+            return "Press \u{2018}New Tap\u{2019} to begin the \(tapWord) plate measurement process."
         case .capturingLongitudinal:
             if isBrace {
                 return "Hold brace at 22% from one end along the length. Tap center."
@@ -428,10 +428,10 @@ extension TapToneAnalysisView {
             return "FLC tap captured. Review the spectrum — press Accept to complete the measurement, or Redo to re-capture."
         case .complete:
             if isBrace {
-                return "fL captured! Review the fL (blue) peak selection in the Results panel. Adjust if the auto-selection isn't correct."
+                return "fL captured! Review the fL (blue) peak selection in the Results panel. Adjust if the auto-selection isn\u{2019}t correct."
             }
             let flcPart = TapDisplaySettings.measureFlc ? ", and FLC (purple)" : ""
-            return "All modes captured! Review the L (blue), C (orange)\(flcPart) peak selections in the Results panel. Adjust if the auto-selection isn't correct."
+            return "All modes captured! Review the L (blue), C (orange)\(flcPart) peak selections in the Results panel. Adjust if the auto-selection isn\u{2019}t correct."
         }
     }
 

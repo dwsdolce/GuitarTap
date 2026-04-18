@@ -618,8 +618,9 @@ extension TapToneAnalysisView {
                 .hint(isInReviewPhase ? "Redo this tap phase" : HintText.cancel)
             }
 
-            // Progress
-            if tap.currentTapCount > 0 {
+            // Progress — for plate/brace show from phase 1; for guitar keep currentTapCount > 0 guard
+            let isPlateOrBrace = TapDisplaySettings.measurementType == .plate || TapDisplaySettings.measurementType == .brace
+            if isPlateOrBrace || tap.currentTapCount > 0 {
                 VStack(spacing: 4) {
                     let totalPhases = TapDisplaySettings.measureFlc ? 3 : 2
                     let phaseLabel = TapDisplaySettings.measurementType == .plate
