@@ -209,14 +209,14 @@ After all taps, tap Results to see:
                     systemImages: ["hand.tap"]
                 )
                 helpRow(
-                    title: "Pause / Resume",
-                    body: "Temporarily suspends tap detection while keeping the spectrum live. Use it to experiment with threshold and peak settings, let the ring-out decay between taps in a multi-tap sequence, or reposition a plate or brace before continuing.",
-                    systemImages: ["pause.circle", "play.circle"]
+                    title: "Pause / Resume  •  Accept (plate/brace review)",
+                    body: "Pause temporarily suspends tap detection while keeping the spectrum live — use it to let the ring-out decay between taps in a multi-tap sequence, or to reposition a plate or brace before continuing. Resume re-arms the detector.\n\nIn plate and brace mode, after each phase is captured the spectrum freezes for review. While in a review state the button changes to Accept. Tap Accept to confirm the captured spectrum and advance to the next phase (or complete the measurement if it was the last phase).",
+                    systemImages: ["pause.circle", "play.circle", "checkmark.circle"]
                 )
                 helpRow(
-                    title: "Cancel",
-                    body: "Aborts a multi-tap or plate measurement sequence and discards the partial data.",
-                    systemImages: ["xmark.circle"]
+                    title: "Cancel  •  Redo (plate/brace review)",
+                    body: "Cancel aborts the current measurement sequence and discards all partial data.\n\nIn plate and brace mode, while reviewing a captured phase the button changes to Redo. Tap Redo to discard only the current phase's data and re-capture it — earlier phases are preserved. The detector re-arms immediately so you can tap again without pressing New Tap.",
+                    systemImages: ["xmark.circle", "arrow.counterclockwise.circle"]
                 )
                 helpRow(
                     title: "Results",

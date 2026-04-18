@@ -142,13 +142,17 @@ E_L, c_L, specific modulus, and a spruce quality rating are reported. No cross-g
 
 Arms the detector for the next tap (or begins a plate measurement sequence). A green indicator shows when a tap has been registered.
 
-### ![](/tmp/guitar-tap-symbols/pause.circle.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/play.circle.png){height=14pt width=14pt} Pause / Resume
+### ![](/tmp/guitar-tap-symbols/pause.circle.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/play.circle.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/checkmark.circle.png){height=14pt width=14pt} Pause / Resume  •  Accept (plate/brace review)
 
-Temporarily suspends tap detection while keeping the spectrum live. Use it to experiment with threshold and peak settings, let the ring-out decay between taps in a multi-tap sequence, or reposition a plate or brace before continuing.
+Pause temporarily suspends tap detection while keeping the spectrum live — use it to let the ring-out decay between taps in a multi-tap sequence, or to reposition a plate or brace before continuing. Resume re-arms the detector.
 
-### ![](/tmp/guitar-tap-symbols/xmark.circle.png){height=14pt width=14pt} Cancel
+In plate and brace mode, after each phase is captured the spectrum freezes for review. While in a review state the button changes to Accept. Tap Accept to confirm the captured spectrum and advance to the next phase (or complete the measurement if it was the last phase).
 
-Aborts a multi-tap or plate measurement sequence and discards the partial data.
+### ![](/tmp/guitar-tap-symbols/xmark.circle.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/arrow.counterclockwise.circle.png){height=14pt width=14pt} Cancel  •  Redo (plate/brace review)
+
+Cancel aborts the current measurement sequence and discards all partial data.
+
+In plate and brace mode, while reviewing a captured phase the button changes to Redo. Tap Redo to discard only the current phase's data and re-capture it — earlier phases are preserved. The detector re-arms immediately so you can tap again without pressing New Tap.
 
 ### ![](/tmp/guitar-tap-symbols/doc.text.png){height=14pt width=14pt} Results
 

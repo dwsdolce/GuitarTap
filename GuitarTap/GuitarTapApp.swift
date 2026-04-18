@@ -166,6 +166,7 @@ struct AppCommands: Commands {
     @FocusedValue(\.showMetrics) private var showMetrics
     @FocusedValue(\.showMeasurements) private var showMeasurements
     @FocusedValue(\.showSettings) private var showSettings
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         // Remove the "New Window" menu command while preserving the standard app menu
@@ -240,8 +241,13 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .undoRedo) {}
         CommandGroup(replacing: .textEditing) {}
 
-        // Keep the default Help menu as-is; the system Help menu item
-        // is sufficient and the search field works for menu navigation.
+        // Replace the default Help menu item with one that opens the in-app Help window.
+        CommandGroup(replacing: .help) {
+            Button("GuitarTap Help") {
+                openWindow(id: "help")
+            }
+            .keyboardShortcut("?", modifiers: .command)
+        }
     }
 }
 #endif
