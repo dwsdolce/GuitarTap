@@ -253,7 +253,8 @@ extension TapToneAnalyzer {
         // For all three plate phases the tap orientation physically selects the lowest
         // resonant mode of the plate (longitudinal, cross-grain, or shear), so always
         // prefer the lowest significant peak in the search window.
-        let preferLowest = (mType == .plate || phase == .capturingLongitudinal || phase == .capturingCross)
+        let preferLowest = (mType == .plate || phase == .capturingLongitudinal || phase == .capturingCross
+                            || phase == .capturingFlc || phase == .waitingForFlcTap)
 
         // Find the dominant peak using harmonic product spectrum analysis.
         // This finds the fundamental regardless of whether harmonics are louder.
