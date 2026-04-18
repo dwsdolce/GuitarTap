@@ -414,11 +414,8 @@ struct TapAnalysisResultsView: View {
                                 isLongitudinal: effectiveLongitudinalPeakID == item.peak.id,
                                 isCross: effectiveCrossPeakID == item.peak.id,
                                 isFlc: effectiveFlcPeakID == item.peak.id,
-                                showFlcButton: hasFlcMeasurement,
+                                showFlcButton: includesFlcTap,
                                 isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
-                                onSelectLongitudinal: { analyzer.selectLongitudinalPeak(item.peak.id) },
-                                onSelectCross: { analyzer.selectCrossPeak(item.peak.id) },
-                                onSelectFlc: { analyzer.selectFlcPeak(item.peak.id) },
                                 onToggleSelection: {
                                     analyzer.togglePeakSelection(item.peak.id)
                                 }
@@ -431,7 +428,7 @@ struct TapAnalysisResultsView: View {
                             plateMeasurementInstructions
                         }
                     } else if measurementType == .brace {
-                        // Brace mode — fL selection only
+                        // Brace mode — fL badge only
                         ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
                             MaterialPeakRowView(
                                 peak: item.peak,
@@ -439,15 +436,6 @@ struct TapAnalysisResultsView: View {
                                 isCross: false,
                                 showCrossButton: false,
                                 isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
-                                onSelectLongitudinal: {
-                                    if effectiveLongitudinalPeakID == item.peak.id {
-                                        analyzer.userSelectedLongitudinalPeakID = nil
-                                        analyzer.selectedLongitudinalPeak = nil
-                                    } else {
-                                        analyzer.userSelectedLongitudinalPeakID = item.peak.id
-                                    }
-                                },
-                                onSelectCross: {},
                                 onToggleSelection: {
                                     analyzer.togglePeakSelection(item.peak.id)
                                 }
@@ -1212,7 +1200,11 @@ struct TapAnalysisResultsView: View {
 
 // MARK: - Plate/Brace Peak Row View
 
-/// A row view for displaying a peak with plate/brace mode selection buttons
+/// A single row in the plate/brace peak list.
+///
+/// The L/C/FLC badges are display-only indicators of which peak was auto-identified
+/// for each phase. They are not interactive — if the wrong peak was identified,
+/// the user should press Redo to re-capture that phase.
 struct MaterialPeakRowView: View {
     let peak: ResonantPeak
     let isLongitudinal: Bool
@@ -1221,9 +1213,6 @@ struct MaterialPeakRowView: View {
     var showCrossButton: Bool = true
     var showFlcButton: Bool = false
     var isSelected: Bool = true
-    let onSelectLongitudinal: () -> Void
-    let onSelectCross: () -> Void
-    var onSelectFlc: (() -> Void)? = nil
     var onToggleSelection: (() -> Void)? = nil
 
     var body: some View {
@@ -1241,60 +1230,45 @@ struct MaterialPeakRowView: View {
                 .buttonStyle(.plain)
                 .help(isSelected ? "Deselect peak" : "Select peak")
             }
-            
+
             // Frequency and magnitude
             VStack(alignment: .leading, spacing: 2) {
                 Text(peak.frequency.formattedAsFrequency())
                     .font(.headline)
                     .fontWeight(.semibold)
-                
+
                 Text("\(peak.magnitude, specifier: "%.1f") dB")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            
+
             Spacer()
-            
-            // Mode selection buttons
+
+            // Phase identification badges — display only, not interactive.
+            // Colored when this peak was auto-identified for that phase.
             HStack(spacing: 8) {
-                Button(action: onSelectLongitudinal) {
-                    Text("L")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .frame(width: 36, height: 36)
-                        .background(isLongitudinal ? Color.blue : Color.secondary.opacity(0.2))
-                        .foregroundColor(isLongitudinal ? .white : .primary)
-                        .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
-                
+                phaseBadge("L", active: isLongitudinal, color: .blue, width: 36)
+
                 if showCrossButton {
-                    Button(action: onSelectCross) {
-                        Text("C")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .frame(width: 36, height: 36)
-                            .background(isCross ? Color.orange : Color.secondary.opacity(0.2))
-                            .foregroundColor(isCross ? .white : .primary)
-                            .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
+                    phaseBadge("C", active: isCross, color: .orange, width: 36)
                 }
-                
+
                 if showFlcButton {
-                    Button(action: { onSelectFlc?() }) {
-                        Text("FLC")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .frame(width: 42, height: 36)
-                            .background(isFlc ? Color.purple : Color.secondary.opacity(0.2))
-                            .foregroundColor(isFlc ? .white : .primary)
-                            .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
+                    phaseBadge("FLC", active: isFlc, color: .purple, width: 42)
                 }
             }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func phaseBadge(_ label: String, active: Bool, color: Color, width: CGFloat) -> some View {
+        Text(label)
+            .font(label.count <= 1 ? .headline : .subheadline)
+            .fontWeight(.bold)
+            .frame(width: width, height: 36)
+            .background(active ? color : Color.secondary.opacity(0.2))
+            .foregroundColor(active ? .white : .primary)
+            .cornerRadius(8)
     }
 }

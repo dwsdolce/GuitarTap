@@ -240,6 +240,7 @@ extension TapToneAnalysisView {
             onResetLabels: { tapToneAnalyzer.resetAllAnnotationOffsets() },
             hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
             isMeasurementComplete: tap.isMeasurementComplete,
+            isReviewingMaterialPhase: tap.materialTapPhase.isReviewing,
             primaryCurveColor: .red,
             measurementType: TapDisplaySettings.measurementType,
             selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
@@ -271,6 +272,7 @@ extension TapToneAnalysisView {
             onResetLabels: { tapToneAnalyzer.resetAllAnnotationOffsets() },
             hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
             isMeasurementComplete: tap.isMeasurementComplete,
+            isReviewingMaterialPhase: tap.materialTapPhase.isReviewing,
             primaryCurveColor: .red,
             measurementType: TapDisplaySettings.measurementType,
             selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
@@ -308,7 +310,7 @@ extension TapToneAnalysisView {
                         .fontWeight(.semibold)
                         .foregroundColor(materialPhaseColor)
                     Spacer()
-                    Text("Step \(materialPhaseStep)/\(TapDisplaySettings.measurementType == .brace ? 1 : (TapDisplaySettings.measureFlc ? 3 : 2))")
+                    Text("Phase \(materialPhaseStep)/\(TapDisplaySettings.measurementType == .brace ? 1 : (TapDisplaySettings.measureFlc ? 3 : 2))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

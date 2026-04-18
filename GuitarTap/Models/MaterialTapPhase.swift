@@ -122,6 +122,14 @@ enum MaterialTapPhase: String {
         }
     }
 
+    /// Whether the phase is a review state (frozen spectrum, user decides Accept or Redo).
+    var isReviewing: Bool {
+        switch self {
+        case .reviewingLongitudinal, .reviewingCross, .reviewingFlc: return true
+        default: return false
+        }
+    }
+
     /// Abbreviated status string for display in compact UI elements such as the status bar.
     var shortStatus: String {
         switch self {

@@ -195,6 +195,11 @@ struct SpectrumView: View {
     /// Should be set to true when a measurement is complete (post-tap capture).
     var isMeasurementComplete: Bool = false
 
+    /// When true the analyzer is in a material-phase review state (reviewingLongitudinal,
+    /// reviewingCross, or reviewingFlc). The live waveform is suppressed so only the frozen
+    /// phase overlays and peak annotations are visible.
+    var isReviewingMaterialPhase: Bool = false
+
     /// Color of the primary (single) spectrum line. Used to tint the cursor readout label
     /// so it matches the waveform. Only relevant when `materialSpectra` is empty.
     var primaryCurveColor: Color = .red
@@ -1006,11 +1011,14 @@ struct SpectrumView: View {
     /// The base chart with plot style and scales
     private var baseChart: some View {
         Chart {
-            // Show per-phase spectra overlay when available, otherwise show the single spectrum
+            // Show the live spectrum line during capture phases so the user can see the
+            // waveform they need to tap. Suppress it during review phases — only the
+            // frozen phase overlays and peak annotations should be visible then.
+            if !isReviewingMaterialPhase {
+                spectrumLineContent
+            }
             if !materialSpectra.isEmpty {
                 materialSpectraContent
-            } else {
-                spectrumLineContent
             }
             modeBoundaryContent
             peakAnnotationContent
