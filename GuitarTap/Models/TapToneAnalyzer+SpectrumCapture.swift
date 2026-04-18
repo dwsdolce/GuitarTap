@@ -494,7 +494,8 @@ extension TapToneAnalyzer {
         print("🔵 Auto-selected longitudinal peak: \(dominantPeak.frequency) Hz")
 
         currentPeaks      = longitudinalPeaks
-        selectedPeakIDs   = Set(longitudinalPeaks.map { $0.id })
+        // Only the identified (auto-selected) peak is selected — others are informational.
+        selectedPeakIDs   = Set([dominantPeak.id])
         materialCapturedTaps = []
 
         let isBrace = TapDisplaySettings.measurementType == .brace
@@ -592,6 +593,8 @@ extension TapToneAnalyzer {
         // Freeze the C spectrum for display and pause at the review state.
         // The user must press Accept (advance to FLC or complete) or Redo (re-capture C).
         currentPeaks = combinePlatePeaks()
+        // Only the identified (auto-selected) peaks are selected — others are informational.
+        selectedPeakIDs = Set([autoSelectedLongitudinalPeakID, autoSelectedCrossPeakID].compactMap { $0 })
         setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
         materialTapPhase = .reviewingCross
         isDetecting = false

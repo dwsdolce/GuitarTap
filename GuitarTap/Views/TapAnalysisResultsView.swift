@@ -164,8 +164,8 @@ struct TapAnalysisResultsView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.mini)
-                                .disabled(analyzer.selectedPeakIDs.count == analyzer.currentPeaks.count)
-                                .help("Select all peaks")
+                                .disabled(!measurementType.isGuitar || analyzer.selectedPeakIDs.count == analyzer.currentPeaks.count)
+                                .help(measurementType.isGuitar ? "Select all peaks" : "Peak selection is fixed during plate/brace measurements")
 
                                 Button {
                                     analyzer.selectNoPeaks()
@@ -175,8 +175,8 @@ struct TapAnalysisResultsView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.mini)
-                                .disabled(analyzer.selectedPeakIDs.isEmpty)
-                                .help("Deselect all peaks")
+                                .disabled(!measurementType.isGuitar || analyzer.selectedPeakIDs.isEmpty)
+                                .help(measurementType.isGuitar ? "Deselect all peaks" : "Peak selection is fixed during plate/brace measurements")
 
                                 if measurementType.isGuitar {
                                     Button {
@@ -415,10 +415,7 @@ struct TapAnalysisResultsView: View {
                                 isCross: effectiveCrossPeakID == item.peak.id,
                                 isFlc: effectiveFlcPeakID == item.peak.id,
                                 showFlcButton: includesFlcTap,
-                                isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
-                                onToggleSelection: {
-                                    analyzer.togglePeakSelection(item.peak.id)
-                                }
+                                isSelected: analyzer.selectedPeakIDs.contains(item.peak.id)
                             )
                         }
                         
@@ -435,10 +432,7 @@ struct TapAnalysisResultsView: View {
                                 isLongitudinal: effectiveLongitudinalPeakID == item.peak.id,
                                 isCross: false,
                                 showCrossButton: false,
-                                isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
-                                onToggleSelection: {
-                                    analyzer.togglePeakSelection(item.peak.id)
-                                }
+                                isSelected: analyzer.selectedPeakIDs.contains(item.peak.id)
                             )
                         }
                         
@@ -1217,7 +1211,7 @@ struct MaterialPeakRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Selection toggle button
+            // Selection toggle — interactive in guitar mode, informational in plate/brace.
             if let toggleAction = onToggleSelection {
                 Button {
                     toggleAction()
@@ -1229,6 +1223,11 @@ struct MaterialPeakRowView: View {
                 }
                 .buttonStyle(.plain)
                 .help(isSelected ? "Deselect peak" : "Select peak")
+            } else {
+                Image(systemName: isSelected ? "star.fill" : "star")
+                    .foregroundColor(isSelected ? .blue : .secondary)
+                    .font(.body)
+                    .frame(width: 24, height: 24)
             }
 
             // Frequency and magnitude

@@ -111,8 +111,12 @@ extension TapToneAnalyzer {
             // Find peaks in spectrum
             let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies, thresholdOverride: liveThreshold)
             currentPeaks = peaks
-            // Auto-select all newly detected peaks so visibility mode "selected" shows everything by default
-            selectedPeakIDs = Set(peaks.map { $0.id })
+            // Auto-select all newly detected peaks so visibility mode "selected" shows everything by default.
+            // In plate/brace mode, selection is managed exclusively by the phase-completion handlers
+            // so that only the identified peak(s) appear selected — don't clobber it here.
+            if TapDisplaySettings.measurementType.isGuitar {
+                selectedPeakIDs = Set(peaks.map { $0.id })
+            }
 
             // Classify modes using context-aware algorithm so overlapping ranges resolve correctly
             let modeMap = GuitarMode.classifyAll(peaks)
@@ -541,9 +545,9 @@ extension TapToneAnalyzer {
         peakModeOverrides = newOverrides
 
         if !isGuitar {
-            // Plate/brace: the frozen peaks are final gated-capture results — select all.
-            selectedPeakIDs = Set(peaks.map { $0.id })
-            selectedPeakFrequencies = peaks.map { $0.frequency }
+            // Plate/brace: selection is managed exclusively by the phase-completion handlers
+            // (only the identified peak is selected). Don't clobber it here.
+            selectedPeakFrequencies = peaks.filter { selectedPeakIDs.contains($0.id) }.map { $0.frequency }
         } else if userHasModifiedPeakSelection {
             // Carry forward by frequency proximity: for each previously-selected
             // frequency pick the single closest new peak within tolerance.
