@@ -223,17 +223,28 @@ extension TapToneAnalyzer {
         case .plate:
             switch phase {
             case .capturingLongitudinal:
-                // fL: longitudinal stiffness mode, typically 70–400 Hz
-                hpsMinHz = 50; hpsMaxHz = 500
+                // fL: longitudinal bending mode of a free rectangular plate blank.
+                // Gore course data: ~43–77 Hz across tonewoods (Gore & Gilet Vol.1 §4.5).
+                // Note: fL and fLC ranges overlap (~43–77 Hz vs ~25–76 Hz); the tap
+                // orientation physically selects the mode — fL is excited by a tap near
+                // the centre of the long edge, not a corner tap.
+                // Upper bound 100 Hz covers outliers; lower bound 20 Hz excludes DC/rumble.
+                hpsMinHz = 20; hpsMaxHz = 100
             case .capturingCross:
-                // fC: cross-grain stiffness mode, typically 30–200 Hz
-                hpsMinHz = 20; hpsMaxHz = 250
+                // fC: cross-grain bending mode of a free rectangular plate blank.
+                // Gore course data: ~57–194 Hz across tonewoods (Gore & Gilet Vol.1 §4.5).
+                // Upper bound 220 Hz covers outliers; lower bound 40 Hz excludes fL/fLC.
+                hpsMinHz = 40; hpsMaxHz = 220
             case .capturingFlc, .waitingForFlcTap:
-                // fLC: shear/diagonal mode, typically 20–150 Hz — tighter cap to avoid
-                // harmonics and other plate modes competing with the true shear fundamental
-                hpsMinHz = 20; hpsMaxHz = 200
+                // fLC: torsional (twist) mode of a free rectangular plate blank.
+                // Gore course data: ~25–76 Hz across tonewoods (Gore & Gilet Vol.1 §4.5).
+                // fLC is weak and overlaps fL in frequency; it is distinguished by tap
+                // placement (corner tap) and the characteristic low-amplitude ring-out.
+                // Upper bound 100 Hz covers outliers; lower bound 15 Hz is near the limit
+                // of typical measurement microphones.
+                hpsMinHz = 15; hpsMaxHz = 100
             default:
-                hpsMinHz = 20; hpsMaxHz = 600
+                hpsMinHz = 15; hpsMaxHz = 220
             }
         default:
             hpsMinHz = 20; hpsMaxHz = 2000
@@ -260,7 +271,13 @@ extension TapToneAnalyzer {
         // Reject captures where the dominant peak is below the tap detection threshold.
         // If the best peak found is below the threshold, the ring-out was too weak —
         // likely a noise trigger, not a real tap — so ask the user to tap again.
-        if dominantPeak.magnitude < tapDetectionThreshold {
+        //
+        // Exception: fLC (torsional mode) is inherently 20–30 dB weaker than fL/fC in
+        // the spectral domain — the tap already triggered (proving a real strike occurred),
+        // so there is no benefit in applying a spectral magnitude gate for this phase.
+        // The tap trigger threshold already ensures the audio event was real.
+        let isFlcPhase = (phase == .capturingFlc || phase == .waitingForFlcTap)
+        if !isFlcPhase && dominantPeak.magnitude < tapDetectionThreshold {
             print("⚠️ Gated FFT: dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB is below tap detection threshold (\(String(format: "%.0f", tapDetectionThreshold)) dB) — tap again")
             statusMessage = "Signal too quiet — tap harder"
             reEnableDetectionForNextPlateTap()
