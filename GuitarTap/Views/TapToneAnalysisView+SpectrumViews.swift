@@ -310,9 +310,12 @@ extension TapToneAnalysisView {
                         .fontWeight(.semibold)
                         .foregroundColor(materialPhaseColor)
                     Spacer()
-                    Text("Phase \(materialPhaseStep)/\(TapDisplaySettings.measurementType == .brace ? 1 : (TapDisplaySettings.measureFlc ? 3 : 2))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if TapDisplaySettings.measurementType != .brace {
+                        let total = TapDisplaySettings.measureFlc ? 3 : 2
+                        Text("Phase \(materialPhaseStep)/\(total)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 Divider()
@@ -353,11 +356,12 @@ extension TapToneAnalysisView {
 
     /// Step number for current material measurement phase
     var materialPhaseStep: Int {
+        let isBrace = TapDisplaySettings.measurementType == .brace
         switch tap.materialTapPhase {
         case .notStarted, .capturingLongitudinal, .reviewingLongitudinal: return 1
         case .capturingCross, .reviewingCross: return 2
         case .waitingForFlcTap, .capturingFlc, .reviewingFlc: return 3
-        case .complete: return TapDisplaySettings.measureFlc ? 3 : 2
+        case .complete: return isBrace ? 1 : (TapDisplaySettings.measureFlc ? 3 : 2)
         }
     }
 
