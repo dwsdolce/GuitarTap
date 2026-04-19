@@ -312,6 +312,28 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 
 ---
 
+#### MC — isMeasurementComplete Transitions
+
+> These tests are the automated guard against the class of regression where a capture-completion
+> path sets frozen spectrum data but fails to set `isMeasurementComplete = true` — causing the
+> spectrum to keep painting live FFT frames instead of freezing.  See audit guidelines Rule 8.
+>
+> Swift tests live in `MeasurementCompleteTransitionTests.swift` (MC1–MC8).
+> Python mirrors live in `test_measurement_complete_transitions.py` (paths 1–6, 13 tests).
+
+| ID | Name | Type | Platforms | Priority | Description |
+|---|---|---|---|---|---|
+| MC1 | `processMultipleTaps_setsIsMeasurementComplete` | U | iOS iPadOS mac | High | After `processMultipleTaps()` with at least one tap, `isMeasurementComplete` must be `true` |
+| MC2 | `processMultipleTaps_populatesFrozenSpectrum` | U | iOS iPadOS mac | High | After `processMultipleTaps()`, both `frozenMagnitudes` and `frozenFrequencies` are non-empty |
+| MC3 | `processMultipleTaps_multiTap_setsIsMeasurementComplete` | U | iOS iPadOS mac | High | Two-tap average path still sets `isMeasurementComplete = true` |
+| MC4 | `startTapSequence_clearsMeasurementComplete` | U | iOS iPadOS mac | High | `startTapSequence()` sets `isMeasurementComplete = false`; signal emitted |
+| MC5 | `cancelTapSequence_clearsFrozenSpectrum` | U | iOS iPadOS mac | High | `cancelTapSequence()` clears `frozenMagnitudes` and `frozenFrequencies` to empty arrays (flag stays `true` until next `startTapSequence`) |
+| MC6 | `processMultipleTaps_emptyTaps_doesNotComplete` | U | iOS iPadOS mac | High | Guard: `processMultipleTaps()` with empty `capturedTaps` must not set `isMeasurementComplete = true` |
+| MC7 | `loadMeasurement_setsIsMeasurementComplete` | U | iOS iPadOS mac | High | `loadMeasurement(_:)` sets `isMeasurementComplete = true` |
+| MC8 | `isMeasurementComplete_didSet_clearsSettingsWarning` | U | iOS iPadOS mac | Medium | When `isMeasurementComplete` becomes `true`, `showLoadedSettingsWarning` is cleared |
+
+---
+
 #### U — Cross-Platform UI
 
 | ID | Name | Type | Platforms | Priority | Description |
@@ -362,6 +384,7 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | R | Persistence / codable | U + M |
 | DK | Decay tracking | U |
 | IP | Import persistence | U |
+| MC | isMeasurementComplete transitions (Rule 8 critical-flag guard) | U |
 | U | Cross-platform UI | M |
 | K | Regression smoke tests | M |
 
@@ -418,6 +441,8 @@ Legend — Platform: **iOS** = iPhone, **iPadOS** = iPad, **mac** = macOS
 | `FrozenPeakRecalculationTests.swift` | `FrozenPeakRecalculation_LoadingGuardTests`, `FrozenPeakRecalculation_LoadedMeasurementPathTests`, `FrozenPeakRecalculation_OffsetRemappingTests`, `FrozenPeakRecalculation_OverrideRemappingTests`, `FrozenPeakRecalculation_SelectionCarryForwardTests`, `FrozenPeakRecalculation_EmptyPeaksGuardTests`, `FrozenPeakRecalculation_LiveTapPathTests` | PR1–PR7 | ✅ Implemented |
 | `DecayTrackingTests.swift` | `DecayTracking` (@MainActor) | DK1–DK7 | ✅ Implemented |
 | `ImportPersistenceTests.swift` | `ImportPersistence` (@MainActor, .serialized) | IP1–IP3 | ✅ Implemented |
+| `MeasurementCompleteTransitionTests.swift` | `MeasurementCompleteTransitions` (@MainActor, .serialized) | MC1–MC8 | ✅ Implemented |
+| `test_measurement_complete_transitions.py` *(Python)* | `TestGuitarSingleTapCompletion`, `TestGuitarMultiTapCompletion`, `TestStartTapSequenceResetsComplete`, `TestCancelTapSequenceResetsComplete`, `TestSetMeasurementCompleteDirectly`, `TestLoadMeasurementSetsComplete` | MC1–MC8 mirrors (13 tests) | ✅ Implemented |
 
 ### 2.5 Prioritised backlog
 
