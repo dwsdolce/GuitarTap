@@ -128,7 +128,6 @@ struct TapDisplaySettings {
     private static let analysisMaxFreqKey = "analysisMaxFreq"
     private static let peakThresholdKey = "peakThreshold"
     private static let maxPeaksKey = "maxPeaks"
-    private static let hopSizeOverlapKey = "hopSizeOverlap"
     private static let tapDetectionThresholdKey = "tapDetectionThreshold"
     private static let hysteresisMarginKey = "hysteresisMargin"
     private static let measureFlcKey = "measureFlc"
@@ -556,25 +555,6 @@ struct TapDisplaySettings {
         }
     }
     
-    // MARK: - FFT Settings (Persisted)
-    
-    /// Default hop size overlap percentage
-    static let defaultHopSizeOverlap: Float = 0
-    
-    /// Persisted hop size overlap percentage
-    static var hopSizeOverlap: Float {
-        get {
-            // Use object check since 0 is a valid value
-            if defaults.object(forKey: hopSizeOverlapKey) == nil {
-                return defaultHopSizeOverlap
-            }
-            return defaults.float(forKey: hopSizeOverlapKey)
-        }
-        set {
-            defaults.set(newValue, forKey: hopSizeOverlapKey)
-        }
-    }
-    
     // MARK: - Tap Detection Settings (Persisted)
     
     /// Default tap detection threshold in dB
@@ -640,7 +620,6 @@ struct TapDisplaySettings {
         analysisMaxFrequency = defaultAnalysisMaxFrequency
         peakThreshold = defaultPeakThreshold
         maxPeaks = defaultMaxPeaks
-        hopSizeOverlap = defaultHopSizeOverlap
         tapDetectionThreshold = defaultTapDetectionThreshold
         hysteresisMargin = defaultHysteresisMargin
         measureFlc = false

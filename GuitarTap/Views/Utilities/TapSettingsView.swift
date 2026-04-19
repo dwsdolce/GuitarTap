@@ -16,7 +16,6 @@
 /// | Display Range | Min/max frequency (Hz) and dB range; validated text-field input |
 /// | Analysis Range | Analysis min/max frequency; peak threshold (dBFS); max peaks; hysteresis margin |
 /// | Audio Input & Calibration | Microphone / input device picker; calibration import, selection, and deletion |
-/// | FFT Processing | Hop-size overlap slider |
 /// | About & Help | App version, copyright, help link |
 ///
 /// ## Validation
@@ -198,7 +197,6 @@ struct TapSettingsView: View {
                     DisclosureGroup(isExpanded: $showingAdvanced) {
                         displayRangeSectionContent
                         analysisSettingsSectionContent
-                        fftProcessingSectionContent
                     } label: {
                         Label("Advanced", systemImage: "gearshape.2")
                             .font(.headline)

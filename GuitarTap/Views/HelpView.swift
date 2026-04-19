@@ -370,10 +370,6 @@ After all taps, tap Results to see:
                     title: "Maximum Peaks",
                     body: "Advanced → Analysis Settings. Caps the number of peaks reported. Set to All to include every peak above the threshold. Fewer peaks reduces visual clutter when testing assembled guitars."
                 )
-                helpRow(
-                    title: "FFT Processing",
-                    body: "Advanced → FFT Processing. Controls the hop-size overlap between FFT windows. Higher overlap provides smoother results but reduces frame rate. Changes take effect the next time the analyzer is started."
-                )
             } header: {
                 Label("Settings Reference", systemImage: "gearshape")
             }

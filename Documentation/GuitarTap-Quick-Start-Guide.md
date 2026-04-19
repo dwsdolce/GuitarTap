@@ -282,10 +282,6 @@ Advanced → Analysis Settings. How far the signal must drop below the detection
 
 Advanced → Analysis Settings. Caps the number of peaks reported. Set to All to include every peak above the threshold. Fewer peaks reduces visual clutter when testing assembled guitars.
 
-### FFT Processing
-
-Advanced → FFT Processing. Controls the hop-size overlap between FFT windows. Higher overlap provides smoother results but reduces frame rate. Changes take effect the next time the analyzer is started.
-
 ## ![](/tmp/guitar-tap-symbols/lightbulb.png){height=18pt width=18pt} Tips & Technique
 
 ### Tap Technique

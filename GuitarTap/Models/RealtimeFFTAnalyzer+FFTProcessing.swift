@@ -69,16 +69,8 @@ extension RealtimeFFTAnalyzer {
         let bw = sampleRate / 2.0
         let sampleLen = fftSizeFloat / sampleRate
         
-        // Frame rate calculation based on hop size overlap setting
-        // overlap% -> hop size multiplier
-        // 0% -> 1.0 (no overlap, hop = fftSize)
-        // 25% -> 0.75 (hop = fftSize * 3/4)
-        // 50% -> 0.5 (hop = fftSize / 2)
-        // 75% -> 0.25 (hop = fftSize / 4)
-        let overlapFraction = hopSizeOverlap / 100.0
-        let hopSizeMultiplier = 1.0 - overlapFraction
-        let hopSize = fftSizeFloat * hopSizeMultiplier
-        let fr = sampleRate / hopSize
+        // Frame rate: one FFT frame per fftSize samples (0% overlap, hop = fftSize)
+        let fr = sampleRate / fftSizeFloat
         
         // Update published properties on main thread
         DispatchQueue.main.async {
@@ -143,16 +135,8 @@ extension RealtimeFFTAnalyzer {
             inputBuffer.append(contentsOf: samples)
         }
         
-        // Process when we have enough samples for an FFT
-        // Calculate hop size based on overlap setting
-        // overlap% -> hop size multiplier
-        // 0% -> 1.0 (no overlap, hop = fftSize)
-        // 25% -> 0.75 (hop = fftSize * 3/4)
-        // 50% -> 0.5 (hop = fftSize / 2)
-        // 75% -> 0.25 (hop = fftSize / 4)
-        let overlapFraction = hopSizeOverlap / 100.0
-        let hopSizeMultiplier = 1.0 - overlapFraction
-        let hopSize = Int(Float(fftSize) * hopSizeMultiplier)
+        // Process when we have enough samples for an FFT (0% overlap, hop = fftSize)
+        let hopSize = fftSize
         
         var shouldContinue = true
         while shouldContinue {

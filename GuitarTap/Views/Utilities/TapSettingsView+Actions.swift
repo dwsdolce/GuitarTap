@@ -153,7 +153,6 @@ extension TapSettingsView {
         TapDisplaySettings.peakThreshold = clampedThreshold
         TapDisplaySettings.maxPeaks = maxPeaks
         TapDisplaySettings.hysteresisMargin = hysteresisMargin
-        TapDisplaySettings.hopSizeOverlap = fftAnalyzer.hopSizeOverlap
 
         // Update input fields with validated values (in case they were clamped)
         minFreqInput = String(format: "%.0f", validatedFreq.min)

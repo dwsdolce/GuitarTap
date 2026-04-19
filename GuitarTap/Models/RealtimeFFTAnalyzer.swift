@@ -34,12 +34,7 @@
 /// ```
 ///
 /// ## Continuous vs. Gated FFT
-/// The **continuous** path produces one spectrum frame per hop interval. The
-/// frame rate is controlled by `hopSizeOverlap`:
-/// ```
-/// hop = fftSize × (1 − overlap/100)
-/// frameRate = sampleRate / hop
-/// ```
+/// The **continuous** path produces one spectrum frame per FFT window (0% overlap, hop = fftSize).
 /// The window is **rectangular** (all ones — effectively no windowing) for simplicity on
 /// the live display path where sidelobe suppression is less important than
 /// amplitude accuracy.
@@ -197,15 +192,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// - Note: This is determined at runtime when the audio engine starts; 0 when stopped.
     @Published var actualSampleRate: Double = 0
     
-    /// Hop size overlap percentage (0-75%)
-    /// - Note: 0% = no overlap (hop size = fftSize), 75% = maximum overlap (hop size = fftSize/4)
-    /// - Default: 0% for maximum frame rate (loaded from persisted settings)
-    @Published var hopSizeOverlap: Float = TapDisplaySettings.hopSizeOverlap
-    
     // MARK: - Audio Buffers
     
     /// Accumulates incoming audio samples until there's enough data for FFT processing
-    /// - Note: Samples are removed with configurable overlap for smoother frequency response
     /// - Important: Access only on bufferAccessQueue to prevent race conditions
     var inputBuffer: [Float] = []
     
@@ -361,7 +350,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     @Published var sampleLengthSeconds: Float = 0
     
     /// Frame rate in Hz - how many FFT analyses are performed per second
-    /// Depends on hop size (overlap). With 25% overlap: sampleRate / (fftSize * 3/4)
+    /// Calculated as: sampleRate / fftSize (0% overlap, hop = fftSize)
     @Published var frameRate: Float = 0
     
     /// Processing time in milliseconds - time taken to process the last FFT frame
