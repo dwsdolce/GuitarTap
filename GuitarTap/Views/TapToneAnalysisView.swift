@@ -234,7 +234,7 @@ struct TapToneAnalysisView: View {
         // Create a single FFT analyzer instance.
         // 65,536 FFT size gives maximum frequency resolution (0.67 Hz/bin @ 44.1 kHz).
         // With 25% overlap, this gives ~1.8 Hz frame rate.
-        let fft = RealtimeFFTAnalyzer(fftSize: 65536, targetSampleRate: 48000)
+        let fft = RealtimeFFTAnalyzer(fftSize: 65536)
 
         // Use the SAME instance for both state objects so they share one audio session.
         _fftAnalyzer = StateObject(wrappedValue: fft)

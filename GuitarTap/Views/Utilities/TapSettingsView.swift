@@ -272,6 +272,6 @@ struct TapSettingsView: View {
         peakThreshold: .constant(-60),
         maxPeaks: .constant(10),
         hysteresisMargin: .constant(6),
-        fftAnalyzer: RealtimeFFTAnalyzer(fftSize: 8192, targetSampleRate: 48000)
+        fftAnalyzer: RealtimeFFTAnalyzer(fftSize: 8192)
     )
 }

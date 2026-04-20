@@ -15,11 +15,8 @@ extension RealtimeFFTAnalyzer {
     /// Each bin represents a frequency range determined by:
     /// `frequency[i] = i * (sampleRate / fftSize)`
     func updateFrequencyBins() {
-        // Use effective sample rate based on configuration
-        let effectiveSampleRate = useHardwareSampleRate ? actualSampleRate : targetSampleRate
-        
         // Calculate the frequency resolution per bin
-        let binWidth = Float(effectiveSampleRate) / Float(fftSize)
+        let binWidth = Float(actualSampleRate) / Float(fftSize)
         
         // Populate frequency array - use local array to avoid publishing on background thread
         var newFrequencies = [Float](repeating: 0, count: fftSize / 2)
@@ -59,9 +56,7 @@ extension RealtimeFFTAnalyzer {
     /// - Sample length (time duration of each FFT window)
     /// - Frame rate (FFT calculations per second, accounting for overlap)
     func updateMetrics() {
-        // Use effective sample rate based on configuration
-        let effectiveSampleRate = useHardwareSampleRate ? actualSampleRate : targetSampleRate
-        let sampleRate = Float(effectiveSampleRate)
+        let sampleRate = Float(actualSampleRate)
         let fftSizeFloat = Float(fftSize)
         
         // Calculate metrics
@@ -86,9 +81,8 @@ extension RealtimeFFTAnalyzer {
     /// This method:
     /// 1. Extracts float samples from the PCM buffer
     /// 2. Accumulates samples in the input buffer (thread-safe)
-    /// 3. Processes complete FFT-size chunks with configurable overlap
-    /// 4. Resamples audio if hardware rate differs from target rate
-    /// 5. Performs FFT on each chunk
+    /// 3. Processes complete FFT-size chunks
+    /// 4. Performs FFT on each chunk
     ///
     /// - Parameter buffer: The audio buffer captured from the microphone
     ///
@@ -158,60 +152,9 @@ extension RealtimeFFTAnalyzer {
             
             // Process the chunk outside the synchronized block to minimize lock time
             if let chunk = chunk {
-                // Resample only if not using hardware rate and rates differ
-                let processedChunk: [Float]
-                if !useHardwareSampleRate && abs(actualSampleRate - targetSampleRate) > 1.0 {
-                    processedChunk = resample(chunk, from: actualSampleRate, to: targetSampleRate)
-                } else {
-                    processedChunk = chunk
-                }
-                
-                // Perform FFT on the processed chunk
-                performFFT(on: processedChunk)
+                performFFT(on: chunk)
             }
         }
-    }
-    
-    /// Resamples audio data from one sample rate to another using linear interpolation.
-    ///
-    /// This simple resampler uses linear interpolation between samples. For production
-    /// applications requiring higher quality, consider using AVAudioConverter or a
-    /// more sophisticated resampling algorithm.
-    ///
-    /// - Parameters:
-    ///   - samples: The input audio samples
-    ///   - inputRate: The current sample rate of the input
-    ///   - outputRate: The desired output sample rate
-    ///
-    /// - Returns: Resampled audio data at the target sample rate, padded or truncated to fftSize
-    func resample(_ samples: [Float], from inputRate: Double, to outputRate: Double) -> [Float] {
-        // Calculate the resampling ratio
-        let ratio = outputRate / inputRate
-        let outputLength = Int(Double(samples.count) * ratio)
-        var output = [Float](repeating: 0, count: outputLength)
-        
-        // Simple linear interpolation resampling
-        // For each output sample, interpolate between two input samples
-        for i in 0..<outputLength {
-            // Calculate the corresponding position in the input array
-            let srcIndex = Double(i) / ratio
-            let idx0 = Int(floor(srcIndex))
-            let idx1 = min(idx0 + 1, samples.count - 1)
-            let frac = Float(srcIndex - Double(idx0))
-            
-            // Linear interpolation between samples
-            output[i] = samples[idx0] * (1.0 - frac) + samples[idx1] * frac
-        }
-        
-        // Ensure output is exactly fftSize by padding or truncating
-        if output.count > fftSize {
-            return Array(output.prefix(fftSize))
-        } else if output.count < fftSize {
-            // Pad with zeros
-            output.append(contentsOf: [Float](repeating: 0, count: fftSize - output.count))
-        }
-        
-        return output
     }
     
     /// Performs a Fast Fourier Transform on audio samples and updates published magnitude data.

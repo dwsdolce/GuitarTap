@@ -687,7 +687,7 @@ extension TapToneAnalysisView {
     }
 
     /// Returns the (label, systemImage) for the Cancel/Redo button based on current phase.
-    private var redoOrCancelLabel: (String, String) {
+    var redoOrCancelLabel: (String, String) {
         switch tap.materialTapPhase {
         case .reviewingLongitudinal: return ("Redo L", "arrow.counterclockwise")
         case .reviewingCross:        return ("Redo C", "arrow.counterclockwise")

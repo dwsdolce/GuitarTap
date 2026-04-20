@@ -193,34 +193,4 @@ extension Pitch {
     }
 }
 
-// MARK: - Debug / Testing
 
-#if DEBUG
-extension Pitch {
-
-    /// Runs a set of sample pitch calculations and prints results to the console.
-    ///
-    /// Useful for verifying that the equal-temperament formula produces expected values.
-    /// Only compiled in debug builds.
-    static func runExample() {
-        let pitch = Pitch(a4: 440)
-
-        print("Example 1:")
-        let f1: Double = 173
-        print("f_1 = \(f1)")
-        print("Note = \(pitch.note(frequency: f1))")
-        print("f_0 = \(pitch.freq0(frequency: f1))")
-        print("cents = \(pitch.cents(frequency: f1))")
-        print("==========================")
-
-        print("Example 2:")
-        let f2: Double = 175.8
-        print("f_1 = \(f2)")
-        print("Note = \(pitch.note(frequency: f2))")
-        print("f_0 = \(pitch.freq0(frequency: f2))")
-        print("cents = \(pitch.cents(frequency: f2))")
-        print("formatted = \(pitch.formattedNote(frequency: f2))")
-        print("in tune? \(pitch.isInTune(frequency: f2))")
-    }
-}
-#endif

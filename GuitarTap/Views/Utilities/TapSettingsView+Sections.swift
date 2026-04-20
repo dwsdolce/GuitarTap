@@ -422,19 +422,6 @@ extension TapSettingsView {
         }
     }
 
-    @ViewBuilder
-    var displayRangeSection: some View {
-        Section {
-            displayRangeSectionContent
-        } header: {
-            Label("Display Settings", systemImage: "chart.xyaxis.line")
-                .font(.headline)
-        } footer: {
-            Text("Controls what frequency and magnitude ranges are visible in the spectrum chart.")
-                .font(.caption)
-        }
-    }
-
     // MARK: - Analysis Settings Section
 
     @ViewBuilder
@@ -619,19 +606,6 @@ extension TapSettingsView {
                 .font(.subheadline)
             }
             .padding(.top, 8)
-    }
-
-    @ViewBuilder
-    var analysisSettingsSection: some View {
-        Section {
-            analysisSettingsSectionContent
-        } header: {
-            Label("Analysis Settings", systemImage: "waveform.path.ecg")
-                .font(.headline)
-        } footer: {
-            Text("Controls how peaks are detected in the frequency spectrum.")
-                .font(.caption)
-        }
     }
 
     // MARK: - Audio Input & Calibration Section

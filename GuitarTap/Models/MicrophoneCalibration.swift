@@ -543,11 +543,4 @@ class CalibrationStorage {
         }
         return mapping
     }
-
-    /// Removes all device-to-calibration associations.
-    ///
-    /// Individual calibration profiles stored via ``save(_:)`` are not affected.
-    func clearAllDeviceMappings() {
-        UserDefaults.standard.removeObject(forKey: deviceCalibrationMapKey)
-    }
 }

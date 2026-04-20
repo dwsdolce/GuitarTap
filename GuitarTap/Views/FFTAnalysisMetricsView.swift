@@ -230,6 +230,6 @@ struct MetricRow: View {
 // MARK: - Preview
 
 #Preview {
-    FFTAnalysisMetricsView(analyzer: RealtimeFFTAnalyzer(fftSize: 8192, targetSampleRate: 48000))
+    FFTAnalysisMetricsView(analyzer: RealtimeFFTAnalyzer(fftSize: 8192))
         .frame(width: 400)
 }

@@ -67,7 +67,7 @@
 ///
 /// ## Example Usage
 /// ```swift
-/// let analyzer = RealtimeFFTAnalyzer(fftSize: 16384, targetSampleRate: 48000)
+/// let analyzer = RealtimeFFTAnalyzer(fftSize: 16384)
 /// try analyzer.start()
 /// // Observe analyzer.magnitudes and analyzer.frequencies for visualisation
 /// analyzer.stop()
@@ -180,14 +180,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     // MARK: - Sample Rate Management
     
-    /// The desired sample rate for FFT processing
-    /// - Note: If the hardware sample rate differs, audio will be resampled to match this rate
-    let targetSampleRate: Double
-    
-    /// Whether to use hardware sample rate directly instead of resampling
-    /// - Note: When true, targetSampleRate is ignored and hardware rate is used
-    let useHardwareSampleRate: Bool
-    
     /// The actual sample rate of the audio hardware in Hz.
     /// - Note: This is determined at runtime when the audio engine starts; 0 when stopped.
     @Published var actualSampleRate: Double = 0
@@ -197,9 +189,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Accumulates incoming audio samples until there's enough data for FFT processing
     /// - Important: Access only on bufferAccessQueue to prevent race conditions
     var inputBuffer: [Float] = []
-    
-    /// Buffer for storing resampled audio data when hardware sample rate differs from target
-    var resampledBuffer: [Float] = []
     
     /// Hann window coefficients applied to audio samples before FFT to reduce spectral leakage
     /// - Note: The window is pre-computed during initialization for performance
@@ -390,17 +379,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///   - fftSize: The size of the FFT window. Must be a power of 2. Larger values provide
     ///              better frequency resolution but slower time response. Default is 4096.
     ///              Common values: 2048, 4096, 8192, 16384
-    ///   - targetSampleRate: The desired sample rate for processing. Default is 44100 Hz.
-    ///                      If hardware uses a different rate, audio will be resampled.
-    ///   - useHardwareSampleRate: If true, uses hardware's native sample rate instead of resampling.
-    ///                           Default is true for better performance and compatibility.
     ///
     /// - Note: The frequency resolution will be `sampleRate / fftSize` Hz per bin.
     ///         For example, 48000 Hz / 16384 = ~2.93 Hz per bin.
-    init(fftSize: Int = 4096, targetSampleRate: Double = 44100, useHardwareSampleRate: Bool = true) {
+    init(fftSize: Int = 4096) {
         self.fftSize = fftSize
-        self.targetSampleRate = targetSampleRate
-        self.useHardwareSampleRate = useHardwareSampleRate
         self.audioEngine = AVAudioEngine()
         // inputNode is intentionally not accessed here — accessing it in init touches the
         // audio hardware and triggers -10877 (kAudioUnitErr_Unauthorized) on macOS when
