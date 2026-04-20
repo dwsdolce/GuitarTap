@@ -99,142 +99,57 @@ let appTitle: String = {
 }()
 
 #if os(macOS)
-// MARK: - Focused Scene Values
+// MARK: - Menu Actions (stable class reference for FocusedValue)
 
-/// Keys that `TapToneAnalysisView` publishes into the focused scene so that
-/// `AppCommands` can drive them from the menu bar without a direct view reference.
-private struct SaveMeasurementKey: FocusedValueKey { typealias Value = () -> Void }
-private struct ExportSpectrumKey: FocusedValueKey { typealias Value = () -> Void }
-private struct ExportPDFKey: FocusedValueKey { typealias Value = () -> Void }
-private struct AutoScaleDBKey: FocusedValueKey { typealias Value = () -> Void }
-private struct CycleAnnotationsKey: FocusedValueKey { typealias Value = () -> Void }
-private struct ShowMetricsKey: FocusedValueKey { typealias Value = () -> Void }
-private struct ShowMeasurementsKey: FocusedValueKey { typealias Value = () -> Void }
-private struct ShowSettingsKey: FocusedValueKey { typealias Value = () -> Void }
+/// Holds all menu-driven action closures as mutable properties on a single
+/// class instance.  Because a class has stable reference identity, SwiftUI's
+/// `@FocusedValue` machinery sees the *same* object on every render of
+/// `TapToneAnalysisView` and does not mark the focused value as changed.
+/// This prevents `AppCommands.body` from re-evaluating on every audio frame,
+/// which was the root cause of the Edit-menu flickering.
+@Observable
+final class MenuActions {
+    var saveMeasurement: (() -> Void)?
+    var exportSpectrum: (() -> Void)?
+    var exportPDF: (() -> Void)?
+    var autoScaleDB: (() -> Void)?
+    var cycleAnnotations: (() -> Void)?
+    var showMetrics: (() -> Void)?
+    var showMeasurements: (() -> Void)?
+    var showSettings: (() -> Void)?
+}
+
+// MARK: - Focused Scene Value
+
+private struct MenuActionsKey: FocusedValueKey { typealias Value = MenuActions }
 
 extension FocusedValues {
-    var saveMeasurement: (() -> Void)? {
-        get { self[SaveMeasurementKey.self] }
-        set { self[SaveMeasurementKey.self] = newValue }
-    }
-    var exportSpectrum: (() -> Void)? {
-        get { self[ExportSpectrumKey.self] }
-        set { self[ExportSpectrumKey.self] = newValue }
-    }
-    var exportPDF: (() -> Void)? {
-        get { self[ExportPDFKey.self] }
-        set { self[ExportPDFKey.self] = newValue }
-    }
-    var autoScaleDB: (() -> Void)? {
-        get { self[AutoScaleDBKey.self] }
-        set { self[AutoScaleDBKey.self] = newValue }
-    }
-    var cycleAnnotations: (() -> Void)? {
-        get { self[CycleAnnotationsKey.self] }
-        set { self[CycleAnnotationsKey.self] = newValue }
-    }
-    var showMetrics: (() -> Void)? {
-        get { self[ShowMetricsKey.self] }
-        set { self[ShowMetricsKey.self] = newValue }
-    }
-    var showMeasurements: (() -> Void)? {
-        get { self[ShowMeasurementsKey.self] }
-        set { self[ShowMeasurementsKey.self] = newValue }
-    }
-    var showSettings: (() -> Void)? {
-        get { self[ShowSettingsKey.self] }
-        set { self[ShowSettingsKey.self] = newValue }
+    var menuActions: MenuActions? {
+        get { self[MenuActionsKey.self] }
+        set { self[MenuActionsKey.self] = newValue }
     }
 }
 
 // MARK: - macOS Menu Commands
 
-/// macOS menu bar command definitions for GuitarTap.
+/// Static menu command replacements that have no focused-value dependencies.
 ///
-/// Removes the default "New Window" item (the app uses a single `Window` scene)
-/// and replaces the standard Help menu entry with a button that opens the
-/// dedicated Help window (`id: "help"`) via the `openWindow` environment action.
+/// Separating these from `AppCommands` is intentional: `AppCommands` holds
+/// `@FocusedValue` properties that SwiftUI re-evaluates on every audio-driven
+/// state change (the FFT publishes `magnitudes` at ~2 Hz while running). When
+/// the `replacing:` groups were inside `AppCommands`, every re-evaluation
+/// caused SwiftUI to reconstruct the Edit menu's NSMenu items, producing
+/// continuous `didChangeImage` mismatches and visible menu flickering.
 ///
-/// File and View menu items delegate to the focused scene via `@FocusedValue`
-/// so they always target the active `TapToneAnalysisView`.
-struct AppCommands: Commands {
-    @FocusedValue(\.saveMeasurement) private var saveMeasurement
-    @FocusedValue(\.exportSpectrum) private var exportSpectrum
-    @FocusedValue(\.exportPDF) private var exportPDF
-    @FocusedValue(\.autoScaleDB) private var autoScaleDB
-    @FocusedValue(\.cycleAnnotations) private var cycleAnnotations
-    @FocusedValue(\.showMetrics) private var showMetrics
-    @FocusedValue(\.showMeasurements) private var showMeasurements
-    @FocusedValue(\.showSettings) private var showSettings
+/// By isolating the stable `replacing:` groups here — with no dynamic
+/// dependencies — SwiftUI only evaluates this struct once and never tears
+/// down the resulting NSMenu items.
+struct StaticCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         // Remove the "New Window" menu command while preserving the standard app menu
         CommandGroup(replacing: .newItem) {}
-
-        // App menu — Settings item with standard ⌘, shortcut
-        CommandGroup(after: .appInfo) {
-            Button("Settings…") {
-                showSettings?()
-            }
-            .keyboardShortcut(",", modifiers: .command)
-            .disabled(showSettings == nil)
-        }
-
-        // File menu — Save and Export actions
-        CommandGroup(after: .saveItem) {
-            Button("Save Measurement…") {
-                saveMeasurement?()
-            }
-            .keyboardShortcut("s", modifiers: .command)
-            .disabled(saveMeasurement == nil)
-
-            Divider()
-
-            Button("Export Spectrum Image…") {
-                exportSpectrum?()
-            }
-            .keyboardShortcut("e", modifiers: .command)
-            .disabled(exportSpectrum == nil)
-
-            Button("Export PDF Report…") {
-                exportPDF?()
-            }
-            .keyboardShortcut("e", modifiers: [.command, .shift])
-            .disabled(exportPDF == nil)
-        }
-
-        // View menu — inject display controls after the sidebar group so they
-        // appear in the existing View menu rather than creating a duplicate.
-        CommandGroup(after: .sidebar) {
-            Divider()
-
-            Button("Auto dB") {
-                autoScaleDB?()
-            }
-            .keyboardShortcut("0", modifiers: .command)
-            .disabled(autoScaleDB == nil)
-
-            Button("Cycle Annotations") {
-                cycleAnnotations?()
-            }
-            .keyboardShortcut("`", modifiers: .command)
-            .disabled(cycleAnnotations == nil)
-
-            Divider()
-
-            Button("Show Metrics") {
-                showMetrics?()
-            }
-            .keyboardShortcut("m", modifiers: .command)
-            .disabled(showMetrics == nil)
-
-            Button("Show Measurements") {
-                showMeasurements?()
-            }
-            .keyboardShortcut("l", modifiers: .command)
-            .disabled(showMeasurements == nil)
-        }
 
         // Remove Edit menu groups that have no use in GuitarTap (no undo/redo
         // support, no document editing, find, spell-check, or text transformations).
@@ -247,6 +162,83 @@ struct AppCommands: Commands {
                 openWindow(id: "help")
             }
             .keyboardShortcut("?", modifiers: .command)
+        }
+    }
+}
+
+/// Dynamic menu command additions that delegate to the focused scene.
+///
+/// File and View menu items delegate to the focused scene via `@FocusedValue`
+/// so they always target the active `TapToneAnalysisView`. This struct
+/// re-evaluates whenever a focused value changes, but because it only
+/// *adds* items (never replaces), rebuilding it does not disturb the
+/// NSMenu items created by `StaticCommands`.
+struct AppCommands: Commands {
+    @FocusedValue(\.menuActions) private var menuActions
+
+    var body: some Commands {
+        // App menu — Settings item with standard ⌘, shortcut
+        CommandGroup(after: .appInfo) {
+            Button("Settings…") {
+                menuActions?.showSettings?()
+            }
+            .keyboardShortcut(",", modifiers: .command)
+            .disabled(menuActions?.showSettings == nil)
+        }
+
+        // File menu — Save and Export actions
+        CommandGroup(after: .saveItem) {
+            Button("Save Measurement…") {
+                menuActions?.saveMeasurement?()
+            }
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(menuActions?.saveMeasurement == nil)
+
+            Divider()
+
+            Button("Export Spectrum Image…") {
+                menuActions?.exportSpectrum?()
+            }
+            .keyboardShortcut("e", modifiers: .command)
+            .disabled(menuActions?.exportSpectrum == nil)
+
+            Button("Export PDF Report…") {
+                menuActions?.exportPDF?()
+            }
+            .keyboardShortcut("e", modifiers: [.command, .shift])
+            .disabled(menuActions?.exportPDF == nil)
+        }
+
+        // View menu — inject display controls after the sidebar group so they
+        // appear in the existing View menu rather than creating a duplicate.
+        CommandGroup(after: .sidebar) {
+            Divider()
+
+            Button("Auto dB") {
+                menuActions?.autoScaleDB?()
+            }
+            .keyboardShortcut("0", modifiers: .command)
+            .disabled(menuActions?.autoScaleDB == nil)
+
+            Button("Cycle Annotations") {
+                menuActions?.cycleAnnotations?()
+            }
+            .keyboardShortcut("`", modifiers: .command)
+            .disabled(menuActions?.cycleAnnotations == nil)
+
+            Divider()
+
+            Button("Show Metrics") {
+                menuActions?.showMetrics?()
+            }
+            .keyboardShortcut("m", modifiers: .command)
+            .disabled(menuActions?.showMetrics == nil)
+
+            Button("Show Measurements") {
+                menuActions?.showMeasurements?()
+            }
+            .keyboardShortcut("l", modifiers: .command)
+            .disabled(menuActions?.showMeasurements == nil)
         }
     }
 }
@@ -274,6 +266,7 @@ struct GuitarTapApp: App {
                 }
         }
         .defaultSize(width: 1200, height: 800)
+        .commands { StaticCommands() }
         .commands { AppCommands() }
 
         // Help window - opened via the Help menu item.

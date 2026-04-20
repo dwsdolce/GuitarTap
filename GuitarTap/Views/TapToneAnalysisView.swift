@@ -78,6 +78,13 @@ struct TapToneAnalysisView: View {
     @StateObject private var fftAnalyzer: RealtimeFFTAnalyzer
     /// The tap-tone peak detector and measurement manager, shared with the view.
     @StateObject var tapToneAnalyzer: TapToneAnalyzer
+    #if os(macOS)
+    /// Stable class reference published into the focused scene for menu commands.
+    /// Using `@State` with an `@Observable` class ensures the same instance is
+    /// reused across every body re-evaluation, so `AppCommands` does not see a
+    /// changed focused value on each audio frame.
+    @State private var menuActions = MenuActions()
+    #endif
 
     /// Convenience accessor for `fftAnalyzer` (preserves `@StateObject` encapsulation).
     var fft: RealtimeFFTAnalyzer { fftAnalyzer }
@@ -258,16 +265,29 @@ struct TapToneAnalysisView: View {
                                         startAnalyzer: startAnalyzer,
                                         importMeasurementFromURL: importMeasurementFromURL))
         #if os(macOS)
-            .focusedSceneValue(\.saveMeasurement, { showingSaveSheet = true })
-            .focusedSceneValue(\.exportSpectrum, { exportCurrentSpectrum() })
-            .focusedSceneValue(\.exportPDF, { exportPDFReport() })
-            .focusedSceneValue(\.autoScaleDB, { autoScaleDB() })
-            .focusedSceneValue(\.cycleAnnotations, { tap.cycleAnnotationVisibility() })
-            .focusedSceneValue(\.showMetrics, { showingMetrics = true })
-            .focusedSceneValue(\.showMeasurements, { showingMeasurements = true })
-            .focusedSceneValue(\.showSettings, { showingSettings = true })
+            .focusedSceneValue(\.menuActions, menuActions)
+            .onAppear { bindMenuActions() }
         #endif
     }
+
+    // MARK: - Menu Actions (macOS only)
+
+    #if os(macOS)
+    /// Populate the stable `MenuActions` object with closures that capture
+    /// `self`.  Called once from `onAppear`; the `MenuActions` instance itself
+    /// never changes, so `AppCommands` does not see a new focused value on
+    /// every audio frame.
+    private func bindMenuActions() {
+        menuActions.saveMeasurement   = { showingSaveSheet = true }
+        menuActions.exportSpectrum    = { exportCurrentSpectrum() }
+        menuActions.exportPDF         = { exportPDFReport() }
+        menuActions.autoScaleDB       = { autoScaleDB() }
+        menuActions.cycleAnnotations  = { tap.cycleAnnotationVisibility() }
+        menuActions.showMetrics       = { showingMetrics = true }
+        menuActions.showMeasurements  = { showingMeasurements = true }
+        menuActions.showSettings      = { showingSettings = true }
+    }
+    #endif
 
     // MARK: - Layout content
 
