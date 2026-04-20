@@ -796,8 +796,11 @@ extension TapToneAnalyzer {
         comparisonSpectra = withSnapshots.enumerated().map { index, measurement in
             let snap = measurement.spectrumSnapshot!
             let color = Self.comparisonPalette[index % Self.comparisonPalette.count]
+            let selectedIDs = Set(measurement.selectedPeakIDs ?? measurement.peaks.map(\.id))
+            let selectedPeaks = measurement.peaks.filter { selectedIDs.contains($0.id) }
             return (magnitudes: snap.magnitudes, frequencies: snap.frequencies,
-                    color: color, label: uniqueLabels[index])
+                    color: color, label: uniqueLabels[index],
+                    peaks: selectedPeaks, guitarType: snap.guitarType)
         }
 
         // Broadcast the union axis ranges — use setLoadedAxisRange so all four bounds

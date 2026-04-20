@@ -326,11 +326,8 @@ struct TapAnalysisResultsView: View {
         GroupBox {
             if sortedPeaksWithModes.isEmpty {
                 if analyzer.displayMode == .comparison {
-                    Label("Comparing \(analyzer.comparisonSpectra.count) measurements", systemImage: "waveform.path")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding()
+                    ComparisonResultsView(spectra: analyzer.comparisonSpectra)
+                        .padding(.vertical, 4)
                 } else if measurementType != .plate {
                     Text("No peaks detected in visible range")
                         .foregroundColor(.secondary)

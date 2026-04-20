@@ -95,7 +95,7 @@ extension TapToneAnalysisView {
         // selected measurements to compare, show those overlays regardless of
         // measurement type (guitar, plate, or brace).
         if tap.displayMode == .comparison {
-            return tap.comparisonSpectra
+            return tap.comparisonSpectra.map { (magnitudes: $0.magnitudes, frequencies: $0.frequencies, color: $0.color, label: $0.label) }
         }
         let measurementType = TapDisplaySettings.measurementType
         if measurementType.isGuitar {

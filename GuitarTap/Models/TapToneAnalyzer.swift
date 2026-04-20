@@ -685,7 +685,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// When non-empty, these are merged into `materialSpectra` in guitar mode so the
     /// main `SpectrumView` displays them as colored overlays using its existing
     /// `materialSpectra` path. Cleared by `clearComparison()` or a new tap sequence.
-    @Published var comparisonSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
+    @Published var comparisonSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?)] = []
 
     // MARK: - Gated FFT State
 
