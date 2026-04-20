@@ -93,7 +93,7 @@ struct CombinedPeakModeRowView: View {
 
                     Spacer()
 
-                    Text("\(peak.frequency, specifier: "%.2f") Hz")
+                    Text("\(peak.frequency, specifier: "%.1f") Hz")
                         .font(.headline)
                         .foregroundColor(.primary)
                 }
