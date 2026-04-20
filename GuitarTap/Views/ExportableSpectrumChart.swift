@@ -115,7 +115,7 @@ struct ExportableSpectrumChart: View {
     private var chartData: [SpectrumDataPoint] {
         zip(frequencies, magnitudes)
             .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-            .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
+            .map { SpectrumDataPoint(sourceEpoch: 0, frequency: $0.0, magnitude: $0.1) }
     }
 
     private var visibleModeBoundaries: [(frequency: Float, mode: GuitarMode)] {
@@ -242,7 +242,7 @@ struct ExportableSpectrumChart: View {
     private func seriesData(frequencies: [Float], magnitudes: [Float]) -> [SpectrumDataPoint] {
         zip(frequencies, magnitudes)
             .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-            .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
+            .map { SpectrumDataPoint(sourceEpoch: 0, frequency: $0.0, magnitude: $0.1) }
     }
 
     /// Title shown above the chart. Defaults to "FFT Peaks" to match the live view.

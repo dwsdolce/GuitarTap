@@ -66,17 +66,29 @@ import AppKit
 /// conformance lets SwiftUI Charts efficiently track insertions and removals
 /// when the spectrum is refreshed.
 ///
-/// - Important: `id` is derived from `frequency` so that the same bin always
-///   has the same identity across re-renders.  A random `UUID()` would make
-///   every data point appear new on every render pass, causing Swift Charts to
-///   treat the entire dataset as replaced and potentially flash during
-///   magnitude-only axis changes (e.g. "Reset Magnitude Axis to Defaults").
+/// - Important: `id` incorporates both `sourceEpoch` and `frequency`.  The
+///   epoch changes whenever the data source switches between live FFT and frozen
+///   spectrum (i.e. when `isMeasurementComplete` flips).  This forces Swift
+///   Charts to treat all points as entirely new when the source changes, which
+///   prevents the transient interleaving artifact where two datasets that share
+///   the same frequency bins get connected as one continuous path and produce
+///   vertical spikes on the chart.
+///
+///   A frequency-only ID would allow Charts to reconcile "the same bin" across
+///   the source transition, animating magnitudes from one source to another and
+///   briefly rendering both datasets as one series.  Adding the epoch breaks
+///   that identity so Charts discards old marks and draws fresh ones instead.
 struct SpectrumDataPoint: Identifiable {
-    /// Stable identifier based on the bin's frequency value.
+    /// Stable identifier combining source epoch and frequency.
     ///
-    /// Using `frequency` as the identity means Swift Charts can reconcile
-    /// updated magnitudes against the same bin rather than replacing all marks.
-    var id: Float { frequency }
+    /// The epoch changes whenever the data source (live vs frozen) changes,
+    /// ensuring Charts does not try to reconcile points across the boundary.
+    var id: String { "\(sourceEpoch)-\(frequency)" }
+
+    /// Source discriminator: 0 = live FFT, 1 = frozen/loaded measurement.
+    /// Changing this value causes Charts to treat all existing marks as removed
+    /// and new ones as inserted, preventing cross-source interpolation.
+    let sourceEpoch: Int
 
     /// The frequency of this bin in Hz
     let frequency: Float
@@ -348,10 +360,17 @@ struct SpectrumView: View {
     ///
     /// Only includes data points within the current visible frequency range.
     /// This improves rendering performance for large FFT sizes.
+    ///
+    /// The `sourceEpoch` embedded in each point's identity flips between 0 (live)
+    /// and 1 (frozen) whenever `isMeasurementComplete` changes.  This prevents
+    /// Swift Charts from reconciling points across a live→frozen (or frozen→live)
+    /// source transition, which would cause both datasets to be briefly connected
+    /// as one continuous path and produce the vertical spike artifact.
     var chartData: [SpectrumDataPoint] {
-        zip(frequencies, magnitudes)
+        let epoch = isMeasurementComplete ? 1 : 0
+        return zip(frequencies, magnitudes)
             .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-            .map { SpectrumDataPoint(frequency: $0.0, magnitude: $0.1) }
+            .map { SpectrumDataPoint(sourceEpoch: epoch, frequency: $0.0, magnitude: $0.1) }
     }
 
     /// Returns the mode boundaries that are visible in the current frequency range

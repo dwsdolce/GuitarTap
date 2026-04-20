@@ -778,11 +778,26 @@ extension TapToneAnalyzer {
     /// - Parameter measurements: The guitar measurements to overlay.
     func loadComparison(measurements: [TapToneMeasurement]) {
         let withSnapshots = measurements.filter { $0.spectrumSnapshot != nil }
+
+        // Build base labels, then disambiguate duplicates so Swift Charts treats each
+        // series as distinct.  Without this, two measurements with the same location
+        // (or both with no location) produce the same label and Charts collapses them
+        // into a single series, making only one overlay visible.
+        let baseLabels = withSnapshots.map { comparisonLabel(for: $0) }
+        var labelCounts: [String: Int] = [:]
+        var labelOccurrence: [String: Int] = [:]
+        for label in baseLabels { labelCounts[label, default: 0] += 1 }
+        let uniqueLabels = baseLabels.map { label -> String in
+            guard labelCounts[label]! > 1 else { return label }
+            labelOccurrence[label, default: 0] += 1
+            return "\(label) (\(labelOccurrence[label]!))"
+        }
+
         comparisonSpectra = withSnapshots.enumerated().map { index, measurement in
             let snap = measurement.spectrumSnapshot!
             let color = Self.comparisonPalette[index % Self.comparisonPalette.count]
             return (magnitudes: snap.magnitudes, frequencies: snap.frequencies,
-                    color: color, label: comparisonLabel(for: measurement))
+                    color: color, label: uniqueLabels[index])
         }
 
         // Broadcast the union axis ranges — use setLoadedAxisRange so all four bounds

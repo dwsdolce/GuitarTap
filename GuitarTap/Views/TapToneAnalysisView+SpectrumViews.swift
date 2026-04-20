@@ -63,6 +63,13 @@ extension TapToneAnalysisView {
     // This prevents the one-frame bar-forest artifact seen when a measurement
     // is loaded while the audio engine is running.
     private var displaySpectrum: (frequencies: [Float], magnitudes: [Float]) {
+        // In comparison mode the main line must be suppressed — the comparison
+        // overlays are drawn via materialSpectra.  Without this guard the live
+        // FFT feed (fft.frequencies/magnitudes) bleeds through as a red jagged
+        // waveform on top of the comparison curves.
+        if tap.displayMode == .comparison {
+            return ([], [])
+        }
         if tap.isMeasurementComplete {
             // For plate/brace measurements frozen arrays are intentionally empty
             // (phase spectra live in materialSpectra); always return them as-is.
