@@ -606,25 +606,6 @@ struct TapDisplaySettings {
         }
     }
     
-    // MARK: - Reset to Defaults
-    
-    /// Reset all persisted settings to their default values
-    static func resetToDefaults() {
-        guitarType = .acoustic
-        showUnknownModes = true
-        minFrequency = defaultMinFrequency
-        maxFrequency = defaultMaxFrequency
-        minMagnitude = defaultMinMagnitude
-        maxMagnitude = defaultMaxMagnitude
-        analysisMinFrequency = defaultAnalysisMinFrequency
-        analysisMaxFrequency = defaultAnalysisMaxFrequency
-        peakThreshold = defaultPeakThreshold
-        maxPeaks = defaultMaxPeaks
-        tapDetectionThreshold = defaultTapDetectionThreshold
-        hysteresisMargin = defaultHysteresisMargin
-        measureFlc = false
-    }
-    
     // MARK: - Validation
     
     /// Validates and clamps frequency range
