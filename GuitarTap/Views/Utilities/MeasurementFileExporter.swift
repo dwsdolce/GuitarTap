@@ -10,10 +10,13 @@
 /// | iOS      | Share sheet via `UIActivityViewController` | Share sheet | Share sheet |
 /// | macOS    | `NSSavePanel`    | `NSSharingServicePicker` (AirDrop etc.) | `NSSavePanel` |
 ///
-/// On iOS, temporary files are written to a UUID-named subdirectory of
-/// `FileManager.temporaryDirectory` and presented via the system share sheet.
-/// Callers are responsible for deleting these temp files when done if needed,
-/// though they are cleared by the OS periodically.
+/// On iOS, all three export types write to a UUID-named subdirectory of
+/// `FileManager.temporaryDirectory` and present the resulting file URL via the
+/// share sheet, so "Save to Files" and other destinations receive the correct
+/// suggested file name and extension.  The multiple-instance problem that
+/// previously caused `-10814` LaunchServices failures is addressed by the
+/// `handlesExternalEvents` modifier in GuitarTapApp, which routes incoming
+/// document URLs to the existing scene rather than spawning a new app instance.
 ///
 /// On macOS, PDF and spectrum PNG files are saved directly to a user-chosen
 /// location via `NSSavePanel`.  JSON measurement files are shared via
@@ -75,9 +78,10 @@ struct MeasurementFileExporter {
 
     /// Exports a PDF report using the platform share/save pattern.
     ///
-    /// On iOS, the PDF is written to a temporary file and presented via
-    /// `UIActivityViewController` (share sheet).  On macOS, an `NSSavePanel`
-    /// prompts the user to choose a save location.
+    /// On iOS, the PDF data is passed directly to `UIActivityViewController`
+    /// (no temp file) to avoid LaunchServices failures when multiple app
+    /// instances are running.  On macOS, an `NSSavePanel` prompts the user
+    /// to choose a save location.
     ///
     /// - Parameters:
     ///   - data: Raw PDF data, typically produced by `PDFReportGenerator.generate(data:)`.
@@ -97,44 +101,24 @@ struct MeasurementFileExporter {
     }
 
     #if os(iOS)
-    /// iOS implementation: writes `data` to `tmp/<basename>.pdf` then presents
+    /// iOS implementation: writes `data` to a temporary file then presents
     /// the system share sheet.
+    ///
+    /// A temp file URL is used so that the share sheet (and "Save to Files"
+    /// in particular) receives the correct suggested file name.  The
+    /// multiple-instance problem that previously caused `-10814` failures is
+    /// addressed by `handlesExternalEvents` in GuitarTapApp, not by avoiding
+    /// file URLs here.
     private static func exportPDFiOS(data: Data, basename: String, completion: @escaping () -> Void) {
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(basename).pdf")
-
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
         do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            let tempURL = tempDir.appendingPathComponent("\(basename).pdf")
             try data.write(to: tempURL)
+            presentShareSheet(items: [tempURL], completion: completion)
         } catch {
             print("❌ Failed to write PDF to temp: \(error)")
-            completion()
-            return
-        }
-
-        DispatchQueue.main.async {
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let window = windowScene.windows.first(where: { $0.isKeyWindow }),
-               let rootViewController = window.rootViewController {
-
-                // Walk the presented-controller chain to reach the topmost controller
-                var topController = rootViewController
-                while let presented = topController.presentedViewController {
-                    topController = presented
-                }
-
-                let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
-
-                // On iPad, the activity view controller requires a source rect for the popover
-                if let popover = activityVC.popoverPresentationController {
-                    popover.sourceView = topController.view
-                    popover.sourceRect = CGRect(x: topController.view.bounds.midX,
-                                                y: topController.view.bounds.midY,
-                                                width: 0, height: 0)
-                    popover.permittedArrowDirections = []
-                }
-
-                topController.present(activityVC, animated: true)
-            }
             completion()
         }
     }
@@ -270,6 +254,9 @@ struct MeasurementFileExporter {
     #if os(iOS)
     /// iOS implementation: writes JSON to `tmp/<UUID>/<basename>.guitartap`
     /// then presents the share sheet.
+    ///
+    /// A temp file URL is used so that the share sheet receives the correct
+    /// suggested file name and the system recognises the `.guitartap` extension.
     private static func exportJSONiOS(json: String, measurement: TapToneMeasurement, completion: @escaping () -> Void) {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
@@ -286,6 +273,9 @@ struct MeasurementFileExporter {
 
     /// iOS implementation: writes the spectrum PNG to a temporary file then
     /// presents the share sheet.
+    ///
+    /// A temp file URL is used so that "Save to Files" receives the correct
+    /// suggested file name (e.g. "bridge-2024-01-15.png").
     private static func exportSpectrumImageiOS(imageData: Data?, basename: String, completion: @escaping () -> Void) {
         guard let imageData = imageData else {
             print("No spectrum image available for this measurement")
@@ -305,16 +295,17 @@ struct MeasurementFileExporter {
         }
     }
 
-    /// Presents `UIActivityViewController` for the given file URLs, walking
+    /// Presents `UIActivityViewController` for the given items, walking
     /// the controller hierarchy to reach the topmost presented controller.
     ///
-    /// On iPad, the popover is anchored to the centre of the root view with no
-    /// preferred arrow direction.
+    /// Items may be file URLs (for PDFs, `.guitartap` files, and spectrum PNGs).
+    /// On iPad, the popover is anchored to the centre of
+    /// the root view with no preferred arrow direction.
     ///
     /// - Parameters:
-    ///   - items: File URLs to share.
+    ///   - items: Items to share.
     ///   - completion: Called immediately after `present(_:animated:)` is invoked.
-    private static func presentShareSheet(items: [URL], completion: @escaping () -> Void) {
+    private static func presentShareSheet(items: [Any], completion: @escaping () -> Void) {
         DispatchQueue.main.async {
             if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                let window = windowScene.windows.first(where: { $0.isKeyWindow }),

@@ -284,7 +284,12 @@ struct GuitarTapApp: App {
         .defaultSize(width: 520, height: 620)
         .commandsRemoved()
         #else
-        // On iOS, WindowGroup is appropriate
+        // On iOS, WindowGroup is appropriate.
+        // `handlesExternalEvents(matching:)` on the scene prevents iOS from
+        // spawning a new app instance for each incoming document URL (e.g.
+        // AirDrop imports).  Without this, every received .guitartap file
+        // opens a fresh copy of the app.  The wildcard set routes all URLs
+        // to the existing scene when one is already running.
         WindowGroup {
             TapToneAnalysisView()
                 .onOpenURL { url in
@@ -293,7 +298,9 @@ struct GuitarTapApp: App {
                         object: url
                     )
                 }
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
         }
+        .handlesExternalEvents(matching: ["*"])
         #endif
     }
 }
