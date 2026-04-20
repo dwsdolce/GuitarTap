@@ -267,7 +267,7 @@ struct TapAnalysisResultsView: View {
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
                             }
-                            if let exportPDF = onExportPDFReport, analyzer.displayMode != .comparison {
+                            if let exportPDF = onExportPDFReport {
                                 Button {
                                     exportPDF()
                                 } label: {

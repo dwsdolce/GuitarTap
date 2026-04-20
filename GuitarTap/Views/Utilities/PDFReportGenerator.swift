@@ -1040,3 +1040,281 @@ private struct PDFReportContentView: View {
         }
     }
 }
+
+// MARK: - Comparison Report Data
+
+/// All data required to render a PDF comparison report.
+///
+/// Create from the analyzer's `comparisonSpectra` and `comparisonSnapshots`
+/// in `exportComparisonPDFReport()`, then pass to
+/// `PDFReportGenerator.generateComparison(data:)`.
+struct ComparisonPDFReportData {
+    /// Date and time the report was generated.
+    let timestamp: Date
+    /// User-supplied name for the comparison (from `tapLocation`), or `nil`.
+    let comparisonLabel: String?
+    /// Free-text notes from the save form, or `nil`.
+    let notes: String?
+    /// PNG-encoded spectrum overlay chart image, or `nil` if unavailable.
+    let spectrumImageData: Data?
+    /// The comparison entries — one per overlaid spectrum.
+    let entries: [ComparisonEntry]
+    /// Resolved Air/Top/Back frequencies per entry, keyed by entry index.
+    let modeFrequencies: [(label: String, color: Color, air: Float?, top: Float?, back: Float?)]
+}
+
+// MARK: - Comparison PDF Generator (extension on PDFReportGenerator)
+
+extension PDFReportGenerator {
+
+    /// Renders a single-page PDF comparison report.
+    ///
+    /// - Parameter data: The comparison report data to render.
+    /// - Returns: Raw PDF `Data` on success, or `nil` if the context could not be created.
+    /// - Important: Must be called on the `@MainActor` because `ImageRenderer` requires it.
+    @MainActor
+    static func generateComparison(data: ComparisonPDFReportData) -> Data? {
+        let contentView = ComparisonPDFReportContentView(data: data)
+        let renderer = ImageRenderer(content: contentView)
+
+        let mutableData = NSMutableData()
+
+        renderer.render { size, draw in
+            guard let consumer = CGDataConsumer(data: mutableData) else { return }
+            var mediaBox = CGRect(origin: .zero, size: size)
+            guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else { return }
+            context.beginPDFPage(nil)
+            draw(context)
+            context.endPDFPage()
+            context.closePDF()
+        }
+
+        return mutableData.length > 0 ? mutableData as Data : nil
+    }
+}
+
+// MARK: - Comparison PDF Content View
+
+/// SwiftUI view that lays out the comparison report page for off-screen rendering.
+///
+/// Sections (top to bottom):
+/// 1. Header — "GuitarTap" + "Comparison Report" subtitle + date/time
+/// 2. Blue accent bar
+/// 3. Metadata — comparison label, notes, spectrum count, frequency range
+/// 4. Spectrum image (if present)
+/// 5. Divider
+/// 6. Peak mode table — Air / Top / Back frequencies per spectrum
+/// 7. Footer — version + generation timestamp
+private struct ComparisonPDFReportContentView: View {
+    let data: ComparisonPDFReportData
+
+    private let pageWidth: CGFloat = 612
+    private let margin: CGFloat = 36
+    private var contentWidth: CGFloat { pageWidth - margin * 2 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            headerSection
+            accentBar
+            metadataSection
+            Spacer().frame(height: 14)
+            if let imageData = data.spectrumImageData {
+                spectrumSection(imageData: imageData)
+                Spacer().frame(height: 14)
+            }
+            sectionDivider
+            Spacer().frame(height: 14)
+            peakModeTableSection
+            footerSection
+        }
+        .padding(margin)
+        .frame(width: pageWidth)
+        .background(Color.white)
+    }
+
+    // MARK: Header
+
+    private var headerSection: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("GuitarTap")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color(red: 0.15, green: 0.35, blue: 0.75))
+                Text("Comparison Report")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(data.timestamp, style: .date)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                Text(data.timestamp, style: .time)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.bottom, 8)
+    }
+
+    private var accentBar: some View {
+        Rectangle()
+            .fill(Color(red: 0.15, green: 0.35, blue: 0.75))
+            .frame(height: 3)
+            .padding(.bottom, 12)
+    }
+
+    // MARK: Metadata
+
+    private var metadataSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let label = data.comparisonLabel, !label.isEmpty {
+                metaRow(label: "Comparison", value: label)
+            }
+            if let notes = data.notes, !notes.isEmpty {
+                metaRow(label: "Notes", value: notes)
+            }
+            metaRow(label: "Spectra", value: "\(data.entries.count) spectra compared")
+            if let firstSnap = data.entries.first?.snapshot,
+               let lastSnap = data.entries.last?.snapshot {
+                let minF = data.entries.map(\.snapshot.minFreq).min() ?? firstSnap.minFreq
+                let maxF = data.entries.map(\.snapshot.maxFreq).max() ?? lastSnap.maxFreq
+                metaRow(label: "Frequency Range",
+                        value: "\(minF.formattedAsFrequency()) – \(maxF.formattedAsFrequency())")
+            }
+        }
+    }
+
+    private func metaRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Text(label + ":")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(width: 100, alignment: .leading)
+            Text(value)
+                .font(.system(size: 11))
+                .foregroundColor(.primary)
+        }
+    }
+
+    // MARK: Spectrum Image
+
+    @ViewBuilder
+    private func spectrumSection(imageData: Data) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Frequency Spectrum")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            reportImage(from: imageData)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: contentWidth)
+                .background(Color(white: 0.05))
+                .cornerRadius(6)
+        }
+    }
+
+    private func reportImage(from imageData: Data) -> Image {
+        #if os(iOS)
+        if let img = UIImage(data: imageData) { return Image(uiImage: img) }
+        #elseif os(macOS)
+        if let img = NSImage(data: imageData) { return Image(nsImage: img) }
+        #endif
+        return Image(systemName: "photo")
+    }
+
+    // MARK: Divider
+
+    private var sectionDivider: some View {
+        Rectangle()
+            .fill(Color.gray.opacity(0.3))
+            .frame(height: 1)
+    }
+
+    // MARK: Peak Mode Table
+
+    private let modeColumns: [(label: String, keyPath: KeyPath<(label: String, color: Color, air: Float?, top: Float?, back: Float?), Float?>)] = [
+        ("Air", \.air),
+        ("Top", \.top),
+        ("Back", \.back)
+    ]
+
+    private var peakModeTableSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Peak Mode Comparison")
+                .font(.system(size: 13, weight: .semibold))
+
+            // Table header
+            HStack(spacing: 0) {
+                Text("Spectrum")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                ForEach(modeColumns, id: \.label) { col in
+                    Text(col.label)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 90, alignment: .trailing)
+                        .padding(.trailing, 6)
+                        .padding(.vertical, 4)
+                }
+            }
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(4)
+
+            // Data rows
+            ForEach(Array(data.modeFrequencies.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: 0) {
+                    // Coloured dot + label
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(row.color)
+                            .frame(width: 8, height: 8)
+                        Text(row.label)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+
+                    ForEach(modeColumns, id: \.label) { col in
+                        let freq = row[keyPath: col.keyPath]
+                        Text(freq.map { String(format: "%.1f Hz", $0) } ?? "—")
+                            .foregroundColor(freq != nil ? .primary : .secondary)
+                            .frame(width: 90, alignment: .trailing)
+                            .padding(.trailing, 6)
+                            .padding(.vertical, 4)
+                    }
+                }
+                .font(.system(size: 10))
+            }
+        }
+    }
+
+    // MARK: Footer
+
+    private var footerSection: some View {
+        VStack(spacing: 0) {
+            Spacer().frame(height: 16)
+            Rectangle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(height: 1)
+            Spacer().frame(height: 8)
+            HStack {
+                let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–"
+                let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "–"
+                Text("Generated by GuitarTap \(version) (\(build))")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(Date().formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}

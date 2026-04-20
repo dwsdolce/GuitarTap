@@ -39,8 +39,15 @@ extension TapToneAnalysisView {
     // MARK: - PDF Report Export
 
     /// Renders the current spectrum as PNG, builds report data, generates a PDF, and exports it.
+    ///
+    /// When `tap.displayMode == .comparison`, routes to `exportComparisonPDFReport()` instead.
     @MainActor
     func exportPDFReport() {
+        if tap.displayMode == .comparison {
+            exportComparisonPDFReport()
+            return
+        }
+
         isGeneratingReport = true
 
         // Render current spectrum to PNG data (same technique as save/exportSpectrum)
@@ -147,6 +154,86 @@ extension TapToneAnalysisView {
         }
 
         MeasurementFileExporter.exportPDF(data: pdfData, basename: reportData.baseFilename) {
+            self.isGeneratingReport = false
+        }
+    }
+
+    /// Renders the comparison overlay chart as PNG, builds comparison report data, generates a PDF, and exports it.
+    @MainActor
+    func exportComparisonPDFReport() {
+        isGeneratingReport = true
+
+        // Render the comparison overlay chart to PNG
+        let spectrumView = createExportableSpectrumView()
+        let imageRenderer = ImageRenderer(content: spectrumView)
+        imageRenderer.scale = displayScale
+
+        var spectrumImageData: Data?
+        #if os(iOS)
+        if let uiImage = imageRenderer.uiImage {
+            spectrumImageData = uiImage.pngData()
+        }
+        #elseif os(macOS)
+        if let nsImage = imageRenderer.nsImage,
+           let tiffData = nsImage.tiffRepresentation,
+           let bitmap = NSBitmapImageRep(data: tiffData) {
+            spectrumImageData = bitmap.representation(using: .png, properties: [:])
+        }
+        #endif
+
+        // Build per-entry mode frequency rows
+        let modeFrequencies = tap.comparisonSpectra.map { entry in
+            let modeFreqs = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
+            return (
+                label: entry.label,
+                color: entry.color,
+                air:  modeFreqs[.air],
+                top:  modeFreqs[.top],
+                back: modeFreqs[.back]
+            )
+        }
+
+        let reportData = ComparisonPDFReportData(
+            timestamp: Date(),
+            comparisonLabel: tap.loadedMeasurementName ?? (tapLocation.isEmpty ? nil : tapLocation),
+            notes: notes.isEmpty ? nil : notes,
+            spectrumImageData: spectrumImageData,
+            entries: tap.comparisonSnapshots.enumerated().map { index, snap in
+                // Reconstruct a minimal ComparisonEntry just for the metadata section
+                let entry = tap.comparisonSpectra[index]
+                let cgColor: CGColor = entry.color.cgColor ?? entry.color.resolve(in: .init()).cgColor
+                let comps: [Double]
+                if let c = cgColor.components, c.count >= 3 {
+                    comps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
+                } else {
+                    comps = [0.0, 0.0, 1.0, 1.0]
+                }
+                return ComparisonEntry(
+                    id: UUID(),
+                    label: entry.label,
+                    colorComponents: comps,
+                    snapshot: snap,
+                    peaks: entry.peaks,
+                    guitarType: entry.guitarType,
+                    sourceMeasurementID: nil
+                )
+            },
+            modeFrequencies: modeFrequencies
+        )
+
+        let label = tap.loadedMeasurementName ?? tapLocation
+        let basename = label.isEmpty
+            ? "report-\(Int(Date().timeIntervalSince1970))"
+            : label.replacingOccurrences(of: " ", with: "-").lowercased()
+                + "-\(Int(Date().timeIntervalSince1970))"
+
+        guard let pdfData = PDFReportGenerator.generateComparison(data: reportData) else {
+            print("❌ Failed to generate comparison PDF report")
+            isGeneratingReport = false
+            return
+        }
+
+        MeasurementFileExporter.exportPDF(data: pdfData, basename: basename) {
             self.isGeneratingReport = false
         }
     }

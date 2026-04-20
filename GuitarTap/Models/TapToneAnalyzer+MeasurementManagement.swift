@@ -421,6 +421,32 @@ extension TapToneAnalyzer {
     /// - Parameter measurement: The ``TapToneMeasurement`` to load.
     func loadMeasurement(_ measurement: TapToneMeasurement) {
         print("🔄 Loading measurement...")
+
+        // Comparison records: restore the overlay spectra directly from the saved entries
+        // and return early — no peak/spectrum restoration needed for the regular path.
+        if let entries = measurement.comparisonEntries {
+            comparisonSpectra = entries.map { entry in
+                let c = entry.colorComponents
+                let color = Color(red: c.indices.contains(0) ? c[0] : 0,
+                                  green: c.indices.contains(1) ? c[1] : 0,
+                                  blue: c.indices.contains(2) ? c[2] : 1,
+                                  opacity: c.indices.contains(3) ? c[3] : 1)
+                return (magnitudes: entry.snapshot.magnitudes,
+                        frequencies: entry.snapshot.frequencies,
+                        color: color, label: entry.label,
+                        peaks: entry.peaks, guitarType: entry.guitarType)
+            }
+            comparisonSnapshots = entries.map(\.snapshot)
+            let snaps = entries.map(\.snapshot)
+            if let minF = snaps.map(\.minFreq).min(), let maxF = snaps.map(\.maxFreq).max(),
+               let minD = snaps.map(\.minDB).min(), let maxD = snaps.map(\.maxDB).max() {
+                setLoadedAxisRange(minFreq: minF, maxFreq: maxF, minDB: minD, maxDB: maxD)
+            }
+            loadedMeasurementName = measurement.tapLocation.flatMap { $0.isEmpty ? nil : $0 }
+            displayMode = .comparison
+            return
+        }
+
         // Suppress recalculateFrozenPeaksIfNeeded() for the duration of the load.
         // The saved peaks are already correct; re-running findPeaks() would
         // generate wrong UUIDs and may classify with a stale guitar type.
@@ -429,6 +455,7 @@ extension TapToneAnalyzer {
 
         // Loading a new measurement exits comparison mode.
         comparisonSpectra = []
+        comparisonSnapshots = []
         displayMode = .frozen
 
         // Track the original timestamp so the Results-panel PDF can use it
@@ -793,15 +820,19 @@ extension TapToneAnalyzer {
             return "\(label) (\(labelOccurrence[label]!))"
         }
 
-        comparisonSpectra = withSnapshots.enumerated().map { index, measurement in
+        let spectraAndSnapshots: [(entry: (magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?), snapshot: SpectrumSnapshot)] = withSnapshots.enumerated().map { index, measurement in
             let snap = measurement.spectrumSnapshot!
             let color = Self.comparisonPalette[index % Self.comparisonPalette.count]
             let selectedIDs = Set(measurement.selectedPeakIDs ?? measurement.peaks.map(\.id))
             let selectedPeaks = measurement.peaks.filter { selectedIDs.contains($0.id) }
-            return (magnitudes: snap.magnitudes, frequencies: snap.frequencies,
-                    color: color, label: uniqueLabels[index],
-                    peaks: selectedPeaks, guitarType: snap.guitarType)
+            let entry = (magnitudes: snap.magnitudes, frequencies: snap.frequencies,
+                         color: color, label: uniqueLabels[index],
+                         peaks: selectedPeaks, guitarType: snap.guitarType)
+            return (entry: entry, snapshot: snap)
         }
+        comparisonSpectra = spectraAndSnapshots.map(\.entry)
+        comparisonSnapshots = spectraAndSnapshots.map(\.snapshot)
+        loadedMeasurementName = nil
 
         // Broadcast the union axis ranges — use setLoadedAxisRange so all four bounds
         // are published atomically, preventing transient axis mismatches.
@@ -817,9 +848,56 @@ extension TapToneAnalyzer {
         displayMode = comparisonSpectra.isEmpty ? .live : .comparison
     }
 
+    /// Saves the current comparison as a first-class measurement record.
+    ///
+    /// Each entry in `comparisonSpectra` becomes a `ComparisonEntry` storing the full
+    /// spectrum snapshot, selected peaks, guitar type, label, and chart color components.
+    /// The resulting `TapToneMeasurement` is appended to `savedMeasurements` and persisted.
+    ///
+    /// - Parameters:
+    ///   - tapLocation: User-supplied name for the comparison (e.g. "Pre/Post Bracing").
+    ///   - notes: Optional free-form notes.
+    func saveComparison(tapLocation: String? = nil, notes: String? = nil) {
+        guard !comparisonSpectra.isEmpty,
+              comparisonSnapshots.count == comparisonSpectra.count else { return }
+
+        let entries: [ComparisonEntry] = comparisonSpectra.enumerated().map { index, entry in
+            // Resolve Color → RGBA components using CGColor.
+            // The fixed 5-color palette (blue/orange/green/purple/teal) round-trips exactly.
+            let cgColor: CGColor = entry.color.cgColor ?? entry.color.resolve(in: .init()).cgColor
+            let comps: [Double]
+            if let components = cgColor.components, components.count >= 3 {
+                comps = [Double(components[0]), Double(components[1]),
+                         Double(components[2]), components.count >= 4 ? Double(components[3]) : 1.0]
+            } else {
+                // Fallback: default to blue with full opacity
+                comps = [0.0, 0.0, 1.0, 1.0]
+            }
+            return ComparisonEntry(
+                id: UUID(),
+                label: entry.label,
+                colorComponents: comps,
+                snapshot: comparisonSnapshots[index],
+                peaks: entry.peaks,
+                guitarType: entry.guitarType,
+                sourceMeasurementID: nil
+            )
+        }
+
+        let record = TapToneMeasurement(
+            peaks: [],
+            tapLocation: tapLocation,
+            notes: notes,
+            comparisonEntries: entries
+        )
+        savedMeasurements.append(record)
+        persistMeasurements()
+    }
+
     /// Removes all comparison overlay spectra from the main chart.
     func clearComparison() {
         comparisonSpectra = []
+        comparisonSnapshots = []
         displayMode = .live
     }
 }

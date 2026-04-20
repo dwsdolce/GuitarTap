@@ -109,8 +109,10 @@ struct MeasurementsListView: View {
             // programmatically constructed path.  A synthetic ~/Documents/GuitarTap URL
             // has no sandbox extension; the fileImporter may navigate there but the
             // resulting URL can fail Data(contentsOf:) with EPERM.
+            // Note: fileDialogCustomizationID is intentionally absent — it would cause
+            // macOS to persist its own directory preference for the panel, overriding
+            // the lastUsedDirectory hint on subsequent launches.
             .fileDialogDefaultDirectory(MeasurementFileExporter.lastUsedDirectory)
-            .fileDialogCustomizationID("com.dolcesfogato.guitartap.measurement-dir")
             .alert("Import Error", isPresented: .constant(importError != nil)) {
                 Button("OK") { importError = nil }
             } message: {
@@ -278,7 +280,11 @@ struct MeasurementsListView: View {
                             }
 
                             Button(action: {
-                                exportPDFReport(for: measurement)
+                                if measurement.isComparison {
+                                    exportComparisonPDFReport(for: measurement)
+                                } else {
+                                    exportPDFReport(for: measurement)
+                                }
                             }) {
                                 Label("Export PDF Report", systemImage: "doc.richtext")
                             }
@@ -431,7 +437,11 @@ struct MeasurementsListView: View {
     @MainActor
     private func exportSpectrumMeasurement(_ measurement: TapToneMeasurement) {
         isExporting = true
-        let imageData = renderSpectrumImageForMeasurement(measurement)
+
+        let imageData: Data? = measurement.isComparison
+            ? renderSpectrumImageForComparison(measurement)
+            : renderSpectrumImageForMeasurement(measurement)
+
         MeasurementFileExporter.exportSpectrumImage(imageData: imageData, basename: measurement.baseFilename) {
             self.isExporting = false
         }
@@ -451,7 +461,51 @@ struct MeasurementsListView: View {
             self.isGeneratingReport = false
         }
     }
-    
+
+    @MainActor
+    private func exportComparisonPDFReport(for measurement: TapToneMeasurement) {
+        guard let entries = measurement.comparisonEntries else { return }
+        isGeneratingReport = true
+
+        let spectrumImageData = renderSpectrumImageForComparison(measurement)
+
+        // Build per-entry mode frequency rows
+        let modeFrequencies = entries.map { entry in
+            let c = entry.colorComponents
+            let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
+            let modeFreqs = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
+            return (
+                label: entry.label,
+                color: color,
+                air:  modeFreqs[.air],
+                top:  modeFreqs[.top],
+                back: modeFreqs[.back]
+            )
+        }
+
+        let reportData = ComparisonPDFReportData(
+            timestamp: measurement.timestamp,
+            comparisonLabel: measurement.tapLocation,
+            notes: measurement.notes,
+            spectrumImageData: spectrumImageData,
+            entries: entries,
+            modeFrequencies: modeFrequencies
+        )
+
+        let label = measurement.tapLocation ?? "report"
+        let basename = label.replacingOccurrences(of: " ", with: "-").lowercased()
+            + "-\(Int(measurement.timestamp.timeIntervalSince1970))"
+
+        guard let pdfData = PDFReportGenerator.generateComparison(data: reportData) else {
+            print("❌ Failed to generate comparison PDF report")
+            isGeneratingReport = false
+            return
+        }
+        MeasurementFileExporter.exportPDF(data: pdfData, basename: basename) {
+            self.isGeneratingReport = false
+        }
+    }
+
     private func deleteAll() {
         analyzer.savedMeasurements.removeAll()
     }

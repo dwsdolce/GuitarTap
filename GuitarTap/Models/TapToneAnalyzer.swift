@@ -687,6 +687,13 @@ final class TapToneAnalyzer: ObservableObject {
     /// `materialSpectra` path. Cleared by `clearComparison()` or a new tap sequence.
     @Published var comparisonSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?)] = []
 
+    /// Full `SpectrumSnapshot` for each entry in `comparisonSpectra`, in the same order.
+    ///
+    /// Stored so that `saveComparison()` can embed the snapshots into `ComparisonEntry`
+    /// values without needing to re-query the measurement store.  Populated by
+    /// `loadComparison` and cleared by `clearComparison` / `loadMeasurement`.
+    @Published var comparisonSnapshots: [SpectrumSnapshot] = []
+
     // MARK: - Gated FFT State
 
     /// Lock protecting ``gatedAccumBuffer``, which is written on the audio queue and

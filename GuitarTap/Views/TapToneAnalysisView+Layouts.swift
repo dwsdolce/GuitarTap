@@ -362,7 +362,7 @@ extension TapToneAnalysisView {
                 Button(action: { showingSaveSheet = true }) {
                     Image(systemName: "square.and.arrow.down")
                 }
-                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                .disabled(tap.currentPeaks.isEmpty && tap.displayMode != .comparison)
                 .accessibilityLabel("Save")
                 .hint(HintText.save)
 
@@ -458,7 +458,7 @@ extension TapToneAnalysisView {
                 Button(action: { showingSaveSheet = true }) {
                     Image(systemName: "square.and.arrow.down")
                 }
-                .disabled(tap.currentPeaks.isEmpty)
+                .disabled(tap.currentPeaks.isEmpty && tap.displayMode != .comparison)
                 .accessibilityLabel("Save")
                 .hint(HintText.save)
 
@@ -756,7 +756,7 @@ extension TapToneAnalysisView {
                     Button(action: { showingSaveSheet = true }) {
                         Image(systemName: "square.and.arrow.down")
                     }
-                    .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                    .disabled(tap.currentPeaks.isEmpty && tap.displayMode != .comparison)
                     .accessibilityLabel("Save")
                     .hint(HintText.save)
 

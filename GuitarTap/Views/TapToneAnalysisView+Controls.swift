@@ -65,7 +65,7 @@ extension TapToneAnalysisView {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .buttonStyle(.bordered)
-                    .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                    .disabled(tap.currentPeaks.isEmpty && tap.displayMode != .comparison)
                     .accessibilityLabel("Save")
                     .hint(HintText.save)
 
@@ -152,7 +152,7 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                .disabled(tap.currentPeaks.isEmpty && tap.displayMode != .comparison)
                 .hint(HintText.save)
             }
 
@@ -266,7 +266,7 @@ extension TapToneAnalysisView {
         }
         .buttonStyle(.bordered)
         .tint(.blue)
-        .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+        .disabled(tap.currentPeaks.isEmpty && tap.displayMode != .comparison)
         .hint(HintText.save)
     }
 
@@ -601,6 +601,8 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     thresholdResetButton
                 }
+                .disabled(tap.displayMode == .comparison)
+                .opacity(tap.displayMode == .comparison ? 0.4 : 1)
 
                 HStack(spacing: 6) {
                     Text("Peak Min:")
@@ -618,8 +620,8 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     peakMinResetButton
                 }
-                .disabled(!TapDisplaySettings.measurementType.isGuitar)
-                .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
+                .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
+                .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : 0.4)
             }
 
             // Row 2: Action buttons - all buttons always visible to prevent layout shifts
@@ -762,6 +764,8 @@ extension TapToneAnalysisView {
                 thresholdResetButton
             }
             .hint(HintText.threshold)
+            .disabled(tap.displayMode == .comparison)
+            .opacity(tap.displayMode == .comparison ? 0.4 : 1)
 
             Divider()
                 .frame(height: 20)
@@ -783,8 +787,8 @@ extension TapToneAnalysisView {
                     .fixedSize()
                 peakMinResetButton
             }
-            .disabled(!TapDisplaySettings.measurementType.isGuitar)
-            .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
+            .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
+            .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : 0.4)
 
             Spacer()
 
@@ -887,6 +891,8 @@ extension TapToneAnalysisView {
                     thresholdResetButton
                 }
                 .hint(HintText.threshold)
+                .disabled(tap.displayMode == .comparison)
+                .opacity(tap.displayMode == .comparison ? 0.4 : 1)
 
                 Divider()
                     .frame(height: 20)
@@ -908,8 +914,8 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     peakMinResetButton
                 }
-                .disabled(!TapDisplaySettings.measurementType.isGuitar)
-                .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
+                .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
+                .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : 0.4)
 
                 Spacer()
             }

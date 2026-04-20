@@ -702,3 +702,53 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
     #endif
 }
 
+/// Renders the comparison overlay chart for a saved comparison `TapToneMeasurement`
+/// to a PNG-encoded `Data` value.
+///
+/// This is the comparison-side parallel to `renderSpectrumImageForMeasurement`:
+/// both are free functions in `ExportableSpectrumChart.swift` and both are called
+/// from `MeasurementsListView` to supply the spectrum image for spectrum-export and
+/// PDF-report actions.
+///
+/// - Parameter measurement: A saved comparison record (must have non-nil `comparisonEntries`).
+/// - Returns: PNG-encoded chart image, or `nil` if `comparisonEntries` is absent.
+@MainActor
+func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) -> Data? {
+    guard let entries = measurement.comparisonEntries else { return nil }
+
+    let comparisonSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = entries.map { entry in
+        let c = entry.colorComponents
+        let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
+        return (magnitudes: entry.snapshot.magnitudes, frequencies: entry.snapshot.frequencies,
+                color: color, label: entry.label)
+    }
+    let snaps = entries.map(\.snapshot)
+    let compositeView = makeExportableSpectrumView(
+        frequencies: [],
+        magnitudes: [],
+        minFreq: snaps.map(\.minFreq).min() ?? 50,
+        maxFreq: snaps.map(\.maxFreq).max() ?? 1000,
+        minDB:   snaps.map(\.minDB).min()   ?? -100,
+        maxDB:   snaps.map(\.maxDB).max()   ?? 0,
+        peaks: [],
+        measurementType: .classical,
+        materialSpectra: comparisonSpectra,
+        dateLabel: measurement.timestamp.formatted(),
+        chartTitle: "Comparison — \(measurement.tapLocation ?? "Comparison")"
+    )
+
+    let renderer = ImageRenderer(content: compositeView)
+    renderer.scale = 2.0
+
+    #if os(iOS)
+    guard let uiImage = renderer.uiImage,
+          let pngData = uiImage.pngData() else { return nil }
+    return pngData
+    #elseif os(macOS)
+    guard let nsImage = renderer.nsImage,
+          let tiffData = nsImage.tiffRepresentation,
+          let bitmapImage = NSBitmapImageRep(data: tiffData),
+          let pngData = bitmapImage.representation(using: .png, properties: [:]) else { return nil }
+    return pngData
+    #endif
+}

@@ -42,6 +42,64 @@ struct MeasurementRowView: View {
     }
     
     var body: some View {
+        if measurement.isComparison {
+            comparisonRowBody
+        } else {
+            measurementRowBody
+        }
+    }
+
+    // MARK: - Comparison record layout
+
+    private var comparisonRowBody: some View {
+        let count = measurement.comparisonEntries?.count ?? 0
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(measurement.tapLocation ?? "Comparison")
+                    .font(.headline)
+
+                Spacer()
+
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.bar.doc.horizontal")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+
+                    Text(measurement.timestamp, style: .time)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    #if os(macOS)
+                    Image(systemName: "ellipsis.circle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .opacity(isHovered ? 1.0 : 0.0)
+                        .animation(.easeInOut(duration: 0.15), value: isHovered)
+                    #endif
+                }
+            }
+
+            Text("\(count) spectra compared")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if let notes = measurement.notes, !notes.isEmpty {
+                Text(notes)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    // MARK: - Regular measurement layout
+
+    private var measurementRowBody: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 if let location = measurement.tapLocation {

@@ -113,6 +113,17 @@ extension TapToneAnalysisView {
     }
 
     func saveMeasurement() {
+        if tap.displayMode == .comparison {
+            tap.saveComparison(
+                tapLocation: tapLocation.isEmpty ? nil : tapLocation,
+                notes: notes.isEmpty ? nil : notes
+            )
+            tapLocation = ""
+            notes = ""
+            showingSaveSheet = false
+            return
+        }
+
         isSavingMeasurement = true
 
         // Pass only view-layer state: axis range floats, device identity, and

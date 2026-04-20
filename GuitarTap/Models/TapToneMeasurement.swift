@@ -36,6 +36,33 @@
 /// | Brace | `longitudinalSnapshot`, `selectedLongitudinalPeakID` |
 import SwiftUI
 
+// MARK: - ComparisonEntry
+
+/// A single spectrum entry within a saved comparison measurement.
+///
+/// Stores everything needed to restore one overlay in a comparison chart:
+/// the full spectrum snapshot, selected peaks, guitar type, display label,
+/// and chart color (as RGBA components, since `Color` is not `Codable`).
+struct ComparisonEntry: Codable, Identifiable {
+    /// Stable unique identifier for this entry.
+    let id: UUID
+    /// Display label for this spectrum (e.g. "Bridge", "Bridge (2)").
+    let label: String
+    /// Chart color stored as [red, green, blue, alpha], each 0.0–1.0.
+    /// `Color` is not `Codable`; the fixed comparison palette makes this round-trip exact.
+    let colorComponents: [Double]
+    /// Full spectrum snapshot providing magnitudes, frequencies, and axis ranges.
+    let snapshot: SpectrumSnapshot
+    /// Selected peaks for this measurement at save time.
+    let peaks: [ResonantPeak]
+    /// Guitar type active when the source measurement was recorded, used for mode classification.
+    let guitarType: GuitarType?
+    /// UUID of the source `TapToneMeasurement` this entry was created from, if available.
+    let sourceMeasurementID: UUID?
+}
+
+// MARK: - TapToneMeasurement
+
 /// A complete record of a tap-tone measurement session, including spectrum data, peaks,
 /// display state, and all analysis settings active at the time of capture.
 ///
@@ -172,6 +199,18 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// Name of the active calibration profile applied during this measurement, if any.
     let calibrationName: String?
 
+    // MARK: - Comparison Record
+
+    /// Non-nil when this measurement is a saved comparison rather than a single tap event.
+    ///
+    /// When present, each element represents one overlaid spectrum.  All other analysis
+    /// fields (`peaks`, `spectrumSnapshot`, `decayTime`, etc.) are empty or nil and
+    /// should not be read.  Use `isComparison` to detect this case.
+    let comparisonEntries: [ComparisonEntry]?
+
+    /// `true` when this record holds a saved comparison rather than a single tap measurement.
+    var isComparison: Bool { comparisonEntries != nil }
+
     // MARK: - Coding Keys
 
     enum CodingKeys: String, CodingKey {
@@ -183,6 +222,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case selectedPeakIDs, selectedPeakFrequencies, annotationVisibilityMode
         case peakModeOverrides
         case microphoneName, microphoneUID, calibrationName
+        case comparisonEntries
         // Encode-only convenience fields for external consumers
         case measurementType, guitarType
     }
@@ -261,7 +301,8 @@ struct TapToneMeasurement: Identifiable, Codable {
          peakModeOverrides: [UUID: UserAssignedMode]? = nil,
          microphoneName: String? = nil,
          microphoneUID: String? = nil,
-         calibrationName: String? = nil) {
+         calibrationName: String? = nil,
+         comparisonEntries: [ComparisonEntry]? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.peaks = peaks
@@ -287,6 +328,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.microphoneName = microphoneName
         self.microphoneUID = microphoneUID
         self.calibrationName = calibrationName
+        self.comparisonEntries = comparisonEntries
     }
 
     /// Returns a copy of the measurement with only `tapLocation` and `notes` replaced.
@@ -318,7 +360,8 @@ struct TapToneMeasurement: Identifiable, Codable {
             peakModeOverrides: peakModeOverrides,
             microphoneName: microphoneName,
             microphoneUID: microphoneUID,
-            calibrationName: calibrationName
+            calibrationName: calibrationName,
+            comparisonEntries: comparisonEntries
         )
     }
 
@@ -398,6 +441,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         microphoneName       = try container.decodeIfPresent(String.self, forKey: .microphoneName)
         microphoneUID        = try container.decodeIfPresent(String.self, forKey: .microphoneUID)
         calibrationName      = try container.decodeIfPresent(String.self, forKey: .calibrationName)
+        comparisonEntries    = try container.decodeIfPresent([ComparisonEntry].self, forKey: .comparisonEntries)
         // Decode peaks as [ResonantPeak]; the extra modeLabel key in each entry is
         // silently ignored by ResonantPeak's synthesized Decodable conformance.
         peaks = try container.decode([ResonantPeak].self, forKey: .peaks)
@@ -446,9 +490,10 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(selectedPeakFrequencies, forKey: .selectedPeakFrequencies)
         try container.encodeIfPresent(annotationVisibilityMode, forKey: .annotationVisibilityMode)
         try container.encodeIfPresent(peakModeOverrides, forKey: .peakModeOverrides)
-        try container.encodeIfPresent(microphoneName,   forKey: .microphoneName)
-        try container.encodeIfPresent(microphoneUID,    forKey: .microphoneUID)
-        try container.encodeIfPresent(calibrationName,  forKey: .calibrationName)
+        try container.encodeIfPresent(microphoneName,    forKey: .microphoneName)
+        try container.encodeIfPresent(microphoneUID,     forKey: .microphoneUID)
+        try container.encodeIfPresent(calibrationName,   forKey: .calibrationName)
+        try container.encodeIfPresent(comparisonEntries, forKey: .comparisonEntries)
 
         // Convenience: top-level measurementType and guitarType for external consumers
         let resolvedMeasurementType = spectrumSnapshot?.measurementType
