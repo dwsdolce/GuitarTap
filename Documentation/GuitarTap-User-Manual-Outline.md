@@ -187,10 +187,14 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 ### 3.9 Comparing Guitar Measurements
 - Saving measurements at different build stages or tap locations
 - Using the Measurements list Compare button
-- Selecting 2–5 guitar measurements
+- Selecting 2–5 guitar measurements (plate/brace measurements excluded)
 - Overlaid colour-coded spectra with legend
+- The Comparison Results table: Air / Top / Back peak frequencies for each spectrum, with colour-coded dots matching chart curves
+- What is and is not available during comparison: Annotations and Save (new measurement) disabled; Threshold and Peak Min sliders disabled; Export Spectrum and Export PDF Report remain available
 - Exiting comparison mode with New Tap
-- What is and is not available during comparison (Save and Annotations disabled)
+- **Saving a Comparison** — using the Save button during an active comparison saves the entire overlay as a single record in the Measurements list; it can be reloaded later to restore the overlay exactly as it was
+- **Exporting a Comparison** — Export Spectrum produces an overlay PNG with all curves and legend; Export PDF generates a comparison report with the spectrum overlay and an Air / Top / Back frequency table for each spectrum (cross-reference §7.12–7.14)
+- **Importing a Comparison** — saved comparison .guitartap files can be imported back; the app detects the comparison record and restores the overlay
 
 **Screenshots required:**
 - [ ] Settings — guitar type selection with frequency windows visible
@@ -203,6 +207,9 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 - [ ] Results panel: peak list with Q, bandwidth, decay time, tap tone ratio
 - [ ] Wand/reset button in Results panel
 - [ ] Comparison mode: 3 overlaid spectra with colour legend
+- [ ] Comparison Results table (Air / Top / Back grid with colour dots)
+- [ ] Save Comparison sheet
+- [ ] Comparison PDF report (one page)
 
 ---
 
@@ -235,26 +242,36 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 - Avoiding the cross-axis nodal line
 - Tap location: centre of the plate
 
-### 4.5 Tap 1 — Longitudinal
+### 4.5 The Accept / Redo Review Flow
+- After each tap phase the spectrum freezes and the detector pauses automatically — the user reviews the result before continuing
+- **Accept** button (replaces Pause during review): advances to the next phase; the accepted result is locked in
+- **Redo** button (replaces Cancel during review): discards the current phase and returns to capture; labelled "Redo L", "Redo C", or "Redo FLC" depending on phase
+- The status bar shows which phase is active and how many taps remain within that phase
+- During review the live spectrum is suppressed so the accepted measurement stays on screen
+- After all phases are accepted the results panel updates with the complete plate calculations
+
+### 4.6 Tap 1 — Longitudinal
 - Grain orientation (left–right)
 - Hold point: 22% from one end along the length, near one long edge
 - Tapping: centre, after pressing New Tap
-- Status prompt: "Capturing Longitudinal"
-- Confirming the result
+- Status prompt: "Capturing Longitudinal" → spectrum freezes → Accept or Redo
+- Phase progress indicator: "Phase 1/2" (or "Phase 1/3" if FLC enabled)
 
-### 4.6 Tap 2 — Cross-Grain
+### 4.7 Tap 2 — Cross-Grain
 - Rotating the plate 90°
 - Hold point: 22% from one end along the width, near one short edge
-- Status prompt: "Capturing Cross-Grain" (automatic after longitudinal accepted)
+- Status prompt: "Capturing Cross-grain" (advances automatically after Longitudinal accepted)
+- Accept or Redo as above
 
-### 4.7 Tap 3 — FLC (Optional)
+### 4.8 Tap 3 — FLC (Optional)
 - Enabling Measure FLC in Settings
 - Hold point: midpoint of one long edge
 - Tap point: near opposite corner (~22% from both end and side)
 - Why FLC matters: shear modulus for Gore thickness
 - Effect of omitting FLC: ~5–7% over-estimate in target thickness
+- Status prompt: "Capturing FLC" → Accept or Redo
 
-### 4.8 Reading Plate Results
+### 4.9 Reading Plate Results
 - E_L / E_C (GPa)
 - c_L / c_C (m/s)
 - Specific modulus E/ρ
@@ -262,9 +279,9 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 - Cross/Long ratio (spruce: typically 0.04–0.08)
 - Quality rating: Excellent / Very Good / Good / Fair / Poor (spruce scale)
   - ≥ 25 → Excellent (Master grade); ≥ 22 → Very Good (AAA); ≥ 19 → Good (AA); ≥ 16 → Fair (A); < 16 → Poor
-- Gore target thickness
+- Gore target thickness (requires FLC or omits shear correction)
 
-### 4.9 Interpreting and Comparing Plate Results
+### 4.10 Interpreting and Comparing Plate Results
 - What specific modulus tells you vs. Young's modulus alone
 - How to use the Gore target thickness in practice
 - Keeping notes across multiple blanks
@@ -275,7 +292,8 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 - [ ] Diagram: plate with hold point and tap point marked for longitudinal tap
 - [ ] Diagram: plate rotated for cross-grain tap
 - [ ] Diagram: plate held at long edge for FLC tap
-- [ ] Status bar prompts for each tap phase
+- [ ] Status bar during longitudinal capture ("Capturing Longitudinal · Phase 1/2")
+- [ ] Review state: Accept / Redo buttons visible with frozen spectrum
 - [ ] Results panel showing E_L, E_C, specific modulus, quality rating, Gore thickness
 - [ ] Comparison of two plate spectra (same blank, different orientations)
 
@@ -299,6 +317,7 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 - Single-point hold at 22% from one end
 - Tap the top face at centre
 - No rotation needed
+- Accept / Redo review flow applies (same as Plate mode §4.5): spectrum freezes after the tap, user reviews and Accept or Redo
 
 ### 5.4 Reading Brace Results
 - E_L, c_L, specific modulus
@@ -410,46 +429,70 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 - What is produced: PNG of the current chart
 - From toolbar: Export Spectrum Image… (⌘E on macOS)
 - From Measurements list: right-click / long-press → Export Spectrum
-- During comparison: image includes all overlaid curves and legend
+- During comparison: image includes all overlaid curves and legend; each curve colour matches the Comparison Results table
 
 ### 7.7 Exporting a PDF Report
-- What the PDF contains: spectrum chart, peak table, analysis summary
+- What the PDF contains: spectrum chart, peak table, analysis summary, quality indicators
 - From toolbar: Export PDF Report… (⇧⌘E on macOS)
 - From Measurements list: right-click / long-press → Export PDF Report
-- Not available during comparison mode
+- Single-measurement PDF vs. Comparison PDF (see §7.12)
 
-### 7.8 Exporting a .guitartap File
-- What .guitartap contains (full measurement data, JSON-based)
+### 7.8 Saving a Comparison
+- The Save button is available during an active comparison (it is replaced by a disabled state only for new individual measurements — the comparison itself can be saved)
+- The Save sheet accepts an optional location label and notes, as with single measurements
+- The saved comparison record appears in the Measurements list alongside regular measurements
+- Reloading a comparison record restores the full overlay (all spectra, colours, and legend) exactly as when it was saved
+- Comparison records are identified by a distinct icon/badge in the Measurements list
+
+### 7.9 Exporting a Comparison Spectrum Image
+- From the toolbar while a live comparison is active: Export Spectrum produces the overlay PNG
+- From the Measurements list: select a saved comparison record → Export Spectrum
+- The PNG includes all coloured curves, their labels, and a legend
+
+### 7.10 Exporting a Comparison PDF Report
+- From the toolbar while a live comparison is active: Export PDF Report → comparison PDF
+- From the Measurements list: select a saved comparison record → Export PDF Report → comparison PDF
+- Comparison PDF contents: metadata header (number of spectra, labels, date), overlay spectrum image, Air / Top / Back frequency table (one column per spectrum)
+
+### 7.11 Exporting a .guitartap File
+- What .guitartap contains (full measurement data, JSON-based; for comparisons, all constituent spectra embedded)
 - iOS/iPadOS: right-click / long-press → Export Measurement → share sheet (AirDrop, Mail, Files, etc.)
 - macOS: right-click → Save Measurement to Disk… → save dialog
 
-### 7.9 Importing a Measurement
+### 7.12 Importing a Measurement or Comparison
 - Supported formats: .guitartap and .json
 - iOS/iPadOS: Import Measurement button → Files picker
 - macOS: Import Measurement → open dialog or drag-and-drop
-- What happens after import: measurement appears in list
+- What happens after import: measurement (or comparison record) appears in list
+- Comparison records are automatically detected and will reload the overlay when opened
 
-### 7.10 Sharing Between iOS and macOS
+### 7.13 Sharing Between iOS and macOS
 - AirDrop workflow: send from iOS share sheet, open on Mac
 - iCloud/Files workflow
 - Email workflow
 - Round-trip: export from Mac, import on iOS
+- Comparison files: cross-platform compatible
 
-### 7.11 Deleting Measurements
+### 7.14 Deleting Measurements
 - Right-click / long-press → Delete
 - Confirmation prompt
+- Deleting a comparison record removes all constituent data
 
 **Screenshots required:**
-- [ ] Save sheet (iOS and macOS)
-- [ ] Measurements list (iOS and macOS)
-- [ ] Long-press context menu (iOS)
+- [ ] Save sheet — single measurement (iOS and macOS)
+- [ ] Save sheet — comparison (showing overlay is being saved)
+- [ ] Measurements list showing comparison record with distinctive badge (iOS and macOS)
+- [ ] Long-press context menu (iOS) — single measurement
+- [ ] Long-press context menu (iOS) — comparison record
 - [ ] Right-click context menu (macOS)
 - [ ] Measurement Detail view
 - [ ] Edit Location & Notes sheet
 - [ ] Share sheet on iOS (AirDrop highlighted)
 - [ ] Save dialog on macOS (Save Measurement to Disk)
-- [ ] PDF report example (one page)
-- [ ] Exported spectrum PNG example
+- [ ] Single-measurement PDF report (one page)
+- [ ] Comparison PDF report (one page showing spectrum overlay and frequency table)
+- [ ] Exported single-spectrum PNG example
+- [ ] Exported comparison overlay PNG example
 
 ---
 
@@ -539,12 +582,12 @@ A `generate-manual.sh` script combines them and produces HTML + PDF.
 Each control: icon, name, what it does, availability notes, keyboard shortcut (macOS)
 
 - New Tap
-- Pause / Resume
-- Cancel
+- Pause / Resume / **Accept** (replaces Pause during plate/brace review phase; green tint; advances to next phase)
+- Cancel / **Redo** (replaces Cancel during plate/brace review phase; labelled "Redo L", "Redo C", or "Redo FLC"; discards phase and returns to capture)
 - Results
 - Auto dB
 - Annotations
-- Save
+- Save (also used to save comparisons when comparison mode is active)
 - Measurements
 - Metrics
 - Crosshair (iOS/iPadOS only)
@@ -619,6 +662,11 @@ Each control: icon, name, what it does, availability notes, keyboard shortcut (m
 | Plate calculation missing | Dimensions not entered | Open Settings → Material |
 | Gore thickness not shown | FLC not captured or not enabled | Enable Measure FLC in Settings |
 | Results panel not visible | macOS: window too narrow | Widen the window |
+| Plate/brace: stuck on one phase | Missed the Accept button | Look for Accept (green) in tap controls; it replaces Pause in review state |
+| Plate/brace: want to redo a tap | Phase already accepted | Tap New Tap to restart the whole sequence; individual phase redo is only available before accepting |
+| Compare button not appearing | Fewer than 2 or more than 5 measurements selected, or a plate/brace record is selected | Select 2–5 guitar measurements only |
+| Comparison shows 0 spectra in PDF | Known fixed issue in earlier versions | Update the app; comparison PDFs now show correct spectra count |
+| Comparison colours all the same | Exported image from an older version | Update and re-export; each spectrum now renders in its distinct colour |
 
 **Screenshots required:**
 - [ ] Photo: bouncy ball on stick in use — tapping a plate
@@ -686,17 +734,17 @@ Alphabetical definitions of all technical terms used in the app and manual.
 
 ## Screenshot Checklist Summary
 
-Total screenshots required: approximately 75–85 (including photos)
+Total screenshots required: approximately 90–100 (including photos)
 
 | Chapter | Count |
 |---------|-------|
 | 1 — Introduction | 4 |
 | 2 — Getting Started | 14 |
-| 3 — Guitar Mode | 10 |
-| 4 — Plate Mode | 8 |
+| 3 — Guitar Mode | 14 |
+| 4 — Plate Mode | 9 |
 | 5 — Brace Mode | 3 |
 | 6 — Spectrum | 9 |
-| 7 — Save/Export/Share | 10 |
+| 7 — Save/Export/Share | 14 |
 | 8 — Settings Reference | 6 |
 | 9 — Controls Reference | 11 |
 | 10 — Tips & Troubleshooting | 5 |

@@ -276,7 +276,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Compare Measurements",
-                    body: "In the Measurements list, tap Compare to enter selection mode. Tap 2–5 saved guitar measurements to select them (plate and brace measurements cannot be compared). Tap Compare Selected (N) to overlay all selected spectra on the main chart as colour-coded curves with a legend. The chart, cursor, zoom, and pan all work normally. Press New Tap to exit comparison and return to single-measurement mode. While comparing: Save and Annotations are disabled; Export Spectrum produces an image with all curves and a legend; Export PDF Report is not available.",
+                    body: "In the Measurements list, tap Compare to enter selection mode. Tap 2–5 saved guitar measurements to select them (plate and brace measurements cannot be compared). Tap Compare Selected (N) to overlay all selected spectra on the main chart as colour-coded curves with a legend. The chart, cursor, zoom, and pan all work normally. Press New Tap to exit comparison and return to single-measurement mode.\n\nWhile comparing: Annotations is disabled; Threshold and Peak Min sliders are disabled. Export Spectrum produces an overlay image with all curves, their colours, and a legend. Export PDF Report generates a comparison report showing the spectrum image and an Air / Top / Back peak frequency table for each spectrum. Save stores the entire comparison as a single record in the Measurements list — it can be reloaded later to restore the overlay view exactly as it was, and can itself be exported as a PDF or spectrum image from the list.",
                     systemImages: ["waveform.path"]
                 )
                 helpRow(
@@ -398,7 +398,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "PDF Reports",
-                    body: "Each saved measurement can generate a PDF report containing the spectrum chart, peak table, and analysis summary. Open Measurements, select a measurement, then tap the PDF export button."
+                    body: "Each saved measurement can generate a PDF report containing the spectrum chart, peak table, and analysis summary. Open Measurements, select a measurement, then tap the PDF export button. Saved comparison records generate a comparison PDF showing the overlay spectrum and an Air / Top / Back frequency table for each spectrum. A comparison PDF can also be exported directly from the main view while a live comparison is active, using Export PDF Report in the Analysis Results panel."
                 )
                 #if os(iOS)
                 helpRow(
