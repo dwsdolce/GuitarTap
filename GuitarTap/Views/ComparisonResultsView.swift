@@ -47,14 +47,14 @@ struct ComparisonResultsView: View {
             // Spectrum label column
             Text("Spectrum")
                 .fontWeight(.semibold)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minWidth: 0, maxWidth: 190, alignment: .center)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
 
             ForEach(columns, id: \.self) { mode in
                 Text(mode.abbreviation)
                     .fontWeight(.semibold)
-                    .frame(width: columnWidth, alignment: .trailing)
+                    .frame(width: columnWidth, alignment: .center)
                     .padding(.trailing, 8)
                     .padding(.vertical, 6)
             }
@@ -76,14 +76,14 @@ struct ComparisonResultsView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minWidth: 0, maxWidth: 190, alignment: .leading)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
 
             ForEach(columns, id: \.self) { mode in
                 Text(frequencyText(modeFreqs[mode]))
                     .foregroundColor(modeFreqs[mode] != nil ? .primary : .secondary)
-                    .frame(width: columnWidth, alignment: .trailing)
+                    .frame(width: columnWidth, alignment: .center)
                     .padding(.trailing, 8)
                     .padding(.vertical, 5)
             }

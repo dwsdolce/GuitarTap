@@ -1,5 +1,5 @@
 # GuitarTap Beta Release Notes
-## Version 1.0 · Build 244
+## Version 1.0 · Build 245
 ### What's New Since Build 180
 
 ---
@@ -93,6 +93,7 @@
 - Fixed wrong coordinate space being used when exporting a spectrum with repositioned (dragged) annotations.
 - Fixed scroll wheel on macOS causing too-rapid axis updates and visual clutter.
 - Fixed cross-platform import: measurements saved on iOS can now be imported on macOS and vice versa, even if the microphone name doesn't match (a fallback is applied).
+- Fixed a bug on iOS/iPadOS where receiving a `.guitartap` file via AirDrop would open a new instance of the app rather than routing the file to the existing running instance. Multiple app instances no longer accumulate after repeated AirDrop receives.
 
 ---
 
