@@ -123,6 +123,8 @@ struct TapToneAnalysisView: View {
     #if os(iOS)
     // Crosshair cursor mode (iOS only)
     @State var crosshairMode = false
+    // Wrong-platform guard: shown when the iOS build is run on macOS
+    @State private var showingWrongPlatformAlert = false
     #endif
 
     // Plate/brace measurement mode state
@@ -267,6 +269,19 @@ struct TapToneAnalysisView: View {
         #if os(macOS)
             .focusedSceneValue(\.menuActions, menuActions)
             .onAppear { bindMenuActions() }
+        #else
+            .onAppear {
+                if ProcessInfo.processInfo.isiOSAppOnMac {
+                    showingWrongPlatformAlert = true
+                }
+            }
+            .alert("Wrong Version", isPresented: $showingWrongPlatformAlert) {
+                Button("Quit") {
+                    exit(0)
+                }
+            } message: {
+                Text("You are running the iOS version of GuitarTap on a Mac. Please install the Mac version from the App Store or TestFlight for the best experience.")
+            }
         #endif
     }
 
