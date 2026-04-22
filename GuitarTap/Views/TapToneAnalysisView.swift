@@ -104,6 +104,7 @@ struct TapToneAnalysisView: View {
     @State var isSavingMeasurement = false
     @State var isGeneratingReport = false
     @State var showingMicrophonePermissionAlert = false
+    @State var engineStartError: String? = nil
     @State private var openURLImportSuccess: String? = nil
     @State private var openURLImportError: String? = nil
 
@@ -269,6 +270,14 @@ struct TapToneAnalysisView: View {
         #if os(macOS)
             .focusedSceneValue(\.menuActions, menuActions)
             .onAppear { bindMenuActions() }
+            .alert("Audio Engine Error", isPresented: Binding(
+                get: { engineStartError != nil },
+                set: { if !$0 { engineStartError = nil } }
+            )) {
+                Button("OK", role: .cancel) { engineStartError = nil }
+            } message: {
+                Text(engineStartError ?? "")
+            }
         #else
             .onAppear {
                 if ProcessInfo.processInfo.isiOSAppOnMac {

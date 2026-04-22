@@ -107,6 +107,10 @@ extension TapToneAnalysisView {
                                  || nsError.code == -10877
             if isPermissionError {
                 showingMicrophonePermissionAlert = true
+            } else {
+                // Surface unexpected engine errors so the user isn't silently stuck on "Starting...".
+                // Include the error code to help diagnose hardware-specific failures.
+                engineStartError = "The audio engine could not start (error \(nsError.code)). Try switching the audio input device in Settings, or restart the app.\n\nDetails: \(error.localizedDescription)"
             }
             #endif
         }

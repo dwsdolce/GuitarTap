@@ -323,6 +323,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// The view observes this to show the "Microphone Access Required" alert.
     /// Reset to false after the alert has been handled.
     @Published var microphonePermissionDenied: Bool = false
+
+    #if os(macOS)
+    /// Called on the main thread when the user grants microphone permission during the
+    /// first-launch `requestAccess` dialog. Set by `TapToneAnalyzer` so the full
+    /// `TapToneAnalyzer.start()` path (which sets `analyzerStartTime` and kicks off
+    /// `startTapSequence`) is taken instead of restarting only the FFT engine.
+    var onPermissionGranted: (() -> Void)?
+    #endif
     
     // MARK: - Performance and Analysis Metrics
     

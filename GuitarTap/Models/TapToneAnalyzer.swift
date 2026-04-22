@@ -853,6 +853,31 @@ final class TapToneAnalyzer: ObservableObject {
     init(fftAnalyzer: RealtimeFFTAnalyzer) {
         self.fftAnalyzer = fftAnalyzer
 
+        #if os(macOS)
+        // When the user grants microphone permission during the first-launch dialog,
+        // RealtimeFFTAnalyzer's requestAccess callback fires on a background thread.
+        // Without this hook it would call fftAnalyzer.start() directly, bypassing
+        // TapToneAnalyzer.start() — so analyzerStartTime would never be set and
+        // startTapSequence() would never be called, leaving the app stuck showing
+        // "Tap the guitar to begin" with no peak detection active.
+        fftAnalyzer.onPermissionGranted = { [weak self] in
+            guard let self else { return }
+            do {
+                try self.start()
+            } catch {
+                // Surface engine errors that occur on the permission-granted restart.
+                // kAudioUnitErr_Unauthorized (-10877): TCC cache hasn't updated yet even
+                // though the user just granted permission — treat as a permission error.
+                let nsError = error as NSError
+                let isPermissionError = (nsError.domain == "RealtimeFFTAnalyzer" && (nsError.code == 1 || nsError.code == 2))
+                                     || nsError.code == -10877
+                if isPermissionError {
+                    self.fftAnalyzer.microphonePermissionDenied = true
+                }
+            }
+        }
+        #endif
+
         // Restore persisted analysis settings.
         peakThreshold = TapDisplaySettings.peakThreshold
         minFrequency  = TapDisplaySettings.analysisMinFrequency

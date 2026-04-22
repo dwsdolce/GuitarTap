@@ -77,10 +77,16 @@ extension RealtimeFFTAnalyzer {
             AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
                 guard let self else { return }
                 if granted {
-                    // Permission just granted — start the engine now so the user
-                    // doesn't need to tap Start a second time.
+                    // Permission just granted — resume via the owner's callback so the
+                    // full TapToneAnalyzer.start() path runs (sets analyzerStartTime and
+                    // kicks off startTapSequence). Falling back to self.start() would
+                    // restart only the FFT engine, leaving tap detection never started.
                     DispatchQueue.main.async {
-                        try? self.start()
+                        if let handler = self.onPermissionGranted {
+                            handler()
+                        } else {
+                            try? self.start()
+                        }
                     }
                 } else {
                     let finalStatus = AVCaptureDevice.authorizationStatus(for: .audio)
