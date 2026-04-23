@@ -276,11 +276,13 @@ struct TapToneAnalysisView: View {
             switch result {
             case .success(let urls):
                 guard let url = urls.first else { return }
+                MeasurementFileExporter.lastUsedDirectory = url.deletingLastPathComponent()
                 openAudioFile(url)
             case .failure(let error):
                 engineStartError = "Could not open audio file: \(error.localizedDescription)"
             }
         }
+        .fileDialogDefaultDirectory(MeasurementFileExporter.lastUsedDirectory)
         #if os(macOS)
             .focusedSceneValue(\.menuActions, menuActions)
             .onAppear { bindMenuActions() }
