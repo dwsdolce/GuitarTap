@@ -76,7 +76,9 @@ private func redirectOutputToFile() {
     if let fd = fopen(logFile.path, "a") {
         // Timestamp separator so restarts are easy to spot
         let ts = ISO8601DateFormatter().string(from: Date())
-        fputs("\n\n=== GuitarTap launched \(ts) ===\n", fd)
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        fputs("\n\n=== GuitarTap \(version) (\(build)) launched \(ts) ===\n", fd)
         fflush(fd)
         dup2(fileno(fd), STDOUT_FILENO)
         dup2(fileno(fd), STDERR_FILENO)

@@ -180,7 +180,7 @@ extension RealtimeFFTAnalyzer {
         let hardwareFormat = inputNode.inputFormat(forBus: 0)
         actualSampleRate = hardwareFormat.sampleRate
         
-        engineLog.info("Hardware sample rate: \(self.actualSampleRate, privacy: .public) Hz, channels: \(hardwareFormat.channelCount, privacy: .public)")
+        engineLog.info("Hardware sample rate: \(self.actualSampleRate, privacy: .public) Hz, hardware channels: \(hardwareFormat.channelCount, privacy: .public) (tap will use mono)")
         
         // Validate sample rate
         guard actualSampleRate > 0 else {
@@ -192,21 +192,17 @@ extension RealtimeFFTAnalyzer {
             )
         }
         
-        // Create tap format matching hardware (use hardware channel count)
-        // WORKAROUND: Some USB mics report 2 channels but are actually mono
-        // If we detect this situation, force to 1 channel
-        let effectiveChannelCount: AVAudioChannelCount
-        if hardwareFormat.channelCount == 2 {
-            // If the device name suggests it's a measurement mic (like UMIK), force mono
-            if let deviceName = selectedInputDevice?.name.lowercased(),
-               (deviceName.contains("umik") || deviceName.contains("measurement")) {
-                effectiveChannelCount = 1
-            } else {
-                effectiveChannelCount = AVAudioChannelCount(hardwareFormat.channelCount)
-            }
-        } else {
-            effectiveChannelCount = AVAudioChannelCount(hardwareFormat.channelCount)
-        }
+        // Always use a mono tap format.
+        //
+        // Rationale: processAudioBuffer() only ever reads channelData[0], so stereo or
+        // multi-channel data beyond the first channel is discarded anyway.  More importantly,
+        // some MacBook Pro models report 3-channel hardware formats (the built-in mic array
+        // includes an ambient/beamforming channel).  Requesting a 3-channel tap format from
+        // AVAudioEngine causes installTap to silently fail on those machines — the engine
+        // starts but never delivers audio buffers, leaving the app permanently on "Starting…".
+        // Forcing mono sidesteps this entirely: CoreAudio will downmix or extract channel 0
+        // regardless of the hardware channel count.
+        let effectiveChannelCount: AVAudioChannelCount = 1
         
         guard let tapFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
