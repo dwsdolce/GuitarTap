@@ -137,7 +137,29 @@ extension TapToneAnalyzer {
         print("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
         print("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
 
-        DispatchQueue.main.async { [weak self, skipWarmup] in
+        // CRITICAL: Apply the three guards that detectTap() reads on the audio thread
+        // synchronously — before any audio buffers from a just-started file or engine
+        // can arrive and be evaluated.  The full housekeeping (clearing peaks, status
+        // messages, etc.) runs in the main.async block below, but these three must be
+        // visible to the audio thread immediately:
+        //   • isMeasurementComplete = false — allows detectTap's peak-analysis path
+        //   • isDetecting = true            — allows detectTap to run
+        //   • analyzerStartTime             — controls the warm-up gate
+        // All three are @Published / @MainActor-safe to write from the main thread.
+        // This call is always made on the main thread (from openAudioFile or the
+        // Start button handler), so no dispatch is needed here.
+        isMeasurementComplete = false
+        // Clear any frozen spectrum BEFORE setting isDetecting = true.
+        // If we set isDetecting first and the audio thread fires a tap immediately
+        // (file playback case), setFrozenSpectrum() inside the main.async block below
+        // would wipe the just-captured gated-FFT result.
+        setFrozenSpectrum(frequencies: [], magnitudes: [])
+        isDetecting = true
+        analyzerStartTime = skipWarmup
+            ? Date().addingTimeInterval(-(warmupPeriod + 0.1))
+            : Date()
+
+        DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
             // Starting a new tap always clears any active comparison overlay.
@@ -176,17 +198,14 @@ extension TapToneAnalyzer {
             self.justExitedWarmup  = false  // Will be set true as warm-up ends.
             print("✅ Starting with isAboveThreshold = false - ready for tap detection after warm-up")
 
-            // Reset the warm-up timer for this new sequence.
-            // For file playback (skipWarmup == true) set the start time far enough in the
-            // past that the 0.5 s warm-up has already elapsed.  The audio source is a
-            // deterministic recording, so we don't need warm-up suppression — and the tap
-            // transient may appear within the first half-second of the file.
-            self.analyzerStartTime = skipWarmup
-                ? Date().addingTimeInterval(-(self.warmupPeriod + 0.1))
-                : Date()
+            // analyzerStartTime, isDetecting, and isMeasurementComplete are already set
+            // synchronously before this block was enqueued — see the comment above the
+            // DispatchQueue.main.async call.  The async block re-confirms isMeasurementComplete
+            // and isDetecting below to keep state consistent after housekeeping mutations.
 
-            // Clear frozen spectrum data so the live FFT is shown while waiting for taps.
-            self.setFrozenSpectrum(frequencies: [], magnitudes: [])
+            // setFrozenSpectrum was already called synchronously above (before isDetecting = true)
+            // to prevent the main.async block from wiping a gated-FFT result captured between
+            // the sync section and this block running.
 
             self.isDetecting = true
 

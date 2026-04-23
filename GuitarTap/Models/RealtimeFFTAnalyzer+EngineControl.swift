@@ -386,6 +386,19 @@ extension RealtimeFFTAnalyzer {
         audioEngine.stop()
         audioEngine = AVAudioEngine()
 
+        // Drain any processAudioBuffer calls that were already dispatched to
+        // audioProcessingQueue before the tap was removed.  removeTap() prevents
+        // new dispatches but does NOT cancel work items already in the queue.
+        // Those items would append stale mic samples to inputBuffer AFTER the
+        // removeAll() below, contaminating the first file FFT frame with broadband
+        // mic noise and producing a ragged spectrum instead of a clean ring-out.
+        // A synchronous dispatch on the queue flushes all pending work first.
+        audioProcessingQueue.sync { }
+
+        // Clear the accumulation buffer so no stale mic audio is mixed into the
+        // first FFT window from the file.
+        bufferAccessQueue.sync { inputBuffer.removeAll() }
+
         // Open the audio file.
         let audioFile = try AVAudioFile(forReading: url)
         let fileFormat = audioFile.processingFormat
@@ -493,6 +506,40 @@ extension RealtimeFFTAnalyzer {
             guard self.playerNode === scheduledPlayer else { return }
             self.isPlayingFile = false
             self.playerNode = nil
+
+            // Force-flush any partial audio that accumulated in inputBuffer.
+            //
+            // The file may be shorter than one FFT window (fftSize = 65536 samples,
+            // ~1.49 s at 44.1 kHz).  When that happens processAudioBuffer never fills
+            // the buffer to fftSize, so performFFT is never called — the file produces
+            // zero FFT frames and tap detection never fires during playback.
+            //
+            // After this block returns we call start() to restart the live mic.
+            // start() does NOT clear inputBuffer, so the ~39k file samples would still
+            // be sitting there.  The first 25k mic samples then push the count past
+            // 65536, and performFFT fires on a mix of file tail + live mic noise,
+            // producing a ragged spectrum that trips tap detection with garbage data.
+            //
+            // Fix: drain the remaining file samples through performFFT right now
+            // (zero-padding to fftSize so the transform is valid), then clear
+            // inputBuffer before starting the mic so it begins from a clean slate.
+            self.audioProcessingQueue.sync {
+                var partial: [Float] = []
+                self.bufferAccessQueue.sync {
+                    partial = self.inputBuffer
+                    self.inputBuffer.removeAll()
+                }
+                if !partial.isEmpty {
+                    // Zero-pad to fftSize so performFFT receives an exactly-sized window.
+                    // The padded zeros lower the average level but don't distort the
+                    // ring-out peaks — the file signal is in the leading portion.
+                    if partial.count < self.fftSize {
+                        partial.append(contentsOf: [Float](repeating: 0, count: self.fftSize - partial.count))
+                    }
+                    self.performFFT(on: partial)
+                }
+            }
+
             // Switch back to live mic.  TapToneAnalyzer's auto-start guard
             // skips startTapSequence() when isMeasurementComplete is true,
             // preserving frozen results so New Tap stays enabled.
@@ -506,12 +553,27 @@ extension RealtimeFFTAnalyzer {
         updateFrequencyBins()
         updateMetrics()
 
-        DispatchQueue.main.async {
-            self.isRunning = true
-            self.isPlayingFile = true
-            self.playingFileName = url.deletingPathExtension().lastPathComponent
-            self.engineStartTime = Date()
-        }
+        // CRITICAL: Set isRunning = true synchronously before returning.
+        // TapToneAnalyzer.analyzeMagnitudes() guards on fftAnalyzer.isRunning and returns
+        // immediately when false — so the first FFT frame (which contains the tap transient)
+        // would be discarded if isRunning were still false when it arrives.
+        // startFromFile() is always called on the main thread (from openAudioFile), so this
+        // write is safe without dispatch.
+        //
+        // Also reset magnitudes and peakMagnitude to silence so that the Combine
+        // subscription in TapToneAnalyzer does not fire tap detection against the stale
+        // mic spectrum that is still in those @Published properties.  Without this reset,
+        // detectTap fires immediately with old mic data and freezes a ragged noise spectrum
+        // instead of waiting for the first real FFT frame from the file.
+        magnitudes = [Float](repeating: -100, count: fftSize / 2)
+        peakMagnitude = -100
+        // Reset the publish throttle so the forced end-of-file FFT frame (dispatched
+        // ~1.2 s from now) is not suppressed by a recent live-mic publish timestamp.
+        lastPublishTime = 0
+        isRunning = true
+        isPlayingFile = true
+        playingFileName = url.deletingPathExtension().lastPathComponent
+        engineStartTime = Date()
         engineLog.info("File playback started")
     }
 
