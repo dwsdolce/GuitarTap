@@ -334,8 +334,15 @@ extension TapToneAnalysisView {
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Left: Auto dB, Crosshair, Annotations — mirrors iPhone landscape
+            // Left: Play File, Auto dB, Crosshair, Annotations
             ToolbarItemGroup(placement: .topBarLeading) {
+                Button(action: { showingFilePicker = true }) {
+                    Image(systemName: "waveform.badge.plus")
+                }
+                .tint(fft.isPlayingFile ? .orange : .blue)
+                .accessibilityLabel("Play File")
+                .help("Feed an audio file through the analysis pipeline")
+
                 Button(action: { toggleAutoScale() }) {
                     Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
@@ -424,13 +431,19 @@ extension TapToneAnalysisView {
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Left: Results, Auto dB, Crosshair, Annotations
+            // Left: Results, Play File, Auto dB, Crosshair, Annotations
             ToolbarItemGroup(placement: .topBarLeading) {
                 Button(action: { showResults() }) {
                     Image(systemName: "doc.text")
                 }
                 .accessibilityLabel("Results")
                 .hint(HintText.showResults)
+
+                Button(action: { showingFilePicker = true }) {
+                    Image(systemName: "waveform.badge.plus")
+                }
+                .tint(fft.isPlayingFile ? .orange : .blue)
+                .accessibilityLabel("Play File")
 
                 Button(action: { toggleAutoScale() }) {
                     Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
@@ -691,13 +704,19 @@ extension TapToneAnalysisView {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if useCompactLayout {
-                // iPhone — Left: Results, Auto dB
+                // iPhone — Left: Results, Play File, Auto dB
                 ToolbarItemGroup(placement: .topBarLeading) {
                     Button(action: { showingResults.toggle() }) {
                         Image(systemName: "doc.text")
                     }
                     .accessibilityLabel("Results")
                     .hint(HintText.showResults)
+
+                    Button(action: { showingFilePicker = true }) {
+                        Image(systemName: "waveform.badge.plus")
+                    }
+                    .tint(fft.isPlayingFile ? .orange : .blue)
+                    .accessibilityLabel("Play File")
 
                     Button(action: { toggleAutoScale() }) {
                         Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
@@ -722,13 +741,20 @@ extension TapToneAnalysisView {
                     .hint(HintText.settings)
                 }
             } else {
-                // iPad — Left: Results, Auto dB, Crosshair, Annotations
+                // iPad — Left: Results, Play File, Auto dB, Crosshair, Annotations
                 ToolbarItemGroup(placement: .topBarLeading) {
                     Button(action: { showResults() }) {
                         Image(systemName: "doc.text")
                     }
                     .accessibilityLabel("Results")
                     .hint(HintText.showResults)
+
+                    Button(action: { showingFilePicker = true }) {
+                        Image(systemName: "waveform.badge.plus")
+                    }
+                    .tint(fft.isPlayingFile ? .orange : .blue)
+                    .accessibilityLabel("Play File")
+                    .help("Feed an audio file through the analysis pipeline")
 
                     Button(action: { toggleAutoScale() }) {
                         Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")

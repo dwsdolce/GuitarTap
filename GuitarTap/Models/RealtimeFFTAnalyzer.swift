@@ -319,6 +319,20 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Indicates whether the analyzer is currently running and processing audio.
     @Published var isRunning: Bool = false
 
+    // MARK: - WAV File Playback
+
+    /// Player node used when feeding a WAV/audio file through the pipeline instead of the mic.
+    /// Non-nil only while `startFromFile` is active.
+    var playerNode: AVAudioPlayerNode?
+
+    /// True when audio is being sourced from a file rather than the microphone.
+    /// The view observes this to show a "File" label near the device selector.
+    @Published var isPlayingFile: Bool = false
+
+    /// The display name (filename without extension) of the file currently being played,
+    /// or nil when the audio source is the microphone.  Used as the chart title.
+    @Published var playingFileName: String? = nil
+
     /// Set to true when permission is confirmed denied after start (macOS TCC cache lag).
     /// The view observes this to show the "Microphone Access Required" alert.
     /// Reset to false after the alert has been handled.

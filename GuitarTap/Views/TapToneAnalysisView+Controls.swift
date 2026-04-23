@@ -183,6 +183,14 @@ extension TapToneAnalysisView {
                 .buttonStyle(.bordered)
                 .hint(HintText.settings)
 
+                // Play File button
+                Button(action: { showingFilePicker = true }) {
+                    Label("Play File\u{2026}", systemImage: "waveform.badge.plus")
+                }
+                .buttonStyle(.bordered)
+                .tint(fft.isPlayingFile ? .orange : .blue)
+                .help("Feed an audio file through the analysis pipeline")
+
                 Spacer()
             }
         }
@@ -205,6 +213,7 @@ extension TapToneAnalysisView {
     private func macosHeaderButtonRow(iconOnly: Bool, spacing: CGFloat?) -> some View {
         HStack(spacing: spacing) {
             Spacer()
+            macosPlayFileButton(iconOnly: iconOnly)
             macosAutoDBButton(iconOnly: iconOnly)
             macosAnnotationsButton(iconOnly: iconOnly)
             macosSaveButton(iconOnly: iconOnly)
@@ -220,6 +229,7 @@ extension TapToneAnalysisView {
         VStack(spacing: 8) {
             HStack(spacing: spacing) {
                 Spacer()
+                macosPlayFileButton(iconOnly: iconOnly)
                 macosAutoDBButton(iconOnly: iconOnly)
                 macosAnnotationsButton(iconOnly: iconOnly)
                 macosSaveButton(iconOnly: iconOnly)
@@ -305,6 +315,20 @@ extension TapToneAnalysisView {
         }
         .buttonStyle(.bordered)
         .hint(HintText.settings)
+    }
+
+    @ViewBuilder
+    private func macosPlayFileButton(iconOnly: Bool) -> some View {
+        Button(action: { showingFilePicker = true }) {
+            if iconOnly {
+                Image(systemName: "waveform.badge.plus")
+            } else {
+                Label("Play File\u{2026}", systemImage: "waveform.badge.plus")
+            }
+        }
+        .buttonStyle(.bordered)
+        .tint(fft.isPlayingFile ? .orange : .blue)
+        .help("Feed an audio file through the analysis pipeline (for cross-platform comparison)")
     }
     #endif
 

@@ -116,6 +116,37 @@ extension TapToneAnalysisView {
         }
     }
 
+    /// Opens a user-selected audio file and feeds it through the FFT/tap-detection pipeline
+    /// instead of the microphone.  This gives a perfectly reproducible signal for cross-platform
+    /// comparisons.
+    ///
+    /// On macOS the `.fileImporter` SwiftUI modifier handles the picker; this method is called
+    /// directly with the resolved security-scoped URL.
+    func openAudioFile(_ url: URL) {
+        // Gain access to the security-scoped resource.
+        // On iOS with cloud storage providers (Dropbox, iCloud Drive, etc.) this grants
+        // the sandbox permission to read the file.  We must keep access open for the full
+        // playback duration because AVAudioEngine reads audio asynchronously after open.
+        // The completion closure passed to startFromFile releases it when playback ends.
+        let accessing = url.startAccessingSecurityScopedResource()
+        do {
+            try fft.startFromFile(url) {
+                // Called on the main thread after playback completes and the engine has
+                // switched back to the microphone — safe to release access here.
+                if accessing { url.stopAccessingSecurityScopedResource() }
+            }
+        } catch {
+            if accessing { url.stopAccessingSecurityScopedResource() }
+            engineStartError = "Could not play audio file: \(error.localizedDescription)"
+            return
+        }
+        // Kick off tap detection (bypasses fftAnalyzer.start() since engine is already running).
+        // skipWarmup: the audio source is a deterministic file, so the 0.5s warm-up is not
+        // needed to suppress microphone startup noise.  The tap transient may also appear within
+        // the first 0.5 s of the recording, so skipping warm-up ensures it is not suppressed.
+        tapToneAnalyzer.startTapSequence(skipWarmup: true)
+    }
+
     func saveMeasurement() {
         if tap.displayMode == .comparison {
             tap.saveComparison(

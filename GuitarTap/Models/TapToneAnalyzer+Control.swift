@@ -124,16 +124,20 @@ extension TapToneAnalyzer {
     ///
     /// `isAboveThreshold` is always reset to `false` regardless of the current signal level.
     /// The ``warmupPeriod`` then handles any audio transients at the start of the session.
-    func startTapSequence() {
+    /// - Parameter skipWarmup: When `true`, sets `analyzerStartTime` far enough in the past
+    ///   that the 0.5 s warm-up period has already elapsed when the first audio buffer arrives.
+    ///   Use this for file-playback mode where the audio source is deterministic and the tap
+    ///   transient may occur within the first half-second of the recording.
+    func startTapSequence(skipWarmup: Bool = false) {
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
         let currentPeakMagImmediate = fftAnalyzer.peakMagnitude
-        print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), plate mode: \(isPlateMode), brace mode: \(isBraceMode)")
+        print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), plate mode: \(isPlateMode), brace mode: \(isBraceMode), skipWarmup: \(skipWarmup)")
         print("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
         print("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
 
-        DispatchQueue.main.async { [weak self] in
+        DispatchQueue.main.async { [weak self, skipWarmup] in
             guard let self = self else { return }
 
             // Starting a new tap always clears any active comparison overlay.
@@ -173,7 +177,13 @@ extension TapToneAnalyzer {
             print("✅ Starting with isAboveThreshold = false - ready for tap detection after warm-up")
 
             // Reset the warm-up timer for this new sequence.
-            self.analyzerStartTime = Date()
+            // For file playback (skipWarmup == true) set the start time far enough in the
+            // past that the 0.5 s warm-up has already elapsed.  The audio source is a
+            // deterministic recording, so we don't need warm-up suppression — and the tap
+            // transient may appear within the first half-second of the file.
+            self.analyzerStartTime = skipWarmup
+                ? Date().addingTimeInterval(-(self.warmupPeriod + 0.1))
+                : Date()
 
             // Clear frozen spectrum data so the live FFT is shown while waiting for taps.
             self.setFrozenSpectrum(frequencies: [], magnitudes: [])

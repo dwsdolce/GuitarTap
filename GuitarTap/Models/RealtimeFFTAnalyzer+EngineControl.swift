@@ -361,6 +361,160 @@ extension RealtimeFFTAnalyzer {
         }
     }
     
+    // MARK: - WAV File Playback
+
+    /// Starts the audio engine fed from an audio file (WAV, AIFF, CAF, M4A) instead of the
+    /// microphone.  The file is routed through the exact same `processAudioBuffer` → FFT →
+    /// tap-detection pipeline as the live mic path.
+    ///
+    /// - Parameter url: URL of the audio file to play.
+    /// - Parameter completion: Optional closure called on the main thread after the file has
+    ///   finished playing and the engine has switched back to the microphone.  Use this to
+    ///   release security-scoped resource access that must be held for the full playback
+    ///   duration (e.g. files picked from Dropbox or iCloud Drive on iOS).
+    /// - Throws: An error if the file cannot be opened or the engine fails to start.
+    ///
+    /// - Note: No microphone permission is required.  Call `stop()` to end playback early.
+    func startFromFile(_ url: URL, completion: (() -> Void)? = nil) throws {
+        engineLog.info("=== Starting Audio Engine from file: \(url.lastPathComponent, privacy: .public) ===")
+
+        // Tear down any existing tap / engine (same preamble as start()).
+        inputNode?.removeTap(onBus: 0)
+        playerNode?.stop()
+        playerNode = nil
+        inputNode = nil
+        audioEngine.stop()
+        audioEngine = AVAudioEngine()
+
+        // Open the audio file.
+        let audioFile = try AVAudioFile(forReading: url)
+        let fileFormat = audioFile.processingFormat
+        engineLog.info("File format: \(fileFormat, privacy: .public)")
+
+        #if os(iOS)
+        // On iOS the audio session must be configured BEFORE the engine graph is built.
+        //
+        // Why: AURemoteIO is locked to the hardware sample rate (e.g. 48000 Hz on iPad).
+        // If the file is 44100 Hz and we build the graph at that rate, engine.start()
+        // fails with -10851 (kAudioUnitErr_FormatNotSupported).
+        //
+        // Additionally, setPreferredSampleRate is only a *hint* — iOS may ignore it and
+        // keep the hardware at its native rate.  AVAudioEngine then transparently resamples
+        // the file to the hardware rate before delivering buffers to our tap.  We must
+        // therefore read back the *actual* granted sample rate and use it for:
+        //   1. The tap format (so the format matches what the engine actually delivers)
+        //   2. actualSampleRate (so FFT bin→frequency math is correct)
+        //
+        // We use .playback category because no microphone is involved.
+        let filePlaybackSession = AVAudioSession.sharedInstance()
+        try filePlaybackSession.setCategory(.playback, mode: .default, options: [])
+        try filePlaybackSession.setPreferredSampleRate(fileFormat.sampleRate)
+        try filePlaybackSession.setActive(true, options: [])
+
+        // Read the hardware rate iOS actually granted (may differ from file rate).
+        let engineSampleRate = filePlaybackSession.sampleRate > 0
+            ? filePlaybackSession.sampleRate
+            : fileFormat.sampleRate
+        if abs(engineSampleRate - fileFormat.sampleRate) > 1.0 {
+            engineLog.info("iOS hardware rate (\(engineSampleRate) Hz) differs from file rate (\(fileFormat.sampleRate) Hz) — engine will resample; using hardware rate for FFT bins")
+        }
+        #else
+        // On macOS AVAudioEngine handles any sample-rate conversion internally;
+        // the tap always delivers audio at the file's native rate.
+        let engineSampleRate = fileFormat.sampleRate
+        #endif
+
+        // actualSampleRate drives all FFT bin→frequency calculations.
+        actualSampleRate = engineSampleRate
+
+        // Build the engine graph using the rate the engine will actually deliver.
+        // On macOS this equals the file rate.  On iOS it equals the hardware rate
+        // (which may differ if iOS ignored setPreferredSampleRate).
+        guard let engineFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: engineSampleRate,
+            channels: fileFormat.channelCount,
+            interleaved: false
+        ) else {
+            throw NSError(domain: "RealtimeFFTAnalyzer", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Failed to create engine format for file playback"])
+        }
+
+        // Build a mono Float32 tap format at the engine's (hardware) sample rate.
+        guard let tapFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: engineSampleRate,
+            channels: 1,
+            interleaved: false
+        ) else {
+            throw NSError(domain: "RealtimeFFTAnalyzer", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Failed to create tap format for file playback"])
+        }
+
+        // Create and attach a player node.
+        let player = AVAudioPlayerNode()
+        audioEngine.attach(player)
+        // Connect player → mainMixerNode using the engine format.
+        // AVAudioEngine handles file-rate → engine-rate resampling automatically.
+        audioEngine.connect(player, to: audioEngine.mainMixerNode, format: engineFormat)
+
+        // Install the tap on the player node — same buffer size as the mic path.
+        let bufferSize: AVAudioFrameCount = 1024
+        player.installTap(onBus: 0, bufferSize: bufferSize, format: tapFormat) { [weak self] buffer, _ in
+            guard let self else { return }
+            self.audioProcessingQueue.async {
+                self.processAudioBuffer(buffer)
+            }
+        }
+
+        // Calculate file duration (in wall-clock seconds) for the post-playback timer.
+        // Always use the file's native length / file rate — the resampling doesn't change
+        // how many real-time seconds the file takes to play.
+        // .dataPlayedBack would be cleaner but fires immediately when there is no real
+        // hardware output path, so we use a timed dispatch instead.
+        let fileDuration = Double(audioFile.length) / fileFormat.sampleRate
+
+        // Schedule the file for one-shot playback (no completion handler needed).
+        player.scheduleFile(audioFile, at: nil)
+
+        try audioEngine.start()
+        player.play()
+
+        // Capture identity so a second file opened before this timer fires won't
+        // restart the mic and tear down the new file's engine.
+        let scheduledPlayer = player
+        playerNode = player
+
+        // After the file has fully played, switch back to live mic.
+        // Add a small buffer (0.3 s) to ensure all queued audio buffers have been
+        // delivered to processAudioBuffer before we tear down the player.
+        DispatchQueue.main.asyncAfter(deadline: .now() + fileDuration + 0.3) { [weak self] in
+            guard let self else { return }
+            guard self.playerNode === scheduledPlayer else { return }
+            self.isPlayingFile = false
+            self.playerNode = nil
+            // Switch back to live mic.  TapToneAnalyzer's auto-start guard
+            // skips startTapSequence() when isMeasurementComplete is true,
+            // preserving frozen results so New Tap stays enabled.
+            try? self.start()
+            // Release any security-scoped resource access (e.g. Dropbox / iCloud on iOS).
+            // Must be called after the file is fully processed, not immediately after open.
+            completion?()
+        }
+
+        // Update metrics for the file's sample rate.
+        updateFrequencyBins()
+        updateMetrics()
+
+        DispatchQueue.main.async {
+            self.isRunning = true
+            self.isPlayingFile = true
+            self.playingFileName = url.deletingPathExtension().lastPathComponent
+            self.engineStartTime = Date()
+        }
+        engineLog.info("File playback started")
+    }
+
     /// Stops the audio engine and releases audio resources.
     ///
     /// This method:
@@ -378,12 +532,20 @@ extension RealtimeFFTAnalyzer {
         unregisterSampleRateListener()
         #endif
 
+        // Stop and remove the file player node if one is active.
+        if let player = playerNode {
+            player.stop()
+            player.removeTap(onBus: 0)
+            audioEngine.detach(player)
+            playerNode = nil
+        }
+
         // Always try to clean up, even if engine reports as not running
         // This handles cases where the engine started but never received audio
         if audioEngine.isRunning {
             // Remove the audio tap to stop receiving buffers
-            inputNode.removeTap(onBus: 0)
-            
+            inputNode?.removeTap(onBus: 0)
+
             // Stop the audio engine
             audioEngine.stop()
         }
@@ -402,6 +564,8 @@ extension RealtimeFFTAnalyzer {
         // This ensures the UI is responsive even if the engine is in a bad state
         DispatchQueue.main.async { [weak self] in
             self?.isRunning = false
+            self?.isPlayingFile = false
+            self?.playingFileName = nil
             self?.peakMagnitude = -100  // Reset to silent state
             self?.peakFrequency = 0
         }

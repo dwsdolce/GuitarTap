@@ -111,6 +111,7 @@ let appTitle: String = {
 /// which was the root cause of the Edit-menu flickering.
 @Observable
 final class MenuActions {
+    var openAudioFile: (() -> Void)?
     var saveMeasurement: (() -> Void)?
     var exportSpectrum: (() -> Void)?
     var exportPDF: (() -> Void)?
@@ -188,8 +189,16 @@ struct AppCommands: Commands {
             .disabled(menuActions?.showSettings == nil)
         }
 
-        // File menu — Save and Export actions
+        // File menu — Play File, Save and Export actions
         CommandGroup(after: .saveItem) {
+            Button("Play Audio File…") {
+                menuActions?.openAudioFile?()
+            }
+            .keyboardShortcut("o", modifiers: [.command, .option])
+            .disabled(menuActions?.openAudioFile == nil)
+
+            Divider()
+
             Button("Save Measurement…") {
                 menuActions?.saveMeasurement?()
             }
