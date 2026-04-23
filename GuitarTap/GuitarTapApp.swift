@@ -31,7 +31,7 @@
 ///
 /// | Constant | Value |
 /// |---|---|
-/// | `appVersion` | `CFBundleShortVersionString` + `_` + `CFBundleVersion` |
+/// | `appVersion` | `CFBundleShortVersionString` + ` (` + `CFBundleVersion` + `)` |
 /// | `appTitle` | `CFBundleDisplayName` (or `CFBundleName`) + `appVersion` |
 ///
 /// - SeeAlso: `TapToneAnalysisView`, `HelpView`, `MeasurementsListView`
@@ -91,7 +91,7 @@ private func redirectOutputToFile() {
 let appVersion: String = {
     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-    return "\(version)_\(build)"
+    return "\(version) (\(build))"
 }()
 let appTitle: String = {
     let name = Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String

@@ -167,6 +167,7 @@ extension TapToneAnalysisView {
                     }
                 }
                 .buttonStyle(.bordered)
+                .tint(.blue)
                 .hint(HintText.measurements)
 
                 // Metrics button
@@ -174,6 +175,7 @@ extension TapToneAnalysisView {
                     Label("Metrics", systemImage: "chart.bar")
                 }
                 .buttonStyle(.bordered)
+                .tint(.blue)
                 .hint(HintText.showMetrics)
 
                 // Settings button
@@ -181,6 +183,7 @@ extension TapToneAnalysisView {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .buttonStyle(.bordered)
+                .tint(.blue)
                 .hint(HintText.settings)
 
                 // Play File button
@@ -296,6 +299,7 @@ extension TapToneAnalysisView {
             }
         }
         .buttonStyle(.bordered)
+        .tint(.blue)
         .hint(HintText.measurements)
     }
 
@@ -305,6 +309,7 @@ extension TapToneAnalysisView {
             if iconOnly { Image(systemName: "chart.bar") } else { Label("Metrics", systemImage: "chart.bar") }
         }
         .buttonStyle(.bordered)
+        .tint(.blue)
         .hint(HintText.showMetrics)
     }
 
@@ -314,6 +319,7 @@ extension TapToneAnalysisView {
             if iconOnly { Image(systemName: "gearshape") } else { Label("Settings", systemImage: "gearshape") }
         }
         .buttonStyle(.bordered)
+        .tint(.blue)
         .hint(HintText.settings)
     }
 

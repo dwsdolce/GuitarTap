@@ -239,7 +239,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Menu Bar — File Menu",
-                    body: "Save Measurement… (⌘S) saves the current spectrum. Export Spectrum Image… (⌘E) saves the chart as a PNG. Export PDF Report… (⇧⌘E) generates a PDF summary of the current measurement."
+                    body: "Play Audio File… (⌘⌥O) feeds a WAV or audio file through the FFT pipeline instead of the microphone — ideal for reproducible comparisons using a recorded tap. Save Measurement… (⌘S) saves the current spectrum. Export Spectrum Image… (⌘E) saves the chart as a PNG. Export PDF Report… (⇧⌘E) generates a PDF summary of the current measurement."
                 )
                 helpRow(
                     title: "Menu Bar — View Menu",
@@ -263,6 +263,11 @@ After all taps, tap Results to see:
                 helpRow(
                     title: "Peak Labels",
                     body: "Drag any peak label to reposition it and avoid overlaps. To reset an individual label: double-tap it (iOS/iPadOS) or right-click it and choose \"Reset Position\" (macOS). To reset all labels at once: use the ellipsis menu's \"Reset Labels\" (iOS/iPadOS) or right-click the chart area (not a label) and choose \"Reset Labels\" (macOS)."
+                )
+                helpRow(
+                    title: "Play Audio File",
+                    body: "Feeds a WAV or audio file through the FFT pipeline instead of the microphone. The file's tap is analysed exactly as a live microphone tap — tap detection fires automatically, peaks are found, and results appear in the panel. The chart title shows the filename while the file plays. After playback the microphone restarts automatically. Access via File menu → Play Audio File… (⌘⌥O).",
+                    systemImages: ["play.circle"]
                 )
                 helpRow(
                     title: "Save",
