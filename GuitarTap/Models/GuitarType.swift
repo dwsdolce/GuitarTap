@@ -19,6 +19,9 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
     case classical = "Classical"
     case flamenco = "Flamenco"
     case acoustic = "Acoustic"
+    /// Broad ranges covering all guitar types — useful when the instrument does not
+    /// fit neatly into one of the three specific types, or for initial exploration.
+    case generic = "Generic"
 
     var id: String { rawValue }
 
@@ -31,6 +34,8 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
             return "Nylon string, light bracing, shallow body"
         case .acoustic:
             return "Steel string, X-braced (Dreadnought, OM, etc.)"
+        case .generic:
+            return "Broad ranges covering all guitar types"
         }
     }
 
@@ -86,6 +91,17 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
                 ringMode: 620...880,  // Ring mode
                 upperModes: 880...20000
             )
+        case .generic:
+            // Union of all three guitar types, widened slightly to catch outliers.
+            // Air: 70–135, Top: 140–260, Back: 180–300, Dipole: 310–460, Ring: 580–880.
+            return ModeRanges(
+                air: 70...135,
+                top: 140...260,
+                back: 180...300,
+                dipole: 310...460,
+                ringMode: 580...880,
+                upperModes: 880...20000
+            )
         }
     }
 
@@ -129,6 +145,14 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
             )
         case .acoustic:
             // Steel-string guitars have punchier, shorter decay
+            return DecayThresholds(
+                veryShort: 0.10,
+                short: 0.25,
+                moderate: 0.45,
+                good: 0.75
+            )
+        case .generic:
+            // Use acoustic thresholds as a reasonable middle-ground default
             return DecayThresholds(
                 veryShort: 0.10,
                 short: 0.25,

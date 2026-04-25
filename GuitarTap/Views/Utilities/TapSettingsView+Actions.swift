@@ -41,8 +41,14 @@ extension TapSettingsView {
         TapDisplaySettings.measureFlc = measureFlc
 
         // Detect whether the measurement type or FLC toggle changed.
-        let measurementChanged = selectedMeasurementType != previousMeasurementType
-            || measureFlc != previousMeasureFlc
+        // Switching between guitar types only (e.g. acoustic → generic) does NOT require
+        // a new tap sequence — the captured data is unchanged; only the mode classification
+        // ranges and annotations differ.  A full reset is only needed when crossing the
+        // guitar ↔ material boundary, or when the FLC toggle changes.
+        let typeChanged = selectedMeasurementType != previousMeasurementType
+        let crossesBoundary = typeChanged
+            && (previousMeasurementType.isGuitar != selectedMeasurementType.isGuitar)
+        let measurementChanged = crossesBoundary || measureFlc != previousMeasureFlc
 
         // Save plate dimensions
         if selectedMeasurementType == .plate {

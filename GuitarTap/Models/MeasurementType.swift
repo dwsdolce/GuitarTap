@@ -7,7 +7,7 @@
 
 /// The kind of tap tone measurement being performed.
 ///
-/// Guitar types (`.classical`, `.flamenco`, `.acoustic`) use guitar-body mode
+/// Guitar types (`.classical`, `.flamenco`, `.acoustic`, `.generic`) use guitar-body mode
 /// classification (air, top, back, dipole, ring).  Material types (`.plate`,
 /// `.brace`) use a multi-tap capture sequence and compute Young's modulus.
 ///
@@ -15,9 +15,12 @@
 import Foundation
 
 enum MeasurementType: String, Codable, CaseIterable, Identifiable {
+    /// Broad ranges covering all guitar types — useful when the instrument does not
+    /// fit neatly into one of the three specific types, or for initial exploration.
+    case generic = "Generic Guitar"
+    case acoustic = "Acoustic Guitar"
     case classical = "Classical Guitar"
     case flamenco = "Flamenco Guitar"
-    case acoustic = "Acoustic Guitar"
     case plate = "Material (Plate)"
     case brace = "Material (Brace)"
 
@@ -29,6 +32,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         case .classical: return "Classical"
         case .flamenco: return "Flamenco"
         case .acoustic: return "Acoustic"
+        case .generic: return "Generic"
         case .plate: return "Plate"
         case .brace: return "Brace"
         }
@@ -43,6 +47,8 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
             return "Nylon string, light bracing, shallow body"
         case .acoustic:
             return "Steel string, X-braced (Dreadnought, OM, etc.)"
+        case .generic:
+            return "Broad ranges covering all guitar types"
         case .plate:
             return "Rectangular wood plate for calculating stiffness and sound radiation"
         case .brace:
@@ -53,7 +59,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
     /// Whether this is a guitar measurement (as opposed to a plate or brace material measurement).
     var isGuitar: Bool {
         switch self {
-        case .classical, .flamenco, .acoustic:
+        case .classical, .flamenco, .acoustic, .generic:
             return true
         case .plate, .brace:
             return false
@@ -74,6 +80,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         case .classical: return .classical
         case .flamenco: return .flamenco
         case .acoustic: return .acoustic
+        case .generic: return .generic
         case .plate, .brace: return nil
         }
     }
@@ -84,6 +91,7 @@ enum MeasurementType: String, Codable, CaseIterable, Identifiable {
         case .classical: return .classical
         case .flamenco: return .flamenco
         case .acoustic: return .acoustic
+        case .generic: return .generic
         }
     }
 }

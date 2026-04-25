@@ -166,14 +166,35 @@ enum GuitarMode: String, Codable {
 
         var result: [UUID: GuitarMode] = [:]
         var claimedIDs = Set<UUID>()
+        // Track the frequency of the claimed Top peak so Back is constrained to be above it.
+        // Physically, the back plate resonance is always higher in frequency than the top plate
+        // resonance. Without this guard, Back can claim a peak lower than Top when the two
+        // mode ranges overlap (which they do for all guitar types, and especially for Generic).
+        var claimedTopFrequency: Float? = nil
 
         for mode in orderedModes {
             let range = mode.modeRange(for: guitarType)
+
+            // Back must be strictly above the already-claimed Top frequency.
+            let effectiveLowerBound: Float
+            if mode == .back, let topFreq = claimedTopFrequency {
+                effectiveLowerBound = max(range.lowerBound, topFreq + 1.0)
+            } else {
+                effectiveLowerBound = range.lowerBound
+            }
+
             if let best = peaks
-                .filter({ range.contains($0.frequency) && !claimedIDs.contains($0.id) })
+                .filter({
+                    $0.frequency >= effectiveLowerBound
+                    && range.contains($0.frequency)
+                    && !claimedIDs.contains($0.id)
+                })
                 .max(by: { $0.magnitude < $1.magnitude }) {
                 result[best.id] = mode
                 claimedIDs.insert(best.id)
+                if mode == .top {
+                    claimedTopFrequency = best.frequency
+                }
             }
         }
 

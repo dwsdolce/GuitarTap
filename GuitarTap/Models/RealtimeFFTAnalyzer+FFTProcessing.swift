@@ -157,59 +157,45 @@ extension RealtimeFFTAnalyzer {
         }
     }
     
-    /// Performs a Fast Fourier Transform on audio samples and updates published magnitude data.
+    /// Performs the pure FFT computation on a block of audio samples and returns
+    /// the magnitude spectrum in dBFS.
     ///
-    /// This method:
-    /// 1. Applies a rectangular window (all ones) to audio samples
-    /// 2. Converts samples to split complex format (real/imaginary parts)
-    /// 3. Executes the FFT using vDSP
-    /// 4. Calculates magnitude spectrum
-    /// 5. Converts to logarithmic dB scale
-    /// 6. Finds and publishes the peak frequency
-    /// 7. Tracks processing time for performance monitoring
+    /// This method contains the deterministic DSP core shared by `performFFT(on:)`
+    /// (streaming/display path) and the test suite.  It has no side effects: it
+    /// reads `fftSetup`, `window`, and `calibrationCorrections` from `self` but
+    /// writes nothing — all results are returned.
     ///
-    /// - Parameter samples: Audio samples to analyze, must be of length fftSize
-    ///
-    /// - Note: This method runs on the audioProcessingQueue. Results are published
-    ///         on the main thread via @Published properties for SwiftUI compatibility.
-    func performFFT(on samples: [Float]) {
-        // Start timing the FFT processing
-        let startTime = CFAbsoluteTimeGetCurrent()
-        
-        // Safety check: ensure FFT setup is valid
-        guard let setup = fftSetup else { return }
-        
+    /// - Parameter samples: Audio samples to analyse, must be of length `fftSize`.
+    /// - Returns: Magnitude spectrum in dBFS, length `fftSize / 2`, or an empty
+    ///   array if the FFT setup is not available.
+    func computeFFT(on samples: [Float]) -> [Float] {
+        guard let setup = fftSetup else { return [] }
+
         var samples = samples
-        
-        // Apply rectangular window (all ones — effectively no windowing) to audio samples.
-        // This is intentional for the live display path: we favour flat amplitude
-        // response over sidelobe suppression since the result is only used visually.
+
+        // Apply rectangular window (all ones — effectively no windowing).
+        // Intentional for the live display path: flat amplitude response is
+        // preferable to sidelobe suppression for a real-time visualisation.
         vDSP_vmul(samples, 1, window, 1, &samples, 1, vDSP_Length(fftSize))
-        
-        // Prepare for FFT - convert to split complex format
-        // vDSP requires data in a specific format with real and imaginary parts separated
+
+        // Deinterleave even/odd samples into split-complex format required by vDSP_DFT_zrop:
+        // even indices → real parts, odd indices → imaginary parts.
         var realParts = [Float](repeating: 0, count: fftSize / 2)
         var imagParts = [Float](repeating: 0, count: fftSize / 2)
-        
-        // Deinterleave even/odd samples into real/imaginary parts
-        // This is required by the vDSP_DFT_zrop format:
-        // - Even indices (0, 2, 4, ...) go to real parts
-        // - Odd indices (1, 3, 5, ...) go to imaginary parts
         for i in 0..<(fftSize / 2) {
             realParts[i] = samples[i * 2]
             imagParts[i] = samples[i * 2 + 1]
         }
-        
-        // Perform FFT using vDSP's optimized implementation
+
+        // Execute FFT in-place
         realParts.withUnsafeMutableBufferPointer { realPtr in
             imagParts.withUnsafeMutableBufferPointer { imagPtr in
                 vDSP_DFT_Execute(setup, realPtr.baseAddress!, imagPtr.baseAddress!,
-                                realPtr.baseAddress!, imagPtr.baseAddress!)
+                                 realPtr.baseAddress!, imagPtr.baseAddress!)
             }
         }
-        
-        // Calculate magnitudes from complex FFT output
-        // Magnitude = sqrt(real^2 + imag^2)
+
+        // Compute magnitudes, normalise by fftSize, convert to dB
         var mags = [Float](repeating: 0, count: fftSize / 2)
         realParts.withUnsafeBufferPointer { realPtr in
             imagParts.withUnsafeBufferPointer { imagPtr in
@@ -217,30 +203,49 @@ extension RealtimeFFTAnalyzer {
                     realp: UnsafeMutablePointer(mutating: realPtr.baseAddress!),
                     imagp: UnsafeMutablePointer(mutating: imagPtr.baseAddress!)
                 )
-                // Scale to normalize amplitude
                 var scale: Float = 1.0 / Float(fftSize)
-
                 vDSP_vsmul(splitComplex.realp, 1, &scale, splitComplex.realp, 1, vDSP_Length(fftSize / 2))
                 vDSP_vsmul(splitComplex.imagp, 1, &scale, splitComplex.imagp, 1, vDSP_Length(fftSize / 2))
-                
-                // vDSP_zvabs computes the absolute value (magnitude) of complex numbers
                 vDSP_zvabs(&splitComplex, 1, &mags, 1, vDSP_Length(fftSize / 2))
             }
         }
-        
-        // Convert to dB scale for better visualization
-        // dB = 20 * log10(magnitude / reference)
-        // Using reference = 1.0 and flag = 1 gives: dB = 20 * log10(magnitude)
+
         var db = [Float](repeating: -100, count: fftSize / 2)
         var ref: Float = 1.0
         vDSP_vdbcon(mags, 1, &ref, &db, 1, vDSP_Length(fftSize / 2), 1)
-        
-        // Apply microphone calibration corrections if available
-        // This compensates for the microphone's frequency response
+
+        return db
+    }
+
+    /// Performs a Fast Fourier Transform on audio samples and updates published magnitude data.
+    ///
+    /// Delegates the pure DSP work to `computeFFT(on:)`, applies microphone calibration
+    /// corrections, then publishes the results on the main thread.  Also tracks processing
+    /// time and throttles UI updates.
+    ///
+    /// Calibration is applied here (not inside `computeFFT`) so that `computeFFT` remains
+    /// a truly pure function — its output depends only on its input `samples` argument and
+    /// the FFT configuration, not on any mutable instance state like `calibrationCorrections`.
+    /// This mirrors the Python architecture where `dft_anal` is a side-effect-free module-level
+    /// function and calibration is applied by the caller (`_FftProcessingThread.run()`).
+    ///
+    /// - Parameter samples: Audio samples to analyze, must be of length fftSize
+    ///
+    /// - Note: This method runs on the audioProcessingQueue. Results are published
+    ///         on the main thread via @Published properties for SwiftUI compatibility.
+    func performFFT(on samples: [Float]) {
+        let startTime = CFAbsoluteTimeGetCurrent()
+
+        var db = computeFFT(on: samples)
+        guard !db.isEmpty else { return }
+
+        // Apply microphone calibration corrections if available.
+        // Kept here (not in computeFFT) so computeFFT remains a pure function.
+        // Mirrors Python _FftProcessingThread.run(): mag_y_db = mag_y_db + calibration.
         if !calibrationCorrections.isEmpty && calibrationCorrections.count == db.count {
             vDSP_vadd(db, 1, calibrationCorrections, 1, &db, 1, vDSP_Length(db.count))
         }
-        
+
         // Find peak frequency in the spectrum
         if let maxIndex = db.enumerated().max(by: { $0.element < $1.element })?.offset {
             let peakFreq = frequencies[maxIndex]
@@ -269,7 +274,6 @@ extension RealtimeFFTAnalyzer {
                 lastPublishTime = currentTime
                 
                 // Update published properties on main thread for SwiftUI
-                // Use DispatchQueue.main.async to avoid blocking audio processing
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     

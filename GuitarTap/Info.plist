@@ -21,6 +21,8 @@
 	<string>AppIcon</string>
 	<key>LSRequiresNativeExecution</key>
 	<true/>
+	<key>NSQuitAlwaysKeepsWindows</key>
+	<false/>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>

@@ -142,7 +142,7 @@ struct TapDisplaySettings {
                let type = MeasurementType(rawValue: rawValue) {
                 return type
             }
-            return .acoustic  // Default to steel-string guitar
+            return .generic  // Default to generic (broad ranges covering all guitar types)
         }
         set {
             defaults.set(newValue.rawValue, forKey: measurementTypeKey)
@@ -164,7 +164,7 @@ struct TapDisplaySettings {
                let type = GuitarType(rawValue: rawValue) {
                 return type
             }
-            return .acoustic  // Default to steel-string
+            return .generic  // Default to generic (broad ranges covering all guitar types)
         }
         set {
             defaults.set(newValue.rawValue, forKey: guitarTypeKey)
