@@ -482,7 +482,21 @@ func makeExportableSpectrumView(
     peakModes: [UUID: GuitarMode] = [:],
     materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = [],
     dateLabel: String,
-    chartTitle: String = "FFT Peaks"
+    chartTitle: String = "FFT Peaks",
+    softwareVersion: String = {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        return build.isEmpty ? version : "\(version) (\(build))"
+    }(),
+    platform: String = {
+        #if os(macOS)
+        return "macOS"
+        #elseif os(iOS)
+        return "iOS/iPadOS"
+        #else
+        return "Apple"
+        #endif
+    }()
 ) -> some View {
     let formatFreq: (Float) -> String = { freq in
         freq >= 1000 ? String(format: "%.1fk Hz", freq / 1000) : String(format: "%.0f Hz", freq)
@@ -512,6 +526,48 @@ func makeExportableSpectrumView(
                 Text("\(Int(minDB)) to \(Int(maxDB)) dB")
                     .font(.subheadline)
                     .fontWeight(.semibold)
+            }
+
+            HStack(spacing: 16) {
+                // Measurement type
+                HStack(spacing: 4) {
+                    Text("Type:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text(measurementType.rawValue)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+
+                Text("•")
+                    .foregroundColor(.secondary)
+
+                // Platform
+                HStack(spacing: 4) {
+                    Text("Platform:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text(platform)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+
+                if !softwareVersion.isEmpty {
+                    Text("•")
+                        .foregroundColor(.secondary)
+
+                    // Software version
+                    HStack(spacing: 4) {
+                        Text("GuitarTap")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Text("v\(softwareVersion)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                }
+
+                Spacer()
             }
 
             if !materialSpectra.isEmpty {
