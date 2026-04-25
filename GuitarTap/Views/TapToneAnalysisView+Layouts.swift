@@ -104,6 +104,7 @@ extension TapToneAnalysisView {
                         tapToneAnalyzer.startTapSequence()
                     } else {
                         tapToneAnalyzer.reclassifyPeaks()
+                        tapToneAnalyzer.resetToAutoSelection()
                     }
                 }
             )
@@ -235,6 +236,7 @@ extension TapToneAnalysisView {
                         tapToneAnalyzer.startTapSequence()
                     } else {
                         tapToneAnalyzer.reclassifyPeaks()
+                        tapToneAnalyzer.resetToAutoSelection()
                     }
                 }
             )

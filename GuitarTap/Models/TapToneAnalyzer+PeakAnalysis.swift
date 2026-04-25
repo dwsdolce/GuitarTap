@@ -269,7 +269,9 @@ extension TapToneAnalyzer {
         selectedPeakFrequencies = []
         let peaks = currentPeaks
         guard !peaks.isEmpty else { return }
+        gtLog("🎯 resetToAutoSelection: guitarType=\(TapDisplaySettings.guitarType.rawValue), \(peaks.count) candidate peaks")
         selectedPeakIDs = guitarModeSelectedPeakIDs(from: peaks)
+        gtLog("🎯 resetToAutoSelection: selected \(selectedPeakIDs.count) peak(s)")
     }
 
     /// Finds all significant spectral peaks within the configured frequency range.
@@ -618,6 +620,12 @@ extension TapToneAnalyzer {
         let modeMap = GuitarMode.classifyAll(candidates)
         let claimedModes: Set<GuitarMode> = [.air, .top, .back, .dipole, .ringMode, .upperModes]
 
+        gtLog("🎯 guitarModeSelectedPeakIDs: \(candidates.count) candidates, guitarType=\(TapDisplaySettings.guitarType.rawValue)")
+        for peak in candidates {
+            let mode = modeMap[peak.id] ?? .unknown
+            gtLog("  peak \(String(format: "%.1f", peak.frequency)) Hz mag=\(String(format: "%.1f", peak.magnitude)) dB → \(mode.rawValue)")
+        }
+
         // Group peaks by their assigned mode, keeping only named modes.
         var bestPerMode: [GuitarMode: ResonantPeak] = [:]
         for peak in candidates {
@@ -626,6 +634,7 @@ extension TapToneAnalyzer {
                 bestPerMode[mode] = peak
             }
         }
+        gtLog("🎯 guitarModeSelectedPeakIDs: bestPerMode modes = \(bestPerMode.keys.map { $0.rawValue }.sorted())")
         return Set(bestPerMode.values.map { $0.id })
     }
 
