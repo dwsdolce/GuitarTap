@@ -46,7 +46,7 @@ extension TapToneAnalyzer {
     func start() throws {
         try fftAnalyzer.start()
         analyzerStartTime = Date()  // Begin the warm-up period for the new session.
-        print("🎬 Analyzer started - warm-up period: \(warmupPeriod)s")
+        gtLog("🎬 Analyzer started - warm-up period: \(warmupPeriod)s")
 
         // Evaluate the auto-start guard after pending state changes have settled.
         DispatchQueue.main.async { [weak self] in
@@ -133,9 +133,9 @@ extension TapToneAnalyzer {
         let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
         let currentPeakMagImmediate = fftAnalyzer.peakMagnitude
-        print("🎬 Starting tap sequence: \(numberOfTaps) tap(s), plate mode: \(isPlateMode), brace mode: \(isBraceMode), skipWarmup: \(skipWarmup)")
-        print("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
-        print("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
+        gtLog("🎬 Starting tap sequence: \(numberOfTaps) tap(s), plate mode: \(isPlateMode), brace mode: \(isBraceMode), skipWarmup: \(skipWarmup)")
+        gtLog("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
+        gtLog("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
 
         // CRITICAL: Apply the three guards that detectTap() reads on the audio thread
         // synchronously — before any audio buffers from a just-started file or engine
@@ -191,12 +191,12 @@ extension TapToneAnalyzer {
             // a genuine rising edge.  The warm-up period suppresses detections for the
             // first 0.5 s; justExitedWarmup then re-anchors the state without firing a tap.
             let currentPeakMag = self.fftAnalyzer.peakMagnitude
-            print("🎬 Inside async block - FFT peak magnitude: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB")
-            print("🎬 FFT analyzer state: running=\(self.fftAnalyzer.isRunning), magnitudes count=\(self.fftAnalyzer.magnitudes.count)")
+            gtLog("🎬 Inside async block - FFT peak magnitude: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB")
+            gtLog("🎬 FFT analyzer state: running=\(self.fftAnalyzer.isRunning), magnitudes count=\(self.fftAnalyzer.magnitudes.count)")
 
             self.isAboveThreshold  = false
             self.justExitedWarmup  = false  // Will be set true as warm-up ends.
-            print("✅ Starting with isAboveThreshold = false - ready for tap detection after warm-up")
+            gtLog("✅ Starting with isAboveThreshold = false - ready for tap detection after warm-up")
 
             // analyzerStartTime, isDetecting, and isMeasurementComplete are already set
             // synchronously before this block was enqueued — see the comment above the
@@ -243,7 +243,7 @@ extension TapToneAnalyzer {
         isDetecting      = false
         isDetectionPaused = true
         statusMessage    = "Detection paused – tap freely, then resume"
-        print("⏸️ Tap detection paused at \(currentTapCount)/\(numberOfTaps)")
+        gtLog("⏸️ Tap detection paused at \(currentTapCount)/\(numberOfTaps)")
     }
 
     /// Resumes tap detection after a pause, continuing from the current tap count.
@@ -280,7 +280,7 @@ extension TapToneAnalyzer {
         } else {
             statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
         }
-        print("▶️ Tap detection resumed at \(currentTapCount)/\(numberOfTaps)")
+        gtLog("▶️ Tap detection resumed at \(currentTapCount)/\(numberOfTaps)")
     }
 
     // MARK: - Cancel
@@ -291,7 +291,7 @@ extension TapToneAnalyzer {
     /// tap without pressing the Start button again.  All per-sequence data (captured taps,
     /// phase spectra, peaks) is cleared.  The spectrum is unfrozen.
     func cancelTapSequence() {
-        print("❌ Tap sequence cancelled")
+        gtLog("❌ Tap sequence cancelled")
 
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
@@ -349,7 +349,7 @@ extension TapToneAnalyzer {
         let measureFlc = TapDisplaySettings.measureFlc
         switch materialTapPhase {
         case .reviewingLongitudinal:
-            print("✅ Accepted L tap — advancing to cross-grain")
+            gtLog("✅ Accepted L tap — advancing to cross-grain")
             materialTapPhase = .capturingCross
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
@@ -360,7 +360,7 @@ extension TapToneAnalyzer {
 
         case .reviewingCross:
             if measureFlc {
-                print("✅ Accepted C tap — advancing to FLC")
+                gtLog("✅ Accepted C tap — advancing to FLC")
                 materialTapPhase = .waitingForFlcTap
                 statusMessage = "Set up for FLC tap, then tap"
                 // Re-enable detection for the FLC phase after the cooldown.
@@ -374,7 +374,7 @@ extension TapToneAnalyzer {
                     self.tapDetected = false
                 }
             } else {
-                print("✅ Accepted C tap — measurement complete")
+                gtLog("✅ Accepted C tap — measurement complete")
                 let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? crossPeaks.first)
                 currentPeaks = sel
                 selectedPeakIDs = Set(sel.map { $0.id })
@@ -388,7 +388,7 @@ extension TapToneAnalyzer {
             }
 
         case .reviewingFlc:
-            print("✅ Accepted FLC tap — measurement complete")
+            gtLog("✅ Accepted FLC tap — measurement complete")
             let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? flcPeaks.first)
             currentPeaks = sel
             selectedPeakIDs = Set(sel.map { $0.id })
@@ -399,7 +399,7 @@ extension TapToneAnalyzer {
             statusMessage = "Complete - check Results"
 
         default:
-            print("⚠️ acceptCurrentPhase called in unexpected phase: \(materialTapPhase)")
+            gtLog("⚠️ acceptCurrentPhase called in unexpected phase: \(materialTapPhase)")
         }
     }
 
@@ -411,7 +411,7 @@ extension TapToneAnalyzer {
     func redoCurrentPhase() {
         switch materialTapPhase {
         case .reviewingLongitudinal:
-            print("🔄 Redo L phase — clearing longitudinal data")
+            gtLog("🔄 Redo L phase — clearing longitudinal data")
             longitudinalSpectrum = nil
             longitudinalPeaks = []
             autoSelectedLongitudinalPeakID = nil
@@ -429,7 +429,7 @@ extension TapToneAnalyzer {
             statusMessage = "Ready for L tap — tap again"
 
         case .reviewingCross:
-            print("🔄 Redo C phase — clearing cross-grain data")
+            gtLog("🔄 Redo C phase — clearing cross-grain data")
             crossSpectrum = nil
             crossPeaks = []
             autoSelectedCrossPeakID = nil
@@ -448,7 +448,7 @@ extension TapToneAnalyzer {
             statusMessage = "Ready for C tap — tap again"
 
         case .reviewingFlc:
-            print("🔄 Redo FLC phase — clearing FLC data")
+            gtLog("🔄 Redo FLC phase — clearing FLC data")
             flcSpectrum = nil
             flcPeaks = []
             autoSelectedFlcPeakID = nil
@@ -467,7 +467,7 @@ extension TapToneAnalyzer {
             statusMessage = "Ready for FLC tap — tap again"
 
         default:
-            print("⚠️ redoCurrentPhase called in unexpected phase: \(materialTapPhase)")
+            gtLog("⚠️ redoCurrentPhase called in unexpected phase: \(materialTapPhase)")
         }
     }
 

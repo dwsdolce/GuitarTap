@@ -77,7 +77,7 @@ extension TapToneAnalyzer {
         let fileURL = TapToneAnalyzer.measurementsFileURL
         
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            print("📂 No persisted measurements file found")
+            gtLog("📂 No persisted measurements file found")
             return
         }
         
@@ -87,9 +87,9 @@ extension TapToneAnalyzer {
             decoder.dateDecodingStrategy = .iso8601
             let measurements = try decoder.decode([TapToneMeasurement].self, from: data)
             savedMeasurements = measurements
-            print("📂 Loaded \(measurements.count) persisted measurements")
+            gtLog("📂 Loaded \(measurements.count) persisted measurements")
         } catch {
-            print("❌ Failed to load persisted measurements: \(error)")
+            gtLog("❌ Failed to load persisted measurements: \(error)")
         }
     }
     
@@ -117,9 +117,9 @@ extension TapToneAnalyzer {
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
                 let data = try encoder.encode(snapshot)
                 try data.write(to: fileURL, options: .atomic)
-                print("💾 Persisted \(snapshot.count) measurements to disk")
+                gtLog("💾 Persisted \(snapshot.count) measurements to disk")
             } catch {
-                print("❌ Failed to persist measurements: \(error)")
+                gtLog("❌ Failed to persist measurements: \(error)")
             }
         }
     }
@@ -311,7 +311,7 @@ extension TapToneAnalyzer {
         )
 
         savedMeasurements.append(measurement)
-        print("💾 Saved measurement with \(currentPeaks.count) peaks, type: \(measurementType.shortName)")
+        gtLog("💾 Saved measurement with \(currentPeaks.count) peaks, type: \(measurementType.shortName)")
 
         // Persist to disk
         persistMeasurements()
@@ -398,7 +398,7 @@ extension TapToneAnalyzer {
             microphoneWarning = "Recorded with \(list), which is not currently connected. Attach it and select it in the microphone settings for accurate analysis."
         }
 
-        print("📥 Imported \(measurements.count) measurements")
+        gtLog("📥 Imported \(measurements.count) measurements")
         return measurements
     }
     
@@ -420,7 +420,7 @@ extension TapToneAnalyzer {
     ///
     /// - Parameter measurement: The ``TapToneMeasurement`` to load.
     func loadMeasurement(_ measurement: TapToneMeasurement) {
-        print("🔄 Loading measurement...")
+        gtLog("🔄 Loading measurement...")
 
         // Comparison records: restore the overlay spectra directly from the saved entries
         // and return early — no peak/spectrum restoration needed for the regular path.
@@ -517,13 +517,13 @@ extension TapToneAnalyzer {
             // Restore display ranges - use setLoadedAxisRange so all four bounds are
             // published in a single objectWillChange notification, preventing transient
             // mismatched-axis states that cause SwiftUI Charts rendering artifacts.
-            print("  📊 Publishing display ranges: \(snapshot.minFreq)-\(snapshot.maxFreq) Hz, \(snapshot.minDB)-\(snapshot.maxDB) dB")
+            gtLog("  📊 Publishing display ranges: \(snapshot.minFreq)-\(snapshot.maxFreq) Hz, \(snapshot.minDB)-\(snapshot.maxDB) dB")
             setLoadedAxisRange(minFreq: snapshot.minFreq, maxFreq: snapshot.maxFreq,
                                minDB: snapshot.minDB, maxDB: snapshot.maxDB)
             
             // Restore showUnknownModes setting if available
             if let showUnknown = snapshot.showUnknownModes {
-                print("  👁️ Publishing showUnknownModes: \(showUnknown)")
+                gtLog("  👁️ Publishing showUnknownModes: \(showUnknown)")
                 loadedShowUnknownModes = showUnknown
             }
             
@@ -532,7 +532,7 @@ extension TapToneAnalyzer {
             // reclassifyPeaks() below uses the correct mode ranges.  Also
             // publish loadedGuitarType so the view's bound control updates.
             if let guitarType = snapshot.guitarType {
-                print("  🎸 Publishing guitarType: \(guitarType.rawValue)")
+                gtLog("  🎸 Publishing guitarType: \(guitarType.rawValue)")
                 TapDisplaySettings.guitarType = guitarType
                 loadedGuitarType = guitarType
             }
@@ -540,14 +540,14 @@ extension TapToneAnalyzer {
             // Restore measurementType setting if available.
             // Apply directly so that reclassifyPeaks() uses the correct type.
             if let measurementType = snapshot.measurementType {
-                print("  📐 Publishing measurementType: \(measurementType.shortName)")
+                gtLog("  📐 Publishing measurementType: \(measurementType.shortName)")
                 TapDisplaySettings.measurementType = measurementType
                 loadedMeasurementType = measurementType
             }
             
             // Restore plate dimensions if available (for plate measurements)
             if let plateLength = snapshot.plateLength {
-                print("  📏 Publishing plate dimensions: L=\(plateLength)mm")
+                gtLog("  📏 Publishing plate dimensions: L=\(plateLength)mm")
                 loadedPlateLength = plateLength
             }
             if let plateWidth = snapshot.plateWidth {
@@ -568,7 +568,7 @@ extension TapToneAnalyzer {
                 loadedGuitarBodyWidth = bodyWidth
             }
             if let preset = snapshot.plateStiffnessPreset {
-                print("  🪵 Publishing plateStiffnessPreset: \(preset.shortName)")
+                gtLog("  🪵 Publishing plateStiffnessPreset: \(preset.shortName)")
                 loadedPlateStiffnessPreset = preset
             }
             if let customStiffness = snapshot.customPlateStiffness {
@@ -592,7 +592,7 @@ extension TapToneAnalyzer {
                 loadedBraceMass = braceMass
             }
         } else {
-            print("  ⚠️ No spectrum snapshot in measurement")
+            gtLog("  ⚠️ No spectrum snapshot in measurement")
         }
         
         // Restore plate/brace peak selections directly into the model properties
@@ -606,9 +606,9 @@ extension TapToneAnalyzer {
         userSelectedLongitudinalPeakID = nil
         userSelectedCrossPeakID = nil
         userSelectedFlcPeakID = nil
-        print("  🔵 Restored longitudinal peak: \(selectedLongitudinalPeak?.frequency ?? -1) Hz")
-        print("  🟠 Restored cross-grain peak: \(selectedCrossPeak?.frequency ?? -1) Hz")
-        print("  🟣 Restored FLC peak: \(selectedFlcPeak?.frequency ?? -1) Hz")
+        gtLog("  🔵 Restored longitudinal peak: \(selectedLongitudinalPeak?.frequency ?? -1) Hz")
+        gtLog("  🟠 Restored cross-grain peak: \(selectedCrossPeak?.frequency ?? -1) Hz")
+        gtLog("  🟣 Restored FLC peak: \(selectedFlcPeak?.frequency ?? -1) Hz")
         
         // Stop tap detection when loading a measurement (frozen state).
         // Clear isDetectionPaused too — if a tap sequence was paused before loading,
@@ -620,12 +620,12 @@ extension TapToneAnalyzer {
         currentTapCount = 0
         tapProgress = 0.0
         statusMessage = "Loaded measurement (frozen). Press 'Resume' or 'New Tap' to continue."
-        print("  🧊 Spectrum frozen, tap detection disabled")
+        gtLog("  🧊 Spectrum frozen, tap detection disabled")
         
         // Restore annotation offsets
         if let offsets = measurement.peakAnnotationOffsets {
             peakAnnotationOffsets = offsets
-            print("  🏷️ Restored \(offsets.count) annotation offsets")
+            gtLog("  🏷️ Restored \(offsets.count) annotation offsets")
         }
         
         // Retain the original saved peaks so recalculateFrozenPeaksIfNeeded() can
@@ -649,17 +649,17 @@ extension TapToneAnalyzer {
         selectedPeakFrequencies = measurement.peaks
             .filter { selectedPeakIDs.contains($0.id) }
             .map { $0.frequency }
-        print("  ⭐ Restored \(selectedPeakIDs.count) selected peaks")
+        gtLog("  ⭐ Restored \(selectedPeakIDs.count) selected peaks")
 
         // Restore annotation visibility mode; default to .all if not saved
         annotationVisibilityMode = measurement.annotationVisibilityMode ?? .all
         TapDisplaySettings.annotationVisibilityMode = annotationVisibilityMode
-        print("  👁️ Restored annotation visibility: \(annotationVisibilityMode.label)")
+        gtLog("  👁️ Restored annotation visibility: \(annotationVisibilityMode.label)")
 
         // Restore per-peak mode overrides; nil / empty → all peaks auto-classify
         if let overrides = measurement.peakModeOverrides, !overrides.isEmpty {
             applyModeOverrides(overrides)
-            print("  🏷️ Restored \(overrides.count) mode overrides")
+            gtLog("  🏷️ Restored \(overrides.count) mode overrides")
         } else {
             peakModeOverrides = [:]
         }
@@ -668,39 +668,39 @@ extension TapToneAnalyzer {
         // and other helpers work correctly immediately after load (without needing a new tap).
         // This must run after peakModeOverrides is set so reclassifyPeaks() can incorporate them.
         reclassifyPeaks()
-        print("  🔬 Reclassified \(identifiedModes.count) modes after load")
+        gtLog("  🔬 Reclassified \(identifiedModes.count) modes after load")
         
         // Restore analysis settings if available — set both internal and published values
         if let threshold = measurement.tapDetectionThreshold {
-            print("  🎯 Publishing tap threshold: \(threshold) dB")
+            gtLog("  🎯 Publishing tap threshold: \(threshold) dB")
             tapDetectionThreshold = threshold
             loadedTapDetectionThreshold = threshold
         } else {
-            print("  ⚠️ No tap threshold in measurement")
+            gtLog("  ⚠️ No tap threshold in measurement")
         }
         
         if let hysteresis = measurement.hysteresisMargin {
-            print("  🔄 Publishing hysteresis: \(hysteresis) dB")
+            gtLog("  🔄 Publishing hysteresis: \(hysteresis) dB")
             hysteresisMargin = hysteresis
             loadedHysteresisMargin = hysteresis
         } else {
-            print("  ⚠️ No hysteresis in measurement")
+            gtLog("  ⚠️ No hysteresis in measurement")
         }
         
         if let taps = measurement.numberOfTaps {
-            print("  🔢 Publishing number of taps: \(taps)")
+            gtLog("  🔢 Publishing number of taps: \(taps)")
             numberOfTaps = taps
             loadedNumberOfTaps = taps
         } else {
-            print("  ⚠️ No number of taps in measurement")
+            gtLog("  ⚠️ No number of taps in measurement")
         }
 
         if let threshold = measurement.peakThreshold {
-            print("  📊 Publishing peak threshold: \(threshold) dB")
+            gtLog("  📊 Publishing peak threshold: \(threshold) dB")
             peakThreshold = threshold
             loadedPeakThreshold = threshold
         } else {
-            print("  ⚠️ No peak threshold in measurement")
+            gtLog("  ⚠️ No peak threshold in measurement")
         }
         
         // Auto-select the recorded microphone if it is connected; warn if it is not.
@@ -717,7 +717,7 @@ extension TapToneAnalyzer {
                 // Device is connected — switch to it; its paired calibration loads automatically.
                 if fftAnalyzer.selectedInputDevice?.uid != match.uid {
                     try? fftAnalyzer.setInputDevice(match)
-                    print("🎤 Auto-selected microphone '\(name)' for loaded measurement")
+                    gtLog("🎤 Auto-selected microphone '\(name)' for loaded measurement")
                 }
                 microphoneWarning = nil
             } else {
@@ -726,7 +726,7 @@ extension TapToneAnalyzer {
         }
 
         showLoadedSettingsWarning = true
-        print("✅ Loaded measurement with \(measurement.peaks.count) peaks (frozen)")
+        gtLog("✅ Loaded measurement with \(measurement.peaks.count) peaks (frozen)")
     }
 
     /// Encodes a single measurement as a pretty-printed JSON string and

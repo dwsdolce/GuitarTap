@@ -972,7 +972,7 @@ final class TapToneAnalyzer: ObservableObject {
     ///   reflects real audio data rather than silence or the engine startup transient
     ///   before `isAboveThreshold` is re-anchored.
     func handleRouteChangeRestart() {
-        print("🔄 TapToneAnalyzer: Handling route change restart - resetting detection state")
+        gtLog("🔄 TapToneAnalyzer: Handling route change restart - resetting detection state")
 
         let wasDetecting = isDetecting
 
@@ -1011,7 +1011,7 @@ final class TapToneAnalyzer: ObservableObject {
             } else {
                 self.statusMessage = "Ready"
             }
-            print("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
+            gtLog("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
         }
     }
 }

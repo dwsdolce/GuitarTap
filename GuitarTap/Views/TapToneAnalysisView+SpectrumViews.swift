@@ -197,7 +197,7 @@ extension TapToneAnalysisView {
                                 .foregroundColor(.secondary)
                         }
                         .onAppear {
-                            print("🚫 Overlay: NOT RUNNING shown")
+                            gtLog("🚫 Overlay: NOT RUNNING shown")
                         }
                     } else if fft.frequencies.isEmpty {
                         VStack {
@@ -207,13 +207,13 @@ extension TapToneAnalysisView {
                                 .foregroundColor(.secondary)
                         }
                         .onAppear {
-                            print("⏳ Overlay: LOADING shown (frequencies is empty)")
+                            gtLog("⏳ Overlay: LOADING shown (frequencies is empty)")
                         }
                     } else {
                         // Debug: Show when chart should be visible
                         Color.clear
                             .onAppear {
-                                print("✅ Overlay: CHART VISIBLE (running=\(fft.isRunning), freq count=\(fft.frequencies.count), mag count=\(fft.magnitudes.count))")
+                                gtLog("✅ Overlay: CHART VISIBLE (running=\(fft.isRunning), freq count=\(fft.frequencies.count), mag count=\(fft.magnitudes.count))")
                             }
                     }
                 }

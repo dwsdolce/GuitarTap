@@ -95,7 +95,7 @@ extension TapToneAnalysisView {
 
             try self.tapToneAnalyzer.start()
         } catch {
-            print("❌ Failed to start analyzer: \(error)")
+            gtLog("❌ Failed to start analyzer: \(error)")
             #if os(macOS)
             // Surface permission errors as an alert.
             // kAudioUnitErr_Unauthorized (-10877) means the audio engine was denied by TCC —
@@ -247,7 +247,7 @@ extension TapToneAnalysisView {
         }
         let mags = sourceMagnitudes.filter { $0 > -100 && $0 < 20 }
         guard !mags.isEmpty else {
-            print("⚠️ No valid magnitudes to auto-scale")
+            gtLog("⚠️ No valid magnitudes to auto-scale")
             return
         }
 
@@ -275,7 +275,7 @@ extension TapToneAnalysisView {
         minDBInput = String(format: "%.0f", minDB)
         maxDBInput = String(format: "%.0f", maxDB)
 
-        print("📏 Auto-scaled dB range: \(String(format: "%.1f", minDB)) to \(String(format: "%.1f", maxDB)) dB (signal range: \(String(format: "%.1f", minMag)) to \(String(format: "%.1f", maxMag)) dB)")
+        gtLog("📏 Auto-scaled dB range: \(String(format: "%.1f", minDB)) to \(String(format: "%.1f", maxDB)) dB (signal range: \(String(format: "%.1f", minMag)) to \(String(format: "%.1f", maxMag)) dB)")
     }
 
     /// Toggles auto-scale mode on/off
@@ -283,11 +283,11 @@ extension TapToneAnalysisView {
         isAutoScaleEnabled.toggle()
 
         if isAutoScaleEnabled {
-            print("🔄 Auto-scale dB enabled - will scale on each update")
+            gtLog("🔄 Auto-scale dB enabled - will scale on each update")
             // Perform initial auto-scale
             autoScaleDB()
         } else {
-            print("🔄 Auto-scale dB disabled - resetting to default range")
+            gtLog("🔄 Auto-scale dB disabled - resetting to default range")
             // Reset to default values
             resetDBToDefaults()
         }
@@ -299,7 +299,7 @@ extension TapToneAnalysisView {
         maxDB = TapDisplaySettings.maxMagnitude
         minDBInput = String(format: "%.0f", minDB)
         maxDBInput = String(format: "%.0f", maxDB)
-        print("↩️ Reset dB range to defaults: \(minDB) to \(maxDB) dB")
+        gtLog("↩️ Reset dB range to defaults: \(minDB) to \(maxDB) dB")
     }
 
     // MARK: - Spectrum Export
@@ -336,7 +336,7 @@ extension TapToneAnalysisView {
             FileExportHelper.exportFile(data: pngData, filename: filename, contentType: .png) { success in
                 self.isExportingSpectrum = false
                 if !success {
-                    print("❌ Failed to export spectrum")
+                    gtLog("❌ Failed to export spectrum")
                 }
             }
         }

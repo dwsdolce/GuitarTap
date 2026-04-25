@@ -453,7 +453,7 @@ struct MeasurementsListView: View {
         let spectrumImageData = renderSpectrumImageForMeasurement(measurement)
         let reportData = PDFReportData.from(measurement: measurement, spectrumImageData: spectrumImageData)
         guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
-            print("❌ Failed to generate PDF report")
+            gtLog("❌ Failed to generate PDF report")
             isGeneratingReport = false
             return
         }
@@ -497,7 +497,7 @@ struct MeasurementsListView: View {
             + "-\(Int(measurement.timestamp.timeIntervalSince1970))"
 
         guard let pdfData = PDFReportGenerator.generateComparison(data: reportData) else {
-            print("❌ Failed to generate comparison PDF report")
+            gtLog("❌ Failed to generate comparison PDF report")
             isGeneratingReport = false
             return
         }

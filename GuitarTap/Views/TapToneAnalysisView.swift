@@ -418,7 +418,7 @@ private struct LoadedSettingsModifier: ViewModifier {
             // point to the same level and render spurious vertical line artifacts.
             .onReceive(tap.$loadedAxisRange) { range in
                 if let range = range {
-                    print("  ⬇️ View received loadedAxisRange: \(range.minFreq)-\(range.maxFreq) Hz, \(range.minDB)-\(range.maxDB) dB")
+                    gtLog("  ⬇️ View received loadedAxisRange: \(range.minFreq)-\(range.maxFreq) Hz, \(range.minDB)-\(range.maxDB) dB")
                     minFreq = range.minFreq
                     maxFreq = range.maxFreq
                     minDB   = range.minDB
@@ -438,74 +438,74 @@ private struct LoadedSettingsModifier: ViewModifier {
             }
             .onReceive(tap.$loadedTapDetectionThreshold) { threshold in
                 if threshold != nil {
-                    print("  ⬇️ View received loadedTapDetectionThreshold: \(threshold!)")
+                    gtLog("  ⬇️ View received loadedTapDetectionThreshold: \(threshold!)")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedTapDetectionThreshold = nil }
                 }
             }
             .onReceive(tap.$loadedHysteresisMargin) { hysteresis in
                 if hysteresis != nil {
-                    print("  ⬇️ View received loadedHysteresisMargin: \(hysteresis!)")
+                    gtLog("  ⬇️ View received loadedHysteresisMargin: \(hysteresis!)")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedHysteresisMargin = nil }
                 }
             }
             .onReceive(tap.$loadedNumberOfTaps) { taps in
                 if taps != nil {
-                    print("  ⬇️ View received loadedNumberOfTaps: \(taps!)")
+                    gtLog("  ⬇️ View received loadedNumberOfTaps: \(taps!)")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedNumberOfTaps = nil }
                 }
             }
             .onReceive(tap.$loadedPeakThreshold) { threshold in
                 if let threshold = threshold {
-                    print("  ⬇️ View received loadedPeakThreshold: \(threshold)")
+                    gtLog("  ⬇️ View received loadedPeakThreshold: \(threshold)")
                     TapDisplaySettings.peakThreshold = threshold
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedPeakThreshold = nil }
                 }
             }
             .onReceive(tap.$loadedShowUnknownModes) { showUnknown in
                 if let showUnknown = showUnknown {
-                    print("  ⬇️ View received loadedShowUnknownModes: \(showUnknown)")
+                    gtLog("  ⬇️ View received loadedShowUnknownModes: \(showUnknown)")
                     TapDisplaySettings.showUnknownModes = showUnknown
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedShowUnknownModes = nil }
                 }
             }
             .onReceive(tap.$loadedGuitarType) { guitarType in
                 if let guitarType = guitarType {
-                    print("  ⬇️ View received loadedGuitarType: \(guitarType.rawValue)")
+                    gtLog("  ⬇️ View received loadedGuitarType: \(guitarType.rawValue)")
                     TapDisplaySettings.guitarType = guitarType
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedGuitarType = nil }
                 }
             }
             .onReceive(tap.$loadedMeasurementType) { measurementType in
                 if let measurementType = measurementType {
-                    print("  ⬇️ View received loadedMeasurementType: \(measurementType.shortName)")
+                    gtLog("  ⬇️ View received loadedMeasurementType: \(measurementType.shortName)")
                     TapDisplaySettings.measurementType = measurementType
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedMeasurementType = nil }
                 }
             }
             .onReceive(tap.$loadedSelectedLongitudinalPeakID) { peakID in
                 if let peakID = peakID {
-                    print("  ⬇️ View received loadedSelectedLongitudinalPeakID: \(peakID)")
+                    gtLog("  ⬇️ View received loadedSelectedLongitudinalPeakID: \(peakID)")
                     selectedLongitudinalPeakID = peakID
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedLongitudinalPeakID = nil }
                 }
             }
             .onReceive(tap.$loadedSelectedCrossPeakID) { peakID in
                 if let peakID = peakID {
-                    print("  ⬇️ View received loadedSelectedCrossPeakID: \(peakID)")
+                    gtLog("  ⬇️ View received loadedSelectedCrossPeakID: \(peakID)")
                     selectedCrossPeakID = peakID
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedCrossPeakID = nil }
                 }
             }
             .onReceive(tap.$loadedSelectedFlcPeakID) { peakID in
                 if let peakID = peakID {
-                    print("  ⬇️ View received loadedSelectedFlcPeakID: \(peakID)")
+                    gtLog("  ⬇️ View received loadedSelectedFlcPeakID: \(peakID)")
                     selectedFlcPeakID = peakID
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedFlcPeakID = nil }
                 }
             }
             .onReceive(tap.$loadedPlateLength) { length in
                 if let length = length {
-                    print("  ⬇️ View received loadedPlateLength: \(length)mm")
+                    gtLog("  ⬇️ View received loadedPlateLength: \(length)mm")
                     if TapDisplaySettings.measurementType.isBrace {
                         TapDisplaySettings.braceLength = length
                     } else {
@@ -644,7 +644,7 @@ private struct AutoScaleModifier: ViewModifier {
                 if isNowRunning && isAutoScaleEnabled {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         if isAutoScaleEnabled && fft.isRunning {
-                            print("🔄 Auto-scale: Performing initial scale on analyzer start")
+                            gtLog("🔄 Auto-scale: Performing initial scale on analyzer start")
                             autoScaleAction()
                         }
                     }
@@ -653,7 +653,7 @@ private struct AutoScaleModifier: ViewModifier {
             .onChange(of: tap.isMeasurementComplete) { _, isComplete in
                 if isComplete && isAutoScaleEnabled {
                     isAutoScaleEnabled = false
-                    print("🔄 Auto-scale dB disabled - measurement complete")
+                    gtLog("🔄 Auto-scale dB disabled - measurement complete")
                 }
             }
     }

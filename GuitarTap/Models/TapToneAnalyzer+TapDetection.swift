@@ -372,7 +372,7 @@ extension TapToneAnalyzer {
         case .notStarted, .complete,
              .reviewingLongitudinal, .reviewingCross, .reviewingFlc:
             TAP_DEBUG("handlePlateTapDetection", "UNEXPECTED TAP | phase=\(phase) — tap ignored")
-            print("⚠️ Unexpected tap in plate phase: \(phase)")
+            gtLog("⚠️ Unexpected tap in plate phase: \(phase)")
         }
     }
     

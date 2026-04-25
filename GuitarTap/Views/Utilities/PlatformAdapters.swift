@@ -148,7 +148,7 @@ struct FileExportHelper {
                     try data.write(to: url)
                     completion(true)
                 } catch {
-                    print("❌ Failed to save file: \(error)")
+                    gtLog("❌ Failed to save file: \(error)")
                     completion(false)
                 }
             } else {
@@ -202,7 +202,7 @@ struct FileExportHelper {
                 }
             }
         } catch {
-            print("❌ Failed to prepare file for export: \(error)")
+            gtLog("❌ Failed to prepare file for export: \(error)")
             completion(false)
         }
     }

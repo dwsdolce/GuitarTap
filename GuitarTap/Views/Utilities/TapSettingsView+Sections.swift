@@ -632,7 +632,7 @@ extension TapSettingsView {
                 #endif
                 .onChange(of: fftAnalyzer.selectedInputDevice) { oldDevice, newDevice in
                     guard let device = newDevice, device.uid != oldDevice?.uid else { return }
-                    print("🔄 Device selection changed to: \(device.name)")
+                    gtLog("🔄 Device selection changed to: \(device.name)")
                     // Update calibration picker to reflect device's calibration
                     selectedCalibrationID = fftAnalyzer.activeCalibration?.id
                 }

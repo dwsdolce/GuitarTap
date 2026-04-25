@@ -238,7 +238,7 @@ extension TapSettingsView {
                 // Refresh the list
                 loadStoredCalibrations()
 
-                print("✅ Imported calibration '\(calibration.name)' with \(calibration.correctionPoints.count) data points")
+                gtLog("✅ Imported calibration '\(calibration.name)' with \(calibration.correctionPoints.count) data points")
             } catch {
                 calibrationImportError = error.localizedDescription
                 showingCalibrationError = true

@@ -116,11 +116,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                     // Device has a specific calibration - use it
                     // Use internal setter to avoid re-saving the mapping
                     setCalibrationWithoutSavingDeviceMapping(deviceCalibration)
-                    print("📊 Auto-loaded calibration '\(deviceCalibration.name)' for device '\(selectedInputDevice?.name ?? "unknown")'")
+                    gtLog("📊 Auto-loaded calibration '\(deviceCalibration.name)' for device '\(selectedInputDevice?.name ?? "unknown")'")
                 } else {
                     // No calibration for this device - clear any active calibration
                     setCalibrationWithoutSavingDeviceMapping(nil)
-                    print("📊 No calibration for device '\(selectedInputDevice?.name ?? "unknown")' - using uncalibrated mode")
+                    gtLog("📊 No calibration for device '\(selectedInputDevice?.name ?? "unknown")' - using uncalibrated mode")
                 }
             }
 
@@ -128,16 +128,16 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             // On macOS, if the engine is running and this change came from the user
             // (not from setInputDevice's own assignment), restart the engine with the new device.
             guard !isApplyingDeviceSwitch, isRunning, selectedInputDevice?.uid != oldValue?.uid else { return }
-            print("🔄 Device changed while running — restarting engine for: \(selectedInputDevice?.name ?? "unknown")")
+            gtLog("🔄 Device changed while running — restarting engine for: \(selectedInputDevice?.name ?? "unknown")")
             isApplyingDeviceSwitch = true
             stop()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 guard let self = self else { return }
                 do {
                     try self.start()
-                    print("✅ Engine restarted with new device: \(self.selectedInputDevice?.name ?? "unknown")")
+                    gtLog("✅ Engine restarted with new device: \(self.selectedInputDevice?.name ?? "unknown")")
                 } catch {
-                    print("❌ Failed to restart engine after device change: \(error)")
+                    gtLog("❌ Failed to restart engine after device change: \(error)")
                 }
                 self.isApplyingDeviceSwitch = false
             }
@@ -263,7 +263,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                 // Also associate this calibration with the current device
                 if let deviceUID = selectedInputDevice?.uid {
                     CalibrationStorage.shared.setCalibration(calibration.id, forDeviceUID: deviceUID)
-                    print("📊 Associated calibration '\(calibration.name)' with device '\(selectedInputDevice?.name ?? "unknown")'")
+                    gtLog("📊 Associated calibration '\(calibration.name)' with device '\(selectedInputDevice?.name ?? "unknown")'")
                 }
             } else {
                 CalibrationStorage.shared.activeCalibrationID = nil

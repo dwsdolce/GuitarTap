@@ -65,7 +65,7 @@ extension RealtimeFFTAnalyzer {
         )
         
         guard status == noErr else {
-            print("⚠️ Could not get audio device count")
+            gtLog("⚠️ Could not get audio device count")
             return
         }
         
@@ -82,7 +82,7 @@ extension RealtimeFFTAnalyzer {
         )
         
         guard status == noErr else {
-            print("⚠️ Could not get audio devices")
+            gtLog("⚠️ Could not get audio devices")
             return
         }
         
@@ -214,7 +214,7 @@ extension RealtimeFFTAnalyzer {
             )
             
             devices.append(device)
-            print("🎤 Found input device: \(name) @ \(sampleRate) Hz (UID: \(uid))")
+            gtLog("🎤 Found input device: \(name) @ \(sampleRate) Hz (UID: \(uid))")
         }
         
         DispatchQueue.main.async {
@@ -229,12 +229,12 @@ extension RealtimeFFTAnalyzer {
                 if let savedUID = UserDefaults.standard.string(forKey: "selectedInputDeviceUID"),
                    let savedDevice = devices.first(where: { $0.uid == savedUID }) {
                     self.selectedInputDevice = savedDevice
-                    print("🎤 Restored previously selected mic: \(savedDevice.name)")
+                    gtLog("🎤 Restored previously selected mic: \(savedDevice.name)")
                 } else
                 // Priority 1: Built-in microphone
                 if let builtInMic = devices.first(where: { $0.uid.contains("BuiltInMicrophone") }) {
                     self.selectedInputDevice = builtInMic
-                    print("🎤 Auto-selected built-in mic: \(builtInMic.name)")
+                    gtLog("🎤 Auto-selected built-in mic: \(builtInMic.name)")
                 } else {
                     // Priority 2: System default input device
                     var defaultDeviceID: AudioDeviceID = 0
@@ -255,11 +255,11 @@ extension RealtimeFFTAnalyzer {
                     if status == noErr, defaultDeviceID != 0,
                        let defaultDevice = devices.first(where: { $0.deviceID == defaultDeviceID }) {
                         self.selectedInputDevice = defaultDevice
-                        print("🎤 Auto-selected system default: \(defaultDevice.name) (ID: \(defaultDeviceID))")
+                        gtLog("🎤 Auto-selected system default: \(defaultDevice.name) (ID: \(defaultDeviceID))")
                     } else {
                         // Priority 3: First available device
                         self.selectedInputDevice = devices.first
-                        print("🎤 Auto-selected first device: \(devices.first!.name)")
+                        gtLog("🎤 Auto-selected first device: \(devices.first!.name)")
                     }
                 }
             } else {
@@ -277,23 +277,23 @@ extension RealtimeFFTAnalyzer {
                 if let firstNew = realNewDevices.first {
                     // New real device plugged in — switch to it automatically
                     self.selectedInputDevice = firstNew
-                    print("🎤 New device connected, auto-selected: \(firstNew.name)")
+                    gtLog("🎤 New device connected, auto-selected: \(firstNew.name)")
                 } else if let current = self.selectedInputDevice,
                           !devices.contains(where: { $0.uid == current.uid }) {
                     // Currently selected device was unplugged — fall back
                     if let builtIn = devices.first(where: { $0.uid.contains("BuiltInMicrophone") }) {
                         self.selectedInputDevice = builtIn
-                        print("🎤 '\(current.name)' disconnected, switched to built-in: \(builtIn.name)")
+                        gtLog("🎤 '\(current.name)' disconnected, switched to built-in: \(builtIn.name)")
                     } else {
                         self.selectedInputDevice = devices.first
-                        print("🎤 '\(current.name)' disconnected, switched to: \(devices.first?.name ?? "none")")
+                        gtLog("🎤 '\(current.name)' disconnected, switched to: \(devices.first?.name ?? "none")")
                     }
                 }
                 // If selected device is still present, no change needed
             }
         }
         
-        print("🎤 Found \(devices.count) audio input device(s) total")
+        gtLog("🎤 Found \(devices.count) audio input device(s) total")
     }
 
     /// Registers a CoreAudio `kAudioHardwarePropertyDevices` listener on the
@@ -321,9 +321,9 @@ extension RealtimeFFTAnalyzer {
             block
         )
         if status != noErr {
-            print("⚠️ Failed to register CoreAudio device change listener: \(status)")
+            gtLog("⚠️ Failed to register CoreAudio device change listener: \(status)")
         } else {
-            print("✅ Registered CoreAudio device change listener")
+            gtLog("✅ Registered CoreAudio device change listener")
         }
     }
 
@@ -369,7 +369,7 @@ extension RealtimeFFTAnalyzer {
         )
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             guard let self = self else { return }
-            print("🔄 Sample rate changed on device \(deviceID) — restarting engine if running")
+            gtLog("🔄 Sample rate changed on device \(deviceID) — restarting engine if running")
             DispatchQueue.main.async {
                 guard self.isRunning else { return }
                 self.stop()
@@ -378,9 +378,9 @@ extension RealtimeFFTAnalyzer {
                     do {
                         try self.start()
                         self.routeChangeRestartCount += 1
-                        print("✅ Engine restarted after sample rate change (restart #\(self.routeChangeRestartCount))")
+                        gtLog("✅ Engine restarted after sample rate change (restart #\(self.routeChangeRestartCount))")
                     } catch {
-                        print("❌ Failed to restart engine after sample rate change: \(error)")
+                        gtLog("❌ Failed to restart engine after sample rate change: \(error)")
                     }
                 }
             }
@@ -389,9 +389,9 @@ extension RealtimeFFTAnalyzer {
         sampleRateListenerDeviceID = deviceID
         let status = AudioObjectAddPropertyListenerBlock(deviceID, &address, nil, block)
         if status == noErr {
-            print("✅ Registered sample rate listener for device \(deviceID)")
+            gtLog("✅ Registered sample rate listener for device \(deviceID)")
         } else {
-            print("⚠️ Failed to register sample rate listener for device \(deviceID): \(status)")
+            gtLog("⚠️ Failed to register sample rate listener for device \(deviceID): \(status)")
         }
     }
 
@@ -436,18 +436,18 @@ extension RealtimeFFTAnalyzer {
                 // Use .playAndRecord to maximize device discovery
                 try session.setCategory(.playAndRecord, mode: .measurement, options: [.allowBluetoothA2DP])
                 try session.setActive(true, options: [])
-                print("🎙️ iOS audio session configured for device enumeration")
+                gtLog("🎙️ iOS audio session configured for device enumeration")
             } catch {
-                print("⚠️ Failed to configure audio session for device enumeration: \(error)")
+                gtLog("⚠️ Failed to configure audio session for device enumeration: \(error)")
                 // Continue anyway - we may still get some devices
             }
         } else {
-            print("🎙️ Skipping audio session reconfiguration - engine is running")
+            gtLog("🎙️ Skipping audio session reconfiguration - engine is running")
         }
         
         // Get available inputs from AVAudioSession
         guard let availableInputs = session.availableInputs else {
-            print("⚠️ No audio inputs available")
+            gtLog("⚠️ No audio inputs available")
             
             // Add current route as fallback
             if let currentInput = session.currentRoute.inputs.first {
@@ -474,7 +474,7 @@ extension RealtimeFFTAnalyzer {
         for port in availableInputs {
             // Skip ports with empty or invalid names
             guard !port.portName.isEmpty else {
-                print("⚠️ Skipping port with empty name (UID: \(port.uid))")
+                gtLog("⚠️ Skipping port with empty name (UID: \(port.uid))")
                 continue
             }
             
@@ -489,7 +489,7 @@ extension RealtimeFFTAnalyzer {
             devices.append(device)
             
             // Safe logging - only print known port types
-            print("🎤 Found input device: \(port.portName) [\(port.portType.description)] @ \(session.sampleRate) Hz")
+            gtLog("🎤 Found input device: \(port.portName) [\(port.portType.description)] @ \(session.sampleRate) Hz")
         }
         
         DispatchQueue.main.async {
@@ -504,7 +504,7 @@ extension RealtimeFFTAnalyzer {
             }
         }
         
-        print("🎤 Found \(devices.count) audio input device(s) total")
+        gtLog("🎤 Found \(devices.count) audio input device(s) total")
     }
     
 
@@ -524,7 +524,7 @@ extension RealtimeFFTAnalyzer {
             return
         }
         
-        print("🔄 Audio route changed: \(reason)")
+        gtLog("🔄 Audio route changed: \(reason)")
         
         // Track if engine was running before handling the change
         let wasRunning = isRunning
@@ -533,12 +533,12 @@ extension RealtimeFFTAnalyzer {
         case .newDeviceAvailable, .oldDeviceUnavailable:
             loadAvailableInputDevices()
             if wasRunning {
-                print("🔄 Restarting audio engine after route change (\(reason))...")
+                gtLog("🔄 Restarting audio engine after route change (\(reason))...")
                 restartEngineAfterRouteChange()
             }
             
         case .categoryChange:
-            print("🎤 Audio category changed - refreshing device list")
+            gtLog("🎤 Audio category changed - refreshing device list")
             // Don't restart on category change as it may have been triggered by our own code
             loadAvailableInputDevices()
             
@@ -560,11 +560,11 @@ extension RealtimeFFTAnalyzer {
             
             // Only restart if we're still supposed to be running
             guard self.isRunning else {
-                print("🔄 Skipping restart - analyzer was stopped")
+                gtLog("🔄 Skipping restart - analyzer was stopped")
                 return
             }
             
-            print("🔄 Performing engine restart...")
+            gtLog("🔄 Performing engine restart...")
             self.stop()
             
             // Give the system a moment to clean up
@@ -575,9 +575,9 @@ extension RealtimeFFTAnalyzer {
                     // Notify observers that a route change restart occurred
                     // This allows TapToneAnalyzer to reset its warmup timer and threshold state
                     self.routeChangeRestartCount += 1
-                    print("✅ Audio engine restarted successfully after route change (restart #\(self.routeChangeRestartCount))")
+                    gtLog("✅ Audio engine restarted successfully after route change (restart #\(self.routeChangeRestartCount))")
                 } catch {
-                    print("❌ Failed to restart audio engine: \(error)")
+                    gtLog("❌ Failed to restart audio engine: \(error)")
                 }
             }
         }
@@ -612,7 +612,7 @@ extension RealtimeFFTAnalyzer {
     /// - Throws: An error if `device.port` is `nil` on iOS, or if the engine
     ///   fails to restart on macOS.
     func setInputDevice(_ device: AVAudioDevice) throws {
-        print("🎤 Attempting to set input device to: \(device.name)")
+        gtLog("🎤 Attempting to set input device to: \(device.name)")
         
         #if os(iOS)
         // On iOS, set the preferred input using AVAudioSession
@@ -628,9 +628,9 @@ extension RealtimeFFTAnalyzer {
         
         do {
             try session.setPreferredInput(port)
-            print("✓ Successfully set input to: \(device.name)")
+            gtLog("✓ Successfully set input to: \(device.name)")
         } catch {
-            print("⚠️ Failed to set preferred input: \(error)")
+            gtLog("⚠️ Failed to set preferred input: \(error)")
             throw error
         }
         #else

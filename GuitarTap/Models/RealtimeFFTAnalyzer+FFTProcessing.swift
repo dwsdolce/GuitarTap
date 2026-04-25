@@ -91,7 +91,7 @@ extension RealtimeFFTAnalyzer {
     func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
         // Safety check: ensure we have channel data
         guard let channelData = buffer.floatChannelData else {
-            print("⚠️ No channel data in buffer!")
+            gtLog("⚠️ No channel data in buffer!")
             return
         }
         
@@ -316,7 +316,7 @@ extension RealtimeFFTAnalyzer {
             vDSP_Length(paddedSize),
             vDSP_DFT_Direction.FORWARD
         ) else {
-            print("⚠️ computeGatedFFT: failed to create DFT setup for size \(paddedSize)")
+            gtLog("⚠️ computeGatedFFT: failed to create DFT setup for size \(paddedSize)")
             return ([], [])
         }
         defer { vDSP_DFT_DestroySetup(setup) }

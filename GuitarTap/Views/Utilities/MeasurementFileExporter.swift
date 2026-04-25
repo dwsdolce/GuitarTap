@@ -118,7 +118,7 @@ struct MeasurementFileExporter {
             try data.write(to: tempURL)
             presentShareSheet(items: [tempURL], completion: completion)
         } catch {
-            print("❌ Failed to write PDF to temp: \(error)")
+            gtLog("❌ Failed to write PDF to temp: \(error)")
             completion()
         }
     }
@@ -142,9 +142,9 @@ struct MeasurementFileExporter {
                     // already open in another application (e.g. Acrobat) the write
                     // either succeeds cleanly or throws a meaningful error.
                     try data.write(to: url, options: .atomic)
-                    print("✅ Saved PDF report to: \(url.path)")
+                    gtLog("✅ Saved PDF report to: \(url.path)")
                 } catch {
-                    print("❌ Failed to save PDF: \(error)")
+                    gtLog("❌ Failed to save PDF: \(error)")
                     DispatchQueue.main.async {
                         let alert = NSAlert()
                         alert.alertStyle = .warning
@@ -214,9 +214,9 @@ struct MeasurementFileExporter {
                 lastUsedDirectory = url.deletingLastPathComponent()
                 do {
                     try json.write(to: url, atomically: true, encoding: .utf8)
-                    print("✅ Saved measurement to: \(url.path)")
+                    gtLog("✅ Saved measurement to: \(url.path)")
                 } catch {
-                    print("❌ Failed to save measurement: \(error)")
+                    gtLog("❌ Failed to save measurement: \(error)")
                 }
             }
             completion()
@@ -266,7 +266,7 @@ struct MeasurementFileExporter {
             try json.write(to: jsonURL, atomically: true, encoding: .utf8)
             presentShareSheet(items: [jsonURL], completion: completion)
         } catch {
-            print("Failed to export JSON: \(error)")
+            gtLog("Failed to export JSON: \(error)")
             completion()
         }
     }
@@ -278,7 +278,7 @@ struct MeasurementFileExporter {
     /// suggested file name (e.g. "bridge-2024-01-15.png").
     private static func exportSpectrumImageiOS(imageData: Data?, basename: String, completion: @escaping () -> Void) {
         guard let imageData = imageData else {
-            print("No spectrum image available for this measurement")
+            gtLog("No spectrum image available for this measurement")
             completion()
             return
         }
@@ -290,7 +290,7 @@ struct MeasurementFileExporter {
             try imageData.write(to: imageURL)
             presentShareSheet(items: [imageURL], completion: completion)
         } catch {
-            print("Failed to export spectrum image: \(error)")
+            gtLog("Failed to export spectrum image: \(error)")
             completion()
         }
     }
@@ -341,7 +341,7 @@ struct MeasurementFileExporter {
             try json.write(to: fileURL, atomically: true, encoding: .utf8)
             presentSharingPicker(items: [fileURL], completion: completion)
         } catch {
-            print("❌ Failed to prepare measurement for sharing: \(error)")
+            gtLog("❌ Failed to prepare measurement for sharing: \(error)")
             completion()
         }
     }
@@ -349,7 +349,7 @@ struct MeasurementFileExporter {
     /// macOS implementation: presents an `NSSavePanel` for the spectrum PNG.
     private static func exportSpectrumImageMacOS(imageData: Data?, basename: String, completion: @escaping () -> Void) {
         guard let imageData = imageData else {
-            print("No spectrum image available for this measurement")
+            gtLog("No spectrum image available for this measurement")
             completion()
             return
         }
@@ -364,9 +364,9 @@ struct MeasurementFileExporter {
                 lastUsedDirectory = url.deletingLastPathComponent()
                 do {
                     try imageData.write(to: url)
-                    print("✅ Saved spectrum image to: \(url.path)")
+                    gtLog("✅ Saved spectrum image to: \(url.path)")
                 } catch {
-                    print("❌ Failed to save spectrum image: \(error)")
+                    gtLog("❌ Failed to save spectrum image: \(error)")
                 }
             }
             completion()

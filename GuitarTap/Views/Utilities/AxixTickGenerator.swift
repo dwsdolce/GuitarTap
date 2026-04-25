@@ -142,7 +142,7 @@ struct AxisTickGenerator {
         base: Double
     ) -> [Double] {
         guard min > 0 && max > 0 else {
-            print("Warning: Logarithmic scale requires positive values")
+            gtLog("Warning: Logarithmic scale requires positive values")
             return generateLinearTicks(min: Swift.max(min, 0.001), max: max, maxTicks: maxTicks)
         }
 

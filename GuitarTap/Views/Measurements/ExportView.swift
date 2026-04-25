@@ -196,7 +196,7 @@ struct ExportView: View {
                         self.showingSaveConfirmation = false
                     }
                 } catch {
-                    print("Failed to save file: \(error)")
+                    gtLog("Failed to save file: \(error)")
                 }
             }
         }

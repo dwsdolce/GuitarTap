@@ -152,7 +152,7 @@ extension TapToneAnalyzer {
         gatedCaptureActive = true
 
         let windowMs = Int(TapToneAnalyzer.gatedCaptureDuration * 1000)
-        print("🎯 Gated FFT capture started for phase \(phase) — \(gatedCaptureSamples)-sample window (\(windowMs) ms at \(Int(mpmSampleRate)) Hz)")
+        gtLog("🎯 Gated FFT capture started for phase \(phase) — \(gatedCaptureSamples)-sample window (\(windowMs) ms at \(Int(mpmSampleRate)) Hz)")
 
         // Safety timeout: close capture window after 2 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
@@ -165,7 +165,7 @@ extension TapToneAnalyzer {
             if !partial.isEmpty {
                 self.finishGatedFFTCapture(samples: partial, sampleRate: self.mpmSampleRate, phase: phase)
             } else {
-                print("⚠️ Gated capture timeout with no samples — tap again")
+                gtLog("⚠️ Gated capture timeout with no samples — tap again")
                 self.statusMessage = "No signal detected — tap again"
                 self.reEnableDetectionForNextPlateTap()
             }
@@ -204,7 +204,7 @@ extension TapToneAnalyzer {
         let (magnitudes, frequencies) = fftAnalyzer.computeGatedFFT(samples: samples, sampleRate: sampleRate)
 
         guard !magnitudes.isEmpty else {
-            print("⚠️ Gated FFT returned empty spectrum — tap again")
+            gtLog("⚠️ Gated FFT returned empty spectrum — tap again")
             statusMessage = "No signal detected — tap again"
             reEnableDetectionForNextPlateTap()
             return
@@ -263,7 +263,7 @@ extension TapToneAnalyzer {
                                                    minHz: hpsMinHz,
                                                    maxHz: hpsMaxHz,
                                                    preferLowestSignificant: preferLowest) else {
-            print("⚠️ Gated FFT: no peak found — tap again")
+            gtLog("⚠️ Gated FFT: no peak found — tap again")
             statusMessage = "No resonance detected — tap again"
             reEnableDetectionForNextPlateTap()
             return
@@ -279,13 +279,13 @@ extension TapToneAnalyzer {
         // The tap trigger threshold already ensures the audio event was real.
         let isFlcPhase = (phase == .capturingFlc || phase == .waitingForFlcTap)
         if !isFlcPhase && dominantPeak.magnitude < tapDetectionThreshold {
-            print("⚠️ Gated FFT: dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB is below tap detection threshold (\(String(format: "%.0f", tapDetectionThreshold)) dB) — tap again")
+            gtLog("⚠️ Gated FFT: dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB is below tap detection threshold (\(String(format: "%.0f", tapDetectionThreshold)) dB) — tap again")
             statusMessage = "Signal too quiet — tap harder"
             reEnableDetectionForNextPlateTap()
             return
         }
 
-        print("📊 Gated FFT complete: \(magnitudes.count) bins, dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB, phase \(phase)")
+        gtLog("📊 Gated FFT complete: \(magnitudes.count) bins, dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB, phase \(phase)")
 
         // Store spectrum so the UI can display it and the user can select alternate peaks
         materialCapturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: Date()))
@@ -309,7 +309,7 @@ extension TapToneAnalyzer {
                                    dominantPeak: dominantPeak)
         case .notStarted, .complete,
              .reviewingLongitudinal, .reviewingCross, .reviewingFlc:
-            print("⚠️ Unexpected gated FFT capture in phase: \(phase)")
+            gtLog("⚠️ Unexpected gated FFT capture in phase: \(phase)")
         }
     }
 
@@ -423,7 +423,7 @@ extension TapToneAnalyzer {
         if highQCandidates.count < candidates.count {
             let rejected = candidates.filter { $0.qFactor < minQ }
             let rejStr = rejected.map { String(format: "%.0f Hz (Q=%.1f)", frequencies[$0.index], $0.qFactor) }.joined(separator: ", ")
-            print("🔇 Q-filtered out low-Q peaks: \(rejStr)")
+            gtLog("🔇 Q-filtered out low-Q peaks: \(rejStr)")
         }
         let pool = highQCandidates.isEmpty ? candidates : highQCandidates
 
@@ -464,7 +464,7 @@ extension TapToneAnalyzer {
         let pitchNote  = pitchCalculator.note(frequency: Double(freq))
         let pitchCents = pitchCalculator.cents(frequency: Double(freq))
         let pitchFreq  = pitchCalculator.freq0(frequency: Double(freq))
-        print("🎯 Dominant peak: \(String(format: "%.1f", freq)) Hz @ \(String(format: "%.1f", mag)) dB (Q: \(String(format: "%.1f", best.qFactor)), HPS score: \(String(format: "%.3e", best.hpsScore)))")
+        gtLog("🎯 Dominant peak: \(String(format: "%.1f", freq)) Hz @ \(String(format: "%.1f", mag)) dB (Q: \(String(format: "%.1f", best.qFactor)), HPS score: \(String(format: "%.3e", best.hpsScore)))")
         return ResonantPeak(frequency: freq, magnitude: mag,
                             quality: quality, bandwidth: bandwidth,
                             pitchNote: pitchNote, pitchCents: pitchCents,
@@ -491,7 +491,7 @@ extension TapToneAnalyzer {
                                          dominantPeak: ResonantPeak) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
-        print("📊 Gated LONGITUDINAL tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
+        gtLog("📊 Gated LONGITUDINAL tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
 
         if captured < total {
             statusMessage = "L tap \(captured)/\(total) captured. Tap again..."
@@ -509,7 +509,7 @@ extension TapToneAnalyzer {
                                           dominantPeak: dominantPeak)
         autoSelectedLongitudinalPeakID = dominantPeak.id
         selectedLongitudinalPeak = longitudinalPeaks.first(where: { $0.id == dominantPeak.id }) ?? dominantPeak
-        print("🔵 Auto-selected longitudinal peak: \(dominantPeak.frequency) Hz")
+        gtLog("🔵 Auto-selected longitudinal peak: \(dominantPeak.frequency) Hz")
 
         currentPeaks      = longitudinalPeaks
         // Only the identified (auto-selected) peak is selected — others are informational.
@@ -528,7 +528,7 @@ extension TapToneAnalyzer {
             isMeasurementComplete = true
             tapProgress = 1.0
             statusMessage = "Complete - check Results"
-            print("✅ Brace measurement complete: fL=\(dominantPeak.frequency) Hz")
+            gtLog("✅ Brace measurement complete: fL=\(dominantPeak.frequency) Hz")
         } else {
             // Freeze the L spectrum for display and pause at the review state.
             // The user must press Accept (advance to C) or Redo (re-capture L).
@@ -592,7 +592,7 @@ extension TapToneAnalyzer {
                                    dominantPeak: ResonantPeak) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
-        print("📊 Gated CROSS-GRAIN tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
+        gtLog("📊 Gated CROSS-GRAIN tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
 
         if captured < total {
             statusMessage = "C tap \(captured)/\(total) captured. Tap again..."
@@ -605,7 +605,7 @@ extension TapToneAnalyzer {
         crossPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs, dominantPeak: dominantPeak)
         autoSelectedCrossPeakID = dominantPeak.id
         selectedCrossPeak = crossPeaks.first(where: { $0.id == dominantPeak.id }) ?? dominantPeak
-        print("🟠 Auto-selected cross-grain peak: \(dominantPeak.frequency) Hz")
+        gtLog("🟠 Auto-selected cross-grain peak: \(dominantPeak.frequency) Hz")
         materialCapturedTaps = []
 
         // Freeze the C spectrum for display and pause at the review state.
@@ -634,7 +634,7 @@ extension TapToneAnalyzer {
                                  dominantPeak: ResonantPeak) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
-        print("📊 Gated FLC tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
+        gtLog("📊 Gated FLC tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
 
         if captured < total {
             statusMessage = "FLC tap \(captured)/\(total) captured. Tap again..."
@@ -647,7 +647,7 @@ extension TapToneAnalyzer {
         flcPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs, dominantPeak: dominantPeak)
         autoSelectedFlcPeakID = dominantPeak.id
         selectedFlcPeak = flcPeaks.first(where: { $0.id == dominantPeak.id }) ?? dominantPeak
-        print("🟣 Auto-selected FLC peak: \(dominantPeak.frequency) Hz")
+        gtLog("🟣 Auto-selected FLC peak: \(dominantPeak.frequency) Hz")
         materialCapturedTaps = []
 
         // Freeze the FLC spectrum for display and pause at the review state.
@@ -659,7 +659,7 @@ extension TapToneAnalyzer {
         materialTapPhase = .reviewingFlc
         isDetecting = false
         statusMessage = "fLC: \(String(format: "%.1f", dominantPeak.frequency)) Hz — Accept to complete or Redo to re-tap"
-        print("📊 FLC review: L=\(longitudinalPeaks.first?.frequency ?? 0) C=\(crossPeaks.first?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
+        gtLog("📊 FLC review: L=\(longitudinalPeaks.first?.frequency ?? 0) C=\(crossPeaks.first?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
     }
 
     /// Builds a display-ready peak list from a gated-FFT spectrum, ensuring
@@ -746,7 +746,7 @@ extension TapToneAnalyzer {
         // Ensure all spectra have the same length
         let spectrumLength = taps[0].magnitudes.count
         guard taps.allSatisfy({ $0.magnitudes.count == spectrumLength }) else {
-            print("⚠️ Warning: Spectrum lengths don't match, using first tap only")
+            gtLog("⚠️ Warning: Spectrum lengths don't match, using first tap only")
             return (taps[0].magnitudes, taps[0].frequencies)
         }
         
@@ -772,7 +772,7 @@ extension TapToneAnalyzer {
         // Frequencies should be identical across all taps, use first one
         let frequencies = taps[0].frequencies
         
-        print("📊 Averaged \(taps.count) spectra: \(spectrumLength) bins each")
+        gtLog("📊 Averaged \(taps.count) spectra: \(spectrumLength) bins each")
         
         return (magnitudes: averagedMagnitudes, frequencies: frequencies)
     }
@@ -792,7 +792,7 @@ extension TapToneAnalyzer {
     func processMultipleTaps() {
         guard !capturedTaps.isEmpty else { return }
         
-        print("🔬 Processing \(capturedTaps.count) taps for averaging...")
+        gtLog("🔬 Processing \(capturedTaps.count) taps for averaging...")
         
         // Average the per-tap magnitude spectra in the frequency domain
         let (avgMagnitudes, avgFrequencies) = averageSpectra(from: capturedTaps)
@@ -802,7 +802,7 @@ extension TapToneAnalyzer {
         // assigning them separately causes a transient length mismatch between render passes.
         setFrozenSpectrum(frequencies: avgFrequencies, magnitudes: avgMagnitudes)
         isMeasurementComplete = true
-        print("📸 Guitar spectrum captured from \(capturedTaps.count) averaged taps")
+        gtLog("📸 Guitar spectrum captured from \(capturedTaps.count) averaged taps")
         
         // Find peaks in the AVERAGED spectrum so they align with what's displayed.
         // This ensures peak markers sit on actual peaks in the averaged waveform.
@@ -827,6 +827,6 @@ extension TapToneAnalyzer {
         statusMessage = "Analysis complete! \(peaksFromAveragedSpectrum.count) peaks identified (from \(capturedTaps.count) averaged taps)."
         tapProgress = 1.0
         
-        print("✅ Found \(peaksFromAveragedSpectrum.count) peaks in averaged spectrum from \(capturedTaps.count) taps")
+        gtLog("✅ Found \(peaksFromAveragedSpectrum.count) peaks in averaged spectrum from \(capturedTaps.count) taps")
     }
 }
