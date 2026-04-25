@@ -440,40 +440,33 @@ extension RealtimeFFTAnalyzer {
         // actualSampleRate drives all FFT bin→frequency calculations.
         actualSampleRate = engineSampleRate
 
-        // Build the engine graph using the rate the engine will actually deliver.
-        // On macOS this equals the file rate.  On iOS it equals the hardware rate
-        // (which may differ if iOS ignored setPreferredSampleRate).
-        guard let engineFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: engineSampleRate,
-            channels: fileFormat.channelCount,
-            interleaved: false
-        ) else {
-            throw NSError(domain: "RealtimeFFTAnalyzer", code: -1,
-                          userInfo: [NSLocalizedDescriptionKey: "Failed to create engine format for file playback"])
-        }
-
-        // Build a mono Float32 tap format at the engine's (hardware) sample rate.
-        guard let tapFormat = AVAudioFormat(
+        // Build a mono Float32 format at the engine's sample rate.
+        // Always mono: tap detection and FFT operate on a single channel.
+        // The mainMixerNode handles stereo→mono downmix automatically when
+        // a stereo file is connected with a mono format.
+        guard let monoFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: engineSampleRate,
             channels: 1,
             interleaved: false
         ) else {
             throw NSError(domain: "RealtimeFFTAnalyzer", code: -1,
-                          userInfo: [NSLocalizedDescriptionKey: "Failed to create tap format for file playback"])
+                          userInfo: [NSLocalizedDescriptionKey: "Failed to create mono format for file playback"])
         }
 
         // Create and attach a player node.
         let player = AVAudioPlayerNode()
         audioEngine.attach(player)
-        // Connect player → mainMixerNode using the engine format.
-        // AVAudioEngine handles file-rate → engine-rate resampling automatically.
-        audioEngine.connect(player, to: audioEngine.mainMixerNode, format: engineFormat)
+        // Connect player → mainMixerNode with the mono format.
+        // AVAudioEngine handles both sample-rate conversion (file rate → engine rate)
+        // and channel downmix (stereo → mono) automatically at the connection point.
+        audioEngine.connect(player, to: audioEngine.mainMixerNode, format: monoFormat)
 
         // Install the tap on the player node — same buffer size as the mic path.
+        // The tap format matches the connection format (mono), so no further
+        // channel conversion is needed inside processAudioBuffer.
         let bufferSize: AVAudioFrameCount = 1024
-        player.installTap(onBus: 0, bufferSize: bufferSize, format: tapFormat) { [weak self] buffer, _ in
+        player.installTap(onBus: 0, bufferSize: bufferSize, format: monoFormat) { [weak self] buffer, _ in
             guard let self else { return }
             self.audioProcessingQueue.async {
                 self.processAudioBuffer(buffer)
