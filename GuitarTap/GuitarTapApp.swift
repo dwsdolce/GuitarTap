@@ -18,15 +18,6 @@
 /// `Notification.Name.openMeasurementFile` so that `MeasurementsListView`
 /// can import the file regardless of which view is currently on screen.
 ///
-/// ## Debug Log Redirection (macOS only)
-///
-/// `redirectOutputToFile()` runs at app init. When no debugger is attached it
-/// redirects `stdout` and `stderr` to
-/// `~/Library/Logs/GuitarTap-debug.log` (sandbox-relative) using
-/// `dup2`, enabling post-mortem log inspection after force restarts. Each
-/// launch appends an ISO 8601 timestamp separator so successive runs are easy
-/// to distinguish. When Xcode is attached the function is a no-op.
-///
 /// ## Global Constants
 ///
 /// | Constant | Value |
@@ -45,48 +36,7 @@ extension Notification.Name {
     static let openMeasurementFile = Notification.Name("GuitarTap.openMeasurementFile")
 }
 
-#if os(macOS)
-/// Returns `true` when a debugger (e.g. Xcode) is attached to this process.
-///
-/// Used to skip `stdout`/`stderr` redirection so Xcode's console still
-/// receives output during development. Implemented via `sysctl` and the
-/// `P_TRACED` process flag.
-private func isDebuggerAttached() -> Bool {
-    var info = kinfo_proc()
-    var size = MemoryLayout<kinfo_proc>.stride
-    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
-    sysctl(&mib, 4, &info, &size, nil, 0)
-    return (info.kp_proc.p_flag & P_TRACED) != 0
-}
 
-private func redirectOutputToFile() {
-    // When running under Xcode, keep stdout/stderr on the console as normal.
-    guard !isDebuggerAttached() else { return }
-
-    // The app is sandboxed — write inside the container's Library/Logs directory
-    guard let containerLibrary = FileManager.default
-        .urls(for: .libraryDirectory, in: .userDomainMask).first else { return }
-    let logDir = containerLibrary.appendingPathComponent("Logs")
-    try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
-    let logFile = logDir.appendingPathComponent("GuitarTap-debug.log")
-    // Append mode so successive restarts don't overwrite each other
-    if FileManager.default.fileExists(atPath: logFile.path) == false {
-        FileManager.default.createFile(atPath: logFile.path, contents: nil)
-    }
-    if let fd = fopen(logFile.path, "a") {
-        // Timestamp separator so restarts are easy to spot
-        let ts = ISO8601DateFormatter().string(from: Date())
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        fputs("\n\n=== GuitarTap \(version) (\(build)) launched \(ts) ===\n", fd)
-        fflush(fd)
-        dup2(fileno(fd), STDOUT_FILENO)
-        dup2(fileno(fd), STDERR_FILENO)
-        fclose(fd)
-        setbuf(stdout, nil)   // unbuffered so writes appear immediately
-    }
-}
-#endif
 
 let appVersion: String = {
     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -258,12 +208,6 @@ struct AppCommands: Commands {
 // MARK: - App Entry Point
 @main
 struct GuitarTapApp: App {
-    init() {
-        #if os(macOS)
-        redirectOutputToFile()
-        #endif
-    }
-
     var body: some Scene {
         #if os(macOS)
         // On macOS, use Window instead of WindowGroup to prevent multiple instances
