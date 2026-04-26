@@ -107,6 +107,21 @@ extension TapToneAnalysisView {
                                  || nsError.code == -10877
             if isPermissionError {
                 showingMicrophonePermissionAlert = true
+            } else if nsError.code == 1937010544 {
+                // kAUStartIO ('iost') — transient Core Audio I/O start failure.
+                // Typically caused by a Continuity Audio device connecting or disconnecting
+                // at the same moment the engine tries to start.  Retry once after a short
+                // settle delay; surface an error only if the retry also fails.
+                gtLog("⚠️ kAUStartIO race detected — retrying engine start in 1 s")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    do {
+                        try tapToneAnalyzer.start()
+                        gtLog("✅ Engine started successfully on kAUStartIO retry")
+                    } catch {
+                        gtLog("❌ Engine start retry failed: \(error)")
+                        engineStartError = "The audio engine could not start (error \((error as NSError).code)). Try switching the audio input device in Settings, or restart the app.\n\nDetails: \(error.localizedDescription)"
+                    }
+                }
             } else {
                 // Surface unexpected engine errors so the user isn't silently stuck on "Starting...".
                 // Include the error code to help diagnose hardware-specific failures.

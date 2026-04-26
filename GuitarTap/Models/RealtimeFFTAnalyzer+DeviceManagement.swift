@@ -219,7 +219,10 @@ extension RealtimeFFTAnalyzer {
         
         DispatchQueue.main.async {
             let previousDevices = self.availableInputDevices
-            self.availableInputDevices = devices
+            // Strip internal macOS aggregate devices before exposing the list to the UI.
+            // CADefaultDeviceAggregate is a transient system-internal device that appears
+            // during audio routing transitions — it is never a meaningful user selection.
+            self.availableInputDevices = devices.filter { !$0.uid.contains("CADefaultDeviceAggregate") }
 
             if previousDevices.isEmpty {
                 // ── Initial load: priority-based auto-selection ──────────────────
@@ -274,8 +277,22 @@ extension RealtimeFFTAnalyzer {
                 // user-facing microphones.
                 let realNewDevices = newlyConnected.filter { !$0.uid.contains("CADefaultDeviceAggregate") }
 
-                if let firstNew = realNewDevices.first {
-                    // New real device plugged in — switch to it automatically
+                // Only auto-select deliberate connections (USB, Bluetooth, built-in, etc.).
+                // Continuity Camera/Audio devices appear autonomously whenever an iPhone is
+                // nearby — switching the mic without user action mid-session is dangerous.
+                // We still add them to availableInputDevices so the user can pick them manually.
+                let autoSelectableNewDevices = realNewDevices.filter { device in
+                    let transport = self.transportType(for: device.deviceID)
+                    let isContinuity = transport == kAudioDeviceTransportTypeContinuityCaptureWired
+                                   || transport == kAudioDeviceTransportTypeContinuityCaptureWireless
+                    if isContinuity {
+                        gtLog("🎤 Continuity Audio device appeared (not auto-selected): \(device.name)")
+                    }
+                    return !isContinuity
+                }
+
+                if let firstNew = autoSelectableNewDevices.first {
+                    // New real device plugged in deliberately — switch to it automatically
                     self.selectedInputDevice = firstNew
                     gtLog("🎤 New device connected, auto-selected: \(firstNew.name)")
                 } else if let current = self.selectedInputDevice,
@@ -294,6 +311,23 @@ extension RealtimeFFTAnalyzer {
         }
         
         gtLog("🎤 Found \(devices.count) audio input device(s) total")
+    }
+
+    /// Returns the CoreAudio transport type for the given device, or
+    /// `kAudioDeviceTransportTypeUnknown` if the property cannot be read.
+    ///
+    /// Used to distinguish Continuity Audio devices (which appear autonomously
+    /// due to iPhone proximity) from deliberately connected USB/Bluetooth devices.
+    private func transportType(for deviceID: AudioDeviceID) -> UInt32 {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var transport: UInt32 = kAudioDeviceTransportTypeUnknown
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &transport)
+        return transport
     }
 
     /// Registers a CoreAudio `kAudioHardwarePropertyDevices` listener on the

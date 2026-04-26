@@ -720,11 +720,19 @@ private struct LifecycleModifier: ViewModifier {
                     fft.microphonePermissionDenied = false
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { _ in
-                // Stop the engine when the window is closed.  On macOS with a single Window
-                // scene, closing hides the view without destroying the @StateObject, so deinit
-                // never fires.  Without this handler the audio engine runs indefinitely in the
-                // background after the window is dismissed.  Mirrors the iOS .background handler.
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
+                // Stop the engine when the *main* window is closed.  On macOS with a single
+                // Window scene, closing hides the view without destroying the @StateObject, so
+                // deinit never fires.  Without this handler the audio engine runs indefinitely
+                // in the background after the window is dismissed.  Mirrors the iOS .background
+                // handler.
+                //
+                // IMPORTANT: NSWindow.willCloseNotification fires for every window, including
+                // sheets, popovers, and the Measurements detail window.  We must check that the
+                // closing window is the main (key) app window — otherwise closing a detail sheet
+                // (e.g. after loading a measurement) stops the engine spuriously.
+                guard let closingWindow = notification.object as? NSWindow,
+                      closingWindow == NSApplication.shared.mainWindow else { return }
                 if fft.isRunning { tap.stop() }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { _ in
