@@ -32,6 +32,11 @@ import Foundation
 import AVFoundation
 @testable import GuitarTap
 
+// Used to anchor Bundle(for:) lookups to the GuitarTapTests bundle.
+private class TestBundleMarker: NSObject {}
+
+private var testBundle: Bundle { Bundle(for: TestBundleMarker.self) }
+
 // ---------------------------------------------------------------------------
 // MARK: - Expected values per test file
 // ---------------------------------------------------------------------------
@@ -92,15 +97,12 @@ private func runFilePipeline(
     _ expectation: FilePipelineExpectation
 ) -> (peaks: [ResonantPeak], modeMap: [UUID: GuitarMode], frequencies: [Float])? {
 
-    // Locate file: Tests/ directory alongside the xcodeproj
-    let sourceDir = URL(fileURLWithPath: #file)
-        .deletingLastPathComponent()  // GuitarTapTests/
-        .deletingLastPathComponent()  // GuitarTap/ (project root)
-    let url = sourceDir
-        .appendingPathComponent("Tests")
-        .appendingPathComponent(expectation.filename)
-
-    guard FileManager.default.fileExists(atPath: url.path),
+    // Locate file in the test bundle. Fixtures must be added to the GuitarTapTests
+    // target's Copy Bundle Resources phase so they are available on all platforms.
+    let stem = (expectation.filename as NSString).deletingPathExtension
+    let ext  = (expectation.filename as NSString).pathExtension
+    guard let url = testBundle.url(forResource: stem, withExtension: ext),
+          FileManager.default.fileExists(atPath: url.path),
           let file = try? AVAudioFile(forReading: url) else { return nil }
 
     let sampleRate = file.fileFormat.sampleRate
@@ -207,14 +209,10 @@ struct FilePlaybackPipelineTests {
 
     // FP1: The reference WAV file loads and contains audio at the expected sample rate.
     @Test func FP1_tapTest2_loadsSuccessfully() {
-        let sourceDir = URL(fileURLWithPath: #file)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let url = sourceDir
-            .appendingPathComponent("Tests")
-            .appendingPathComponent(tapTest2.filename)
-
-        guard FileManager.default.fileExists(atPath: url.path) else {
+        let stem = (tapTest2.filename as NSString).deletingPathExtension
+        let ext  = (tapTest2.filename as NSString).pathExtension
+        guard let url = testBundle.url(forResource: stem, withExtension: ext),
+              FileManager.default.fileExists(atPath: url.path) else {
             Issue.record("\(tapTest2.filename) not found — skipping")
             return
         }

@@ -720,6 +720,13 @@ private struct LifecycleModifier: ViewModifier {
                     fft.microphonePermissionDenied = false
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { _ in
+                // Stop the engine when the window is closed.  On macOS with a single Window
+                // scene, closing hides the view without destroying the @StateObject, so deinit
+                // never fires.  Without this handler the audio engine runs indefinitely in the
+                // background after the window is dismissed.  Mirrors the iOS .background handler.
+                if fft.isRunning { tap.stop() }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { _ in
                 // Stop the engine when the window is minimized to the Dock and restart when restored.
                 // This mirrors the iOS background behaviour and avoids unnecessary CPU/audio use
@@ -742,7 +749,12 @@ private struct LifecycleModifier: ViewModifier {
                 case .background:
                     if fft.isRunning { tap.stop() }
                 case .active:
-                    if !fft.isRunning { toggleAnalyzer() }
+                    // Use startAnalyzer() directly rather than toggleAnalyzer(): permission is
+                    // already established (the engine was running before backgrounding), so the
+                    // async permission-check round-trip in toggleAnalyzer() is unnecessary and
+                    // would trigger a spurious route-change restart + 3 s settle on every resume.
+                    // Mirrors the macOS deminimize handler which also calls startAnalyzer() directly.
+                    if !fft.isRunning { startAnalyzer() }
                 default:
                     break
                 }
