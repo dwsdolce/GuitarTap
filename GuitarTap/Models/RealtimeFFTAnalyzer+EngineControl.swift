@@ -43,22 +43,28 @@ extension RealtimeFFTAnalyzer {
         // permission is confirmed).
         inputNode?.removeTap(onBus: 0)
 
-        // Fully replace the audio engine with a fresh instance rather than reusing it.
-        // After macOS force-restarts the app following a permission revocation, the existing
-        // AVAudioEngine is in an irrecoverably broken state — reset() is not sufficient.
+        // Reset the engine rather than replacing it with a new instance.
         //
-        // IMPORTANT: Nil out inputNode before stopping / replacing the engine.
-        // Holding a strong reference to the old inputNode while the engine tears down its
-        // AUHAL unit on the AVAudioIOUnit queue causes a malloc-corruption crash
-        // ("BUG IN CLIENT OF LIBMALLOC: memory corruption of free block") because
-        // the main thread re-enters AVAudioEngineImpl::UpdateInputNode — which
-        // sync-dispatches onto the same queue — while CoreAudio is still tearing
-        // down the old IOProc on that queue.  Releasing the reference first lets
-        // the old engine fully quiesce before the new one is created.
-        inputNode = nil
+        // Previously this created a new AVAudioEngine() on every start(). That caused a
+        // malloc heap-corruption crash (EXC_BREAKPOINT in _xzm_xzone_malloc_freelist) because:
+        //   1. audioEngine.stop() dispatches AUHAL teardown asynchronously on the AVAudioIOUnit queue.
+        //   2. Accessing inputNode on the new engine immediately after causes
+        //      AVAudioEngineImpl::UpdateInputNode to sync-dispatch onto that same queue
+        //      while the old teardown is still running, corrupting the heap.
+        //
+        // audioEngine.reset() avoids this entirely: it resets connections and taps on
+        // the same engine instance without replacing the underlying AUHAL unit, so
+        // there is no teardown/startup race. The inputNode reference remains valid.
+        //
+        // Permission revocation causes a full process restart by macOS, so a fresh
+        // AVAudioEngine() from init() is always available for that case anyway.
         audioEngine.stop()
-        audioEngine = AVAudioEngine()
-        inputNode = audioEngine.inputNode
+        audioEngine.reset()
+        // Assign inputNode on first call (it is intentionally left nil in init until
+        // permissions are confirmed). On subsequent calls it remains valid across reset().
+        if inputNode == nil {
+            inputNode = audioEngine.inputNode
+        }
         
         #if os(macOS)
         // Request microphone permission explicitly on macOS

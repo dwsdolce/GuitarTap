@@ -988,30 +988,70 @@ final class TapToneAnalyzer: ObservableObject {
         isAboveThreshold = true
         tapDetected = false
 
+        // Freeze the display on the last good spectrum while the pipeline refills with
+        // valid data from the new device.  This prevents the transitional noise/silence
+        // from the device switch showing as a bogus live waveform.
+        // Only freeze if we were in live mode — don't disturb a frozen measurement result.
+        let wasLive = (displayMode == .live)
+        if wasLive {
+            // Show a blank spectrum during the settle period rather than the old
+            // device's spectrum, which would be confusing (wrong noise floor, wrong
+            // shape).  Empty arrays signal the view to render nothing.
+            setFrozenSpectrum(frequencies: [], magnitudes: [])
+            displayMode = .frozen
+            // Clear peak annotations so they don't float on a blank chart during settle.
+            currentPeaks = []
+            identifiedModes = []
+        }
+
         statusMessage = "Audio device changed - reinitializing..."
 
         // Wait for the FFT pipeline to fill with valid post-restart data (~1.36 s for
-        // 65 536 samples at 48 kHz).  Use 2 s to be safe.
-        let fftSettleTime: TimeInterval = 2.0
+        // 65 536 samples at 48 kHz).  Use 3 s: the extra margin covers the HALC
+        // startup transient that sometimes appears 2–2.5 s after a device hot-swap
+        // when the audio unit requires an internal recovery restart.
+        let fftSettleTime: TimeInterval = 3.0
         DispatchQueue.main.asyncAfter(deadline: .now() + fftSettleTime) { [weak self] in
             guard let self = self else { return }
             guard self.fftAnalyzer.isRunning else { return }
 
-            // Re-anchor the threshold state to the current (now valid) audio level.
-            let currentPeakMag = self.fftAnalyzer.peakMagnitude
-            self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
+            // Wait for the next published FFT frame before re-anchoring detection
+            // and unfreezing the display.  This ensures both happen on the same
+            // frame — the first one the user actually sees — preventing a false
+            // rising edge caused by a transient that arrives between the settle
+            // timer firing and the re-anchor.  isAboveThreshold stays true
+            // (blocking detection) until that frame arrives.
+            self.fftAnalyzer.$magnitudes
+                .dropFirst()   // skip the currently-published value
+                .first()       // fire exactly once on the next new publication
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    guard let self = self else { return }
 
-            self.isReadyForDetection = true
+                    // Re-anchor isAboveThreshold to the level of the first frame
+                    // that is actually displayed, so the hysteresis detector starts
+                    // in the correct state and cannot fire a spurious rising edge.
+                    let currentPeakMag = self.fftAnalyzer.peakMagnitude
+                    self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
 
-            if wasDetecting {
-                self.isDetecting = true
-                self.statusMessage = self.numberOfTaps == 1
-                    ? "Tap the guitar..."
-                    : "Tap the guitar \(self.numberOfTaps) times..."
-            } else {
-                self.statusMessage = "Ready"
-            }
-            gtLog("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
+                    if wasLive {
+                        self.setFrozenSpectrum(frequencies: [], magnitudes: [])
+                        self.displayMode = .live
+                    }
+
+                    self.isReadyForDetection = true
+
+                    if wasDetecting {
+                        self.isDetecting = true
+                        self.statusMessage = self.numberOfTaps == 1
+                            ? "Tap the guitar..."
+                            : "Tap the guitar \(self.numberOfTaps) times..."
+                    } else {
+                        self.statusMessage = "Ready"
+                    }
+                    gtLog("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
+                }
+                .store(in: &self.cancellables)
         }
     }
 }

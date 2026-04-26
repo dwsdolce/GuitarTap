@@ -70,6 +70,11 @@ extension TapToneAnalysisView {
         if tap.displayMode == .comparison {
             return ([], [])
         }
+        // During a device-change settle, displayMode is .frozen but isMeasurementComplete
+        // is false.  Return the frozen arrays directly (empty = blank spectrum).
+        if tap.displayMode == .frozen && !tap.isMeasurementComplete {
+            return (tap.frozenFrequencies, tap.frozenMagnitudes)
+        }
         if tap.isMeasurementComplete {
             // For plate/brace measurements frozen arrays are intentionally empty
             // (phase spectra live in materialSpectra); always return them as-is.

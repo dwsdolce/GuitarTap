@@ -131,11 +131,18 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             gtLog("🔄 Device changed while running — restarting engine for: \(selectedInputDevice?.name ?? "unknown")")
             isApplyingDeviceSwitch = true
             stop()
+            // Signal handleRouteChangeRestart() BEFORE starting the engine so the
+            // display freezes (blank) before the new device's first FFT frame can
+            // render.  routeChangeRestartCount is @Published and received on the main
+            // queue via Combine, so the sink fires on the next main-queue drain —
+            // which is guaranteed to precede any audio-tap callback dispatched from
+            // the new engine session.
+            self.routeChangeRestartCount += 1
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 guard let self = self else { return }
                 do {
                     try self.start()
-                    gtLog("✅ Engine restarted with new device: \(self.selectedInputDevice?.name ?? "unknown")")
+                    gtLog("✅ Engine restarted with new device: \(self.selectedInputDevice?.name ?? "unknown") (restart #\(self.routeChangeRestartCount))")
                 } catch {
                     gtLog("❌ Failed to restart engine after device change: \(error)")
                 }
