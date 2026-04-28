@@ -215,7 +215,8 @@ struct TapToneAnalysisView: View {
 
     /// New Tap button is disabled only when there is nothing to start over from.
     ///
-    /// For guitar mode it is disabled mid-sequence (the user must finish or cancel first).
+    /// For guitar mode it is disabled while a sequence is actively in progress (taps being
+    /// captured). The user must finish or cancel first.
     /// For plate/brace mode it is always enabled so the user can start over at any point,
     /// including while in a review phase or mid-capture.
     var newTapButtonDisabled: Bool {
@@ -223,7 +224,7 @@ struct TapToneAnalysisView: View {
         guard fft.isRunning && tapToneAnalyzer.isReadyForDetection else { return true }
         // Plate/brace: always allow starting over (even during capture or review).
         if !TapDisplaySettings.measurementType.isGuitar { return false }
-        // Guitar: disabled while a sequence is in progress and not yet complete.
+        // Guitar: disabled while detecting or before any sequence has run.
         if tapToneAnalyzer.isDetecting { return true }
         if !tapToneAnalyzer.isMeasurementComplete { return true }
         return false

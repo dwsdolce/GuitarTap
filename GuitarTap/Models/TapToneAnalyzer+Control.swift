@@ -294,17 +294,13 @@ extension TapToneAnalyzer {
 
     // MARK: - Cancel
 
-    /// Cancels the current tap sequence and immediately restarts detection from scratch.
+    /// Cancels the current tap sequence and stops detection.
     ///
-    /// Unlike ``reset()``, cancel keeps detection active so the user can start a new
-    /// tap without pressing the Start button again.  All per-sequence data (captured taps,
-    /// phase spectra, peaks) is cleared.  The spectrum is unfrozen.
+    /// All per-sequence data (captured taps, phase spectra, peaks) is cleared and the
+    /// spectrum is unfrozen.  Detection is stopped — the user presses New Tap to begin
+    /// a new sequence, allowing them to adjust settings first.
     func cancelTapSequence() {
         gtLog("❌ Tap sequence cancelled")
-
-        let measurementType = TapDisplaySettings.measurementType
-        let isPlateMode = measurementType == .plate
-        let isBraceMode = measurementType == .brace
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -317,32 +313,23 @@ extension TapToneAnalyzer {
             self.tapProgress         = 0.0
             self.tapDetected         = false
             self.isDetectionPaused   = false
-            self.isDetecting         = true
+            self.isDetecting         = false
+            // Mark as complete so New Tap is re-enabled after cancel.
+            self.isMeasurementComplete = true
 
-            // Reset plate/brace state back to the start of the sequence.
-            let newPhase: MaterialTapPhase = (isPlateMode || isBraceMode) ? .capturingLongitudinal : .notStarted
-            self.resetMaterialPhaseState(to: newPhase)
-
+            self.resetMaterialPhaseState(to: .notStarted)
             self.resetDecayTracking()
 
             // Clear frozen spectrum data (atomic — prevents transient length mismatch).
             self.setFrozenSpectrum(frequencies: [], magnitudes: [])
 
-            // Reset the warm-up timer for the restarted sequence.
             self.analyzerStartTime = Date()
             self.isAboveThreshold  = false
 
             self.captureTimer?.invalidate()
             self.captureTimer = nil
 
-            // Show an appropriate ready prompt.
-            if isBraceMode {
-                self.statusMessage = "Ready for fL tap"
-            } else if isPlateMode {
-                self.statusMessage = "Ready for L tap"
-            } else {
-                self.statusMessage = self.numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(self.numberOfTaps) times..."
-            }
+            self.statusMessage = "Cancelled — press New Tap to start again"
         }
     }
 

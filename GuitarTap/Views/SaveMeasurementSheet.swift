@@ -78,9 +78,9 @@ struct SaveMeasurementSheet: View {
                 .frame(maxWidth: .infinity, alignment: .center)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Tap Location (Optional)")
+                Text("Measurement Name")
                     .font(.headline)
-                TextField("Tap Location", text: $tapLocation, prompt: Text("Bridge, Soundhole, Upper Bout..."))
+                TextField("Measurement Name", text: $tapLocation, prompt: Text("e.g. Martin 000-28, Spruce Top"))
                     .textFieldStyle(.roundedBorder)
             }
 
@@ -106,10 +106,10 @@ struct SaveMeasurementSheet: View {
         #else
         Form {
             Section {
-                TextField("Tap Location", text: $tapLocation, prompt: Text("Bridge, Soundhole, Upper Bout..."))
+                TextField("Measurement Name", text: $tapLocation, prompt: Text("e.g. Martin 000-28, Spruce Top"))
                     .textFieldStyle(.roundedBorder)
             } header: {
-                Text("Tap Location (Optional)")
+                Text("Measurement Name")
                     .font(.headline)
             }
 

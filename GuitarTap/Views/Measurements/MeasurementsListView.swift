@@ -567,7 +567,7 @@ struct MeasurementsListView: View {
             modeFrequencies: modeFrequencies
         )
 
-        let label = measurement.tapLocation ?? "report"
+        let label = measurement.tapLocation ?? "measurement"
         let basename = label.replacingOccurrences(of: " ", with: "-").lowercased()
             + "-\(Int(measurement.timestamp.timeIntervalSince1970))"
 

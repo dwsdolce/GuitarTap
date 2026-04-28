@@ -346,8 +346,15 @@ extension TapToneAnalysisView {
             }
             #endif
 
-            // Export using platform-appropriate method
-            let filename = "spectrum-\(Int(Date().timeIntervalSince1970)).png"
+            // Derive filename stem from tap location, loaded measurement name, or "spectrum".
+            let label = self.tapLocation.isEmpty
+                ? (self.tap.loadedMeasurementName ?? "spectrum")
+                : self.tapLocation
+            let stem = label
+                .replacingOccurrences(of: " ", with: "-")
+                .replacingOccurrences(of: "/", with: "-")
+                .lowercased()
+            let filename = "\(stem)-\(Int(Date().timeIntervalSince1970)).png"
             FileExportHelper.exportFile(data: pngData, filename: filename, contentType: .png) { success in
                 self.isExportingSpectrum = false
                 if !success {

@@ -128,7 +128,7 @@ extension TapToneAnalysisView {
 
         let reportData = PDFReportData(
             timestamp: tap.sourceMeasurementTimestamp ?? Date(),
-            tapLocation: tapLocation.isEmpty ? nil : tapLocation,
+            tapLocation: tapLocation.isEmpty ? tap.loadedMeasurementName : tapLocation,
             notes: notes.isEmpty ? nil : notes,
             measurementType: measurementType,
             guitarType: TapDisplaySettings.guitarType,
@@ -307,7 +307,7 @@ extension TapToneAnalysisView {
         let rangeFilteredPeaks = tap.currentPeaks.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq }
         let avgReportData = PDFReportData(
             timestamp: tap.sourceMeasurementTimestamp ?? Date(),
-            tapLocation: tapLocation.isEmpty ? nil : tapLocation,
+            tapLocation: tapLocation.isEmpty ? tap.loadedMeasurementName : tapLocation,
             notes: notes.isEmpty ? nil : notes,
             measurementType: measurementType,
             guitarType: TapDisplaySettings.guitarType,
