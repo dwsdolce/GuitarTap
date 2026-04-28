@@ -728,11 +728,19 @@ private struct LifecycleModifier: ViewModifier {
                 // handler.
                 //
                 // IMPORTANT: NSWindow.willCloseNotification fires for every window, including
-                // sheets, popovers, and the Measurements detail window.  We must check that the
-                // closing window is the main (key) app window — otherwise closing a detail sheet
-                // (e.g. after loading a measurement) stops the engine spuriously.
+                // sheets, popovers, share panels, and the Help/Measurements windows.
+                //
+                // We must not use `NSApplication.shared.mainWindow` as the identity check:
+                // it is unreliable because it transiently points to whichever window is
+                // currently key — including the AirDrop share panel — so dismissing a share
+                // sheet can spuriously stop the engine.
+                //
+                // Instead, identify the main app window by:
+                //   1. Not being an NSPanel subclass (share sheets, colour pickers, etc. are panels).
+                //   2. Having the app's known main-window title (excludes the Help window).
                 guard let closingWindow = notification.object as? NSWindow,
-                      closingWindow == NSApplication.shared.mainWindow else { return }
+                      !closingWindow.isKind(of: NSPanel.self),
+                      closingWindow.title == appTitle else { return }
                 if fft.isRunning { tap.stop() }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { _ in

@@ -36,6 +36,26 @@
 /// | Brace | `longitudinalSnapshot`, `selectedLongitudinalPeakID` |
 import SwiftUI
 
+// MARK: - TapEntry
+
+/// One individual tap's spectrum and detected peaks within a multi-tap guitar sequence.
+///
+/// Stored in ``TapToneMeasurement/tapEntries`` so the per-tap comparison view can be
+/// fully reconstructed after a save/reload cycle. Only populated for guitar-mode
+/// measurements with `numberOfTaps > 1`; `nil` for single-tap, plate, and brace.
+struct TapEntry: Codable, Identifiable {
+    /// Stable unique identifier for this entry.
+    let id: UUID
+    /// 1-based display index ("Tap 1", "Tap 2", …).
+    let tapIndex: Int
+    /// Full spectrum snapshot for this individual tap.
+    let snapshot: SpectrumSnapshot
+    /// All resonant peaks detected in this tap's spectrum.
+    let peaks: [ResonantPeak]
+    /// UUIDs of the auto-selected peaks for this tap (one per guitar mode where found).
+    let selectedPeakIDs: [UUID]
+}
+
 // MARK: - ComparisonEntry
 
 /// A single spectrum entry within a saved comparison measurement.
@@ -211,6 +231,18 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// `true` when this record holds a saved comparison rather than a single tap measurement.
     var isComparison: Bool { comparisonEntries != nil }
 
+    // MARK: - Per-Tap Spectra (Multi-Tap Guitar)
+
+    /// Individual tap spectra and peaks from a multi-tap guitar sequence.
+    ///
+    /// Non-nil only for guitar measurements where `numberOfTaps > 1`. Each element
+    /// corresponds to one raw tap capture before averaging. Allows the multi-tap
+    /// comparison view to be reconstructed after save/reload.
+    ///
+    /// `nil` for single-tap guitar measurements, plate, brace, comparison records,
+    /// and older saved measurements (backward-compatible default).
+    let tapEntries: [TapEntry]?
+
     // MARK: - Coding Keys
 
     enum CodingKeys: String, CodingKey {
@@ -223,6 +255,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case peakModeOverrides
         case microphoneName, microphoneUID, calibrationName
         case comparisonEntries
+        case tapEntries
         // Encode-only convenience fields for external consumers
         case measurementType, guitarType
     }
@@ -302,7 +335,8 @@ struct TapToneMeasurement: Identifiable, Codable {
          microphoneName: String? = nil,
          microphoneUID: String? = nil,
          calibrationName: String? = nil,
-         comparisonEntries: [ComparisonEntry]? = nil) {
+         comparisonEntries: [ComparisonEntry]? = nil,
+         tapEntries: [TapEntry]? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.peaks = peaks
@@ -329,6 +363,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.microphoneUID = microphoneUID
         self.calibrationName = calibrationName
         self.comparisonEntries = comparisonEntries
+        self.tapEntries = tapEntries
     }
 
     /// Returns a copy of the measurement with only `tapLocation` and `notes` replaced.
@@ -361,7 +396,8 @@ struct TapToneMeasurement: Identifiable, Codable {
             microphoneName: microphoneName,
             microphoneUID: microphoneUID,
             calibrationName: calibrationName,
-            comparisonEntries: comparisonEntries
+            comparisonEntries: comparisonEntries,
+            tapEntries: tapEntries
         )
     }
 
@@ -442,6 +478,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         microphoneUID        = try container.decodeIfPresent(String.self, forKey: .microphoneUID)
         calibrationName      = try container.decodeIfPresent(String.self, forKey: .calibrationName)
         comparisonEntries    = try container.decodeIfPresent([ComparisonEntry].self, forKey: .comparisonEntries)
+        tapEntries           = try container.decodeIfPresent([TapEntry].self, forKey: .tapEntries)
         // Decode peaks as [ResonantPeak]; the extra modeLabel key in each entry is
         // silently ignored by ResonantPeak's synthesized Decodable conformance.
         peaks = try container.decode([ResonantPeak].self, forKey: .peaks)
@@ -494,6 +531,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(microphoneUID,     forKey: .microphoneUID)
         try container.encodeIfPresent(calibrationName,   forKey: .calibrationName)
         try container.encodeIfPresent(comparisonEntries, forKey: .comparisonEntries)
+        try container.encodeIfPresent(tapEntries,        forKey: .tapEntries)
 
         // Convenience: top-level measurementType and guitarType for external consumers
         let resolvedMeasurementType = spectrumSnapshot?.measurementType

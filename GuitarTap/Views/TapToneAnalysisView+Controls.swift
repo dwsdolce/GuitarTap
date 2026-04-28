@@ -358,16 +358,19 @@ extension TapToneAnalysisView {
     var compactStatusBar: some View {
         HStack(spacing: 8) {
             if tap.displayMode == .comparison {
-                // Comparison mode: show count and clear affordance
+                // Comparison mode: show count and clear affordance.
+                // Warning (if active) is shown in fullStatusBar above this row.
                 Image(systemName: "waveform.path")
                     .foregroundColor(.accentColor)
                     .font(.caption)
-                Text("Comparing \(tap.comparisonSpectra.count) measurements")
+                Text(tap.showingMultiTapComparison
+                     ? "Tap comparison — \(tap.tapEntries.count) taps + averaged"
+                     : "Comparing \(tap.comparisonSpectra.count) measurements")
                     .font(.caption)
                     .foregroundColor(.primary)
                     .lineLimit(1)
                 Spacer()
-                Text("New Tap to exit")
+                Text(tap.showingMultiTapComparison ? "Tap \u{2018}Taps\u{2019} to exit" : "\u{2018}New Tap\u{2019} for new measurement")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else if tap.showLoadedSettingsWarning {
@@ -452,39 +455,46 @@ extension TapToneAnalysisView {
     @ViewBuilder
     var fullStatusBar: some View {
         VStack(spacing: 6) {
+            // Warn that threshold and tap count came from a loaded measurement.
+            // Suppressed during saved-measurement comparison (the comparison panel replaces
+            // this context entirely). Shown during multi-tap comparison because the loaded
+            // settings still apply to any new tap the user might take.
+            let isSavedComparison = tap.displayMode == .comparison && !tap.showingMultiTapComparison
+            if tap.showLoadedSettingsWarning && !isSavedComparison {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                        .font(.subheadline)
+                        .opacity(warningIconOpacity)
+                    Text("Settings from loaded measurement — Threshold: \(Int(tap.tapDetectionThreshold)) dB · Taps: \(tap.numberOfTaps)")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.orange)
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.orange.opacity(0.12))
+                .cornerRadius(6)
+            }
             if tap.displayMode == .comparison {
-                // Comparison mode: replace tap detection state with comparison info
+                // Comparison mode: show comparison info below the warning (if any)
                 HStack(spacing: 12) {
                     Image(systemName: "waveform.path")
                         .foregroundColor(.accentColor)
-                    Text("Comparing \(tap.comparisonSpectra.count) measurements")
+                    Text(tap.showingMultiTapComparison
+                         ? "Tap comparison — \(tap.tapEntries.count) taps + averaged"
+                         : "Comparing \(tap.comparisonSpectra.count) measurements")
                         .font(.subheadline)
                         .fontWeight(.medium)
                     Spacer()
-                    Text("Press New Tap to exit comparison")
+                    Text(tap.showingMultiTapComparison
+                         ? "Press \u{2018}Taps\u{2019} to return to averaged view, or \u{2018}New Tap\u{2019} for a new measurement"
+                         : "Press \u{2018}New Tap\u{2019} for a new measurement")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             } else {
-                // Warn that threshold and tap count came from a loaded measurement.
-                // Persists through New Tap until a successful capture or manual change.
-                if tap.showLoadedSettingsWarning {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                            .font(.subheadline)
-                            .opacity(warningIconOpacity)
-                        Text("Settings from loaded measurement — Threshold: \(Int(tap.tapDetectionThreshold)) dB · Taps: \(tap.numberOfTaps)")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.orange)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.orange.opacity(0.12))
-                    .cornerRadius(6)
-                }
                 // Normal tap detection state
                 if tap.currentTapCount > 0 {
                     ProgressView(value: tap.tapProgress)

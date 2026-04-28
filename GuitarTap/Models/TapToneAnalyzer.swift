@@ -694,6 +694,22 @@ final class TapToneAnalyzer: ObservableObject {
     /// `loadComparison` and cleared by `clearComparison` / `loadMeasurement`.
     @Published var comparisonSnapshots: [SpectrumSnapshot] = []
 
+    // MARK: - Multi-Tap Comparison State
+
+    /// Per-tap spectra and peaks from the most recently completed multi-tap guitar sequence.
+    ///
+    /// Populated by `processMultipleTaps()` when `capturedTaps.count > 1` for guitar mode.
+    /// Cleared by `startTapSequence()` / `resetForNewSequence()` when a new sequence begins.
+    /// Also restored from `TapToneMeasurement.tapEntries` when a saved measurement is loaded.
+    @Published var tapEntries: [TapEntry] = []
+
+    /// When `true`, the Results panel shows the multi-tap comparison view (per-tap spectra
+    /// overlaid on the chart + Air/Top/Back table) instead of the normal averaged peak list.
+    ///
+    /// Only relevant when `isMeasurementComplete && !tapEntries.isEmpty`.
+    /// Automatically reset to `false` when a new sequence starts.
+    @Published var showingMultiTapComparison: Bool = false
+
     // MARK: - Gated FFT State
 
     /// Lock protecting ``gatedAccumBuffer``, which is written on the audio queue and

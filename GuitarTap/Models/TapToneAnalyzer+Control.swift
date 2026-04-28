@@ -89,6 +89,8 @@ extension TapToneAnalyzer {
             self.tapProgress         = 0.0
             self.capturedTaps        = []
             self.tapsForAveraging    = []
+            self.tapEntries          = []
+            self.showingMultiTapComparison = false
             self.captureTimer?.invalidate()
             self.captureTimer        = nil
             // Always start fresh so the first new tap is detected on a rising edge.
@@ -167,6 +169,13 @@ extension TapToneAnalyzer {
             self.displayMode = .live
             self.loadedMeasurementName = nil
             self.isMeasurementComplete = false
+            // Clear the loaded-settings warning — the user is explicitly starting a new
+            // sequence so the loaded threshold/tap-count are now their chosen settings.
+            self.showLoadedSettingsWarning = false
+
+            // Clear multi-tap comparison state so the toggle resets for the new sequence.
+            self.tapEntries = []
+            self.showingMultiTapComparison = false
 
             // Clear per-sequence accumulated data.
             self.capturedTaps        = []
@@ -302,6 +311,8 @@ extension TapToneAnalyzer {
 
             self.capturedTaps        = []
             self.tapsForAveraging    = []
+            self.tapEntries          = []
+            self.showingMultiTapComparison = false
             self.currentTapCount     = 0
             self.tapProgress         = 0.0
             self.tapDetected         = false

@@ -61,6 +61,10 @@ On iPhone, tap the Results button (doc icon) in the toolbar to open the results 
 
 Setting the tap count to 2–10 averages multiple taps together, reducing noise from finger squeaks and ambient sounds. Progress is shown in the status bar. Use Pause between taps to let the ring-out decay.
 
+### ![](/tmp/guitar-tap-symbols/waveform.path.badge.plus.png){height=14pt width=14pt} Multi-Tap Comparison
+
+After a multi-tap guitar sequence (2–10 taps), the Results panel header shows a Taps button. Tap it to switch to Multi-Tap Comparison view: the chart overlays each individual tap's spectrum in a distinct colour alongside the averaged spectrum, and the Results panel shows an Air / Top / Back frequency table with one row per tap plus a final Averaged row. Tap the button again to return to the normal averaged view. The per-tap data is saved with the measurement and reloads correctly — the Taps button reappears whenever a measurement with multi-tap data is loaded.
+
 ### Overriding Mode Classification
 
 If a peak is labelled Unknown, or misclassified, tap it in the Results list and assign the correct mode manually. Your override is saved with the measurement.

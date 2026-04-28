@@ -129,7 +129,44 @@ struct TapAnalysisResultsView: View {
 
                         Spacer()
 
-                        if analyzer.displayMode == .comparison {
+                        // Multi-tap comparison toggle: shown only for completed guitar multi-tap sequences.
+                        // Uses showingMultiTapComparison as the gate — NOT displayMode — because
+                        // displayMode is set to .comparison when overlays are active so the chart renders them.
+                        // Also suppressed during saved-measurement comparison (displayMode == .comparison &&
+                        // !showingMultiTapComparison), where tapEntries belong to a loaded measurement
+                        // and the chart is already showing the comparison overlays.
+                        if measurementType.isGuitar
+                            && analyzer.isMeasurementComplete
+                            && !analyzer.tapEntries.isEmpty
+                            && !analyzer.showingMultiTapComparison
+                            && analyzer.displayMode != .comparison {
+                            Button {
+                                analyzer.showingMultiTapComparison = true
+                                analyzer.applyMultiTapComparisonOverlays(enabled: true)
+                            } label: {
+                                Label("Taps", systemImage: "waveform.path.badge.plus")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                            .help("Compare individual taps")
+                        } else if analyzer.showingMultiTapComparison {
+                            Button {
+                                analyzer.showingMultiTapComparison = false
+                                analyzer.applyMultiTapComparisonOverlays(enabled: false)
+                            } label: {
+                                Label("Taps", systemImage: "waveform.path.badge.minus")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                            .tint(.orange)
+                            .help("Show averaged result only")
+                        }
+
+                        // Show "Comparison" badge only for saved-measurement comparisons,
+                        // not for the multi-tap comparison view (which is still a guitar measurement).
+                        if analyzer.displayMode == .comparison && !analyzer.showingMultiTapComparison {
                             Text("Comparison")
                                 .font(.caption)
                                 .padding(.horizontal, 8)
@@ -154,7 +191,9 @@ struct TapAnalysisResultsView: View {
                         Spacer()
 
                         // Select All / Select None / Reset to Auto buttons
-                        if !sortedPeaksWithModes.isEmpty {
+                        // Hidden during multi-tap comparison (the table shows per-tap data, not
+                        // the averaged peak list, so individual peak selection is not applicable).
+                        if !sortedPeaksWithModes.isEmpty && !analyzer.showingMultiTapComparison {
                             HStack(spacing: 8) {
                                 Button {
                                     analyzer.selectAllPeaks()
@@ -248,8 +287,10 @@ struct TapAnalysisResultsView: View {
 
                 // Fixed footer: compact analysis summary + export buttons
                 VStack(alignment: .leading, spacing: 8) {
-                    // Guitar-specific compact summary (hidden during comparison or for plate/brace)
-                    if measurementType.isGuitar && analyzer.displayMode != .comparison {
+                    // Guitar-specific compact summary (hidden during saved-measurement comparison
+                    // or for plate/brace; shown during multi-tap comparison since it's still guitar).
+                    if measurementType.isGuitar
+                        && (analyzer.displayMode != .comparison || analyzer.showingMultiTapComparison) {
                         guitarAnalysisSummary
                     }
 
@@ -297,7 +338,9 @@ struct TapAnalysisResultsView: View {
     /// in overlapping mode ranges (e.g. classical Top 170–230 Hz / Back 190–280 Hz) are
     /// assigned distinct modes rather than both being labeled "Top".
     private var sortedPeaksWithModes: [(peak: ResonantPeak, mode: GuitarMode)] {
-        guard analyzer.displayMode != .comparison else { return [] }
+        // Return empty during saved-measurement comparison, but NOT during multi-tap comparison
+        // (where displayMode is also .comparison but the averaged peaks are still relevant).
+        guard analyzer.displayMode != .comparison || analyzer.showingMultiTapComparison else { return [] }
         return analyzer.currentPeaks
             .filter { peak in
                 // For plate/brace mode, don't filter by display range — the selected peaks
@@ -324,7 +367,18 @@ struct TapAnalysisResultsView: View {
     
     private var peaksAndModesSection: some View {
         GroupBox {
-            if sortedPeaksWithModes.isEmpty {
+            // Multi-tap comparison view: shown when the toggle is active for a completed
+            // guitar multi-tap sequence. Replaces the normal averaged peak list.
+            // NOTE: displayMode may be .comparison here (needed for chart rendering) — we use
+            // showingMultiTapComparison as the authoritative gate for the Results panel content.
+            if analyzer.showingMultiTapComparison && !analyzer.tapEntries.isEmpty {
+                MultiTapComparisonResultsView(
+                    tapEntries: analyzer.tapEntries,
+                    averagedPeaks: analyzer.currentPeaks.filter { analyzer.selectedPeakIDs.contains($0.id) },
+                    guitarType: TapDisplaySettings.guitarType
+                )
+                .padding(.vertical, 4)
+            } else if sortedPeaksWithModes.isEmpty {
                 if analyzer.displayMode == .comparison {
                     ComparisonResultsView(spectra: analyzer.comparisonSpectra)
                         .padding(.vertical, 4)

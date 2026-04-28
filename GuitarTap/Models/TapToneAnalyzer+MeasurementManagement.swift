@@ -307,7 +307,8 @@ extension TapToneAnalyzer {
             peakModeOverrides: peakModeOverrides.isEmpty ? nil : peakModeOverrides,
             microphoneName: microphoneName,
             microphoneUID: microphoneUID,
-            calibrationName: calibrationName
+            calibrationName: calibrationName,
+            tapEntries: measurementType.isGuitar && !tapEntries.isEmpty ? tapEntries : nil
         )
 
         savedMeasurements.append(measurement)
@@ -619,7 +620,7 @@ extension TapToneAnalyzer {
         isMeasurementComplete = true
         currentTapCount = 0
         tapProgress = 0.0
-        statusMessage = "Loaded measurement (frozen). Press 'Resume' or 'New Tap' to continue."
+        statusMessage = "Loaded measurement (frozen). Press \u{2018}New Tap\u{2019} to start a new measurement."
         gtLog("  🧊 Spectrum frozen, tap detection disabled")
         
         // Restore annotation offsets
@@ -726,7 +727,17 @@ extension TapToneAnalyzer {
         }
 
         showLoadedSettingsWarning = true
+
+        // Restore per-tap spectra so the multi-tap comparison toggle is available after reload.
+        // tapEntries is nil for single-tap, plate/brace, and older saved measurements.
+        tapEntries = measurement.tapEntries ?? []
+        // Always start with the averaged view — the user can toggle to per-tap if desired.
+        showingMultiTapComparison = false
+
         gtLog("✅ Loaded measurement with \(measurement.peaks.count) peaks (frozen)")
+        if !tapEntries.isEmpty {
+            gtLog("  📋 Restored \(tapEntries.count) per-tap entries for multi-tap comparison")
+        }
     }
 
     /// Encodes a single measurement as a pretty-printed JSON string and
@@ -899,5 +910,87 @@ extension TapToneAnalyzer {
         comparisonSpectra = []
         comparisonSnapshots = []
         displayMode = .live
+    }
+
+    // MARK: - Multi-Tap Comparison Chart Overlays
+
+    /// Activates or deactivates the per-tap spectrum overlays on the main chart.
+    ///
+    /// When `showingMultiTapComparison` is turned on, each `TapEntry` is converted to
+    /// a `comparisonSpectra` entry (using the existing 5-color palette) and the averaged
+    /// frozen spectrum is appended as the final entry with a bold yellow color.
+    ///
+    /// When turned off, `comparisonSpectra` is cleared and `displayMode` is restored to
+    /// `.frozen` so the chart reverts to the averaged spectrum only.
+    ///
+    /// **Display mode note:** This method sets `displayMode = .comparison` while overlays
+    /// are active so the chart's `materialSpectra` computed property feeds `comparisonSpectra`
+    /// to the renderer. The Results panel is gated by `showingMultiTapComparison`, not
+    /// `displayMode`, so the guitar summary footer and peak list remain visible and the
+    /// "Comparison" mode badge is suppressed. Setting `.comparison` here is intentional and
+    /// does not conflict with the guitar-mode Results panel layout.
+    ///
+    /// Call this when `showingMultiTapComparison` is toggled by the Results panel.
+    func applyMultiTapComparisonOverlays(enabled: Bool) {
+        guard enabled else {
+            comparisonSpectra = []
+            comparisonSnapshots = []
+            // Restore frozen display mode so the chart goes back to the averaged spectrum only.
+            displayMode = .frozen
+            return
+        }
+        guard !tapEntries.isEmpty else { return }
+
+        var entries: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?)] = []
+        var snapshots: [SpectrumSnapshot] = []
+
+        for (index, entry) in tapEntries.enumerated() {
+            let color = Self.comparisonPalette[index % Self.comparisonPalette.count]
+            let selectedIDs = Set(entry.selectedPeakIDs)
+            let selectedPeaks = entry.peaks.filter { selectedIDs.contains($0.id) }
+            entries.append((
+                magnitudes: entry.snapshot.magnitudes,
+                frequencies: entry.snapshot.frequencies,
+                color: color,
+                label: "Tap \(entry.tapIndex)",
+                peaks: selectedPeaks,
+                guitarType: entry.snapshot.guitarType
+            ))
+            snapshots.append(entry.snapshot)
+        }
+
+        // Append the averaged result as the final overlay so it renders on top.
+        // Use a bold yellow so it stands out against the per-tap palette (blue/orange/green/purple/teal).
+        let avgColor: Color = Color(red: 1.0, green: 0.85, blue: 0.0)
+        let avgSelectedPeaks = currentPeaks.filter { selectedPeakIDs.contains($0.id) }
+        let avgSnap = SpectrumSnapshot(
+            frequencies: frozenFrequencies,
+            magnitudes: frozenMagnitudes,
+            minFreq: TapDisplaySettings.minFrequency,
+            maxFreq: TapDisplaySettings.maxFrequency,
+            minDB: TapDisplaySettings.minMagnitude,
+            maxDB: 0,
+            isLogarithmic: false,
+            showUnknownModes: TapDisplaySettings.showUnknownModes,
+            guitarType: TapDisplaySettings.guitarType,
+            measurementType: TapDisplaySettings.measurementType,
+            maxPeaks: maxPeaks
+        )
+        entries.append((
+            magnitudes: frozenMagnitudes,
+            frequencies: frozenFrequencies,
+            color: avgColor,
+            label: "Averaged",
+            peaks: avgSelectedPeaks,
+            guitarType: TapDisplaySettings.guitarType
+        ))
+        snapshots.append(avgSnap)
+
+        comparisonSpectra = entries
+        comparisonSnapshots = snapshots
+        // Switch to comparison display mode so the chart's materialSpectra computed property
+        // picks up the comparisonSpectra overlays. The Results panel uses showingMultiTapComparison
+        // (not displayMode) to gate its content, so guitar summary etc. remain visible.
+        displayMode = .comparison
     }
 }

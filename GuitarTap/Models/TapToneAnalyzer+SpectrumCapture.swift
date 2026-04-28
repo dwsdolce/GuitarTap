@@ -828,5 +828,45 @@ extension TapToneAnalyzer {
         tapProgress = 1.0
         
         gtLog("✅ Found \(peaksFromAveragedSpectrum.count) peaks in averaged spectrum from \(capturedTaps.count) taps")
+
+        // Build per-tap entries for the multi-tap comparison view.
+        // Only meaningful when more than one tap was captured; single-tap sessions
+        // have nothing to compare and the toggle is hidden from the UI.
+        if capturedTaps.count > 1 {
+            let displayMin = TapDisplaySettings.minFrequency
+            let displayMax = TapDisplaySettings.maxFrequency
+            let displayMinDB = TapDisplaySettings.minMagnitude
+            let guitarType = TapDisplaySettings.guitarType
+            let measurementType = TapDisplaySettings.measurementType
+            let showUnknown = TapDisplaySettings.showUnknownModes
+
+            tapEntries = capturedTaps.enumerated().map { index, tap in
+                let tapPeaks = findPeaks(magnitudes: tap.magnitudes, frequencies: tap.frequencies)
+                let modeSelected = guitarModeSelectedPeakIDs(from: tapPeaks)
+                let snap = SpectrumSnapshot(
+                    frequencies: tap.frequencies,
+                    magnitudes: tap.magnitudes,
+                    minFreq: displayMin,
+                    maxFreq: displayMax,
+                    minDB: displayMinDB,
+                    maxDB: 0,
+                    isLogarithmic: false,
+                    showUnknownModes: showUnknown,
+                    guitarType: guitarType,
+                    measurementType: measurementType,
+                    maxPeaks: maxPeaks
+                )
+                return TapEntry(
+                    id: UUID(),
+                    tapIndex: index + 1,
+                    snapshot: snap,
+                    peaks: tapPeaks,
+                    selectedPeakIDs: Array(modeSelected)
+                )
+            }
+            gtLog("📋 Built \(tapEntries.count) per-tap entries for multi-tap comparison")
+        } else {
+            tapEntries = []
+        }
     }
 }
