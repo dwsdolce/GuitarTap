@@ -459,8 +459,12 @@ extension TapToneAnalyzer {
         defer { isLoadingMeasurement = false }
 
         // Loading a new measurement exits comparison mode.
+        // Clear the frozen spectrum immediately so there is no window where displayMode
+        // is .frozen but frozenFrequencies/Magnitudes still hold the previous measurement's
+        // data — that transient state causes a ghost spectrum artifact in the chart.
         comparisonSpectra = []
         comparisonSnapshots = []
+        setFrozenSpectrum(frequencies: [], magnitudes: [])
         displayMode = .frozen
 
         // Track the original timestamp so the Results-panel PDF can use it
@@ -597,7 +601,17 @@ extension TapToneAnalyzer {
                 loadedBraceMass = braceMass
             }
         } else {
-            gtLog("  ⚠️ No spectrum snapshot in measurement")
+            // Old-format measurement: no snapshot, so no axis range to restore.
+            // Explicitly reset to TapDisplaySettings defaults so the view's @State
+            // axis vars are always published when loading — without this, loading
+            // an old measurement leaves the axis range from the *previous* measurement
+            // in place, causing the next load (which does have a snapshot) to briefly
+            // render its spectrum against a wrong axis range before onReceive fires.
+            gtLog("  ⚠️ No spectrum snapshot in measurement — resetting axis range to defaults")
+            setLoadedAxisRange(minFreq: TapDisplaySettings.minFrequency,
+                               maxFreq: TapDisplaySettings.maxFrequency,
+                               minDB: TapDisplaySettings.minMagnitude,
+                               maxDB: TapDisplaySettings.maxMagnitude)
         }
         
         // Restore plate/brace peak selections directly into the model properties

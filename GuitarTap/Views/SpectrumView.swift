@@ -1070,6 +1070,12 @@ struct SpectrumView: View {
         .chartYScale(domain: minDB < maxDB
                         ? Double(minDB)...Double(maxDB)
                         : Double(minDB)...Double(minDB + 10))
+        // Disable SwiftUI Charts' implicit data-change animation.
+        // When a new frozen measurement is loaded the chart would otherwise
+        // interpolate between the old and new spectrum curves, producing a
+        // visible oscillation artifact before settling on the correct shape.
+        // The spectrum is a real-time / frozen readout — instant updates are correct.
+        .transaction { $0.animation = nil }
     }
 
     /// X-axis content builder
