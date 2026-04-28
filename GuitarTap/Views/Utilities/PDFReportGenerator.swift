@@ -1067,6 +1067,55 @@ struct ComparisonPDFReportData {
 
 extension PDFReportGenerator {
 
+    /// Renders a two-page PDF for a multi-tap guitar measurement.
+    ///
+    /// Page 1 is the standard averaged-result report (`PDFReportContentView`).
+    /// Page 2 is the per-tap comparison report (`ComparisonPDFReportContentView`).
+    /// Both pages are written into a single PDF `CGContext` so the result is one file.
+    ///
+    /// - Parameters:
+    ///   - averaged: Report data for the averaged spectrum page.
+    ///   - comparison: Report data for the per-tap comparison page.
+    /// - Returns: Raw PDF `Data` on success, or `nil` if the context could not be created.
+    /// - Important: Must be called on the `@MainActor` because `ImageRenderer` requires it.
+    @MainActor
+    static func generateMultiTapReport(averaged: PDFReportData, comparison: ComparisonPDFReportData) -> Data? {
+        let mutableData = NSMutableData()
+
+        // Page 1 — averaged result
+        let avgRenderer = ImageRenderer(content: PDFReportContentView(data: averaged))
+        var contextCreated = false
+        var pdfContext: CGContext?
+
+        avgRenderer.render { size, draw in
+            guard let consumer = CGDataConsumer(data: mutableData) else { return }
+            var mediaBox = CGRect(origin: .zero, size: size)
+            guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else { return }
+            pdfContext = context
+            contextCreated = true
+            context.beginPDFPage(nil)
+            draw(context)
+            context.endPDFPage()
+        }
+
+        guard contextCreated, let context = pdfContext else { return nil }
+
+        // Page 2 — per-tap comparison
+        let cmpRenderer = ImageRenderer(content: ComparisonPDFReportContentView(data: comparison))
+        cmpRenderer.render { size, draw in
+            var mediaBox = CGRect(origin: .zero, size: size)
+            withUnsafeBytes(of: &mediaBox) { ptr in
+                let data = CFDataCreate(nil, ptr.baseAddress?.assumingMemoryBound(to: UInt8.self), ptr.count)
+                context.beginPDFPage([kCGPDFContextMediaBox as String: data as Any] as CFDictionary)
+            }
+            draw(context)
+            context.endPDFPage()
+        }
+
+        context.closePDF()
+        return mutableData.length > 0 ? mutableData as Data : nil
+    }
+
     /// Renders a single-page PDF comparison report.
     ///
     /// - Parameter data: The comparison report data to render.

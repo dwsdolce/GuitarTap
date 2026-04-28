@@ -27,7 +27,7 @@ struct MultiTapComparisonResultsView: View {
     let guitarType: GuitarType?
 
     /// Colors drawn from the same fixed comparison palette used for saved-measurement comparisons.
-    /// Must stay in sync with `TapToneAnalyzer.comparisonPalette` (private to that type).
+    /// Must stay in sync with `TapToneAnalyzer.multiTapPalette` (private to that type).
     private let palette: [Color] = [.blue, .orange, .green, .purple, .teal]
 
     /// Columns shown in the table (Air, Top, Back).
@@ -58,7 +58,7 @@ struct MultiTapComparisonResultsView: View {
             }
 
             // Averaged row — uses the same bold yellow as the chart overlay for visual consistency.
-            let avgColor = Color(red: 1.0, green: 0.85, blue: 0.0)
+            let avgColor = TapToneAnalyzer.multiTapAvgColor
             let avgModeFreqs = TapToneAnalyzer.resolvedModePeaks(
                 peaks: averagedPeaks,
                 guitarType: guitarType

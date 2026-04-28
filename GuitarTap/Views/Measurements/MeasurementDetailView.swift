@@ -323,6 +323,15 @@ struct MeasurementDetailView: View {
 
     @MainActor
     private func generatePDFReport() {
+        if measurement.tapEntries?.isEmpty == false {
+            generateMultiTapPDFReport()
+        } else {
+            generateSinglePDFReport()
+        }
+    }
+
+    @MainActor
+    private func generateSinglePDFReport() {
         isGeneratingReport = true
         let spectrumImageData = renderSpectrumImageForMeasurement(measurement)
         let reportData = PDFReportData.from(measurement: measurement, spectrumImageData: spectrumImageData)
@@ -332,6 +341,72 @@ struct MeasurementDetailView: View {
             return
         }
         MeasurementFileExporter.exportPDF(data: pdfData, basename: reportData.baseFilename) {
+            self.isGeneratingReport = false
+        }
+    }
+
+    @MainActor
+    private func generateMultiTapPDFReport() {
+        guard let tapEntries = measurement.tapEntries, !tapEntries.isEmpty else { return }
+        isGeneratingReport = true
+
+        let avgImageData = renderSpectrumImageForMeasurement(measurement)
+        let avgReportData = PDFReportData.from(measurement: measurement, spectrumImageData: avgImageData)
+        let cmpImageData = renderSpectrumImageForMultiTap(measurement)
+
+        let palette: [Color] = [.blue, .orange, .green, .purple, .teal]
+        let avgColor = TapToneAnalyzer.multiTapAvgColor
+
+        var cmpEntries: [ComparisonEntry] = tapEntries.enumerated().map { index, entry in
+            let color = palette[index % palette.count]
+            let cgColor = color.cgColor ?? color.resolve(in: .init()).cgColor
+            let comps: [Double]
+            if let c = cgColor.components, c.count >= 3 {
+                comps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
+            } else { comps = [0.0, 0.0, 1.0, 1.0] }
+            let selectedIDs = Set(entry.selectedPeakIDs)
+            return ComparisonEntry(id: UUID(), label: "Tap \(entry.tapIndex)",
+                colorComponents: comps, snapshot: entry.snapshot,
+                peaks: entry.peaks.filter { selectedIDs.contains($0.id) },
+                guitarType: entry.snapshot.guitarType, sourceMeasurementID: nil)
+        }
+        if let avgSnap = measurement.spectrumSnapshot {
+            let avgCGColor = avgColor.cgColor ?? avgColor.resolve(in: .init()).cgColor
+            let avgComps: [Double]
+            if let c = avgCGColor.components, c.count >= 3 {
+                avgComps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
+            } else { avgComps = [1.0, 0.85, 0.0, 1.0] }
+            let selectedIDs = Set(measurement.selectedPeakIDs ?? measurement.peaks.map { $0.id })
+            cmpEntries.append(ComparisonEntry(id: UUID(), label: "Averaged",
+                colorComponents: avgComps, snapshot: avgSnap,
+                peaks: measurement.peaks.filter { selectedIDs.contains($0.id) },
+                guitarType: measurement.spectrumSnapshot?.guitarType, sourceMeasurementID: nil))
+        }
+
+        let modeFrequencies = cmpEntries.map { entry in
+            let c = entry.colorComponents
+            let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
+            let modeFreqs = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
+            return (label: entry.label, color: color,
+                    air: modeFreqs[.air], top: modeFreqs[.top], back: modeFreqs[.back])
+        }
+
+        let cmpReportData = ComparisonPDFReportData(
+            timestamp: measurement.timestamp,
+            comparisonLabel: measurement.tapLocation,
+            notes: measurement.notes,
+            spectrumImageData: cmpImageData,
+            entries: cmpEntries,
+            modeFrequencies: modeFrequencies
+        )
+
+        guard let pdfData = PDFReportGenerator.generateMultiTapReport(
+            averaged: avgReportData, comparison: cmpReportData) else {
+            gtLog("❌ Failed to generate multi-tap PDF report")
+            isGeneratingReport = false
+            return
+        }
+        MeasurementFileExporter.exportPDF(data: pdfData, basename: avgReportData.baseFilename) {
             self.isGeneratingReport = false
         }
     }

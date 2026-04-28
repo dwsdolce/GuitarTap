@@ -758,6 +758,71 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
     #endif
 }
 
+/// Renders the per-tap comparison overlay chart for a saved multi-tap `TapToneMeasurement`
+/// to a PNG-encoded `Data` value.
+///
+/// Mirrors `renderSpectrumImageForComparison(_:)` but sources data from
+/// `measurement.tapEntries` instead of `measurement.comparisonEntries`, assigning
+/// colors from the same fixed palette used by the live multi-tap comparison UI.
+///
+/// - Parameter measurement: A saved multi-tap guitar record (must have non-nil `tapEntries`).
+/// - Returns: PNG-encoded chart image, or `nil` if `tapEntries` is absent or empty.
+@MainActor
+func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? {
+    guard let entries = measurement.tapEntries, !entries.isEmpty else { return nil }
+
+    // Same palette used by the live UI (TapToneAnalyzer.multiTapPalette) and
+    // MultiTapComparisonResultsView.palette.
+    let palette: [Color] = [.blue, .orange, .green, .purple, .teal]
+    let avgColor = TapToneAnalyzer.multiTapAvgColor
+
+    var spectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] =
+        entries.enumerated().map { index, entry in
+            (magnitudes: entry.snapshot.magnitudes,
+             frequencies: entry.snapshot.frequencies,
+             color: palette[index % palette.count],
+             label: "Tap \(entry.tapIndex)")
+        }
+
+    // Append the averaged spectrum (stored in spectrumSnapshot) as the final overlay.
+    if let avgSnap = measurement.spectrumSnapshot {
+        spectra.append((magnitudes: avgSnap.magnitudes,
+                        frequencies: avgSnap.frequencies,
+                        color: avgColor,
+                        label: "Averaged"))
+    }
+
+    let snaps = entries.map(\.snapshot)
+    let compositeView = makeExportableSpectrumView(
+        frequencies: [],
+        magnitudes: [],
+        minFreq: snaps.map(\.minFreq).min() ?? 50,
+        maxFreq: snaps.map(\.maxFreq).max() ?? 1000,
+        minDB:   snaps.map(\.minDB).min()   ?? -100,
+        maxDB:   snaps.map(\.maxDB).max()   ?? 0,
+        peaks: [],
+        measurementType: .classical,
+        materialSpectra: spectra,
+        dateLabel: measurement.timestamp.formatted(),
+        chartTitle: "Tap Comparison — \(measurement.tapLocation ?? "Multi-Tap")"
+    )
+
+    let renderer = ImageRenderer(content: compositeView)
+    renderer.scale = 2.0
+
+    #if os(iOS)
+    guard let uiImage = renderer.uiImage,
+          let pngData = uiImage.pngData() else { return nil }
+    return pngData
+    #elseif os(macOS)
+    guard let nsImage = renderer.nsImage,
+          let tiffData = nsImage.tiffRepresentation,
+          let bitmapImage = NSBitmapImageRep(data: tiffData),
+          let pngData = bitmapImage.representation(using: .png, properties: [:]) else { return nil }
+    return pngData
+    #endif
+}
+
 /// Renders the comparison overlay chart for a saved comparison `TapToneMeasurement`
 /// to a PNG-encoded `Data` value.
 ///
