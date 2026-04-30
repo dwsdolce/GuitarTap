@@ -339,9 +339,11 @@ extension TapToneAnalyzer {
         // This prevents the same physical peak from being claimed by two overlapping
         // mode ranges (e.g. the Top/Back overlap zone at 190–230 Hz for classical
         // guitar). Whichever mode's range starts lower gets first claim; the next
-        // mode's scan begins above the claimed peak's frequency so it cannot re-find
-        // the same local maximum.
-        var lastClaimedFrequency: Float = 0
+        // mode's scan begins above the claimed peak's raw bin so it cannot re-find
+        // the same local maximum even when parabolic interpolation pulls the
+        // reported frequency below the bin's own center frequency.
+        var lastClaimedBinIdx: Int = -1                    // raw bin index of the last claimed peak
+        var strongestBinPerMode: [GuitarMode: Int] = [:]  // normalised mode → raw bin of winner
 
         for mode in knownModes {
             let modeRange = mode.modeRange(for: guitarType)
@@ -353,9 +355,11 @@ extension TapToneAnalyzer {
             let modeEndIdx   = min(frequencies.firstIndex(where: { $0 > modeRange.upperBound  }) ?? endIdx,   endIdx)
             guard modeStartIdx < modeEndIdx else { continue }
 
-            // Advance the scan start to just above the last claimed peak when that
-            // frequency falls inside this mode's range (overlap zone handling).
-            let claimedIdx = frequencies.firstIndex(where: { $0 > lastClaimedFrequency }) ?? startIdx
+            // Advance the scan start to one bin past the last claimed peak's raw bin.
+            // Using the raw bin index (not the interpolated frequency) prevents
+            // parabolic interpolation from pulling the cursor back onto the
+            // claimed peak's own bin, which would allow the next mode to re-claim it.
+            let claimedIdx = lastClaimedBinIdx >= 0 ? lastClaimedBinIdx + 1 : startIdx
             let effectiveStartIdx = max(modeStartIdx, claimedIdx)
 
             let scanStart = max(effectiveStartIdx, startIdx + windowSize)
@@ -385,14 +389,16 @@ extension TapToneAnalyzer {
                 if let existing = strongestPeakPerMode[normalizedMode] {
                     if magnitude > existing.magnitude {
                         strongestPeakPerMode[normalizedMode] = peak
+                        strongestBinPerMode[normalizedMode] = i
                     }
                 } else {
                     strongestPeakPerMode[normalizedMode] = peak
+                    strongestBinPerMode[normalizedMode] = i
                 }
             }
 
-            // Advance the claimed-frequency cursor to the strongest peak found in
-            // this mode (if any), so the next mode's scan starts above it.
+            // Advance the claimed-bin cursor to the raw bin of the strongest peak
+            // found in this mode (if any), so the next mode's scan starts above it.
             // If the interpolated frequency of the newly claimed peak is within 2 Hz of
             // an already-claimed peak (can happen at mode-range boundaries when parabolic
             // interpolation pulls a bin frequency back across the cursor), discard it so
@@ -405,8 +411,9 @@ extension TapToneAnalyzer {
                     .contains { abs($0.frequency - claimed.frequency) < TapToneAnalyzer.peakProximityHz }
                 if isDuplicate {
                     strongestPeakPerMode.removeValue(forKey: normalizedForCursor)
-                } else {
-                    lastClaimedFrequency = max(lastClaimedFrequency, claimed.frequency)
+                    strongestBinPerMode.removeValue(forKey: normalizedForCursor)
+                } else if let claimedBin = strongestBinPerMode[normalizedForCursor] {
+                    lastClaimedBinIdx = max(lastClaimedBinIdx, claimedBin)
                 }
             }
         }
