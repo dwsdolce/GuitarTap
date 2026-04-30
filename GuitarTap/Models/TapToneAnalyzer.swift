@@ -833,9 +833,6 @@ final class TapToneAnalyzer: ObservableObject {
     /// Captured spectra within the current plate/brace phase (supports per-phase averaging).
     var materialCapturedTaps: [(magnitudes: [Float], frequencies: [Float], captureTime: Date)] = []
 
-    /// Per-tap peak arrays used for averaging in multi-tap guitar mode.
-    var tapsForAveraging: [[ResonantPeak]] = []
-
     /// Timer that fires at the end of the capture window to trigger spectrum snapshot.
     var captureTimer: Timer?
 
