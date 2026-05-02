@@ -91,7 +91,7 @@ struct TapToneAnalysisView: View {
     /// Convenience accessor for `tapToneAnalyzer`.
     var tap: TapToneAnalyzer { tapToneAnalyzer }
 
-    @State var tapLocation: String = ""
+    @State var measurementName: String = ""
     @State var notes: String = ""
     @State var isLandscape: Bool = true
     @State var showingSaveSheet = false

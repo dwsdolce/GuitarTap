@@ -7,7 +7,7 @@
 ///
 /// A compact list-row cell for a single `TapToneMeasurement`.
 ///
-/// Displays the tap location (or "Measurement" as a fallback), the timestamp
+/// Displays the measurementName (or "Measurement" as a fallback), the timestamp
 /// formatted as a time string, peak count, and optional tap-tone ratio and
 /// decay time. A waveform indicator is shown when a spectrum snapshot is
 /// available.
@@ -55,7 +55,7 @@ struct MeasurementRowView: View {
         let count = measurement.comparisonEntries?.count ?? 0
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(measurement.tapLocation ?? "Comparison")
+                Text(measurement.measurementName ?? "Comparison")
                     .font(.headline)
 
                 Spacer()
@@ -102,8 +102,8 @@ struct MeasurementRowView: View {
     private var measurementRowBody: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                if let location = measurement.tapLocation {
-                    Text(location)
+                if let measurementName = measurement.measurementName {
+                    Text(measurementName)
                         .font(.headline)
                 } else {
                     Text("Measurement")

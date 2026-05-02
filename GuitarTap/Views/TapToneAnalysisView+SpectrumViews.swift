@@ -119,7 +119,7 @@ extension TapToneAnalysisView {
         return result
     }
 
-    /// Chart title: the filename when playing a file, the loaded measurement's location/name,
+    /// Chart title: the filename when playing a file, the loaded measurement's name,
     /// or "New" when no measurement is loaded.
     var chartTitle: String {
         fft.playingFileName ?? tap.loadedMeasurementName ?? "New"

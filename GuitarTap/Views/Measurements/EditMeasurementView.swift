@@ -5,16 +5,16 @@
 
 /// # EditMeasurementView
 ///
-/// A modal sheet for editing the `tapLocation` and `notes` fields of an
+/// A modal sheet for editing the `measurementName` and `notes` fields of an
 /// existing saved `TapToneMeasurement`.
 ///
 /// Pre-populates the fields from the measurement passed in and calls
-/// `analyzer.updateMeasurement(at:tapLocation:notes:)` on Save. The index
+/// `analyzer.updateMeasurement(at:measurementName:notes:)` on Save. The index
 /// into `savedMeasurements` is used rather than `id` matching so that
 /// duplicate imports (which share the same `id`) are treated independently.
 ///
 /// - SeeAlso: `MeasurementsListView`, `MeasurementDetailView`,
-///   `TapToneAnalyzer.updateMeasurement(at:tapLocation:notes:)`
+///   `TapToneAnalyzer.updateMeasurement(at:measurementName:notes:)`
 
 import SwiftUI
 
@@ -24,14 +24,14 @@ struct EditMeasurementView: View {
     let measurement: TapToneMeasurement
     @ObservedObject var analyzer: TapToneAnalyzer
 
-    @State private var tapLocation: String
+    @State private var measurementName: String
     @State private var notes: String
 
     init(index: Int, measurement: TapToneMeasurement, analyzer: TapToneAnalyzer) {
         self.index = index
         self.measurement = measurement
         self.analyzer = analyzer
-        self._tapLocation = State(initialValue: measurement.tapLocation ?? "")
+        self._measurementName = State(initialValue: measurement.measurementName ?? "")
         self._notes = State(initialValue: measurement.notes ?? "")
     }
 
@@ -76,7 +76,7 @@ struct EditMeasurementView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Measurement Name")
                     .font(.headline)
-                TextField("Measurement Name", text: $tapLocation, prompt: Text("e.g. Martin 000-28, Spruce Top"))
+                TextField("Measurement Name", text: $measurementName, prompt: Text("e.g. Martin 000-28, Spruce Top"))
                     .textFieldStyle(.roundedBorder)
             }
 
@@ -102,7 +102,7 @@ struct EditMeasurementView: View {
         #else
         Form {
             Section {
-                TextField("Measurement Name", text: $tapLocation, prompt: Text("e.g. Martin 000-28, Spruce Top"))
+                TextField("Measurement Name", text: $measurementName, prompt: Text("e.g. Martin 000-28, Spruce Top"))
                     .textFieldStyle(.roundedBorder)
             } header: {
                 Text("Measurement Name")
@@ -129,7 +129,7 @@ struct EditMeasurementView: View {
     private func save() {
         analyzer.updateMeasurement(
             at: index,
-            tapLocation: tapLocation.isEmpty ? nil : tapLocation,
+            measurementName: measurementName.isEmpty ? nil : measurementName,
             notes: notes.isEmpty ? nil : notes
         )
         dismiss()

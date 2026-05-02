@@ -186,7 +186,7 @@ extension TapToneAnalyzer {
     /// `crossSpectrum`, and `flcSpectrum` using `makePhaseSnapshot`.
     ///
     /// - Parameters:
-    ///   - tapLocation: A short label for where the measurement was taken,
+    ///   - measurementName: A short label for where the measurement was taken,
     ///     e.g. `"Top — Bridge"`.
     ///   - notes: Free-text user notes to attach to the measurement.
     ///   - includeSpectrum: When `true`, spectrum snapshots are generated.
@@ -208,7 +208,7 @@ extension TapToneAnalyzer {
     ///   - calibrationName: Name of the active calibration profile, for
     ///     reference information.
     func saveMeasurement(
-        tapLocation: String? = nil,
+        measurementName: String? = nil,
         notes: String? = nil,
         includeSpectrum: Bool = true,
         spectrumSnapshot: SpectrumSnapshot? = nil,
@@ -284,7 +284,7 @@ extension TapToneAnalyzer {
         let measurement = TapToneMeasurement(
             peaks: currentPeaks,
             decayTime: currentDecayTime,
-            tapLocation: tapLocation,
+            measurementName: measurementName,
             notes: notes,
             spectrum: snapshot,
             annotationOffsets: annotationOffsets ?? peakAnnotationOffsets,
@@ -318,7 +318,7 @@ extension TapToneAnalyzer {
         persistMeasurements()
     }
     
-    /// Replaces the `tapLocation` and `notes` fields of the measurement at a
+    /// Replaces the `measurementName` and `notes` fields of the measurement at a
     /// specific array index, preserving all other data unchanged.
     ///
     /// Uses the caller-supplied index rather than `id` matching so that
@@ -326,13 +326,13 @@ extension TapToneAnalyzer {
     ///
     /// - Parameters:
     ///   - index: Position in `savedMeasurements` to update.
-    ///   - tapLocation: New location label, or `nil` to clear it.
+    ///   - measurementName: New measurement name label, or `nil` to clear it.
     ///   - notes: New free-form notes, or `nil` to clear them.
     func updateMeasurement(at index: Int,
-                           tapLocation: String?,
+                           measurementName: String?,
                            notes: String?) {
         guard savedMeasurements.indices.contains(index) else { return }
-        savedMeasurements[index] = savedMeasurements[index].with(tapLocation: tapLocation, notes: notes)
+        savedMeasurements[index] = savedMeasurements[index].with(measurementName: measurementName, notes: notes)
         persistMeasurements()
     }
 
@@ -443,7 +443,7 @@ extension TapToneAnalyzer {
                let minD = snaps.map(\.minDB).min(), let maxD = snaps.map(\.maxDB).max() {
                 setLoadedAxisRange(minFreq: minF, maxFreq: maxF, minDB: minD, maxDB: maxD)
             }
-            loadedMeasurementName = measurement.tapLocation.flatMap { $0.isEmpty ? nil : $0 }
+            loadedMeasurementName = measurement.measurementName.flatMap { $0.isEmpty ? nil : $0 }
             // Clear any per-tap entries from a previously loaded multi-tap measurement so
             // the PDF export routing doesn't misidentify this as a multi-tap measurement.
             tapEntries = []
@@ -471,7 +471,7 @@ extension TapToneAnalyzer {
         sourceMeasurementTimestamp = measurement.timestamp
 
         // Expose the measurement name so the chart title can reflect it
-        let name = measurement.tapLocation.flatMap { $0.isEmpty ? nil : $0 }
+        let name = measurement.measurementName.flatMap { $0.isEmpty ? nil : $0 }
         loadedMeasurementName = name
 
         // Restore peaks
@@ -818,8 +818,8 @@ extension TapToneAnalyzer {
 
     /// Short label for a measurement in the comparison legend.
     private func comparisonLabel(for measurement: TapToneMeasurement) -> String {
-        if let location = measurement.tapLocation, !location.isEmpty {
-            return location
+        if let measurementName = measurement.measurementName, !measurementName.isEmpty {
+            return measurementName
         }
         return measurement.timestamp.formatted(.dateTime.month(.abbreviated).day().hour().minute())
     }
@@ -838,8 +838,8 @@ extension TapToneAnalyzer {
         let withSnapshots = measurements.filter { $0.spectrumSnapshot != nil }
 
         // Build base labels, then disambiguate duplicates so Swift Charts treats each
-        // series as distinct.  Without this, two measurements with the same location
-        // (or both with no location) produce the same label and Charts collapses them
+        // series as distinct.  Without this, two measurements with the same measurement name
+        // (or both with no measurement name) produce the same label and Charts collapses them
         // into a single series, making only one overlay visible.
         let baseLabels = withSnapshots.map { comparisonLabel(for: $0) }
         var labelCounts: [String: Int] = [:]
@@ -886,9 +886,9 @@ extension TapToneAnalyzer {
     /// The resulting `TapToneMeasurement` is appended to `savedMeasurements` and persisted.
     ///
     /// - Parameters:
-    ///   - tapLocation: User-supplied name for the comparison (e.g. "Pre/Post Bracing").
+    ///   - measurementName: User-supplied name for the comparison (e.g. "Pre/Post Bracing").
     ///   - notes: Optional free-form notes.
-    func saveComparison(tapLocation: String? = nil, notes: String? = nil) {
+    func saveComparison(measurementName: String? = nil, notes: String? = nil) {
         guard !comparisonSpectra.isEmpty,
               comparisonSnapshots.count == comparisonSpectra.count else { return }
 
@@ -917,7 +917,7 @@ extension TapToneAnalyzer {
 
         let record = TapToneMeasurement(
             peaks: [],
-            tapLocation: tapLocation,
+            measurementName: measurementName,
             notes: notes,
             comparisonEntries: entries
         )

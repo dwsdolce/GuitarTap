@@ -165,10 +165,10 @@ extension TapToneAnalysisView {
     func saveMeasurement() {
         if tap.displayMode == .comparison {
             tap.saveComparison(
-                tapLocation: tapLocation.isEmpty ? nil : tapLocation,
+                measurementName: measurementName.isEmpty ? nil : measurementName,
                 notes: notes.isEmpty ? nil : notes
             )
-            tapLocation = ""
+            measurementName = ""
             notes = ""
             showingSaveSheet = false
             return
@@ -181,7 +181,7 @@ extension TapToneAnalysisView {
         // internally from its own state (frozen/live FFT, longitudinalSpectrum etc.)
         // using makePhaseSnapshot. Mirrors Python TapToneAnalysisView.save_measurement().
         tapToneAnalyzer.saveMeasurement(
-            tapLocation: tapLocation.isEmpty ? nil : tapLocation,
+            measurementName: measurementName.isEmpty ? nil : measurementName,
             notes: notes.isEmpty ? nil : notes,
             includeSpectrum: true,
             annotationOffsets: tap.peakAnnotationOffsets,
@@ -197,7 +197,7 @@ extension TapToneAnalysisView {
             maxDB: maxDB
         )
 
-        tapLocation = ""
+        measurementName = ""
         notes = ""
         showingSaveSheet = false
         isSavingMeasurement = false
@@ -346,10 +346,10 @@ extension TapToneAnalysisView {
             }
             #endif
 
-            // Derive filename stem from tap location, loaded measurement name, or "spectrum".
-            let label = self.tapLocation.isEmpty
+            // Derive filename stem from measurement name, loaded measurement name, or "spectrum".
+            let label = self.measurementName.isEmpty
                 ? (self.tap.loadedMeasurementName ?? "spectrum")
-                : self.tapLocation
+                : self.measurementName
             let stem = label
                 .replacingOccurrences(of: " ", with: "-")
                 .replacingOccurrences(of: "/", with: "-")

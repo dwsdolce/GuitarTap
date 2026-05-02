@@ -115,8 +115,8 @@ struct TapToneMeasurement: Identifiable, Codable {
 
     // MARK: - User Metadata
 
-    /// Descriptive label for the tap location, e.g. `"Bridge"`, `"Soundhole"`, `"Upper Bout"`.
-    let tapLocation: String?
+    /// Descriptive name for the mesurement, e.g. `"Contreras"`, `"Gore"`, `"Ramirez"`.
+    let measurementName: String?
 
     /// Free-form notes entered by the user at save time.
     let notes: String?
@@ -246,7 +246,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     // MARK: - Coding Keys
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, peaks, decayTime, tapLocation, notes
+        case id, timestamp, peaks, decayTime, measurementName, tapLocation, notes
         case spectrumSnapshot, peakAnnotationOffsets
         case tapDetectionThreshold, hysteresisMargin, numberOfTaps, peakThreshold
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
@@ -290,7 +290,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// - Parameters:
     ///   - peaks: Detected resonant peaks for this measurement.
     ///   - decayTime: Ring-out decay time in seconds, if measured.
-    ///   - tapLocation: User-supplied location label, e.g. `"Bridge"`.
+    ///   - measurementName: User-supplied measurement name label, e.g. `"Martin"`.
     ///   - notes: Free-form notes.
     ///   - spectrum: Guitar-mode averaged spectrum snapshot.
     ///   - annotationOffsets: Custom label positions keyed by peak UUID.
@@ -314,7 +314,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          timestamp: Date = Date(),
          peaks: [ResonantPeak],
          decayTime: Float? = nil,
-         tapLocation: String? = nil,
+         measurementName: String? = nil,
          notes: String? = nil,
          spectrum: SpectrumSnapshot? = nil,
          annotationOffsets: [UUID: CGPoint]? = nil,
@@ -341,7 +341,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.timestamp = timestamp
         self.peaks = peaks
         self.decayTime = decayTime
-        self.tapLocation = tapLocation
+        self.measurementName = measurementName
         self.notes = notes
         self.spectrumSnapshot = spectrum
         self.peakAnnotationOffsets = annotationOffsets
@@ -366,16 +366,16 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.tapEntries = tapEntries
     }
 
-    /// Returns a copy of the measurement with only `tapLocation` and `notes` replaced.
+    /// Returns a copy of the measurement with only `measurementName` and `notes` replaced.
     ///
     /// All other fields — including `id` and `timestamp` — are preserved exactly.
-    func with(tapLocation: String?, notes: String?) -> TapToneMeasurement {
+    func with(measurementName: String?, notes: String?) -> TapToneMeasurement {
         return TapToneMeasurement(
             id: id,
             timestamp: timestamp,
             peaks: peaks,
             decayTime: decayTime,
-            tapLocation: tapLocation,
+            measurementName: measurementName,
             notes: notes,
             spectrum: spectrumSnapshot,
             annotationOffsets: peakAnnotationOffsets,
@@ -422,17 +422,17 @@ struct TapToneMeasurement: Identifiable, Codable {
         return topPeak.frequency / airPeak.frequency
     }
 
-    /// Base filename (without extension) derived from the tap location and Unix timestamp.
+    /// Base filename (without extension) derived from the measurementName and Unix timestamp.
     ///
-    /// Spaces and slashes in ``tapLocation`` are replaced with hyphens and the string is
-    /// lowercased, producing a filesystem-safe component such as `"bridge-1771351833"`.
-    /// Falls back to `"measurement"` when ``tapLocation`` is `nil`.
+    /// Spaces and slashes in ``measurementName`` are replaced with hyphens and the string is
+    /// lowercased, producing a filesystem-safe component such as `"ramirez-1975"`.
+    /// Falls back to `"measurement"` when ``measurementName`` is `nil`.
     var baseFilename: String {
-        let locationPart = tapLocation?.replacingOccurrences(of: " ", with: "-")
+        let measurementNamePart = measurementName?.replacingOccurrences(of: " ", with: "-")
             .replacingOccurrences(of: "/", with: "-")
             .lowercased() ?? "measurement"
         let timestampPart = Int(timestamp.timeIntervalSince1970)
-        return "\(locationPart)-\(timestampPart)"
+        return "\(measurementNamePart)-\(timestampPart)"
     }
 
     // MARK: - Decoding
@@ -446,7 +446,9 @@ struct TapToneMeasurement: Identifiable, Codable {
         id               = try container.decode(UUID.self,   forKey: .id)
         timestamp        = try container.decode(Date.self,   forKey: .timestamp)
         decayTime        = try container.decodeIfPresent(Float.self,  forKey: .decayTime)
-        tapLocation      = try container.decodeIfPresent(String.self, forKey: .tapLocation)
+        // Fall back to legacy "tapLocation" key for files saved before the rename.
+        measurementName  = try container.decodeIfPresent(String.self, forKey: .measurementName)
+            ?? container.decodeIfPresent(String.self, forKey: .tapLocation)
         notes            = try container.decodeIfPresent(String.self, forKey: .notes)
         spectrumSnapshot = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .spectrumSnapshot)
         // Decode as named-field struct (absFreqHz/absDB) and convert to CGPoint for in-memory use.
@@ -503,7 +505,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encode(id,                        forKey: .id)
         try container.encode(timestamp,                 forKey: .timestamp)
         try container.encodeIfPresent(decayTime,        forKey: .decayTime)
-        try container.encodeIfPresent(tapLocation,      forKey: .tapLocation)
+        try container.encodeIfPresent(measurementName,  forKey: .measurementName)
         try container.encodeIfPresent(notes,            forKey: .notes)
         try container.encodeIfPresent(spectrumSnapshot, forKey: .spectrumSnapshot)
         // Encode positions as named fields (absFreqHz/absDB) rather than raw CGPoint {x:, y:}

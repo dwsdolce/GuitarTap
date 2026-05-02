@@ -222,7 +222,7 @@ enum HintText {
     static let showMetrics = "View FFT analysis metrics including sample rate and resolution"
 
     /// Hint for the "Save" button.
-    static let save = "Save the current measurement with location and notes"
+    static let save = "Save the current measurement with measurement name and notes"
 
     /// Hint for the "Export Spectrum" button.
     static let exportSpectrum = "Export spectrum image as PNG file"

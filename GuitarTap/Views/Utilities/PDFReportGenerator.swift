@@ -34,7 +34,7 @@
 ///
 /// The US Letter-width page (612 pt) is divided vertically into sections:
 /// - Header: app name + accent bar + timestamp
-/// - Metadata: location, measurement type, frequency range, microphone
+/// - Metadata: measurement name, measurement type, frequency range, microphone
 /// - Spectrum image (if present, max 220 pt tall)
 /// - Peaks table: frequency, magnitude, note, and mode/role columns
 /// - Tap instructions (plate/brace measurements only)
@@ -76,8 +76,8 @@ import AppKit
 struct PDFReportData {
     /// Date and time the measurement was captured.
     let timestamp: Date
-    /// User-supplied location label (e.g., "Bridge plate", "Top – centre").
-    let tapLocation: String?
+    /// User-supplied measurement name label (e.g., "Martin 1943", "Ramirez 1975").
+    let measurementName: String?
     /// Free-text notes entered by the user at save time.
     let notes: String?
     /// Type of measurement: guitar, plate, or brace.
@@ -206,7 +206,7 @@ struct PDFReportData {
 
         return PDFReportData(
             timestamp: measurement.timestamp,
-            tapLocation: measurement.tapLocation,
+            measurementName: measurement.measurementName,
             notes: measurement.notes,
             measurementType: measurementType,
             guitarType: guitarType,
@@ -241,15 +241,15 @@ struct PDFReportData {
 
     /// Filename stem (without extension) for this report.
     ///
-    /// Derived from `tapLocation` (spaces and slashes replaced with dashes,
+    /// Derived from `measurementName` (spaces and slashes replaced with dashes,
     /// lowercased) and a Unix timestamp, e.g. `"bridge-plate-1740000000"`.
     var baseFilename: String {
-        let locationPart = tapLocation?
+        let measurementNamePart = measurementName?
             .replacingOccurrences(of: " ", with: "-")
             .replacingOccurrences(of: "/", with: "-")
             .lowercased() ?? "report"
         let timestampPart = Int(timestamp.timeIntervalSince1970)
-        return "\(locationPart)-\(timestampPart)"
+        return "\(measurementNamePart)-\(timestampPart)"
     }
 }
 
@@ -371,8 +371,8 @@ private struct PDFReportContentView: View {
 
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let location = data.tapLocation, !location.isEmpty {
-                metaRow(label: "Location", value: location)
+            if let measurementName = data.measurementName, !measurementName.isEmpty {
+                metaRow(label: "Measurement Name", value: measurementName)
             }
             metaRow(label: "Type", value: data.measurementType.rawValue)  // rawValue is the display name
             if let notes = data.notes, !notes.isEmpty {
@@ -1051,7 +1051,7 @@ private struct PDFReportContentView: View {
 struct ComparisonPDFReportData {
     /// Date and time the report was generated.
     let timestamp: Date
-    /// User-supplied name for the comparison (from `tapLocation`), or `nil`.
+    /// User-supplied name for the comparison (from `measurementName`), or `nil`.
     let comparisonLabel: String?
     /// Free-text notes from the save form, or `nil`.
     let notes: String?

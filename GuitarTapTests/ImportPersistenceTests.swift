@@ -34,7 +34,7 @@ private func minimalMeasurementJSON() -> String {
     let m = TapToneMeasurement(
         timestamp: Date(timeIntervalSinceReferenceDate: 0),
         peaks: [],
-        tapLocation: "Test"
+        measurementName: "Test"
     )
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601

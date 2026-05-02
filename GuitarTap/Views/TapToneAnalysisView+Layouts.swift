@@ -81,7 +81,7 @@ extension TapToneAnalysisView {
         }
         .sheet(isPresented: $showingSaveSheet) {
             SaveMeasurementSheet(
-                tapLocation: $tapLocation,
+                measurementName: $measurementName,
                 notes: $notes,
                 onSave: saveMeasurement
             )
@@ -172,7 +172,7 @@ extension TapToneAnalysisView {
         }
         .sheet(isPresented: $showingSaveSheet) {
             SaveMeasurementSheet(
-                tapLocation: $tapLocation,
+                measurementName: $measurementName,
                 notes: $notes,
                 onSave: saveMeasurement
             )

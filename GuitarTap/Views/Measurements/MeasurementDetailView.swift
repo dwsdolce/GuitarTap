@@ -62,7 +62,7 @@ struct MeasurementDetailView: View {
                     Button(action: { showingEdit = true }) {
                         Label("Edit", systemImage: "pencil")
                     }
-                    .help("Edit location and notes for this measurement")
+                    .help("Edit measurement name and notes for this measurement")
                 }
                 
                 ToolbarItem(placement: .primaryAction) {
@@ -85,7 +85,7 @@ struct MeasurementDetailView: View {
             .sheet(isPresented: $showingEdit) {
                 EditMeasurementView(index: index, measurement: measurement, analyzer: analyzer)
                     .onDisappear {
-                        // Refresh local copy in case location/notes were edited
+                        // Refresh local copy in case measurementName/notes were edited
                         if analyzer.savedMeasurements.indices.contains(index) {
                             measurement = analyzer.savedMeasurements[index]
                         }
@@ -129,7 +129,7 @@ struct MeasurementDetailView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button(action: { showingEdit = true }) {
-                            Label("Edit Location & Notes", systemImage: "pencil")
+                            Label("Edit Name & Notes", systemImage: "pencil")
                         }
 
                         Divider()
@@ -151,7 +151,7 @@ struct MeasurementDetailView: View {
             .sheet(isPresented: $showingEdit) {
                 EditMeasurementView(index: index, measurement: measurement, analyzer: analyzer)
                     .onDisappear {
-                        // Refresh local copy in case location/notes were edited
+                        // Refresh local copy in case measurementName/notes were edited
                         if analyzer.savedMeasurements.indices.contains(index) {
                             measurement = analyzer.savedMeasurements[index]
                         }
@@ -183,12 +183,12 @@ struct MeasurementDetailView: View {
                 // Header Info
                 GroupBox("Measurement Info") {
                         VStack(alignment: .leading, spacing: 8) {
-                            if let location = measurement.tapLocation {
+                            if let measurementName = measurement.measurementName {
                                 HStack {
-                                    Text("Location:")
+                                    Text("Measurement Name:")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
-                                    Text(location)
+                                    Text(measurementName)
                                         .font(.body)
                                         .fontWeight(.medium)
                                 }
@@ -393,7 +393,7 @@ struct MeasurementDetailView: View {
 
         let cmpReportData = ComparisonPDFReportData(
             timestamp: measurement.timestamp,
-            comparisonLabel: measurement.tapLocation,
+            comparisonLabel: measurement.measurementName,
             notes: measurement.notes,
             spectrumImageData: cmpImageData,
             entries: cmpEntries,

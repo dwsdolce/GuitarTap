@@ -667,9 +667,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// `nil` when the current results are from a fresh (unsaved) measurement session.
     @Published var sourceMeasurementTimestamp: Date? = nil
 
-    /// Location/name label of the measurement currently loaded into the chart.
+    /// Measurement name label of the measurement currently loaded into the chart.
     ///
-    /// Set to `measurement.tapLocation` (or `nil` if blank) when a measurement
+    /// Set to `measurement.measurementName` (or `nil` if blank) when a measurement
     /// is loaded. Cleared to `nil` when a new tap sequence starts or the
     /// analyzer is reset, so the UI can show "New" instead.
     @Published var loadedMeasurementName: String? = nil

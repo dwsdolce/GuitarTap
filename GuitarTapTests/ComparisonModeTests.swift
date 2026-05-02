@@ -39,12 +39,12 @@ private func makeSnapshot(
 }
 
 private func makeMeasurement(
-    tapLocation: String? = nil,
+    measurementName: String? = nil,
     withSnapshot: Bool = true
 ) -> TapToneMeasurement {
     TapToneMeasurement(
         peaks: [],
-        tapLocation: tapLocation,
+        measurementName: measurementName,
         spectrum: withSnapshot ? makeSnapshot() : nil
     )
 }
@@ -60,8 +60,8 @@ struct ComparisonLoadTests {
     // CP-U1: Loading 2 measurements populates comparisonSpectra with 2 entries.
     @Test func loadComparison_twoMeasurements_producesTwoEntries() {
         let sut = makeSUT()
-        let m1 = makeMeasurement(tapLocation: "Bridge")
-        let m2 = makeMeasurement(tapLocation: "Neck")
+        let m1 = makeMeasurement(measurementName: "Bridge")
+        let m2 = makeMeasurement(measurementName: "Neck")
 
         sut.loadComparison(measurements: [m1, m2])
 
@@ -69,10 +69,10 @@ struct ComparisonLoadTests {
         #expect(sut.displayMode == .comparison, "displayMode should be .comparison after loadComparison")
     }
 
-    // CP-U2: Labels use tapLocation when present; fall back to formatted timestamp.
-    @Test func loadComparison_usesLocationLabelWhenPresent() {
+    // CP-U2: Labels use measurementName when present; fall back to formatted timestamp.
+    @Test func loadComparison_usesMeasurementNameLabelWhenPresent() {
         let sut = makeSUT()
-        let m = makeMeasurement(tapLocation: "Bridge Area")
+        let m = makeMeasurement(measurementName: "Bridge Area")
 
         sut.loadComparison(measurements: [m])
 
@@ -83,8 +83,8 @@ struct ComparisonLoadTests {
     // CP-U3: Measurements without a spectrum snapshot are silently filtered out.
     @Test func loadComparison_skipsMeasurementsWithoutSnapshot() {
         let sut = makeSUT()
-        let withSnap    = makeMeasurement(tapLocation: "With", withSnapshot: true)
-        let withoutSnap = makeMeasurement(tapLocation: "Without", withSnapshot: false)
+        let withSnap    = makeMeasurement(measurementName: "With", withSnapshot: true)
+        let withoutSnap = makeMeasurement(measurementName: "Without", withSnapshot: false)
 
         sut.loadComparison(measurements: [withSnap, withoutSnap])
 
@@ -95,7 +95,7 @@ struct ComparisonLoadTests {
     // CP-U4: Colors cycle through the 5-color palette without crashing for > 5 entries.
     @Test func loadComparison_paletteWrapsFor6Measurements() {
         let sut = makeSUT()
-        let measurements = (1...6).map { makeMeasurement(tapLocation: "M\($0)") }
+        let measurements = (1...6).map { makeMeasurement(measurementName: "M\($0)") }
 
         // Should not crash and should produce 6 entries
         sut.loadComparison(measurements: measurements)
@@ -106,9 +106,9 @@ struct ComparisonLoadTests {
     // CP-U5: Axis bounds are set to the union of all snapshot ranges.
     @Test func loadComparison_setsAxisRangesToUnionOfSnapshots() {
         let sut = makeSUT()
-        let m1 = TapToneMeasurement(peaks: [], tapLocation: "A",
+        let m1 = TapToneMeasurement(peaks: [], measurementName: "A",
                                     spectrum: makeSnapshot(minFreq: 50,  maxFreq: 800,  minDB: -95, maxDB: -15))
-        let m2 = TapToneMeasurement(peaks: [], tapLocation: "B",
+        let m2 = TapToneMeasurement(peaks: [], measurementName: "B",
                                     spectrum: makeSnapshot(minFreq: 100, maxFreq: 1200, minDB: -80, maxDB: -5))
 
         sut.loadComparison(measurements: [m1, m2])
@@ -193,7 +193,7 @@ struct DisplayModeTransitionTests {
     // loadMeasurement sets displayMode to .frozen.
     @Test func loadMeasurement_setsDisplayModeToFrozen() {
         let sut = makeSUT()
-        let m = makeMeasurement(tapLocation: "Bridge")
+        let m = makeMeasurement(measurementName: "Bridge")
         sut.loadMeasurement(m)
         #expect(sut.displayMode == .frozen)
     }
@@ -204,7 +204,7 @@ struct DisplayModeTransitionTests {
         sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
         #expect(sut.displayMode == .comparison)
 
-        sut.loadMeasurement(makeMeasurement(tapLocation: "Neck"))
+        sut.loadMeasurement(makeMeasurement(measurementName: "Neck"))
 
         #expect(sut.displayMode == .frozen)
         #expect(sut.comparisonSpectra.isEmpty, "comparisonSpectra should be cleared when loading a measurement")

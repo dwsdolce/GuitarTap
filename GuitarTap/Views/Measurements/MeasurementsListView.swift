@@ -256,7 +256,7 @@ struct MeasurementsListView: View {
                             Button(action: {
                                 editTarget = (index: index, measurement: measurement)
                             }) {
-                                Label("Edit Location & Notes", systemImage: "pencil")
+                                Label("Edit Name & Notes", systemImage: "pencil")
                             }
 
                             Button(action: {
@@ -323,7 +323,7 @@ struct MeasurementsListView: View {
             }
         } message: {
             if let target = measurementPendingDelete {
-                Text("Are you sure you want to delete \"\(target.measurement.tapLocation ?? "Measurement")\"? This cannot be undone.")
+                Text("Are you sure you want to delete \"\(target.measurement.measurementName ?? "Measurement")\"? This cannot be undone.")
             }
         }
         .alert("Delete All Measurements?", isPresented: $showingDeleteAllConfirmation) {
@@ -519,7 +519,7 @@ struct MeasurementsListView: View {
 
         let cmpReportData = ComparisonPDFReportData(
             timestamp: measurement.timestamp,
-            comparisonLabel: measurement.tapLocation,
+            comparisonLabel: measurement.measurementName,
             notes: measurement.notes,
             spectrumImageData: cmpImageData,
             entries: cmpEntries,
@@ -560,14 +560,14 @@ struct MeasurementsListView: View {
 
         let reportData = ComparisonPDFReportData(
             timestamp: measurement.timestamp,
-            comparisonLabel: measurement.tapLocation,
+            comparisonLabel: measurement.measurementName,
             notes: measurement.notes,
             spectrumImageData: spectrumImageData,
             entries: entries,
             modeFrequencies: modeFrequencies
         )
 
-        let label = measurement.tapLocation ?? "measurement"
+        let label = measurement.measurementName ?? "measurement"
         let basename = label.replacingOccurrences(of: " ", with: "-").lowercased()
             + "-\(Int(measurement.timestamp.timeIntervalSince1970))"
 

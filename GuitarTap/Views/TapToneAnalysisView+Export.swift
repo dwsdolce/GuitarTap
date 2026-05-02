@@ -128,7 +128,7 @@ extension TapToneAnalysisView {
 
         let reportData = PDFReportData(
             timestamp: tap.sourceMeasurementTimestamp ?? Date(),
-            tapLocation: tapLocation.isEmpty ? tap.loadedMeasurementName : tapLocation,
+            measurementName: measurementName.isEmpty ? tap.loadedMeasurementName : measurementName,
             notes: notes.isEmpty ? nil : notes,
             measurementType: measurementType,
             guitarType: TapDisplaySettings.guitarType,
@@ -202,7 +202,7 @@ extension TapToneAnalysisView {
 
         let reportData = ComparisonPDFReportData(
             timestamp: Date(),
-            comparisonLabel: tap.loadedMeasurementName ?? (tapLocation.isEmpty ? nil : tapLocation),
+            comparisonLabel: tap.loadedMeasurementName ?? (measurementName.isEmpty ? nil : measurementName),
             notes: notes.isEmpty ? nil : notes,
             spectrumImageData: spectrumImageData,
             entries: tap.comparisonSnapshots.enumerated().map { index, snap in
@@ -228,7 +228,7 @@ extension TapToneAnalysisView {
             modeFrequencies: modeFrequencies
         )
 
-        let label = tap.loadedMeasurementName ?? tapLocation
+        let label = tap.loadedMeasurementName ?? measurementName
         let basename = label.isEmpty
             ? "report-\(Int(Date().timeIntervalSince1970))"
             : label.replacingOccurrences(of: " ", with: "-").lowercased()
@@ -307,7 +307,7 @@ extension TapToneAnalysisView {
         let rangeFilteredPeaks = tap.currentPeaks.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq }
         let avgReportData = PDFReportData(
             timestamp: tap.sourceMeasurementTimestamp ?? Date(),
-            tapLocation: tapLocation.isEmpty ? tap.loadedMeasurementName : tapLocation,
+            measurementName: measurementName.isEmpty ? tap.loadedMeasurementName : measurementName,
             notes: notes.isEmpty ? nil : notes,
             measurementType: measurementType,
             guitarType: TapDisplaySettings.guitarType,
@@ -393,7 +393,7 @@ extension TapToneAnalysisView {
 
         let cmpReportData = ComparisonPDFReportData(
             timestamp: tap.sourceMeasurementTimestamp ?? Date(),
-            comparisonLabel: tapLocation.isEmpty ? nil : tapLocation,
+            comparisonLabel: measurementName.isEmpty ? nil : measurementName,
             notes: notes.isEmpty ? nil : notes,
             spectrumImageData: cmpImageData,
             entries: cmpEntries,
@@ -428,7 +428,7 @@ extension TapToneAnalysisView {
                         color: avgColor, label: "Averaged"))
 
         let snaps = tap.tapEntries.map(\.snapshot)
-        let subtitle = tapLocation.isEmpty ? (tap.loadedMeasurementName ?? "Multi-Tap") : tapLocation
+        let subtitle = measurementName.isEmpty ? (tap.loadedMeasurementName ?? "Multi-Tap") : measurementName
         return makeExportableSpectrumView(
             frequencies: [], magnitudes: [],
             minFreq: snaps.map(\.minFreq).min() ?? minFreq,
@@ -448,7 +448,7 @@ extension TapToneAnalysisView {
     /// Used by `exportMultiTapPDFReport()` so page 1 always contains the averaged result even
     /// when the multi-tap comparison chart is currently displayed.
     func createAveragedSpectrumView() -> some View {
-        let subtitle = tapLocation.isEmpty ? (tap.loadedMeasurementName ?? "New") : tapLocation
+        let subtitle = measurementName.isEmpty ? (tap.loadedMeasurementName ?? "New") : measurementName
         return makeExportableSpectrumView(
             frequencies: tap.frozenFrequencies,
             magnitudes: tap.frozenMagnitudes,
@@ -470,7 +470,7 @@ extension TapToneAnalysisView {
 
     func createExportableSpectrumView() -> some View {
         let isComparing = tap.displayMode == .comparison
-        let subtitle = tapLocation.isEmpty ? (tap.loadedMeasurementName ?? "New") : tapLocation
+        let subtitle = measurementName.isEmpty ? (tap.loadedMeasurementName ?? "New") : measurementName
         let chartTitle = "FFT Peaks — \(subtitle)"
         return makeExportableSpectrumView(
             frequencies: tap.isMeasurementComplete ? tap.frozenFrequencies : fft.frequencies,

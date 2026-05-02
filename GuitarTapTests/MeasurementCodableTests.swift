@@ -191,7 +191,7 @@ struct TapToneMeasurementCodableTests {
         return TapToneMeasurement(
             peaks: [peak1, peak2],
             decayTime: 0.75,
-            tapLocation: "Bridge",
+            measurementName: "Bridge",
             notes: "Test measurement",
             spectrum: snapshot,
             annotationOffsets: [peak1.id: annotationOffset],
@@ -228,7 +228,7 @@ struct TapToneMeasurementCodableTests {
         #expect(decoded.peaks.count == 2)
         #expect(abs(decoded.peaks[0].frequency - original.peaks[0].frequency) < 0.001)
         #expect(decoded.decayTime == original.decayTime)
-        #expect(decoded.tapLocation == original.tapLocation)
+        #expect(decoded.measurementName == original.measurementName)
         #expect(decoded.notes == original.notes)
         #expect(decoded.tapDetectionThreshold == original.tapDetectionThreshold)
         #expect(decoded.hysteresisMargin == original.hysteresisMargin)
@@ -406,7 +406,7 @@ struct MeasurementExportModeLabelTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - with(tapLocation:notes:) builder
+// MARK: - with(measurementName:notes:) builder
 //
 // Mirrors Python TestWithMethod in test_measurement_codable.py.
 // ---------------------------------------------------------------------------
@@ -414,26 +414,26 @@ struct MeasurementExportModeLabelTests {
 @Suite("WithMethod")
 struct WithMethodTests {
 
-    // Updating tapLocation via with() returns a copy with the new location.
-    @Test func with_updatesTapLocation() {
-        let original = TapToneMeasurement(peaks: [], tapLocation: "Old")
-        let updated = original.with(tapLocation: "New", notes: nil)
-        #expect(updated.tapLocation == "New")
+    // Updating measurementName via with() returns a copy with the new measurementName.
+    @Test func with_updatesMeasurementName() {
+        let original = TapToneMeasurement(peaks: [], measurementName: "Old")
+        let updated = original.with(measurementName: "New", notes: nil)
+        #expect(updated.measurementName == "New")
         #expect(updated.id == original.id, "id must be preserved")
     }
 
     // Updating notes via with() returns a copy with the new notes.
     @Test func with_updatesNotes() {
         let original = TapToneMeasurement(peaks: [], notes: "old notes")
-        let updated = original.with(tapLocation: nil, notes: "new notes")
+        let updated = original.with(measurementName: nil, notes: "new notes")
         #expect(updated.notes == "new notes")
     }
 
-    // Passing nil for tapLocation clears it in the copy.
-    @Test func with_clearsLocationWithNil() {
-        let original = TapToneMeasurement(peaks: [], tapLocation: "Bridge")
-        let updated = original.with(tapLocation: nil, notes: nil)
-        #expect(updated.tapLocation == nil)
+    // Passing nil for measurementName clears it in the copy.
+    @Test func with_clearsMeasurementNameWithNil() {
+        let original = TapToneMeasurement(peaks: [], measurementName: "Bridge")
+        let updated = original.with(measurementName: nil, notes: nil)
+        #expect(updated.measurementName == nil)
     }
 
     // All other fields are preserved in the returned copy.
@@ -443,11 +443,11 @@ struct WithMethodTests {
             frequencies: [100, 200], magnitudes: [-30, -20],
             minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false
         )
-        let original = TapToneMeasurement(peaks: [peak], decayTime: 0.5, tapLocation: "Bridge", spectrum: snap)
-        let updated = original.with(tapLocation: "Neck", notes: nil)
+        let original = TapToneMeasurement(peaks: [peak], decayTime: 0.5, measurementName: "Bridge", spectrum: snap)
+        let updated = original.with(measurementName: "Neck", notes: nil)
         #expect(updated.peaks.count == 1)
         #expect(updated.decayTime == 0.5, "decayTime must be preserved")
-        #expect(updated.tapLocation == "Neck")
+        #expect(updated.measurementName == "Neck")
     }
 }
 

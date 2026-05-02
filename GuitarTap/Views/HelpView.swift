@@ -123,7 +123,7 @@ Three main workflows are supported:
                 )
                 helpRow(
                     title: "Step 6 — Save",
-                    body: "Tap Save. Enter a location (e.g. \"Upper Bout\" or \"Treble Side\") and any notes. The measurement is stored with all peaks, the spectrum snapshot, and a chart image."
+                    body: "Tap Save. Enter a measurement name (e.g. \"Martin D-28\" or \"Ramirez 1075\") and any notes. The measurement is stored with all peaks, the spectrum snapshot, and a chart image."
                 )
             } header: {
                 Label("Guitar Mode", systemImage: "guitars")
@@ -276,12 +276,12 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Save",
-                    body: "Saves the current measurement — enabled only when the spectrum is frozen and peaks have been detected. Enter a location label and optional notes.",
+                    body: "Saves the current measurement — enabled only when the spectrum is frozen and peaks have been detected. Enter a measurement name and optional notes.",
                     systemImages: ["square.and.arrow.down"]
                 )
                 helpRow(
                     title: "Measurements",
-                    body: "Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Edit Location & Notes, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison. The location and notes can also be edited from the Edit button in the Measurement Details toolbar.",
+                    body: "Lists all saved measurements. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Edit Name & Notes, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison. The measurement name and notes can also be edited from the Edit button in the Measurement Details toolbar.",
                     systemImages: ["list.bullet.clipboard"]
                 )
                 helpRow(
@@ -404,7 +404,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Comparing Guitar Measurements",
-                    body: "Save a measurement for each build stage or tap location with a descriptive label. Use the Measurements list Compare button to overlay 2–5 saved guitar measurements as colour-coded spectra on the main chart — ideal for tracking how bracing or finishing changes the resonant modes over time. Export measurements as .guitartap files for transfer between devices."
+                    body: "Save a measurement for each build stage or measurement name with a descriptive label. Use the Measurements list Compare button to overlay 2–5 saved guitar measurements as colour-coded spectra on the main chart — ideal for tracking how bracing or finishing changes the resonant modes over time. Export measurements as .guitartap files for transfer between devices."
                 )
                 helpRow(
                     title: "PDF Reports",

@@ -739,7 +739,7 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
         peakModes: GuitarMode.classifyAll(visiblePeaks),
         materialSpectra: materialSpectra,
         dateLabel: measurement.timestamp.formatted(),
-        chartTitle: "FFT Peaks — \(measurement.tapLocation ?? "New")"
+        chartTitle: "FFT Peaks — \(measurement.measurementName ?? "New")"
     )
 
     let renderer = ImageRenderer(content: compositeView)
@@ -804,7 +804,7 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? 
         measurementType: .classical,
         materialSpectra: spectra,
         dateLabel: measurement.timestamp.formatted(),
-        chartTitle: "Tap Comparison — \(measurement.tapLocation ?? "Multi-Tap")"
+        chartTitle: "Tap Comparison — \(measurement.measurementName ?? "Multi-Tap")"
     )
 
     let renderer = ImageRenderer(content: compositeView)
@@ -855,7 +855,7 @@ func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) -> Data
         measurementType: .classical,
         materialSpectra: comparisonSpectra,
         dateLabel: measurement.timestamp.formatted(),
-        chartTitle: "Comparison — \(measurement.tapLocation ?? "Comparison")"
+        chartTitle: "Comparison — \(measurement.measurementName ?? "Comparison")"
     )
 
     let renderer = ImageRenderer(content: compositeView)

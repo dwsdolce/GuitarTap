@@ -7,8 +7,8 @@
 ///
 /// A modal sheet for naming and saving the current tap tone measurement.
 ///
-/// Provides optional free-text fields for tap location (e.g., "Bridge",
-/// "Soundhole") and notes. The form is identical on both platforms; the
+/// Provides optional free-text fields for measurement name (e.g., "Martin D-28",
+/// "Ramirez 1975") and notes. The form is identical on both platforms; the
 /// structural difference is:
 ///
 /// - **macOS**: no `NavigationView` wrapper; the sheet receives a fixed
@@ -25,7 +25,7 @@ import SwiftUI
 
 struct SaveMeasurementSheet: View {
     @Environment(\.dismiss) var dismiss
-    @Binding var tapLocation: String
+    @Binding var measurementName: String
     @Binding var notes: String
     let onSave: () -> Void
     
@@ -80,7 +80,7 @@ struct SaveMeasurementSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Measurement Name")
                     .font(.headline)
-                TextField("Measurement Name", text: $tapLocation, prompt: Text("e.g. Martin 000-28, Spruce Top"))
+                TextField("Measurement Name", text: $measurementName, prompt: Text("e.g. Martin 000-28, Spruce Top"))
                     .textFieldStyle(.roundedBorder)
             }
 
@@ -106,7 +106,7 @@ struct SaveMeasurementSheet: View {
         #else
         Form {
             Section {
-                TextField("Measurement Name", text: $tapLocation, prompt: Text("e.g. Martin 000-28, Spruce Top"))
+                TextField("Measurement Name", text: $measurementName, prompt: Text("e.g. Martin 000-28, Spruce Top"))
                     .textFieldStyle(.roundedBorder)
             } header: {
                 Text("Measurement Name")
