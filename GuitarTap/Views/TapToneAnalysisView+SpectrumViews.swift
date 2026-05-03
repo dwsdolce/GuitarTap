@@ -175,10 +175,12 @@ extension TapToneAnalysisView {
             }()
 
             // Spectrum Chart
-            // Suppress single-measurement peak annotations while comparison is active —
+            // Suppress single-measurement peak annotations during saved-measurement comparison —
             // the annotation positions belong to the previous measurement and would render
             // in the wrong place relative to the comparison curves.
-            let isComparing = tap.displayMode == .comparison
+            // During multi-tap comparison the averaged peaks are still current, so annotations
+            // remain visible (isSavedMeasurementComparison is false in that case).
+            let isComparing = tap.isSavedMeasurementComparison
             spectrumView(isComparing: isComparing, thresholds: thresholds)
             // Force view to update when any relevant state changes
             .id("\(tap.isMeasurementComplete)-\(fft.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")

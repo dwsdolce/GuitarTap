@@ -835,6 +835,11 @@ extension TapToneAnalyzer {
     ///
     /// - Parameter measurements: The guitar measurements to overlay.
     func loadComparison(measurements: [TapToneMeasurement]) {
+        // Clear any active multi-tap comparison so the Taps button and per-tap table
+        // are hidden when the saved-measurement comparison is displayed.
+        tapEntries = []
+        showingMultiTapComparison = false
+
         let withSnapshots = measurements.filter { $0.spectrumSnapshot != nil }
 
         // Build base labels, then disambiguate duplicates so Swift Charts treats each

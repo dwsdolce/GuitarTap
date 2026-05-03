@@ -163,7 +163,7 @@ extension TapToneAnalysisView {
     }
 
     func saveMeasurement() {
-        if tap.displayMode == .comparison {
+        if tap.isSavedMeasurementComparison {
             tap.saveComparison(
                 measurementName: measurementName.isEmpty ? nil : measurementName,
                 notes: notes.isEmpty ? nil : notes

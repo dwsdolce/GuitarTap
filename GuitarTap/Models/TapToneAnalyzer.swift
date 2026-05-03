@@ -710,6 +710,16 @@ final class TapToneAnalyzer: ObservableObject {
     /// Automatically reset to `false` when a new sequence starts.
     @Published var showingMultiTapComparison: Bool = false
 
+    /// `true` when the user has loaded saved measurements to overlay — the classic
+    /// "Comparison" mode.  `false` during multi-tap comparison (per-tap waveform view
+    /// of the current guitar measurement) even though both set `displayMode = .comparison`.
+    ///
+    /// Use this wherever behaviour must differ between the two comparison sub-types:
+    /// save routing, PDF/spectrum export routing, annotation suppression, etc.
+    var isSavedMeasurementComparison: Bool {
+        displayMode == .comparison && !showingMultiTapComparison
+    }
+
     // MARK: - Gated FFT State
 
     /// Lock protecting ``gatedAccumBuffer``, which is written on the audio queue and

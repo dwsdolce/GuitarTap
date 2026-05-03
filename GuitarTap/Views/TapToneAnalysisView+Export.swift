@@ -50,7 +50,7 @@ extension TapToneAnalysisView {
             exportMultiTapPDFReport()
             return
         }
-        if tap.displayMode == .comparison {
+        if tap.isSavedMeasurementComparison {
             exportComparisonPDFReport()
             return
         }
@@ -469,7 +469,7 @@ extension TapToneAnalysisView {
     }
 
     func createExportableSpectrumView() -> some View {
-        let isComparing = tap.displayMode == .comparison
+        let isComparing = tap.isSavedMeasurementComparison
         let subtitle = measurementName.isEmpty ? (tap.loadedMeasurementName ?? "New") : measurementName
         let chartTitle = "FFT Peaks — \(subtitle)"
         return makeExportableSpectrumView(
