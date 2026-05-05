@@ -67,6 +67,7 @@
 /// alignment cannot be guaranteed.
 
 import Foundation
+import Accelerate
 
 extension TapToneAnalyzer {
 
@@ -123,7 +124,11 @@ extension TapToneAnalyzer {
             mpmLock.unlock()
 
             DispatchQueue.main.async { [weak self] in
-                self?.finishGatedFFTCapture(samples: captured, sampleRate: sampleRate, phase: phase)
+                if let phase = phase {
+                    self?.finishGatedFFTCapture(samples: captured, sampleRate: sampleRate, phase: phase)
+                } else {
+                    self?.finishGuitarGatedCapture(samples: captured, sampleRate: sampleRate)
+                }
             }
         }
     }
@@ -144,11 +149,18 @@ extension TapToneAnalyzer {
     ///   when the window closes.
     func startGatedCapture(phase: MaterialTapPhase) {
         mpmLock.lock()
+        // Bump capture identity — invalidates any pending safety-timeout from
+        // a previous capture so it cannot flush this capture's accumulator
+        // with a partial buffer.  See startGuitarGatedCapture for the full
+        // explanation of the race this prevents.
+        gatedCaptureID += 1
+        let myCaptureID = gatedCaptureID
         // Seed the gated buffer with the pre-roll contents so the tap attack transient
         // (which arrived before this call) is included in the captured window.
         gatedAccumBuffer = preRollBuffer
         mpmLock.unlock()
         gatedCapturePhase = phase
+        gatedCaptureSamples = Int(mpmSampleRate * TapToneAnalyzer.gatedCaptureDuration)
         gatedCaptureActive = true
 
         let windowMs = Int(TapToneAnalyzer.gatedCaptureDuration * 1000)
@@ -156,7 +168,11 @@ extension TapToneAnalyzer {
 
         // Safety timeout: close capture window after 2 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            guard let self = self, self.gatedCaptureActive else { return }
+            guard let self = self else { return }
+            // Identity guard: if a newer capture has started since this
+            // timeout was scheduled, this closure is stale — do nothing.
+            guard self.gatedCaptureID == myCaptureID else { return }
+            guard self.gatedCaptureActive else { return }
             self.gatedCaptureActive = false
             self.mpmLock.lock()
             let partial = self.gatedAccumBuffer
@@ -168,6 +184,141 @@ extension TapToneAnalyzer {
                 gtLog("⚠️ Gated capture timeout with no samples — tap again")
                 self.statusMessage = "No signal detected — tap again"
                 self.reEnableDetectionForNextPlateTap()
+            }
+        }
+    }
+
+    /// Opens a raw-PCM capture window for guitar mode, aligned to the tap onset.
+    ///
+    /// Capture window size = ``RealtimeFFTAnalyzer.fftSize`` so the resulting
+    /// spectrum has the same frequency resolution as the live FFT path.  The
+    /// pre-roll buffer (~200 ms) is seeded into ``gatedAccumBuffer`` so the
+    /// impulse onset (which arrives ~one RMS chunk before this call fires)
+    /// is included in the captured window.
+    ///
+    /// When the window fills, ``accumulateGatedSamples(_:sampleRate:)``
+    /// dispatches ``finishGuitarGatedCapture(samples:sampleRate:)`` on the main
+    /// thread instead of ``finishGatedFFTCapture(samples:sampleRate:phase:)``.
+    ///
+    /// A safety timeout fires after `targetMs + 500` to flush a partial buffer
+    /// (file ended early, user stopped, etc.) so the partial spectrum is still
+    /// captured rather than silently dropped.
+    func startGuitarGatedCapture() {
+        let fftSize = fftAnalyzer.fftSize
+        mpmLock.lock()
+        // Bump capture identity — invalidates any pending safety-timeout from
+        // a previous capture so it cannot flush this capture's accumulator
+        // with a partial buffer.  Without this guard, a stale timeout from
+        // tap N can fire while tap N+1 is mid-fill, dispatch tap N+1's
+        // partial accumulator as tap N's "completed" capture, and silently
+        // truncate captures from fftSize to whatever fragment was collected.
+        gatedCaptureID += 1
+        let myCaptureID = gatedCaptureID
+        // Seed the gated buffer with the pre-roll contents so the tap attack
+        // transient (which arrived before this call) is included.
+        gatedAccumBuffer = preRollBuffer
+        mpmLock.unlock()
+        gatedCapturePhase = nil   // nil = guitar-mode marker (mirrors Python phase=None)
+        gatedCaptureSamples = fftSize
+        gatedCaptureActive = true
+
+        let targetMs = Int((Double(fftSize) / max(mpmSampleRate, 1.0)) * 1000)
+        gtLog("🎯 Guitar gated capture started — \(fftSize)-sample window (\(targetMs) ms at \(Int(mpmSampleRate)) Hz, pre-roll \(gatedAccumBuffer.count) samples)")
+
+        let timeoutMs = targetMs + 500
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(timeoutMs)) { [weak self] in
+            guard let self = self else { return }
+            // Identity guard: if a newer capture has started since this
+            // timeout was scheduled, this closure is stale — do nothing.
+            guard self.gatedCaptureID == myCaptureID else { return }
+            guard self.gatedCaptureActive, self.gatedCapturePhase == nil else { return }
+            self.gatedCaptureActive = false
+            self.mpmLock.lock()
+            let partial = self.gatedAccumBuffer
+            self.gatedAccumBuffer = []
+            self.mpmLock.unlock()
+            if !partial.isEmpty {
+                self.finishGuitarGatedCapture(samples: partial, sampleRate: self.mpmSampleRate)
+            } else {
+                gtLog("⚠️ Guitar gated capture timeout with no samples")
+                self.statusMessage = "No signal detected — tap again"
+                self.scheduleGuitarReEnable()
+            }
+        }
+    }
+
+    /// Re-arms guitar tap detection after a cooldown when no spectrum was
+    /// captured (e.g. timeout with no audio).
+    private func scheduleGuitarReEnable() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
+            guard let self = self else { return }
+            let currentLevel = self.fftAnalyzer.inputLevelDB
+            let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
+            self.isAboveThreshold = currentLevel > fallingThreshold
+            self.isDetecting = true
+            self.tapDetected = false
+        }
+    }
+
+    /// Processes a guitar-mode gated PCM capture: computes the FFT with the
+    /// same `fftSize` and rectangular window as the live FFT path, appends the
+    /// resulting `(magnitudes, frequencies)` tuple to ``capturedTaps``, and
+    /// advances the tap counter.
+    ///
+    /// This is the new (option 3) capture path for guitar mode.  The legacy
+    /// "store the live FFT frame at tap-detection time" path is gone, replaced
+    /// by this onset-aligned capture so the same physical tap reliably yields
+    /// the same captured spectrum.
+    ///
+    /// - Parameters:
+    ///   - samples: Pre-roll + post-trigger PCM samples (length `fftSize`).
+    ///   - sampleRate: Hardware sample rate in Hz.
+    func finishGuitarGatedCapture(samples: [Float], sampleRate: Double) {
+        let fftSize = fftAnalyzer.fftSize
+
+        // Truncate or zero-pad to exactly fftSize.
+        var chunk: [Float]
+        if samples.count >= fftSize {
+            chunk = Array(samples.prefix(fftSize))
+        } else {
+            chunk = samples
+            chunk.append(contentsOf: Array(repeating: Float(0), count: fftSize - samples.count))
+        }
+
+        // Compute FFT with the SAME rectangular window and same fftSize as the
+        // live FFT path so the resulting spectrum is bin-compatible with the
+        // continuous FFT frames (and with capturedTaps entries from the legacy
+        // path).  computeFFT applies the rectangular `window` (np.ones-equivalent)
+        // and returns dBFS magnitudes; calibration is applied below to mirror what
+        // performFFT does on every live frame.
+        var magnitudes = fftAnalyzer.computeFFT(on: chunk)
+        guard !magnitudes.isEmpty else {
+            gtLog("⚠️ Guitar gated FFT returned empty spectrum")
+            scheduleGuitarReEnable()
+            return
+        }
+        let cal = fftAnalyzer.calibrationCorrections
+        if !cal.isEmpty && cal.count == magnitudes.count {
+            vDSP_vadd(magnitudes, 1, cal, 1, &magnitudes, 1, vDSP_Length(magnitudes.count))
+        }
+        let frequencies = fftAnalyzer.frequencies
+
+        capturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: Date()))
+        let peakDb = magnitudes.max() ?? -100
+        TAP_DEBUG("guitarGatedCapture", "FINISHED | newCount=\(capturedTaps.count)/\(numberOfTaps) capturedPeakMag=\(String(format: "%.2f", peakDb))dB samples=\(samples.count)")
+
+        currentTapCount = capturedTaps.count
+        tapProgress = min(1.0, Float(currentTapCount) / Float(numberOfTaps))
+
+        if currentTapCount < numberOfTaps {
+            statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
+            scheduleGuitarReEnable()
+        } else {
+            statusMessage = "All taps captured. Processing..."
+            captureTimer?.invalidate()
+            captureTimer = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + captureWindow) { [weak self] in
+                self?.processMultipleTaps()
             }
         }
     }

@@ -196,7 +196,22 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Accumulates incoming audio samples until there's enough data for FFT processing
     /// - Important: Access only on bufferAccessQueue to prevent race conditions
     var inputBuffer: [Float] = []
-    
+
+    // MARK: - FILE_DEBUG instrumentation
+
+    /// Counter so each FFT frame produced by ``performFFT(on:)`` has a unique
+    /// ordinal.  Used by FILE_DEBUG logs to correlate FFT frames with file-
+    /// playback progress and tap detection.  Resets to 0 on each playback
+    /// restart via ``resetFftThreadState()``.
+    /// Mirrors Python ``_FftProcessingThread._fft_frame_counter``.
+    var fftFrameCounter: Int = 0
+
+    /// Running total of samples consumed by FFT frames (incremented by
+    /// ``fftSize`` per frame).  Used to compute the file-time of each FFT
+    /// frame for FILE_DEBUG logging.
+    /// Mirrors Python ``_FftProcessingThread._samples_consumed``.
+    var samplesConsumed: Int = 0
+
     /// Hann window coefficients applied to audio samples before FFT to reduce spectral leakage
     /// - Note: The window is pre-computed during initialization for performance
     var window: [Float] = []
@@ -221,6 +236,24 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Fast input level in dB - updated on every audio buffer callback (~43Hz with 1024 buffer)
     /// Use this for decay tracking instead of peakMagnitude which only updates per FFT frame
     @Published var inputLevelDB: Float = -100
+
+    /// Edge-triggered clipping flag — `true` when any audio chunk in the last
+    /// ``clipHoldSeconds`` reached full scale (sample |x| ≥ 0.99) or RMS ≥ 0
+    /// dBFS, `false` otherwise.  Drives a remediation message in the status
+    /// bar (handled by ``TapToneAnalyzer.setClipping(_:)``).  Mirrors Python
+    /// `_FftProcessingThread.clippingChanged` signal + `is_clipping` flag.
+    @Published var isClipping: Bool = false
+
+    /// Hold any clip-detected chunk for this many seconds before declaring the
+    /// input "no longer clipping".  Without the hold, the indicator would
+    /// flicker every chunk as the signal oscillates around full scale during
+    /// a tap's attack.
+    let clipHoldSeconds: TimeInterval = 1.5
+
+    /// Wall-clock time of the most recent chunk that triggered the clipping
+    /// detector.  Compared against `clipHoldSeconds` on every chunk to drive
+    /// the True→False transition of `isClipping`.
+    var lastClipTime: Date?
 
     /// Input level gated to the FFT publish rate for display purposes.
     /// Updates in lockstep with `magnitudes`/`peakMagnitude` (i.e. at the FFT frame rate),

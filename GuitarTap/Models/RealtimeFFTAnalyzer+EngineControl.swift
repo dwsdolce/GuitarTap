@@ -405,6 +405,11 @@ extension RealtimeFFTAnalyzer {
         // first FFT window from the file.
         bufferAccessQueue.sync { inputBuffer.removeAll() }
 
+        // FILE_DEBUG: zero ordinals so a new file's frames start at #1.
+        // Mirrors Python _FftProcessingThread.reset_state() block.
+        fftFrameCounter = 0
+        samplesConsumed = 0
+
         // Open the audio file.
         let audioFile = try AVAudioFile(forReading: url)
         let fileFormat = audioFile.processingFormat
@@ -500,11 +505,24 @@ extension RealtimeFFTAnalyzer {
         // After the file has fully played, switch back to live mic.
         // Add a small buffer (0.3 s) to ensure all queued audio buffers have been
         // delivered to processAudioBuffer before we tear down the player.
+        let _fileDurationLog = fileDuration
+        let _t0Log = Date()
         DispatchQueue.main.asyncAfter(deadline: .now() + fileDuration + 0.3) { [weak self] in
             guard let self else { return }
-            guard self.playerNode === scheduledPlayer else { return }
+            guard self.playerNode === scheduledPlayer else {
+                // A new file opened before this timer fired — record the
+                // interruption so the FILE_DEBUG trace shows it.
+                TAP_DEBUG("file_playback", "INTERRUPTED | superseded by new playback")
+                return
+            }
             self.isPlayingFile = false
             self.playerNode = nil
+
+            // ── FILE_DEBUG: file-playback END log ────────────────────
+            // Mirrors Python _playback_worker END log.
+            let _elapsed = Date().timeIntervalSince(_t0Log)
+            let _ratio = _elapsed / max(_fileDurationLog, 1e-9)
+            TAP_DEBUG("file_playback", "END | elapsed=\(String(format: "%.3f", _elapsed))s expected=\(String(format: "%.3f", _fileDurationLog))s realtimeRatio=\(String(format: "%.3f", _ratio))x")
 
             // Force-flush any partial audio that accumulated in inputBuffer.
             //
@@ -574,6 +592,15 @@ extension RealtimeFFTAnalyzer {
         playingFileName = url.deletingPathExtension().lastPathComponent
         engineStartTime = Date()
         engineLog.info("File playback started")
+
+        // ── FILE_DEBUG: file-playback START log ─────────────────────────
+        // Mirrors Python file_playback worker's START log.  Swift uses
+        // AVAudioEngine (scheduleFile + play) rather than a sample-pump
+        // thread, so per-chunk pacing fields don't apply; everything else
+        // matches the Python format.
+        let _expectedFftFrames = Int(audioFile.length) / fftSize
+        let _chunkDurationMs = Double(bufferSize) / fileFormat.sampleRate * 1000.0
+        TAP_DEBUG("file_playback", "START | path=\(playingFileName ?? "") samples=\(audioFile.length) rate=\(Int(fileFormat.sampleRate))Hz chunksize=\(bufferSize) chunkDuration=\(String(format: "%.1f", _chunkDurationMs))ms expectedDuration=\(String(format: "%.3f", fileDuration))s fftSize=\(fftSize) expectedFftFrames=\(_expectedFftFrames)")
     }
 
     /// Stops the audio engine and releases audio resources.

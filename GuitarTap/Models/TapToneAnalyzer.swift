@@ -245,6 +245,18 @@ final class TapToneAnalyzer: ObservableObject {
     /// Human-readable status string shown in the status bar and instructions area.
     @Published var statusMessage: String = "Tap the guitar to begin"
 
+    /// The most recent analyzer-set status message, preserved while the
+    /// clipping override is active so it can be restored when clipping clears.
+    /// Updated by a Combine sink on `$statusMessage` (see setupSubscriptions).
+    /// Mirrors Python `_latest_real_status`.
+    var latestRealStatus: String = "Tap the guitar to begin"
+
+    /// Sentinel string used to detect (and ignore) self-writes to
+    /// `statusMessage` performed by the clipping-override path, so the
+    /// `$statusMessage` sink doesn't store the warning into
+    /// `latestRealStatus`.  Mirrors Python's identical override.
+    static let clippingWarningStatus = "⚠ Input clipping — reduce mic gain"
+
     // MARK: - Published Frozen Spectrum
 
     /// Frequencies of the frozen (post-tap-sequence) spectrum, in Hz.
@@ -719,6 +731,15 @@ final class TapToneAnalyzer: ObservableObject {
     /// `true` when the gated-FFT capture window is open and accumulating samples.
     var gatedCaptureActive: Bool = false
 
+    /// Monotonic capture identity — incremented at every `startGatedCapture` /
+    /// `startGuitarGatedCapture` call.  Each pending safety-timeout closure
+    /// captures the ID at scheduling time and only flushes the accumulator if
+    /// `gatedCaptureID` still matches.  Without this, a stale timeout from a
+    /// previous capture can fire while the next capture is mid-fill, dispatch
+    /// its partial buffer as if it were the new capture's complete result, and
+    /// silently truncate the capture window.  Mirrors Python `_gated_capture_id`.
+    var gatedCaptureID: Int = 0
+
     /// Accumulated raw PCM samples for the current gated FFT capture window.
     ///
     /// Seeded with pre-roll content when the window opens; populated by
@@ -731,7 +752,13 @@ final class TapToneAnalyzer: ObservableObject {
     static let gatedCaptureDuration: Double = 0.400
 
     /// Number of samples in one gated capture window at the current hardware sample rate.
-    var gatedCaptureSamples: Int { Int(mpmSampleRate * TapToneAnalyzer.gatedCaptureDuration) }
+    /// Target size of the gated-capture window, in samples.
+    ///
+    /// Set at capture-start time so the same accumulator infrastructure can serve
+    /// different capture lengths: plate/brace uses ``gatedCaptureDuration`` (~400 ms);
+    /// guitar uses the full ``fftSize`` so the resulting spectrum has the same
+    /// frequency resolution as the live FFT path.
+    var gatedCaptureSamples: Int = 0
 
     /// Callback invoked on the main thread when the gated capture window fills.
     ///
@@ -739,11 +766,14 @@ final class TapToneAnalyzer: ObservableObject {
     /// FFT and routing results to the appropriate phase handler.
     var gatedCaptureCompletion: (([Float], Double, MaterialTapPhase) -> Void)?
 
-    /// The ``MaterialTapPhase`` that was active when the current gated capture started.
+    /// The ``MaterialTapPhase`` that was active when the current gated capture started,
+    /// or `nil` for a guitar-mode capture.
     ///
     /// Stored at capture-start time so the completion handler knows which phase to finalise
     /// even if ``materialTapPhase`` has advanced by the time the window closes.
-    var gatedCapturePhase: MaterialTapPhase = .notStarted
+    /// `nil` is the sentinel value identifying a guitar-mode capture, parallel to
+    /// Python's ``_gated_capture_phase = None``.
+    var gatedCapturePhase: MaterialTapPhase? = nil
 
     /// Most recent hardware sample rate, in Hz.
     ///
@@ -808,6 +838,11 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Wall-clock time of the most recent detected tap.
     var lastTapTime: Date?
+
+    /// Edge-triggered guard for the cooldown TAP_DEBUG line — set true the first
+    /// chunk inside the cooldown window so we log once per cooldown rather than
+    /// ~22 times.  Mirrors Python `_cooldown_logged`.
+    var cooldownLogged: Bool = false
 
     /// Input level (dBFS) at the moment the most recent tap was detected.
     ///
@@ -924,12 +959,15 @@ final class TapToneAnalyzer: ObservableObject {
             self?.accumulateGatedSamples(samples, sampleRate: sampleRate)
         }
 
-        // Slow path: full FFT frame → peak detection and guitar-mode tap detection.
+        // Slow path: full FFT frame → onFftFrame (in +TapDetection.swift),
+        // which delegates to analyzeMagnitudes for peak analysis.  The entry-
+        // point method placement mirrors Python's on_fft_frame in
+        // tap_tone_analyzer_tap_detection.py.
         fftAnalyzer.$magnitudes
             .combineLatest(fftAnalyzer.$frequencies, fftAnalyzer.$peakMagnitude)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] magnitudes, frequencies, peakMag in
-                self?.analyzeMagnitudes(magnitudes, frequencies: frequencies, peakMagnitude: peakMag)
+                self?.onFftFrame(magnitudes: magnitudes, frequencies: frequencies, peakMagnitude: peakMag)
             }
             .store(in: &cancellables)
 
@@ -941,24 +979,15 @@ final class TapToneAnalyzer: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Fast path: per-buffer input level → plate/brace tap detection.
-        //
-        // The 65 536-sample FFT window (~1.5 s at 44.1 kHz) dilutes a short tap impact by
-        // roughly 15 dB, making FFT peakMagnitude an unreliable trigger for plate taps.
-        // inputLevelDB updates every audio buffer (~10 ms) with the instantaneous RMS,
-        // allowing the hysteresis detector to see the level rise and fall correctly.
-        // Guitar mode continues to use the FFT path so that magnitudes[] is available for
-        // immediate spectrum analysis at tap time.
+        // Fast path: per-buffer input level → onRmsLevelChanged (in +TapDetection.swift),
+        // which runs the hysteresis detector for ALL measurement types.  The handler
+        // placement mirrors Python's _on_rms_level_changed in
+        // tap_tone_analyzer_tap_detection.py — guards live in the handler, not at
+        // the sink, so the file-level layout matches the Python port.
         fftAnalyzer.$inputLevelDB
             .receive(on: DispatchQueue.main)
             .sink { [weak self] levelDB in
-                guard let self = self else { return }
-                let type = TapDisplaySettings.measurementType
-                guard type == .plate || type == .brace else { return }
-                guard self.isDetecting && !self.isDetectionPaused else { return }
-                self.detectTap(peakMagnitude: levelDB,
-                               magnitudes: self.fftAnalyzer.magnitudes,
-                               frequencies: self.fftAnalyzer.frequencies)
+                self?.onRmsLevelChanged(levelDB)
             }
             .store(in: &cancellables)
 
@@ -968,6 +997,43 @@ final class TapToneAnalyzer: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.handleRouteChangeRestart()
+            }
+            .store(in: &cancellables)
+
+        // ── Input-clipping override ──────────────────────────────────────
+        // When fftAnalyzer.isClipping toggles, swap the displayed
+        // statusMessage between the analyzer's intended message
+        // (preserved in latestRealStatus) and a remediation warning.
+        // Mirrors Python `_set_clipping`.
+        fftAnalyzer.$isClipping
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] clipping in
+                guard let self = self else { return }
+                if clipping {
+                    self.statusMessage = TapToneAnalyzer.clippingWarningStatus
+                } else {
+                    self.statusMessage = self.latestRealStatus
+                }
+            }
+            .store(in: &cancellables)
+
+        // ── Track the latest analyzer-set status ─────────────────────────
+        // Every write to statusMessage triggers this sink.  Writes that match
+        // the clipping warning sentinel are self-writes from the override
+        // above and are ignored; all other writes are saved as the most
+        // recent "real" status so that toggling clipping off restores the
+        // correct message.  Mirrors Python `_set_status_message`.
+        $statusMessage
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newValue in
+                guard let self = self else { return }
+                guard newValue != TapToneAnalyzer.clippingWarningStatus else { return }
+                self.latestRealStatus = newValue
+                // If clipping is currently active, immediately re-override
+                // so the analyzer's message doesn't briefly flash.
+                if self.fftAnalyzer.isClipping {
+                    self.statusMessage = TapToneAnalyzer.clippingWarningStatus
+                }
             }
             .store(in: &cancellables)
     }

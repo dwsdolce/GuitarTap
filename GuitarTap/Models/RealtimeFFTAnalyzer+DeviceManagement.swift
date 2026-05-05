@@ -234,10 +234,13 @@ extension RealtimeFFTAnalyzer {
                     self.selectedInputDevice = savedDevice
                     gtLog("🎤 Restored previously selected mic: \(savedDevice.name)")
                 } else
-                // Priority 1: Built-in microphone
-                if let builtInMic = devices.first(where: { $0.uid.contains("BuiltInMicrophone") }) {
-                    self.selectedInputDevice = builtInMic
-                    gtLog("🎤 Auto-selected built-in mic: \(builtInMic.name)")
+                // Priority 1: Any external (non-built-in) microphone.
+                // Prefer high-quality external measurement mics (UMIK-1, USB,
+                // Bluetooth) over the built-in mic when no preference is saved.
+                // Mirrors Python `_is_builtin_mic` deny-list heuristic.
+                if let externalMic = devices.first(where: { !self.isBuiltInMic($0) }) {
+                    self.selectedInputDevice = externalMic
+                    gtLog("🎤 Auto-selected external mic: \(externalMic.name)")
                 } else {
                     // Priority 2: System default input device
                     var defaultDeviceID: AudioDeviceID = 0
@@ -297,10 +300,13 @@ extension RealtimeFFTAnalyzer {
                     gtLog("🎤 New device connected, auto-selected: \(firstNew.name)")
                 } else if let current = self.selectedInputDevice,
                           !devices.contains(where: { $0.uid == current.uid }) {
-                    // Currently selected device was unplugged — fall back
-                    if let builtIn = devices.first(where: { $0.uid.contains("BuiltInMicrophone") }) {
-                        self.selectedInputDevice = builtIn
-                        gtLog("🎤 '\(current.name)' disconnected, switched to built-in: \(builtIn.name)")
+                    // Currently selected device was unplugged — fall back.
+                    // Prefer another external mic over the built-in (mirrors
+                    // Python initial-load priority: external before built-in
+                    // before first available).
+                    if let externalMic = devices.first(where: { !self.isBuiltInMic($0) }) {
+                        self.selectedInputDevice = externalMic
+                        gtLog("🎤 '\(current.name)' disconnected, switched to external: \(externalMic.name)")
                     } else {
                         self.selectedInputDevice = devices.first
                         gtLog("🎤 '\(current.name)' disconnected, switched to: \(devices.first?.name ?? "none")")
@@ -311,6 +317,27 @@ extension RealtimeFFTAnalyzer {
         }
         
         gtLog("🎤 Found \(devices.count) audio input device(s) total")
+    }
+
+    /// Returns `true` when the given device is the laptop's built-in mic.
+    ///
+    /// Uses CoreAudio's `kAudioDevicePropertyTransportType` as the primary
+    /// signal (the canonical source of truth on macOS — robust against UID
+    /// renames in future macOS versions).  Falls back to the legacy
+    /// UID-substring heuristic if the transport-type query fails (e.g. for
+    /// virtual / aggregate devices that don't report a transport).
+    ///
+    /// Mirrors Python `_is_builtin_mic(name)` — same logical role, but the
+    /// Python port has no API equivalent of CoreAudio transport types and
+    /// relies on a name-substring deny-list instead.
+    func isBuiltInMic(_ device: AVAudioDevice) -> Bool {
+        let transport = transportType(for: device.deviceID)
+        if transport == kAudioDeviceTransportTypeBuiltIn {
+            return true
+        }
+        // Fallback: legacy UID heuristic for cases where transport reads as
+        // Unknown (older macOS, virtual devices, etc.).
+        return device.uid.contains("BuiltInMicrophone")
     }
 
     /// Returns the CoreAudio transport type for the given device, or

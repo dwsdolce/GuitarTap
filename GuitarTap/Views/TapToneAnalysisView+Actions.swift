@@ -144,6 +144,24 @@ extension TapToneAnalysisView {
         // playback duration because AVAudioEngine reads audio asynchronously after open.
         // The completion closure passed to startFromFile releases it when playback ends.
         let accessing = url.startAccessingSecurityScopedResource()
+
+        // IMPORTANT: startTapSequence runs BEFORE startFromFile so the analyzer
+        // state (capturedTaps, isMeasurementComplete, isAboveThreshold,
+        // gatedCaptureActive, gatedAccumBuffer, preRollBuffer, etc.) is fully
+        // reset before any audio flows.  If startFromFile ran first, the
+        // engine could begin delivering audio buffers while
+        // isMeasurementComplete from the previous session was still true
+        // (suppressing the live spectrum display) and the gated accumulator
+        // could complete a stale capture and append a phantom entry to
+        // capturedTaps right after startTapSequence cleared it.  Mirrors
+        // Python views/tap_tone_analysis_view.py _open_audio_file.
+        //
+        // skipWarmup: the audio source is a deterministic file, so the 0.5s
+        // warm-up is not needed to suppress microphone startup noise.  The
+        // tap transient may also appear within the first 0.5 s of the
+        // recording, so skipping warm-up ensures it is not suppressed.
+        tapToneAnalyzer.startTapSequence(skipWarmup: true)
+
         do {
             try fft.startFromFile(url) {
                 // Called on the main thread after playback completes and the engine has
@@ -155,11 +173,6 @@ extension TapToneAnalysisView {
             engineStartError = "Could not play audio file: \(error.localizedDescription)"
             return
         }
-        // Kick off tap detection (bypasses fftAnalyzer.start() since engine is already running).
-        // skipWarmup: the audio source is a deterministic file, so the 0.5s warm-up is not
-        // needed to suppress microphone startup noise.  The tap transient may also appear within
-        // the first 0.5 s of the recording, so skipping warm-up ensures it is not suppressed.
-        tapToneAnalyzer.startTapSequence(skipWarmup: true)
     }
 
     func saveMeasurement() {

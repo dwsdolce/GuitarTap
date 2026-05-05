@@ -113,6 +113,24 @@ extension RealtimeFFTAnalyzer {
         let levelDB = rms > 0 ? 20 * log10(rms) : -100
         let wallNow = Date()
 
+        // ── Input-clipping detection ────────────────────────────────
+        // Sample-domain check (peak |sample| ≥ 0.99) catches transient
+        // peaks; RMS check (>= 0 dBFS) catches sustained clipping.  Either
+        // condition holds the clipping state True for clipHoldSeconds before
+        // clearing.  Edge-triggered publish so SwiftUI only re-renders on
+        // True↔False transitions.  Mirrors Python `_FftProcessingThread`
+        // clipping detection block.
+        var peakAbs: Float = 0
+        vDSP_maxmgv(samples, 1, &peakAbs, vDSP_Length(samples.count))
+        let chunkClipped = (peakAbs >= 0.99) || (levelDB >= 0)
+        if chunkClipped {
+            self.lastClipTime = wallNow
+        }
+        let newClipState: Bool = {
+            guard let last = self.lastClipTime else { return false }
+            return wallNow.timeIntervalSince(last) < self.clipHoldSeconds
+        }()
+
         // Update input level and recent peak on main thread
         DispatchQueue.main.async {
             self.inputLevelDB = levelDB
@@ -121,6 +139,11 @@ extension RealtimeFFTAnalyzer {
             if levelDB > self.recentPeakLevelDB || wallNow.timeIntervalSince(self.recentPeakTime) > self.peakHoldDuration {
                 self.recentPeakLevelDB = levelDB
                 self.recentPeakTime = wallNow
+            }
+
+            // Edge-triggered publish so SwiftUI re-renders only on transitions.
+            if newClipState != self.isClipping {
+                self.isClipping = newClipState
             }
         }
         
@@ -245,6 +268,19 @@ extension RealtimeFFTAnalyzer {
         if !calibrationCorrections.isEmpty && calibrationCorrections.count == db.count {
             vDSP_vadd(db, 1, calibrationCorrections, 1, &db, 1, vDSP_Length(db.count))
         }
+
+        // ── FILE_DEBUG: per-FFT-frame trace ─────────────────────────────
+        // Records frame ordinal, file-time of frame start, peakMag, dominant-
+        // bin frequency, and whether the file-playback source is the active
+        // producer.  Mirrors the equivalent block in Python
+        // _FftProcessingThread.run().
+        fftFrameCounter += 1
+        samplesConsumed += fftSize
+        let _peakDbDbg = db.max() ?? -100
+        let _peakBinDbg = db.firstIndex(of: _peakDbDbg) ?? 0
+        let _peakFreqHzDbg = Float(_peakBinDbg) * Float(targetSampleRate) / Float(fftSize)
+        let _fileTimeSDbg = Double(samplesConsumed) / max(targetSampleRate, 1.0)
+        TAP_DEBUG("fft_frame", "#\(fftFrameCounter) fileTime=\(String(format: "%.3f", _fileTimeSDbg))s peakMag=\(String(format: "%.2f", _peakDbDbg))dB peakFreq=\(String(format: "%.1f", _peakFreqHzDbg))Hz isPlayingFile=\(isPlayingFile)")
 
         // Find peak frequency in the spectrum
         if let maxIndex = db.enumerated().max(by: { $0.element < $1.element })?.offset {

@@ -183,6 +183,19 @@ extension TapToneAnalyzer {
             self.tapProgress         = 0.0
             self.tapDetected         = false
             self.isDetectionPaused   = false
+
+            // Cancel any in-flight gated capture from a previous sequence and
+            // drop the pre-roll ring buffer.  Without this, a gated capture
+            // that was mid-fill when the new sequence starts will eventually
+            // complete and append a stale entry into the now-cleared
+            // capturedTaps list, and the pre-roll buffer would carry stale
+            // audio from the previous run into the next gated capture's
+            // leading window.  Mirrors Python tap_tone_analyzer_control.py.
+            self.gatedCaptureActive = false
+            self.mpmLock.lock()
+            self.gatedAccumBuffer = []
+            self.preRollBuffer = []
+            self.mpmLock.unlock()
             // Seed the noise-floor estimate from the current ambient level so the first
             // relative-threshold calculation is accurate immediately.
             self.noiseFloorEstimate  = self.fftAnalyzer.inputLevelDB

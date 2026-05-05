@@ -77,14 +77,12 @@ extension TapToneAnalyzer {
         let validMags = magnitudes.filter { $0 > -100 }
         averageMagnitude = validMags.isEmpty ? -100 : validMags.reduce(0, +) / Float(validMags.count)
         
-        // Only detect taps if detection is enabled.
-        // Plate/brace modes use the fast recentPeakLevelDB subscription instead of
-        // this slow FFT path — the long-window FFT dilutes transient tap energy by ~15 dB.
+        // Tap detection runs on the fast inputLevelDB path (see onRmsLevelChanged
+        // in +TapDetection.swift) for all measurement types — not from this
+        // FFT-rate path.  This block only governs the live-threshold strategy
+        // below for plate/brace; mirrors Python tap_tone_analyzer_peak_analysis.py.
         let mType = TapDisplaySettings.measurementType
         let usesFastTapDetection = (mType == .plate || mType == .brace)
-        if isDetecting && !usesFastTapDetection {
-            detectTap(peakMagnitude: peakMagnitude, magnitudes: magnitudes, frequencies: frequencies)
-        }
         
         // Analyze peaks if detection is enabled, paused (spectrum stays live), or in capture window.
         // Do not overwrite currentPeaks once a measurement is complete — for guitar that means the

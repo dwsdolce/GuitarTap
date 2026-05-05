@@ -630,7 +630,13 @@ extension TapToneAnalysisView {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .fixedSize()
-                    Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
+                    ThresholdSlider(
+                        value: $tapToneAnalyzer.tapDetectionThreshold,
+                        level: tap.fftAnalyzer.inputLevelDB,
+                        isClipping: tap.fftAnalyzer.isClipping,
+                        range: -80...(-20)
+                    )
+                        .frame(minWidth: 160)
                         .accessibilityLabel("Tap detection threshold")
                         .hint(HintText.threshold)
 
@@ -792,8 +798,13 @@ extension TapToneAnalysisView {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize()
-                Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
-                    .frame(width: 80)
+                ThresholdSlider(
+                    value: $tapToneAnalyzer.tapDetectionThreshold,
+                    level: tap.fftAnalyzer.inputLevelDB,
+                    isClipping: tap.fftAnalyzer.isClipping,
+                    range: -80...(-20)
+                )
+                    .frame(width: 160)
                     .accessibilityLabel("Tap detection threshold")
 
                 Text("\(Int(tap.tapDetectionThreshold)) dB")
@@ -919,8 +930,13 @@ extension TapToneAnalysisView {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .fixedSize()
-                    Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
-                        .frame(width: 80)
+                    ThresholdSlider(
+                        value: $tapToneAnalyzer.tapDetectionThreshold,
+                        level: tap.fftAnalyzer.inputLevelDB,
+                        isClipping: tap.fftAnalyzer.isClipping,
+                        range: -80...(-20)
+                    )
+                        .frame(width: 160)
                         .accessibilityLabel("Tap detection threshold")
 
                     Text("\(Int(tap.tapDetectionThreshold)) dB")

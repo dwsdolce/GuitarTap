@@ -127,35 +127,22 @@ extension TapToneAnalysisView {
 
     var realTimeSpectrumView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Prepare threshold lines for the chart
+            // Prepare threshold lines for the chart.
+            //
+            // The Trigger / Reset (tap-detection) lines have been removed
+            // because the tap-detection threshold now compares against the
+            // time-domain RMS level, not the FFT magnitude axis shown on
+            // this chart.  Drawing them at a y-coordinate on the FFT chart
+            // was misleading — captured FFT peaks regularly sit ~30 dB
+            // below the threshold even for clean taps.  Live feedback for
+            // the input level vs threshold lives in the ThresholdSlider
+            // widget (level meter + peak-hold dot + clipping zone).
+            //
+            // The Peak Min line (FFT-magnitude threshold for which spectral
+            // peaks are drawn) IS still shown — it really does correspond
+            // to a level on this chart's y-axis.
             let thresholds: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])] = {
                 var lines: [(Float, String, Color, CGFloat, [CGFloat])] = []
-
-                // Rising threshold (main threshold line)
-                let risingThreshold = tap.tapDetectionThreshold
-                if risingThreshold > minDB && risingThreshold < maxDB {
-                    lines.append((
-                        risingThreshold,
-                        "Trigger: \(Int(risingThreshold)) dB",
-                        .orange.opacity(0.7),
-                        2.0,
-                        [5, 3]
-                    ))
-                }
-
-                // Falling threshold (hysteresis line)
-                if tap.hysteresisMargin > 0.5 {
-                    let fallingThreshold = risingThreshold - tap.hysteresisMargin
-                    if fallingThreshold > minDB && fallingThreshold < maxDB {
-                        lines.append((
-                            fallingThreshold,
-                            "Reset: \(Int(fallingThreshold)) dB",
-                            .purple.opacity(0.5),
-                            1.5,
-                            [3, 3]
-                        ))
-                    }
-                }
 
                 // Peak detection threshold line (guitar only — not used for plate/brace)
                 if TapDisplaySettings.measurementType.isGuitar {

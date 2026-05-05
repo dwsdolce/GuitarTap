@@ -68,6 +68,46 @@ import Combine
 
 extension TapToneAnalyzer {
 
+    // MARK: - FFT-Frame Entry Point
+
+    /// Receives one full FFT frame (~2.7 Hz) and routes it to peak analysis.
+    ///
+    /// Called from the `$magnitudes` Combine sink in
+    /// ``setupSubscriptions()``.  Mirrors Python ``on_fft_frame`` in
+    /// ``tap_tone_analyzer_tap_detection.py`` so the FFT-frame entry point
+    /// lives in matching files between the two ports.  The peak-analysis
+    /// implementation itself remains in ``analyzeMagnitudes(_:frequencies:peakMagnitude:)``
+    /// in `+PeakAnalysis.swift`, parallel to Python's ``analyze_magnitudes``
+    /// in ``tap_tone_analyzer_peak_analysis.py``.
+    ///
+    /// Tap detection is no longer driven from this slow FFT-rate path — see
+    /// ``onRmsLevelChanged(_:)`` for the per-chunk RMS-driven detector.
+    func onFftFrame(magnitudes: [Float], frequencies: [Float], peakMagnitude: Float) {
+        analyzeMagnitudes(magnitudes, frequencies: frequencies, peakMagnitude: peakMagnitude)
+    }
+
+    // MARK: - RMS-Level Entry Point
+
+    /// Receives the per-chunk RMS input level (~43 Hz) and runs the rising-edge
+    /// tap detector for whichever measurement type is currently active.
+    ///
+    /// Called from the `$inputLevelDB` Combine sink in ``setupSubscriptions()``.
+    /// Mirrors Python ``_on_rms_level_changed`` in
+    /// ``tap_tone_analyzer_tap_detection.py``.  The guards (isDetecting /
+    /// isDetectionPaused / isMeasurementComplete) live here in the handler, not
+    /// inline at the sink, so the file-level placement matches Python.
+    ///
+    /// Guitar mode previously detected from the FFT-rate path
+    /// (``analyzeMagnitudes``); now all modes detect from this finer-resolution
+    /// RMS path.  The captured spectrum for guitar is then assembled via
+    /// ``startGuitarGatedCapture()``.
+    func onRmsLevelChanged(_ levelDB: Float) {
+        guard isDetecting && !isDetectionPaused && !isMeasurementComplete else { return }
+        detectTap(peakMagnitude: levelDB,
+                  magnitudes: fftAnalyzer.magnitudes,
+                  frequencies: fftAnalyzer.frequencies)
+    }
+
     // MARK: - Tap Detection
 
     /// Evaluates the current signal level against the active detection threshold
@@ -111,6 +151,11 @@ extension TapToneAnalyzer {
         //                       the target "tap above noise floor" margin by computing
         //                       headroom = tapDetectionThreshold - noiseFloorEstimate,
         //                       clamped to at least 6 dB so there is always a gap to cross.
+        //
+        // NOTE: Per-chunk ABSOLUTE/RELATIVE/HYSTERESIS TAP_DEBUG log lines were
+        // removed — they fired ~43 Hz and drowned out meaningful events.  Edge
+        // events (RISING / FALLING / SIGNAL SETTLED) and gated-capture events
+        // provide the diagnostic signal at the rate that actually matters.
         let effectiveRisingThreshold: Float
         let effectiveFallingThreshold: Float
         if useRelativeDetection {
@@ -121,11 +166,9 @@ extension TapToneAnalyzer {
             let headroom = max(tapDetectionThreshold - noiseFloorEstimate, 10.0)
             effectiveRisingThreshold  = noiseFloorEstimate + headroom
             effectiveFallingThreshold = noiseFloorEstimate + max(headroom - hysteresisMargin, 4.0)
-            TAP_DEBUG("detectTap", "RELATIVE mode | peakMag=\(String(format: "%.2f", peakMagnitude)) noiseFloor=\(String(format: "%.2f", noiseFloorEstimate)) headroom=\(String(format: "%.2f", headroom)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) fallingThresh=\(String(format: "%.2f", effectiveFallingThreshold)) isAboveThreshold=\(isAboveThreshold)")
         } else {
             effectiveRisingThreshold  = tapDetectionThreshold
             effectiveFallingThreshold = tapDetectionThreshold - hysteresisMargin
-            TAP_DEBUG("detectTap", "ABSOLUTE mode | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) fallingThresh=\(String(format: "%.2f", effectiveFallingThreshold)) isAboveThreshold=\(isAboveThreshold)")
         }
 
         // Check if we're still in warm-up period (prevents false detections on startup)
@@ -166,9 +209,17 @@ extension TapToneAnalyzer {
         // Check cooldown
         if let lastTap = lastTapTime, now.timeIntervalSince(lastTap) < tapCooldown {
             let cooldownRemaining = tapCooldown - now.timeIntervalSince(lastTap)
-            TAP_DEBUG("detectTap", "COOLDOWN active | remaining=\(String(format: "%.3f", cooldownRemaining))s peakMag=\(String(format: "%.2f", peakMagnitude))")
+            // Edge-triggered: log only the FIRST chunk in the cooldown window,
+            // not every chunk for the full 0.5 s.  ~43 Hz × 0.5 s = ~22 redundant
+            // lines per cooldown otherwise.  Mirrors Python.
+            if !cooldownLogged {
+                TAP_DEBUG("detectTap", "COOLDOWN active | remaining=\(String(format: "%.3f", cooldownRemaining))s peakMag=\(String(format: "%.2f", peakMagnitude))")
+                cooldownLogged = true
+            }
             tapDetected = false
             return
+        } else {
+            cooldownLogged = false
         }
 
         // Update status message if ready and waiting for tap
@@ -189,8 +240,6 @@ extension TapToneAnalyzer {
         let currentlyAboveThreshold = isAboveThreshold ?
             (peakMagnitude > fallingThreshold) :
             (peakMagnitude > risingThreshold)
-
-        TAP_DEBUG("detectTap", "HYSTERESIS eval | peakMag=\(String(format: "%.2f", peakMagnitude)) wasAbove=\(isAboveThreshold) nowAbove=\(currentlyAboveThreshold) risingThresh=\(String(format: "%.2f", risingThreshold)) fallingThresh=\(String(format: "%.2f", fallingThreshold)) isDetecting=\(isDetecting) currentTapCount=\(currentTapCount)")
 
         if currentlyAboveThreshold != isAboveThreshold {
             // Update status message when signal settles after a tap in multi-tap mode
@@ -259,67 +308,31 @@ extension TapToneAnalyzer {
             return
         }
         
-        // Standard guitar mode handling
-        // Store spectrum data immediately
-        capturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: time))
-        
-        // Increment tap count
-        currentTapCount += 1
-        tapProgress = min(1.0, Float(currentTapCount) / Float(numberOfTaps))
-        TAP_DEBUG("handleTapDetection", "GUITAR TAP STORED | currentTapCount=\(currentTapCount) numberOfTaps=\(numberOfTaps) tapProgress=\(String(format: "%.2f", tapProgress))")
-        
-        // Start decay tracking for ring-out time measurement.
-        // This continues for 3 seconds after the tap to capture full decay.
+        // Guitar mode — start a gated raw-PCM capture aligned to the tap onset.
+        // Detection now runs on the fast RMS path (~43 Hz); the captured window
+        // is one full fftSize buffer that begins ~pre-roll milliseconds before
+        // the trigger.  The FFT is computed in finishGuitarGatedCapture once
+        // the window fills, then appended to capturedTaps.  This eliminates the
+        // tap-position-within-FFT-frame variability that the legacy path had.
+        TAP_DEBUG("handleTapDetection", "GUITAR — starting gated capture | capturedTaps=\(capturedTaps.count)/\(numberOfTaps)")
+
+        // Start decay tracking immediately (uses RMS level, independent of FFT capture).
         startDecayTracking()
-        
-        // Start capture window timer to collect spectrum during ring-out
-        captureTimer?.invalidate()
-        captureTimer = Timer.scheduledTimer(withTimeInterval: captureWindow, repeats: false) { [weak self] _ in
-            self?.finishCapture()
-        }
-        
-        // Update status
-        if currentTapCount < numberOfTaps {
-            statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
+
+        // Provisional status update — final status is emitted after the gated
+        // capture completes and capturedTaps grows.
+        let provisionalCount = capturedTaps.count + 1
+        if provisionalCount < numberOfTaps {
+            statusMessage = "Tap \(provisionalCount)/\(numberOfTaps) capturing..."
         } else {
             statusMessage = "All taps captured. Processing..."
         }
-        
-        // If we've collected all taps, process them
-        if currentTapCount >= numberOfTaps {
-            DispatchQueue.main.asyncAfter(deadline: .now() + captureWindow) { [weak self] in
-                self?.processMultipleTaps()
-            }
-        } else {
-            // Re-enable detection after cooldown for next tap.
-            // First, wait for the cooldown period.
-            DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
-                guard let self = self else { return }
-                
-                // Check if the signal has dropped below the falling threshold.
-                // If it has, we can immediately start looking for the next tap.
-                let currentLevel = self.fftAnalyzer.peakMagnitude
-                let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
-                
-                if currentLevel <= fallingThreshold {
-                    // Signal has dropped - ready for next tap
-                    self.isAboveThreshold = false
-                    self.isDetecting = true
-                    self.tapDetected = false
-                    self.statusMessage = "Tap \(self.currentTapCount)/\(self.numberOfTaps) captured. Tap again..."
 
-                } else {
-                    // Signal still elevated - set isAboveThreshold correctly and wait for drop.
-                    // The hysteresis logic in detectTap will naturally detect the falling edge
-                    // and then be ready for the next rising edge.
-                    self.isAboveThreshold = true
-                    self.isDetecting = true
-                    self.tapDetected = false
-                    self.statusMessage = "Tap \(self.currentTapCount)/\(self.numberOfTaps) captured. Waiting for settle..."
-
-                }
-            }
-        }
+        // Open the guitar gated capture.  accumulateGatedSamples will fill the
+        // accumulator over the next fftSize samples and dispatch
+        // finishGatedFFTCapture(samples:sampleRate:phase:) on the main thread,
+        // which routes nil-phase to finishGuitarGatedCapture.
+        startGuitarGatedCapture()
     }
     
     /// The total number of individual taps expected across all plate/brace
