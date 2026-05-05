@@ -210,3 +210,77 @@ struct DisplayModeTransitionTests {
         #expect(sut.comparisonSpectra.isEmpty, "comparisonSpectra should be cleared when loading a measurement")
     }
 }
+
+// ---------------------------------------------------------------------------
+// MARK: - Multi-tap to saved comparison transition tests  (MT-SC-U1 to MT-SC-U3)
+// ---------------------------------------------------------------------------
+
+private func makeTapEntry(tapIndex: Int) -> TapEntry {
+    TapEntry(
+        id: UUID(),
+        tapIndex: tapIndex,
+        snapshot: makeSnapshot(),
+        peaks: [],
+        selectedPeakIDs: []
+    )
+}
+
+@Suite("MultiTapToSavedComparisonTransition")
+@MainActor
+struct MultiTapToSavedComparisonTransitionTests {
+
+    // MT-SC-U1: loadComparison while multi-tap comparison is active resets
+    // showingMultiTapComparison and tapEntries.
+    //
+    // Guards the invariant that entering a saved-measurement comparison always
+    // tears down multi-tap state, regardless of whether the per-tap table was
+    // open beforehand.
+    @Test func loadComparison_whileMultiTapActive_resetsMultiTapState() {
+        let sut = makeSUT()
+        sut.tapEntries = [makeTapEntry(tapIndex: 1), makeTapEntry(tapIndex: 2)]
+        sut.showingMultiTapComparison = true
+        sut.applyMultiTapComparisonOverlays(enabled: true)
+        #expect(sut.displayMode == .comparison, "Precondition: multi-tap comparison active")
+        #expect(sut.showingMultiTapComparison == true, "Precondition: showingMultiTapComparison true")
+
+        sut.loadComparison(measurements: [makeMeasurement(measurementName: "A"),
+                                          makeMeasurement(measurementName: "B")])
+
+        #expect(sut.showingMultiTapComparison == false,
+                "loadComparison should reset showingMultiTapComparison")
+        #expect(sut.tapEntries.isEmpty,
+                "loadComparison should clear tapEntries")
+    }
+
+    // MT-SC-U2: After the transition displayMode stays .comparison and
+    // isSavedMeasurementComparison becomes true.
+    @Test func loadComparison_whileMultiTapActive_setsIsSavedMeasurementComparison() {
+        let sut = makeSUT()
+        sut.tapEntries = [makeTapEntry(tapIndex: 1), makeTapEntry(tapIndex: 2)]
+        sut.showingMultiTapComparison = true
+        sut.applyMultiTapComparisonOverlays(enabled: true)
+
+        sut.loadComparison(measurements: [makeMeasurement(measurementName: "A"),
+                                          makeMeasurement(measurementName: "B")])
+
+        #expect(sut.displayMode == .comparison,
+                "displayMode should remain .comparison after saved-measurement load")
+        #expect(sut.isSavedMeasurementComparison == true,
+                "isSavedMeasurementComparison should be true after transitioning from multi-tap")
+        #expect(sut.comparisonSpectra.count == 2,
+                "comparisonSpectra should contain the two loaded measurements")
+    }
+
+    // MT-SC-U3: Without an active multi-tap comparison, loadComparison behaves
+    // normally: showingMultiTapComparison stays false and isSavedMeasurementComparison is true.
+    @Test func loadComparison_withoutMultiTap_isSavedMeasurementComparison() {
+        let sut = makeSUT()
+        #expect(sut.showingMultiTapComparison == false, "Precondition: no multi-tap active")
+
+        sut.loadComparison(measurements: [makeMeasurement(measurementName: "X")])
+
+        #expect(sut.showingMultiTapComparison == false)
+        #expect(sut.isSavedMeasurementComparison == true)
+        #expect(sut.comparisonSpectra.count == 1)
+    }
+}
