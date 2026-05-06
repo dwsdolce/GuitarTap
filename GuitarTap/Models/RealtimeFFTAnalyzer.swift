@@ -397,15 +397,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
 
     // MARK: - WAV File Playback
 
-    /// Player node used when feeding a WAV/audio file through the pipeline instead of the mic.
-    /// Non-nil only while `startFromFile` is active.
-    var playerNode: AVAudioPlayerNode?
-
-    /// Separate engine used exclusively for file playback.
-    /// Keeping file playback on its own engine avoids replacing `audioEngine` (the mic engine),
-    /// which would lose the AUHAL's configured input-device state and cause
-    /// `no object with given ID 0` errors when restarting the mic after playback.
-    var filePlaybackEngine: AVAudioEngine?
+    /// Identity token for the active file-playback worker.  Incremented each
+    /// time `startFromFile` launches a new worker; the worker checks this value
+    /// on each chunk to detect supersession by a newer playback.  Mirrors
+    /// Python's `sentinel` list / `_file_playback_thread` identity guard.
+    var filePlaybackGeneration: Int = 0
 
     /// True when audio is being sourced from a file rather than the microphone.
     /// The view observes this to show a "File" label near the device selector.

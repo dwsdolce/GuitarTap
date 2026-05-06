@@ -1019,8 +1019,11 @@ final class TapToneAnalyzer: ObservableObject {
             self.gatedCaptureSamples = fftSize
             self.gatedCaptureActive = true
             let preRollCount = self.gatedAccumBuffer.count
+            // DIAG: hash first 16 samples of pre-roll
+            let diagHash: Float = preRollCount >= 16 ? self.gatedAccumBuffer[0..<16].reduce(0, +) : 0
             self.mpmLock.unlock()
-            TAP_DEBUG("levelCrossing", "Gated capture started on audio queue | pre-roll \(preRollCount) samples, target \(fftSize)")
+            let diagConsumed = self.fftAnalyzer.samplesConsumed
+            TAP_DEBUG("levelCrossing", "Gated capture started on audio queue | pre-roll \(preRollCount) samples, target \(fftSize), fileSamplePos=\(diagConsumed), preRollHash=\(String(format: "%.6f", diagHash))")
         }
         fftAnalyzer.levelCrossingThreshold = tapDetectionThreshold
 

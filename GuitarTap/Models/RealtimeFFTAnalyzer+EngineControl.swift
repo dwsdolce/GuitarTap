@@ -382,253 +382,162 @@ extension RealtimeFFTAnalyzer {
     ///
     /// - Note: No microphone permission is required.  Call `stop()` to end playback early.
     func startFromFile(_ url: URL, completion: (() -> Void)? = nil) throws {
-        engineLog.info("=== Starting Audio Engine from file: \(url.lastPathComponent, privacy: .public) ===")
+        engineLog.info("=== Starting file playback (direct injection): \(url.lastPathComponent, privacy: .public) ===")
 
-        // Stop the mic engine cleanly but DO NOT replace it.
+        // ── 1. Stop the mic engine cleanly but DO NOT replace it. ────────
         // Keeping the original audioEngine instance preserves the AUHAL's
         // configured input-device state so start() can restart it without
         // "no object with given ID 0" errors after playback.
         inputNode?.removeTap(onBus: 0)
         audioEngine.stop()
 
-        // Tear down any previous file-playback engine.
-        if let oldPlayer = playerNode {
-            oldPlayer.stop()
-            playerNode = nil
-        }
-        if let oldFileEngine = filePlaybackEngine {
-            oldFileEngine.stop()
-            filePlaybackEngine = nil
-        }
+        // Cancel any in-flight previous playback worker by bumping the
+        // generation counter.  The worker checks this on each chunk.
+        filePlaybackGeneration += 1
 
-        // Drain any processAudioBuffer calls that were already dispatched to
-        // audioProcessingQueue before the tap was removed.  removeTap() prevents
-        // new dispatches but does NOT cancel work items already in the queue.
-        // Those items would append stale mic samples to inputBuffer AFTER the
-        // removeAll() below, contaminating the first file FFT frame with broadband
-        // mic noise and producing a ragged spectrum instead of a clean ring-out.
-        // A synchronous dispatch on the queue flushes all pending work first.
+        // Drain any processAudioBuffer / processRawSamples calls that were
+        // already dispatched to audioProcessingQueue before the tap was
+        // removed.  A synchronous dispatch flushes all pending work first.
         audioProcessingQueue.sync { }
 
-        // Clear the accumulation buffer so no stale mic audio is mixed into the
-        // first FFT window from the file.
+        // Clear the accumulation buffer so no stale mic audio is mixed into
+        // the first FFT window from the file.
         bufferAccessQueue.sync { inputBuffer.removeAll() }
 
-        // FILE_DEBUG: zero ordinals so a new file's frames start at #1.
-        // Mirrors Python _FftProcessingThread.reset_state() block.
+        // Reset ordinals so a new file's frames start at #1.
         fftFrameCounter = 0
         samplesConsumed = 0
 
-        // Open the audio file.
+        // ── 2. Open and read the audio file into a mono Float32 array. ───
         let audioFile = try AVAudioFile(forReading: url)
         let fileFormat = audioFile.processingFormat
         engineLog.info("File format: \(fileFormat, privacy: .public)")
 
-        #if os(iOS)
-        // On iOS the audio session must be configured BEFORE the engine graph is built.
-        //
-        // Why: AURemoteIO is locked to the hardware sample rate (e.g. 48000 Hz on iPad).
-        // If the file is 44100 Hz and we build the graph at that rate, engine.start()
-        // fails with -10851 (kAudioUnitErr_FormatNotSupported).
-        //
-        // Additionally, setPreferredSampleRate is only a *hint* — iOS may ignore it and
-        // keep the hardware at its native rate.  AVAudioEngine then transparently resamples
-        // the file to the hardware rate before delivering buffers to our tap.  We must
-        // therefore read back the *actual* granted sample rate and use it for:
-        //   1. The tap format (so the format matches what the engine actually delivers)
-        //   2. actualSampleRate (so FFT bin→frequency math is correct)
-        //
-        // We use .playback category because no microphone is involved.
-        let filePlaybackSession = AVAudioSession.sharedInstance()
-        try filePlaybackSession.setCategory(.playback, mode: .default, options: [])
-        try filePlaybackSession.setPreferredSampleRate(fileFormat.sampleRate)
-        try filePlaybackSession.setActive(true, options: [])
-
-        // Read the hardware rate iOS actually granted (may differ from file rate).
-        let engineSampleRate = filePlaybackSession.sampleRate > 0
-            ? filePlaybackSession.sampleRate
-            : fileFormat.sampleRate
-        if abs(engineSampleRate - fileFormat.sampleRate) > 1.0 {
-            engineLog.info("iOS hardware rate (\(engineSampleRate) Hz) differs from file rate (\(fileFormat.sampleRate) Hz) — engine will resample; using hardware rate for FFT bins")
-        }
-        #else
-        // On macOS AVAudioEngine handles any sample-rate conversion internally;
-        // the tap always delivers audio at the file's native rate.
-        let engineSampleRate = fileFormat.sampleRate
-        #endif
-
-        // actualSampleRate drives all FFT bin→frequency calculations.
-        actualSampleRate = engineSampleRate
-
-        // Build a mono Float32 format at the engine's sample rate.
-        // Always mono: tap detection and FFT operate on a single channel.
-        // The mainMixerNode handles stereo→mono downmix automatically when
-        // a stereo file is connected with a mono format.
-        guard let monoFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: engineSampleRate,
-            channels: 1,
-            interleaved: false
-        ) else {
+        let totalFrames = AVAudioFrameCount(audioFile.length)
+        guard let readBuffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: totalFrames) else {
             throw NSError(domain: "RealtimeFFTAnalyzer", code: -1,
-                          userInfo: [NSLocalizedDescriptionKey: "Failed to create mono format for file playback"])
+                          userInfo: [NSLocalizedDescriptionKey: "Failed to allocate read buffer for file"])
         }
+        try audioFile.read(into: readBuffer)
 
-        // Build the file-playback graph on a SEPARATE engine so the original
-        // audioEngine (with its AUHAL mic configuration) remains untouched.
-        let fpEngine = AVAudioEngine()
-        filePlaybackEngine = fpEngine
+        // Downmix to mono by averaging channels — same as Python's
+        // data.mean(axis=1).  For mono files this is a no-op copy.
+        let channelCount = Int(fileFormat.channelCount)
+        let frameCount = Int(readBuffer.frameLength)
+        var monoSamples = [Float](repeating: 0, count: frameCount)
 
-        // Create and attach a player node.
-        let player = AVAudioPlayerNode()
-        fpEngine.attach(player)
-        // Connect player → mainMixerNode with the mono format.
-        // AVAudioEngine handles both sample-rate conversion (file rate → engine rate)
-        // and channel downmix (stereo → mono) automatically at the connection point.
-        fpEngine.connect(player, to: fpEngine.mainMixerNode, format: monoFormat)
-
-        // Install the tap on the player node — same buffer size as the mic path.
-        // The tap format matches the connection format (mono), so no further
-        // channel conversion is needed inside processAudioBuffer.
-        let bufferSize: AVAudioFrameCount = 1024
-        player.installTap(onBus: 0, bufferSize: bufferSize, format: monoFormat) { [weak self] buffer, _ in
-            guard let self else { return }
-            self.audioProcessingQueue.async {
-                self.processAudioBuffer(buffer)
+        if channelCount == 1 {
+            // Mono — direct copy.
+            if let ch0 = readBuffer.floatChannelData?[0] {
+                monoSamples = Array(UnsafeBufferPointer(start: ch0, count: frameCount))
             }
-        }
-
-        // Calculate file duration (in wall-clock seconds) for the post-playback timer.
-        // Always use the file's native length / file rate — the resampling doesn't change
-        // how many real-time seconds the file takes to play.
-        // .dataPlayedBack would be cleaner but fires immediately when there is no real
-        // hardware output path, so we use a timed dispatch instead.
-        let fileDuration = Double(audioFile.length) / fileFormat.sampleRate
-
-        // Schedule the file for one-shot playback (no completion handler needed).
-        player.scheduleFile(audioFile, at: nil)
-
-        try fpEngine.start()
-        player.play()
-
-        // Capture identity so a second file opened before this timer fires won't
-        // restart the mic and tear down the new file's engine.
-        let scheduledPlayer = player
-        playerNode = player
-
-        // After the file has fully played, switch back to live mic.
-        // Add a small buffer (0.3 s) to ensure all queued audio buffers have been
-        // delivered to processAudioBuffer before we tear down the player.
-        let _fileDurationLog = fileDuration
-        let _t0Log = Date()
-        DispatchQueue.main.asyncAfter(deadline: .now() + fileDuration + 0.3) { [weak self] in
-            guard let self else { return }
-            guard self.playerNode === scheduledPlayer else {
-                // A new file opened before this timer fired — record the
-                // interruption so the FILE_DEBUG trace shows it.
-                TAP_DEBUG("file_playback", "INTERRUPTED | superseded by new playback")
-                return
-            }
-            self.isPlayingFile = false
-            self.playerNode = nil
-
-            // ── FILE_DEBUG: file-playback END log ────────────────────
-            // Mirrors Python _playback_worker END log.
-            let _elapsed = Date().timeIntervalSince(_t0Log)
-            let _ratio = _elapsed / max(_fileDurationLog, 1e-9)
-            TAP_DEBUG("file_playback", "END | elapsed=\(String(format: "%.3f", _elapsed))s expected=\(String(format: "%.3f", _fileDurationLog))s realtimeRatio=\(String(format: "%.3f", _ratio))x")
-
-            // Tear down the file-playback engine.  The original audioEngine
-            // (mic) was only stopped, never replaced, so it still has valid
-            // AUHAL state for the selected input device.
-            self.filePlaybackEngine?.stop()
-            self.filePlaybackEngine = nil
-
-            // Force-flush any partial audio that accumulated in inputBuffer.
-            //
-            // The file may be shorter than one FFT window (fftSize = 65536 samples,
-            // ~1.49 s at 44.1 kHz).  When that happens processAudioBuffer never fills
-            // the buffer to fftSize, so performFFT is never called — the file produces
-            // zero FFT frames and tap detection never fires during playback.
-            //
-            // After this block returns we call start() to restart the live mic.
-            // start() does NOT clear inputBuffer, so the ~39k file samples would still
-            // be sitting there.  The first 25k mic samples then push the count past
-            // 65536, and performFFT fires on a mix of file tail + live mic noise,
-            // producing a ragged spectrum that trips tap detection with garbage data.
-            //
-            // Fix: drain the remaining file samples through performFFT right now
-            // (zero-padding to fftSize so the transform is valid), then clear
-            // inputBuffer before starting the mic so it begins from a clean slate.
-            self.audioProcessingQueue.sync {
-                var partial: [Float] = []
-                self.bufferAccessQueue.sync {
-                    partial = self.inputBuffer
-                    self.inputBuffer.removeAll()
-                }
-                if !partial.isEmpty {
-                    // Zero-pad to fftSize so performFFT receives an exactly-sized window.
-                    // The padded zeros lower the average level but don't distort the
-                    // ring-out peaks — the file signal is in the leading portion.
-                    if partial.count < self.fftSize {
-                        partial.append(contentsOf: [Float](repeating: 0, count: self.fftSize - partial.count))
-                    }
-                    self.performFFT(on: partial)
+        } else {
+            // Multi-channel — average all channels.
+            for ch in 0..<channelCount {
+                guard let chData = readBuffer.floatChannelData?[ch] else { continue }
+                let chBuf = UnsafeBufferPointer(start: chData, count: frameCount)
+                for i in 0..<frameCount {
+                    monoSamples[i] += chBuf[i]
                 }
             }
-
-            // Flush any active gated capture by zero-padding the remaining
-            // window.  Must happen BEFORE the mic restarts so mic noise cannot
-            // fill the remaining samples.  Mirrors Python _on_pre_mic_restart.
-            self.preMicRestartHandler?()
-
-            // Switch back to live mic.  The original audioEngine is intact
-            // with its AUHAL device configuration, so start() just needs to
-            // reset connections, install a new tap, and start.
-            // TapToneAnalyzer's auto-start guard skips startTapSequence()
-            // when isMeasurementComplete is true, preserving frozen results
-            // so New Tap stays enabled.
-            try? self.start()
-            // Release any security-scoped resource access (e.g. Dropbox / iCloud on iOS).
-            // Must be called after the file is fully processed, not immediately after open.
-            completion?()
+            let scale = 1.0 / Float(channelCount)
+            vDSP_vsmul(monoSamples, 1, [scale], &monoSamples, 1, vDSP_Length(frameCount))
         }
 
-        // Update metrics for the file's sample rate.
+        let fileSampleRate = fileFormat.sampleRate
+        actualSampleRate = fileSampleRate
+
+        // ── 3. Configure state before launching the worker. ──────────────
         updateFrequencyBins()
         updateMetrics()
 
-        // CRITICAL: Set isRunning = true synchronously before returning.
-        // TapToneAnalyzer.analyzeMagnitudes() guards on fftAnalyzer.isRunning and returns
-        // immediately when false — so the first FFT frame (which contains the tap transient)
-        // would be discarded if isRunning were still false when it arrives.
-        // startFromFile() is always called on the main thread (from openAudioFile), so this
-        // write is safe without dispatch.
-        //
-        // Also reset magnitudes and peakMagnitude to silence so that the Combine
-        // subscription in TapToneAnalyzer does not fire tap detection against the stale
-        // mic spectrum that is still in those @Published properties.  Without this reset,
-        // detectTap fires immediately with old mic data and freezes a ragged noise spectrum
-        // instead of waiting for the first real FFT frame from the file.
         magnitudes = [Float](repeating: -100, count: fftSize / 2)
         peakMagnitude = -100
-        // Reset the publish throttle so the forced end-of-file FFT frame (dispatched
-        // ~1.2 s from now) is not suppressed by a recent live-mic publish timestamp.
         lastPublishTime = 0
         isRunning = true
         isPlayingFile = true
         playingFileName = url.deletingPathExtension().lastPathComponent
         engineStartTime = Date()
-        engineLog.info("File playback started")
 
-        // ── FILE_DEBUG: file-playback START log ─────────────────────────
-        // Mirrors Python file_playback worker's START log.  Swift uses
-        // AVAudioEngine (scheduleFile + play) rather than a sample-pump
-        // thread, so per-chunk pacing fields don't apply; everything else
-        // matches the Python format.
-        let _expectedFftFrames = Int(audioFile.length) / fftSize
-        let _chunkDurationMs = Double(bufferSize) / fileFormat.sampleRate * 1000.0
-        TAP_DEBUG("file_playback", "START | path=\(playingFileName ?? "") samples=\(audioFile.length) rate=\(Int(fileFormat.sampleRate))Hz chunksize=\(bufferSize) chunkDuration=\(String(format: "%.1f", _chunkDurationMs))ms expectedDuration=\(String(format: "%.3f", fileDuration))s fftSize=\(fftSize) expectedFftFrames=\(_expectedFftFrames)")
+        let chunkSize = 1024
+        let fileDuration = Double(frameCount) / fileSampleRate
+        let chunkDuration = Double(chunkSize) / fileSampleRate
+        let myGeneration = filePlaybackGeneration
+
+        // ── FILE_DEBUG: file-playback START log ──────────────────────────
+        let _expectedFftFrames = frameCount / fftSize
+        TAP_DEBUG("file_playback", "START | path=\(playingFileName ?? "") samples=\(frameCount) rate=\(Int(fileSampleRate))Hz chunksize=\(chunkSize) chunkDuration=\(String(format: "%.1f", chunkDuration * 1000))ms expectedDuration=\(String(format: "%.3f", fileDuration))s fftSize=\(fftSize) expectedFftFrames=\(_expectedFftFrames)")
+
+        // ── 4. Spawn a background worker that paces chunks at real time. ─
+        // Mirrors Python _playback_worker: sleep(chunk_duration) between
+        // chunks so TapToneAnalyzer's tap detection and gated capture see
+        // the same timing as live audio.  Unlike the old AVAudioEngine path,
+        // samples are injected directly via processRawSamples — no engine
+        // dithering or resampling can alter the signal.
+        let capturedFftSize = fftSize
+        let capturedCompletion = completion
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let t0 = Date()
+            var idx = 0
+            var chunksPumped = 0
+
+            while idx < frameCount {
+                guard let self else { return }
+                // Check if this worker has been superseded.
+                guard self.filePlaybackGeneration == myGeneration else {
+                    TAP_DEBUG("file_playback", "INTERRUPTED | idx=\(idx)/\(frameCount) chunksPumped=\(chunksPumped)")
+                    return
+                }
+
+                let end = min(idx + chunkSize, frameCount)
+                let chunk = Array(monoSamples[idx..<end])
+                self.audioProcessingQueue.sync {
+                    self.processRawSamples(chunk)
+                }
+                idx = end
+                chunksPumped += 1
+                Thread.sleep(forTimeInterval: chunkDuration)
+            }
+
+            guard let self else { return }
+
+            let elapsed = Date().timeIntervalSince(t0)
+            TAP_DEBUG("file_playback", "END | chunksPumped=\(chunksPumped) samplesPumped=\(idx) elapsed=\(String(format: "%.3f", elapsed))s expected=\(String(format: "%.3f", fileDuration))s realtimeRatio=\(String(format: "%.3f", elapsed / max(fileDuration, 1e-9)))x")
+
+            // Guard: if a new file was opened while we were sleeping, skip cleanup.
+            guard self.filePlaybackGeneration == myGeneration else { return }
+
+            // ── Post-playback: flush partial buffer, restart mic ─────────
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard self.filePlaybackGeneration == myGeneration else { return }
+
+                self.isPlayingFile = false
+
+                // Force-flush any partial audio that accumulated in inputBuffer.
+                self.audioProcessingQueue.sync {
+                    var partial: [Float] = []
+                    self.bufferAccessQueue.sync {
+                        partial = self.inputBuffer
+                        self.inputBuffer.removeAll()
+                    }
+                    if !partial.isEmpty {
+                        if partial.count < capturedFftSize {
+                            partial.append(contentsOf: [Float](repeating: 0, count: capturedFftSize - partial.count))
+                        }
+                        self.performFFT(on: partial)
+                    }
+                }
+
+                // Flush any active gated capture before mic restart.
+                self.preMicRestartHandler?()
+
+                // Switch back to live mic.
+                try? self.start()
+                capturedCompletion?()
+            }
+        }
     }
 
     /// Stops the audio engine and releases audio resources.
@@ -648,20 +557,9 @@ extension RealtimeFFTAnalyzer {
         unregisterSampleRateListener()
         #endif
 
-        // Stop and remove the file player node if one is active.
-        if let player = playerNode {
-            player.stop()
-            player.removeTap(onBus: 0)
-            // Detach from the file-playback engine (not audioEngine).
-            filePlaybackEngine?.detach(player)
-            playerNode = nil
-        }
-
-        // Tear down the file-playback engine if active.
-        if let fpEngine = filePlaybackEngine {
-            fpEngine.stop()
-            filePlaybackEngine = nil
-        }
+        // Cancel any in-flight file-playback worker.  Bumping the generation
+        // counter causes the worker's next chunk-loop iteration to exit.
+        filePlaybackGeneration += 1
 
         // Always try to clean up, even if engine reports as not running
         // This handles cases where the engine started but never received audio

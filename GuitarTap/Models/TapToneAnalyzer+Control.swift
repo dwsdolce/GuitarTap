@@ -105,6 +105,13 @@ extension TapToneAnalyzer {
             // Clear annotation label offsets.
             self.peakAnnotationOffsets = [:]
 
+            // Cancel any in-flight gated capture (must be explicit since
+            // resetMaterialPhaseState no longer clears gated state).
+            self.gatedCaptureActive = false
+            self.mpmLock.lock()
+            self.gatedAccumBuffer = []
+            self.mpmLock.unlock()
+
             // Reset all plate/brace phase state (notStarted — no active sequence).
             self.resetMaterialPhaseState(to: .notStarted)
 
@@ -138,15 +145,18 @@ extension TapToneAnalyzer {
         gtLog("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
         gtLog("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
 
-        // CRITICAL: Apply the three guards that detectTap() reads on the audio thread
+        // CRITICAL: Apply all state that detectTap() reads on the audio thread
         // synchronously — before any audio buffers from a just-started file or engine
         // can arrive and be evaluated.  The full housekeeping (clearing peaks, status
-        // messages, etc.) runs in the main.async block below, but these three must be
+        // messages, etc.) runs in the main.async block below, but these must be
         // visible to the audio thread immediately:
         //   • isMeasurementComplete = false — allows detectTap's peak-analysis path
         //   • isDetecting = true            — allows detectTap to run
         //   • analyzerStartTime             — controls the warm-up gate
-        // All three are @Published / @MainActor-safe to write from the main thread.
+        //   • isAboveThreshold = false      — ensures first tap is a rising edge
+        //   • justExitedWarmup = false       — will be set true as warm-up ends
+        //   • gatedCaptureActive / preRollBuffer — clean capture state
+        // All are @Published / @MainActor-safe to write from the main thread.
         // This call is always made on the main thread (from openAudioFile or the
         // Start button handler), so no dispatch is needed here.
         isMeasurementComplete = false
@@ -157,15 +167,30 @@ extension TapToneAnalyzer {
         setFrozenSpectrum(frequencies: [], magnitudes: [])
 
         // Cancel any in-flight gated capture from a previous sequence and
-        // clear the pre-roll BEFORE arming the crossing handler (isDetecting = true).
+        // reset the pre-roll BEFORE arming the crossing handler (isDetecting = true).
         // This must be synchronous so the crossing handler starts with clean
         // state — if deferred to the async block, the handler may start a
         // capture that the async block then kills.
+        //
+        // Pre-fill the pre-roll buffer with silence rather than leaving it empty.
+        // For file playback the first tap transient may arrive within the first
+        // few chunks (< 9600 samples), so an empty pre-roll would give the first
+        // tap a shorter capture window than subsequent taps.  Silence is the
+        // correct content before any audio has been received — mirrors the Python
+        // fix in tap_tone_analyzer_control.py start_from_file().
         gatedCaptureActive = false
         mpmLock.lock()
         gatedAccumBuffer = []
-        preRollBuffer = []
+        preRollBuffer = [Float](repeating: 0, count: preRollSamples)
         mpmLock.unlock()
+
+        // Reset the threshold-crossing state BEFORE arming detection.
+        // If deferred to the main.async block, the level-crossing handler on
+        // the audio queue can fire between isDetecting = true and the async
+        // block running — starting an orphaned gated capture that consumes
+        // samples meant for the real first tap.
+        isAboveThreshold = false
+        justExitedWarmup = false
 
         isDetecting = true
         analyzerStartTime = skipWarmup
@@ -196,9 +221,11 @@ extension TapToneAnalyzer {
             self.tapDetected         = false
             self.isDetectionPaused   = false
 
-            // gatedCaptureActive, gatedAccumBuffer, and preRollBuffer were already
-            // cleared synchronously before isDetecting = true (see above) so the
-            // audio-queue crossing handler starts with clean state.
+            // gatedCaptureActive, gatedAccumBuffer, isAboveThreshold, and
+            // justExitedWarmup were cleared, and preRollBuffer was pre-filled
+            // with silence, synchronously before isDetecting = true (see above)
+            // so the audio-queue crossing handler starts with clean state, a
+            // full pre-roll window, and no stale threshold-crossing flag.
 
             // Seed the noise-floor estimate from the current ambient level so the first
             // relative-threshold calculation is accurate immediately.
@@ -212,25 +239,15 @@ extension TapToneAnalyzer {
             let newPhase: MaterialTapPhase = (isPlateMode || isBraceMode) ? .capturingLongitudinal : .notStarted
             self.resetMaterialPhaseState(to: newPhase)
 
-            // Always start with isAboveThreshold = false so the first real tap produces
-            // a genuine rising edge.  The warm-up period suppresses detections for the
-            // first 0.5 s; justExitedWarmup then re-anchors the state without firing a tap.
+            // isAboveThreshold, justExitedWarmup, analyzerStartTime, isDetecting, and
+            // isMeasurementComplete are all set synchronously before this block was
+            // enqueued — see the comment above the DispatchQueue.main.async call.
+            // setFrozenSpectrum was also called synchronously to prevent this block from
+            // wiping a gated-FFT result captured between the sync section and here.
+            // Re-confirm isDetecting after housekeeping mutations above.
             let currentPeakMag = self.fftAnalyzer.peakMagnitude
             gtLog("🎬 Inside async block - FFT peak magnitude: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB")
             gtLog("🎬 FFT analyzer state: running=\(self.fftAnalyzer.isRunning), magnitudes count=\(self.fftAnalyzer.magnitudes.count)")
-
-            self.isAboveThreshold  = false
-            self.justExitedWarmup  = false  // Will be set true as warm-up ends.
-            gtLog("✅ Starting with isAboveThreshold = false - ready for tap detection after warm-up")
-
-            // analyzerStartTime, isDetecting, and isMeasurementComplete are already set
-            // synchronously before this block was enqueued — see the comment above the
-            // DispatchQueue.main.async call.  The async block re-confirms isMeasurementComplete
-            // and isDetecting below to keep state consistent after housekeeping mutations.
-
-            // setFrozenSpectrum was already called synchronously above (before isDetecting = true)
-            // to prevent the main.async block from wiping a gated-FFT result captured between
-            // the sync section and this block running.
 
             self.isDetecting = true
 
@@ -331,6 +348,13 @@ extension TapToneAnalyzer {
             self.isDetecting         = false
             // Mark as complete so New Tap is re-enabled after cancel.
             self.isMeasurementComplete = true
+
+            // Cancel any in-flight gated capture (must be explicit since
+            // resetMaterialPhaseState no longer clears gated state).
+            self.gatedCaptureActive = false
+            self.mpmLock.lock()
+            self.gatedAccumBuffer = []
+            self.mpmLock.unlock()
 
             self.resetMaterialPhaseState(to: .notStarted)
             self.resetDecayTracking()
@@ -490,7 +514,13 @@ extension TapToneAnalyzer {
     ///
     /// Call with `.notStarted` from ``reset()`` and with `.capturingLongitudinal` from
     /// ``startTapSequence()`` / ``cancelTapSequence()`` when in plate or brace mode.
-    /// Also cancels any in-flight gated FFT capture.
+    ///
+    /// **Does NOT clear gated capture state** (`gatedCaptureActive`, `gatedAccumBuffer`,
+    /// `preRollBuffer`).  Callers that need to cancel an in-flight capture must do so
+    /// explicitly — and crucially, they must do it *synchronously* before arming detection
+    /// (`isDetecting = true`).  If the clear were here (deferred inside a `main.async`
+    /// block), the audio-queue level-crossing handler could start a legitimate gated
+    /// capture between the sync and async sections, and this method would then kill it.
     private func resetMaterialPhaseState(to phase: MaterialTapPhase) {
         materialTapPhase    = phase
         longitudinalSpectrum = nil
@@ -509,11 +539,6 @@ extension TapToneAnalyzer {
         userSelectedCrossPeakID         = nil
         userSelectedFlcPeakID           = nil
         materialCapturedTaps            = []
-        // Cancel any in-flight gated FFT capture.
-        gatedCaptureActive = false
-        mpmLock.lock()
-        gatedAccumBuffer = []
-        mpmLock.unlock()
     }
 
     /// Stops any active decay tracking and clears the associated timer.

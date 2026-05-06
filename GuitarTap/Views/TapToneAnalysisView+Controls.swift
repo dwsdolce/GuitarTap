@@ -647,8 +647,6 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     thresholdResetButton
                 }
-                .disabled(tap.displayMode == .comparison)
-                .opacity(tap.displayMode == .comparison ? 0.4 : 1)
 
                 HStack(spacing: 6) {
                     Text("Peak Min:")

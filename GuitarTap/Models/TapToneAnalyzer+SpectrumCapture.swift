@@ -126,6 +126,16 @@ extension TapToneAnalyzer {
             gatedAccumBuffer = []
             mpmLock.unlock()
 
+            // DIAG: log capture completion details
+            let diagConsumed = fftAnalyzer.samplesConsumed
+            let diagRms: Float = {
+                let sumSq = captured.reduce(Float(0)) { $0 + $1 * $1 }
+                let rms = sqrt(sumSq / max(Float(captured.count), 1))
+                return 20 * log10(max(rms, 1e-10))
+            }()
+            let diagHash: Float = captured.count >= 16 ? captured[0..<16].reduce(0, +) : 0
+            TAP_DEBUG("gatedAccum", "CAPTURE COMPLETE | samples=\(captured.count) fileSamplePos=\(diagConsumed) captureRMS=\(String(format: "%.2f", diagRms))dB first16hash=\(String(format: "%.6f", diagHash))")
+
             DispatchQueue.main.async { [weak self] in
                 if let phase = phase {
                     self?.finishGatedFFTCapture(samples: captured, sampleRate: sampleRate, phase: phase)
@@ -380,7 +390,10 @@ extension TapToneAnalyzer {
 
         capturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: Date()))
         let peakDb = magnitudes.max() ?? -100
-        TAP_DEBUG("guitarGatedCapture", "FINISHED | newCount=\(capturedTaps.count)/\(numberOfTaps) capturedPeakMag=\(String(format: "%.2f", peakDb))dB samples=\(samples.count)")
+        // DIAG: spectrum fingerprint — sum of first 100 magnitude bins
+        let diagSpecHash: Float = magnitudes.count >= 100 ? magnitudes[0..<100].reduce(0, +) : 0
+        let diagSampleHash: Float = samples.count >= 16 ? samples[0..<16].reduce(0, +) : 0
+        TAP_DEBUG("guitarGatedCapture", "FINISHED | newCount=\(capturedTaps.count)/\(numberOfTaps) capturedPeakMag=\(String(format: "%.2f", peakDb))dB samples=\(samples.count) specHash=\(String(format: "%.4f", diagSpecHash)) sampleHash=\(String(format: "%.6f", diagSampleHash))")
 
         // Update currentPeaks and identifiedModes from the captured spectrum so
         // the UI shows peak annotations and the Analysis Results table after each

@@ -99,6 +99,17 @@ extension RealtimeFFTAnalyzer {
         let frameLength = Int(buffer.frameLength)
         let samples = Array(UnsafeBufferPointer(start: channelData[0], count: frameLength))
         
+        processRawSamples(samples)
+    }
+
+    /// Process raw Float32 samples through the full audio pipeline: raw-sample
+    /// delivery, RMS/clipping detection, level-crossing tap trigger, FFT
+    /// accumulation and execution.
+    ///
+    /// Called from `processAudioBuffer` (mic/engine path) and directly from the
+    /// file-playback sample pump (direct-injection path that bypasses
+    /// AVAudioEngine to avoid dithering noise).
+    func processRawSamples(_ samples: [Float]) {
         if !firstBufferReceived {
             firstBufferReceived = true
         }
@@ -289,11 +300,6 @@ extension RealtimeFFTAnalyzer {
         // _FftProcessingThread.run().
         fftFrameCounter += 1
         samplesConsumed += fftSize
-        let _peakDbDbg = db.max() ?? -100
-        let _peakBinDbg = db.firstIndex(of: _peakDbDbg) ?? 0
-        let _peakFreqHzDbg = Float(_peakBinDbg) * Float(actualSampleRate) / Float(fftSize)
-        let _fileTimeSDbg = Double(samplesConsumed) / max(actualSampleRate, 1.0)
-        TAP_DEBUG("fft_frame", "#\(fftFrameCounter) fileTime=\(String(format: "%.3f", _fileTimeSDbg))s peakMag=\(String(format: "%.2f", _peakDbDbg))dB peakFreq=\(String(format: "%.1f", _peakFreqHzDbg))Hz isPlayingFile=\(isPlayingFile)")
 
         // Find peak frequency in the spectrum
         if let maxIndex = db.enumerated().max(by: { $0.element < $1.element })?.offset {
