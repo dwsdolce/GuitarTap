@@ -523,6 +523,18 @@ private struct PDFReportContentView: View {
         let modeInfo = data.measurementType.isGuitar ? effectiveModeLabel(for: peak) : nil
         let mode = data.peakModes[peak.id] ?? .unknown
 
+        // Determine effective color: freeform user-defined label → teal,
+        // predefined override → overridden mode's color, auto → classified mode's color.
+        let effectiveColor: Color = {
+            if case .assigned(let label) = data.peakModeOverrides[peak.id] {
+                if let overriddenMode = GuitarMode.fromDisplayName(label) {
+                    return modeColor(overriddenMode)
+                }
+                return GuitarMode.userDefinedColor
+            }
+            return modeColor(mode)
+        }()
+
         return HStack(spacing: 0) {
             Text(String(format: "%.1f Hz", peak.frequency))
                 .frame(width: 90, alignment: .leading)
@@ -535,7 +547,7 @@ private struct PDFReportContentView: View {
                 let isOverridden = modeInfo?.isOverridden ?? false
                 Text(label)
                     .font(isOverridden ? .system(size: 10).italic() : .system(size: 10))
-                    .foregroundColor(modeColor(mode))
+                    .foregroundColor(effectiveColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(String(format: "%.1f", peak.quality))

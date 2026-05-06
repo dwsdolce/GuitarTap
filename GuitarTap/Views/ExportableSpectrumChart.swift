@@ -175,6 +175,11 @@ struct ExportableSpectrumChart: View {
     /// Returns the appropriate color for a peak based on measurement type and selection.
     private func peakColor(for peak: ResonantPeak) -> Color {
         if measurementType.isGuitar {
+            // Freeform user-defined label → teal.
+            if case .assigned(let label) = modeOverrides[peak.id],
+               GuitarMode.fromDisplayName(label) == nil {
+                return GuitarMode.userDefinedColor
+            }
             return (peakModeMap[peak.id] ?? .unknown).color
         } else {
             // Plate/brace mode: color by L/C/FLC selection

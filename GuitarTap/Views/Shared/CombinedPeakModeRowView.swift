@@ -53,6 +53,23 @@ struct CombinedPeakModeRowView: View {
     @State private var customLabelDraft = ""
     @State private var showModePickerSheet = false
 
+    /// Whether the override label is freeform text (not a predefined GuitarMode).
+    private var isFreeformOverride: Bool {
+        isManualOverride && GuitarMode.fromDisplayName(effectiveModeLabel) == nil
+    }
+
+    /// Effective display color: user-defined teal for freeform overrides,
+    /// otherwise the mode's standard color.
+    private var displayColor: Color {
+        isFreeformOverride ? GuitarMode.userDefinedColor : mode.color
+    }
+
+    /// Effective display icon: tag for freeform overrides,
+    /// otherwise the mode's standard icon.
+    private var displayIcon: String {
+        isFreeformOverride ? GuitarMode.userDefinedIcon : mode.icon
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             // Selection toggle button
@@ -71,8 +88,8 @@ struct CombinedPeakModeRowView: View {
 
             // Mode icon and color
             VStack(spacing: 4) {
-                Image(systemName: mode.icon)
-                    .foregroundColor(mode.color)
+                Image(systemName: displayIcon)
+                    .foregroundColor(displayColor)
                     .font(.title3)
                     .frame(width: 30, height: 30)
 
@@ -144,7 +161,7 @@ struct CombinedPeakModeRowView: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
-        .background(mode.color.opacity(0.05))
+        .background(displayColor.opacity(0.05))
         .cornerRadius(8)
     }
 
@@ -182,7 +199,7 @@ struct CombinedPeakModeRowView: View {
             // Read-only fallback (no callbacks provided)
             Text(effectiveModeLabel)
                 .font(.headline)
-                .foregroundColor(mode.color)
+                .foregroundColor(displayColor)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 #if os(macOS)
@@ -258,21 +275,21 @@ struct CombinedPeakModeRowView: View {
                 .overlay(alignment: .leading) {
                     Text(effectiveModeLabel)
                         .font(isManualOverride ? .headline.italic() : .headline)
-                        .foregroundColor(mode.color)
+                        .foregroundColor(displayColor)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
             #else
             Text(effectiveModeLabel)
                 .font(isManualOverride ? .headline.italic() : .headline)
-                .foregroundColor(mode.color)
+                .foregroundColor(displayColor)
                 .lineLimit(1)
                 .truncationMode(.tail)
             #endif
             if isManualOverride {
                 Image(systemName: "pencil.circle.fill")
                     .font(.caption)
-                    .foregroundColor(mode.color.opacity(0.8))
+                    .foregroundColor(displayColor.opacity(0.8))
             }
         }
     }

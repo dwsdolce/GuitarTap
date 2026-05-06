@@ -10,9 +10,11 @@
 /// Controls whether a peak's displayed mode label comes from the automatic ``GuitarMode``
 /// classifier or from a user-supplied string.
 ///
-/// The underlying ``GuitarMode`` classification — which governs the peak's colour, icon, and
-/// in-range indicator — is **never** altered by a `UserAssignedMode` override; only the text
-/// shown in the annotation and results table is changed.
+/// When the override label matches a predefined ``GuitarMode/displayName``, the peak's
+/// colour, icon, and in-range indicator update to match the overridden mode.  When the
+/// label is freeform text that does not match any predefined mode, a distinct
+/// user-defined colour (``GuitarMode/userDefinedColor``) and icon
+/// (``GuitarMode/userDefinedIcon``) are used instead.
 ///
 /// ## Persistence
 ///
@@ -31,8 +33,8 @@ import Foundation
 
 /// Represents whether a peak's mode label is auto-detected or manually overridden by the user.
 ///
-/// The underlying ``GuitarMode`` classification (used for colour, icon, and frequency-range
-/// checks) is never altered — only the displayed text string can be overridden.
+/// When the label matches a predefined mode, the peak's colour and icon update to that mode.
+/// Freeform labels use a distinct user-defined colour and icon.
 ///
 /// - SeeAlso: ``TapToneAnalyzer`` for the three-layer peak-selection system that consults this type.
 enum UserAssignedMode: Codable, Equatable, Hashable {

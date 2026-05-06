@@ -215,6 +215,11 @@ struct DraggablePeakAnnotation: View {
 
     private var modeColor: Color {
         if measurementType.isGuitar {
+            // Freeform user-defined label → teal.
+            if case .assigned(let label) = modeOverrides[peak.id],
+               GuitarMode.fromDisplayName(label) == nil {
+                return GuitarMode.userDefinedColor
+            }
             // Use context-aware classification if provided; fall back to per-frequency lookup.
             let mode = (classifiedMode ?? .unknown).normalized
             switch mode {

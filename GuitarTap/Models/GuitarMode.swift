@@ -198,8 +198,19 @@ enum GuitarMode: String, Codable {
             }
         }
 
-        // Classify any unclaimed peaks using the standard per-frequency lookup
+        // Classify any unclaimed peaks using the standard per-frequency lookup.
+        // Special case: if Top was already claimed, peaks in the Top/Back overlap
+        // zone that are above the claimed Top frequency should be classified as
+        // Back rather than Top.  The naive classify(frequency:) checks Top before
+        // Back, so without this guard overlap-zone peaks always land on Top.
         for peak in peaks where result[peak.id] == nil {
+            if let topFreq = claimedTopFrequency {
+                let backRange = GuitarMode.back.modeRange(for: guitarType)
+                if peak.frequency > topFreq && backRange.contains(peak.frequency) {
+                    result[peak.id] = .back
+                    continue
+                }
+            }
             result[peak.id] = classify(frequency: peak.frequency, guitarType: guitarType)
         }
 
@@ -348,6 +359,42 @@ extension GuitarMode {
         case .unknown:    return "questionmark.circle"
         default:          return "questionmark.circle"
         }
+    }
+
+    // MARK: - User-Defined Mode Styling
+
+    /// Display color for peaks with a freeform user-defined mode label
+    /// that does not match any predefined ``GuitarMode``.
+    static let userDefinedColor: Color = .teal
+
+    /// SF Symbols icon for peaks with a freeform user-defined mode label.
+    static let userDefinedIcon: String = "tag.fill"
+
+    // MARK: - Reverse Lookup
+
+    /// Returns the ``GuitarMode`` whose ``displayName`` matches the given string,
+    /// or `nil` if no predefined mode matches.
+    ///
+    /// Checks both ``currentCases`` display names (e.g. "Back") and
+    /// ``additionalModeLabels`` (e.g. "Cross Dipole T(2,1)").
+    ///
+    /// - Parameter name: A display-name string, typically from a ``UserAssignedMode/assigned(_:)`` label.
+    static func fromDisplayName(_ name: String) -> GuitarMode? {
+        // Check canonical display names first.
+        if let match = currentCases.first(where: { $0.displayName == name }) {
+            return match
+        }
+        // Additional mode labels map to specific modes by convention.
+        let additionalMap: [String: GuitarMode] = [
+            "Helmholtz T(1,1)_1": .air,
+            "Top T(1,1)_2":       .top,
+            "Back T(1,1)_3":      .back,
+            "Cross Dipole T(2,1)": .dipole,
+            "Long Dipole T(1,2)": .dipole,
+            "Quadrapole T(2,2)":  .ringMode,
+            "Cross Tripole T(3,1)": .ringMode,
+        ]
+        return additionalMap[name]
     }
 }
 

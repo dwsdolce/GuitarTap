@@ -250,7 +250,7 @@ extension TapToneAnalysisView {
             selectedCrossPeakID: tap.effectiveCrossPeakID,
             selectedFlcPeakID: tap.effectiveFlcPeakID,
             modeOverrides: tap.peakModeOverrides,
-            peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
+            peakModes: Dictionary(uniqueKeysWithValues: tap.currentPeaks.map { ($0.id, tap.peakMode(for: $0)) }),
             highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
             chartTitle: "FFT Peaks — \(chartTitle)",
             crosshairMode: $crosshairMode
@@ -282,7 +282,7 @@ extension TapToneAnalysisView {
             selectedCrossPeakID: tap.effectiveCrossPeakID,
             selectedFlcPeakID: tap.effectiveFlcPeakID,
             modeOverrides: tap.peakModeOverrides,
-            peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
+            peakModes: Dictionary(uniqueKeysWithValues: tap.currentPeaks.map { ($0.id, tap.peakMode(for: $0)) }),
             highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
             chartTitle: "FFT Peaks — \(chartTitle)"
         )

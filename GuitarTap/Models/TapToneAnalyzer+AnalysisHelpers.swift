@@ -47,7 +47,17 @@ extension TapToneAnalyzer {
     /// - Parameter peak: The peak to classify.
     /// - Returns: The ``GuitarMode`` assigned to this peak.
     func peakMode(for peak: ResonantPeak) -> GuitarMode {
-        identifiedModes.first(where: { $0.peak.id == peak.id })?.mode
+        // If the user has overridden this peak's mode to a predefined GuitarMode,
+        // return that mode so color/icon update everywhere.
+        if case .assigned(let label) = peakModeOverrides[peak.id] {
+            if let overriddenMode = GuitarMode.fromDisplayName(label) {
+                return overriddenMode
+            }
+            // Freeform label — return .unknown; views detect the freeform case
+            // separately via hasManualOverride + fromDisplayName == nil.
+            return .unknown
+        }
+        return identifiedModes.first(where: { $0.peak.id == peak.id })?.mode
             ?? GuitarMode.classifyAll([peak])[peak.id] ?? .unknown
     }
 

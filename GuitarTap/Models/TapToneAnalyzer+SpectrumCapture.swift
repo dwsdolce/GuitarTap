@@ -382,6 +382,16 @@ extension TapToneAnalyzer {
         let peakDb = magnitudes.max() ?? -100
         TAP_DEBUG("guitarGatedCapture", "FINISHED | newCount=\(capturedTaps.count)/\(numberOfTaps) capturedPeakMag=\(String(format: "%.2f", peakDb))dB samples=\(samples.count)")
 
+        // Update currentPeaks and identifiedModes from the captured spectrum so
+        // the UI shows peak annotations and the Analysis Results table after each
+        // tap — matching the Python behaviour where analyze_magnitudes() runs on
+        // every live FFT frame during capture.
+        let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
+        currentPeaks = peaks
+        selectedPeakIDs = Set(peaks.map { $0.id })
+        let modeMap = GuitarMode.classifyAll(peaks)
+        identifiedModes = peaks.map { (peak: $0, mode: modeMap[$0.id] ?? .unknown) }
+
         currentTapCount = capturedTaps.count
         tapProgress = min(1.0, Float(currentTapCount) / Float(numberOfTaps))
 
