@@ -11,8 +11,8 @@
 /// sequencer.
 ///
 /// ## Guitar Mode — Absolute Threshold with Hysteresis
-/// For guitar measurements the FFT `peakMagnitude` is compared against two
-/// absolute dB thresholds:
+/// For guitar measurements the per-chunk RMS `inputLevelDB` is compared
+/// against two absolute dB thresholds:
 ///
 /// ```
 /// risingThreshold  = tapDetectionThreshold
@@ -25,11 +25,8 @@
 /// re-triggers from the ring-out decay envelope.
 ///
 /// ## Plate / Brace Mode — Relative Threshold
-/// The long-window FFT dilutes tap transients by ~15 dB (energy spread across
-/// the full window); plate/brace detection therefore uses `inputLevelDB` from
-/// the fast polling subscription instead of `peakMagnitude`. Within the
-/// `detectTap` method, relative thresholds are derived from a running noise
-/// floor EMA (α = 0.05, τ ≈ 190 ms at 10 Hz):
+/// Within the `detectTap` method, relative thresholds are derived from a
+/// running noise floor EMA (α = 0.05, τ ≈ 190 ms at ~43 Hz):
 ///
 /// ```
 /// headroom             = max(tapDetectionThreshold − noiseFloorEstimate, 10 dB)
@@ -113,14 +110,13 @@ extension TapToneAnalyzer {
     /// Evaluates the current signal level against the active detection threshold
     /// and fires a tap event on a rising edge.
     ///
-    /// Called from ``analyzeMagnitudes(_:frequencies:peakMagnitude:)`` for
-    /// guitar mode, and from the fast `inputLevelDB` polling subscription for
-    /// plate/brace mode.
+    /// Called from ``onRmsLevelChanged(_:)`` for all modes at ~43 Hz
+    /// (per-chunk RMS input level).
     ///
     /// - Parameters:
-    ///   - peakMagnitude: Current peak dBFS level used for threshold comparison.
-    ///     For guitar mode this is the FFT peak magnitude; for plate/brace it is
-    ///     `fftAnalyzer.inputLevelDB` sampled at ~10 Hz.
+    ///   - peakMagnitude: Current RMS input level in dBFS used for threshold
+    ///     comparison (`fftAnalyzer.inputLevelDB`, sampled per audio chunk at
+    ///     ~43 Hz).
     ///   - magnitudes: Current FFT magnitude spectrum (passed through to
     ///     ``handleTapDetection(magnitudes:frequencies:time:)`` for spectrum
     ///     capture on a confirmed tap).

@@ -14,6 +14,7 @@
 //  against.
 //
 
+import Combine
 import SwiftUI
 
 /// Horizontal slider with an integrated input-level meter, peak-hold dot,
@@ -159,8 +160,8 @@ struct ThresholdSlider: View {
         // Drive peak-hold decay on every level update.  Mirrors Python's
         // ThresholdSlider.set_level_db where decay is incremental over wall
         // clock so the rate is independent of update frequency.
-        .onChange(of: level) { newLevel in
-            updatePeakHold(newLevel: newLevel)
+        .onChange(of: level) {
+            updatePeakHold(newLevel: level)
         }
         // Also tick a periodic timer so the peak dot continues to decay
         // even when the level signal is steady (no onChange fires).

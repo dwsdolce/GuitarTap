@@ -723,6 +723,8 @@ extension RealtimeFFTAnalyzer {
         loadAvailableInputDevices()
         #endif
     }
+
+
 }
 
 #if os(iOS)

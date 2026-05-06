@@ -379,10 +379,12 @@ extension TapToneAnalyzer {
                 guard isLocalMax else { continue }
 
                 let peak = makePeak(at: i, magnitudes: magnitudes, frequencies: frequencies)
-                // Track strongest peak for this mode only — do NOT add to allPeaks.
-                // Mode-range peaks go exclusively into strongestPeakPerMode so that
-                // the "remaining slots" fill in step 3 cannot re-introduce a weaker
-                // near-duplicate of the guaranteed peak for this mode.
+                // Add every above-threshold local maximum to the candidate pool
+                // so that non-strongest peaks within a mode range are still visible
+                // and selectable by the user.  The strongest peak per mode gets a
+                // guaranteed slot in step 3; the rest compete for remaining slots
+                // by magnitude alongside unknown (inter-mode) peaks.
+                allPeaks.append(peak)
                 let normalizedMode = mode.normalized
                 if let existing = strongestPeakPerMode[normalizedMode] {
                     if magnitude > existing.magnitude {

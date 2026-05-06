@@ -164,6 +164,9 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var tapDetectionThreshold: Float = TapDisplaySettings.tapDetectionThreshold {
         didSet {
             TapDisplaySettings.tapDetectionThreshold = tapDetectionThreshold
+            // Keep the audio-queue level-crossing threshold in sync so the
+            // pre-roll snapshot fires at the same level as the main-thread detector.
+            fftAnalyzer.levelCrossingThreshold = tapDetectionThreshold
             // If the user changes the threshold manually, the loaded-settings warning
             // is no longer relevant for this setting.
             if tapDetectionThreshold != loadedTapDetectionThreshold {
@@ -222,7 +225,27 @@ final class TapToneAnalyzer: ObservableObject {
     /// `true` when tap detection is actively listening for taps.
     ///
     /// `false` after `stop()`, `reset()`, or while paused.
-    @Published var isDetecting: Bool = false
+    /// Setting this property automatically arms or disarms the audio-queue
+    /// level-crossing handler that snapshots the pre-roll buffer.
+    @Published var isDetecting: Bool = false {
+        didSet {
+            if isDetecting && !oldValue {
+                // false → true transition only: arm the audio-queue level-
+                // crossing handler so it can start the gated capture at the
+                // exact buffer that crosses the threshold (no main-thread
+                // delay).
+                //
+                // We deliberately ignore true → true assignments (e.g. the
+                // re-confirmation in startTapSequence's async block) so that
+                // a capture already started by the audio queue between the
+                // synchronous and async assignments is not disrupted.
+                fftAnalyzer.levelCrossingArmed = true
+                fftAnalyzer.previousLevelDB = -100
+            } else if !isDetecting {
+                fftAnalyzer.levelCrossingArmed = false
+            }
+        }
+    }
 
     /// `true` when the tap sequence is paused (spectrum stays live, detection is off).
     ///
@@ -798,9 +821,18 @@ final class TapToneAnalyzer: ObservableObject {
     // the tap transient have already passed through accumulateGatedSamples and been
     // discarded — so without a pre-roll the gated window captures only the decaying tail.
     //
-    // Solution: continuously maintain the last `preRollSamples` of raw audio in a circular
-    // buffer (preRollBuffer).  When startGatedCapture is called it seeds gatedAccumBuffer
-    // with the ring-buffer contents so the tap attack transient is always included.
+    // Solution (two layers):
+    // 1. Continuously maintain the last `preRollSamples` of raw audio in a circular
+    //    buffer (preRollBuffer).  When startGatedCapture is called it seeds
+    //    gatedAccumBuffer with the ring-buffer contents.
+    // 2. For guitar mode: the audio-queue level-crossing handler (wired in
+    //    setupSubscriptions) starts the gated capture immediately when the input
+    //    level crosses the detection threshold — seeding gatedAccumBuffer with the
+    //    pre-roll and setting gatedCaptureActive = true right on the audio queue.
+    //    This eliminates both the pre-roll shift AND the sample gap that would
+    //    otherwise occur during the main-thread Combine dispatch delay.  When
+    //    startGuitarGatedCapture() runs on the main thread it detects the already-
+    //    active capture and only sets up the safety timeout.
 
     /// Duration of the pre-roll look-back buffer, in seconds.
     ///
@@ -967,6 +999,36 @@ final class TapToneAnalyzer: ObservableObject {
         // Wire the raw-sample handler for gated FFT capture (called on the audio queue).
         fftAnalyzer.rawSampleHandler = { [weak self] samples, sampleRate in
             self?.accumulateGatedSamples(samples, sampleRate: sampleRate)
+        }
+
+        // Wire the audio-queue level-crossing handler.
+        // When the input level crosses the threshold on the audio queue, start
+        // the gated capture immediately — seeding gatedAccumBuffer with the
+        // pre-roll and setting gatedCaptureActive = true — so that no audio
+        // buffers are lost between the threshold crossing and the main thread
+        // eventually running startGuitarGatedCapture().  The main-thread call
+        // then only sets up the safety timeout (it skips re-seeding because it
+        // sees gatedCaptureActive is already true).
+        fftAnalyzer.levelCrossingHandler = { [weak self] in
+            guard let self = self else { return }
+            let fftSize = self.fftAnalyzer.fftSize
+            self.mpmLock.lock()
+            self.gatedCaptureID += 1
+            self.gatedAccumBuffer = self.preRollBuffer
+            self.gatedCapturePhase = nil   // nil = guitar-mode marker
+            self.gatedCaptureSamples = fftSize
+            self.gatedCaptureActive = true
+            let preRollCount = self.gatedAccumBuffer.count
+            self.mpmLock.unlock()
+            TAP_DEBUG("levelCrossing", "Gated capture started on audio queue | pre-roll \(preRollCount) samples, target \(fftSize)")
+        }
+        fftAnalyzer.levelCrossingThreshold = tapDetectionThreshold
+
+        // Wire the pre-mic-restart handler so any active gated capture is
+        // zero-padded and completed before mic noise can fill the remaining
+        // window.  Mirrors Python _on_pre_mic_restart callback.
+        fftAnalyzer.preMicRestartHandler = { [weak self] in
+            self?.flushGatedCaptureOnFileEnd()
         }
 
         // Slow path: full FFT frame → onFftFrame (in +TapDetection.swift),

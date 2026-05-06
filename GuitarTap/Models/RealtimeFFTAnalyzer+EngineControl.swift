@@ -384,13 +384,22 @@ extension RealtimeFFTAnalyzer {
     func startFromFile(_ url: URL, completion: (() -> Void)? = nil) throws {
         engineLog.info("=== Starting Audio Engine from file: \(url.lastPathComponent, privacy: .public) ===")
 
-        // Tear down any existing tap / engine (same preamble as start()).
+        // Stop the mic engine cleanly but DO NOT replace it.
+        // Keeping the original audioEngine instance preserves the AUHAL's
+        // configured input-device state so start() can restart it without
+        // "no object with given ID 0" errors after playback.
         inputNode?.removeTap(onBus: 0)
-        playerNode?.stop()
-        playerNode = nil
-        inputNode = nil
         audioEngine.stop()
-        audioEngine = AVAudioEngine()
+
+        // Tear down any previous file-playback engine.
+        if let oldPlayer = playerNode {
+            oldPlayer.stop()
+            playerNode = nil
+        }
+        if let oldFileEngine = filePlaybackEngine {
+            oldFileEngine.stop()
+            filePlaybackEngine = nil
+        }
 
         // Drain any processAudioBuffer calls that were already dispatched to
         // audioProcessingQueue before the tap was removed.  removeTap() prevents
@@ -465,13 +474,18 @@ extension RealtimeFFTAnalyzer {
                           userInfo: [NSLocalizedDescriptionKey: "Failed to create mono format for file playback"])
         }
 
+        // Build the file-playback graph on a SEPARATE engine so the original
+        // audioEngine (with its AUHAL mic configuration) remains untouched.
+        let fpEngine = AVAudioEngine()
+        filePlaybackEngine = fpEngine
+
         // Create and attach a player node.
         let player = AVAudioPlayerNode()
-        audioEngine.attach(player)
+        fpEngine.attach(player)
         // Connect player → mainMixerNode with the mono format.
         // AVAudioEngine handles both sample-rate conversion (file rate → engine rate)
         // and channel downmix (stereo → mono) automatically at the connection point.
-        audioEngine.connect(player, to: audioEngine.mainMixerNode, format: monoFormat)
+        fpEngine.connect(player, to: fpEngine.mainMixerNode, format: monoFormat)
 
         // Install the tap on the player node — same buffer size as the mic path.
         // The tap format matches the connection format (mono), so no further
@@ -494,7 +508,7 @@ extension RealtimeFFTAnalyzer {
         // Schedule the file for one-shot playback (no completion handler needed).
         player.scheduleFile(audioFile, at: nil)
 
-        try audioEngine.start()
+        try fpEngine.start()
         player.play()
 
         // Capture identity so a second file opened before this timer fires won't
@@ -523,6 +537,12 @@ extension RealtimeFFTAnalyzer {
             let _elapsed = Date().timeIntervalSince(_t0Log)
             let _ratio = _elapsed / max(_fileDurationLog, 1e-9)
             TAP_DEBUG("file_playback", "END | elapsed=\(String(format: "%.3f", _elapsed))s expected=\(String(format: "%.3f", _fileDurationLog))s realtimeRatio=\(String(format: "%.3f", _ratio))x")
+
+            // Tear down the file-playback engine.  The original audioEngine
+            // (mic) was only stopped, never replaced, so it still has valid
+            // AUHAL state for the selected input device.
+            self.filePlaybackEngine?.stop()
+            self.filePlaybackEngine = nil
 
             // Force-flush any partial audio that accumulated in inputBuffer.
             //
@@ -557,9 +577,17 @@ extension RealtimeFFTAnalyzer {
                 }
             }
 
-            // Switch back to live mic.  TapToneAnalyzer's auto-start guard
-            // skips startTapSequence() when isMeasurementComplete is true,
-            // preserving frozen results so New Tap stays enabled.
+            // Flush any active gated capture by zero-padding the remaining
+            // window.  Must happen BEFORE the mic restarts so mic noise cannot
+            // fill the remaining samples.  Mirrors Python _on_pre_mic_restart.
+            self.preMicRestartHandler?()
+
+            // Switch back to live mic.  The original audioEngine is intact
+            // with its AUHAL device configuration, so start() just needs to
+            // reset connections, install a new tap, and start.
+            // TapToneAnalyzer's auto-start guard skips startTapSequence()
+            // when isMeasurementComplete is true, preserving frozen results
+            // so New Tap stays enabled.
             try? self.start()
             // Release any security-scoped resource access (e.g. Dropbox / iCloud on iOS).
             // Must be called after the file is fully processed, not immediately after open.
@@ -624,8 +652,15 @@ extension RealtimeFFTAnalyzer {
         if let player = playerNode {
             player.stop()
             player.removeTap(onBus: 0)
-            audioEngine.detach(player)
+            // Detach from the file-playback engine (not audioEngine).
+            filePlaybackEngine?.detach(player)
             playerNode = nil
+        }
+
+        // Tear down the file-playback engine if active.
+        if let fpEngine = filePlaybackEngine {
+            fpEngine.stop()
+            filePlaybackEngine = nil
         }
 
         // Always try to clean up, even if engine reports as not running

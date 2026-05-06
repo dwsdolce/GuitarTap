@@ -331,6 +331,42 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// - Important: Do **not** update any `@Published` properties or touch UIKit/SwiftUI
     ///   from this callback — it runs on a background queue.
     var rawSampleHandler: (([Float], Double) -> Void)?
+
+    // MARK: - Audio-Queue Level-Crossing Callback
+
+    /// Optional callback fired **synchronously on the audio processing queue**
+    /// the first time `inputLevelDB` crosses `levelCrossingThreshold` from
+    /// below on a rising edge.
+    ///
+    /// ``TapToneAnalyzer`` sets this to snapshot the pre-roll ring buffer at the
+    /// exact audio buffer where the signal crosses the threshold.  This
+    /// eliminates the main-thread Combine dispatch delay that otherwise shifts
+    /// the pre-roll past the tap attack transient before
+    /// ``TapToneAnalyzer/startGuitarGatedCapture()`` runs.
+    ///
+    /// The handler is auto-disarmed (``levelCrossingArmed`` set `false`) after
+    /// it fires to prevent repeated invocations during the same tap's ring-out.
+    /// ``TapToneAnalyzer`` re-arms it when detection is re-enabled.
+    ///
+    /// - Important: Runs on `audioProcessingQueue` — do **not** touch
+    ///   `@Published` properties or UI state from this callback.
+    var levelCrossingHandler: (() -> Void)?
+
+    /// The dBFS threshold for ``levelCrossingHandler``.
+    ///
+    /// Kept in sync with ``TapToneAnalyzer/tapDetectionThreshold`` so the audio-
+    /// queue fast-path fires at the same (or slightly earlier) level as the
+    /// main-thread hysteresis detector.
+    var levelCrossingThreshold: Float = -40
+
+    /// When `true`, the next rising-edge crossing of ``levelCrossingThreshold``
+    /// will fire ``levelCrossingHandler``.  Set `false` after it fires; re-armed
+    /// by ``TapToneAnalyzer`` when tap detection is re-enabled.
+    var levelCrossingArmed: Bool = false
+
+    /// Tracks the previous buffer's level for rising-edge detection on the
+    /// audio queue.  Updated every buffer inside ``processAudioBuffer(_:)``.
+    var previousLevelDB: Float = -100
     
     /// Suppresses re-saving the device→calibration mapping during auto-load.
     ///
@@ -365,6 +401,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Non-nil only while `startFromFile` is active.
     var playerNode: AVAudioPlayerNode?
 
+    /// Separate engine used exclusively for file playback.
+    /// Keeping file playback on its own engine avoids replacing `audioEngine` (the mic engine),
+    /// which would lose the AUHAL's configured input-device state and cause
+    /// `no object with given ID 0` errors when restarting the mic after playback.
+    var filePlaybackEngine: AVAudioEngine?
+
     /// True when audio is being sourced from a file rather than the microphone.
     /// The view observes this to show a "File" label near the device selector.
     @Published var isPlayingFile: Bool = false
@@ -372,6 +414,13 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// The display name (filename without extension) of the file currently being played,
     /// or nil when the audio source is the microphone.  Used as the chart title.
     @Published var playingFileName: String? = nil
+
+    /// Called from the `startFromFile` asyncAfter block after the input buffer
+    /// flush but BEFORE `try? self.start()` restarts the mic.  Used by
+    /// `TapToneAnalyzer` to zero-pad and complete any active gated capture so
+    /// mic noise cannot fill the remaining window.
+    /// Mirrors Python `_on_pre_mic_restart` callback.
+    var preMicRestartHandler: (() -> Void)?
 
     /// Set to true when permission is confirmed denied after start (macOS TCC cache lag).
     /// The view observes this to show the "Microphone Access Required" alert.

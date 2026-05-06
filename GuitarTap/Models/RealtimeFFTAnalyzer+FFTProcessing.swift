@@ -131,6 +131,19 @@ extension RealtimeFFTAnalyzer {
             return wallNow.timeIntervalSince(last) < self.clipHoldSeconds
         }()
 
+        // ── Audio-queue fast-path: snapshot pre-roll at threshold crossing ──
+        // Fires BEFORE the main-thread dispatch so the pre-roll buffer is
+        // captured at the exact audio buffer that crosses the threshold,
+        // eliminating the Combine dispatch delay that otherwise shifts the
+        // pre-roll past the tap attack transient.
+        if levelCrossingArmed,
+           levelDB > levelCrossingThreshold,
+           previousLevelDB <= levelCrossingThreshold {
+            levelCrossingArmed = false
+            levelCrossingHandler?()
+        }
+        previousLevelDB = levelDB
+
         // Update input level and recent peak on main thread
         DispatchQueue.main.async {
             self.inputLevelDB = levelDB
@@ -278,8 +291,8 @@ extension RealtimeFFTAnalyzer {
         samplesConsumed += fftSize
         let _peakDbDbg = db.max() ?? -100
         let _peakBinDbg = db.firstIndex(of: _peakDbDbg) ?? 0
-        let _peakFreqHzDbg = Float(_peakBinDbg) * Float(targetSampleRate) / Float(fftSize)
-        let _fileTimeSDbg = Double(samplesConsumed) / max(targetSampleRate, 1.0)
+        let _peakFreqHzDbg = Float(_peakBinDbg) * Float(actualSampleRate) / Float(fftSize)
+        let _fileTimeSDbg = Double(samplesConsumed) / max(actualSampleRate, 1.0)
         TAP_DEBUG("fft_frame", "#\(fftFrameCounter) fileTime=\(String(format: "%.3f", _fileTimeSDbg))s peakMag=\(String(format: "%.2f", _peakDbDbg))dB peakFreq=\(String(format: "%.1f", _peakFreqHzDbg))Hz isPlayingFile=\(isPlayingFile)")
 
         // Find peak frequency in the spectrum

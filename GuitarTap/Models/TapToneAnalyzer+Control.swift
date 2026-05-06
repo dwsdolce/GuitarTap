@@ -155,6 +155,18 @@ extension TapToneAnalyzer {
         // (file playback case), setFrozenSpectrum() inside the main.async block below
         // would wipe the just-captured gated-FFT result.
         setFrozenSpectrum(frequencies: [], magnitudes: [])
+
+        // Cancel any in-flight gated capture from a previous sequence and
+        // clear the pre-roll BEFORE arming the crossing handler (isDetecting = true).
+        // This must be synchronous so the crossing handler starts with clean
+        // state — if deferred to the async block, the handler may start a
+        // capture that the async block then kills.
+        gatedCaptureActive = false
+        mpmLock.lock()
+        gatedAccumBuffer = []
+        preRollBuffer = []
+        mpmLock.unlock()
+
         isDetecting = true
         analyzerStartTime = skipWarmup
             ? Date().addingTimeInterval(-(warmupPeriod + 0.1))
@@ -184,18 +196,10 @@ extension TapToneAnalyzer {
             self.tapDetected         = false
             self.isDetectionPaused   = false
 
-            // Cancel any in-flight gated capture from a previous sequence and
-            // drop the pre-roll ring buffer.  Without this, a gated capture
-            // that was mid-fill when the new sequence starts will eventually
-            // complete and append a stale entry into the now-cleared
-            // capturedTaps list, and the pre-roll buffer would carry stale
-            // audio from the previous run into the next gated capture's
-            // leading window.  Mirrors Python tap_tone_analyzer_control.py.
-            self.gatedCaptureActive = false
-            self.mpmLock.lock()
-            self.gatedAccumBuffer = []
-            self.preRollBuffer = []
-            self.mpmLock.unlock()
+            // gatedCaptureActive, gatedAccumBuffer, and preRollBuffer were already
+            // cleared synchronously before isDetecting = true (see above) so the
+            // audio-queue crossing handler starts with clean state.
+
             // Seed the noise-floor estimate from the current ambient level so the first
             // relative-threshold calculation is accurate immediately.
             self.noiseFloorEstimate  = self.fftAnalyzer.inputLevelDB
