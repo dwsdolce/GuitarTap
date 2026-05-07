@@ -813,8 +813,6 @@ extension TapToneAnalysisView {
                 thresholdResetButton
             }
             .hint(HintText.threshold)
-            .disabled(tap.displayMode == .comparison)
-            .opacity(tap.displayMode == .comparison ? 0.4 : 1)
 
             Divider()
                 .frame(height: 20)
@@ -945,8 +943,6 @@ extension TapToneAnalysisView {
                     thresholdResetButton
                 }
                 .hint(HintText.threshold)
-                .disabled(tap.displayMode == .comparison)
-                .opacity(tap.displayMode == .comparison ? 0.4 : 1)
 
                 Divider()
                     .frame(height: 20)
