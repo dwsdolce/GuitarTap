@@ -316,10 +316,12 @@ struct ExportableSpectrumChart: View {
                     }
 
                     // Peak markers only (no inline annotations)
-                    ForEach(visiblePeaks) { peak in
+                    // Peaks below minDB are hidden entirely — not clamped to the bottom.
+                    ForEach(visiblePeaks.filter { $0.magnitude >= minDB }) { peak in
+                        let clampedMag = min(maxDB, peak.magnitude)
                         PointMark(
                             x: .value("Frequency", peak.frequency),
-                            y: .value("Magnitude", peak.magnitude)
+                            y: .value("Magnitude", clampedMag)
                         )
                         .foregroundStyle(peakColor(for: peak))
                         .symbolSize(200)

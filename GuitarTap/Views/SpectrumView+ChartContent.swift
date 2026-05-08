@@ -100,16 +100,17 @@ extension SpectrumView {
     /// draggable overlay labels rendered in `PeakAnnotations`.
     @ChartContentBuilder
     var peakAnnotationContent: some ChartContent {
-        // Layer 1: always-visible dots for every peak in range
-        // On macOS a highlighted peak renders as a bright red star; on iOS all peaks
-        // are plain circles since cross-highlight is not available there.
-        ForEach(allPeaksInRange) { peak in
+        // Layer 1: always-visible dots for every peak in range whose magnitude
+        // falls within the visible dB window.  Peaks below minDB are omitted
+        // entirely — clamping them to the bottom would crowd the axis line.
+        ForEach(allPeaksInRange.filter { $0.magnitude >= minDB }) { peak in
+            let clampedMag = min(maxDB, peak.magnitude)
             #if os(macOS)
             let isHighlighted = currentHighlightedPeakID == peak.id
             if isHighlighted {
                 PointMark(
                     x: .value("Frequency", peak.frequency),
-                    y: .value("Magnitude", peak.magnitude)
+                    y: .value("Magnitude", clampedMag)
                 )
                 .foregroundStyle(Color.red)
                 .symbol {
@@ -121,7 +122,7 @@ extension SpectrumView {
             } else {
                 PointMark(
                     x: .value("Frequency", peak.frequency),
-                    y: .value("Magnitude", peak.magnitude)
+                    y: .value("Magnitude", clampedMag)
                 )
                 .foregroundStyle(peakColor(for: peak))
                 .symbol(.circle)
@@ -130,7 +131,7 @@ extension SpectrumView {
             #else
             PointMark(
                 x: .value("Frequency", peak.frequency),
-                y: .value("Magnitude", peak.magnitude)
+                y: .value("Magnitude", clampedMag)
             )
             .foregroundStyle(peakColor(for: peak))
             .symbol(.circle)
@@ -139,10 +140,12 @@ extension SpectrumView {
         }
 
         // Layer 2: invisible placeholder annotations for draggable labels (annotation-visible peaks only)
-        ForEach(visiblePeaks) { peak in
+        // Also filtered to only peaks within the visible dB range.
+        ForEach(visiblePeaks.filter { $0.magnitude >= minDB }) { peak in
+            let clampedMag = min(maxDB, peak.magnitude)
             PointMark(
                 x: .value("Frequency", peak.frequency),
-                y: .value("Magnitude", peak.magnitude)
+                y: .value("Magnitude", clampedMag)
             )
             .foregroundStyle(.clear)
             .annotation(position: .top, alignment: .center, spacing: 4) {
