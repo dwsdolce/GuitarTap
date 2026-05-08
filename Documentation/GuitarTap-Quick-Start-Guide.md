@@ -162,6 +162,10 @@ In plate and brace mode, while reviewing a captured phase the button changes to 
 
 Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons. On iPad (horizontal layout) and macOS this button is not shown — the results panel is permanently visible on the right side of the screen/window.
 
+### ![](/tmp/guitar-tap-symbols/arrow.trianglehead.2.counterclockwise.png){height=14pt width=14pt} Re-analyze Peaks
+
+Shown in the results panel header next to the microphone name. Re-runs peak detection on a loaded measurement's frozen spectrum using the current algorithm. This is useful when loading measurements saved by older builds that may have missed peaks due to earlier algorithm limitations. The button is only enabled when viewing a loaded measurement. After re-analysis the peaks are recalculated as if the measurement were freshly captured with the current software.
+
 ### Toolbar Layout (iPhone) *(iOS only)*
 
 On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Auto dB; trailing (right) side — Metrics, Settings. In landscape orientation, the leading side also includes Crosshair and Annotations, and the trailing side adds Save, Measurements, and Help (?).

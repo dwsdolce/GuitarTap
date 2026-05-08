@@ -183,10 +183,28 @@ struct TapAnalysisResultsView: View {
                         }
                     }
 
-                    if let deviceName = fftAnalyzer.selectedInputDevice?.name {
-                        Text(deviceName)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    HStack {
+                        if let deviceName = fftAnalyzer.selectedInputDevice?.name {
+                            Text(deviceName)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        // Re-analyze: re-run findPeaks() on the frozen spectrum
+                        // using the current algorithm. Useful for upgrading
+                        // measurements saved by older builds that missed peaks.
+                        Button {
+                            analyzer.reanalyzePeaks()
+                        } label: {
+                            Image(systemName: "arrow.trianglehead.2.counterclockwise")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                        .disabled(analyzer.loadedMeasurementPeaks == nil
+                                  || analyzer.frozenFrequencies.isEmpty
+                                  || analyzer.frozenMagnitudes.isEmpty)
+                        .help("Re-analyze peaks from spectrum using the current algorithm")
                     }
 
                     HStack {
@@ -235,6 +253,8 @@ struct TapAnalysisResultsView: View {
                                     .disabled(!analyzer.userHasModifiedPeakSelection)
                                     .help("Reset to automatic mode selection")
                                 }
+
+
                             }
                         }
                     }

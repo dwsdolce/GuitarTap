@@ -305,6 +305,31 @@ extension TapToneAnalyzer {
         gtLog("🎯 resetToAutoSelection: selected \(selectedPeakIDs.count) peak(s)")
     }
 
+    /// Re-runs peak detection on the frozen spectrum using the current `findPeaks()`
+    /// algorithm, replacing the peaks that were stored in the saved measurement.
+    ///
+    /// Use this to upgrade a measurement saved by an older build whose peak-finding
+    /// algorithm missed some peaks.  After re-analysis the user can re-save the
+    /// measurement to persist the updated peaks.
+    ///
+    /// Does nothing if no frozen spectrum is available.
+    func reanalyzePeaks() {
+        guard isMeasurementComplete,
+              !frozenFrequencies.isEmpty,
+              !frozenMagnitudes.isEmpty else { return }
+
+        // Clear loadedMeasurementPeaks so recalculateFrozenPeaksIfNeeded() falls
+        // through to the live-tap path, which calls findPeaks() on the frozen spectrum.
+        loadedMeasurementPeaks = nil
+        userHasModifiedPeakSelection = false
+        selectedPeakFrequencies = []
+        identifiedModes = []
+
+        // Now re-run the full peak analysis pipeline.
+        recalculateFrozenPeaksIfNeeded()
+        gtLog("🔬 Re-analyzed peaks from frozen spectrum: \(currentPeaks.count) peaks found")
+    }
+
     /// Finds all significant spectral peaks within the configured frequency range.
     ///
     /// The algorithm uses a two-pass strategy with mode-priority selection:

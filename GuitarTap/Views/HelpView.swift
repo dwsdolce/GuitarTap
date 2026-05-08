@@ -228,6 +228,11 @@ After all taps, tap Results to see:
                     body: "Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons. On iPad (horizontal layout) and macOS this button is not shown — the results panel is permanently visible on the right side of the screen/window.",
                     systemImages: ["doc.text"]
                 )
+                helpRow(
+                    title: "Re-analyze Peaks",
+                    body: "Shown in the results panel header next to the microphone name. Re-runs peak detection on a loaded measurement's frozen spectrum using the current algorithm. This is useful when loading measurements saved by older builds that may have missed peaks due to earlier algorithm limitations. The button is only enabled when viewing a loaded measurement. After re-analysis the peaks are recalculated as if the measurement were freshly captured with the current software.",
+                    systemImages: ["arrow.trianglehead.2.counterclockwise"]
+                )
                 #if os(iOS)
                 helpRow(
                     title: "Toolbar Layout (iPhone)",
