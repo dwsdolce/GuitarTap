@@ -392,7 +392,7 @@ private struct PDFReportContentView: View {
             Text(label + ":")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
-                .frame(width: 100, alignment: .leading)
+                .frame(width: 120, alignment: .leading)
             Text(value)
                 .font(.system(size: 11))
                 .foregroundColor(.primary)
