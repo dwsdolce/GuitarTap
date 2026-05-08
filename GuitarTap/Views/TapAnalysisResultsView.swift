@@ -183,6 +183,12 @@ struct TapAnalysisResultsView: View {
                         }
                     }
 
+                    if let deviceName = fftAnalyzer.selectedInputDevice?.name {
+                        Text(deviceName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
                     HStack {
                         Text("Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
                             .font(.caption)
