@@ -599,8 +599,16 @@ extension RealtimeFFTAnalyzer {
             }
             
         case .categoryChange:
-            gtLog("🎤 Audio category changed - refreshing device list")
-            // Don't restart on category change as it may have been triggered by our own code
+            // Category changes are fired by the keyboard appearing/dismissing, other
+            // apps grabbing the audio session, etc.  Most of the time the actual input
+            // device hasn't changed, so skip the expensive loadAvailableInputDevices()
+            // call when the current route's input UID matches what we already have.
+            let currentInputUID = AVAudioSession.sharedInstance().currentRoute.inputs.first?.uid
+            if currentInputUID == selectedInputDevice?.uid {
+                gtLog("🎤 Audio category changed — input device unchanged, skipping refresh")
+                break
+            }
+            gtLog("🎤 Audio category changed — input device differs, refreshing device list")
             loadAvailableInputDevices()
             
         default:
