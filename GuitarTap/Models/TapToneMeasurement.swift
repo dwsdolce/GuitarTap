@@ -51,9 +51,12 @@ struct TapEntry: Codable, Identifiable {
     /// Full spectrum snapshot for this individual tap.
     let snapshot: SpectrumSnapshot
     /// All resonant peaks detected in this tap's spectrum.
-    let peaks: [ResonantPeak]
+    /// Recomputed when the peak threshold changes so that the multi-tap comparison
+    /// table reflects the current Peak Min slider setting.
+    var peaks: [ResonantPeak]
     /// UUIDs of the auto-selected peaks for this tap (one per guitar mode where found).
-    let selectedPeakIDs: [UUID]
+    /// Recomputed alongside `peaks` when the peak threshold changes.
+    var selectedPeakIDs: [UUID]
 }
 
 // MARK: - ComparisonEntry

@@ -218,6 +218,9 @@ extension TapToneAnalyzer {
                 isGuitar: isGuitar,
                 tolerance: tolerance
             )
+            if !tapEntries.isEmpty {
+                recalculateTapEntryPeaks()
+            }
             return
         }
 
@@ -250,6 +253,36 @@ extension TapToneAnalyzer {
             isGuitar: isGuitar,
             tolerance: tolerance
         )
+
+        // Recompute per-tap peaks so the multi-tap comparison table reflects the
+        // current Peak Min setting. Each TapEntry stores its full spectrum snapshot,
+        // so we can re-run findPeaks with the updated threshold.
+        if !tapEntries.isEmpty {
+            recalculateTapEntryPeaks()
+        }
+    }
+
+    /// Re-runs peak detection on every stored `TapEntry` snapshot using the
+    /// current `peakThreshold`, then updates `tapEntries` so the multi-tap
+    /// comparison table shows peaks consistent with the Peak Min slider.
+    /// Re-runs peak detection on every stored `TapEntry` snapshot using the
+    /// current `peakThreshold`, then updates `tapEntries` so the multi-tap
+    /// comparison table shows peaks consistent with the Peak Min slider.
+    ///
+    /// Called from `recalculateFrozenPeaksIfNeeded()` (slider changes) and
+    /// from `loadMeasurement(_:)` (recompute with saved threshold on load).
+    func recalculateTapEntryPeaks() {
+        tapEntries = tapEntries.map { entry in
+            let tapPeaks = findPeaks(
+                magnitudes: entry.snapshot.magnitudes,
+                frequencies: entry.snapshot.frequencies
+            )
+            let modeSelected = guitarModeSelectedPeakIDs(from: tapPeaks)
+            var updated = entry
+            updated.peaks = tapPeaks
+            updated.selectedPeakIDs = Array(modeSelected)
+            return updated
+        }
     }
 
     /// Resets peak selections back to the automatic mode-priority algorithm and
