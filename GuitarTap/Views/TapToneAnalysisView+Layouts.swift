@@ -524,53 +524,48 @@ extension TapToneAnalysisView {
                     .frame(width: 20)
             }
 
-            // Threshold
+            // Threshold — level meter with draggable marker (mirrors other layouts)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
-                    Text("Threshold: \(Int(tap.tapDetectionThreshold)) dB")
+                    Text("Threshold:")
                         .font(.caption)
-                    Button(action: {
-                        tapToneAnalyzer.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
-                        TapDisplaySettings.tapDetectionThreshold = TapDisplaySettings.defaultTapDetectionThreshold
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
+                        .foregroundColor(.secondary)
+                    Text("\(Int(tap.tapDetectionThreshold)) dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                    Spacer()
+                    thresholdResetButton
                 }
-                Slider(value: $tapToneAnalyzer.tapDetectionThreshold, in: -80...(-20), step: 1)
+                ThresholdSlider(
+                    value: $tapToneAnalyzer.tapDetectionThreshold,
+                    level: tap.fftAnalyzer.inputLevelDB,
+                    isClipping: tap.fftAnalyzer.isClipping,
+                    range: -80...(-20)
+                )
                     .accessibilityLabel("Tap detection threshold")
                     .hint(HintText.threshold)
-                    .onChange(of: tap.tapDetectionThreshold) { _, newValue in
-                        TapDisplaySettings.tapDetectionThreshold = newValue
-                    }
             }
 
             // Peak detection threshold (guitar only — not used for plate/brace)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
-                    Text("Peak Min: \(Int(tap.peakThreshold)) dB")
+                    Text("Peak Min:")
                         .font(.caption)
-                    Button(action: {
-                        tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
-                        TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
-                    }) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
+                        .foregroundColor(.secondary)
+                    Text("\(Int(tap.peakThreshold)) dB")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.green)
+                    Spacer()
+                    peakMinResetButton
                 }
                 Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
                     .accessibilityLabel("Peak detection minimum threshold")
                     .hint(HintText.peakMin)
-                    .onChange(of: tap.peakThreshold) { _, newValue in
-                        TapDisplaySettings.peakThreshold = newValue
-                    }
             }
-            .disabled(!TapDisplaySettings.measurementType.isGuitar)
-            .opacity(TapDisplaySettings.measurementType.isGuitar ? 1 : 0.4)
+            .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
+            .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : 0.4)
 
             Divider()
 
