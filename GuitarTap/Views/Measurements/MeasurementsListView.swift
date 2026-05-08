@@ -127,14 +127,6 @@ struct MeasurementsListView: View {
                     Text(success)
                 }
             }
-            .alert("Microphone Not Connected", isPresented: Binding(
-                get: { analyzer.microphoneWarning != nil },
-                set: { if !$0 { analyzer.microphoneWarning = nil } }
-            )) {
-                Button("OK") { analyzer.microphoneWarning = nil }
-            } message: {
-                Text(analyzer.microphoneWarning ?? "")
-            }
             .overlay {
                 if isExporting {
                     LoadingOverlay(message: "Exporting measurements...")
@@ -176,14 +168,6 @@ struct MeasurementsListView: View {
                         Text(success)
                     }
                 }
-                .alert("Microphone Not Connected", isPresented: Binding(
-                    get: { analyzer.microphoneWarning != nil },
-                    set: { if !$0 { analyzer.microphoneWarning = nil } }
-                )) {
-                    Button("OK") { analyzer.microphoneWarning = nil }
-                } message: {
-                    Text(analyzer.microphoneWarning ?? "")
-                }
                 .overlay {
                     if isExporting {
                         LoadingOverlay(message: "Exporting measurements...")
@@ -215,18 +199,30 @@ struct MeasurementsListView: View {
                     }
                     
                     ForEach(Array(analyzer.savedMeasurements.enumerated()), id: \.offset) { index, measurement in
-                        // Use Button for both platforms - macOS opens window, iOS shows sheet
                         Button(action: {
+                            // Single tap: only acts in compare mode
                             if isComparing {
                                 toggleCompareSelection(at: index, for: measurement)
-                            } else {
-                                showDetail(index: index, measurement: measurement)
                             }
                         }) {
                             compareRowContent(at: index, for: measurement)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        // Double-tap loads the measurement and dismisses the list.
+                        // Dismiss first so the sheet is gone before loadMeasurement()
+                        // sets @Published properties (including microphoneWarning).
+                        // The load is deferred so the sheet teardown completes cleanly
+                        // and the mic warning alert fires only on the main view.
+                        .onTapGesture(count: 2) {
+                            if !isComparing {
+                                let m = measurement
+                                dismiss()
+                                DispatchQueue.main.async {
+                                    analyzer.loadMeasurement(m)
+                                }
+                            }
+                        }
                         #if os(macOS)
                         .onHover { inside in
                             hoveredMeasurementIndex = inside ? index : nil
@@ -237,10 +233,14 @@ struct MeasurementsListView: View {
                             }
                         }
                         #endif
-                        .help(isComparing ? "Toggle selection for comparison" : "Click to view measurement details")
+                        .help(isComparing ? "Toggle selection for comparison" : "Double-click to load measurement")
                         .contextMenu {
                             Button(action: {
-                                analyzer.loadMeasurement(measurement)
+                                let m = measurement
+                                dismiss()
+                                DispatchQueue.main.async {
+                                    analyzer.loadMeasurement(m)
+                                }
                             }) {
                                 Label("Load into View", systemImage: "arrow.down.doc")
                             }

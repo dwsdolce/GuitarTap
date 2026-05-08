@@ -94,10 +94,14 @@ struct MeasurementDetailView: View {
             .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
                 Button("Cancel", role: .cancel) {}
                 Button("Load") {
-                    analyzer.loadMeasurement(measurement)
-                    // Close the window
+                    let m = measurement
+                    // Close window first, then load so mic warning alert
+                    // fires only on the main view (not the closing sheet).
                     if let window = NSApplication.shared.keyWindow {
                         window.close()
+                    }
+                    DispatchQueue.main.async {
+                        analyzer.loadMeasurement(m)
                     }
                 }
             } message: {
@@ -160,8 +164,11 @@ struct MeasurementDetailView: View {
             .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
                 Button("Cancel", role: .cancel) {}
                 Button("Load") {
-                    analyzer.loadMeasurement(measurement)
+                    let m = measurement
                     dismiss()
+                    DispatchQueue.main.async {
+                        analyzer.loadMeasurement(m)
+                    }
                 }
             } message: {
                 Text("This will replace the current analysis view with this measurement's data, including peaks and spectrum. Continue?")

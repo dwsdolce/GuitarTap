@@ -822,6 +822,17 @@ private struct LifecycleModifier: ViewModifier {
             } message: {
                 Text(openURLImportError ?? "")
             }
+            // Microphone warning — shown after loading a measurement whose
+            // recording device is not currently connected.  The alert is on
+            // the main view so it survives the Measurements sheet dismissing.
+            .alert("Microphone Not Connected", isPresented: Binding(
+                get: { tap.microphoneWarning != nil },
+                set: { if !$0 { tap.microphoneWarning = nil } }
+            )) {
+                Button("OK") { tap.microphoneWarning = nil }
+            } message: {
+                Text(tap.microphoneWarning ?? "")
+            }
     }
 }
 
