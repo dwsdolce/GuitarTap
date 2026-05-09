@@ -359,6 +359,20 @@ extension TapToneAnalyzer {
     ///   - samples: Pre-roll + post-trigger PCM samples (length `fftSize`).
     ///   - sampleRate: Hardware sample rate in Hz.
     func finishGuitarGatedCapture(samples: [Float], sampleRate: Double) {
+        // Orphan-capture guard.  In brace/plate mode the level-crossing handler
+        // may seed a phase=nil (guitar) gated capture from a noise spike that
+        // never produces a confirming rising-edge — when its 65536-sample
+        // window fills (~1.36 s later) it lands here.  Without this guard we
+        // would append a silent spectrum to capturedTaps, advance currentTapCount,
+        // and overwrite the displayed frozen spectrum, masking the real
+        // brace/plate phase capture that runs in parallel.  Mirrors the
+        // equivalent guard in Python tap_tone_analyzer_spectrum_capture.py
+        // finish_guitar_gated_capture.
+        if TapDisplaySettings.measurementType != .generic {
+            TAP_DEBUG("guitarGatedCapture", "ORPHAN — discarded (measurementType=\(TapDisplaySettings.measurementType), samples=\(samples.count))")
+            return
+        }
+
         let fftSize = fftAnalyzer.fftSize
 
         // Truncate or zero-pad to exactly fftSize.
