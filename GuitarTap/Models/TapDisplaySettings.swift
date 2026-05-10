@@ -132,6 +132,7 @@ struct TapDisplaySettings {
     private static let hysteresisMarginKey = "hysteresisMargin"
     private static let measureFlcKey = "measureFlc"
     private static let annotationVisibilityModeKey = "annotationVisibilityMode"
+    private static let dumpCaptureAudioKey = "dumpCaptureAudio"
 
     // MARK: - Measurement Type Setting
     
@@ -592,6 +593,14 @@ struct TapDisplaySettings {
         }
     }
     
+    /// Whether to dump captured audio buffers to WAV files in Documents/GuitarTap.
+    /// Useful for offline debugging / comparison between Swift and Python pipelines.
+    /// Defaults to false.
+    static var dumpCaptureAudio: Bool {
+        get { defaults.bool(forKey: dumpCaptureAudioKey) }
+        set { defaults.set(newValue, forKey: dumpCaptureAudioKey) }
+    }
+
     /// Persisted hysteresis margin (dB)
     static var hysteresisMargin: Float {
         get {

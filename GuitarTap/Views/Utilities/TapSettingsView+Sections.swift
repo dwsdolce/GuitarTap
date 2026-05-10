@@ -355,10 +355,6 @@ extension TapSettingsView {
 
     @ViewBuilder
     var displayRangeSectionContent: some View {
-        Label("Display Settings", systemImage: "chart.xyaxis.line")
-            .font(.headline)
-            .padding(.top, 4)
-
         // Frequency Range
         if isCompact {
             compactFrequencyRangeView(
@@ -426,10 +422,6 @@ extension TapSettingsView {
 
     @ViewBuilder
     var analysisSettingsSectionContent: some View {
-        Label("Analysis Settings", systemImage: "waveform.path.ecg")
-            .font(.headline)
-            .padding(.top, 4)
-
         // Show Unknown Modes (guitar only)
         if selectedMeasurementType.isGuitar {
             Toggle(isOn: $showUnknownModes) {
@@ -593,6 +585,18 @@ extension TapSettingsView {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 4)
+
+            Divider()
+
+            // Dump Capture Audio (diagnostics)
+            Toggle(isOn: $dumpCaptureAudio) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Dump Capture Audio")
+                    Text("Save each captured tap as a WAV file in Documents/GuitarTap")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
 
             Button {
                 resetAnalysisSettings()

@@ -89,6 +89,9 @@ struct TapSettingsView: View {
     // Unknown mode display setting
     @State var showUnknownModes: Bool = TapDisplaySettings.showUnknownModes
 
+    // WAV dump toggle (diagnostics)
+    @State var dumpCaptureAudio: Bool = TapDisplaySettings.dumpCaptureAudio
+
     // Plate dimensions (for plate measurement type)
     @State var plateLengthInput: String = String(format: "%.1f", TapDisplaySettings.plateLength)
     @State var plateWidthInput: String = String(format: "%.1f", TapDisplaySettings.plateWidth)
@@ -195,13 +198,28 @@ struct TapSettingsView: View {
                 measurementTypeSection
                 Section {
                     DisclosureGroup(isExpanded: $showingAdvanced) {
-                        displayRangeSectionContent
-                        analysisSettingsSectionContent
+                        // Content intentionally empty — the two sub-sections
+                        // below render at Form top-level so their headers
+                        // appear outside the gray background.
                     } label: {
                         Label("Advanced", systemImage: "gearshape.2")
                             .font(.headline)
                     }
                     .disclosureGroupStyle(FormDisclosureGroupStyle())
+                }
+                if showingAdvanced {
+                    Section {
+                        displayRangeSectionContent
+                    } header: {
+                        Label("Display Settings", systemImage: "chart.xyaxis.line")
+                            .font(.headline)
+                    }
+                    Section {
+                        analysisSettingsSectionContent
+                    } header: {
+                        Label("Analysis Settings", systemImage: "waveform.path.ecg")
+                            .font(.headline)
+                    }
                 }
                 aboutSection
             }

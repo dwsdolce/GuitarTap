@@ -38,6 +38,7 @@ extension TapSettingsView {
         // Save measurement type and unknown mode setting
         TapDisplaySettings.measurementType = selectedMeasurementType
         TapDisplaySettings.showUnknownModes = showUnknownModes
+        TapDisplaySettings.dumpCaptureAudio = dumpCaptureAudio
         TapDisplaySettings.measureFlc = measureFlc
 
         // Detect whether the measurement type or FLC toggle changed.
