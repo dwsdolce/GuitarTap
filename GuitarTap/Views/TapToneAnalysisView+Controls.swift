@@ -625,6 +625,8 @@ extension TapToneAnalysisView {
                 }
 
                 // Tap threshold slider
+                // Disabled for brace mode — brace taps bypass the spectral
+                // magnitude gate (the rising-edge trigger is sufficient).
                 HStack(spacing: 6) {
                     Text("Threshold:")
                         .font(.caption)
@@ -647,6 +649,8 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     thresholdResetButton
                 }
+                .disabled(TapDisplaySettings.measurementType.isBrace)
+                .opacity(TapDisplaySettings.measurementType.isBrace ? 0.4 : 1)
 
                 HStack(spacing: 6) {
                     Text("Peak Min:")
@@ -791,6 +795,8 @@ extension TapToneAnalysisView {
                 .frame(height: 20)
 
             // Tap detection threshold slider
+            // Disabled for brace mode — brace taps bypass the spectral
+            // magnitude gate (the rising-edge trigger is sufficient).
             HStack(spacing: 4) {
                 Text("Threshold:")
                     .font(.caption)
@@ -813,6 +819,8 @@ extension TapToneAnalysisView {
                 thresholdResetButton
             }
             .hint(HintText.threshold)
+            .disabled(TapDisplaySettings.measurementType.isBrace)
+            .opacity(TapDisplaySettings.measurementType.isBrace ? 0.4 : 1)
 
             Divider()
                 .frame(height: 20)
@@ -921,6 +929,8 @@ extension TapToneAnalysisView {
                     .frame(height: 20)
 
                 // Tap detection threshold slider
+                // Disabled for brace mode — brace taps bypass the spectral
+                // magnitude gate (the rising-edge trigger is sufficient).
                 HStack(spacing: 4) {
                     Text("Threshold:")
                         .font(.caption)
@@ -943,6 +953,8 @@ extension TapToneAnalysisView {
                     thresholdResetButton
                 }
                 .hint(HintText.threshold)
+                .disabled(TapDisplaySettings.measurementType.isBrace)
+                .opacity(TapDisplaySettings.measurementType.isBrace ? 0.4 : 1)
 
                 Divider()
                     .frame(height: 20)

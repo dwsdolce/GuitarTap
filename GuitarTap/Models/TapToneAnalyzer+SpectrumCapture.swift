@@ -579,13 +579,16 @@ extension TapToneAnalyzer {
             hpsMinHz = 20; hpsMaxHz = 2000
         }
 
-        // For fL and fLC plate phases the tap orientation physically selects the
+        // For plate fL and fLC phases the tap orientation physically selects the
         // lowest resonant mode, so prefer the lowest significant peak.
-        // For fC the strongest peak is correct — the cross-grain tap excites fC
-        // as the dominant resonance; preferring the lowest would risk re-selecting
-        // fL if it appears in the spectrum.
-        let preferLowest = (phase == .capturingLongitudinal
-                            || phase == .capturingFlc || phase == .waitingForFlcTap)
+        // For plate fC the strongest peak is correct — the cross-grain tap excites
+        // fC as the dominant resonance; preferring the lowest would risk
+        // re-selecting fL if it appears in the spectrum.
+        // For brace mode, always use the strongest peak — there is only one
+        // resonance of interest and it should dominate the spectrum.
+        let preferLowest = mType != .brace
+            && (phase == .capturingLongitudinal
+                || phase == .capturingFlc || phase == .waitingForFlcTap)
 
         // Find the dominant peak using harmonic product spectrum analysis.
         // This finds the fundamental regardless of whether harmonics are louder.
@@ -604,12 +607,16 @@ extension TapToneAnalyzer {
         // If the best peak found is below the threshold, the ring-out was too weak —
         // likely a noise trigger, not a real tap — so ask the user to tap again.
         //
-        // Exception: fLC (torsional mode) is inherently 20–30 dB weaker than fL/fC in
-        // the spectral domain — the tap already triggered (proving a real strike occurred),
-        // so there is no benefit in applying a spectral magnitude gate for this phase.
-        // The tap trigger threshold already ensures the audio event was real.
+        // Exceptions (skip the magnitude gate):
+        //   - fLC (torsional mode): inherently 20–30 dB weaker than fL/fC.
+        //   - Brace mode: braces are small and stiff — their tap resonance is
+        //     inherently much quieter than a guitar top or plate, producing
+        //     dominant peaks that routinely fall below the plate/guitar threshold.
+        // In both cases the rising-edge tap trigger already proved a real strike
+        // occurred, so there is no benefit in applying an additional spectral gate.
         let isFlcPhase = (phase == .capturingFlc || phase == .waitingForFlcTap)
-        if !isFlcPhase && dominantPeak.magnitude < tapDetectionThreshold {
+        let isBraceMode = TapDisplaySettings.measurementType == .brace
+        if !isFlcPhase && !isBraceMode && dominantPeak.magnitude < tapDetectionThreshold {
             gtLog("⚠️ Gated FFT: dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB is below tap detection threshold (\(String(format: "%.0f", tapDetectionThreshold)) dB) — tap again")
             statusMessage = "Signal too quiet — tap harder"
             reEnableDetectionForNextPlateTap()

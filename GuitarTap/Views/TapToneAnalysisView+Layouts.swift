@@ -525,6 +525,8 @@ extension TapToneAnalysisView {
             }
 
             // Threshold — level meter with draggable marker (mirrors other layouts)
+            // Disabled for brace mode — brace taps bypass the spectral
+            // magnitude gate (the rising-edge trigger is sufficient).
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text("Threshold:")
@@ -546,6 +548,8 @@ extension TapToneAnalysisView {
                     .accessibilityLabel("Tap detection threshold")
                     .hint(HintText.threshold)
             }
+            .disabled(TapDisplaySettings.measurementType.isBrace)
+            .opacity(TapDisplaySettings.measurementType.isBrace ? 0.4 : 1)
 
             // Peak detection threshold (guitar only — not used for plate/brace)
             VStack(alignment: .leading, spacing: 2) {
