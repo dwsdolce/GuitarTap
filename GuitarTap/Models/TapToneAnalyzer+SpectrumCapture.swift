@@ -551,7 +551,14 @@ extension TapToneAnalyzer {
                 // fC: cross-grain bending mode of a free rectangular plate blank.
                 // Gore course data: ~57–194 Hz across tonewoods (Gore & Gilet Vol.1 §4.5).
                 // Upper bound 220 Hz covers outliers; lower bound 40 Hz excludes fL/fLC.
-                hpsMinHz = 40; hpsMaxHz = 220
+                // When fL has already been identified, raise the floor above fL so the
+                // "prefer lowest significant" logic cannot re-select the longitudinal mode.
+                if let fL = selectedLongitudinalPeak?.frequency, fL > 40 {
+                    hpsMinHz = fL + 5
+                } else {
+                    hpsMinHz = 40
+                }
+                hpsMaxHz = 220
             case .capturingFlc, .waitingForFlcTap:
                 // fLC: torsional (twist) mode of a free rectangular plate blank.
                 // Gore course data: ~25–76 Hz across tonewoods (Gore & Gilet Vol.1 §4.5).
