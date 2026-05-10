@@ -464,6 +464,60 @@ extension TapToneAnalyzer {
     ///
     /// - Note: Called on the main thread via `DispatchQueue.main.async`.
     func finishGatedFFTCapture(samples: [Float], sampleRate: Double, phase: MaterialTapPhase) {
+        // ── WAV dump instrumentation ────────────────────────────────────
+        // Enable by adding -DDEBUG_WAV_DUMP to Swift Compiler → Other Swift Flags.
+        #if DEBUG_WAV_DUMP
+        // Writes the raw samples as a mono 32-bit float WAV.
+        // Uses NSTemporaryDirectory (always writable, even sandboxed).
+        do {
+            let dumpDir = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("pcm_dumps")
+            try FileManager.default.createDirectory(at: dumpDir, withIntermediateDirectories: true)
+            let ts = ISO8601DateFormatter().string(from: Date())
+                .replacingOccurrences(of: ":", with: "-")
+            let name = "swift_\(phase)_\(ts).wav"
+            let url = dumpDir.appendingPathComponent(name)
+
+            let sr = Int(sampleRate)
+            let numSamples = samples.count
+            let bytesPerSample = 4  // Float32
+            let dataSize = numSamples * bytesPerSample
+            var header = Data(capacity: 44 + dataSize)
+            // RIFF header
+            header.append(contentsOf: "RIFF".utf8)
+            var chunkSize = UInt32(36 + dataSize).littleEndian
+            header.append(Data(bytes: &chunkSize, count: 4))
+            header.append(contentsOf: "WAVE".utf8)
+            // fmt sub-chunk (IEEE float)
+            header.append(contentsOf: "fmt ".utf8)
+            var subchunk1Size = UInt32(16).littleEndian
+            header.append(Data(bytes: &subchunk1Size, count: 4))
+            var audioFormat = UInt16(3).littleEndian  // IEEE float
+            header.append(Data(bytes: &audioFormat, count: 2))
+            var numChannels = UInt16(1).littleEndian
+            header.append(Data(bytes: &numChannels, count: 2))
+            var sampleRateLE = UInt32(sr).littleEndian
+            header.append(Data(bytes: &sampleRateLE, count: 4))
+            var byteRate = UInt32(sr * bytesPerSample).littleEndian
+            header.append(Data(bytes: &byteRate, count: 4))
+            var blockAlign = UInt16(bytesPerSample).littleEndian
+            header.append(Data(bytes: &blockAlign, count: 2))
+            var bitsPerSample = UInt16(32).littleEndian
+            header.append(Data(bytes: &bitsPerSample, count: 2))
+            // data sub-chunk
+            header.append(contentsOf: "data".utf8)
+            var dataSizeLE = UInt32(dataSize).littleEndian
+            header.append(Data(bytes: &dataSizeLE, count: 4))
+            // Sample data
+            header.append(samples.withUnsafeBufferPointer { Data(buffer: $0) })
+            try header.write(to: url)
+            gtLog("📦 WAV dump: \(url.path) (\(numSamples) samples, \(sr) Hz)")
+        } catch {
+            gtLog("⚠️ WAV dump failed: \(error.localizedDescription)")
+        }
+        #endif
+        // ── end WAV dump ─────────────────────────────────────────────────
+
         let (magnitudes, frequencies) = fftAnalyzer.computeGatedFFT(samples: samples, sampleRate: sampleRate)
 
         guard !magnitudes.isEmpty else {

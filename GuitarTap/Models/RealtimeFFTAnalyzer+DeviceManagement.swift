@@ -470,6 +470,50 @@ extension RealtimeFFTAnalyzer {
         sampleRateListenerBlock = nil
         sampleRateListenerDeviceID = 0
     }
+
+    /// Looks up the CoreAudio `AudioDeviceID` for a given device UID string.
+    ///
+    /// Used by `start()` to resolve the persisted device UID from UserDefaults
+    /// when `selectedInputDevice` hasn't been assigned yet (the async device
+    /// enumeration hasn't completed).
+    ///
+    /// - Parameter uid: The device UID string (e.g. from `kAudioDevicePropertyDeviceUID`).
+    /// - Returns: The matching `AudioDeviceID`, or `nil` if not found.
+    static func audioDeviceID(forUID uid: String) -> AudioDeviceID? {
+        // Enumerate all devices and match by UID.
+        var propAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &propAddr, 0, nil, &dataSize
+        ) == noErr, dataSize > 0 else { return nil }
+
+        let count = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        var deviceIDs = [AudioDeviceID](repeating: 0, count: count)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &propAddr, 0, nil, &dataSize, &deviceIDs
+        ) == noErr else { return nil }
+
+        var uidAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        for devID in deviceIDs {
+            var cfUID: Unmanaged<CFString>?
+            var uidSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+            if AudioObjectGetPropertyData(devID, &uidAddr, 0, nil, &uidSize, &cfUID) == noErr,
+               let deviceUID = cfUID?.takeUnretainedValue() as String?,
+               deviceUID == uid {
+                return devID
+            }
+        }
+        return nil
+    }
     #endif
     
     #if os(iOS)

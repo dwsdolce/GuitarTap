@@ -131,23 +131,103 @@ extension RealtimeFFTAnalyzer {
         #endif
         
         #if os(macOS)
-        // Set the input device on the AUHAL unit before starting the engine.
+        // ── Select the input device on the AUHAL before starting the engine ──
+        //
         // AVAudioEngine does not expose a device-selection API directly; we must
         // reach into the underlying AudioUnit and set kAudioOutputUnitProperty_CurrentDevice.
         // This MUST happen after audioEngine.reset() (which re-creates the input node's
         // audio unit) but BEFORE audioEngine.start().
-        if let device = selectedInputDevice, let audioUnit = inputNode.audioUnit {
-            var deviceID = device.deviceID
-            let setStatus = AudioUnitSetProperty(
+        //
+        // selectedInputDevice may be nil on the very first start() call because
+        // loadAvailableInputDevicesMacOS() dispatches to DispatchQueue.main.async
+        // and hasn't completed yet.  In that case, fall back to the persisted
+        // device UID from UserDefaults and look up the CoreAudio device ID directly.
+        if let audioUnit = inputNode.audioUnit {
+            var targetDeviceID: AudioDeviceID = 0
+            var targetDeviceName = "system default"
+
+            if let device = selectedInputDevice {
+                targetDeviceID = device.deviceID
+                targetDeviceName = device.name
+            } else if let savedUID = UserDefaults.standard.string(forKey: "selectedInputDeviceUID") {
+                // Look up the AudioDeviceID for the persisted UID synchronously.
+                targetDeviceID = Self.audioDeviceID(forUID: savedUID) ?? 0
+                if targetDeviceID != 0 {
+                    targetDeviceName = savedUID
+                    engineLog.info("selectedInputDevice is nil — resolved persisted UID '\(savedUID, privacy: .public)' → device ID \(targetDeviceID, privacy: .public)")
+                }
+            }
+
+            if targetDeviceID != 0 {
+                var devID = targetDeviceID
+                let setStatus = AudioUnitSetProperty(
+                    audioUnit,
+                    kAudioOutputUnitProperty_CurrentDevice,
+                    kAudioUnitScope_Global,
+                    0,
+                    &devID,
+                    UInt32(MemoryLayout<AudioDeviceID>.size)
+                )
+                if setStatus != noErr {
+                    engineLog.warning("Failed to set input device '\(targetDeviceName, privacy: .public)': error \(setStatus, privacy: .public) — will use system default")
+                }
+            }
+
+            // ── Force the AUHAL to operate at the input device's native sample rate ──
+            //
+            // AVAudioEngine creates a CADefaultDeviceAggregate that combines the
+            // selected input device with the system output.  The aggregate defaults
+            // to the *output* device's sample rate (typically 44100 Hz for built-in
+            // speakers), which causes CoreAudio to resample a 48000 Hz input to
+            // 44100 — silently degrading FFT bin spacing and introducing artefacts.
+            //
+            // We query whichever device the AUHAL is actually using (whether we just
+            // set it above or it was assigned by the system) and force its native
+            // sample rate on both the device and the AUHAL.
+            var auhalDeviceID = AudioDeviceID(0)
+            var devIDSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+            AudioUnitGetProperty(
                 audioUnit,
                 kAudioOutputUnitProperty_CurrentDevice,
                 kAudioUnitScope_Global,
                 0,
-                &deviceID,
-                UInt32(MemoryLayout<AudioDeviceID>.size)
+                &auhalDeviceID,
+                &devIDSize
             )
-            if setStatus != noErr {
-                engineLog.warning("Failed to set input device '\(device.name, privacy: .public)': error \(setStatus, privacy: .public) — will use system default")
+
+            if auhalDeviceID != 0 {
+                var deviceNativeSR: Float64 = 0
+                var srSize = UInt32(MemoryLayout<Float64>.size)
+                var nomSRAddr = AudioObjectPropertyAddress(
+                    mSelector: kAudioDevicePropertyNominalSampleRate,
+                    mScope: kAudioObjectPropertyScopeGlobal,
+                    mElement: kAudioObjectPropertyElementMain
+                )
+                let getSRStatus = AudioObjectGetPropertyData(
+                    auhalDeviceID, &nomSRAddr, 0, nil, &srSize, &deviceNativeSR
+                )
+                if getSRStatus == noErr && deviceNativeSR > 0 {
+                    engineLog.info("AUHAL device ID=\(auhalDeviceID, privacy: .public), native SR=\(deviceNativeSR, privacy: .public) Hz — forcing this rate")
+
+                    // Reinforce the nominal rate on the device itself
+                    AudioObjectSetPropertyData(
+                        auhalDeviceID, &nomSRAddr, 0, nil,
+                        UInt32(MemoryLayout<Float64>.size), &deviceNativeSR
+                    )
+
+                    // Set the AUHAL output-scope (element 1 = hardware-facing input
+                    // side) sample rate so CoreAudio doesn't resample through the
+                    // aggregate device.
+                    var auRate = deviceNativeSR
+                    AudioUnitSetProperty(
+                        audioUnit,
+                        kAudioUnitProperty_SampleRate,
+                        kAudioUnitScope_Output,
+                        1,
+                        &auRate,
+                        UInt32(MemoryLayout<Float64>.size)
+                    )
+                }
             }
         }
         #endif
@@ -267,6 +347,30 @@ extension RealtimeFFTAnalyzer {
                     if setStatus != noErr {
                         engineLog.warning("Failed to re-apply device '\(device.name, privacy: .public)' (error \(setStatus, privacy: .public))")
                     }
+
+                    // Re-apply native sample rate on device + AUHAL (same as primary path).
+                    var nativeSR = device.sampleRate
+                    var nominalSRAddr = AudioObjectPropertyAddress(
+                        mSelector: kAudioDevicePropertyNominalSampleRate,
+                        mScope: kAudioObjectPropertyScopeGlobal,
+                        mElement: kAudioObjectPropertyElementMain
+                    )
+                    AudioObjectSetPropertyData(
+                        deviceID,
+                        &nominalSRAddr,
+                        0, nil,
+                        UInt32(MemoryLayout<Float64>.size),
+                        &nativeSR
+                    )
+                    var desiredRate = device.sampleRate
+                    AudioUnitSetProperty(
+                        freshAU,
+                        kAudioUnitProperty_SampleRate,
+                        kAudioUnitScope_Output,
+                        1,
+                        &desiredRate,
+                        UInt32(MemoryLayout<Float64>.size)
+                    )
                 }
 
                 try audioEngine.start()

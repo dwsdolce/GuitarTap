@@ -390,7 +390,12 @@ extension RealtimeFFTAnalyzer {
         padded[0..<copyCount] = samples[0..<copyCount]
 
         var hannWindow = [Float](repeating: 0, count: paddedSize)
-        vDSP_hann_window(&hannWindow, vDSP_Length(paddedSize), Int32(vDSP_HANN_NORM))
+        // Use HANN_DENORM (standard unit-peak Hann window) rather than HANN_NORM.
+        // HANN_NORM energy-normalises the window by scaling each sample by √(8/3),
+        // which inflates magnitudes by +4.26 dB when combined with 1/N normalisation.
+        // HANN_DENORM produces w[n] = 0.5·(1 − cos(2πn/N)) with peak = 1.0, matching
+        // the standard Hann window used by numpy (np.hanning) in the Python port.
+        vDSP_hann_window(&hannWindow, vDSP_Length(paddedSize), Int32(vDSP_HANN_DENORM))
         vDSP_vmul(padded, 1, hannWindow, 1, &padded, 1, vDSP_Length(paddedSize))
 
         // Deinterleave into split-complex format required by vDSP_DFT_zrop
