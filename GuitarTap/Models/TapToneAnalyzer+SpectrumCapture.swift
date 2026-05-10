@@ -551,14 +551,7 @@ extension TapToneAnalyzer {
                 // fC: cross-grain bending mode of a free rectangular plate blank.
                 // Gore course data: ~57–194 Hz across tonewoods (Gore & Gilet Vol.1 §4.5).
                 // Upper bound 220 Hz covers outliers; lower bound 40 Hz excludes fL/fLC.
-                // When fL has already been identified, raise the floor above fL so the
-                // "prefer lowest significant" logic cannot re-select the longitudinal mode.
-                if let fL = selectedLongitudinalPeak?.frequency, fL > 40 {
-                    hpsMinHz = fL + 5
-                } else {
-                    hpsMinHz = 40
-                }
-                hpsMaxHz = 220
+                hpsMinHz = 40; hpsMaxHz = 220
             case .capturingFlc, .waitingForFlcTap:
                 // fLC: torsional (twist) mode of a free rectangular plate blank.
                 // Gore course data: ~25–76 Hz across tonewoods (Gore & Gilet Vol.1 §4.5).
@@ -574,10 +567,12 @@ extension TapToneAnalyzer {
             hpsMinHz = 20; hpsMaxHz = 2000
         }
 
-        // For all three plate phases the tap orientation physically selects the lowest
-        // resonant mode of the plate (longitudinal, cross-grain, or shear), so always
-        // prefer the lowest significant peak in the search window.
-        let preferLowest = (mType == .plate || phase == .capturingLongitudinal || phase == .capturingCross
+        // For fL and fLC plate phases the tap orientation physically selects the
+        // lowest resonant mode, so prefer the lowest significant peak.
+        // For fC the strongest peak is correct — the cross-grain tap excites fC
+        // as the dominant resonance; preferring the lowest would risk re-selecting
+        // fL if it appears in the spectrum.
+        let preferLowest = (phase == .capturingLongitudinal
                             || phase == .capturingFlc || phase == .waitingForFlcTap)
 
         // Find the dominant peak using harmonic product spectrum analysis.
