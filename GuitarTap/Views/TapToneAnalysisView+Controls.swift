@@ -592,8 +592,8 @@ extension TapToneAnalysisView {
     @ViewBuilder
     var peakMinResetButton: some View {
         Button(action: {
-            tapToneAnalyzer.peakThreshold = TapDisplaySettings.defaultPeakThreshold
-            TapDisplaySettings.peakThreshold = TapDisplaySettings.defaultPeakThreshold
+            tapToneAnalyzer.peakMinThreshold = TapDisplaySettings.defaultPeakMinThreshold
+            TapDisplaySettings.peakMinThreshold = TapDisplaySettings.defaultPeakMinThreshold
         }) {
             Image(systemName: "arrow.counterclockwise")
                 .font(.caption2)
@@ -624,9 +624,8 @@ extension TapToneAnalysisView {
                     Spacer()
                 }
 
-                // Tap threshold slider
-                // Disabled for brace mode — brace taps bypass the spectral
-                // magnitude gate (the rising-edge trigger is sufficient).
+                // Tap detection threshold slider — controls the RMS rising-edge
+                // trigger level used to detect taps in all measurement modes.
                 HStack(spacing: 6) {
                     Text("Threshold:")
                         .font(.caption)
@@ -649,19 +648,17 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     thresholdResetButton
                 }
-                .disabled(TapDisplaySettings.measurementType.isBrace)
-                .opacity(TapDisplaySettings.measurementType.isBrace ? 0.4 : 1)
 
                 HStack(spacing: 6) {
                     Text("Peak Min:")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .fixedSize()
-                    Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                    Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
                         .accessibilityLabel("Peak detection minimum threshold")
                         .hint(HintText.peakMin)
 
-                    Text("\(Int(tap.peakThreshold)) dB")
+                    Text("\(Int(tap.peakMinThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.green)
@@ -794,9 +791,8 @@ extension TapToneAnalysisView {
             Divider()
                 .frame(height: 20)
 
-            // Tap detection threshold slider
-            // Disabled for brace mode — brace taps bypass the spectral
-            // magnitude gate (the rising-edge trigger is sufficient).
+            // Tap detection threshold slider — controls the RMS rising-edge
+            // trigger level used to detect taps in all measurement modes.
             HStack(spacing: 4) {
                 Text("Threshold:")
                     .font(.caption)
@@ -819,8 +815,6 @@ extension TapToneAnalysisView {
                 thresholdResetButton
             }
             .hint(HintText.threshold)
-            .disabled(TapDisplaySettings.measurementType.isBrace)
-            .opacity(TapDisplaySettings.measurementType.isBrace ? 0.4 : 1)
 
             Divider()
                 .frame(height: 20)
@@ -830,12 +824,12 @@ extension TapToneAnalysisView {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize()
-                Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
                     .frame(width: 80)
                     .accessibilityLabel("Peak detection minimum threshold")
                     .hint(HintText.peakMin)
 
-                Text("\(Int(tap.peakThreshold)) dB")
+                Text("\(Int(tap.peakMinThreshold)) dB")
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.green)
@@ -928,9 +922,8 @@ extension TapToneAnalysisView {
                 Divider()
                     .frame(height: 20)
 
-                // Tap detection threshold slider
-                // Disabled for brace mode — brace taps bypass the spectral
-                // magnitude gate (the rising-edge trigger is sufficient).
+                // Tap detection threshold slider — controls the RMS rising-edge
+                // trigger level used to detect taps in all measurement modes.
                 HStack(spacing: 4) {
                     Text("Threshold:")
                         .font(.caption)
@@ -953,23 +946,21 @@ extension TapToneAnalysisView {
                     thresholdResetButton
                 }
                 .hint(HintText.threshold)
-                .disabled(TapDisplaySettings.measurementType.isBrace)
-                .opacity(TapDisplaySettings.measurementType.isBrace ? 0.4 : 1)
 
                 Divider()
                     .frame(height: 20)
 
-                // Peak Min slider
+                // Peak Min slider — minimum spectral magnitude for peak annotation.
                 HStack(spacing: 4) {
                     Text("Peak Min:")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .fixedSize()
-                    Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                    Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
                         .frame(width: 80)
                         .accessibilityLabel("Peak detection minimum threshold")
 
-                    Text("\(Int(tap.peakThreshold)) dB")
+                    Text("\(Int(tap.peakMinThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.green)

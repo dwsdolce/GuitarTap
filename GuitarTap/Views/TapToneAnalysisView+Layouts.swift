@@ -95,7 +95,7 @@ extension TapToneAnalysisView {
                 maxDB: $maxDB,
                 analysisMinFreq: $tapToneAnalyzer.minFrequency,
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
-                peakThreshold: $tapToneAnalyzer.peakThreshold,
+                peakMinThreshold: $tapToneAnalyzer.peakMinThreshold,
                 maxPeaks: $tapToneAnalyzer.maxPeaks,
                 hysteresisMargin: $tapToneAnalyzer.hysteresisMargin,
                 fftAnalyzer: fft,
@@ -227,7 +227,7 @@ extension TapToneAnalysisView {
                 maxDB: $maxDB,
                 analysisMinFreq: $tapToneAnalyzer.minFrequency,
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
-                peakThreshold: $tapToneAnalyzer.peakThreshold,
+                peakMinThreshold: $tapToneAnalyzer.peakMinThreshold,
                 maxPeaks: $tapToneAnalyzer.maxPeaks,
                 hysteresisMargin: $tapToneAnalyzer.hysteresisMargin,
                 fftAnalyzer: fft,
@@ -557,14 +557,14 @@ extension TapToneAnalysisView {
                     Text("Peak Min:")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("\(Int(tap.peakThreshold)) dB")
+                    Text("\(Int(tap.peakMinThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.green)
                     Spacer()
                     peakMinResetButton
                 }
-                Slider(value: $tapToneAnalyzer.peakThreshold, in: -100...(-20), step: 1)
+                Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
                     .accessibilityLabel("Peak detection minimum threshold")
                     .hint(HintText.peakMin)
             }

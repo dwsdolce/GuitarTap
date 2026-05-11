@@ -458,7 +458,7 @@ private struct LoadedSettingsModifier: ViewModifier {
             .onReceive(tap.$loadedPeakThreshold) { threshold in
                 if let threshold = threshold {
                     gtLog("  ⬇️ View received loadedPeakThreshold: \(threshold)")
-                    TapDisplaySettings.peakThreshold = threshold
+                    TapDisplaySettings.peakMinThreshold = threshold
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedPeakThreshold = nil }
                 }
             }

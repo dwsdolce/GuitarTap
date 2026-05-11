@@ -61,7 +61,7 @@ struct FindPeaksTests {
     // ±5-bin local-max window can always find peaks in this range.
     @Test func singlePureTone_returnsOnePeak() throws {
         let sut = makeSUT()
-        sut.peakThreshold = -60
+        sut.peakMinThreshold = -60
         sut.minFrequency = 50
         sut.maxFrequency = 2000
 
@@ -80,7 +80,7 @@ struct FindPeaksTests {
     // threshold) produces no peaks.
     @Test func silenceSpectrum_returnsEmpty() {
         let sut = makeSUT()
-        sut.peakThreshold = -80   // Threshold well above the noise floor value
+        sut.peakMinThreshold = -80   // Threshold well above the noise floor value
         sut.minFrequency = 50
         sut.maxFrequency = 1000
 
@@ -95,7 +95,7 @@ struct FindPeaksTests {
     // the sliding-window maximum check finds nothing and returns empty.
     @Test func clippedSpectrum_returnsEmpty() {
         let sut = makeSUT()
-        sut.peakThreshold = -80
+        sut.peakMinThreshold = -80
         sut.minFrequency = 50
         sut.maxFrequency = 1000
 
@@ -112,7 +112,7 @@ struct FindPeaksTests {
     // ideal ranges with sufficient bin density for the ±5-bin window check.
     @Test func multipleTones_detectsAll() {
         let sut = makeSUT()
-        sut.peakThreshold = -60
+        sut.peakMinThreshold = -60
         sut.minFrequency = 50
         sut.maxFrequency = 2000
 
@@ -136,12 +136,12 @@ struct FindPeaksTests {
         }
     }
 
-    // F14: When all peaks in the spectrum are below the configured peakThreshold,
+    // F14: When all peaks in the spectrum are below the configured peakMinThreshold,
     // findPeaks returns empty.
     @Test func allBelowThreshold_returnsEmpty() {
         let sut = makeSUT()
         // Peak at -30 dB but threshold set above that
-        sut.peakThreshold = -10
+        sut.peakMinThreshold = -10
         sut.minFrequency = 50
         sut.maxFrequency = 500
 

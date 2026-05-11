@@ -146,11 +146,11 @@ extension TapToneAnalysisView {
 
                 // Peak detection threshold line (guitar only — not used for plate/brace)
                 if TapDisplaySettings.measurementType.isGuitar {
-                    let peakThreshold = tap.peakThreshold
-                    if peakThreshold > minDB && peakThreshold < maxDB {
+                    let peakMinThreshold = tap.peakMinThreshold
+                    if peakMinThreshold > minDB && peakMinThreshold < maxDB {
                         lines.append((
-                            peakThreshold,
-                            "Peak: \(Int(peakThreshold)) dB",
+                            peakMinThreshold,
+                            "Peak: \(Int(peakMinThreshold)) dB",
                             .green.opacity(0.7),
                             1.5,
                             [8, 3]

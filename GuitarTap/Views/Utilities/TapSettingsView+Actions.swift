@@ -133,7 +133,7 @@ extension TapSettingsView {
         )
 
         // Parse and validate peak threshold
-        guard let newPeakThreshold = Float(peakThresholdInput) else {
+        guard let newPeakThreshold = Float(peakMinThresholdInput) else {
             showError("Invalid peak threshold value. Please enter a valid number.")
             return
         }
@@ -148,7 +148,7 @@ extension TapSettingsView {
         maxDB = validatedDB.max
         analysisMinFreq = validatedAnalysisFreq.min
         analysisMaxFreq = validatedAnalysisFreq.max
-        peakThreshold = clampedThreshold
+        peakMinThreshold = clampedThreshold
 
         // Persist all settings to UserDefaults (frequency range is stored per measurement type)
         TapDisplaySettings.setMinFrequency(validatedFreq.min, for: selectedMeasurementType)
@@ -157,7 +157,7 @@ extension TapSettingsView {
         TapDisplaySettings.maxMagnitude = validatedDB.max
         TapDisplaySettings.analysisMinFrequency = validatedAnalysisFreq.min
         TapDisplaySettings.analysisMaxFrequency = validatedAnalysisFreq.max
-        TapDisplaySettings.peakThreshold = clampedThreshold
+        TapDisplaySettings.peakMinThreshold = clampedThreshold
         TapDisplaySettings.maxPeaks = maxPeaks
         TapDisplaySettings.hysteresisMargin = hysteresisMargin
 
@@ -168,7 +168,7 @@ extension TapSettingsView {
         maxDBInput = String(format: "%.0f", validatedDB.max)
         analysisMinFreqInput = String(format: "%.0f", validatedAnalysisFreq.min)
         analysisMaxFreqInput = String(format: "%.0f", validatedAnalysisFreq.max)
-        peakThresholdInput = String(format: "%.0f", clampedThreshold)
+        peakMinThresholdInput = String(format: "%.0f", clampedThreshold)
 
         onApply?(measurementChanged)
         dismiss()
@@ -199,7 +199,7 @@ extension TapSettingsView {
         // Reset analysis settings to defaults
         analysisMinFreqInput = String(format: "%.0f", TapDisplaySettings.defaultAnalysisMinFrequency)
         analysisMaxFreqInput = String(format: "%.0f", TapDisplaySettings.defaultAnalysisMaxFrequency)
-        peakThresholdInput = String(format: "%.0f", TapDisplaySettings.defaultPeakThreshold)
+        peakMinThresholdInput = String(format: "%.0f", TapDisplaySettings.defaultPeakMinThreshold)
         maxPeaks = TapDisplaySettings.defaultMaxPeaks
         // defaultMaxPeaks == 0 means "all peaks", so keep captureAllPeaks consistent
         captureAllPeaks = TapDisplaySettings.defaultMaxPeaks == 0

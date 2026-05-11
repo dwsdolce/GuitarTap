@@ -95,9 +95,9 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Peaks below this level are discarded during peak-finding.  Persisted in
     /// ``TapDisplaySettings``.
-    @Published var peakThreshold: Float = TapDisplaySettings.peakThreshold {
+    @Published var peakMinThreshold: Float = TapDisplaySettings.peakMinThreshold {
         didSet {
-            TapDisplaySettings.peakThreshold = peakThreshold
+            TapDisplaySettings.peakMinThreshold = peakMinThreshold
             recalculateFrozenPeaksIfNeeded()
         }
     }
@@ -969,7 +969,7 @@ final class TapToneAnalyzer: ObservableObject {
         #endif
 
         // Restore persisted analysis settings.
-        peakThreshold = TapDisplaySettings.peakThreshold
+        peakMinThreshold = TapDisplaySettings.peakMinThreshold
         minFrequency  = TapDisplaySettings.analysisMinFrequency
         maxFrequency  = TapDisplaySettings.analysisMaxFrequency
 

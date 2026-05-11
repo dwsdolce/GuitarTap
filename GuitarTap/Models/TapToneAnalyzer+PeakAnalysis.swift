@@ -89,7 +89,7 @@ extension TapToneAnalyzer {
         // frozen averaged spectrum peaks; for plate/brace the final L/C/FLC peaks.
         if (isDetecting || isDetectionPaused || captureTimer != nil) && !isMeasurementComplete {
             // For plate/brace, use an adaptive noise-floor threshold (median of the analysis
-            // range) instead of the guitar-mode peakThreshold so the live peak list
+            // range) instead of the guitar-mode peakMinThreshold so the live peak list
             // self-calibrates to each tap's actual signal level.
             let liveThreshold: Float?
             if usesFastTapDetection {
@@ -107,7 +107,7 @@ extension TapToneAnalyzer {
                 liveThreshold = nil
             }
             // Find peaks in spectrum
-            let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies, thresholdOverride: liveThreshold)
+            let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies, peakMinOverride: liveThreshold)
             currentPeaks = peaks
             // Auto-select all newly detected peaks so visibility mode "selected" shows everything by default.
             // In plate/brace mode, selection is managed exclusively by the phase-completion handlers
@@ -126,7 +126,7 @@ extension TapToneAnalyzer {
 
     /// Re-runs peak finding on the frozen spectrum when the peak threshold changes.
     ///
-    /// Called from the `peakThreshold` `didSet` observer. Has no effect when the
+    /// Called from the `peakMinThreshold` `didSet` observer. Has no effect when the
     /// spectrum is not frozen or when frozen data is unavailable.
     ///
     /// **Selection strategy (guitar mode):**
@@ -191,7 +191,7 @@ extension TapToneAnalyzer {
         // frozen spectrum (spectrum averaging, FFT windowing, and analysis settings can
         // all differ between sessions). Filter the saved peaks by threshold instead.
         if let savedPeaks = loadedMeasurementPeaks {
-            let peaks = savedPeaks.filter { $0.magnitude >= peakThreshold }
+            let peaks = savedPeaks.filter { $0.magnitude >= peakMinThreshold }
 
             guard !peaks.isEmpty else {
                 currentPeaks = []
@@ -263,10 +263,10 @@ extension TapToneAnalyzer {
     }
 
     /// Re-runs peak detection on every stored `TapEntry` snapshot using the
-    /// current `peakThreshold`, then updates `tapEntries` so the multi-tap
+    /// current `peakMinThreshold`, then updates `tapEntries` so the multi-tap
     /// comparison table shows peaks consistent with the Peak Min slider.
     /// Re-runs peak detection on every stored `TapEntry` snapshot using the
-    /// current `peakThreshold`, then updates `tapEntries` so the multi-tap
+    /// current `peakMinThreshold`, then updates `tapEntries` so the multi-tap
     /// comparison table shows peaks consistent with the Peak Min slider.
     ///
     /// Called from `recalculateFrozenPeaksIfNeeded()` (slider changes) and
@@ -336,7 +336,7 @@ extension TapToneAnalyzer {
     ///
     /// **Pass 1 — Known modes:**
     /// Scans each mode's band from ``GuitarType/modeRanges`` for local maxima
-    /// that exceed ``TapToneAnalyzer/peakThreshold``. Tracks the strongest peak
+    /// that exceed ``TapToneAnalyzer/peakMinThreshold``. Tracks the strongest peak
     /// per canonical mode name so each guitar mode always gets a guaranteed slot
     /// in the output.
     ///
@@ -362,7 +362,7 @@ extension TapToneAnalyzer {
     ///     ``TapToneAnalyzer/maxFrequency``.
     /// - Returns: Array of ``ResonantPeak`` values sorted by magnitude
     ///   (descending).
-    func findPeaks(magnitudes: [Float], frequencies: [Float], minHz: Float? = nil, maxHz: Float? = nil, thresholdOverride: Float? = nil) -> [ResonantPeak] {
+    func findPeaks(magnitudes: [Float], frequencies: [Float], minHz: Float? = nil, maxHz: Float? = nil, peakMinOverride: Float? = nil) -> [ResonantPeak] {
         guard magnitudes.count == frequencies.count else { return [] }
         
         var allPeaks: [ResonantPeak] = []
@@ -375,8 +375,8 @@ extension TapToneAnalyzer {
         let endIdx = frequencies.firstIndex(where: { $0 > hiFreq }) ?? frequencies.count - 1
         
         // For plate/brace, the caller may supply an adaptive noise-floor threshold
-        // (median of the search-range magnitudes) instead of the guitar-mode peakThreshold.
-        let effectiveThreshold = thresholdOverride ?? peakThreshold
+        // (median of the search-range magnitudes) instead of the guitar-mode peakMinThreshold.
+        let effectiveThreshold = peakMinOverride ?? peakMinThreshold
         
         // Define all known modes to search for (excluding unknown), sorted by
         // ascending range lower bound so we scan the spectrum low-to-high.

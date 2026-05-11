@@ -55,7 +55,7 @@ private struct FilePipelineExpectation {
     let filename: String
     let guitarType: GuitarType
     let fftSize: Int
-    let peakThreshold: Float
+    let peakMinThreshold: Float
     let modes: [ModeExpectation]
 }
 
@@ -68,7 +68,7 @@ private let tapTest2 = FilePipelineExpectation(
     filename: "Tap Test 2.wav",
     guitarType: .classical,
     fftSize: 65536,
-    peakThreshold: -65,
+    peakMinThreshold: -65,
     modes: [
         ModeExpectation(mode: .air,  frequency: 104.8, magnitude: -59.7, freqTolerance: 2.0, magTolerance: 3.0),
         ModeExpectation(mode: .top,  frequency: 225.5, magnitude: -48.5, freqTolerance: 2.0, magTolerance: 3.0),
@@ -149,7 +149,7 @@ private func runFilePipeline(
     // findPeaks + classifyAll — same calls as TapToneAnalyzer.analyzeMagnitudes
     TapDisplaySettings.guitarType = expectation.guitarType
     let analyzer = TapToneAnalyzer(fftAnalyzer: fft)
-    analyzer.peakThreshold = expectation.peakThreshold
+    analyzer.peakMinThreshold = expectation.peakMinThreshold
     analyzer.minFrequency = 20
     analyzer.maxFrequency = 4000
 
@@ -231,7 +231,7 @@ struct FilePlaybackPipelineTests {
             filename: tapTest2.filename,
             guitarType: tapTest2.guitarType,
             fftSize: tapTest2.fftSize,
-            peakThreshold: tapTest2.peakThreshold,
+            peakMinThreshold: tapTest2.peakMinThreshold,
             modes: [tapTest2.modes.first { $0.mode == .air }!]
         ))
     }
@@ -242,7 +242,7 @@ struct FilePlaybackPipelineTests {
             filename: tapTest2.filename,
             guitarType: tapTest2.guitarType,
             fftSize: tapTest2.fftSize,
-            peakThreshold: tapTest2.peakThreshold,
+            peakMinThreshold: tapTest2.peakMinThreshold,
             modes: [tapTest2.modes.first { $0.mode == .top }!]
         ))
     }
@@ -253,7 +253,7 @@ struct FilePlaybackPipelineTests {
             filename: tapTest2.filename,
             guitarType: tapTest2.guitarType,
             fftSize: tapTest2.fftSize,
-            peakThreshold: tapTest2.peakThreshold,
+            peakMinThreshold: tapTest2.peakMinThreshold,
             modes: [tapTest2.modes.first { $0.mode == .back }!]
         ))
     }

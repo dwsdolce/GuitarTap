@@ -53,7 +53,7 @@ private func freeze(_ sut: TapToneAnalyzer, peaks: [ResonantPeak]) {
 
 @Suite("FrozenPeakRecalculation_LoadingGuard", .serialized)
 struct FrozenPeakRecalculation_LoadingGuardTests {
-    // PR1: While isLoadingMeasurement is true, changing peakThreshold must NOT
+    // PR1: While isLoadingMeasurement is true, changing peakMinThreshold must NOT
     // overwrite currentPeaks with a fresh findPeaks() pass.
     @Test func isLoadingMeasurement_suppressesRecalculation() {
         let sut = makeSUT()
@@ -62,7 +62,7 @@ struct FrozenPeakRecalculation_LoadingGuardTests {
         sut.loadedMeasurementPeaks = original
 
         sut.isLoadingMeasurement = true
-        // Directly call the method (simulating what peakThreshold.didSet does).
+        // Directly call the method (simulating what peakMinThreshold.didSet does).
         sut.recalculateFrozenPeaksIfNeeded()
 
         // currentPeaks must be unchanged — the guard returned early.
@@ -76,7 +76,7 @@ struct FrozenPeakRecalculation_LoadingGuardTests {
         let peak = makePeak(frequency: 200, magnitude: -20)
         freeze(sut, peaks: [peak])
         sut.loadedMeasurementPeaks = [peak]
-        sut.peakThreshold = -100   // well below peak magnitude so it passes
+        sut.peakMinThreshold = -100   // well below peak magnitude so it passes
 
         sut.isLoadingMeasurement = false
         sut.recalculateFrozenPeaksIfNeeded()
@@ -93,14 +93,14 @@ struct FrozenPeakRecalculation_LoadingGuardTests {
 
 @Suite("FrozenPeakRecalculation_LoadedMeasurementPath", .serialized)
 struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
-    // PR2a: Peaks in loadedMeasurementPeaks that are above peakThreshold are kept.
+    // PR2a: Peaks in loadedMeasurementPeaks that are above peakMinThreshold are kept.
     @Test func loadedPeaks_aboveThreshold_areKept() {
         let sut = makeSUT()
         let strongPeak = makePeak(frequency: 200, magnitude: -20)
         let weakPeak   = makePeak(frequency: 400, magnitude: -60)
         freeze(sut, peaks: [strongPeak, weakPeak])
         sut.loadedMeasurementPeaks = [strongPeak, weakPeak]
-        sut.peakThreshold = -40   // -20 dB passes, -60 dB fails
+        sut.peakMinThreshold = -40   // -20 dB passes, -60 dB fails
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -118,7 +118,7 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
         sut.loadedMeasurementPeaks = [peak]
         // Pre-populate identifiedModes so we can verify it gets cleared.
         sut.identifiedModes = [(peak: peak, mode: .air)]
-        sut.peakThreshold = -10   // threshold above every peak
+        sut.peakMinThreshold = -10   // threshold above every peak
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -135,7 +135,7 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
         let savedPeak = makePeak(frequency: 300, magnitude: -25)
         freeze(sut, peaks: [savedPeak])
         sut.loadedMeasurementPeaks = [savedPeak]
-        sut.peakThreshold = -80   // low enough to keep the -25 dB saved peak
+        sut.peakMinThreshold = -80   // low enough to keep the -25 dB saved peak
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -161,7 +161,7 @@ struct FrozenPeakRecalculation_OffsetRemappingTests {
         sut.loadedMeasurementPeaks = [savedPeak]
         // Store an offset against the saved peak's UUID
         sut.peakAnnotationOffsets = [savedPeak.id: CGPoint(x: 5, y: 10)]
-        sut.peakThreshold = -80   // threshold keeps the peak
+        sut.peakMinThreshold = -80   // threshold keeps the peak
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -184,7 +184,7 @@ struct FrozenPeakRecalculation_OffsetRemappingTests {
             strongPeak.id: CGPoint(x: 1, y: 2),
             weakPeak.id:   CGPoint(x: 9, y: 9)
         ]
-        sut.peakThreshold = -40   // drops weakPeak
+        sut.peakMinThreshold = -40   // drops weakPeak
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -208,7 +208,7 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
         freeze(sut, peaks: [savedPeak])
         sut.loadedMeasurementPeaks = [savedPeak]
         sut.peakModeOverrides = [savedPeak.id: .assigned("Custom Label")]
-        sut.peakThreshold = -80
+        sut.peakMinThreshold = -80
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -234,7 +234,7 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
             strongPeak.id: .assigned("Keep"),
             weakPeak.id:   .assigned("Drop")
         ]
-        sut.peakThreshold = -40   // drops weakPeak
+        sut.peakMinThreshold = -40   // drops weakPeak
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -268,7 +268,7 @@ struct FrozenPeakRecalculation_SelectionCarryForwardTests {
         sut.userHasModifiedPeakSelection = true
         sut.selectedPeakIDs = [selectedPeak.id]
         sut.selectedPeakFrequencies = [200]
-        sut.peakThreshold = -80
+        sut.peakMinThreshold = -80
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -297,7 +297,7 @@ struct FrozenPeakRecalculation_SelectionCarryForwardTests {
         sut.loadedMeasurementPeaks = [quietAir, loudAir]
 
         sut.userHasModifiedPeakSelection = false
-        sut.peakThreshold = -80
+        sut.peakMinThreshold = -80
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -336,7 +336,7 @@ struct FrozenPeakRecalculation_EmptyPeaksGuardTests {
         sut.maxFrequency = 2000
 
         // Set a threshold well above the noise floor so findPeaks returns nothing.
-        sut.peakThreshold = -10
+        sut.peakMinThreshold = -10
 
         // Pre-seed a selection to verify it is preserved.
         let phantomID = UUID()
@@ -394,7 +394,7 @@ struct RecalculateFrozenPeaksIntegrationTests {
         sut.loadedMeasurementPeaks = nil
         sut.minFrequency = 80
         sut.maxFrequency = 1200
-        sut.peakThreshold = -60
+        sut.peakMinThreshold = -60
 
         let targetHz: Float = 200
         let (freqs, mags) = makeGaussianSpectrum(peakHz: targetHz, peakDb: -20)
@@ -424,14 +424,14 @@ struct RecalculateFrozenPeaksIntegrationTests {
         sut.frozenMagnitudes  = mags
 
         // Low threshold: peak should be detected.
-        sut.peakThreshold = -60
+        sut.peakMinThreshold = -60
         sut.recalculateFrozenPeaksIfNeeded()
         let detectedLow = sut.currentPeaks.map(\.frequency)
         #expect(detectedLow.contains(where: { abs($0 - 200) < 20 }),
                 "Peak should be detected at low threshold")
 
         // Raise threshold: weak peak should be removed.
-        sut.peakThreshold = -40
+        sut.peakMinThreshold = -40
         sut.recalculateFrozenPeaksIfNeeded()
         let detectedHigh = sut.currentPeaks.map(\.frequency)
         #expect(!detectedHigh.contains(where: { abs($0 - 200) < 20 }),
@@ -445,7 +445,7 @@ struct RecalculateFrozenPeaksIntegrationTests {
         let below = makePeak(frequency: 400, magnitude: -65)
         freeze(sut, peaks: [above, below])
         sut.loadedMeasurementPeaks = [above, below]
-        sut.peakThreshold = -60
+        sut.peakMinThreshold = -60
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -462,7 +462,7 @@ struct RecalculateFrozenPeaksIntegrationTests {
         let p2 = makePeak(frequency: 400, magnitude: -65)
         freeze(sut, peaks: [p1, p2])
         sut.loadedMeasurementPeaks = [p1, p2]
-        sut.peakThreshold = -60
+        sut.peakMinThreshold = -60
 
         sut.recalculateFrozenPeaksIfNeeded()
 
@@ -477,7 +477,7 @@ struct RecalculateFrozenPeaksIntegrationTests {
         sut.isMeasurementComplete = true
         sut.frozenFrequencies = []
         sut.frozenMagnitudes  = []
-        sut.peakThreshold = -60
+        sut.peakMinThreshold = -60
 
         // Must not crash:
         sut.recalculateFrozenPeaksIfNeeded()
@@ -505,7 +505,7 @@ struct FrozenPeakRecalculation_LiveTapPathTests {
         sut.loadedMeasurementPeaks = nil
         sut.minFrequency = 50
         sut.maxFrequency = 2000
-        sut.peakThreshold = -60
+        sut.peakMinThreshold = -60
 
         // Build a frozen spectrum with a single peak near 1000 Hz (upperModes range).
         let binCount  = 2048

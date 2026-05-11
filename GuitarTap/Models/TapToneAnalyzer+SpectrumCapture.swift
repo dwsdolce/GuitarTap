@@ -1090,13 +1090,13 @@ extension TapToneAnalyzer {
         // Use an adaptive noise-floor threshold (median of the full spectrum)
         // for the plate/brace peak list. This mirrors findDominantPeak's approach
         // and self-calibrates to each tap's actual signal level, independent of
-        // the guitar-mode peakThreshold which is disabled in the UI for plate/brace.
+        // the guitar-mode peakMinThreshold which is disabled in the UI for plate/brace.
         let sortedMags = magnitudes.sorted()
         let medianThreshold: Float = sortedMags[sortedMags.count / 2]
 
         // Run the standard finder with no range restrictions so the user can see
         // and manually select any peak in the spectrum.
-        var peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies, thresholdOverride: medianThreshold)
+        var peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies, peakMinOverride: medianThreshold)
         // Replace any nearby peak with dominantPeak so UUID is always consistent.
         // This is critical: autoSelectedXxxPeakID == dominantPeak.id, so the peak
         // stored in the array must share that UUID for ID-based lookups to work.

@@ -460,7 +460,7 @@ extension TapSettingsView {
                     .fontWeight(.medium)
 
                 HStack(spacing: 12) {
-                    TextField("Min", text: $peakThresholdInput)
+                    TextField("Min", text: $peakMinThresholdInput)
                         .textFieldStyle(.roundedBorder)
                         #if os(iOS)
                         .keyboardType(.numbersAndPunctuation)

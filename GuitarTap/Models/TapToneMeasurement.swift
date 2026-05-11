@@ -168,7 +168,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     let numberOfTaps: Int?
 
     /// The minimum peak magnitude (dBFS) that the peak-finder accepted, at save time.
-    let peakThreshold: Float?
+    let peakMinThreshold: Float?
 
     // MARK: - Material Measurement Peak Selections
 
@@ -251,7 +251,9 @@ struct TapToneMeasurement: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, timestamp, peaks, decayTime, measurementName, tapLocation, notes
         case spectrumSnapshot, peakAnnotationOffsets
-        case tapDetectionThreshold, hysteresisMargin, numberOfTaps, peakThreshold
+        case tapDetectionThreshold, hysteresisMargin, numberOfTaps, peakMinThreshold
+        // Legacy key used in files saved before the peakThreshold → peakMinThreshold rename
+        case legacyPeakThreshold = "peakThreshold"
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
         case longitudinalSnapshot, crossSnapshot, flcSnapshot
         case selectedPeakIDs, selectedPeakFrequencies, annotationVisibilityMode
@@ -300,7 +302,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///   - tapDetectionThreshold: Detection threshold in dB at save time.
     ///   - hysteresisMargin: Hysteresis margin in dB at save time.
     ///   - numberOfTaps: Number of taps averaged.
-    ///   - peakThreshold: Minimum accepted peak magnitude in dBFS.
+    ///   - peakMinThreshold: Minimum accepted peak magnitude in dBFS.
     ///   - selectedLongitudinalPeakID: UUID of the selected longitudinal peak (plate/brace).
     ///   - selectedCrossPeakID: UUID of the selected cross-grain peak (plate).
     ///   - selectedFlcPeakID: UUID of the selected FLC peak (plate, optional third tap).
@@ -324,7 +326,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          tapDetectionThreshold: Float? = nil,
          hysteresisMargin: Float? = nil,
          numberOfTaps: Int? = nil,
-         peakThreshold: Float? = nil,
+         peakMinThreshold: Float? = nil,
          selectedLongitudinalPeakID: UUID? = nil,
          selectedCrossPeakID: UUID? = nil,
          selectedFlcPeakID: UUID? = nil,
@@ -351,7 +353,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.tapDetectionThreshold = tapDetectionThreshold
         self.hysteresisMargin = hysteresisMargin
         self.numberOfTaps = numberOfTaps
-        self.peakThreshold = peakThreshold
+        self.peakMinThreshold = peakMinThreshold
         self.selectedLongitudinalPeakID = selectedLongitudinalPeakID
         self.selectedCrossPeakID = selectedCrossPeakID
         self.selectedFlcPeakID = selectedFlcPeakID
@@ -385,7 +387,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             tapDetectionThreshold: tapDetectionThreshold,
             hysteresisMargin: hysteresisMargin,
             numberOfTaps: numberOfTaps,
-            peakThreshold: peakThreshold,
+            peakMinThreshold: peakMinThreshold,
             selectedLongitudinalPeakID: selectedLongitudinalPeakID,
             selectedCrossPeakID: selectedCrossPeakID,
             selectedFlcPeakID: selectedFlcPeakID,
@@ -468,7 +470,9 @@ struct TapToneMeasurement: Identifiable, Codable {
         tapDetectionThreshold = try container.decodeIfPresent(Float.self, forKey: .tapDetectionThreshold)
         hysteresisMargin = try container.decodeIfPresent(Float.self, forKey: .hysteresisMargin)
         numberOfTaps     = try container.decodeIfPresent(Int.self,   forKey: .numberOfTaps)
-        peakThreshold    = try container.decodeIfPresent(Float.self, forKey: .peakThreshold)
+        // Try new key first; fall back to legacy "peakThreshold" for files saved before rename.
+        peakMinThreshold    = try container.decodeIfPresent(Float.self, forKey: .peakMinThreshold)
+            ?? container.decodeIfPresent(Float.self, forKey: .legacyPeakThreshold)
         selectedLongitudinalPeakID = try container.decodeIfPresent(UUID.self, forKey: .selectedLongitudinalPeakID)
         selectedCrossPeakID        = try container.decodeIfPresent(UUID.self, forKey: .selectedCrossPeakID)
         selectedFlcPeakID          = try container.decodeIfPresent(UUID.self, forKey: .selectedFlcPeakID)
@@ -521,7 +525,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(tapDetectionThreshold, forKey: .tapDetectionThreshold)
         try container.encodeIfPresent(hysteresisMargin, forKey: .hysteresisMargin)
         try container.encodeIfPresent(numberOfTaps,     forKey: .numberOfTaps)
-        try container.encodeIfPresent(peakThreshold,    forKey: .peakThreshold)
+        try container.encodeIfPresent(peakMinThreshold,    forKey: .peakMinThreshold)
         try container.encodeIfPresent(selectedLongitudinalPeakID, forKey: .selectedLongitudinalPeakID)
         try container.encodeIfPresent(selectedCrossPeakID,        forKey: .selectedCrossPeakID)
         try container.encodeIfPresent(selectedFlcPeakID,          forKey: .selectedFlcPeakID)

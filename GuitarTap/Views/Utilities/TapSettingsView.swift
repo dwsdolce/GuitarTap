@@ -58,7 +58,7 @@ struct TapSettingsView: View {
     // Analysis settings
     @Binding var analysisMinFreq: Float
     @Binding var analysisMaxFreq: Float
-    @Binding var peakThreshold: Float
+    @Binding var peakMinThreshold: Float
     @Binding var maxPeaks: Int
     @Binding var hysteresisMargin: Float
 
@@ -79,7 +79,7 @@ struct TapSettingsView: View {
     @State var maxDBInput: String
     @State var analysisMinFreqInput: String
     @State var analysisMaxFreqInput: String
-    @State var peakThresholdInput: String
+    @State var peakMinThresholdInput: String
     @State var maxPeaksInput: String
     @State var captureAllPeaks: Bool
 
@@ -158,7 +158,7 @@ struct TapSettingsView: View {
          maxDB: Binding<Float>,
          analysisMinFreq: Binding<Float>,
          analysisMaxFreq: Binding<Float>,
-         peakThreshold: Binding<Float>,
+         peakMinThreshold: Binding<Float>,
          maxPeaks: Binding<Int>,
          hysteresisMargin: Binding<Float>,
          fftAnalyzer: RealtimeFFTAnalyzer,
@@ -170,7 +170,7 @@ struct TapSettingsView: View {
         self._maxDB = maxDB
         self._analysisMinFreq = analysisMinFreq
         self._analysisMaxFreq = analysisMaxFreq
-        self._peakThreshold = peakThreshold
+        self._peakMinThreshold = peakMinThreshold
         self._maxPeaks = maxPeaks
         self._hysteresisMargin = hysteresisMargin
         self.fftAnalyzer = fftAnalyzer
@@ -183,7 +183,7 @@ struct TapSettingsView: View {
         self._maxDBInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.maxMagnitude))
         self._analysisMinFreqInput = State(initialValue: String(format: "%.0f", analysisMinFreq.wrappedValue))
         self._analysisMaxFreqInput = State(initialValue: String(format: "%.0f", analysisMaxFreq.wrappedValue))
-        self._peakThresholdInput = State(initialValue: String(format: "%.0f", peakThreshold.wrappedValue))
+        self._peakMinThresholdInput = State(initialValue: String(format: "%.0f", peakMinThreshold.wrappedValue))
 
         // Initialize maxPeaks input - 0 means "all peaks"
         let peaksValue = maxPeaks.wrappedValue
@@ -287,7 +287,7 @@ struct TapSettingsView: View {
         maxDB: .constant(0),
         analysisMinFreq: .constant(50),
         analysisMaxFreq: .constant(2000),
-        peakThreshold: .constant(-60),
+        peakMinThreshold: .constant(-60),
         maxPeaks: .constant(10),
         hysteresisMargin: .constant(6),
         fftAnalyzer: RealtimeFFTAnalyzer(fftSize: 8192)

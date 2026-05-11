@@ -291,7 +291,7 @@ extension TapToneAnalyzer {
             tapDetectionThreshold: tapDetectionThreshold,
             hysteresisMargin: hysteresisMargin,
             numberOfTaps: numberOfTaps,
-            peakThreshold: peakThreshold,
+            peakMinThreshold: peakMinThreshold,
             // Include peak selections for plate and brace measurements
             selectedLongitudinalPeakID: !measurementType.isGuitar ? selectedLongitudinalPeakID : nil,
             selectedCrossPeakID: measurementType == .plate ? selectedCrossPeakID : nil,
@@ -714,9 +714,9 @@ extension TapToneAnalyzer {
             gtLog("  ⚠️ No number of taps in measurement")
         }
 
-        if let threshold = measurement.peakThreshold {
+        if let threshold = measurement.peakMinThreshold {
             gtLog("  📊 Publishing peak threshold: \(threshold) dB")
-            peakThreshold = threshold
+            peakMinThreshold = threshold
             loadedPeakThreshold = threshold
         } else {
             gtLog("  ⚠️ No peak threshold in measurement")
@@ -752,7 +752,7 @@ extension TapToneAnalyzer {
         // Always start with the averaged view — the user can toggle to per-tap if desired.
         showingMultiTapComparison = false
 
-        // Recompute per-tap peaks using the measurement's saved peakThreshold
+        // Recompute per-tap peaks using the measurement's saved peakMinThreshold
         // (already restored above).  The saved tapEntries may contain peaks that
         // were detected at a different threshold than the one stored in the
         // measurement (e.g. threshold was changed after capture but before save).

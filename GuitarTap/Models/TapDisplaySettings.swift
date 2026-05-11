@@ -126,7 +126,7 @@ struct TapDisplaySettings {
     }
     private static let analysisMinFreqKey = "analysisMinFreq"
     private static let analysisMaxFreqKey = "analysisMaxFreq"
-    private static let peakThresholdKey = "peakThreshold"
+    private static let peakMinThresholdKey = "peakMinThreshold"
     private static let maxPeaksKey = "maxPeaks"
     private static let tapDetectionThresholdKey = "tapDetectionThreshold"
     private static let hysteresisMarginKey = "hysteresisMargin"
@@ -498,8 +498,9 @@ struct TapDisplaySettings {
     /// Default maximum frequency for peak detection and analysis (Hz)
     static let defaultAnalysisMaxFrequency: Float = 2000
     
-    /// Default minimum magnitude threshold for peak detection (dB)
-    static let defaultPeakThreshold: Float = -60
+    /// Default minimum magnitude threshold for peak detection (dB).
+    /// Corresponds to the "Peak Min" slider in the UI.
+    static let defaultPeakMinThreshold: Float = -60
     
     /// Default maximum number of peaks to detect and store (0 = all peaks)
     static let defaultMaxPeaks: Int = 0
@@ -526,17 +527,25 @@ struct TapDisplaySettings {
         }
     }
     
-    /// Persisted peak threshold (dB)
-    static var peakThreshold: Float {
+    /// Persisted peak minimum magnitude threshold (dB).
+    /// Corresponds to the "Peak Min" slider in the UI.
+    static var peakMinThreshold: Float {
         get {
             // Use object check since negative values are common for dB
-            if defaults.object(forKey: peakThresholdKey) == nil {
-                return defaultPeakThreshold
+            if defaults.object(forKey: peakMinThresholdKey) != nil {
+                return defaults.float(forKey: peakMinThresholdKey)
             }
-            return defaults.float(forKey: peakThresholdKey)
+            // Migrate from legacy key ("peakThreshold") for installs predating the rename
+            if defaults.object(forKey: "peakThreshold") != nil {
+                let legacy = defaults.float(forKey: "peakThreshold")
+                defaults.set(legacy, forKey: peakMinThresholdKey)
+                defaults.removeObject(forKey: "peakThreshold")
+                return legacy
+            }
+            return defaultPeakMinThreshold
         }
         set {
-            defaults.set(newValue, forKey: peakThresholdKey)
+            defaults.set(newValue, forKey: peakMinThresholdKey)
         }
     }
     
