@@ -7,8 +7,8 @@ import AVFoundation
 import Accelerate
 import OSLog
 
-#if os(macOS)
 import AudioToolbox
+#if os(macOS)
 import CoreAudio
 #endif
 
@@ -524,14 +524,10 @@ extension RealtimeFFTAnalyzer {
         samplesConsumed = 0
 
         // ── 2. Open and read the audio file into a mono Float32 array. ───
-        // ── 2a. Read audio data ─────────────────────────────────────────
-        // AVAudioFile.read(into:) can silently return fewer frames than
-        // audioFile.length (observed: 18421 instead of 19200 for a Float32
-        // WAV).  To guarantee every sample is read — matching Python's
-        // soundfile.read() — we parse the WAV data chunk directly when the
-        // format is Float32.  For other formats we fall back to AVAudioFile
-        // with a loop to drain remaining frames.
-        let (monoSamples, fileSampleRate) = try Self.readWavFileAsMonoFloat32(url: url)
+        // Uses ExtAudioFile which supports all Core Audio formats (WAV, AIFF,
+        // CAF, MP3, AAC, ALAC, FLAC, etc.) and handles format conversion and
+        // mono downmix internally.  Mirrors Python's soundfile.read() behavior.
+        let (monoSamples, fileSampleRate) = try Self.readAudioFileAsMonoFloat32(url: url)
         let frameCount = monoSamples.count
 
         TAP_DEBUG("file_playback", "FILE_READ | frames=\(frameCount) rate=\(Int(fileSampleRate))")
@@ -664,169 +660,115 @@ extension RealtimeFFTAnalyzer {
     /// 4. Clears any pending audio processing tasks
     ///
     /// - Note: It's safe to call this method multiple times or when already stopped
-    // MARK: - Direct WAV File Reading
+    // MARK: - Audio File Reading (ExtAudioFile)
 
-    /// Reads a WAV file directly from its data chunk, bypassing AVAudioFile which
-    /// can silently truncate frames (observed: 18421 instead of 19200 for a Float32 WAV).
-    /// Mirrors Python's `soundfile.read(path, dtype="float32", always_2d=True)` behavior.
+    /// Reads an audio file as mono Float32 samples using ExtAudioFile.
+    /// Supports all formats Core Audio handles: WAV, AIFF, CAF, MP3, AAC,
+    /// ALAC, FLAC, etc.  Mirrors Python's `soundfile.read()` behavior —
+    /// opens the file, requests Float32 mono output, reads all frames.
     ///
-    /// - Returns: A tuple of (mono Float32 samples, sample rate in Hz).
-    /// - Throws: If the file is not a valid WAV or uses an unsupported format.
-    static func readWavFileAsMonoFloat32(url: URL) throws -> ([Float], Double) {
-        let data = try Data(contentsOf: url)
+    /// - Returns: A tuple of (mono Float32 samples, file sample rate in Hz).
+    /// - Throws: If the file cannot be opened or read.
+    static func readAudioFileAsMonoFloat32(url: URL) throws -> ([Float], Double) {
+        var extAudioFile: ExtAudioFileRef?
+        var status = ExtAudioFileOpenURL(url as CFURL, &extAudioFile)
+        guard status == noErr, let audioFile = extAudioFile else {
+            throw NSError(domain: "AudioFileReader", code: Int(status),
+                          userInfo: [NSLocalizedDescriptionKey:
+                                        "ExtAudioFileOpenURL failed with status \(status)"])
+        }
+        defer { ExtAudioFileDispose(audioFile) }
 
-        // ── Validate RIFF/WAVE header ──────────────────────────────────
-        guard data.count >= 44 else {
-            throw NSError(domain: "WAVReader", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "File too small to be a valid WAV"])
+        // ── Get the file's native format to extract sample rate & channels ──
+        var fileFormat = AudioStreamBasicDescription()
+        var propSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        status = ExtAudioFileGetProperty(audioFile,
+                                         kExtAudioFileProperty_FileDataFormat,
+                                         &propSize, &fileFormat)
+        guard status == noErr else {
+            throw NSError(domain: "AudioFileReader", code: Int(status),
+                          userInfo: [NSLocalizedDescriptionKey:
+                                        "Failed to get file format: status \(status)"])
+        }
+        let fileSampleRate = fileFormat.mSampleRate
+        let fileChannels = fileFormat.mChannelsPerFrame
+
+        // ── Get total frame count ───────────────────────────────────────────
+        var totalFrames: Int64 = 0
+        propSize = UInt32(MemoryLayout<Int64>.size)
+        status = ExtAudioFileGetProperty(audioFile,
+                                         kExtAudioFileProperty_FileLengthFrames,
+                                         &propSize, &totalFrames)
+        guard status == noErr, totalFrames > 0 else {
+            throw NSError(domain: "AudioFileReader", code: Int(status),
+                          userInfo: [NSLocalizedDescriptionKey:
+                                        "Failed to get frame count or file is empty: status \(status)"])
         }
 
-        let riff = String(data: data[0..<4], encoding: .ascii)
-        let wave = String(data: data[8..<12], encoding: .ascii)
-        guard riff == "RIFF", wave == "WAVE" else {
-            throw NSError(domain: "WAVReader", code: 2,
-                          userInfo: [NSLocalizedDescriptionKey: "Not a valid WAV file (missing RIFF/WAVE header)"])
+        // ── Set client format to mono Float32 at the file's sample rate ─────
+        var clientFormat = AudioStreamBasicDescription(
+            mSampleRate: fileSampleRate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
+            mBytesPerPacket: 4,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 4,
+            mChannelsPerFrame: 1,    // mono — ExtAudioFile handles downmix
+            mBitsPerChannel: 32,
+            mReserved: 0
+        )
+        status = ExtAudioFileSetProperty(audioFile,
+                                         kExtAudioFileProperty_ClientDataFormat,
+                                         UInt32(MemoryLayout<AudioStreamBasicDescription>.size),
+                                         &clientFormat)
+        guard status == noErr else {
+            throw NSError(domain: "AudioFileReader", code: Int(status),
+                          userInfo: [NSLocalizedDescriptionKey:
+                                        "Failed to set client format: status \(status)"])
         }
 
-        // ── Parse chunks to find "fmt " and "data" ────────────────────
-        var offset = 12
-        var audioFormat: UInt16 = 0
-        var numChannels: UInt16 = 0
-        var sampleRate: UInt32 = 0
-        var bitsPerSample: UInt16 = 0
-        var dataOffset = 0
-        var dataSize = 0
-        var foundFmt = false
-        var foundData = false
-
-        while offset + 8 <= data.count {
-            let chunkID = String(data: data[offset..<offset+4], encoding: .ascii) ?? ""
-            let chunkSize: UInt32 = data.withUnsafeBytes { ptr in
-                ptr.load(fromByteOffset: offset + 4, as: UInt32.self)
-            }
-
-            if chunkID == "fmt " {
-                guard offset + 8 + Int(chunkSize) <= data.count, chunkSize >= 16 else { break }
-                let fmtBase = offset + 8
-                data.withUnsafeBytes { ptr in
-                    audioFormat   = ptr.load(fromByteOffset: fmtBase + 0, as: UInt16.self)
-                    numChannels   = ptr.load(fromByteOffset: fmtBase + 2, as: UInt16.self)
-                    sampleRate    = ptr.load(fromByteOffset: fmtBase + 4, as: UInt32.self)
-                    bitsPerSample = ptr.load(fromByteOffset: fmtBase + 14, as: UInt16.self)
-                }
-                foundFmt = true
-            } else if chunkID == "data" {
-                dataOffset = offset + 8
-                dataSize = Int(chunkSize)
-                foundData = true
-            }
-
-            if foundFmt && foundData { break }
-            offset += 8 + Int(chunkSize)
-            // Chunks are word-aligned
-            if offset % 2 != 0 { offset += 1 }
-        }
-
-        guard foundFmt, foundData else {
-            throw NSError(domain: "WAVReader", code: 3,
-                          userInfo: [NSLocalizedDescriptionKey: "WAV file missing fmt or data chunk"])
-        }
-
-        // ── Read samples ───────────────────────────────────────────────
-        // audioFormat 1 = PCM integer, 3 = IEEE float
-        let bytesPerSample = Int(bitsPerSample) / 8
-        let frameCount = dataSize / (Int(numChannels) * bytesPerSample)
-
+        // ── Read all frames ─────────────────────────────────────────────────
+        let frameCount = Int(totalFrames)
         var monoSamples = [Float](repeating: 0, count: frameCount)
+        var framesRead = 0
 
-        let channels = Int(numChannels)
-        data.withUnsafeBytes { rawPtr in
-            let base = rawPtr.baseAddress!.advanced(by: dataOffset)
+        // Read in chunks to handle any partial reads
+        let chunkSize = 16384
+        while framesRead < frameCount {
+            let framesToRead = min(chunkSize, frameCount - framesRead)
+            var frameCountMutable = UInt32(framesToRead)
 
-            switch (audioFormat, bitsPerSample) {
-            case (3, 32):
-                // IEEE Float32 — direct copy (our saved WAVs use this)
-                let floatPtr = base.assumingMemoryBound(to: Float.self)
-                if channels == 1 {
-                    monoSamples = Array(UnsafeBufferPointer(start: floatPtr, count: frameCount))
-                } else {
-                    for i in 0..<frameCount {
-                        var sum: Float = 0
-                        for ch in 0..<channels {
-                            sum += floatPtr[i * channels + ch]
-                        }
-                        monoSamples[i] = sum / Float(channels)
-                    }
-                }
+            let bufferList = AudioBufferList.allocate(maximumBuffers: 1)
+            defer { free(bufferList.unsafeMutablePointer) }
 
-            case (1, 16):
-                // PCM 16-bit signed integer
-                let int16Ptr = base.assumingMemoryBound(to: Int16.self)
-                let scale: Float = 1.0 / 32768.0
-                if channels == 1 {
-                    for i in 0..<frameCount {
-                        monoSamples[i] = Float(int16Ptr[i]) * scale
-                    }
-                } else {
-                    for i in 0..<frameCount {
-                        var sum: Float = 0
-                        for ch in 0..<channels {
-                            sum += Float(int16Ptr[i * channels + ch])
-                        }
-                        monoSamples[i] = sum * scale / Float(channels)
-                    }
-                }
-
-            case (1, 24):
-                // PCM 24-bit signed integer
-                let scale: Float = 1.0 / 8388608.0 // 2^23
-                for i in 0..<frameCount {
-                    var sum: Float = 0
-                    for ch in 0..<channels {
-                        let byteOffset = (i * channels + ch) * 3
-                        let b0 = Int32(base.load(fromByteOffset: byteOffset + 0, as: UInt8.self))
-                        let b1 = Int32(base.load(fromByteOffset: byteOffset + 1, as: UInt8.self))
-                        let b2 = Int32(base.load(fromByteOffset: byteOffset + 2, as: UInt8.self))
-                        // Sign-extend from 24 bits
-                        var val = b0 | (b1 << 8) | (b2 << 16)
-                        if val & 0x800000 != 0 { val |= ~0xFFFFFF } // sign extend
-                        sum += Float(val)
-                    }
-                    monoSamples[i] = sum * scale / Float(channels)
-                }
-
-            case (1, 32):
-                // PCM 32-bit signed integer
-                let int32Ptr = base.assumingMemoryBound(to: Int32.self)
-                let scale: Float = 1.0 / 2147483648.0 // 2^31
-                if channels == 1 {
-                    for i in 0..<frameCount {
-                        monoSamples[i] = Float(int32Ptr[i]) * scale
-                    }
-                } else {
-                    for i in 0..<frameCount {
-                        var sum: Float = 0
-                        for ch in 0..<channels {
-                            sum += Float(int32Ptr[i * channels + ch])
-                        }
-                        monoSamples[i] = sum * scale / Float(channels)
-                    }
-                }
-
-            default:
-                // Unsupported format — clear to zeros (will be caught below)
-                break
+            monoSamples.withUnsafeMutableBufferPointer { ptr in
+                bufferList[0] = AudioBuffer(
+                    mNumberChannels: 1,
+                    mDataByteSize: UInt32(framesToRead * 4),
+                    mData: UnsafeMutableRawPointer(ptr.baseAddress! + framesRead)
+                )
             }
+
+            status = ExtAudioFileRead(audioFile, &frameCountMutable,
+                                      bufferList.unsafeMutablePointer)
+            guard status == noErr else {
+                throw NSError(domain: "AudioFileReader", code: Int(status),
+                              userInfo: [NSLocalizedDescriptionKey:
+                                            "ExtAudioFileRead failed at frame \(framesRead): status \(status)"])
+            }
+
+            if frameCountMutable == 0 { break }  // EOF
+            framesRead += Int(frameCountMutable)
         }
 
-        guard frameCount > 0 else {
-            throw NSError(domain: "WAVReader", code: 4,
-                          userInfo: [NSLocalizedDescriptionKey: "WAV file contains no audio samples"])
+        // Trim if file was shorter than reported (shouldn't happen, but be safe)
+        if framesRead < frameCount {
+            monoSamples = Array(monoSamples.prefix(framesRead))
         }
 
-        engineLog.info("readWavFileAsMonoFloat32: \(frameCount) frames, \(numChannels) ch, \(sampleRate) Hz, \(bitsPerSample) bit, fmt=\(audioFormat)")
+        engineLog.info("readAudioFileAsMonoFloat32: \(framesRead) frames, \(fileChannels) ch, \(Int(fileSampleRate)) Hz (via ExtAudioFile)")
 
-        return (monoSamples, Double(sampleRate))
+        return (monoSamples, fileSampleRate)
     }
 
     func stop() {
