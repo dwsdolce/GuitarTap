@@ -80,9 +80,6 @@ extension TapToneAnalyzer {
     /// Tap detection is no longer driven from this slow FFT-rate path — see
     /// ``onRmsLevelChanged(_:)`` for the per-chunk RMS-driven detector.
     func onFftFrame(magnitudes: [Float], frequencies: [Float], peakMagnitude: Float) {
-        if fftAnalyzer.isPlayingFile {
-            TAP_DEBUG("onFftFrame", "FILE_PLAYBACK | peakMag=\(String(format: "%.1f", peakMagnitude)) dB, freqCount=\(frequencies.count)")
-        }
         analyzeMagnitudes(magnitudes, frequencies: frequencies, peakMagnitude: peakMagnitude)
     }
 
@@ -103,13 +100,7 @@ extension TapToneAnalyzer {
     /// ``startGuitarGatedCapture()``.
     func onRmsLevelChanged(_ levelDB: Float) {
         guard isDetecting && !isDetectionPaused && !isMeasurementComplete else {
-            if fftAnalyzer.isPlayingFile {
-                TAP_DEBUG("onRmsLevelChanged", "FILE_PLAYBACK SKIPPED | levelDB=\(String(format: "%.1f", levelDB)) isDetecting=\(isDetecting) isPaused=\(isDetectionPaused) isComplete=\(isMeasurementComplete)")
-            }
             return
-        }
-        if fftAnalyzer.isPlayingFile {
-            TAP_DEBUG("onRmsLevelChanged", "FILE_PLAYBACK detectTap | levelDB=\(String(format: "%.1f", levelDB))")
         }
         detectTap(peakMagnitude: levelDB,
                   magnitudes: fftAnalyzer.magnitudes,
@@ -180,8 +171,6 @@ extension TapToneAnalyzer {
 
         // Check if we're still in warm-up period (prevents false detections on startup)
         if let startTime = analyzerStartTime, now.timeIntervalSince(startTime) < warmupPeriod {
-            let remaining = warmupPeriod - now.timeIntervalSince(startTime)
-            TAP_DEBUG("detectTap", "WARMUP in progress | remaining=\(String(format: "%.2f", remaining))s peakMag=\(String(format: "%.2f", peakMagnitude))")
             tapDetected = false
             statusMessage = "Initializing... (\(String(format: "%.1f", warmupPeriod - now.timeIntervalSince(startTime)))s)"
             justExitedWarmup = true  // Mark that next frame is first after warm-up

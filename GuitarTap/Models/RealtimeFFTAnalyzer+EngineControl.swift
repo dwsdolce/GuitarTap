@@ -5,14 +5,10 @@
 
 import AVFoundation
 import Accelerate
-import OSLog
-
 import AudioToolbox
 #if os(macOS)
 import CoreAudio
 #endif
-
-private let engineLog = Logger(subsystem: "com.dolcesfogato.GuitarTap", category: "Microphone")
 
 // MARK: - Engine Control
 
@@ -30,7 +26,7 @@ extension RealtimeFFTAnalyzer {
     ///
     /// - Note: Requires microphone permissions. Add `NSMicrophoneUsageDescription` to Info.plist
     func start() throws {
-        engineLog.info("=== Starting Audio Engine ===")
+        gtLog("🎤 === Starting Audio Engine ===")
 
         // CRITICAL: Always remove any existing tap to prevent "Tap already exists" error
         // This must be done BEFORE stopping or resetting the engine.
@@ -71,9 +67,9 @@ extension RealtimeFFTAnalyzer {
         // Note: On macOS 10.14+, apps need explicit permission to access the microphone
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
-            engineLog.info("Microphone permission: AUTHORIZED")
+            gtLog("🎤 Microphone permission: AUTHORIZED")
         case .notDetermined:
-            engineLog.info("Microphone permission: NOT DETERMINED - requesting now...")
+            gtLog("🎤 Microphone permission: NOT DETERMINED - requesting now...")
             // Request permission asynchronously. The callback fires on a background thread
             // once the user responds to the system prompt:
             // - Granted: start the engine automatically so the user doesn't have to tap Start again.
@@ -107,7 +103,7 @@ extension RealtimeFFTAnalyzer {
             // Always return here — the callback above will start the engine if granted.
             return
         case .denied:
-            engineLog.warning("Microphone permission: DENIED — throwing")
+            gtLog("⚠️ Microphone permission: DENIED — throwing")
             throw NSError(domain: "RealtimeFFTAnalyzer", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "Microphone access denied"])
         case .restricted:
@@ -154,7 +150,7 @@ extension RealtimeFFTAnalyzer {
                 targetDeviceID = Self.audioDeviceID(forUID: savedUID) ?? 0
                 if targetDeviceID != 0 {
                     targetDeviceName = savedUID
-                    engineLog.info("selectedInputDevice is nil — resolved persisted UID '\(savedUID, privacy: .public)' → device ID \(targetDeviceID, privacy: .public)")
+                    gtLog("🎤 selectedInputDevice is nil — resolved persisted UID '\(savedUID)' → device ID \(targetDeviceID)")
                 }
             }
 
@@ -169,7 +165,7 @@ extension RealtimeFFTAnalyzer {
                     UInt32(MemoryLayout<AudioDeviceID>.size)
                 )
                 if setStatus != noErr {
-                    engineLog.warning("Failed to set input device '\(targetDeviceName, privacy: .public)': error \(setStatus, privacy: .public) — will use system default")
+                    gtLog("⚠️ Failed to set input device '\(targetDeviceName)': error \(setStatus) — will use system default")
                 }
             }
 
@@ -207,7 +203,7 @@ extension RealtimeFFTAnalyzer {
                     auhalDeviceID, &nomSRAddr, 0, nil, &srSize, &deviceNativeSR
                 )
                 if getSRStatus == noErr && deviceNativeSR > 0 {
-                    engineLog.info("AUHAL device ID=\(auhalDeviceID, privacy: .public), native SR=\(deviceNativeSR, privacy: .public) Hz — forcing this rate")
+                    gtLog("🎤 AUHAL device ID=\(auhalDeviceID), native SR=\(deviceNativeSR) Hz — forcing this rate")
 
                     // Reinforce the nominal rate on the device itself
                     AudioObjectSetPropertyData(
@@ -234,7 +230,7 @@ extension RealtimeFFTAnalyzer {
 
         // Start the audio engine
         try audioEngine.start()
-        engineLog.info("Audio engine started")
+        gtLog("🎤 Audio engine started")
         
         #if os(macOS)
         // CRITICAL FIX: Manually start the audio unit if it's not running.
@@ -252,11 +248,11 @@ extension RealtimeFFTAnalyzer {
                 &isRunningSize
             )
             if status == noErr && isRunning == 0 {
-                engineLog.warning("Audio unit not running after engine start — starting manually")
+                gtLog("⚠️ Audio unit not running after engine start — starting manually")
                 AudioUnitInitialize(audioUnit)
                 let startStatus = AudioOutputUnitStart(audioUnit)
                 if startStatus != noErr {
-                    engineLog.error("Failed to start audio unit manually (error \(startStatus, privacy: .public))")
+                    gtLog("❌ Failed to start audio unit manually (error \(startStatus))")
                 }
             }
         }
@@ -266,7 +262,7 @@ extension RealtimeFFTAnalyzer {
         let hardwareFormat = inputNode.inputFormat(forBus: 0)
         actualSampleRate = hardwareFormat.sampleRate
         
-        engineLog.info("Hardware sample rate: \(self.actualSampleRate, privacy: .public) Hz, hardware channels: \(hardwareFormat.channelCount, privacy: .public) (tap will use mono)")
+        gtLog("🎤 Hardware sample rate: \(self.actualSampleRate) Hz, hardware channels: \(hardwareFormat.channelCount) (tap will use mono)")
         
         // Validate sample rate
         guard actualSampleRate > 0 else {
@@ -324,7 +320,7 @@ extension RealtimeFFTAnalyzer {
             // graph is already broken and the tap will never deliver buffers.
             // The only reliable recovery is a full engine teardown and restart.
             if isRunning == 0 {
-                engineLog.warning("Audio unit stopped before tap install — performing full engine restart")
+                gtLog("⚠️ Audio unit stopped before tap install — performing full engine restart")
                 inputNode.removeTap(onBus: 0)   // remove any stale tap first
                 // Nil inputNode before stop/reset for the same reason as in the primary path:
                 // prevents malloc corruption from re-entrant UpdateInputNode on the AVAudioIOUnit queue.
@@ -345,7 +341,7 @@ extension RealtimeFFTAnalyzer {
                         UInt32(MemoryLayout<AudioDeviceID>.size)
                     )
                     if setStatus != noErr {
-                        engineLog.warning("Failed to re-apply device '\(device.name, privacy: .public)' (error \(setStatus, privacy: .public))")
+                        gtLog("⚠️ Failed to re-apply device '\(device.name)' (error \(setStatus))")
                     }
 
                     // Re-apply native sample rate on device + AUHAL (same as primary path).
@@ -374,7 +370,7 @@ extension RealtimeFFTAnalyzer {
                 }
 
                 try audioEngine.start()
-                engineLog.info("Audio engine restarted after reset")
+                gtLog("🎤 Audio engine restarted after reset")
                 inputNode = audioEngine.inputNode
             }
 
@@ -384,7 +380,7 @@ extension RealtimeFFTAnalyzer {
                                                         kAudioUnitScope_Input, 1,
                                                         &inputSampleRate, &inputSampleRateSize)
             if sampleRateStatus == noErr {
-                engineLog.info("Audio unit input sample rate: \(inputSampleRate, privacy: .public) Hz")
+                gtLog("🎤 Audio unit input sample rate: \(inputSampleRate) Hz")
             }
         }
         #endif
@@ -395,7 +391,7 @@ extension RealtimeFFTAnalyzer {
                 self.processAudioBuffer(buffer)
             }
         }
-        engineLog.info("Audio tap installed")
+        gtLog("🎤 Audio tap installed")
         
         // Update frequency bins based on effective sample rate
         // This ensures frequency labels are correct
@@ -430,7 +426,7 @@ extension RealtimeFFTAnalyzer {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
                 guard let self = self else { return }
                 if self.isRunning && !self.firstBufferReceived {
-                    engineLog.warning("Audio engine started but no audio buffers received after 3 seconds")
+                    gtLog("⚠️ Audio engine started but no audio buffers received after 3 seconds")
                 }
                 #if os(macOS)
                 // Detect permission denial even when TCC cache is stale.
@@ -460,9 +456,9 @@ extension RealtimeFFTAnalyzer {
                     && self.peakMagnitude < 0
                     && self.firstBufferReceived
                     && tccStatus != .notDetermined
-                engineLog.info("3s TCC check — status: \(tccStatus.rawValue, privacy: .public), peak: \(self.peakMagnitude, privacy: .public) dB, perfectSilence: \(perfectSilence, privacy: .public), buffersReceived: \(self.firstBufferReceived, privacy: .public)")
+                gtLog("🎤 3s TCC check — status: \(tccStatus.rawValue), peak: \(self.peakMagnitude) dB, perfectSilence: \(perfectSilence), buffersReceived: \(self.firstBufferReceived)")
                 if tccDenied || perfectSilence {
-                    engineLog.warning("Microphone permission confirmed DENIED after 3s — tccDenied=\(tccDenied, privacy: .public), perfectSilence=\(perfectSilence, privacy: .public)")
+                    gtLog("⚠️ Microphone permission confirmed DENIED after 3s — tccDenied=\(tccDenied), perfectSilence=\(perfectSilence)")
                     self.stop()
                     self.microphonePermissionDenied = true
                 }
@@ -486,7 +482,7 @@ extension RealtimeFFTAnalyzer {
     ///
     /// - Note: No microphone permission is required.  Call `stop()` to end playback early.
     func startFromFile(_ url: URL, completion: (() -> Void)? = nil) throws {
-        engineLog.info("=== Starting file playback (direct injection): \(url.lastPathComponent, privacy: .public) ===")
+        gtLog("🎤 === Starting file playback (direct injection): \(url.lastPathComponent) ===")
 
         // ── 1. Stop the mic engine cleanly but DO NOT replace it. ────────
         // Keeping the original audioEngine instance preserves the AUHAL's
@@ -766,13 +762,13 @@ extension RealtimeFFTAnalyzer {
             monoSamples = Array(monoSamples.prefix(framesRead))
         }
 
-        engineLog.info("readAudioFileAsMonoFloat32: \(framesRead) frames, \(fileChannels) ch, \(Int(fileSampleRate)) Hz (via ExtAudioFile)")
+        gtLog("🎤 readAudioFileAsMonoFloat32: \(framesRead) frames, \(fileChannels) ch, \(Int(fileSampleRate)) Hz (via ExtAudioFile)")
 
         return (monoSamples, fileSampleRate)
     }
 
     func stop() {
-        engineLog.info("Stop requested")
+        gtLog("🎤 Stop requested")
 
         #if os(macOS)
         // Remove the sample-rate listener so it doesn't fire during the stop/restart cycle

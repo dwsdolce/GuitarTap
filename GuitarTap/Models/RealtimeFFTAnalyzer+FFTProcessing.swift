@@ -142,11 +142,6 @@ extension RealtimeFFTAnalyzer {
             return wallNow.timeIntervalSince(last) < self.clipHoldSeconds
         }()
 
-        // ── FILE_DEBUG: per-chunk RMS during file playback ─────────────
-        if isPlayingFile {
-            TAP_DEBUG("processRawSamples", "FILE_CHUNK | samples=\(samples.count) rmsDB=\(String(format: "%.1f", levelDB)) armed=\(levelCrossingArmed) prevDB=\(String(format: "%.1f", previousLevelDB)) thresh=\(String(format: "%.1f", levelCrossingThreshold))")
-        }
-
         // ── Audio-queue fast-path: snapshot pre-roll at threshold crossing ──
         // Fires BEFORE the main-thread dispatch so the pre-roll buffer is
         // captured at the exact audio buffer that crosses the threshold,

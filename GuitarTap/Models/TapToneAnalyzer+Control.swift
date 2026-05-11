@@ -140,10 +140,7 @@ extension TapToneAnalyzer {
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
-        let currentPeakMagImmediate = fftAnalyzer.peakMagnitude
         gtLog("🎬 Starting tap sequence: \(numberOfTaps) tap(s), plate mode: \(isPlateMode), brace mode: \(isBraceMode), skipWarmup: \(skipWarmup)")
-        gtLog("🎬 Current FFT peak magnitude (immediate): \(currentPeakMagImmediate) dB, threshold: \(tapDetectionThreshold) dB")
-        gtLog("🎬 FFT analyzer running: \(fftAnalyzer.isRunning), frequencies count: \(fftAnalyzer.frequencies.count)")
 
         // CRITICAL: Apply all state that detectTap() reads on the audio thread
         // synchronously — before any audio buffers from a just-started file or engine
@@ -245,11 +242,6 @@ extension TapToneAnalyzer {
             // enqueued — see the comment above the DispatchQueue.main.async call.
             // setFrozenSpectrum was also called synchronously to prevent this block from
             // wiping a gated-FFT result captured between the sync section and here.
-            // Re-confirm isDetecting after housekeeping mutations above.
-            let currentPeakMag = self.fftAnalyzer.peakMagnitude
-            gtLog("🎬 Inside async block - FFT peak magnitude: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB")
-            gtLog("🎬 FFT analyzer state: running=\(self.fftAnalyzer.isRunning), magnitudes count=\(self.fftAnalyzer.magnitudes.count)")
-
             self.isDetecting = true
 
             // Set context-appropriate status message.
