@@ -172,16 +172,17 @@ extension TapToneAnalyzer {
         // state — if deferred to the async block, the handler may start a
         // capture that the async block then kills.
         //
-        // Pre-fill the pre-roll buffer with silence rather than leaving it empty.
-        // For file playback the first tap transient may arrive within the first
-        // few chunks (< 9600 samples), so an empty pre-roll would give the first
-        // tap a shorter capture window than subsequent taps.  Silence is the
-        // correct content before any audio has been received — mirrors the Python
-        // fix in tap_tone_analyzer_control.py start_from_file().
+        // Start with an empty pre-roll buffer.  The ring buffer fills naturally
+        // as audio chunks arrive via accumulateGatedSamples.  If a tap fires
+        // before the buffer is full, startGatedCapture seeds the accumulator
+        // with only the samples received so far — no zero-padding.  This avoids
+        // diluting the captured signal with silence, which would suppress the
+        // spectral magnitude (the old zero-fill caused a ~7 dB live-capture
+        // deficit and ~23 dB file-playback deficit vs Python).
         gatedCaptureActive = false
         mpmLock.lock()
         gatedAccumBuffer = []
-        preRollBuffer = [Float](repeating: 0, count: preRollSamples)
+        preRollBuffer = []
         mpmLock.unlock()
 
         // Reset the threshold-crossing state BEFORE arming detection.

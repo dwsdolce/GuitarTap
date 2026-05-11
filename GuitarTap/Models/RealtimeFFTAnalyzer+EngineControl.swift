@@ -508,47 +508,34 @@ extension RealtimeFFTAnalyzer {
         // the first FFT window from the file.
         bufferAccessQueue.sync { inputBuffer.removeAll() }
 
+        // Let TapToneAnalyzer clear its pre-roll ring buffer now that the
+        // mic is stopped and the audio queue is fully drained.  Without this,
+        // mic noise that accumulated between startTapSequence (which clears
+        // preRollBuffer) and startFromFile (which stops the engine) leaks
+        // into the gated capture's pre-roll seed.  Python doesn't have this
+        // problem because its stream.stop() runs inside start_from_file
+        // before the pre-roll can accumulate anything.
+        TAP_DEBUG("file_playback", "POST_ENGINE_STOP — calling postEngineStopHandler")
+        postEngineStopHandler?()
+        TAP_DEBUG("file_playback", "POST_ENGINE_STOP_DONE")
+
         // Reset ordinals so a new file's frames start at #1.
         fftFrameCounter = 0
         samplesConsumed = 0
 
         // ── 2. Open and read the audio file into a mono Float32 array. ───
-        let audioFile = try AVAudioFile(forReading: url)
-        let fileFormat = audioFile.processingFormat
-        engineLog.info("File format: \(fileFormat, privacy: .public)")
+        // ── 2a. Read audio data ─────────────────────────────────────────
+        // AVAudioFile.read(into:) can silently return fewer frames than
+        // audioFile.length (observed: 18421 instead of 19200 for a Float32
+        // WAV).  To guarantee every sample is read — matching Python's
+        // soundfile.read() — we parse the WAV data chunk directly when the
+        // format is Float32.  For other formats we fall back to AVAudioFile
+        // with a loop to drain remaining frames.
+        let (monoSamples, fileSampleRate) = try Self.readWavFileAsMonoFloat32(url: url)
+        let frameCount = monoSamples.count
 
-        let totalFrames = AVAudioFrameCount(audioFile.length)
-        guard let readBuffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: totalFrames) else {
-            throw NSError(domain: "RealtimeFFTAnalyzer", code: -1,
-                          userInfo: [NSLocalizedDescriptionKey: "Failed to allocate read buffer for file"])
-        }
-        try audioFile.read(into: readBuffer)
+        TAP_DEBUG("file_playback", "FILE_READ | frames=\(frameCount) rate=\(Int(fileSampleRate))")
 
-        // Downmix to mono by averaging channels — same as Python's
-        // data.mean(axis=1).  For mono files this is a no-op copy.
-        let channelCount = Int(fileFormat.channelCount)
-        let frameCount = Int(readBuffer.frameLength)
-        var monoSamples = [Float](repeating: 0, count: frameCount)
-
-        if channelCount == 1 {
-            // Mono — direct copy.
-            if let ch0 = readBuffer.floatChannelData?[0] {
-                monoSamples = Array(UnsafeBufferPointer(start: ch0, count: frameCount))
-            }
-        } else {
-            // Multi-channel — average all channels.
-            for ch in 0..<channelCount {
-                guard let chData = readBuffer.floatChannelData?[ch] else { continue }
-                let chBuf = UnsafeBufferPointer(start: chData, count: frameCount)
-                for i in 0..<frameCount {
-                    monoSamples[i] += chBuf[i]
-                }
-            }
-            let scale = 1.0 / Float(channelCount)
-            vDSP_vsmul(monoSamples, 1, [scale], &monoSamples, 1, vDSP_Length(frameCount))
-        }
-
-        let fileSampleRate = fileFormat.sampleRate
         actualSampleRate = fileSampleRate
 
         // ── 3. Configure state before launching the worker. ──────────────
@@ -612,33 +599,57 @@ extension RealtimeFFTAnalyzer {
             // Guard: if a new file was opened while we were sleeping, skip cleanup.
             guard self.filePlaybackGeneration == myGeneration else { return }
 
-            // ── Post-playback: flush partial buffer, restart mic ─────────
+            // ── Post-playback: flush partial buffer, then restart mic ────
+            // The partial flush and preMicRestartHandler MUST run before the
+            // mic restarts, otherwise mic noise fills the gated capture window.
+            // Python does all of this synchronously on the worker thread before
+            // calling stream.start().  We mirror that here: flush + handler run
+            // on this background thread, then only the UI state update and mic
+            // restart are dispatched to main.
+
+            // 1. Force-flush any partial audio that accumulated in inputBuffer.
+            TAP_DEBUG("file_playback", "PARTIAL_FLUSH — draining inputBuffer")
+            self.audioProcessingQueue.sync {
+                var partial: [Float] = []
+                self.bufferAccessQueue.sync {
+                    partial = self.inputBuffer
+                    self.inputBuffer.removeAll()
+                }
+                TAP_DEBUG("file_playback", "PARTIAL_FLUSH | partialLen=\(partial.count) fftSize=\(capturedFftSize)")
+                if !partial.isEmpty {
+                    if partial.count < capturedFftSize {
+                        partial.append(contentsOf: [Float](repeating: 0, count: capturedFftSize - partial.count))
+                    }
+                    TAP_DEBUG("file_playback", "PARTIAL_FLUSH_EMIT | emitting FFT frame with \(partial.count) samples")
+                    self.performFFT(on: partial)
+                    TAP_DEBUG("file_playback", "PARTIAL_FLUSH_EMIT_DONE")
+                }
+            }
+
+            // 2. Flush any active gated capture before mic restart.
+            //    Must run on main thread because finishGatedFFTCapture
+            //    updates @Published properties.  Synchronous so the flush
+            //    completes before mic restart.  Mirrors Python where the
+            //    flush runs on the playback worker but Qt signal delivery
+            //    is queued to main.
+            TAP_DEBUG("file_playback", "PRE_MIC_RESTART — calling preMicRestartHandler")
+            DispatchQueue.main.sync {
+                self.preMicRestartHandler?()
+            }
+            TAP_DEBUG("file_playback", "PRE_MIC_RESTART_DONE")
+
+            // 3. UI state + mic restart on main thread.
+            TAP_DEBUG("file_playback", "MIC_RESTART — dispatching to main thread")
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 guard self.filePlaybackGeneration == myGeneration else { return }
 
+                TAP_DEBUG("file_playback", "MIC_RESTART — main thread: isPlayingFile=false, starting mic")
                 self.isPlayingFile = false
-
-                // Force-flush any partial audio that accumulated in inputBuffer.
-                self.audioProcessingQueue.sync {
-                    var partial: [Float] = []
-                    self.bufferAccessQueue.sync {
-                        partial = self.inputBuffer
-                        self.inputBuffer.removeAll()
-                    }
-                    if !partial.isEmpty {
-                        if partial.count < capturedFftSize {
-                            partial.append(contentsOf: [Float](repeating: 0, count: capturedFftSize - partial.count))
-                        }
-                        self.performFFT(on: partial)
-                    }
-                }
-
-                // Flush any active gated capture before mic restart.
-                self.preMicRestartHandler?()
 
                 // Switch back to live mic.
                 try? self.start()
+                TAP_DEBUG("file_playback", "MIC_RESTART_DONE")
                 capturedCompletion?()
             }
         }
@@ -653,6 +664,171 @@ extension RealtimeFFTAnalyzer {
     /// 4. Clears any pending audio processing tasks
     ///
     /// - Note: It's safe to call this method multiple times or when already stopped
+    // MARK: - Direct WAV File Reading
+
+    /// Reads a WAV file directly from its data chunk, bypassing AVAudioFile which
+    /// can silently truncate frames (observed: 18421 instead of 19200 for a Float32 WAV).
+    /// Mirrors Python's `soundfile.read(path, dtype="float32", always_2d=True)` behavior.
+    ///
+    /// - Returns: A tuple of (mono Float32 samples, sample rate in Hz).
+    /// - Throws: If the file is not a valid WAV or uses an unsupported format.
+    static func readWavFileAsMonoFloat32(url: URL) throws -> ([Float], Double) {
+        let data = try Data(contentsOf: url)
+
+        // ── Validate RIFF/WAVE header ──────────────────────────────────
+        guard data.count >= 44 else {
+            throw NSError(domain: "WAVReader", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "File too small to be a valid WAV"])
+        }
+
+        let riff = String(data: data[0..<4], encoding: .ascii)
+        let wave = String(data: data[8..<12], encoding: .ascii)
+        guard riff == "RIFF", wave == "WAVE" else {
+            throw NSError(domain: "WAVReader", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "Not a valid WAV file (missing RIFF/WAVE header)"])
+        }
+
+        // ── Parse chunks to find "fmt " and "data" ────────────────────
+        var offset = 12
+        var audioFormat: UInt16 = 0
+        var numChannels: UInt16 = 0
+        var sampleRate: UInt32 = 0
+        var bitsPerSample: UInt16 = 0
+        var dataOffset = 0
+        var dataSize = 0
+        var foundFmt = false
+        var foundData = false
+
+        while offset + 8 <= data.count {
+            let chunkID = String(data: data[offset..<offset+4], encoding: .ascii) ?? ""
+            let chunkSize: UInt32 = data.withUnsafeBytes { ptr in
+                ptr.load(fromByteOffset: offset + 4, as: UInt32.self)
+            }
+
+            if chunkID == "fmt " {
+                guard offset + 8 + Int(chunkSize) <= data.count, chunkSize >= 16 else { break }
+                let fmtBase = offset + 8
+                data.withUnsafeBytes { ptr in
+                    audioFormat   = ptr.load(fromByteOffset: fmtBase + 0, as: UInt16.self)
+                    numChannels   = ptr.load(fromByteOffset: fmtBase + 2, as: UInt16.self)
+                    sampleRate    = ptr.load(fromByteOffset: fmtBase + 4, as: UInt32.self)
+                    bitsPerSample = ptr.load(fromByteOffset: fmtBase + 14, as: UInt16.self)
+                }
+                foundFmt = true
+            } else if chunkID == "data" {
+                dataOffset = offset + 8
+                dataSize = Int(chunkSize)
+                foundData = true
+            }
+
+            if foundFmt && foundData { break }
+            offset += 8 + Int(chunkSize)
+            // Chunks are word-aligned
+            if offset % 2 != 0 { offset += 1 }
+        }
+
+        guard foundFmt, foundData else {
+            throw NSError(domain: "WAVReader", code: 3,
+                          userInfo: [NSLocalizedDescriptionKey: "WAV file missing fmt or data chunk"])
+        }
+
+        // ── Read samples ───────────────────────────────────────────────
+        // audioFormat 1 = PCM integer, 3 = IEEE float
+        let bytesPerSample = Int(bitsPerSample) / 8
+        let frameCount = dataSize / (Int(numChannels) * bytesPerSample)
+
+        var monoSamples = [Float](repeating: 0, count: frameCount)
+
+        let channels = Int(numChannels)
+        data.withUnsafeBytes { rawPtr in
+            let base = rawPtr.baseAddress!.advanced(by: dataOffset)
+
+            switch (audioFormat, bitsPerSample) {
+            case (3, 32):
+                // IEEE Float32 — direct copy (our saved WAVs use this)
+                let floatPtr = base.assumingMemoryBound(to: Float.self)
+                if channels == 1 {
+                    monoSamples = Array(UnsafeBufferPointer(start: floatPtr, count: frameCount))
+                } else {
+                    for i in 0..<frameCount {
+                        var sum: Float = 0
+                        for ch in 0..<channels {
+                            sum += floatPtr[i * channels + ch]
+                        }
+                        monoSamples[i] = sum / Float(channels)
+                    }
+                }
+
+            case (1, 16):
+                // PCM 16-bit signed integer
+                let int16Ptr = base.assumingMemoryBound(to: Int16.self)
+                let scale: Float = 1.0 / 32768.0
+                if channels == 1 {
+                    for i in 0..<frameCount {
+                        monoSamples[i] = Float(int16Ptr[i]) * scale
+                    }
+                } else {
+                    for i in 0..<frameCount {
+                        var sum: Float = 0
+                        for ch in 0..<channels {
+                            sum += Float(int16Ptr[i * channels + ch])
+                        }
+                        monoSamples[i] = sum * scale / Float(channels)
+                    }
+                }
+
+            case (1, 24):
+                // PCM 24-bit signed integer
+                let scale: Float = 1.0 / 8388608.0 // 2^23
+                for i in 0..<frameCount {
+                    var sum: Float = 0
+                    for ch in 0..<channels {
+                        let byteOffset = (i * channels + ch) * 3
+                        let b0 = Int32(base.load(fromByteOffset: byteOffset + 0, as: UInt8.self))
+                        let b1 = Int32(base.load(fromByteOffset: byteOffset + 1, as: UInt8.self))
+                        let b2 = Int32(base.load(fromByteOffset: byteOffset + 2, as: UInt8.self))
+                        // Sign-extend from 24 bits
+                        var val = b0 | (b1 << 8) | (b2 << 16)
+                        if val & 0x800000 != 0 { val |= ~0xFFFFFF } // sign extend
+                        sum += Float(val)
+                    }
+                    monoSamples[i] = sum * scale / Float(channels)
+                }
+
+            case (1, 32):
+                // PCM 32-bit signed integer
+                let int32Ptr = base.assumingMemoryBound(to: Int32.self)
+                let scale: Float = 1.0 / 2147483648.0 // 2^31
+                if channels == 1 {
+                    for i in 0..<frameCount {
+                        monoSamples[i] = Float(int32Ptr[i]) * scale
+                    }
+                } else {
+                    for i in 0..<frameCount {
+                        var sum: Float = 0
+                        for ch in 0..<channels {
+                            sum += Float(int32Ptr[i * channels + ch])
+                        }
+                        monoSamples[i] = sum * scale / Float(channels)
+                    }
+                }
+
+            default:
+                // Unsupported format — clear to zeros (will be caught below)
+                break
+            }
+        }
+
+        guard frameCount > 0 else {
+            throw NSError(domain: "WAVReader", code: 4,
+                          userInfo: [NSLocalizedDescriptionKey: "WAV file contains no audio samples"])
+        }
+
+        engineLog.info("readWavFileAsMonoFloat32: \(frameCount) frames, \(numChannels) ch, \(sampleRate) Hz, \(bitsPerSample) bit, fmt=\(audioFormat)")
+
+        return (monoSamples, Double(sampleRate))
+    }
+
     func stop() {
         engineLog.info("Stop requested")
 

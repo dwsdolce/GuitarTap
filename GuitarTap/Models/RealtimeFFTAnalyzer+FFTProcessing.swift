@@ -142,6 +142,11 @@ extension RealtimeFFTAnalyzer {
             return wallNow.timeIntervalSince(last) < self.clipHoldSeconds
         }()
 
+        // ── FILE_DEBUG: per-chunk RMS during file playback ─────────────
+        if isPlayingFile {
+            TAP_DEBUG("processRawSamples", "FILE_CHUNK | samples=\(samples.count) rmsDB=\(String(format: "%.1f", levelDB)) armed=\(levelCrossingArmed) prevDB=\(String(format: "%.1f", previousLevelDB)) thresh=\(String(format: "%.1f", levelCrossingThreshold))")
+        }
+
         // ── Audio-queue fast-path: snapshot pre-roll at threshold crossing ──
         // Fires BEFORE the main-thread dispatch so the pre-roll buffer is
         // captured at the exact audio buffer that crosses the threshold,
@@ -151,11 +156,24 @@ extension RealtimeFFTAnalyzer {
            levelDB > levelCrossingThreshold,
            previousLevelDB <= levelCrossingThreshold {
             levelCrossingArmed = false
+            if isPlayingFile {
+                TAP_DEBUG("processRawSamples", "LEVEL_CROSSING_FIRED | rmsDB=\(String(format: "%.1f", levelDB)) prevDB=\(String(format: "%.1f", previousLevelDB))")
+            }
             levelCrossingHandler?()
         }
         previousLevelDB = levelDB
 
-        // Update input level and recent peak on main thread
+        // ── Direct RMS callback (mirrors Python rmsLevelChanged signal) ──
+        // Called on the audio processing queue, exactly like rawSampleHandler
+        // and levelCrossingHandler.  TapToneAnalyzer wires this to
+        // onRmsLevelChanged so tap detection runs synchronously per chunk
+        // during both live mic and file playback — identical to Python's
+        // proc_thread.rmsLevelChanged.connect(self._on_rms_level_changed).
+        rmsLevelHandler?(levelDB)
+
+        // Update @Published properties on main thread for UI (level meter,
+        // clipping indicator).  This is display-only — tap detection no
+        // longer depends on this path.
         DispatchQueue.main.async {
             self.inputLevelDB = levelDB
 

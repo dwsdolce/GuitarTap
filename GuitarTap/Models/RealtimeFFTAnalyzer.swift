@@ -332,6 +332,20 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///   from this callback — it runs on a background queue.
     var rawSampleHandler: (([Float], Double) -> Void)?
 
+    // MARK: - Audio-Queue RMS Level Callback
+
+    /// Optional callback fired **synchronously on the audio processing queue**
+    /// for every chunk with the per-chunk RMS level in dBFS.
+    ///
+    /// Mirrors Python ``proc_thread.rmsLevelChanged`` signal.
+    /// ``TapToneAnalyzer`` wires this to ``onRmsLevelChanged(_:)`` so tap
+    /// detection runs at ~43 Hz per chunk, identically to Python's
+    /// ``_on_rms_level_changed``.
+    ///
+    /// - Important: The callback runs on a background queue.  The handler
+    ///   is responsible for dispatching to the main thread if needed.
+    var rmsLevelHandler: ((Float) -> Void)?
+
     // MARK: - Audio-Queue Level-Crossing Callback
 
     /// Optional callback fired **synchronously on the audio processing queue**
@@ -417,6 +431,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// mic noise cannot fill the remaining window.
     /// Mirrors Python `_on_pre_mic_restart` callback.
     var preMicRestartHandler: (() -> Void)?
+
+    /// Called from `startFromFile` after the mic engine is stopped and the
+    /// audio processing queue is drained, but BEFORE any file chunks are
+    /// pumped.  Used by `TapToneAnalyzer` to clear `preRollBuffer` so no
+    /// stale mic noise leaks into the gated capture's pre-roll seed.
+    /// Mirrors Python: the mic stream is stopped before `_playback_worker`
+    /// starts, so the pre-roll buffer naturally contains no mic audio.
+    var postEngineStopHandler: (() -> Void)?
 
     /// Set to true when permission is confirmed denied after start (macOS TCC cache lag).
     /// The view observes this to show the "Microphone Access Required" alert.

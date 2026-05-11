@@ -80,6 +80,9 @@ extension TapToneAnalyzer {
     /// Tap detection is no longer driven from this slow FFT-rate path — see
     /// ``onRmsLevelChanged(_:)`` for the per-chunk RMS-driven detector.
     func onFftFrame(magnitudes: [Float], frequencies: [Float], peakMagnitude: Float) {
+        if fftAnalyzer.isPlayingFile {
+            TAP_DEBUG("onFftFrame", "FILE_PLAYBACK | peakMag=\(String(format: "%.1f", peakMagnitude)) dB, freqCount=\(frequencies.count)")
+        }
         analyzeMagnitudes(magnitudes, frequencies: frequencies, peakMagnitude: peakMagnitude)
     }
 
@@ -99,7 +102,15 @@ extension TapToneAnalyzer {
     /// RMS path.  The captured spectrum for guitar is then assembled via
     /// ``startGuitarGatedCapture()``.
     func onRmsLevelChanged(_ levelDB: Float) {
-        guard isDetecting && !isDetectionPaused && !isMeasurementComplete else { return }
+        guard isDetecting && !isDetectionPaused && !isMeasurementComplete else {
+            if fftAnalyzer.isPlayingFile {
+                TAP_DEBUG("onRmsLevelChanged", "FILE_PLAYBACK SKIPPED | levelDB=\(String(format: "%.1f", levelDB)) isDetecting=\(isDetecting) isPaused=\(isDetectionPaused) isComplete=\(isMeasurementComplete)")
+            }
+            return
+        }
+        if fftAnalyzer.isPlayingFile {
+            TAP_DEBUG("onRmsLevelChanged", "FILE_PLAYBACK detectTap | levelDB=\(String(format: "%.1f", levelDB))")
+        }
         detectTap(peakMagnitude: levelDB,
                   magnitudes: fftAnalyzer.magnitudes,
                   frequencies: fftAnalyzer.frequencies)

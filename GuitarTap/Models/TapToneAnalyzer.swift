@@ -1011,6 +1011,14 @@ final class TapToneAnalyzer: ObservableObject {
         // sees gatedCaptureActive is already true).
         fftAnalyzer.levelCrossingHandler = { [weak self] in
             guard let self = self else { return }
+            // In plate/brace mode the gated capture is started by
+            // handlePlateTapDetection → startGatedCapture(phase:) with the
+            // correct phase and 400 ms window.  The guitar-mode fast-start
+            // must NOT fire because it would claim the gated capture slot
+            // with phase=nil / target=fftSize, producing an ORPHAN that
+            // discards the file audio.
+            let mt = TapDisplaySettings.measurementType
+            guard mt != .plate && mt != .brace else { return }
             let fftSize = self.fftAnalyzer.fftSize
             self.mpmLock.lock()
             self.gatedCaptureID += 1
@@ -1034,6 +1042,27 @@ final class TapToneAnalyzer: ObservableObject {
             self?.flushGatedCaptureOnFileEnd()
         }
 
+        // Re-initialize the pre-roll ring buffer after the mic engine stops
+        // in startFromFile.  Between startTapSequence (which clears
+        // preRollBuffer) and startFromFile (which stops the engine), mic
+        // audio leaks into the ring buffer via accumulateGatedSamples.
+        //
+        // Pre-fill with zeros (silence) rather than leaving empty, matching
+        // Python tap_tone_analyzer_control.py line 539:
+        //   self._pre_roll_buf = [0.0] * pre_roll_count
+        // This ensures the first tap's gated capture sees a full pre-roll
+        // window.  The audio before the first tap in a file is silence, so
+        // zero-padding is the correct content.
+        fftAnalyzer.postEngineStopHandler = { [weak self] in
+            guard let self else { return }
+            let count = self.preRollSamples
+            TAP_DEBUG("file_playback", "POST_ENGINE_STOP_HANDLER | preRollSamples=\(count) mpmSampleRate=\(Int(self.mpmSampleRate)) preRollBefore=\(self.preRollBuffer.count)")
+            self.mpmLock.lock()
+            self.preRollBuffer = [Float](repeating: 0, count: count)
+            self.mpmLock.unlock()
+            TAP_DEBUG("file_playback", "POST_ENGINE_STOP_HANDLER_DONE | preRollAfter=\(self.preRollBuffer.count)")
+        }
+
         // Slow path: full FFT frame → onFftFrame (in +TapDetection.swift),
         // which delegates to analyzeMagnitudes for peak analysis.  The entry-
         // point method placement mirrors Python's on_fft_frame in
@@ -1054,17 +1083,32 @@ final class TapToneAnalyzer: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Fast path: per-buffer input level → onRmsLevelChanged (in +TapDetection.swift),
-        // which runs the hysteresis detector for ALL measurement types.  The handler
-        // placement mirrors Python's _on_rms_level_changed in
-        // tap_tone_analyzer_tap_detection.py — guards live in the handler, not at
-        // the sink, so the file-level layout matches the Python port.
-        fftAnalyzer.$inputLevelDB
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] levelDB in
-                self?.onRmsLevelChanged(levelDB)
+        // Direct RMS callback — mirrors Python's
+        //   proc_thread.rmsLevelChanged.connect(self._on_rms_level_changed)
+        //
+        // Called synchronously on the audio processing queue for every chunk.
+        // Dispatches to main thread to call onRmsLevelChanged, matching
+        // Python's Qt.QueuedConnection (cross-thread → main thread).
+        //
+        // During file playback: synchronous dispatch so every chunk's RMS
+        // reaches detectTap before the next chunk pumps (Python's Qt event
+        // loop processes the queued signal during time.sleep between chunks).
+        //
+        // During live mic: async dispatch to avoid blocking the real-time
+        // audio thread (same effective latency as before — ~23ms at 1024
+        // samples / 44.1kHz, well within one chunk interval).
+        fftAnalyzer.rmsLevelHandler = { [weak self] levelDB in
+            guard let self else { return }
+            if self.fftAnalyzer.isPlayingFile {
+                DispatchQueue.main.sync {
+                    self.onRmsLevelChanged(levelDB)
+                }
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.onRmsLevelChanged(levelDB)
+                }
             }
-            .store(in: &cancellables)
+        }
 
         // Audio route change → reinitialise detection state after the engine restarts.
         fftAnalyzer.$routeChangeRestartCount

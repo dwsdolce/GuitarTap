@@ -222,7 +222,11 @@ extension TapToneAnalyzer {
     /// FFT runs on a clean (partial + silence) buffer rather than partial +
     /// mic noise.
     func flushGatedCaptureOnFileEnd() {
-        guard gatedCaptureActive else { return }
+        TAP_DEBUG("flushGatedCapture", "FLUSH_GATED_CHECK | active=\(gatedCaptureActive) accumLen=\(gatedAccumBuffer.count) phase=\(String(describing: gatedCapturePhase)) target=\(gatedCaptureSamples)")
+        guard gatedCaptureActive else {
+            TAP_DEBUG("flushGatedCapture", "FLUSH_GATED_SKIP — no active capture")
+            return
+        }
         gatedCaptureActive = false
 
         mpmLock.lock()
@@ -270,6 +274,7 @@ extension TapToneAnalyzer {
         // explanation of the race this prevents.
         gatedCaptureID += 1
         let myCaptureID = gatedCaptureID
+        let preRollCount = preRollBuffer.count
         gatedAccumBuffer = preRollBuffer
         mpmLock.unlock()
         gatedCapturePhase = phase
@@ -278,6 +283,7 @@ extension TapToneAnalyzer {
 
         let windowMs = Int(TapToneAnalyzer.gatedCaptureDuration * 1000)
         gtLog("🎯 Gated FFT capture started for phase \(phase) — \(gatedCaptureSamples)-sample window (\(windowMs) ms at \(Int(mpmSampleRate)) Hz)")
+        TAP_DEBUG("gatedCapture", "SEED | preRollSamples=\(preRollCount) target=\(gatedCaptureSamples) rate=\(Int(mpmSampleRate))")
 
         // Safety timeout: close capture window after 2 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
@@ -527,6 +533,15 @@ extension TapToneAnalyzer {
     ///
     /// - Note: Called on the main thread via `DispatchQueue.main.async`.
     func finishGatedFFTCapture(samples: [Float], sampleRate: Double, phase: MaterialTapPhase) {
+        // DIAG: log what goes into computeGatedFFT
+        let nonZero = samples.filter { $0 != 0 }.count
+        let peakSample = samples.map { abs($0) }.max() ?? 0
+        let rmsAll: Float = {
+            let s = samples.reduce(Float(0)) { $0 + $1 * $1 }
+            return 20 * log10(max(sqrt(s / max(Float(samples.count), 1)), 1e-10))
+        }()
+        TAP_DEBUG("gatedFFT", "FINISH | total=\(samples.count) nonZero=\(nonZero) peak=\(String(format: "%.6f", peakSample)) rms=\(String(format: "%.2f", rmsAll))dB rate=\(Int(sampleRate)) phase=\(phase)")
+
         dumpCaptureWAV(samples: samples, sampleRate: sampleRate,
                        label: phase.rawValue.replacingOccurrences(of: " ", with: "_"))
 
