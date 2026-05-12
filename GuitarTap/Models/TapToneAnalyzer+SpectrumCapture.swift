@@ -178,6 +178,10 @@ extension TapToneAnalyzer {
         let count = gatedAccumBuffer.count
         mpmLock.unlock()
 
+        if fftAnalyzer.isPlayingFile {
+            TAP_DEBUG("gatedAccum", "CHUNK | +\(samples.count) running=\(count) target=\(gatedCaptureSamples) phase=\(String(describing: gatedCapturePhase))")
+        }
+
         if count >= gatedCaptureSamples {
             gatedCaptureActive = false
             let captured: [Float]

@@ -147,6 +147,9 @@ extension RealtimeFFTAnalyzer {
         // captured at the exact audio buffer that crosses the threshold,
         // eliminating the Combine dispatch delay that otherwise shifts the
         // pre-roll past the tap attack transient.
+        if isPlayingFile {
+            TAP_DEBUG("processRawSamples", "LEVEL_CHECK | armed=\(levelCrossingArmed) levelDB=\(String(format: "%.1f", levelDB)) threshold=\(String(format: "%.1f", levelCrossingThreshold)) prevDB=\(String(format: "%.1f", previousLevelDB)) chunkLen=\(samples.count) fileSamplePos=\(samplesConsumed)")
+        }
         if levelCrossingArmed,
            levelDB > levelCrossingThreshold,
            previousLevelDB <= levelCrossingThreshold {

@@ -232,14 +232,14 @@ struct TapToneAnalysisView: View {
 
     /// Creates the view and its paired audio analyzers.
     ///
-    /// A single `RealtimeFFTAnalyzer` is constructed with a 65,536-point FFT
-    /// (≈0.67 Hz/bin at 48 kHz) and passed to both `@StateObject` wrappers so
-    /// they share the same audio engine instance.
+    /// A single `RealtimeFFTAnalyzer` is constructed and passed to both
+    /// `@StateObject` wrappers so they share the same audio engine instance.
+    /// The FFT size is a constant inside `RealtimeFFTAnalyzer` (65 536 points,
+    /// ≈0.73 Hz/bin at 48 kHz).
     init() {
         // Create a single FFT analyzer instance.
-        // 65,536 FFT size gives maximum frequency resolution (0.67 Hz/bin @ 44.1 kHz).
-        // With 25% overlap, this gives ~1.8 Hz frame rate.
-        let fft = RealtimeFFTAnalyzer(fftSize: 65536)
+        // FFT size (65 536) is a constant inside RealtimeFFTAnalyzer.
+        let fft = RealtimeFFTAnalyzer()
 
         // Use the SAME instance for both state objects so they share one audio session.
         _fftAnalyzer = StateObject(wrappedValue: fft)

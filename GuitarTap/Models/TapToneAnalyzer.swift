@@ -90,11 +90,12 @@ final class TapToneAnalyzer: ObservableObject {
     /// audio hardware.  Use ``playFileForTesting(url:measurementType:numberOfTaps:)``
     /// to feed a WAV file through the pipeline.
     ///
-    /// Mirrors Python ``TapToneAnalyzer.for_testing()``.
+    /// The FFT size is the class-level constant in `RealtimeFFTAnalyzer`
+    /// (65 536); it is not configurable per-instance.
     ///
-    /// - Parameter fftSize: FFT window size (power of 2). Default 16384.
-    static func forTesting(fftSize: Int = 16384) -> TapToneAnalyzer {
-        let fft = RealtimeFFTAnalyzer.forTesting(fftSize: fftSize)
+    /// Mirrors Python ``TapToneAnalyzer.for_testing()``.
+    static func forTesting() -> TapToneAnalyzer {
+        let fft = RealtimeFFTAnalyzer.forTesting()
         return TapToneAnalyzer(fftAnalyzer: fft)
     }
 
@@ -155,8 +156,14 @@ final class TapToneAnalyzer: ObservableObject {
         while done.wait(timeout: .now()) == .timedOut {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
         }
-        // One final drain to pick up any trailing main-queue blocks.
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        // Continue draining the main run loop until the measurement completes.
+        // processMultipleTaps() is scheduled via DispatchQueue.main.asyncAfter
+        // with a delay of captureWindow (0.2 s), so we must keep spinning
+        // until it fires and sets isMeasurementComplete = true.
+        let deadline = Date(timeIntervalSinceNow: 5.0)
+        while !isMeasurementComplete && Date() < deadline {
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+        }
     }
 
     // MARK: - Dependencies

@@ -67,7 +67,7 @@
 ///
 /// ## Example Usage
 /// ```swift
-/// let analyzer = RealtimeFFTAnalyzer(fftSize: 16384)
+/// let analyzer = RealtimeFFTAnalyzer()
 /// try analyzer.start()
 /// // Observe analyzer.magnitudes and analyzer.frequencies for visualisation
 /// analyzer.stop()
@@ -176,10 +176,16 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     // MARK: - FFT Configuration
     
-    /// The size of the FFT window. Must be a power of 2.
-    /// Larger sizes provide better frequency resolution but slower time response.
-    /// - Note: Output will contain `fftSize / 2` frequency bins
-    let fftSize: Int
+    /// The size of the FFT window (65 536 points).
+    ///
+    /// This is a **compile-time constant** — it is never configurable at runtime.
+    /// At 48 kHz the window spans ≈1.36 s with ≈0.73 Hz/bin resolution.
+    /// Both the continuous display path (`performFFT`) and the guitar gated-
+    /// capture path (`finishGuitarGatedCapture`) use this value.  The plate/
+    /// brace gated path (`computeGatedFFT`) computes its own size independently.
+    ///
+    /// - Note: Output will contain `fftSize / 2` frequency bins.
+    let fftSize: Int = 65536
     
     /// The vDSP FFT setup object used for performing fast Fourier transforms
     /// - Note: This is created once during initialization and reused for performance
@@ -502,8 +508,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     // MARK: - Testing Support
 
-    /// When `true`, the analyzer was created via ``forTesting(fftSize:)`` and has
-    /// no audio hardware wired.  Checked by `deinit` to skip hardware teardown and
+    /// When `true`, the analyzer was created via ``forTesting()`` and has no
+    /// audio hardware wired.  Checked by `deinit` to skip hardware teardown and
     /// by `start()`/`stop()` to short-circuit engine operations.
     /// Mirrors Python ``RealtimeFFTAnalyzer.for_testing()`` which sets ``stream = None``.
     private(set) var isForTesting: Bool = false
@@ -515,29 +521,26 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// start, no device enumeration, no CoreAudio/route-change listeners.
     /// Use ``processFileData(samples:sampleRate:fileName:)`` to feed audio.
     ///
-    /// Mirrors Python ``RealtimeFFTAnalyzer.for_testing()``.
+    /// The FFT size is the class-level constant (65 536); it is not
+    /// configurable per-instance.
     ///
-    /// - Parameter fftSize: FFT window size (power of 2). Default 16384.
-    static func forTesting(fftSize: Int = 16384) -> RealtimeFFTAnalyzer {
-        return RealtimeFFTAnalyzer(fftSize: fftSize, forTesting: true)
+    /// Mirrors Python ``RealtimeFFTAnalyzer.for_testing()``.
+    static func forTesting() -> RealtimeFFTAnalyzer {
+        return RealtimeFFTAnalyzer(forTesting: true)
     }
 
     // MARK: - Initialization
     
-    /// Creates a new real-time FFT analyzer with specified configuration.
+    /// Creates a new real-time FFT analyzer.
     ///
-    /// - Parameters:
-    ///   - fftSize: The size of the FFT window. Must be a power of 2. Larger values provide
-    ///              better frequency resolution but slower time response. Default is 4096.
-    ///              Common values: 2048, 4096, 8192, 16384
-    ///   - forTesting: When `true`, skips all audio hardware setup (device enumeration,
-    ///                 CoreAudio listeners, route-change observers). The FFT pipeline is
-    ///                 fully functional — only hardware I/O is omitted. Default is `false`.
+    /// The FFT size is the class-level constant (65 536) and cannot be
+    /// overridden.  At 48 kHz this gives ≈0.73 Hz/bin resolution.
     ///
-    /// - Note: The frequency resolution will be `sampleRate / fftSize` Hz per bin.
-    ///         For example, 48000 Hz / 16384 = ~2.93 Hz per bin.
-    init(fftSize: Int = 4096, forTesting: Bool = false) {
-        self.fftSize = fftSize
+    /// - Parameter forTesting: When `true`, skips all audio hardware setup
+    ///   (device enumeration, CoreAudio listeners, route-change observers).
+    ///   The FFT pipeline is fully functional — only hardware I/O is omitted.
+    ///   Default is `false`.
+    init(forTesting: Bool = false) {
         self.isForTesting = forTesting
         self.audioEngine = AVAudioEngine()
         // inputNode is intentionally not accessed here — accessing it in init touches the
