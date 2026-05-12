@@ -99,6 +99,9 @@ extension TapToneAnalyzer {
     /// RMS path.  The captured spectrum for guitar is then assembled via
     /// ``startGuitarGatedCapture()``.
     func onRmsLevelChanged(_ levelDB: Float) {
+        if fftAnalyzer.isPlayingFile {
+            TAP_DEBUG("onRmsLevel", "FILE | levelDB=\(String(format: "%.2f", levelDB)) isDetecting=\(isDetecting) isPaused=\(isDetectionPaused) isComplete=\(isMeasurementComplete)")
+        }
         guard isDetecting && !isDetectionPaused && !isMeasurementComplete else {
             return
         }
@@ -150,10 +153,8 @@ extension TapToneAnalyzer {
         //                       headroom = tapDetectionThreshold - noiseFloorEstimate,
         //                       clamped to at least 6 dB so there is always a gap to cross.
         //
-        // NOTE: Per-chunk ABSOLUTE/RELATIVE/HYSTERESIS TAP_DEBUG log lines were
-        // removed — they fired ~43 Hz and drowned out meaningful events.  Edge
-        // events (RISING / FALLING / SIGNAL SETTLED) and gated-capture events
-        // provide the diagnostic signal at the rate that actually matters.
+        // NOTE: Per-chunk TAP_DEBUG log lines restored for file playback only
+        // to diagnose intermittent gated-capture failures.
         let effectiveRisingThreshold: Float
         let effectiveFallingThreshold: Float
         if useRelativeDetection {
@@ -164,9 +165,15 @@ extension TapToneAnalyzer {
             let headroom = max(tapDetectionThreshold - noiseFloorEstimate, 10.0)
             effectiveRisingThreshold  = noiseFloorEstimate + headroom
             effectiveFallingThreshold = noiseFloorEstimate + max(headroom - hysteresisMargin, 4.0)
+            if fftAnalyzer.isPlayingFile {
+                TAP_DEBUG("detectTap", "FILE_CHUNK | peakMag=\(String(format: "%.2f", peakMagnitude)) noiseFloor=\(String(format: "%.2f", noiseFloorEstimate)) headroom=\(String(format: "%.1f", headroom)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAbove=\(isAboveThreshold)")
+            }
         } else {
             effectiveRisingThreshold  = tapDetectionThreshold
             effectiveFallingThreshold = tapDetectionThreshold - hysteresisMargin
+            if fftAnalyzer.isPlayingFile {
+                TAP_DEBUG("detectTap", "FILE_CHUNK | peakMag=\(String(format: "%.2f", peakMagnitude)) absThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAbove=\(isAboveThreshold)")
+            }
         }
 
         // Check if we're still in warm-up period (prevents false detections on startup)

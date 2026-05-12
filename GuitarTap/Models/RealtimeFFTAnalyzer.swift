@@ -500,6 +500,28 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// post-start diagnostic to determine whether to warn about missing buffers.
     var engineStartTime: Date?
     
+    // MARK: - Testing Support
+
+    /// When `true`, the analyzer was created via ``forTesting(fftSize:)`` and has
+    /// no audio hardware wired.  Checked by `deinit` to skip hardware teardown and
+    /// by `start()`/`stop()` to short-circuit engine operations.
+    /// Mirrors Python ``RealtimeFFTAnalyzer.for_testing()`` which sets ``stream = None``.
+    private(set) var isForTesting: Bool = false
+
+    /// Creates a `RealtimeFFTAnalyzer` suitable for unit testing.
+    ///
+    /// The returned instance has a fully functional FFT pipeline (vDSP setup,
+    /// window, buffers, queues) but **no audio hardware**: no `AVAudioEngine`
+    /// start, no device enumeration, no CoreAudio/route-change listeners.
+    /// Use ``processFileData(samples:sampleRate:fileName:)`` to feed audio.
+    ///
+    /// Mirrors Python ``RealtimeFFTAnalyzer.for_testing()``.
+    ///
+    /// - Parameter fftSize: FFT window size (power of 2). Default 16384.
+    static func forTesting(fftSize: Int = 16384) -> RealtimeFFTAnalyzer {
+        return RealtimeFFTAnalyzer(fftSize: fftSize, forTesting: true)
+    }
+
     // MARK: - Initialization
     
     /// Creates a new real-time FFT analyzer with specified configuration.
@@ -508,11 +530,15 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///   - fftSize: The size of the FFT window. Must be a power of 2. Larger values provide
     ///              better frequency resolution but slower time response. Default is 4096.
     ///              Common values: 2048, 4096, 8192, 16384
+    ///   - forTesting: When `true`, skips all audio hardware setup (device enumeration,
+    ///                 CoreAudio listeners, route-change observers). The FFT pipeline is
+    ///                 fully functional — only hardware I/O is omitted. Default is `false`.
     ///
     /// - Note: The frequency resolution will be `sampleRate / fftSize` Hz per bin.
     ///         For example, 48000 Hz / 16384 = ~2.93 Hz per bin.
-    init(fftSize: Int = 4096) {
+    init(fftSize: Int = 4096, forTesting: Bool = false) {
         self.fftSize = fftSize
+        self.isForTesting = forTesting
         self.audioEngine = AVAudioEngine()
         // inputNode is intentionally not accessed here — accessing it in init touches the
         // audio hardware and triggers -10877 (kAudioUnitErr_Unauthorized) on macOS when
@@ -544,6 +570,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         // Note: Don't call updateFrequencyBins() or updateMetrics() here
         // because actualSampleRate is still 0. They will be called in start()
         // after the engine is running and actualSampleRate is known.
+
+        // Skip all hardware setup when created for testing.
+        // Mirrors Python for_testing() which sets stream = None and skips
+        // _start_hotplug_monitor() and sd.InputStream() creation.
+        guard !forTesting else { return }
         
         // Load available audio input devices
         // Note: This will trigger selectedInputDevice didSet which loads device-specific calibration
@@ -567,10 +598,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     /// Cleans up resources when the analyzer is deallocated
     deinit {
-        stop()
+        if !isForTesting {
+            stop()
+        }
         if let setup = fftSetup {
             vDSP_DFT_DestroySetup(setup)
         }
+
+        guard !isForTesting else { return }
 
         #if os(macOS)
         unregisterMacOSHardwareListener()

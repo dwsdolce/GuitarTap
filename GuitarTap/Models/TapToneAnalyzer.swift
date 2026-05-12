@@ -81,6 +81,84 @@ import Combine
 /// - SeeAlso: ``TapToneMeasurement`` for the serialisable measurement record.
 final class TapToneAnalyzer: ObservableObject {
 
+    // MARK: - Testing Support
+
+    /// Creates a `TapToneAnalyzer` wired for file-playback testing.
+    ///
+    /// The returned instance has the full pipeline connected (Combine
+    /// subscriptions, raw-sample handler, level-crossing handler) but no
+    /// audio hardware.  Use ``playFileForTesting(url:measurementType:numberOfTaps:)``
+    /// to feed a WAV file through the pipeline.
+    ///
+    /// Mirrors Python ``TapToneAnalyzer.for_testing()``.
+    ///
+    /// - Parameter fftSize: FFT window size (power of 2). Default 16384.
+    static func forTesting(fftSize: Int = 16384) -> TapToneAnalyzer {
+        let fft = RealtimeFFTAnalyzer.forTesting(fftSize: fftSize)
+        return TapToneAnalyzer(fftAnalyzer: fft)
+    }
+
+    /// Feeds a WAV file through the full analysis pipeline for testing.
+    ///
+    /// This is the test-only equivalent of the view-layer `openAudioFile(_:)`.
+    /// It configures the measurement type, starts a tap sequence with warmup
+    /// skipped, pre-fills the pre-roll buffer with silence, and synchronously
+    /// processes all audio through `processFileData`.
+    ///
+    /// Mirrors Python ``TapToneAnalyzer.play_file_for_testing()``.
+    ///
+    /// - Parameters:
+    ///   - url: URL of the audio file (WAV, AIFF, CAF, etc.).
+    ///   - measurementType: The measurement type to configure before playback.
+    ///   - numberOfTaps: Number of taps to detect (guitar mode). Default 1.
+    /// - Throws: If the audio file cannot be read.
+    func playFileForTesting(url: URL, measurementType: MeasurementType, numberOfTaps: Int = 1) throws {
+        // 1. Configure measurement type and tap count.
+        TapDisplaySettings.measurementType = measurementType
+        self.numberOfTaps = numberOfTaps
+
+        // 2. Start the tap sequence with warmup skipped (deterministic file audio).
+        startTapSequence(skipWarmup: true)
+
+        // 3. Read the audio file.
+        let (monoSamples, fileSampleRate) = try RealtimeFFTAnalyzer.readAudioFileAsMonoFloat32(url: url)
+
+        // 4. Set the sample rate so gatedCaptureSamples is computed correctly
+        //    when a tap fires.  Do NOT pre-fill the pre-roll buffer with zeros —
+        //    startTapSequence already cleared it to [], and it will fill naturally
+        //    with real audio as chunks arrive through accumulateGatedSamples.
+        //    Pre-filling with zeros dilutes the gated capture signal by ~50%,
+        //    suppressing the spectral magnitude by ~6 dB.
+        mpmSampleRate = fileSampleRate
+
+        // 5. Configure @Published state and dispatch processFileData to a
+        //    background queue — exactly as startFromFile does in the real app.
+        //    The main run loop must keep spinning so that Combine sinks
+        //    (.receive(on: DispatchQueue.main)) can deliver FFT frames to
+        //    onFftFrame → tap detection → gated capture → finishGatedFFTCapture.
+        let fileName = url.deletingPathExtension().lastPathComponent
+        fftAnalyzer.prepareForFilePlayback(sampleRate: fileSampleRate, fileName: fileName)
+
+        let done = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async { [fftAnalyzer] in
+            fftAnalyzer.processFileData(
+                samples: monoSamples,
+                sampleRate: fileSampleRate,
+                fileName: fileName
+            )
+            done.signal()
+        }
+
+        // Spin the main run loop until processFileData finishes, so
+        // DispatchQueue.main.async blocks (Combine sinks, finishGatedFFTCapture)
+        // are drained during processing — matching the real app's threading.
+        while done.wait(timeout: .now()) == .timedOut {
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+        }
+        // One final drain to pick up any trailing main-queue blocks.
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+    }
+
     // MARK: - Dependencies
 
     /// The underlying real-time FFT engine that delivers spectrum frames and input-level events.
@@ -847,6 +925,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// Always written on the audio queue; read once at ``startGatedCapture(phase:)``.
     var preRollBuffer: [Float] = []
 
+    // initializePreRollBuffer was removed — pre-filling the pre-roll with
+    // zeros diluted the gated capture signal by ~50%, suppressing spectral
+    // magnitude by ~6 dB.  The pre-roll buffer now starts empty (cleared by
+    // startTapSequence) and fills naturally with real audio as chunks arrive.
+
     // MARK: - Noise Floor Estimation (Plate / Brace Modes)
 
     /// Exponential moving average of `inputLevelDB`, used as the ambient noise-floor
@@ -1047,18 +1130,18 @@ final class TapToneAnalyzer: ObservableObject {
         // preRollBuffer) and startFromFile (which stops the engine), mic
         // audio leaks into the ring buffer via accumulateGatedSamples.
         //
-        // Pre-fill with zeros (silence) rather than leaving empty, matching
-        // Python tap_tone_analyzer_control.py line 539:
-        //   self._pre_roll_buf = [0.0] * pre_roll_count
-        // This ensures the first tap's gated capture sees a full pre-roll
-        // window.  The audio before the first tap in a file is silence, so
-        // zero-padding is the correct content.
+        // Clear the pre-roll buffer after the engine stops and the audio queue
+        // is drained, so any mic noise that leaked in between startTapSequence
+        // (which clears preRollBuffer) and the engine stop is flushed.
+        // Do NOT pre-fill with zeros — the buffer fills naturally with real
+        // audio as file chunks arrive through accumulateGatedSamples.
+        // Pre-filling with zeros dilutes the gated capture signal by ~50%,
+        // suppressing the spectral magnitude by ~6 dB.
         fftAnalyzer.postEngineStopHandler = { [weak self] in
             guard let self else { return }
-            let count = self.preRollSamples
-            TAP_DEBUG("file_playback", "POST_ENGINE_STOP_HANDLER | preRollSamples=\(count) mpmSampleRate=\(Int(self.mpmSampleRate)) preRollBefore=\(self.preRollBuffer.count)")
+            TAP_DEBUG("file_playback", "POST_ENGINE_STOP_HANDLER | mpmSampleRate=\(Int(self.mpmSampleRate)) preRollBefore=\(self.preRollBuffer.count)")
             self.mpmLock.lock()
-            self.preRollBuffer = [Float](repeating: 0, count: count)
+            self.preRollBuffer = []
             self.mpmLock.unlock()
             TAP_DEBUG("file_playback", "POST_ENGINE_STOP_HANDLER_DONE | preRollAfter=\(self.preRollBuffer.count)")
         }
@@ -1090,23 +1173,23 @@ final class TapToneAnalyzer: ObservableObject {
         // Dispatches to main thread to call onRmsLevelChanged, matching
         // Python's Qt.QueuedConnection (cross-thread → main thread).
         //
-        // During file playback: synchronous dispatch so every chunk's RMS
-        // reaches detectTap before the next chunk pumps (Python's Qt event
-        // loop processes the queued signal during time.sleep between chunks).
+        // Always use async dispatch to avoid deadlock.  A previous attempt
+        // used DispatchQueue.main.sync during file playback so tap detection
+        // ran in lockstep with the audio pump, but this deadlocks when the
+        // user opens a second file: startFromFile (main thread) calls
+        // audioProcessingQueue.sync{} to drain, while processRawSamples
+        // (audioProcessingQueue) is stuck in DispatchQueue.main.sync waiting
+        // for the blocked main thread.
         //
-        // During live mic: async dispatch to avoid blocking the real-time
-        // audio thread (same effective latency as before — ~23ms at 1024
-        // samples / 44.1kHz, well within one chunk interval).
+        // Async dispatch is safe because:
+        //  - The main queue is serial, so RMS updates arrive in order.
+        //  - processFileData sleeps chunkDuration between chunks, giving
+        //    the main run loop time to drain queued blocks.
+        //  - Tap detection sees the same sequence of values, just with
+        //    negligible (~1 chunk) latency.
         fftAnalyzer.rmsLevelHandler = { [weak self] levelDB in
-            guard let self else { return }
-            if self.fftAnalyzer.isPlayingFile {
-                DispatchQueue.main.sync {
-                    self.onRmsLevelChanged(levelDB)
-                }
-            } else {
-                DispatchQueue.main.async { [weak self] in
-                    self?.onRmsLevelChanged(levelDB)
-                }
+            DispatchQueue.main.async { [weak self] in
+                self?.onRmsLevelChanged(levelDB)
             }
         }
 

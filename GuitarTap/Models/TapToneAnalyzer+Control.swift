@@ -150,7 +150,10 @@ extension TapToneAnalyzer {
         //   • isMeasurementComplete = false — allows detectTap's peak-analysis path
         //   • isDetecting = true            — allows detectTap to run
         //   • analyzerStartTime             — controls the warm-up gate
-        //   • isAboveThreshold = false      — ensures first tap is a rising edge
+        //   • isAboveThreshold               — false for live (first tap = rising edge),
+        //                                     true for file playback (require falling
+        //                                     edge first so opening decay doesn't
+        //                                     trigger a false first tap)
         //   • justExitedWarmup = false       — will be set true as warm-up ends
         //   • gatedCaptureActive / preRollBuffer — clean capture state
         // All are @Published / @MainActor-safe to write from the main thread.
@@ -187,7 +190,15 @@ extension TapToneAnalyzer {
         // the audio queue can fire between isDetecting = true and the async
         // block running — starting an orphaned gated capture that consumes
         // samples meant for the real first tap.
-        isAboveThreshold = false
+        //
+        // For file playback (skipWarmup): start with isAboveThreshold = true so
+        // the detector requires a falling edge (signal drops below threshold)
+        // before any rising edge can fire.  This prevents the file's opening
+        // audio — which may be mid-decay from a prior tap and already above
+        // threshold — from immediately triggering a false first tap that
+        // captures garbage.  The decay will naturally fall below threshold,
+        // then the real first tap attack will produce the genuine rising edge.
+        isAboveThreshold = skipWarmup
         justExitedWarmup = false
 
         isDetecting = true
@@ -225,9 +236,13 @@ extension TapToneAnalyzer {
             // so the audio-queue crossing handler starts with clean state, a
             // full pre-roll window, and no stale threshold-crossing flag.
 
-            // Seed the noise-floor estimate from the current ambient level so the first
-            // relative-threshold calculation is accurate immediately.
-            self.noiseFloorEstimate  = self.fftAnalyzer.inputLevelDB
+            // Seed the noise-floor estimate so the first relative-threshold
+            // calculation has a reasonable baseline.
+            // For file playback (skipWarmup), use -100 dB (silence) so the
+            // file's audio — even a quiet ring-out — will cross the rising
+            // threshold.  Mic ambient noise must not influence file playback.
+            // For live mic, seed from the current ambient level.
+            self.noiseFloorEstimate = skipWarmup ? -100.0 : self.fftAnalyzer.inputLevelDB
 
             self.currentDecayTime    = nil
             self.peakMagnitudeHistory = []

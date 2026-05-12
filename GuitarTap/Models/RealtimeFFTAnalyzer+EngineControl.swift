@@ -469,6 +469,131 @@ extension RealtimeFFTAnalyzer {
     
     // MARK: - WAV File Playback
 
+    /// Processes pre-read mono audio samples through the FFT pipeline.
+    ///
+    /// This is the data-processing core of ``startFromFile(_:completion:)``,
+    /// factored out so tests can drive the pipeline without audio hardware.
+    /// The chunk-pacing loop, partial flush, and ``preMicRestartHandler`` call
+    /// are all included.  Mic stop/restart and UI state management are NOT.
+    ///
+    /// Mirrors Python ``RealtimeFFTAnalyzer.process_file_data()``.
+    ///
+    /// - Parameters:
+    ///   - samples: Mono Float32 PCM samples.
+    ///   - sampleRate: Sample rate in Hz.
+    ///   - fileName: Display name for status/logging.
+    /// Configures @Published and internal state for file playback.
+    ///
+    /// MUST be called on the **main thread** because it writes `@Published`
+    /// properties (`actualSampleRate`, `magnitudes`, `peakMagnitude`,
+    /// `isPlayingFile`, `playingFileName`).  ``startFromFile(_:completion:)``
+    /// calls this before dispatching ``processFileData`` to a background queue.
+    /// ``playFileForTesting`` calls this on whatever thread it runs on (main
+    /// in tests).
+    ///
+    /// - Parameters:
+    ///   - sampleRate: The file's sample rate in Hz.
+    ///   - fileName: Display name for logging/status.
+    func prepareForFilePlayback(sampleRate: Double, fileName: String) {
+        // Reset ordinals so frames start at #1.
+        fftFrameCounter = 0
+        samplesConsumed = 0
+
+        actualSampleRate = sampleRate
+        updateFrequencyBins()
+        updateMetrics()
+
+        magnitudes = [Float](repeating: -100, count: fftSize / 2)
+        peakMagnitude = -100
+        lastPublishTime = 0
+        isPlayingFile = true
+        playingFileName = fileName
+    }
+
+    func processFileData(samples: [Float], sampleRate: Double, fileName: String) {
+        let frameCount = samples.count
+
+        let chunkSize = 1024
+        let fileDuration = Double(frameCount) / sampleRate
+        let chunkDuration = Double(chunkSize) / sampleRate
+        let myGeneration = filePlaybackGeneration
+        let capturedFftSize = fftSize
+
+        // ── FILE_DEBUG: file-playback START log ──────────────────────────
+        let _expectedFftFrames = frameCount / fftSize
+        TAP_DEBUG("file_playback", "START | path=\(fileName) samples=\(frameCount) rate=\(Int(sampleRate))Hz chunksize=\(chunkSize) chunkDuration=\(String(format: "%.1f", chunkDuration * 1000))ms expectedDuration=\(String(format: "%.3f", fileDuration))s fftSize=\(fftSize) expectedFftFrames=\(_expectedFftFrames)")
+
+        let t0 = Date()
+        var idx = 0
+        var chunksPumped = 0
+
+        while idx < frameCount {
+            // Check if this worker has been superseded.
+            guard filePlaybackGeneration == myGeneration else {
+                TAP_DEBUG("file_playback", "INTERRUPTED | idx=\(idx)/\(frameCount) chunksPumped=\(chunksPumped)")
+                return
+            }
+
+            let end = min(idx + chunkSize, frameCount)
+            let chunk = Array(samples[idx..<end])
+            audioProcessingQueue.sync {
+                processRawSamples(chunk)
+            }
+            idx = end
+            chunksPumped += 1
+            Thread.sleep(forTimeInterval: chunkDuration)
+        }
+
+        let elapsed = Date().timeIntervalSince(t0)
+        TAP_DEBUG("file_playback", "END | chunksPumped=\(chunksPumped) samplesPumped=\(idx) elapsed=\(String(format: "%.3f", elapsed))s expected=\(String(format: "%.3f", fileDuration))s realtimeRatio=\(String(format: "%.3f", elapsed / max(fileDuration, 1e-9)))x")
+
+        // Guard: if a new file was opened while we were sleeping, skip cleanup.
+        guard filePlaybackGeneration == myGeneration else { return }
+
+        // ── Post-playback: flush partial buffer + gated capture ──────────
+
+        // 1. Force-flush any partial audio that accumulated in inputBuffer.
+        TAP_DEBUG("file_playback", "PARTIAL_FLUSH — draining inputBuffer")
+        audioProcessingQueue.sync {
+            var partial: [Float] = []
+            bufferAccessQueue.sync {
+                partial = inputBuffer
+                inputBuffer.removeAll()
+            }
+            TAP_DEBUG("file_playback", "PARTIAL_FLUSH | partialLen=\(partial.count) fftSize=\(capturedFftSize)")
+            if !partial.isEmpty {
+                if partial.count < capturedFftSize {
+                    partial.append(contentsOf: [Float](repeating: 0, count: capturedFftSize - partial.count))
+                }
+                TAP_DEBUG("file_playback", "PARTIAL_FLUSH_EMIT | emitting FFT frame with \(partial.count) samples")
+                performFFT(on: partial)
+                TAP_DEBUG("file_playback", "PARTIAL_FLUSH_EMIT_DONE")
+            }
+        }
+
+        // 2. Flush any active gated capture.
+        //    Must run on main thread because finishGatedFFTCapture
+        //    updates @Published properties.  Synchronous so the flush
+        //    completes before the caller proceeds.
+        //
+        //    Safe from deadlock here: this runs on a global queue, not on
+        //    audioProcessingQueue.  The main thread can only be blocked at
+        //    audioProcessingQueue.sync{} in startFromFile, but the
+        //    filePlaybackGeneration guard (line 532/551) causes this worker
+        //    to exit before reaching this point when a second file is opened.
+        TAP_DEBUG("file_playback", "PRE_MIC_RESTART — calling preMicRestartHandler")
+        let flushAndClear = { [self] in
+            preMicRestartHandler?()
+            isPlayingFile = false
+        }
+        if Thread.isMainThread {
+            flushAndClear()
+        } else {
+            DispatchQueue.main.sync { flushAndClear() }
+        }
+        TAP_DEBUG("file_playback", "PRE_MIC_RESTART_DONE")
+    }
+
     /// Starts the audio engine fed from an audio file (WAV, AIFF, CAF, M4A) instead of the
     /// microphone.  The file is routed through the exact same `processAudioBuffer` → FFT →
     /// tap-detection pipeline as the live mic path.
@@ -515,129 +640,40 @@ extension RealtimeFFTAnalyzer {
         postEngineStopHandler?()
         TAP_DEBUG("file_playback", "POST_ENGINE_STOP_DONE")
 
-        // Reset ordinals so a new file's frames start at #1.
-        fftFrameCounter = 0
-        samplesConsumed = 0
-
         // ── 2. Open and read the audio file into a mono Float32 array. ───
-        // Uses ExtAudioFile which supports all Core Audio formats (WAV, AIFF,
-        // CAF, MP3, AAC, ALAC, FLAC, etc.) and handles format conversion and
-        // mono downmix internally.  Mirrors Python's soundfile.read() behavior.
         let (monoSamples, fileSampleRate) = try Self.readAudioFileAsMonoFloat32(url: url)
-        let frameCount = monoSamples.count
 
-        TAP_DEBUG("file_playback", "FILE_READ | frames=\(frameCount) rate=\(Int(fileSampleRate))")
+        TAP_DEBUG("file_playback", "FILE_READ | frames=\(monoSamples.count) rate=\(Int(fileSampleRate))")
 
-        actualSampleRate = fileSampleRate
-
-        // ── 3. Configure state before launching the worker. ──────────────
-        updateFrequencyBins()
-        updateMetrics()
-
-        magnitudes = [Float](repeating: -100, count: fftSize / 2)
-        peakMagnitude = -100
-        lastPublishTime = 0
+        // ── 2b. Configure @Published state on main thread before dispatch. ─
+        let fileName = url.deletingPathExtension().lastPathComponent
+        prepareForFilePlayback(sampleRate: fileSampleRate, fileName: fileName)
         isRunning = true
-        isPlayingFile = true
-        playingFileName = url.deletingPathExtension().lastPathComponent
         engineStartTime = Date()
 
-        let chunkSize = 1024
-        let fileDuration = Double(frameCount) / fileSampleRate
-        let chunkDuration = Double(chunkSize) / fileSampleRate
+        let capturedCompletion = completion
         let myGeneration = filePlaybackGeneration
 
-        // ── FILE_DEBUG: file-playback START log ──────────────────────────
-        let _expectedFftFrames = frameCount / fftSize
-        TAP_DEBUG("file_playback", "START | path=\(playingFileName ?? "") samples=\(frameCount) rate=\(Int(fileSampleRate))Hz chunksize=\(chunkSize) chunkDuration=\(String(format: "%.1f", chunkDuration * 1000))ms expectedDuration=\(String(format: "%.3f", fileDuration))s fftSize=\(fftSize) expectedFftFrames=\(_expectedFftFrames)")
-
-        // ── 4. Spawn a background worker that paces chunks at real time. ─
-        // Mirrors Python _playback_worker: sleep(chunk_duration) between
-        // chunks so TapToneAnalyzer's tap detection and gated capture see
-        // the same timing as live audio.  Unlike the old AVAudioEngine path,
-        // samples are injected directly via processRawSamples — no engine
-        // dithering or resampling can alter the signal.
-        let capturedFftSize = fftSize
-        let capturedCompletion = completion
-
+        // ── 3. Spawn a background worker that calls processFileData. ─────
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let t0 = Date()
-            var idx = 0
-            var chunksPumped = 0
-
-            while idx < frameCount {
-                guard let self else { return }
-                // Check if this worker has been superseded.
-                guard self.filePlaybackGeneration == myGeneration else {
-                    TAP_DEBUG("file_playback", "INTERRUPTED | idx=\(idx)/\(frameCount) chunksPumped=\(chunksPumped)")
-                    return
-                }
-
-                let end = min(idx + chunkSize, frameCount)
-                let chunk = Array(monoSamples[idx..<end])
-                self.audioProcessingQueue.sync {
-                    self.processRawSamples(chunk)
-                }
-                idx = end
-                chunksPumped += 1
-                Thread.sleep(forTimeInterval: chunkDuration)
-            }
-
             guard let self else { return }
 
-            let elapsed = Date().timeIntervalSince(t0)
-            TAP_DEBUG("file_playback", "END | chunksPumped=\(chunksPumped) samplesPumped=\(idx) elapsed=\(String(format: "%.3f", elapsed))s expected=\(String(format: "%.3f", fileDuration))s realtimeRatio=\(String(format: "%.3f", elapsed / max(fileDuration, 1e-9)))x")
+            self.processFileData(
+                samples: monoSamples,
+                sampleRate: fileSampleRate,
+                fileName: url.deletingPathExtension().lastPathComponent
+            )
 
-            // Guard: if a new file was opened while we were sleeping, skip cleanup.
+            // Guard: if a new file was opened during processing, skip mic restart.
             guard self.filePlaybackGeneration == myGeneration else { return }
 
-            // ── Post-playback: flush partial buffer, then restart mic ────
-            // The partial flush and preMicRestartHandler MUST run before the
-            // mic restarts, otherwise mic noise fills the gated capture window.
-            // Python does all of this synchronously on the worker thread before
-            // calling stream.start().  We mirror that here: flush + handler run
-            // on this background thread, then only the UI state update and mic
-            // restart are dispatched to main.
-
-            // 1. Force-flush any partial audio that accumulated in inputBuffer.
-            TAP_DEBUG("file_playback", "PARTIAL_FLUSH — draining inputBuffer")
-            self.audioProcessingQueue.sync {
-                var partial: [Float] = []
-                self.bufferAccessQueue.sync {
-                    partial = self.inputBuffer
-                    self.inputBuffer.removeAll()
-                }
-                TAP_DEBUG("file_playback", "PARTIAL_FLUSH | partialLen=\(partial.count) fftSize=\(capturedFftSize)")
-                if !partial.isEmpty {
-                    if partial.count < capturedFftSize {
-                        partial.append(contentsOf: [Float](repeating: 0, count: capturedFftSize - partial.count))
-                    }
-                    TAP_DEBUG("file_playback", "PARTIAL_FLUSH_EMIT | emitting FFT frame with \(partial.count) samples")
-                    self.performFFT(on: partial)
-                    TAP_DEBUG("file_playback", "PARTIAL_FLUSH_EMIT_DONE")
-                }
-            }
-
-            // 2. Flush any active gated capture before mic restart.
-            //    Must run on main thread because finishGatedFFTCapture
-            //    updates @Published properties.  Synchronous so the flush
-            //    completes before mic restart.  Mirrors Python where the
-            //    flush runs on the playback worker but Qt signal delivery
-            //    is queued to main.
-            TAP_DEBUG("file_playback", "PRE_MIC_RESTART — calling preMicRestartHandler")
-            DispatchQueue.main.sync {
-                self.preMicRestartHandler?()
-            }
-            TAP_DEBUG("file_playback", "PRE_MIC_RESTART_DONE")
-
-            // 3. UI state + mic restart on main thread.
+            // UI state + mic restart on main thread.
             TAP_DEBUG("file_playback", "MIC_RESTART — dispatching to main thread")
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 guard self.filePlaybackGeneration == myGeneration else { return }
 
-                TAP_DEBUG("file_playback", "MIC_RESTART — main thread: isPlayingFile=false, starting mic")
-                self.isPlayingFile = false
+                TAP_DEBUG("file_playback", "MIC_RESTART — main thread: starting mic")
 
                 // Switch back to live mic.
                 try? self.start()
