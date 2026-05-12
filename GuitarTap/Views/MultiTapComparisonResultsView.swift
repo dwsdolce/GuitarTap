@@ -41,12 +41,8 @@ struct MultiTapComparisonResultsView: View {
             // Per-tap rows
             ForEach(Array(tapEntries.enumerated()), id: \.offset) { index, entry in
                 let color = palette[index % palette.count]
-                let selectedIDs = Set(entry.selectedPeakIDs)
-                let selectedPeaks = entry.peaks.filter { selectedIDs.contains($0.id) }
-                let modeFreqs = TapToneAnalyzer.resolvedModePeaks(
-                    peaks: selectedPeaks,
-                    guitarType: entry.snapshot.guitarType ?? guitarType
-                )
+                let modeFreqs = entry.resolvedModePeaks(guitarType: guitarType)
+                    .mapValues { $0.frequency }
                 dataRow(
                     color: color,
                     label: "Tap \(entry.tapIndex)",
@@ -62,7 +58,7 @@ struct MultiTapComparisonResultsView: View {
             let avgModeFreqs = TapToneAnalyzer.resolvedModePeaks(
                 peaks: averagedPeaks,
                 guitarType: guitarType
-            )
+            ).mapValues { $0.frequency }
             dataRow(
                 color: avgColor,
                 label: "Averaged",

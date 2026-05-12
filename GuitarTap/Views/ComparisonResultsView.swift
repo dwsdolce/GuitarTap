@@ -29,7 +29,7 @@ struct ComparisonResultsView: View {
                 let modeFreqs = TapToneAnalyzer.resolvedModePeaks(
                     peaks: entry.peaks,
                     guitarType: entry.guitarType
-                )
+                ).mapValues { $0.frequency }
                 dataRow(entry: entry, modeFreqs: modeFreqs)
                 if index < spectra.count - 1 {
                     Divider()

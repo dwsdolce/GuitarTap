@@ -512,9 +512,9 @@ struct MeasurementsListView: View {
         let modeFrequencies = cmpEntries.map { entry in
             let c = entry.colorComponents
             let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
-            let modeFreqs = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
+            let modePeaks = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
             return (label: entry.label, color: color,
-                    air: modeFreqs[.air], top: modeFreqs[.top], back: modeFreqs[.back])
+                    air: modePeaks[.air]?.frequency, top: modePeaks[.top]?.frequency, back: modePeaks[.back]?.frequency)
         }
 
         let cmpReportData = ComparisonPDFReportData(
@@ -548,13 +548,13 @@ struct MeasurementsListView: View {
         let modeFrequencies = entries.map { entry in
             let c = entry.colorComponents
             let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
-            let modeFreqs = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
+            let modePeaks = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
             return (
                 label: entry.label,
                 color: color,
-                air:  modeFreqs[.air],
-                top:  modeFreqs[.top],
-                back: modeFreqs[.back]
+                air:  modePeaks[.air]?.frequency,
+                top:  modePeaks[.top]?.frequency,
+                back: modePeaks[.back]?.frequency
             )
         }
 

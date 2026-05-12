@@ -243,26 +243,13 @@ struct FilePlaybackRegressionTests {
         #expect(abs(backPeak.magnitude - Self.guitarAvgBackMag) < magTolerance,
                 "Avg Back mag: expected \(Self.guitarAvgBackMag) ±\(magTolerance), got \(backPeak.magnitude)")
 
-        // 3. Per-tap peaks — mirror MultiTapComparisonResultsView:
-        //    filter entry.peaks by selectedPeakIDs, then resolve modes via
-        //    resolvedModePeaks + classifyAll (same code paths as the UI).
+        // 3. Per-tap peaks — uses TapEntry.resolvedModePeaks(), the same
+        //    code path as MultiTapComparisonResultsView and PDF export.
         for (index, entry) in sut.tapEntries.enumerated() {
             let expected = Self.guitarPerTap[index]
             let tapLabel = "Tap \(index + 1)"
 
-            let selectedIDs = Set(entry.selectedPeakIDs)
-            let selectedPeaks = entry.peaks.filter { selectedIDs.contains($0.id) }
-
-            // classifyAll gives us UUID → GuitarMode so we can look up the full peak object
-            let modeMap = GuitarMode.classifyAll(selectedPeaks, guitarType: TapDisplaySettings.guitarType)
-
-            // Build mode → ResonantPeak (highest magnitude per mode, matching resolvedModePeaks logic)
-            var modePeaks: [GuitarMode: ResonantPeak] = [:]
-            for peak in selectedPeaks {
-                guard let mode = modeMap[peak.id], mode != .unknown else { continue }
-                if let existing = modePeaks[mode], peak.magnitude <= existing.magnitude { continue }
-                modePeaks[mode] = peak
-            }
+            let modePeaks = entry.resolvedModePeaks()
 
             // Air
             if let air = modePeaks[.air] {

@@ -57,6 +57,24 @@ struct TapEntry: Codable, Identifiable {
     /// UUIDs of the auto-selected peaks for this tap (one per guitar mode where found).
     /// Recomputed alongside `peaks` when the peak threshold changes.
     var selectedPeakIDs: [UUID]
+
+    /// Resolves the strongest peak per guitar mode from this tap's selected peaks.
+    ///
+    /// Filters `peaks` by `selectedPeakIDs`, classifies via `GuitarMode.classifyAll`,
+    /// and returns the highest-magnitude peak per mode.  Used by the multi-tap
+    /// comparison table, PDF export, and regression tests.
+    ///
+    /// - Parameter guitarType: Override guitar type for classification.
+    ///   Defaults to the snapshot's stored guitar type.
+    /// - Returns: A dictionary mapping each identified `GuitarMode` to its strongest `ResonantPeak`.
+    func resolvedModePeaks(guitarType: GuitarType? = nil) -> [GuitarMode: ResonantPeak] {
+        let selectedIDs = Set(selectedPeakIDs)
+        let selected = peaks.filter { selectedIDs.contains($0.id) }
+        return TapToneAnalyzer.resolvedModePeaks(
+            peaks: selected,
+            guitarType: guitarType ?? snapshot.guitarType
+        )
+    }
 }
 
 // MARK: - ComparisonEntry

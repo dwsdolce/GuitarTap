@@ -714,33 +714,32 @@ extension TapToneAnalyzer {
         identifiedModes = currentPeaks.map { (peak: $0, mode: modeMap[$0.id] ?? .unknown) }
     }
 
-    /// Returns a map from `GuitarMode` to peak frequency for the given peaks,
+    /// Returns a map from `GuitarMode` to the strongest `ResonantPeak` for each mode,
     /// using the provided guitar type for classification boundaries.
     ///
-    /// Used by `ComparisonResultsView` to populate the Air / Top / Back columns.
-    /// When multiple peaks classify to the same mode, the highest-magnitude one wins.
+    /// Used by comparison views, PDF export, and regression tests to resolve
+    /// Air / Top / Back peaks.  When multiple peaks classify to the same mode,
+    /// the highest-magnitude one wins.
     ///
     /// - Parameters:
     ///   - peaks: The selected peaks for one comparison entry.
     ///   - guitarType: The guitar type saved with that measurement (nil uses app default).
-    /// - Returns: A dictionary mapping each identified `GuitarMode` to its peak frequency.
+    /// - Returns: A dictionary mapping each identified `GuitarMode` to its strongest `ResonantPeak`.
     static func resolvedModePeaks(
         peaks: [ResonantPeak],
         guitarType: GuitarType?
-    ) -> [GuitarMode: Float] {
+    ) -> [GuitarMode: ResonantPeak] {
         let modeMap: [UUID: GuitarMode]
         if let guitarType {
             modeMap = GuitarMode.classifyAll(peaks, guitarType: guitarType)
         } else {
             modeMap = GuitarMode.classifyAll(peaks)
         }
-        var result: [GuitarMode: Float] = [:]
-        var bestMagnitude: [GuitarMode: Float] = [:]
+        var result: [GuitarMode: ResonantPeak] = [:]
         for peak in peaks {
             guard let mode = modeMap[peak.id], mode != .unknown else { continue }
-            if let existing = bestMagnitude[mode], peak.magnitude <= existing { continue }
-            result[mode] = peak.frequency
-            bestMagnitude[mode] = peak.magnitude
+            if let existing = result[mode], peak.magnitude <= existing.magnitude { continue }
+            result[mode] = peak
         }
         return result
     }
