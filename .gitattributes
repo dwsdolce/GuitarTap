@@ -1,0 +1,25 @@
+# Never touch line endings on anything
+* -text
+
+# Explicitly mark binary files (no diff, no merge either)
+*.wav binary
+*.mp3 binary
+*.png binary
+*.jpg binary
+*.gif binary
+
+# Apple/Swift-specific binary additions
+*.icns binary
+*.car binary
+*.xcassets binary
+*.heic binary
+*.heif binary
+*.m4a binary
+*.caf binary
+*.aac binary
+*.framework binary
+*.bundle binary
+*.dmg binary
+*.ttf binary
+*.otf binary
+
