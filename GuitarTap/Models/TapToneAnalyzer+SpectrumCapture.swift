@@ -622,25 +622,14 @@ extension TapToneAnalyzer {
             return
         }
 
-        // Reject captures where the dominant peak is below the tap detection threshold.
-        // If the best peak found is below the threshold, the ring-out was too weak —
-        // likely a noise trigger, not a real tap — so ask the user to tap again.
-        //
-        // Exceptions (skip the magnitude gate):
-        //   - fLC (torsional mode): inherently 20–30 dB weaker than fL/fC.
-        //   - Brace mode: braces are small and stiff — their tap resonance is
-        //     inherently much quieter than a guitar top or plate, producing
-        //     dominant peaks that routinely fall below the plate/guitar threshold.
-        // In both cases the rising-edge tap trigger already proved a real strike
-        // occurred, so there is no benefit in applying an additional spectral gate.
-        let isFlcPhase = (phase == .capturingFlc || phase == .waitingForFlcTap)
-        let isBraceMode = TapDisplaySettings.measurementType == .brace
-        if !isFlcPhase && !isBraceMode && dominantPeak.magnitude < tapDetectionThreshold {
-            gtLog("⚠️ Gated FFT: dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB is below tap detection threshold (\(String(format: "%.0f", tapDetectionThreshold)) dB) — tap again")
-            statusMessage = "Signal too quiet — tap harder"
-            reEnableDetectionForNextPlateTap()
-            return
-        }
+        // The FFT magnitude gate was removed because the rising-edge RMS tap
+        // trigger has already confirmed a real physical strike before the gated
+        // FFT capture runs.  The threshold slider's VU meter shows time-domain
+        // RMS, but FFT bin magnitudes at a single frequency are a fundamentally
+        // different (and typically lower) quantity — comparing them against the
+        // same threshold caused valid taps to be rejected even when the VU meter
+        // showed the tap well above the slider.  FLC and brace modes already
+        // skipped this gate for the same reason; now all modes are consistent.
 
         gtLog("📊 Gated FFT complete: \(magnitudes.count) bins, dominant peak \(String(format: "%.1f", dominantPeak.frequency)) Hz @ \(String(format: "%.1f", dominantPeak.magnitude)) dB, phase \(phase)")
 
@@ -791,11 +780,14 @@ extension TapToneAnalyzer {
         if preferLowestSignificant {
             // For longitudinal and cross-grain taps the tap orientation physically
             // selects the plate's fundamental (lowest) resonant mode.
-            // Among Q-filtered candidates, pick the lowest-frequency one within 15 dB
-            // of the strongest. Q filtering handles thud rejection; 15 dB is tight
-            // enough to exclude distant ambient resonances while tolerating a genuine
-            // fundamental that is a bit quieter than its harmonics.
-            let thresholdDB = strongest.magnitude - 15.0
+            // Among Q-filtered candidates, pick the lowest-frequency one within 6 dB
+            // of the strongest. The previous 15 dB window admitted spurious
+            // low-frequency peaks (impact artifacts, environmental noise) that
+            // happened to pass the Q ≥ 3 filter. 6 dB matches the tolerance
+            // used in the non-preferLowest path and is tight enough to reject
+            // these while still allowing a genuine fundamental that is slightly
+            // quieter than its harmonics.
+            let thresholdDB = strongest.magnitude - 6.0
             let significant = pool.filter { $0.magnitude >= thresholdDB }
             best = significant.min(by: { $0.index < $1.index }) ?? strongest
         } else {
