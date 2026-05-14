@@ -338,7 +338,7 @@ extension TapToneAnalysisView {
         .toolbar {
             // Left: Play File, Auto dB, Crosshair, Annotations
             ToolbarItemGroup(placement: .topBarLeading) {
-                Button(action: { showingFilePicker = true }) {
+                Button(action: { showingPlayFileSheet = true }) {
                     Image(systemName: "waveform.badge.plus")
                 }
                 .tint(fft.isPlayingFile ? .orange : .blue)
@@ -441,7 +441,7 @@ extension TapToneAnalysisView {
                 .accessibilityLabel("Results")
                 .hint(HintText.showResults)
 
-                Button(action: { showingFilePicker = true }) {
+                Button(action: { showingPlayFileSheet = true }) {
                     Image(systemName: "waveform.badge.plus")
                 }
                 .tint(fft.isPlayingFile ? .orange : .blue)
@@ -713,7 +713,7 @@ extension TapToneAnalysisView {
                     .accessibilityLabel("Results")
                     .hint(HintText.showResults)
 
-                    Button(action: { showingFilePicker = true }) {
+                    Button(action: { showingPlayFileSheet = true }) {
                         Image(systemName: "waveform.badge.plus")
                     }
                     .tint(fft.isPlayingFile ? .orange : .blue)
@@ -750,7 +750,7 @@ extension TapToneAnalysisView {
                     .accessibilityLabel("Results")
                     .hint(HintText.showResults)
 
-                    Button(action: { showingFilePicker = true }) {
+                    Button(action: { showingPlayFileSheet = true }) {
                         Image(systemName: "waveform.badge.plus")
                     }
                     .tint(fft.isPlayingFile ? .orange : .blue)

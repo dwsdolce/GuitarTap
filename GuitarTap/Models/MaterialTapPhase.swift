@@ -130,6 +130,14 @@ enum MaterialTapPhase: String {
         }
     }
 
+    /// Whether the phase is actively capturing gated FFT samples.
+    var isCapturing: Bool {
+        switch self {
+        case .capturingLongitudinal, .capturingCross, .capturingFlc: return true
+        default: return false
+        }
+    }
+
     /// Abbreviated status string for display in compact UI elements such as the status bar.
     var shortStatus: String {
         switch self {

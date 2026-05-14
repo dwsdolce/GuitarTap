@@ -613,6 +613,7 @@ extension RealtimeFFTAnalyzer {
         // Keeping the original audioEngine instance preserves the AUHAL's
         // configured input-device state so start() can restart it without
         // "no object with given ID 0" errors after playback.
+        TAP_DEBUG("file_playback", "PRE_STOP | armed=\(levelCrossingArmed) prevDB=\(String(format: "%.1f", previousLevelDB))")
         inputNode?.removeTap(onBus: 0)
         audioEngine.stop()
 
@@ -623,7 +624,9 @@ extension RealtimeFFTAnalyzer {
         // Drain any processAudioBuffer / processRawSamples calls that were
         // already dispatched to audioProcessingQueue before the tap was
         // removed.  A synchronous dispatch flushes all pending work first.
+        TAP_DEBUG("file_playback", "PRE_DRAIN | armed=\(levelCrossingArmed)")
         audioProcessingQueue.sync { }
+        TAP_DEBUG("file_playback", "POST_DRAIN | armed=\(levelCrossingArmed)")
 
         // Clear the accumulation buffer so no stale mic audio is mixed into
         // the first FFT window from the file.
@@ -636,9 +639,9 @@ extension RealtimeFFTAnalyzer {
         // into the gated capture's pre-roll seed.  Python doesn't have this
         // problem because its stream.stop() runs inside start_from_file
         // before the pre-roll can accumulate anything.
-        TAP_DEBUG("file_playback", "POST_ENGINE_STOP — calling postEngineStopHandler")
+        TAP_DEBUG("file_playback", "POST_ENGINE_STOP — calling postEngineStopHandler | armed=\(levelCrossingArmed)")
         postEngineStopHandler?()
-        TAP_DEBUG("file_playback", "POST_ENGINE_STOP_DONE")
+        TAP_DEBUG("file_playback", "POST_ENGINE_STOP_DONE | armed=\(levelCrossingArmed)")
 
         // ── 2. Open and read the audio file into a mono Float32 array. ───
         let (monoSamples, fileSampleRate) = try Self.readAudioFileAsMonoFloat32(url: url)
@@ -650,6 +653,8 @@ extension RealtimeFFTAnalyzer {
         prepareForFilePlayback(sampleRate: fileSampleRate, fileName: fileName)
         isRunning = true
         engineStartTime = Date()
+
+        TAP_DEBUG("file_playback", "PRE_DISPATCH | armed=\(levelCrossingArmed) isPlayingFile=\(isPlayingFile)")
 
         let capturedCompletion = completion
         let myGeneration = filePlaybackGeneration

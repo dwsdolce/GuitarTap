@@ -170,6 +170,18 @@ extension TapToneAnalyzer {
         }
 
         guard gatedCaptureActive else {
+            // Deferred level-crossing path: a level crossing fired during
+            // file playback while the previous capture's finishGatedFFTCapture
+            // was still pending on the main thread.  The handler snapshot the
+            // pre-roll into pendingLevelCrossingPreRoll but could NOT set
+            // gatedCaptureActive (that would cascade under the stale phase).
+            // Keep accumulating audio into the pending buffer so that when
+            // startGatedCapture finally runs on the main thread, the seed
+            // contains the pre-roll + all post-crossing chunks (the actual
+            // tap energy) rather than just the pre-roll snapshot (silence).
+            if pendingLevelCrossingPreRoll != nil {
+                pendingLevelCrossingPreRoll!.append(contentsOf: samples)
+            }
             mpmLock.unlock()
             return
         }
@@ -191,6 +203,19 @@ extension TapToneAnalyzer {
             gatedAccumBuffer = []
             mpmLock.unlock()
 
+            // File-playback plate/brace: re-arm the level crossing so the
+            // next tap's rising edge is caught on the audio queue.  The
+            // levelCrossingHandler uses the deferred path during file
+            // playback — it snapshots the pre-roll into
+            // pendingLevelCrossingPreRoll instead of starting a new
+            // gatedCaptureActive, preventing the cascading-capture problem.
+            // The main thread's startGatedCapture then seeds from that
+            // snapshot when it runs.
+            let isFilePlateBrace = fftAnalyzer.isPlayingFile && phase != nil
+            if isFilePlateBrace {
+                fftAnalyzer.levelCrossingArmed = true
+            }
+
             // DIAG: log capture completion details
             let diagConsumed = fftAnalyzer.samplesConsumed
             let diagRms: Float = {
@@ -203,7 +228,23 @@ extension TapToneAnalyzer {
 
             DispatchQueue.main.async { [weak self] in
                 if let phase = phase {
-                    self?.finishGatedFFTCapture(samples: captured, sampleRate: sampleRate, phase: phase)
+                    // File-playback plate/brace: read materialTapPhase NOW
+                    // (on the main thread) rather than using the phase captured
+                    // on the audio queue at completion time.  The audio-queue
+                    // re-arm above may have let the level crossing fire before
+                    // the main thread advanced the phase, so the audio-queue
+                    // phase could be stale (e.g. still L when it should be C).
+                    // Main-thread dispatches are serialised, so by the time
+                    // THIS dispatch runs the previous tap's finishGatedFFTCapture
+                    // has already run and advanced materialTapPhase.
+                    let effectivePhase: MaterialTapPhase
+                    if isFilePlateBrace, let current = self?.materialTapPhase,
+                       current.isCapturing {
+                        effectivePhase = current
+                    } else {
+                        effectivePhase = phase
+                    }
+                    self?.finishGatedFFTCapture(samples: captured, sampleRate: sampleRate, phase: effectivePhase)
                 } else {
                     self?.finishGuitarGatedCapture(samples: captured, sampleRate: sampleRate)
                 }
@@ -271,15 +312,63 @@ extension TapToneAnalyzer {
     ///   `gatedCapturePhase` so the phase handler can be routed correctly
     ///   when the window closes.
     func startGatedCapture(phase: MaterialTapPhase) {
+        // The audio-queue level-crossing handler may have already started
+        // (and possibly already completed) the gated capture for this tap.
+        // Check lastLevelCrossingCaptureID rather than gatedCaptureActive,
+        // because during file playback the 400 ms capture window can fill
+        // and complete on the audio queue before this main-thread call runs.
         mpmLock.lock()
+        let fastStartHandled = (gatedCaptureID == lastLevelCrossingCaptureID)
+        if fastStartHandled {
+            let stillActive = gatedCaptureActive
+            let myCaptureID = gatedCaptureID
+            let currentCount = gatedAccumBuffer.count
+            mpmLock.unlock()
+
+            let windowMs = Int(TapToneAnalyzer.gatedCaptureDuration * 1000)
+            gtLog("🎯 Gated FFT capture (audio-queue fast-start, \(stillActive ? "running" : "completed")) for phase \(phase) — \(windowMs) ms window, accum \(currentCount) samples")
+
+            if stillActive {
+                // Capture still running — set up safety timeout only.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                    guard let self = self else { return }
+                    guard self.gatedCaptureID == myCaptureID else { return }
+                    guard self.gatedCaptureActive else { return }
+                    self.gatedCaptureActive = false
+                    self.mpmLock.lock()
+                    let partial = self.gatedAccumBuffer
+                    self.gatedAccumBuffer = []
+                    self.mpmLock.unlock()
+                    if !partial.isEmpty {
+                        self.finishGatedFFTCapture(samples: partial, sampleRate: self.mpmSampleRate, phase: phase)
+                    } else {
+                        gtLog("⚠️ Gated capture timeout with no samples — tap again")
+                        self.statusMessage = "No signal detected — tap again"
+                        self.reEnableDetectionForNextPlateTap()
+                    }
+                }
+            }
+            // Whether still running or already completed, don't re-seed.
+            return
+        }
+
+        // No fast-start — seed from pre-roll now (original path).
+        // During file playback the deferred level-crossing path may have
+        // captured a pre-roll snapshot at the exact audio buffer where
+        // the tap crossed the threshold.  Use that snapshot (which is
+        // time-aligned to the tap onset) instead of the current pre-roll
+        // buffer (which by now contains post-tap or silence audio).
+        let deferredPreRoll = pendingLevelCrossingPreRoll
+        pendingLevelCrossingPreRoll = nil
+
         // Bump capture identity — invalidates any pending safety-timeout from
         // a previous capture so it cannot flush this capture's accumulator
-        // with a partial buffer.  See startGuitarGatedCapture for the full
-        // explanation of the race this prevents.
+        // with a partial buffer.
         gatedCaptureID += 1
         let myCaptureID = gatedCaptureID
-        let preRollCount = preRollBuffer.count
-        gatedAccumBuffer = preRollBuffer
+        let seedBuffer = deferredPreRoll ?? preRollBuffer
+        let preRollCount = seedBuffer.count
+        gatedAccumBuffer = seedBuffer
         mpmLock.unlock()
         gatedCapturePhase = phase
         gatedCaptureSamples = Int(mpmSampleRate * TapToneAnalyzer.gatedCaptureDuration)
@@ -287,7 +376,7 @@ extension TapToneAnalyzer {
 
         let windowMs = Int(TapToneAnalyzer.gatedCaptureDuration * 1000)
         gtLog("🎯 Gated FFT capture started for phase \(phase) — \(gatedCaptureSamples)-sample window (\(windowMs) ms at \(Int(mpmSampleRate)) Hz)")
-        TAP_DEBUG("gatedCapture", "SEED | preRollSamples=\(preRollCount) target=\(gatedCaptureSamples) rate=\(Int(mpmSampleRate))")
+        TAP_DEBUG("gatedCapture", "SEED | preRollSamples=\(preRollCount) target=\(gatedCaptureSamples) rate=\(Int(mpmSampleRate)) deferred=\(deferredPreRoll != nil)")
 
         // Safety timeout: close capture window after 2 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
@@ -329,41 +418,44 @@ extension TapToneAnalyzer {
     func startGuitarGatedCapture() {
         let fftSize = fftAnalyzer.fftSize
 
-        // The audio-queue level-crossing handler may have already started the
-        // gated capture (seeded gatedAccumBuffer with the pre-roll and set
-        // gatedCaptureActive = true) to avoid losing samples during the
-        // main-thread Combine dispatch delay.  If so, skip re-seeding -
-        // just grab the capture ID for the safety timeout and log.
+        // The audio-queue level-crossing handler may have already started
+        // (and possibly already completed) the gated capture for this tap.
+        // Check lastLevelCrossingCaptureID rather than gatedCaptureActive,
+        // because during file playback the capture window can fill and
+        // complete on the audio queue before this main-thread call runs.
         mpmLock.lock()
-        let alreadyActive = gatedCaptureActive
-        if alreadyActive {
-            // Capture was started on the audio queue — don't re-seed or
-            // bump the ID, just read it for the timeout guard.
+        let fastStartHandled = (gatedCaptureID == lastLevelCrossingCaptureID)
+        if fastStartHandled {
+            let stillActive = gatedCaptureActive
             let myCaptureID = gatedCaptureID
             let currentCount = gatedAccumBuffer.count
             mpmLock.unlock()
 
             let targetMs = Int((Double(fftSize) / max(mpmSampleRate, 1.0)) * 1000)
-            gtLog("🎯 Guitar gated capture (audio-queue fast-start) — \(fftSize)-sample window (\(targetMs) ms at \(Int(mpmSampleRate)) Hz, pre-roll+accum \(currentCount) samples)")
+            gtLog("🎯 Guitar gated capture (audio-queue fast-start, \(stillActive ? "running" : "completed")) - \(fftSize)-sample window (\(targetMs) ms at \(Int(mpmSampleRate)) Hz, accum \(currentCount) samples)")
 
-            let timeoutMs = targetMs + 500
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(timeoutMs)) { [weak self] in
-                guard let self = self else { return }
-                guard self.gatedCaptureID == myCaptureID else { return }
-                guard self.gatedCaptureActive, self.gatedCapturePhase == nil else { return }
-                self.gatedCaptureActive = false
-                self.mpmLock.lock()
-                let partial = self.gatedAccumBuffer
-                self.gatedAccumBuffer = []
-                self.mpmLock.unlock()
-                if !partial.isEmpty {
-                    self.finishGuitarGatedCapture(samples: partial, sampleRate: self.mpmSampleRate)
-                } else {
-                    gtLog("⚠️ Guitar gated capture timeout with no samples")
-                    self.statusMessage = "No signal detected — tap again"
-                    self.scheduleGuitarReEnable()
+            if stillActive {
+                // Capture still running — set up safety timeout only.
+                let timeoutMs = targetMs + 500
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(timeoutMs)) { [weak self] in
+                    guard let self = self else { return }
+                    guard self.gatedCaptureID == myCaptureID else { return }
+                    guard self.gatedCaptureActive, self.gatedCapturePhase == nil else { return }
+                    self.gatedCaptureActive = false
+                    self.mpmLock.lock()
+                    let partial = self.gatedAccumBuffer
+                    self.gatedAccumBuffer = []
+                    self.mpmLock.unlock()
+                    if !partial.isEmpty {
+                        self.finishGuitarGatedCapture(samples: partial, sampleRate: self.mpmSampleRate)
+                    } else {
+                        gtLog("⚠️ Guitar gated capture timeout with no samples")
+                        self.statusMessage = "No signal detected — tap again"
+                        self.scheduleGuitarReEnable()
+                    }
                 }
             }
+            // Whether still running or already completed, don't re-seed.
             return
         }
 
@@ -413,6 +505,9 @@ extension TapToneAnalyzer {
             self.isAboveThreshold = currentLevel > fallingThreshold
             self.isDetecting = true
             self.tapDetected = false
+            self.mpmLock.lock()
+            self.lastLevelCrossingCaptureID = -1
+            self.mpmLock.unlock()
         }
     }
 
@@ -887,6 +982,12 @@ extension TapToneAnalyzer {
             isAboveThreshold = false
             isDetecting = true
             tapDetected = false
+            // Clear stale fast-start marker so the C tap's main-thread
+            // startGatedCapture correctly falls back to pre-roll seeding
+            // if the audio-queue level crossing doesn't fire in time.
+            mpmLock.lock()
+            lastLevelCrossingCaptureID = -1
+            mpmLock.unlock()
             statusMessage = "File: L complete, capturing C..."
             gtLog("📂 File playback: auto-advancing L → C")
         } else {
@@ -983,6 +1084,9 @@ extension TapToneAnalyzer {
                 isAboveThreshold = false
                 isDetecting = true
                 tapDetected = false
+                mpmLock.lock()
+                lastLevelCrossingCaptureID = -1
+                mpmLock.unlock()
                 statusMessage = "File: C complete, capturing FLC..."
                 gtLog("📂 File playback: auto-advancing C → FLC")
             } else {
@@ -1060,7 +1164,7 @@ extension TapToneAnalyzer {
             isDetecting = false
             statusMessage = "fLC: \(String(format: "%.1f", dominantPeak.frequency)) Hz — Accept to complete or Redo to re-tap"
         }
-        gtLog("📊 FLC review: L=\(longitudinalPeaks.first?.frequency ?? 0) C=\(crossPeaks.first?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
+        gtLog("📊 FLC review: L=\(selectedLongitudinalPeak?.frequency ?? 0) C=\(selectedCrossPeak?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
     }
 
     /// Builds a display-ready peak list from a gated-FFT spectrum, ensuring

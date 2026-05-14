@@ -321,6 +321,20 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             }
         }
     }
+
+    /// Temporarily overrides the active calibration for file playback.
+    ///
+    /// Unlike setting `activeCalibration` directly, this method does **not**
+    /// persist the change to `CalibrationStorage` or the device-calibration
+    /// mapping.  It reuses the existing `isLoadingDeviceCalibration` guard
+    /// to suppress the `didSet` persistence logic.
+    ///
+    /// Call with `nil` to restore the previous calibration after playback.
+    func setTemporaryCalibration(_ calibration: MicrophoneCalibration?) {
+        isLoadingDeviceCalibration = true
+        activeCalibration = calibration
+        isLoadingDeviceCalibration = false
+    }
     
     /// Pre-computed calibration corrections for each frequency bin
     /// This avoids interpolation overhead during real-time FFT processing
@@ -382,7 +396,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// When `true`, the next rising-edge crossing of ``levelCrossingThreshold``
     /// will fire ``levelCrossingHandler``.  Set `false` after it fires; re-armed
     /// by ``TapToneAnalyzer`` when tap detection is re-enabled.
-    var levelCrossingArmed: Bool = false
+    var levelCrossingArmed: Bool = false {
+        didSet {
+            if levelCrossingArmed != oldValue {
+                let thread = Thread.isMainThread ? "main" : "audio"
+                TAP_DEBUG("levelCrossingArm", "ARMED=\(levelCrossingArmed) (was \(oldValue)) thread=\(thread)")
+            }
+        }
+    }
 
     /// Tracks the previous buffer's level for rising-edge detection on the
     /// audio queue.  Updated every buffer inside ``processAudioBuffer(_:)``.

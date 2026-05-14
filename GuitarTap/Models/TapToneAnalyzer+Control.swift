@@ -201,6 +201,17 @@ extension TapToneAnalyzer {
         isAboveThreshold = skipWarmup
         justExitedWarmup = false
 
+        // Reset the material phase BEFORE arming the level crossing.
+        // The audio-queue crossing handler checks materialTapPhase.isCapturing
+        // and skips if the phase is still reviewingLongitudinal (left over from
+        // a previous tap sequence).  If deferred to the main.async block below,
+        // the first file chunk can cross the threshold before the reset runs,
+        // causing the crossing to be skipped and the handler permanently
+        // disarmed for the rest of playback.
+        if isPlateMode || isBraceMode {
+            materialTapPhase = .capturingLongitudinal
+        }
+
         isDetecting = true
         analyzerStartTime = skipWarmup
             ? Date().addingTimeInterval(-(warmupPeriod + 0.1))

@@ -187,7 +187,7 @@ extension TapToneAnalysisView {
                 .hint(HintText.settings)
 
                 // Play File button
-                Button(action: { showingFilePicker = true }) {
+                Button(action: { showingPlayFileSheet = true }) {
                     Label("Play File\u{2026}", systemImage: "waveform.badge.plus")
                 }
                 .buttonStyle(.bordered)
@@ -325,7 +325,7 @@ extension TapToneAnalysisView {
 
     @ViewBuilder
     private func macosPlayFileButton(iconOnly: Bool) -> some View {
-        Button(action: { showingFilePicker = true }) {
+        Button(action: { showingPlayFileSheet = true }) {
             if iconOnly {
                 Image(systemName: "waveform.badge.plus")
             } else {

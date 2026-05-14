@@ -135,15 +135,37 @@ extension TapToneAnalysisView {
     /// instead of the microphone.  This gives a perfectly reproducible signal for cross-platform
     /// comparisons.
     ///
-    /// On macOS the `.fileImporter` SwiftUI modifier handles the picker; this method is called
-    /// directly with the resolved security-scoped URL.
-    func openAudioFile(_ url: URL) {
+    /// - Parameters:
+    ///   - url: The audio file to play (WAV, AIFF, etc.).
+    ///   - calibrationURL: Optional microphone calibration file (.txt, .cal) to apply
+    ///     during playback.  If provided, the calibration is parsed and temporarily
+    ///     set on the FFT analyzer for the duration of playback, then the previous
+    ///     calibration is restored.
+    func openAudioFile(_ url: URL, calibrationURL: URL?) {
         // Gain access to the security-scoped resource.
         // On iOS with cloud storage providers (Dropbox, iCloud Drive, etc.) this grants
         // the sandbox permission to read the file.  We must keep access open for the full
         // playback duration because AVAudioEngine reads audio asynchronously after open.
         // The completion closure passed to startFromFile releases it when playback ends.
         let accessing = url.startAccessingSecurityScopedResource()
+        let accessingCal = calibrationURL?.startAccessingSecurityScopedResource() ?? false
+
+        // If a calibration file was provided, parse it and temporarily override
+        // the active calibration.  Save the previous calibration so we can
+        // restore it after playback completes.
+        let previousCalibration = fft.activeCalibration
+        var didOverrideCalibration = false
+
+        if let calURL = calibrationURL {
+            do {
+                let cal = try CalibrationFileParser.parse(url: calURL)
+                fft.setTemporaryCalibration(cal)
+                didOverrideCalibration = true
+            } catch {
+                gtLog("⚠️ Could not parse calibration file: \(error.localizedDescription)")
+            }
+            if accessingCal { calURL.stopAccessingSecurityScopedResource() }
+        }
 
         // IMPORTANT: startTapSequence runs BEFORE startFromFile so the analyzer
         // state (capturedTaps, isMeasurementComplete, isAboveThreshold,
@@ -163,13 +185,22 @@ extension TapToneAnalysisView {
         tapToneAnalyzer.startTapSequence(skipWarmup: true)
 
         do {
-            try fft.startFromFile(url) {
+            try fft.startFromFile(url) { [fft] in
                 // Called on the main thread after playback completes and the engine has
                 // switched back to the microphone — safe to release access here.
                 if accessing { url.stopAccessingSecurityScopedResource() }
+
+                // Restore the previous calibration now that file playback is done.
+                if didOverrideCalibration {
+                    fft.setTemporaryCalibration(previousCalibration)
+                }
             }
         } catch {
             if accessing { url.stopAccessingSecurityScopedResource() }
+            // Restore calibration on error path too.
+            if didOverrideCalibration {
+                fft.setTemporaryCalibration(previousCalibration)
+            }
             engineStartError = "Could not play audio file: \(error.localizedDescription)"
             return
         }

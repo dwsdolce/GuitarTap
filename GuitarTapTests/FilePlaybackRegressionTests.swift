@@ -45,6 +45,17 @@ private let braceExpectedMagnitude: Float = -65.69
 private let braceTapThreshold: Float = -62.0  // dB — matches original measurement
 private let freqTolerance: Float = 1.0  // Hz
 private let magTolerance: Float  = 1.0  // dB
+private let qTolerance: Float    = 1.0  // dimensionless
+
+// Plate longitudinal (L) capture WAV — saved gated capture from interactive
+// measurement.  19200 frames (400 ms) at 48000 Hz, IEEE float 32-bit mono.
+// Reference values from the interactive measurement session:
+//   fL frequency: 66.6 Hz
+//   fL magnitude: -58.4 dB
+//   fL Q factor:  15.0
+private let plateLExpectedFrequency: Float = 66.6
+private let plateLExpectedMagnitude: Float = -58.4
+private let plateLExpectedQ: Float = 15.0
 
 // ---------------------------------------------------------------------------
 // MARK: - Tests  (REG-B1)
@@ -67,10 +78,11 @@ struct FilePlaybackRegressionTests {
             Issue.record("\(stem).wav not found in test bundle")
             return
         }
+        let calURL = testBundle.url(forResource: "7108913", withExtension: "txt")
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = braceTapThreshold
-        try sut.playFileForTesting(url: url, measurementType: .brace)
+        try sut.playFileForTesting(url: url, measurementType: .brace, calibrationURL: calURL)
 
         // 1. Pipeline should reach .complete for brace (single-tap mode).
         #expect(sut.materialTapPhase == .complete,
@@ -281,5 +293,72 @@ struct FilePlaybackRegressionTests {
                 Issue.record("\(tapLabel): no Back peak found in selected peaks")
             }
         }
+    }
+
+    // MARK: - REG-P1: Plate longitudinal (L) single-tap
+
+    // swift_Capturing_Longitudinal_2026-05-13T17-35-52Z.wav — Plate, saved gated capture, 48 kHz.
+    // Saved gated capture: 19200 frames (400 ms) at 48000 Hz.
+    // Reference values from the interactive measurement session.
+    // The test feeds this single L capture through the plate pipeline and verifies
+    // the auto-selected longitudinal peak matches the interactive result.
+    // Since only L data is provided, the pipeline will auto-advance to .capturingCross
+    // but will not reach .complete (no C or FLC taps follow).
+
+    /// REG-P1: Plate longitudinal single-tap — known WAV produces expected fL peak.
+    ///
+    /// Loads a saved plate longitudinal capture WAV (400 ms, 48 kHz) and plays it
+    /// through the full pipeline with measurementType = .plate.  Verifies that:
+    ///   1. The pipeline auto-advances past L (materialTapPhase == .capturingCross)
+    ///   2. At least one longitudinal peak is detected
+    ///   3. The dominant peak frequency matches the reference ± 1 Hz
+    ///   4. The dominant peak magnitude matches the reference ± 1 dB
+    ///   5. The Q factor matches the reference ± 1
+    @Test func REG_P1_plateLongitudinalSingleTap_producesExpectedPeak() throws {
+        let stem = "swift_Capturing_Longitudinal_2026-05-13T17-35-52Z"
+        guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
+            Issue.record("\(stem).wav not found in test bundle")
+            return
+        }
+        let calURL = testBundle.url(forResource: "7108913", withExtension: "txt")
+
+        let sut = TapToneAnalyzer.forTesting()
+        // Plate mode uses relative detection (noise floor + headroom), so the
+        // threshold is less critical than for guitar/brace absolute thresholds.
+        // Use a low threshold to ensure the tap is detected from the saved capture.
+        sut.tapDetectionThreshold = -62.0
+        try sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL)
+
+        // 1. Pipeline should auto-advance past L.  With only L data in the WAV,
+        //    the state machine advances through C/FLC waiting phases and eventually
+        //    reaches .complete during the run-loop drain.
+        let phase = sut.materialTapPhase
+        #expect(phase != .capturingLongitudinal && phase != .notStarted,
+                "materialTapPhase should have advanced past L, got \(phase)")
+
+        // 2. Longitudinal peaks should be populated.
+        #expect(!sut.longitudinalPeaks.isEmpty,
+                "longitudinalPeaks should not be empty")
+
+        // 3. Verify the auto-selected longitudinal peak.
+        guard let dominant = sut.selectedLongitudinalPeak else {
+            Issue.record("selectedLongitudinalPeak is nil")
+            return
+        }
+
+        // 4. Verify frequency.
+        let freqDelta = abs(dominant.frequency - plateLExpectedFrequency)
+        #expect(freqDelta < freqTolerance,
+                "fL frequency: expected \(plateLExpectedFrequency) Hz ±\(freqTolerance), got \(dominant.frequency) Hz (delta \(freqDelta))")
+
+        // 5. Verify magnitude.
+        let magDelta = abs(dominant.magnitude - plateLExpectedMagnitude)
+        #expect(magDelta < magTolerance,
+                "fL magnitude: expected \(plateLExpectedMagnitude) dB ±\(magTolerance), got \(dominant.magnitude) dB (delta \(magDelta))")
+
+        // 6. Verify Q factor.
+        let qDelta = abs(dominant.quality - plateLExpectedQ)
+        #expect(qDelta < qTolerance,
+                "fL Q factor: expected \(plateLExpectedQ) ±\(qTolerance), got \(dominant.quality) (delta \(qDelta))")
     }
 }

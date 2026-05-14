@@ -105,7 +105,7 @@ struct TapToneAnalysisView: View {
     @State var isGeneratingReport = false
     @State var showingMicrophonePermissionAlert = false
     @State var engineStartError: String? = nil
-    @State var showingFilePicker = false
+    @State var showingPlayFileSheet = false
     @State private var openURLImportSuccess: String? = nil
     @State private var openURLImportError: String? = nil
 
@@ -269,25 +269,14 @@ struct TapToneAnalysisView: View {
                                         toggleAnalyzer: toggleAnalyzer,
                                         startAnalyzer: startAnalyzer,
                                         importMeasurementFromURL: importMeasurementFromURL))
-        .fileImporter(
-            isPresented: $showingFilePicker,
-            allowedContentTypes: [.audio],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first else { return }
+        .sheet(isPresented: $showingPlayFileSheet) {
+            PlayFileSheet { audioURL, calibrationURL in
                 #if os(macOS)
-                MeasurementFileExporter.lastUsedDirectory = url.deletingLastPathComponent()
+                MeasurementFileExporter.lastUsedDirectory = audioURL.deletingLastPathComponent()
                 #endif
-                openAudioFile(url)
-            case .failure(let error):
-                engineStartError = "Could not open audio file: \(error.localizedDescription)"
+                openAudioFile(audioURL, calibrationURL: calibrationURL)
             }
         }
-        #if os(macOS)
-        .fileDialogDefaultDirectory(MeasurementFileExporter.lastUsedDirectory)
-        #endif
         #if os(macOS)
             .focusedSceneValue(\.menuActions, menuActions)
             .onAppear { bindMenuActions() }
@@ -323,7 +312,7 @@ struct TapToneAnalysisView: View {
     /// never changes, so `AppCommands` does not see a new focused value on
     /// every audio frame.
     private func bindMenuActions() {
-        menuActions.openAudioFile     = { showingFilePicker = true }
+        menuActions.openAudioFile     = { showingPlayFileSheet = true }
         menuActions.saveMeasurement   = { showingSaveSheet = true }
         menuActions.exportSpectrum    = { exportCurrentSpectrum() }
         menuActions.exportPDF         = { exportPDFReport() }

@@ -411,6 +411,12 @@ extension TapToneAnalyzer {
             self.isAboveThreshold = currentLevel > fallingThreshold
             self.isDetecting = true
             self.tapDetected = false
+            // Clear stale fast-start marker so the next tap's main-thread
+            // startGatedCapture correctly falls back to pre-roll seeding
+            // if the audio-queue level crossing doesn't fire in time.
+            self.mpmLock.lock()
+            self.lastLevelCrossingCaptureID = -1
+            self.mpmLock.unlock()
             TAP_DEBUG("reEnableDetectionForNextPlateTap", "Re-enabled | currentLevel=\(String(format: "%.2f", currentLevel)) fallingThreshold=\(String(format: "%.2f", fallingThreshold)) isAboveThreshold=\(self.isAboveThreshold) isDetecting=\(self.isDetecting)")
             // Do NOT reset analyzerStartTime here — that would restart warmup and
             // destabilise isAboveThreshold via the justExitedWarmup sync path.
