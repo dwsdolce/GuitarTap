@@ -57,12 +57,108 @@ private let plateLExpectedFrequency: Float = 66.6
 private let plateLExpectedMagnitude: Float = -58.4
 private let plateLExpectedQ: Float = 15.0
 
+// Plate cross-grain (C) capture WAV — saved gated capture from interactive
+// measurement.  19200 frames (400 ms) at 48000 Hz, IEEE float 32-bit mono.
+// Reference values from the interactive measurement session:
+//   fC frequency: 117.5 Hz
+//   fC magnitude: -51.3 dB
+//   fC Q factor:  26.7
+private let plateCExpectedFrequency: Float = 117.5
+private let plateCExpectedMagnitude: Float = -51.3
+private let plateCExpectedQ: Float = 26.7
+
+// Plate FLC (shear/torsional) capture WAV — saved gated capture from interactive
+// measurement.  19200 frames (400 ms) at 48000 Hz, IEEE float 32-bit mono.
+// Reference values from the interactive measurement session:
+//   fLC frequency: 33.6 Hz
+//   fLC magnitude: -59.0 dB
+//   fLC Q factor:  5.8
+private let plateFlcExpectedFrequency: Float = 33.6
+private let plateFlcExpectedMagnitude: Float = -59.0
+private let plateFlcExpectedQ: Float = 5.8
+
 // ---------------------------------------------------------------------------
 // MARK: - Tests  (REG-B1)
 // ---------------------------------------------------------------------------
 
 @Suite("FilePlaybackRegression")
 struct FilePlaybackRegressionTests {
+
+    // MARK: - Diagnostic helper
+
+    /// Prints comprehensive diagnostic information about the analyzer state
+    /// after a plate phase file playback test.  Output goes to the test console
+    /// so we can compare what happened across P1, P2, and P3.
+    private func printPlateDiagnostics(_ sut: TapToneAnalyzer, phase: String, wavFile: String) {
+        print("╔══════════════════════════════════════════════════════════════════")
+        print("║ PLATE DIAGNOSTIC: \(phase)")
+        print("║ WAV: \(wavFile)")
+        print("╠══════════════════════════════════════════════════════════════════")
+        print("║ materialTapPhase:     \(sut.materialTapPhase)")
+        print("║ isMeasurementComplete: \(sut.isMeasurementComplete)")
+        print("║ isDetecting:          \(sut.isDetecting)")
+        print("║ isAboveThreshold:     \(sut.isAboveThreshold)")
+        print("║ noiseFloorEstimate:   \(String(format: "%.2f", sut.noiseFloorEstimate)) dB")
+        print("║ tapDetectionThreshold: \(String(format: "%.2f", sut.tapDetectionThreshold)) dB")
+        print("║ gatedCaptureActive:   \(sut.gatedCaptureActive)")
+        print("║ gatedCaptureSamples:  \(sut.gatedCaptureSamples)")
+        print("║ gatedAccumBuffer.count: \(sut.gatedAccumBuffer.count)")
+        print("║ preRollBuffer.count:  \(sut.preRollBuffer.count)")
+        print("║ preRollSamples:       \(sut.preRollSamples)")
+        print("║ materialCapturedTaps: \(sut.materialCapturedTaps.count)")
+        print("║ measureFlc:           \(TapDisplaySettings.measureFlc)")
+        print("╠──────────────────────────────────────────────────────────────────")
+        print("║ L peaks: \(sut.longitudinalPeaks.count)")
+        if let p = sut.selectedLongitudinalPeak {
+            print("║   selected: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
+        } else {
+            print("║   selected: nil")
+        }
+        print("║ C peaks: \(sut.crossPeaks.count)")
+        if let p = sut.selectedCrossPeak {
+            print("║   selected: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
+        } else {
+            print("║   selected: nil")
+        }
+        print("║ FLC peaks: \(sut.flcPeaks.count)")
+        if let p = sut.selectedFlcPeak {
+            print("║   selected: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
+        } else {
+            print("║   selected: nil")
+        }
+        // Dump all peaks for each phase so we can see what findPeaks found
+        for (i, p) in sut.longitudinalPeaks.enumerated() {
+            print("║   L[\(i)]: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
+        }
+        for (i, p) in sut.crossPeaks.enumerated() {
+            print("║   C[\(i)]: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
+        }
+        for (i, p) in sut.flcPeaks.enumerated() {
+            print("║   FLC[\(i)]: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
+        }
+        // Read and print the tail of the debug log to capture TAP_DEBUG output.
+        // FileLogger is private, so we construct the path manually.
+        let logDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/GuitarTap")
+        let logURL = logDir.appendingPathComponent("GuitarTap-debug.log")
+        if let logData = try? String(contentsOf: logURL, encoding: .utf8) {
+            let lines = logData.components(separatedBy: "\n")
+            // Find the most recent session start marker and print from there
+            let sessionLines: [String]
+            if let lastSession = lines.lastIndex(where: { $0.contains("=== GuitarTap session started") }) {
+                sessionLines = Array(lines[lastSession...])
+            } else {
+                // Take last 100 lines
+                sessionLines = Array(lines.suffix(100))
+            }
+            print("╠──────────────────────────────────────────────────────────────────")
+            print("║ TAP_DEBUG LOG (from session start):")
+            for line in sessionLines where !line.isEmpty {
+                print("║ > \(line)")
+            }
+        }
+        print("╚══════════════════════════════════════════════════════════════════")
+    }
 
     // REG-B1: Brace single-tap — known WAV produces expected fL peak.
     //
@@ -327,11 +423,15 @@ struct FilePlaybackRegressionTests {
         // threshold is less critical than for guitar/brace absolute thresholds.
         // Use a low threshold to ensure the tap is detected from the saved capture.
         sut.tapDetectionThreshold = -62.0
-        try sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL)
+        try sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL,
+                                   plateTapPhase: .capturingLongitudinal)
 
-        // 1. Pipeline should auto-advance past L.  With only L data in the WAV,
-        //    the state machine advances through C/FLC waiting phases and eventually
-        //    reaches .complete during the run-loop drain.
+        printPlateDiagnostics(sut, phase: "P1 — Longitudinal", wavFile: stem)
+
+        // 1. Pipeline should auto-advance past L.
+        //    With plateTapPhase: .capturingLongitudinal the run loop exits as soon as
+        //    the phase advances (e.g. to .capturingCross), without waiting for
+        //    subsequent phases to time out.
         let phase = sut.materialTapPhase
         #expect(phase != .capturingLongitudinal && phase != .notStarted,
                 "materialTapPhase should have advanced past L, got \(phase)")
@@ -360,5 +460,117 @@ struct FilePlaybackRegressionTests {
         let qDelta = abs(dominant.quality - plateLExpectedQ)
         #expect(qDelta < qTolerance,
                 "fL Q factor: expected \(plateLExpectedQ) ±\(qTolerance), got \(dominant.quality) (delta \(qDelta))")
+    }
+
+    // MARK: - REG-P2: Plate cross-grain (C) single-tap
+
+    // swift_Capturing_Cross-grain_2026-05-13T17-36-18Z.wav — Plate, saved gated capture, 48 kHz.
+    // Saved gated capture: 19200 frames (400 ms) at 48000 Hz.
+    // Reference values from the interactive measurement session.
+    // The test starts the pipeline in .capturingCross (via plateTapPhase) so the
+    // WAV's tap is interpreted as a cross-grain tap, and exits as soon as that
+    // phase advances — no need to wait for FLC to time out.
+
+    /// REG-P2: Plate cross-grain single-tap — known WAV produces expected fC peak.
+    @Test func REG_P2_plateCrossSingleTap_producesExpectedPeak() throws {
+        let stem = "swift_Capturing_Cross-grain_2026-05-13T17-36-18Z"
+        guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
+            Issue.record("\(stem).wav not found in test bundle")
+            return
+        }
+        let calURL = testBundle.url(forResource: "7108913", withExtension: "txt")
+
+        let sut = TapToneAnalyzer.forTesting()
+        sut.tapDetectionThreshold = -62.0
+        try sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL,
+                                   plateTapPhase: .capturingCross)
+
+        printPlateDiagnostics(sut, phase: "P2 — Cross-grain", wavFile: stem)
+
+        // 1. Pipeline should auto-advance past C.
+        let phase = sut.materialTapPhase
+        #expect(phase != .capturingCross && phase != .notStarted,
+                "materialTapPhase should have advanced past C, got \(phase)")
+
+        // 2. Cross peaks should be populated.
+        #expect(!sut.crossPeaks.isEmpty,
+                "crossPeaks should not be empty")
+
+        // 3. Verify the auto-selected cross peak.
+        guard let dominant = sut.selectedCrossPeak else {
+            Issue.record("selectedCrossPeak is nil")
+            return
+        }
+
+        // 4. Verify frequency.
+        let freqDelta = abs(dominant.frequency - plateCExpectedFrequency)
+        #expect(freqDelta < freqTolerance,
+                "fC frequency: expected \(plateCExpectedFrequency) Hz ±\(freqTolerance), got \(dominant.frequency) Hz (delta \(freqDelta))")
+
+        // 5. Verify magnitude.
+        let magDelta = abs(dominant.magnitude - plateCExpectedMagnitude)
+        #expect(magDelta < magTolerance,
+                "fC magnitude: expected \(plateCExpectedMagnitude) dB ±\(magTolerance), got \(dominant.magnitude) dB (delta \(magDelta))")
+
+        // 6. Verify Q factor.
+        let qDelta = abs(dominant.quality - plateCExpectedQ)
+        #expect(qDelta < qTolerance,
+                "fC Q factor: expected \(plateCExpectedQ) ±\(qTolerance), got \(dominant.quality) (delta \(qDelta))")
+    }
+
+    // MARK: - REG-P3: Plate FLC (shear/torsional) single-tap
+
+    // swift_Capturing_FLC_2026-05-13T17-36-29Z.wav — Plate, saved gated capture, 48 kHz.
+    // Saved gated capture: 19200 frames (400 ms) at 48000 Hz.
+    // Reference values from the interactive measurement session.
+    // The test starts the pipeline in .capturingFlc (via plateTapPhase) so the
+    // WAV's tap is interpreted as an FLC tap, and exits as soon as that phase
+    // advances to .complete.
+
+    /// REG-P3: Plate FLC single-tap — known WAV produces expected fLC peak.
+    @Test func REG_P3_plateFlcSingleTap_producesExpectedPeak() throws {
+        let stem = "swift_Capturing_FLC_2026-05-13T17-36-29Z"
+        guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
+            Issue.record("\(stem).wav not found in test bundle")
+            return
+        }
+        let calURL = testBundle.url(forResource: "7108913", withExtension: "txt")
+
+        let sut = TapToneAnalyzer.forTesting()
+        sut.tapDetectionThreshold = -62.0
+        try sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL,
+                                   plateTapPhase: .capturingFlc)
+
+        printPlateDiagnostics(sut, phase: "P3 — FLC", wavFile: stem)
+
+        // 1. Pipeline should advance to .complete.
+        let phase = sut.materialTapPhase
+        #expect(phase == .complete,
+                "materialTapPhase should be .complete, got \(phase)")
+
+        // 2. FLC peaks should be populated.
+        #expect(!sut.flcPeaks.isEmpty,
+                "flcPeaks should not be empty")
+
+        // 3. Verify the auto-selected FLC peak.
+        guard let dominant = sut.selectedFlcPeak else {
+            Issue.record("selectedFlcPeak is nil")
+            return
+        }
+
+        // 4. Verify frequency.
+        let freqDelta = abs(dominant.frequency - plateFlcExpectedFrequency)
+        #expect(freqDelta < freqTolerance,
+                "fLC frequency: expected \(plateFlcExpectedFrequency) Hz ±\(freqTolerance), got \(dominant.frequency) Hz (delta \(freqDelta))")
+
+        // 5. Verify magnitude.
+        let magDelta = abs(dominant.magnitude - plateFlcExpectedMagnitude)
+        #expect(magDelta < magTolerance,
+                "fLC magnitude: expected \(plateFlcExpectedMagnitude) dB ±\(magTolerance), got \(dominant.magnitude) dB (delta \(magDelta))")
+
+        // 6. Verify Q factor.
+        let qDelta = abs(dominant.quality - plateFlcExpectedQ)
+        #expect(qDelta < qTolerance,
+                "fLC Q factor: expected \(plateFlcExpectedQ) ±\(qTolerance), got \(dominant.quality) (delta \(qDelta))")
     }
 }

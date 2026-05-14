@@ -113,8 +113,13 @@ final class TapToneAnalyzer: ObservableObject {
     ///   - measurementType: The measurement type to configure before playback.
     ///   - numberOfTaps: Number of taps to detect (guitar mode). Default 1.
     ///   - calibrationURL: Optional microphone calibration file to apply during playback.
+    ///   - plateTapPhase: For plate measurements, the specific phase to test.
+    ///     When set, the analyzer starts in this phase and the run loop exits as soon
+    ///     as the phase advances (rather than waiting for `isMeasurementComplete`).
+    ///     Pass `.capturingLongitudinal` for an L-only test, `.capturingCross` for C,
+    ///     or `.capturingFlc` for FLC.  Ignored for non-plate measurement types.
     /// - Throws: If the audio file cannot be read.
-    func playFileForTesting(url: URL, measurementType: MeasurementType, numberOfTaps: Int = 1, calibrationURL: URL? = nil) throws {
+    func playFileForTesting(url: URL, measurementType: MeasurementType, numberOfTaps: Int = 1, calibrationURL: URL? = nil, plateTapPhase: MaterialTapPhase? = nil) throws {
         // 1. Configure measurement type and tap count.
         TapDisplaySettings.measurementType = measurementType
         self.numberOfTaps = numberOfTaps
@@ -127,7 +132,11 @@ final class TapToneAnalyzer: ObservableObject {
         }
 
         // 2. Start the tap sequence with warmup skipped (deterministic file audio).
-        startTapSequence(skipWarmup: true)
+        //    When plateTapPhase is provided, pass it as initialPhase so both the
+        //    synchronous setup and the async housekeeping block use the correct
+        //    phase — preventing the async block from resetting the phase back to
+        //    .capturingLongitudinal after the override.
+        startTapSequence(skipWarmup: true, initialPhase: plateTapPhase)
 
         // 3. Read the audio file.
         let (monoSamples, fileSampleRate) = try RealtimeFFTAnalyzer.readAudioFileAsMonoFloat32(url: url)
@@ -168,9 +177,19 @@ final class TapToneAnalyzer: ObservableObject {
         // processMultipleTaps() is scheduled via DispatchQueue.main.asyncAfter
         // with a delay of captureWindow (0.2 s), so we must keep spinning
         // until it fires and sets isMeasurementComplete = true.
+        //
+        // For phase-targeted plate tests (plateTapPhase != nil), exit as soon as
+        // the phase advances past the target — the single capture is done and we
+        // don't need to wait for subsequent phases to time out.
         let deadline = Date(timeIntervalSinceNow: 5.0)
-        while !isMeasurementComplete && Date() < deadline {
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+        if let targetPhase = plateTapPhase, measurementType == .plate {
+            while materialTapPhase == targetPhase && Date() < deadline {
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+            }
+        } else {
+            while !isMeasurementComplete && Date() < deadline {
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+            }
         }
     }
 

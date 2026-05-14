@@ -136,7 +136,7 @@ extension TapToneAnalyzer {
     ///   that the 0.5 s warm-up period has already elapsed when the first audio buffer arrives.
     ///   Use this for file-playback mode where the audio source is deterministic and the tap
     ///   transient may occur within the first half-second of the recording.
-    func startTapSequence(skipWarmup: Bool = false) {
+    func startTapSequence(skipWarmup: Bool = false, initialPhase: MaterialTapPhase? = nil) {
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
@@ -208,8 +208,12 @@ extension TapToneAnalyzer {
         // the first file chunk can cross the threshold before the reset runs,
         // causing the crossing to be skipped and the handler permanently
         // disarmed for the rest of playback.
+        //
+        // When initialPhase is provided (phase-targeted file playback tests),
+        // use that phase instead of .capturingLongitudinal so the level-crossing
+        // handler and gated capture route to the correct phase handler.
         if isPlateMode || isBraceMode {
-            materialTapPhase = .capturingLongitudinal
+            materialTapPhase = initialPhase ?? .capturingLongitudinal
         }
 
         isDetecting = true
@@ -260,7 +264,14 @@ extension TapToneAnalyzer {
             self.resetDecayTracking()
 
             // Initialise plate/brace phase state.
-            let newPhase: MaterialTapPhase = (isPlateMode || isBraceMode) ? .capturingLongitudinal : .notStarted
+            // When initialPhase is provided (phase-targeted file playback tests),
+            // use that phase so the async housekeeping doesn't clobber the override.
+            let newPhase: MaterialTapPhase
+            if isPlateMode || isBraceMode {
+                newPhase = initialPhase ?? .capturingLongitudinal
+            } else {
+                newPhase = .notStarted
+            }
             self.resetMaterialPhaseState(to: newPhase)
 
             // isAboveThreshold, justExitedWarmup, analyzerStartTime, isDetecting, and
