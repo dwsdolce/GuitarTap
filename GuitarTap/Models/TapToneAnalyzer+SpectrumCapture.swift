@@ -74,6 +74,31 @@ import Accelerate
 
 extension TapToneAnalyzer {
 
+    // MARK: - Session Recording Completion
+
+    /// Stops session recording and saves the accumulated buffer as a single
+    /// WAV file.  Called when a measurement completes (all phases accepted or
+    /// guitar/brace tap sequence finished).
+    ///
+    /// The resulting WAV captures the full audio stream that was active during
+    /// detection — excluding paused segments and rejected phases — so that
+    /// replaying it through the pipeline reproduces the original results.
+    ///
+    /// - Parameter label: Short string identifying the measurement type
+    ///   (e.g. "Plate", "Guitar_8tap", "Brace").
+    func finishSessionRecording(label: String) {
+        mpmLock.lock()
+        isSessionRecording = false
+        let samples = sessionRecordingBuffer
+        let sampleRate = sessionRecordingSampleRate
+        sessionRecordingBuffer = []
+        sessionCheckpoints = []
+        mpmLock.unlock()
+
+        guard !samples.isEmpty else { return }
+        dumpCaptureWAV(samples: samples, sampleRate: sampleRate, label: "session_\(label)")
+    }
+
     // MARK: - WAV Dump Helper
 
     /// Writes raw PCM samples to a mono 32-bit float WAV file in
@@ -135,6 +160,32 @@ extension TapToneAnalyzer {
         }
     }
 
+    // MARK: - Capture Window Diagnostics
+
+    /// Produces a segment-by-segment RMS breakdown of a sample buffer.
+    /// Each segment is `segmentSize` samples (default 1024).  Returns a
+    /// compact multi-line string showing per-segment RMS in dB so the
+    /// energy distribution within the capture window is visible.
+    func captureWindowProfile(_ samples: [Float], label: String, segmentSize: Int = 1024) -> String {
+        let count = samples.count
+        guard count > 0 else { return "\(label): (empty)" }
+        var lines = ["\(label): \(count) samples (\(count)/\(segmentSize) segments)"]
+        var seg = 0
+        var offset = 0
+        while offset < count {
+            let end = min(offset + segmentSize, count)
+            let slice = samples[offset..<end]
+            let sumSq = slice.reduce(Float(0)) { $0 + $1 * $1 }
+            let rms = sqrt(sumSq / Float(slice.count))
+            let rmsDb = 20 * log10(max(rms, 1e-10))
+            let peakAbs = slice.map { abs($0) }.max() ?? 0
+            lines.append(String(format: "  seg[%2d] samples[%5d:%5d] RMS=%7.1f dB  peak=%.6f", seg, offset, end, rmsDb, peakAbs))
+            seg += 1
+            offset = end
+        }
+        return lines.joined(separator: "\n")
+    }
+
     // MARK: - Gated FFT Capture (Plate/Brace)
 
     /// Receives raw PCM samples from the audio engine and maintains both the
@@ -169,6 +220,14 @@ extension TapToneAnalyzer {
             preRollBuffer.removeFirst(preRollBuffer.count - maxPreRoll)
         }
 
+        // Session recording: append every chunk that flows through the audio
+        // pipeline while recording is active.  This produces a continuous WAV
+        // of the measurement session (minus paused segments and rejected phases)
+        // that can be replayed to reproduce the original results.
+        if isSessionRecording {
+            sessionRecordingBuffer.append(contentsOf: samples)
+        }
+
         guard gatedCaptureActive else {
             // Deferred level-crossing path: a level crossing fired during
             // file playback while the previous capture's finishGatedFFTCapture
@@ -180,7 +239,12 @@ extension TapToneAnalyzer {
             // contains the pre-roll + all post-crossing chunks (the actual
             // tap energy) rather than just the pre-roll snapshot (silence).
             if pendingLevelCrossingPreRoll != nil {
-                pendingLevelCrossingPreRoll!.append(contentsOf: samples)
+                let target = Int(mpmSampleRate * TapToneAnalyzer.gatedCaptureDuration)
+                let beforeCount = pendingLevelCrossingPreRoll!.count
+                if beforeCount < target {
+                    pendingLevelCrossingPreRoll!.append(contentsOf: samples)
+                    TAP_DEBUG("gatedAccum", "DEFERRED_ACCUM | +\(samples.count) running=\(pendingLevelCrossingPreRoll!.count) cap=\(target)")
+                }
             }
             mpmLock.unlock()
             return
@@ -224,7 +288,8 @@ extension TapToneAnalyzer {
                 return 20 * log10(max(rms, 1e-10))
             }()
             let diagHash: Float = captured.count >= 16 ? captured[0..<16].reduce(0, +) : 0
-            TAP_DEBUG("gatedAccum", "CAPTURE COMPLETE | samples=\(captured.count) fileSamplePos=\(diagConsumed) captureRMS=\(String(format: "%.2f", diagRms))dB first16hash=\(String(format: "%.6f", diagHash))")
+            let completeProfile = captureWindowProfile(captured, label: "ACCUM_COMPLETE(\(String(describing: phase)))")
+            TAP_DEBUG("gatedAccum", "CAPTURE COMPLETE | samples=\(captured.count) fileSamplePos=\(diagConsumed) captureRMS=\(String(format: "%.2f", diagRms))dB first16hash=\(String(format: "%.6f", diagHash))\n\(completeProfile)")
 
             DispatchQueue.main.async { [weak self] in
                 if let phase = phase {
@@ -376,7 +441,8 @@ extension TapToneAnalyzer {
 
         let windowMs = Int(TapToneAnalyzer.gatedCaptureDuration * 1000)
         gtLog("🎯 Gated FFT capture started for phase \(phase) — \(gatedCaptureSamples)-sample window (\(windowMs) ms at \(Int(mpmSampleRate)) Hz)")
-        TAP_DEBUG("gatedCapture", "SEED | preRollSamples=\(preRollCount) target=\(gatedCaptureSamples) rate=\(Int(mpmSampleRate)) deferred=\(deferredPreRoll != nil)")
+        let seedProfile = captureWindowProfile(seedBuffer, label: "SEED_BUFFER(\(deferredPreRoll != nil ? "deferred" : "preroll"))")
+        TAP_DEBUG("gatedCapture", "SEED | preRollSamples=\(preRollCount) target=\(gatedCaptureSamples) rate=\(Int(mpmSampleRate)) deferred=\(deferredPreRoll != nil)\n\(seedProfile)")
 
         // Safety timeout: close capture window after 2 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
@@ -543,13 +609,22 @@ extension TapToneAnalyzer {
 
         let fftSize = fftAnalyzer.fftSize
 
+        // Align the capture window to the sample-level tap onset so that
+        // chunk-boundary differences (live vs file playback) don't shift
+        // the FFT input.
+        let aligned = alignCaptureToOnset(
+            samples,
+            windowSize: fftSize,
+            preOnsetSamples: Int(sampleRate * Self.preOnsetDuration)
+        )
+
         // Truncate or zero-pad to exactly fftSize.
         var chunk: [Float]
-        if samples.count >= fftSize {
-            chunk = Array(samples.prefix(fftSize))
+        if aligned.count >= fftSize {
+            chunk = Array(aligned.prefix(fftSize))
         } else {
-            chunk = samples
-            chunk.append(contentsOf: Array(repeating: Float(0), count: fftSize - samples.count))
+            chunk = aligned
+            chunk.append(contentsOf: Array(repeating: Float(0), count: fftSize - chunk.count))
         }
 
         // Compute FFT with the SAME rectangular window and same fftSize as the
@@ -631,6 +706,94 @@ extension TapToneAnalyzer {
     ///   - phase: The ``MaterialTapPhase`` active at capture time.
     ///
     /// - Note: Called on the main thread via `DispatchQueue.main.async`.
+
+    // MARK: - Onset Alignment
+
+    /// Aligns a captured sample buffer so the tap onset is at a fixed position,
+    /// eliminating sensitivity to audio chunk boundaries.
+    ///
+    /// The level-crossing detector fires at chunk granularity (typically 1024
+    /// samples).  Different chunk alignment (live mic vs file playback vs
+    /// different hardware buffer sizes) shifts the capture window by up to
+    /// several thousand samples.  This method finds the actual sample-level
+    /// tap onset and extracts a window anchored to it, producing identical
+    /// output regardless of chunk boundaries.
+    ///
+    /// - Parameters:
+    ///   - samples: The raw captured buffer (pre-roll + post-crossing).
+    ///   - windowSize: Desired output length (e.g. 19200 for plate at 48 kHz).
+    ///   - preOnsetSamples: Number of silence samples to include before the
+    ///     onset.  Defaults to `sampleRate * preOnsetDuration` (100 ms).
+    /// - Returns: A `windowSize`-length buffer with the onset at index
+    ///   `preOnsetSamples`, or the original buffer if onset detection fails.
+    func alignCaptureToOnset(
+        _ samples: [Float],
+        windowSize: Int,
+        preOnsetSamples: Int
+    ) -> [Float] {
+        guard samples.count >= TapToneAnalyzer.onsetNoiseEstimateSamples else {
+            return samples  // buffer too short for noise estimation
+        }
+
+        // 1. Estimate noise floor from the first N samples (pre-onset silence).
+        let noiseRegion = Array(samples.prefix(TapToneAnalyzer.onsetNoiseEstimateSamples))
+        var noiseRMS: Float = 0
+        vDSP_rmsqv(noiseRegion, 1, &noiseRMS, vDSP_Length(noiseRegion.count))
+
+        // 2. Onset threshold: 10× noise RMS, floored at 0.001 for digital silence.
+        let threshold = max(
+            noiseRMS * TapToneAnalyzer.onsetThresholdMultiplier,
+            TapToneAnalyzer.onsetMinThreshold
+        )
+
+        // 3. Scan forward for the first sample exceeding the threshold.
+        var onsetIndex: Int? = nil
+        for i in 0..<samples.count {
+            if abs(samples[i]) > threshold {
+                onsetIndex = i
+                break
+            }
+        }
+
+        guard var onset = onsetIndex else {
+            // No onset found (noise-only capture) — return unchanged.
+            TAP_DEBUG("onsetAlign", "NO_ONSET | noiseRMS=\(String(format: "%.6f", noiseRMS)) threshold=\(String(format: "%.6f", threshold)) len=\(samples.count)")
+            return samples
+        }
+
+        // 4. Back up slightly to catch the very start of the transient.
+        onset = max(0, onset - TapToneAnalyzer.onsetBackupSamples)
+
+        // 5. Extract a window of `windowSize` with the onset at `preOnsetSamples`.
+        let extractStart = onset - preOnsetSamples
+
+        var result: [Float]
+        if extractStart >= 0 && extractStart + windowSize <= samples.count {
+            // Happy path: window fits entirely within the buffer.
+            result = Array(samples[extractStart..<(extractStart + windowSize)])
+        } else if extractStart < 0 {
+            // Onset too close to buffer start — zero-pad the front.
+            let padCount = -extractStart
+            let available = min(windowSize - padCount, samples.count)
+            result = [Float](repeating: 0, count: padCount)
+            result.append(contentsOf: samples.prefix(available))
+            if result.count < windowSize {
+                result.append(contentsOf: [Float](repeating: 0, count: windowSize - result.count))
+            }
+        } else {
+            // Onset too close to buffer end — take what we can, zero-pad the back.
+            result = Array(samples[extractStart..<samples.count])
+            if result.count < windowSize {
+                result.append(contentsOf: [Float](repeating: 0, count: windowSize - result.count))
+            }
+            result = Array(result.prefix(windowSize))
+        }
+
+        TAP_DEBUG("onsetAlign", "ALIGNED | onset=\(onset) extractStart=\(extractStart) preOnset=\(preOnsetSamples) noiseRMS=\(String(format: "%.6f", noiseRMS)) threshold=\(String(format: "%.6f", threshold)) inLen=\(samples.count) outLen=\(result.count)")
+
+        return result
+    }
+
     func finishGatedFFTCapture(samples: [Float], sampleRate: Double, phase: MaterialTapPhase) {
         // DIAG: log what goes into computeGatedFFT
         let nonZero = samples.filter { $0 != 0 }.count
@@ -639,12 +802,31 @@ extension TapToneAnalyzer {
             let s = samples.reduce(Float(0)) { $0 + $1 * $1 }
             return 20 * log10(max(sqrt(s / max(Float(samples.count), 1)), 1e-10))
         }()
-        TAP_DEBUG("gatedFFT", "FINISH | total=\(samples.count) nonZero=\(nonZero) peak=\(String(format: "%.6f", peakSample)) rms=\(String(format: "%.2f", rmsAll))dB rate=\(Int(sampleRate)) phase=\(phase)")
+        let capturedProfile = captureWindowProfile(samples, label: "CAPTURED_WINDOW(\(phase))")
+        TAP_DEBUG("gatedFFT", "FINISH | total=\(samples.count) nonZero=\(nonZero) peak=\(String(format: "%.6f", peakSample)) rms=\(String(format: "%.2f", rmsAll))dB rate=\(Int(sampleRate)) phase=\(phase)\n\(capturedProfile)")
 
-        dumpCaptureWAV(samples: samples, sampleRate: sampleRate,
-                       label: phase.rawValue.replacingOccurrences(of: " ", with: "_"))
+        // Per-phase WAV dump intentionally omitted: the session WAV written by
+        // finishSessionRecording already contains every accepted phase's tap
+        // and pre-roll, so dumping per-phase 400 ms windows here would just
+        // produce redundant files alongside it.
 
-        let (magnitudes, frequencies) = fftAnalyzer.computeGatedFFT(samples: samples, sampleRate: sampleRate)
+        // Align the capture window to the sample-level tap onset so the
+        // Hann-windowed FFT produces identical results regardless of the
+        // chunk boundaries that triggered the level crossing.
+        //
+        // The captured buffer is intentionally larger than the FFT window
+        // (gatedCaptureDuration > gatedFFTWindowDuration) so the aligner
+        // has enough post-onset audio to extract a full window without
+        // zero-padding, even when the pre-roll was partially filled at
+        // the moment the level crossing fired.
+        let fftWindowSize = Int(sampleRate * Self.gatedFFTWindowDuration)
+        let aligned = alignCaptureToOnset(
+            samples,
+            windowSize: fftWindowSize,
+            preOnsetSamples: Int(sampleRate * Self.preOnsetDuration)
+        )
+
+        let (magnitudes, frequencies) = fftAnalyzer.computeGatedFFT(samples: aligned, sampleRate: sampleRate)
 
         guard !magnitudes.isEmpty else {
             gtLog("⚠️ Gated FFT returned empty spectrum — tap again")
@@ -970,6 +1152,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             materialTapPhase = .complete
             isMeasurementComplete = true
+            finishSessionRecording(label: "Brace")
             tapProgress = 1.0
             statusMessage = "Complete - check Results"
             gtLog("✅ Brace measurement complete: fL=\(dominantPeak.frequency) Hz")
@@ -979,7 +1162,14 @@ extension TapToneAnalyzer {
             // the cross-grain taps that follow immediately.
             materialTapPhase = .capturingCross
             setFrozenSpectrum(frequencies: [], magnitudes: [])
-            isAboveThreshold = false
+            // Start with isAboveThreshold = true so the detector requires a
+            // falling edge (signal drops below threshold) before any rising
+            // edge can fire.  Without this, the L tap's ring-out — which is
+            // still well above the rising threshold when the gated window
+            // closes — would immediately fire a bogus C "rising edge" on
+            // the decay, capturing 67 Hz L content instead of the real C tap.
+            // Matches the skipWarmup=true initial setup in startTapSequence.
+            isAboveThreshold = true
             isDetecting = true
             tapDetected = false
             // Clear stale fast-start marker so the C tap's main-thread
@@ -1081,7 +1271,11 @@ extension TapToneAnalyzer {
                 // The cooldown exists for user repositioning; irrelevant for file audio.
                 materialTapPhase = .capturingFlc
                 setFrozenSpectrum(frequencies: [], magnitudes: [])
-                isAboveThreshold = false
+                // isAboveThreshold = true forces a falling-edge wait before
+                // the next rising edge — see the L→C handler for the full
+                // rationale.  Without this the C tap's ring-out fires a
+                // bogus FLC "rising edge" on the decaying tail.
+                isAboveThreshold = true
                 isDetecting = true
                 tapDetected = false
                 mpmLock.lock()
@@ -1091,16 +1285,7 @@ extension TapToneAnalyzer {
                 gtLog("📂 File playback: auto-advancing C → FLC")
             } else {
                 // No FLC: measurement complete.
-                let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? crossPeaks.first)
-                currentPeaks = sel
-                selectedPeakIDs = Set(sel.map { $0.id })
-                setFrozenSpectrum(frequencies: [], magnitudes: [])
-                materialTapPhase = .complete
-                isMeasurementComplete = true
-                tapProgress = 1.0
-                let fLStr = selectedLongitudinalPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
-                let fCStr = selectedCrossPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
-                statusMessage = "File complete — fL: \(fLStr) Hz, fC: \(fCStr) Hz"
+                finalisePlateNoFLC()
                 gtLog("📂 File playback: C complete, measurement done (no FLC)")
             }
         } else {
@@ -1144,17 +1329,18 @@ extension TapToneAnalyzer {
         gtLog("🟣 Auto-selected FLC peak: \(dominantPeak.frequency) Hz")
         materialCapturedTaps = []
 
+        // Pre-compute the displayed peak selection.  The review-state branch
+        // below needs `currentPeaks` / `selectedPeakIDs` set so the chart
+        // shows all three plate peaks; `finalisePlateWithFLC` recomputes
+        // the same values for the file-playback branch.  Mirrors the
+        // structure of Python `_handle_flc_gated_progress`.
         let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? dominantPeak)
         currentPeaks = sel
         selectedPeakIDs = Set(sel.map { $0.id })
 
         if fftAnalyzer.isPlayingFile {
             // File playback: auto-complete without pausing at the review state.
-            setFrozenSpectrum(frequencies: [], magnitudes: [])
-            materialTapPhase = .complete
-            isMeasurementComplete = true
-            tapProgress = 1.0
-            statusMessage = "File complete - check Results"
+            finalisePlateWithFLC()
             gtLog("📂 File playback: FLC complete, measurement done")
         } else {
             // Freeze the FLC spectrum for display and pause at the review state.
@@ -1307,6 +1493,7 @@ extension TapToneAnalyzer {
         // assigning them separately causes a transient length mismatch between render passes.
         setFrozenSpectrum(frequencies: avgFrequencies, magnitudes: avgMagnitudes)
         isMeasurementComplete = true
+        finishSessionRecording(label: "Guitar_\(capturedTaps.count)tap")
         gtLog("📸 Guitar spectrum captured from \(capturedTaps.count) averaged taps")
         
         // Find peaks in the AVERAGED spectrum so they align with what's displayed.

@@ -233,53 +233,69 @@ extension TapToneAnalyzer {
         // Update the detection level for UI display
         tapDetectionLevel = effectiveRisingThreshold
 
-        // Hysteresis: Use different thresholds for rising vs falling edges
+        // Hysteresis: Use different thresholds for rising vs falling edges.
+        // Rising edge ALSO requires N consecutive chunks above the rising
+        // threshold to confirm — mirrors the audio-queue level crossing
+        // detector in RealtimeFFTAnalyzer.  Without confirmation here,
+        // a brief noise bump that the audio-queue rejected can still
+        // fire the main-thread rising-edge detector and start a bogus
+        // gated capture (see test failure on plate-umik-1-swift-mac-1778816330
+        // where the FLC bump at -46.8 dB was rejected by the audio queue
+        // but caught here, capturing 26.4 Hz @ -78.9 dB instead of the
+        // real 35.4 Hz FLC tap that arrived a few seconds later).
         let risingThreshold  = effectiveRisingThreshold
         let fallingThreshold = effectiveFallingThreshold
+        let confirmTarget = RealtimeFFTAnalyzer.levelCrossingConfirmationChunks
 
-        // Determine if currently above threshold (with hysteresis).
-        // When latched above: use the lower falling threshold to stay "above".
-        // When latched below: use the higher rising threshold to cross "above".
-        let currentlyAboveThreshold = isAboveThreshold ?
-            (peakMagnitude > fallingThreshold) :
-            (peakMagnitude > risingThreshold)
-
-        if currentlyAboveThreshold != isAboveThreshold {
-            // Update status message when signal settles after a tap in multi-tap mode
-            if !currentlyAboveThreshold && isAboveThreshold && currentTapCount > 0 && currentTapCount < numberOfTaps {
-                TAP_DEBUG("detectTap", "SIGNAL SETTLED | tap \(currentTapCount)/\(numberOfTaps) — signal dropped below falling threshold")
-                statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
-            }
-        }
-        
-        // Detect tap only when crossing from below to above threshold (rising edge only)
-        if currentlyAboveThreshold && !isAboveThreshold {
-            // Rising edge detected!
-            TAP_DEBUG("detectTap", "RISING EDGE FIRED | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", risingThreshold)) tapCount=\(currentTapCount+1)/\(numberOfTaps)")
-            tapDetected = true
-            lastTapTime = now
-            
-            // Capture the recent peak input level for decay tracking reference.
-            // Use recentPeakLevelDB which holds the max level over the last 0.5 s.
-            // This ensures we get the actual tap peak even though FFT detection is delayed.
-            tapPeakLevel = fftAnalyzer.recentPeakLevelDB
-            
-            // Handle tap in multi-tap sequence
-            handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
-        } else {
-            if currentlyAboveThreshold && isAboveThreshold {
-                // Stays above — still in ring-out, no new tap
-            } else if !currentlyAboveThreshold && !isAboveThreshold {
-                // Stays below — waiting for tap
-            } else {
-                // Falling edge (was above, now below)
+        if isAboveThreshold {
+            // Currently latched above — apply falling-threshold hysteresis.
+            if peakMagnitude <= fallingThreshold {
+                // Falling edge.
+                if currentTapCount > 0 && currentTapCount < numberOfTaps {
+                    TAP_DEBUG("detectTap", "SIGNAL SETTLED | tap \(currentTapCount)/\(numberOfTaps) — signal dropped below falling threshold")
+                    statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
+                }
                 TAP_DEBUG("detectTap", "FALLING EDGE | peakMag=\(String(format: "%.2f", peakMagnitude)) fallingThresh=\(String(format: "%.2f", fallingThreshold)) — signal settled, ready for next tap")
+                isAboveThreshold = false
+                detectTapConsecutiveAbove = 0
             }
             tapDetected = false
+        } else {
+            // Currently latched below — apply rising-threshold gate with
+            // N-chunk confirmation.
+            if peakMagnitude > risingThreshold {
+                detectTapConsecutiveAbove += 1
+                if detectTapConsecutiveAbove >= confirmTarget {
+                    // Confirmed rising edge — fire the tap-detection event.
+                    TAP_DEBUG("detectTap", "RISING EDGE FIRED | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", risingThreshold)) tapCount=\(currentTapCount+1)/\(numberOfTaps) confirmedBy=\(confirmTarget)")
+                    isAboveThreshold = true
+                    detectTapConsecutiveAbove = 0
+                    tapDetected = true
+                    lastTapTime = now
+
+                    // Capture the recent peak input level for decay tracking reference.
+                    // Use recentPeakLevelDB which holds the max level over the last 0.5 s.
+                    // This ensures we get the actual tap peak even though FFT detection is delayed.
+                    tapPeakLevel = fftAnalyzer.recentPeakLevelDB
+
+                    // Handle tap in multi-tap sequence
+                    handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
+                } else {
+                    // Pending — waiting for more above-threshold chunks.
+                    if fftAnalyzer.isPlayingFile && detectTapConsecutiveAbove == 1 {
+                        TAP_DEBUG("detectTap", "RISING EDGE PENDING | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", risingThreshold)) need=\(confirmTarget - 1) more")
+                    }
+                    tapDetected = false
+                }
+            } else {
+                // Below rising threshold.
+                if detectTapConsecutiveAbove > 0 && fftAnalyzer.isPlayingFile {
+                    TAP_DEBUG("detectTap", "RISING EDGE CANCELED | peakMag=\(String(format: "%.2f", peakMagnitude)) (signal fell below after \(detectTapConsecutiveAbove)/\(confirmTarget) chunks)")
+                }
+                detectTapConsecutiveAbove = 0
+                tapDetected = false
+            }
         }
-        
-        // Update state for next frame
-        isAboveThreshold = currentlyAboveThreshold
     }
     
     /// Dispatches a confirmed tap event to the appropriate capture handler.

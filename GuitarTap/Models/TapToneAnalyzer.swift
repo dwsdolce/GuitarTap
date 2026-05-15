@@ -932,10 +932,51 @@ final class TapToneAnalyzer: ObservableObject {
     /// ``accumulateGatedSamples(_:sampleRate:)`` on the audio queue.
     var gatedAccumBuffer: [Float] = []
 
-    /// Target duration of the gated capture window, in seconds.
+    /// Target duration of the gated capture buffer, in seconds.
     ///
-    /// 400 ms captures the full plate ring-out while rejecting post-decay noise.
-    static let gatedCaptureDuration: Double = 0.400
+    /// 500 ms is intentionally longer than ``gatedFFTWindowDuration`` so that
+    /// ``alignCaptureToOnset`` always has at least 400 ms of audio available
+    /// to extract a sample-aligned window — regardless of how full the
+    /// pre-roll ring buffer happens to be when the level crossing fires.
+    /// Without this slack, a partially-filled pre-roll (e.g. when the user
+    /// taps quickly after pressing Accept) would yield a captured buffer
+    /// where the onset is too close to the end, forcing the aligner to
+    /// zero-pad and producing FFT input that differs between live and
+    /// playback even though the underlying audio is identical.
+    static let gatedCaptureDuration: Double = 0.500
+
+    /// Duration of the aligned FFT input window, in seconds.
+    ///
+    /// 400 ms captures the full plate ring-out while rejecting post-decay
+    /// noise.  Shorter than ``gatedCaptureDuration`` to leave alignment
+    /// headroom — see that property's documentation for the rationale.
+    static let gatedFFTWindowDuration: Double = 0.400
+
+    // ── Onset-alignment constants ─────────────────────────────────
+    // Used by `alignCaptureToOnset` to anchor the capture window to
+    // the sample-level tap onset rather than a chunk boundary.
+
+    /// Duration of pre-onset silence to include in the aligned capture
+    /// window.  100 ms places the transient where the Hann window
+    /// weight is near maximum.
+    static let preOnsetDuration: Double = 0.100
+
+    /// Number of samples at the buffer start used to estimate the noise
+    /// floor for onset detection.
+    static let onsetNoiseEstimateSamples: Int = 2048
+
+    /// Onset threshold multiplier relative to noise-floor RMS.  10×
+    /// (20 dB above noise) rejects ambient noise while catching even
+    /// a quiet tap transient.
+    static let onsetThresholdMultiplier: Float = 10.0
+
+    /// Minimum absolute onset threshold when the noise floor is near
+    /// digital silence.
+    static let onsetMinThreshold: Float = 0.001
+
+    /// Number of samples to back up from the detected onset to ensure
+    /// the very beginning of the transient is captured.
+    static let onsetBackupSamples: Int = 32
 
     /// Number of samples in one gated capture window at the current hardware sample rate.
     /// Target size of the gated-capture window, in samples.
@@ -965,6 +1006,32 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Set on the audio processing queue when a new audio buffer arrives.
     var mpmSampleRate: Double = 48000
+
+    // MARK: - Session Recording
+    //
+    // A continuous audio buffer that accumulates raw mic samples while tap
+    // detection is active, producing one WAV per measurement that replays
+    // identically through the pipeline.  See session-recording-wav-save.md.
+
+    /// Session recording buffer — accumulates raw mic audio while detection
+    /// is active.  Used to produce a single WAV per measurement that can be
+    /// replayed through the pipeline to reproduce the original results.
+    ///
+    /// Access is protected by `mpmLock` (shared with the gated-capture state).
+    var sessionRecordingBuffer: [Float] = []
+
+    /// Whether the session recording is actively accumulating samples.
+    /// Set to `true` when a tap sequence starts and detection is active.
+    /// Set to `false` during pause, on cancel, or when the measurement completes.
+    var isSessionRecording = false
+
+    /// Checkpoint offsets (sample counts in `sessionRecordingBuffer`) for
+    /// accepted plate phases.  When a phase is redone, the buffer is truncated
+    /// to the last checkpoint so rejected audio is excluded from the saved WAV.
+    var sessionCheckpoints: [Int] = []
+
+    /// Sample rate captured at recording start, used for session WAV export.
+    var sessionRecordingSampleRate: Double = 48000
 
     // MARK: - Pre-Roll Ring Buffer
 
@@ -1074,8 +1141,23 @@ final class TapToneAnalyzer: ObservableObject {
     /// `true` when the signal is currently above the detection threshold.
     ///
     /// This is the state bit of the hysteresis state machine.  A tap is registered only
-    /// on a **rising edge** (transition from `false` to `true`).
+    /// on a **rising edge** (transition from `false` to `true`) confirmed by
+    /// ``RealtimeFFTAnalyzer/levelCrossingConfirmationChunks`` consecutive
+    /// above-rising-threshold chunks.
     var isAboveThreshold: Bool = false
+
+    /// Running count of consecutive above-rising-threshold chunks within the
+    /// current candidate rising-edge run for the main-thread ``detectTap``.
+    /// Reset to `0` whenever the signal falls back below the rising threshold
+    /// before reaching ``RealtimeFFTAnalyzer/levelCrossingConfirmationChunks``.
+    /// Once it reaches the target, ``isAboveThreshold`` latches to `true` and
+    /// the rising-edge actions run.
+    ///
+    /// This mirrors ``RealtimeFFTAnalyzer/levelCrossingConsecutiveAbove`` for
+    /// the audio-queue fast-path level-crossing detector — both paths must
+    /// apply the same confirmation logic or a bump that's rejected by the
+    /// audio queue can still fire here and start a bogus gated capture.
+    var detectTapConsecutiveAbove: Int = 0
 
     /// Timer that bounds the ring-out decay tracking window.
     var decayTrackingTimer: Timer?
@@ -1203,8 +1285,9 @@ final class TapToneAnalyzer: ObservableObject {
                     // startGatedCapture consumption.
                     self.pendingLevelCrossingPreRoll = self.preRollBuffer
                     let preRollCount = self.preRollBuffer.count
+                    let profile = self.captureWindowProfile(self.preRollBuffer, label: "DEFERRED_PREROLL")
                     self.mpmLock.unlock()
-                    TAP_DEBUG("levelCrossing", "DEFERRED — snapshot pre-roll (\(preRollCount) samples) for main-thread startGatedCapture")
+                    TAP_DEBUG("levelCrossing", "DEFERRED — snapshot pre-roll (\(preRollCount) samples) for main-thread startGatedCapture\n\(profile)")
                     return
                 }
             }
@@ -1212,7 +1295,9 @@ final class TapToneAnalyzer: ObservableObject {
             self.lastLevelCrossingCaptureID = self.gatedCaptureID
             self.gatedAccumBuffer = self.preRollBuffer
             if mt == .plate || mt == .brace {
-                // Plate/brace: use the current phase and 400 ms window.
+                // Plate/brace: use the current phase and 500 ms window
+                // (with a 400 ms FFT input extracted from it after onset
+                // alignment — see gatedCaptureDuration / gatedFFTWindowDuration).
                 self.gatedCapturePhase = self.materialTapPhase
                 self.gatedCaptureSamples = Int(self.mpmSampleRate * TapToneAnalyzer.gatedCaptureDuration)
 
@@ -1232,8 +1317,9 @@ final class TapToneAnalyzer: ObservableObject {
             self.pendingLevelCrossingPreRoll = nil  // consumed by direct start
             let preRollCount = self.gatedAccumBuffer.count
             let target = self.gatedCaptureSamples
+            let profile = self.captureWindowProfile(self.gatedAccumBuffer, label: "FASTSTART_PREROLL")
             self.mpmLock.unlock()
-            TAP_DEBUG("levelCrossing", "Gated capture started on audio queue | mode=\(mt) pre-roll \(preRollCount) samples, target \(target)")
+            TAP_DEBUG("levelCrossing", "Gated capture started on audio queue | mode=\(mt) pre-roll \(preRollCount) samples, target \(target)\n\(profile)")
         }
         fftAnalyzer.levelCrossingThreshold = tapDetectionThreshold
 

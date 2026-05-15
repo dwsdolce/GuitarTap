@@ -147,17 +147,50 @@ extension RealtimeFFTAnalyzer {
         // captured at the exact audio buffer that crosses the threshold,
         // eliminating the Combine dispatch delay that otherwise shifts the
         // pre-roll past the tap attack transient.
+        //
+        // Requires ``levelCrossingConfirmationChunks`` consecutive
+        // above-threshold chunks (default 2 = ~43 ms) before firing.  This
+        // rejects brief noise bumps that would otherwise consume a phase's
+        // gated capture window — especially during file playback where
+        // there's no human review-time gap between phases.  ``alignCaptureToOnset``
+        // re-anchors the FFT window to the sample-precise onset, so the few
+        // chunks of trigger delay introduced here are invisible downstream.
         if isPlayingFile {
             TAP_DEBUG("processRawSamples", "LEVEL_CHECK | armed=\(levelCrossingArmed) levelDB=\(String(format: "%.1f", levelDB)) threshold=\(String(format: "%.1f", levelCrossingThreshold)) prevDB=\(String(format: "%.1f", previousLevelDB)) chunkLen=\(samples.count) fileSamplePos=\(samplesConsumed)")
         }
-        if levelCrossingArmed,
-           levelDB > levelCrossingThreshold,
-           previousLevelDB <= levelCrossingThreshold {
-            levelCrossingArmed = false
-            if isPlayingFile {
-                TAP_DEBUG("processRawSamples", "LEVEL_CROSSING_FIRED | rmsDB=\(String(format: "%.1f", levelDB)) prevDB=\(String(format: "%.1f", previousLevelDB))")
+        if levelCrossingArmed {
+            let aboveThreshold = levelDB > levelCrossingThreshold
+            let prevAboveThreshold = previousLevelDB > levelCrossingThreshold
+            let confirmTarget = Self.levelCrossingConfirmationChunks
+            if aboveThreshold {
+                if levelCrossingConsecutiveAbove > 0 {
+                    // Already counting — extend the run.
+                    levelCrossingConsecutiveAbove += 1
+                } else if !prevAboveThreshold {
+                    // Fresh rising edge — start a new candidate run.
+                    levelCrossingConsecutiveAbove = 1
+                    if isPlayingFile && confirmTarget > 1 {
+                        TAP_DEBUG("processRawSamples", "LEVEL_CROSSING_PENDING | rmsDB=\(String(format: "%.1f", levelDB)) prevDB=\(String(format: "%.1f", previousLevelDB)) need=\(confirmTarget - 1) more")
+                    }
+                }
+                // If aboveThreshold && counter == 0 && prevAboveThreshold,
+                // signal was already above when arming happened — we wait
+                // for a fall + rise (handled when level drops then climbs).
+                if levelCrossingConsecutiveAbove >= confirmTarget {
+                    levelCrossingArmed = false
+                    if isPlayingFile {
+                        TAP_DEBUG("processRawSamples", "LEVEL_CROSSING_FIRED | rmsDB=\(String(format: "%.1f", levelDB)) prevDB=\(String(format: "%.1f", previousLevelDB)) confirmedBy=\(confirmTarget)")
+                    }
+                    // didSet on levelCrossingArmed resets the counter.
+                    levelCrossingHandler?()
+                }
+            } else {
+                // Below threshold — abort any in-progress candidate run.
+                if levelCrossingConsecutiveAbove > 0 && isPlayingFile {
+                    TAP_DEBUG("processRawSamples", "LEVEL_CROSSING_CANCELED | rmsDB=\(String(format: "%.1f", levelDB)) (signal fell below after \(levelCrossingConsecutiveAbove)/\(confirmTarget) chunks)")
+                }
+                levelCrossingConsecutiveAbove = 0
             }
-            levelCrossingHandler?()
         }
         previousLevelDB = levelDB
 

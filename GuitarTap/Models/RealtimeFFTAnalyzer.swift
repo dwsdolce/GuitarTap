@@ -394,16 +394,71 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     var levelCrossingThreshold: Float = -40
 
     /// When `true`, the next rising-edge crossing of ``levelCrossingThreshold``
-    /// will fire ``levelCrossingHandler``.  Set `false` after it fires; re-armed
-    /// by ``TapToneAnalyzer`` when tap detection is re-enabled.
+    /// — confirmed by ``levelCrossingConfirmationChunks`` consecutive
+    /// above-threshold chunks — will fire ``levelCrossingHandler``.  Set
+    /// `false` after it fires; re-armed by ``TapToneAnalyzer`` when tap
+    /// detection is re-enabled.
     var levelCrossingArmed: Bool = false {
         didSet {
             if levelCrossingArmed != oldValue {
                 let thread = Thread.isMainThread ? "main" : "audio"
                 TAP_DEBUG("levelCrossingArm", "ARMED=\(levelCrossingArmed) (was \(oldValue)) thread=\(thread)")
+                // Reset the confirmation counter whenever arming state
+                // transitions, so a fresh rising edge is required after each
+                // arm.  Without this reset, arming while the signal is
+                // already above threshold (and a stale counter is non-zero)
+                // could spuriously fire on the next chunk.
+                levelCrossingConsecutiveAbove = 0
             }
         }
     }
+
+    /// Number of consecutive above-threshold audio chunks required to confirm
+    /// a level crossing before ``levelCrossingHandler`` is fired.
+    ///
+    /// At a 1024-sample chunk and 48 kHz sample rate each chunk is ~21 ms,
+    /// so the default of `2` requires ~43 ms of sustained signal above the
+    /// threshold.  This rejects brief 1-chunk broadband bumps — for example
+    /// handling noise between plate-mode phases — while still firing
+    /// reliably on real taps, including high-Q brace ring-outs that may
+    /// only spend ~2 chunks above the rising threshold before the per-chunk
+    /// RMS decays below it.
+    ///
+    /// **Why 2 and not 3:** the brace test fixture
+    /// (`brace-umik-1-swift-mac-1778816093.wav`) has a real tap whose
+    /// per-chunk RMS drops below threshold after only the second chunk:
+    ///   chunk 1: RMS -47.76 dB (above)
+    ///   chunk 2: RMS -52.48 dB (above)
+    ///   chunk 3: RMS -54.80 dB (below)
+    /// A confirmation requirement of 3 would reject this real tap.  The
+    /// observed plate-mode bump in `plate-umik-1-swift-mac-1778816330.wav`
+    /// is a single-chunk excursion (RMS -46.78 dB then -53.55 dB), so 2
+    /// already rejects it.
+    ///
+    /// The trade-off vs `1` (legacy fire-on-first-crossing):
+    /// - Pros: filters single-chunk noise events that previously triggered
+    ///   bogus gated captures — especially during file playback, which has
+    ///   no human review-time gap between phases.
+    /// - Cons: trigger fires `levelCrossingConfirmationChunks - 1` chunks
+    ///   later than before.  ``alignCaptureToOnset`` compensates by
+    ///   anchoring the FFT window to the sample-precise tap onset, so the
+    ///   FFT input is unchanged.  A bump spanning 2+ chunks could still
+    ///   slip through; a louder/higher value would start cutting into
+    ///   weak marginal taps like the brace example above.
+    ///
+    /// This constant is also consulted by the main-thread tap detector
+    /// (``TapToneAnalyzer.detectTap``) so both rising-edge paths apply
+    /// the same confirmation logic — otherwise a bump rejected here can
+    /// still fire the main-thread detector and start a bogus capture.
+    static let levelCrossingConfirmationChunks: Int = 2
+
+    /// Running count of consecutive above-threshold chunks within the
+    /// current candidate rising-edge run.  Reset to `0` whenever the level
+    /// drops back below threshold or arming state changes.  Counts up while
+    /// armed and waiting for confirmation; once it reaches
+    /// ``RealtimeFFTAnalyzer/levelCrossingConfirmationChunks`` the handler
+    /// fires and the level crossing is disarmed.
+    var levelCrossingConsecutiveAbove: Int = 0
 
     /// Tracks the previous buffer's level for rising-edge detection on the
     /// audio queue.  Updated every buffer inside ``processAudioBuffer(_:)``.

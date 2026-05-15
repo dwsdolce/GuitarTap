@@ -183,6 +183,17 @@ extension TapToneAnalyzer {
         mpmLock.lock()
         gatedAccumBuffer = []
         preRollBuffer = []
+        // Session recording: clear the buffer and begin recording.
+        // The buffer accumulates raw audio while detection is active,
+        // producing a single WAV per measurement for replay.
+        sessionRecordingBuffer = []
+        // Seed with checkpoint 0 so the first phase has a truncation
+        // anchor — without it, redoing the first phase (or the same
+        // phase repeatedly) would leave the rejected tap's audio in
+        // the saved WAV.  See acceptCurrentPhase / redoCurrentPhase.
+        sessionCheckpoints = [0]
+        isSessionRecording = true
+        sessionRecordingSampleRate = mpmSampleRate > 0 ? mpmSampleRate : 48000
         mpmLock.unlock()
 
         // Reset the threshold-crossing state BEFORE arming detection.
@@ -314,6 +325,7 @@ extension TapToneAnalyzer {
         guard isDetecting && !isDetectionPaused else { return }
         isDetecting      = false
         isDetectionPaused = true
+        isSessionRecording = false  // Stop accumulating audio during pause
         statusMessage    = "Detection paused – tap freely, then resume"
         gtLog("⏸️ Tap detection paused at \(currentTapCount)/\(numberOfTaps)")
     }
@@ -332,6 +344,7 @@ extension TapToneAnalyzer {
         analyzerStartTime = Date()
         isAboveThreshold  = false
 
+        isSessionRecording = true  // Resume accumulating audio after pause
         isDetecting = true
 
         // Restore a context-appropriate prompt.
@@ -384,6 +397,10 @@ extension TapToneAnalyzer {
             self.gatedCaptureActive = false
             self.mpmLock.lock()
             self.gatedAccumBuffer = []
+            // Session recording: discard the buffer on cancel.
+            self.isSessionRecording = false
+            self.sessionRecordingBuffer = []
+            self.sessionCheckpoints = []
             self.mpmLock.unlock()
 
             self.resetMaterialPhaseState(to: .notStarted)
@@ -413,6 +430,12 @@ extension TapToneAnalyzer {
     /// - For `reviewingCross`: transitions to `.waitingForFlcTap` (FLC enabled) or `.complete`.
     /// - For `reviewingFlc`: marks the measurement complete.
     func acceptCurrentPhase() {
+        // Session recording: checkpoint the current buffer position so that
+        // if a subsequent phase is redone, we can truncate back to here.
+        mpmLock.lock()
+        sessionCheckpoints.append(sessionRecordingBuffer.count)
+        mpmLock.unlock()
+
         let measureFlc = TapDisplaySettings.measureFlc
         switch materialTapPhase {
         case .reviewingLongitudinal:
@@ -442,32 +465,60 @@ extension TapToneAnalyzer {
                 }
             } else {
                 gtLog("✅ Accepted C tap — measurement complete")
-                let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? crossPeaks.first)
-                currentPeaks = sel
-                selectedPeakIDs = Set(sel.map { $0.id })
-                setFrozenSpectrum(frequencies: [], magnitudes: [])
-                materialTapPhase = .complete
-                isMeasurementComplete = true
-                tapProgress = 1.0
-                let fLStr = selectedLongitudinalPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
-                let fCStr = selectedCrossPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
-                statusMessage = "Complete — fL: \(fLStr) Hz, fC: \(fCStr) Hz"
+                finalisePlateNoFLC()
             }
 
         case .reviewingFlc:
             gtLog("✅ Accepted FLC tap — measurement complete")
-            let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? flcPeaks.first)
-            currentPeaks = sel
-            selectedPeakIDs = Set(sel.map { $0.id })
-            setFrozenSpectrum(frequencies: [], magnitudes: [])
-            materialTapPhase = .complete
-            isMeasurementComplete = true
-            tapProgress = 1.0
-            statusMessage = "Complete - check Results"
+            finalisePlateWithFLC()
 
         default:
             gtLog("⚠️ acceptCurrentPhase called in unexpected phase: \(materialTapPhase)")
         }
+    }
+
+    // MARK: - Plate Completion Helpers
+
+    /// Finalises a two-tap plate measurement (L + C, no FLC).
+    ///
+    /// Resolves the displayed peak selection, freezes the spectrum, marks
+    /// the phase complete, writes the session WAV, and sets the completion
+    /// status message.  Called from both the user-Accept path
+    /// (``acceptCurrentPhase`` on `.reviewingCross`) and the file-playback
+    /// auto-complete path (``handleCrossGatedProgress`` when `measureFlc`
+    /// is `false`).  Mirrors Python `_finalise_plate_no_flc()`.
+    func finalisePlateNoFLC() {
+        let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? crossPeaks.first)
+        currentPeaks = sel
+        selectedPeakIDs = Set(sel.map { $0.id })
+        setFrozenSpectrum(frequencies: [], magnitudes: [])
+        materialTapPhase = .complete
+        isMeasurementComplete = true
+        finishSessionRecording(label: "Plate_LC")
+        tapProgress = 1.0
+        let fLStr = selectedLongitudinalPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
+        let fCStr = selectedCrossPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
+        statusMessage = "Complete — fL: \(fLStr) Hz, fC: \(fCStr) Hz"
+    }
+
+    /// Finalises a three-tap plate measurement (L + C + FLC).
+    ///
+    /// Resolves the displayed peak selection, freezes the spectrum, marks
+    /// the phase complete, writes the session WAV, and sets the completion
+    /// status message.  Called from both the user-Accept path
+    /// (``acceptCurrentPhase`` on `.reviewingFlc`) and the file-playback
+    /// auto-complete path (``handleFlcGatedProgress``).  Mirrors Python
+    /// `_finalise_plate_with_flc()`.
+    func finalisePlateWithFLC() {
+        let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? flcPeaks.first)
+        currentPeaks = sel
+        selectedPeakIDs = Set(sel.map { $0.id })
+        setFrozenSpectrum(frequencies: [], magnitudes: [])
+        materialTapPhase = .complete
+        isMeasurementComplete = true
+        finishSessionRecording(label: "Plate_LCF")
+        tapProgress = 1.0
+        statusMessage = "Complete - check Results"
     }
 
     /// Clears the current phase's captured data and restarts detection for that phase.
@@ -476,6 +527,18 @@ extension TapToneAnalyzer {
     /// `reviewingLongitudinal`, `reviewingCross`, or `reviewingFlc` state.
     /// Only the data for the current phase is cleared — earlier phases are preserved.
     func redoCurrentPhase() {
+        // Session recording: truncate back to the start of the current
+        // phase so the rejected tap's audio is excluded from the saved WAV.
+        // Peek (don't pop) — the anchor must remain in place so that a
+        // second redo of the same phase truncates to the same position,
+        // not to the start of the *previous* accepted phase.
+        mpmLock.lock()
+        if let phaseStart = sessionCheckpoints.last,
+           sessionRecordingBuffer.count > phaseStart {
+            sessionRecordingBuffer.removeSubrange(phaseStart...)
+        }
+        mpmLock.unlock()
+
         switch materialTapPhase {
         case .reviewingLongitudinal:
             gtLog("🔄 Redo L phase — clearing longitudinal data")
