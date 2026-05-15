@@ -376,7 +376,7 @@ extension TapToneAnalysisView {
             minDB: TapDisplaySettings.minMagnitude, maxDB: 0, isLogarithmic: false,
             showUnknownModes: TapDisplaySettings.showUnknownModes,
             guitarType: TapDisplaySettings.guitarType,
-            measurementType: TapDisplaySettings.measurementType, maxPeaks: tap.maxPeaks)
+            measurementType: TapDisplaySettings.measurementType)
         let avgSelectedPeaks = tap.currentPeaks.filter { tap.selectedPeakIDs.contains($0.id) }
         cmpEntries.append(ComparisonEntry(id: UUID(), label: "Averaged",
             colorComponents: avgComps, snapshot: avgSnap,

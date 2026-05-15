@@ -28,13 +28,11 @@ import Foundation
 @MainActor
 private func makeSUT(
     threshold: Float = -40,
-    hysteresis: Float = 5,
     numberOfTaps: Int = 1
 ) -> TapToneAnalyzer {
     let fft = RealtimeFFTAnalyzer()
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.tapDetectionThreshold = threshold
-    sut.hysteresisMargin = hysteresis
     sut.numberOfTaps = numberOfTaps
     // Defeat the warmup guard by setting the start time 2 s in the past
     sut.analyzerStartTime = Date(timeIntervalSinceNow: -2)
@@ -144,9 +142,9 @@ struct TapDetectionTests {
 
     // T5: Hysteresis — signal that rises above risingThreshold but then only
     // drops to fallingThreshold+ε should keep isAboveThreshold = true and
-    // should NOT trigger a new tap.
+    // should NOT trigger a new tap.  hysteresisMargin is hardcoded to 3 dB.
     @Test func hysteresis_preventsBouncingOnFallingEdge() {
-        let sut = makeSUT(threshold: -40, hysteresis: 5)
+        let sut = makeSUT(threshold: -40)
         sut.isDetecting = true
 
         // First sequence: rising-edge confirmation requires N consecutive
@@ -160,12 +158,12 @@ struct TapDetectionTests {
         // Advance lastTapTime past cooldown so next call isn't blocked by cooldown
         sut.lastTapTime = Date(timeIntervalSinceNow: -1)
 
-        // Second call: signal at -43 dB — between fallingThreshold (-45) and
+        // Second call: signal at -42 dB — between fallingThreshold (-43) and
         // risingThreshold (-40). Should stay "above" and not fire a new tap.
         sut.tapDetected = false
-        sut.detectTap(peakMagnitude: -43, magnitudes: fakeMags, frequencies: fakeFreqs)
+        sut.detectTap(peakMagnitude: -42, magnitudes: fakeMags, frequencies: fakeFreqs)
 
-        // isAboveThreshold should still be true (signal > fallingThreshold -45)
+        // isAboveThreshold should still be true (signal > fallingThreshold -43)
         #expect(sut.isAboveThreshold == true,
                 "Signal above fallingThreshold should keep isAboveThreshold = true")
         #expect(sut.tapDetected == false,
@@ -175,11 +173,11 @@ struct TapDetectionTests {
     // T5b: Once signal drops below fallingThreshold, isAboveThreshold becomes false
     // (ready for the next rising edge).
     @Test func hysteresis_signalBelowFallingThreshold_resetsAboveThreshold() {
-        let sut = makeSUT(threshold: -40, hysteresis: 5)
+        let sut = makeSUT(threshold: -40)
         sut.isDetecting = true
         sut.isAboveThreshold = true   // currently above
 
-        // Signal drops below fallingThreshold (-45)
+        // Signal drops below fallingThreshold (-43)
         sut.detectTap(peakMagnitude: -50, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         #expect(sut.isAboveThreshold == false,
@@ -213,7 +211,6 @@ struct TapDetectionTests {
         let fft = RealtimeFFTAnalyzer()
         let sut = TapToneAnalyzer(fftAnalyzer: fft)
         sut.tapDetectionThreshold = -40
-        sut.hysteresisMargin = 5
         sut.numberOfTaps = 1
         sut.analyzerStartTime = Date(timeIntervalSinceNow: -2)
         sut.justExitedWarmup = false
@@ -246,7 +243,6 @@ struct TapDetectionTests {
         let fft = RealtimeFFTAnalyzer()
         let sut = TapToneAnalyzer(fftAnalyzer: fft)
         sut.tapDetectionThreshold = -40
-        sut.hysteresisMargin = 5
         sut.analyzerStartTime = Date(timeIntervalSinceNow: -2)
         sut.justExitedWarmup = false
         sut.isAboveThreshold = false  // stays below threshold

@@ -432,12 +432,6 @@ private struct LoadedSettingsModifier: ViewModifier {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedTapDetectionThreshold = nil }
                 }
             }
-            .onReceive(tap.$loadedHysteresisMargin) { hysteresis in
-                if hysteresis != nil {
-                    gtLog("  ⬇️ View received loadedHysteresisMargin: \(hysteresis!)")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedHysteresisMargin = nil }
-                }
-            }
             .onReceive(tap.$loadedNumberOfTaps) { taps in
                 if taps != nil {
                     gtLog("  ⬇️ View received loadedNumberOfTaps: \(taps!)")

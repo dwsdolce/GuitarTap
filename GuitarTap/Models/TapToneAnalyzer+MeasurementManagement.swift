@@ -160,7 +160,6 @@ extension TapToneAnalyzer {
             showUnknownModes: TapDisplaySettings.showUnknownModes,
             guitarType: TapDisplaySettings.guitarType,
             measurementType: measurementType,
-            maxPeaks: maxPeaks,
             plateLength: measurementType == .plate ? TapDisplaySettings.plateLength : nil,
             plateWidth: measurementType == .plate ? TapDisplaySettings.plateWidth : nil,
             plateThickness: measurementType == .plate ? TapDisplaySettings.plateThickness : nil,
@@ -249,8 +248,7 @@ extension TapToneAnalyzer {
                 isLogarithmic: false,
                 showUnknownModes: TapDisplaySettings.showUnknownModes,
                 guitarType: TapDisplaySettings.guitarType,
-                measurementType: measurementType,
-                maxPeaks: maxPeaks
+                measurementType: measurementType
             )
         } else {
             snapshot = nil
@@ -289,7 +287,6 @@ extension TapToneAnalyzer {
             spectrum: snapshot,
             annotationOffsets: annotationOffsets ?? peakAnnotationOffsets,
             tapDetectionThreshold: tapDetectionThreshold,
-            hysteresisMargin: hysteresisMargin,
             numberOfTaps: numberOfTaps,
             peakMinThreshold: peakMinThreshold,
             // Include peak selections for plate and brace measurements
@@ -698,14 +695,6 @@ extension TapToneAnalyzer {
             gtLog("  ⚠️ No tap threshold in measurement")
         }
         
-        if let hysteresis = measurement.hysteresisMargin {
-            gtLog("  🔄 Publishing hysteresis: \(hysteresis) dB")
-            hysteresisMargin = hysteresis
-            loadedHysteresisMargin = hysteresis
-        } else {
-            gtLog("  ⚠️ No hysteresis in measurement")
-        }
-        
         if let taps = measurement.numberOfTaps {
             gtLog("  🔢 Publishing number of taps: \(taps)")
             numberOfTaps = taps
@@ -1009,8 +998,7 @@ extension TapToneAnalyzer {
             isLogarithmic: false,
             showUnknownModes: TapDisplaySettings.showUnknownModes,
             guitarType: TapDisplaySettings.guitarType,
-            measurementType: TapDisplaySettings.measurementType,
-            maxPeaks: maxPeaks
+            measurementType: TapDisplaySettings.measurementType
         )
         entries.append((
             magnitudes: frozenMagnitudes,

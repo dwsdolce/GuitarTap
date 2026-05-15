@@ -288,14 +288,6 @@ Advanced → Analysis Settings. Peaks outside this window are ignored during det
 
 Advanced → Analysis Settings. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported; adjusting it on a frozen spectrum re-runs peak finding and updates selections. In brace/plate mode it only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB.
 
-### Hysteresis Margin
-
-Advanced → Analysis Settings. How far the signal must drop below the detection threshold before the detector resets and is ready for the next tap. A higher value prevents a single loud tap from triggering multiple detections. Range: 1–10 dB; default is 6 dB.
-
-### Maximum Peaks
-
-Advanced → Analysis Settings. Caps the number of peaks reported. Set to All to include every peak above the threshold. Fewer peaks reduces visual clutter when testing assembled guitars.
-
 ## ![](/tmp/guitar-tap-symbols/lightbulb.png){height=18pt width=18pt} Tips & Technique
 
 ### Tap Technique

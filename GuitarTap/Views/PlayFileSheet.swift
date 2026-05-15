@@ -47,8 +47,21 @@ struct PlayFileSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Play") {
                         guard let url = audioURL else { return }
-                        onPlay(url, calibrationURL)
+                        let cal = calibrationURL
+                        // Dismiss FIRST so the sheet's dismissal animation
+                        // can start rendering immediately — `onPlay` does
+                        // ~100–500 ms of synchronous main-thread work
+                        // (AVAudioEngine stop, audio-queue drain, file read,
+                        // setup) and would otherwise hold the sheet on
+                        // screen for that whole window, making the tap feel
+                        // unresponsive.  DispatchQueue.main.async defers the
+                        // heavy work to the next main-loop tick, after the
+                        // current event has cleared, so the animation gets
+                        // a frame to start before the main thread is busy.
                         dismiss()
+                        DispatchQueue.main.async {
+                            onPlay(url, cal)
+                        }
                     }
                     .disabled(audioURL == nil)
                 }
@@ -64,8 +77,14 @@ struct PlayFileSheet: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Play") {
                             guard let url = audioURL else { return }
-                            onPlay(url, calibrationURL)
+                            let cal = calibrationURL
+                            // See macOS branch above for rationale —
+                            // dismiss first, defer the heavy onPlay work
+                            // so the sheet dismisses snappily.
                             dismiss()
+                            DispatchQueue.main.async {
+                                onPlay(url, cal)
+                            }
                         }
                         .disabled(audioURL == nil)
                     }

@@ -1545,8 +1545,7 @@ extension TapToneAnalyzer {
                     isLogarithmic: false,
                     showUnknownModes: showUnknown,
                     guitarType: guitarType,
-                    measurementType: measurementType,
-                    maxPeaks: maxPeaks
+                    measurementType: measurementType
                 )
                 return TapEntry(
                     id: UUID(),

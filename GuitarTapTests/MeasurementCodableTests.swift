@@ -181,8 +181,7 @@ struct TapToneMeasurementCodableTests {
             isLogarithmic: false,
             showUnknownModes: false,
             guitarType: .acoustic,
-            measurementType: .acoustic,
-            maxPeaks: 8
+            measurementType: .acoustic
         )
 
         let annotationOffset = CGPoint(x: 12, y: -8)
@@ -196,7 +195,6 @@ struct TapToneMeasurementCodableTests {
             spectrum: snapshot,
             annotationOffsets: [peak1.id: annotationOffset],
             tapDetectionThreshold: -40,
-            hysteresisMargin: 5,
             numberOfTaps: 3,
             selectedLongitudinalPeakID: peak1.id,
             selectedCrossPeakID: peak2.id,
@@ -231,7 +229,6 @@ struct TapToneMeasurementCodableTests {
         #expect(decoded.measurementName == original.measurementName)
         #expect(decoded.notes == original.notes)
         #expect(decoded.tapDetectionThreshold == original.tapDetectionThreshold)
-        #expect(decoded.hysteresisMargin == original.hysteresisMargin)
         #expect(decoded.numberOfTaps == original.numberOfTaps)
         #expect(decoded.microphoneName == original.microphoneName)
         #expect(decoded.microphoneUID == original.microphoneUID)

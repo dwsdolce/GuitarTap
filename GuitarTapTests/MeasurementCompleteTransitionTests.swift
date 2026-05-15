@@ -40,7 +40,6 @@ private func makeSUT(numberOfTaps: Int = 1) -> TapToneAnalyzer {
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.numberOfTaps = numberOfTaps
     sut.tapDetectionThreshold = -40
-    sut.hysteresisMargin = 5
     sut.analyzerStartTime = Date(timeIntervalSinceNow: -2)
     sut.justExitedWarmup = false
     TapDisplaySettings.measurementType = .classical

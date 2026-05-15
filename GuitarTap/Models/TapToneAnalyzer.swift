@@ -222,12 +222,6 @@ final class TapToneAnalyzer: ObservableObject {
     /// Upper bound of the analysis frequency range, in Hz.
     @Published var maxFrequency: Float = TapDisplaySettings.analysisMaxFrequency
 
-    /// Maximum number of peaks to detect and display.
-    ///
-    /// When more candidate peaks exist, the strongest ones by magnitude are kept.
-    /// Persisted in ``TapDisplaySettings``.
-    @Published var maxPeaks: Int = TapDisplaySettings.maxPeaks
-
     /// Minimum decay level relative to the tap peak for ring-out time measurement, in dB.
     ///
     /// Ring-out time is measured from the tap peak to the first moment the signal drops
@@ -292,10 +286,8 @@ final class TapToneAnalyzer: ObservableObject {
     /// After a tap is detected, the signal must fall at least `hysteresisMargin` dB below
     /// the detection threshold before the next tap can be registered.  This prevents
     /// re-triggering during the ring-out of a single tap.
-    /// Persisted in ``TapDisplaySettings``.
-    @Published var hysteresisMargin: Float = TapDisplaySettings.hysteresisMargin {
-        didSet { TapDisplaySettings.hysteresisMargin = hysteresisMargin }
-    }
+    /// Hardcoded constant — no longer user-configurable.
+    let hysteresisMargin: Float = 3.0
 
     // MARK: - Published Results
 
@@ -776,8 +768,6 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Analysis settings loaded from a saved measurement (tap detection threshold in dBFS).
     @Published var loadedTapDetectionThreshold: Float?
-    /// Hysteresis margin loaded from a saved measurement, in dB.
-    @Published var loadedHysteresisMargin: Float?
     /// Peak-magnitude threshold loaded from a saved measurement, in dBFS.
     @Published var loadedPeakThreshold: Float?
     /// Number-of-taps setting loaded from a saved measurement.
@@ -1215,7 +1205,6 @@ final class TapToneAnalyzer: ObservableObject {
 
         // Restore persisted tap detection settings.
         tapDetectionThreshold = TapDisplaySettings.tapDetectionThreshold
-        hysteresisMargin      = TapDisplaySettings.hysteresisMargin
 
         // Load any previously saved measurements from the Documents directory.
         loadPersistedMeasurements()

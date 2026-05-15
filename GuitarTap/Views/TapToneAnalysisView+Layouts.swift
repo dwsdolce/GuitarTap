@@ -96,8 +96,6 @@ extension TapToneAnalysisView {
                 analysisMinFreq: $tapToneAnalyzer.minFrequency,
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakMinThreshold: $tapToneAnalyzer.peakMinThreshold,
-                maxPeaks: $tapToneAnalyzer.maxPeaks,
-                hysteresisMargin: $tapToneAnalyzer.hysteresisMargin,
                 fftAnalyzer: fft,
                 onApply: { measurementChanged in
                     if measurementChanged {
@@ -228,8 +226,6 @@ extension TapToneAnalysisView {
                 analysisMinFreq: $tapToneAnalyzer.minFrequency,
                 analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakMinThreshold: $tapToneAnalyzer.peakMinThreshold,
-                maxPeaks: $tapToneAnalyzer.maxPeaks,
-                hysteresisMargin: $tapToneAnalyzer.hysteresisMargin,
                 fftAnalyzer: fft,
                 onApply: { measurementChanged in
                     if measurementChanged {

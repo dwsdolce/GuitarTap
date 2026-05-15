@@ -44,7 +44,7 @@ struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init be
         case frequencies, magnitudes
         // All other scalar fields
         case minFreq, maxFreq, minDB, maxDB, isLogarithmic
-        case showUnknownModes, guitarType, measurementType, maxPeaks
+        case showUnknownModes, guitarType, measurementType
         case plateLength, plateWidth, plateThickness, plateMass
         case guitarBodyLength, guitarBodyWidth
         case plateStiffnessPreset, customPlateStiffness, measureFlc
@@ -77,7 +77,6 @@ struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init be
         try c.encodeIfPresent(showUnknownModes,    forKey: .showUnknownModes)
         try c.encodeIfPresent(guitarType,          forKey: .guitarType)
         try c.encodeIfPresent(measurementType,     forKey: .measurementType)
-        try c.encodeIfPresent(maxPeaks,            forKey: .maxPeaks)
         try c.encodeIfPresent(plateLength,         forKey: .plateLength)
         try c.encodeIfPresent(plateWidth,          forKey: .plateWidth)
         try c.encodeIfPresent(plateThickness,      forKey: .plateThickness)
@@ -118,7 +117,6 @@ struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init be
         showUnknownModes   = try c.decodeIfPresent(Bool.self,               forKey: .showUnknownModes)
         guitarType         = try c.decodeIfPresent(GuitarType.self,         forKey: .guitarType)
         measurementType    = try c.decodeIfPresent(MeasurementType.self,    forKey: .measurementType)
-        maxPeaks           = try c.decodeIfPresent(Int.self,                forKey: .maxPeaks)
         plateLength        = try c.decodeIfPresent(Float.self,              forKey: .plateLength)
         plateWidth         = try c.decodeIfPresent(Float.self,              forKey: .plateWidth)
         plateThickness     = try c.decodeIfPresent(Float.self,              forKey: .plateThickness)
@@ -204,11 +202,6 @@ struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init be
     /// Controls which sections of the results panel are displayed on load.
     /// `nil` in older snapshots without this field.
     let measurementType: MeasurementType?
-
-    /// Maximum number of peaks that the analyzer was configured to detect and annotate.
-    ///
-    /// `nil` in older snapshots without this field.
-    let maxPeaks: Int?
 
     // MARK: - Plate Measurement Settings
 
@@ -303,7 +296,6 @@ struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init be
     ///   - showUnknownModes: Whether unknown-mode peaks were visible.
     ///   - guitarType: Guitar classification active at save time.
     ///   - measurementType: Measurement mode (guitar / plate / brace) at save time.
-    ///   - maxPeaks: Peak count limit configured at save time.
     ///   - plateLength: Plate length in mm (plate measurements only).
     ///   - plateWidth: Plate width in mm (plate measurements only).
     ///   - plateThickness: Plate thickness in mm (plate measurements only).
@@ -320,7 +312,7 @@ struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init be
     init(frequencies: [Float], magnitudes: [Float], minFreq: Float, maxFreq: Float,
          minDB: Float, maxDB: Float, isLogarithmic: Bool,
          showUnknownModes: Bool? = nil, guitarType: GuitarType? = nil,
-         measurementType: MeasurementType? = nil, maxPeaks: Int? = nil,
+         measurementType: MeasurementType? = nil,
          plateLength: Float? = nil, plateWidth: Float? = nil,
          plateThickness: Float? = nil, plateMass: Float? = nil,
          guitarBodyLength: Float? = nil, guitarBodyWidth: Float? = nil,
@@ -338,7 +330,6 @@ struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init be
         self.showUnknownModes = showUnknownModes
         self.guitarType = guitarType
         self.measurementType = measurementType
-        self.maxPeaks = maxPeaks
         self.plateLength = plateLength
         self.plateWidth = plateWidth
         self.plateThickness = plateThickness

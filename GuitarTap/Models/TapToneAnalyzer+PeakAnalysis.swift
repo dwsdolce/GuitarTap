@@ -345,9 +345,8 @@ extension TapToneAnalyzer {
     /// outside all known mode ranges.
     ///
     /// **Step 3 — Assembly:**
-    /// The strongest peak from each mode occupies a guaranteed slot. Remaining
-    /// slots (up to ``TapToneAnalyzer/maxPeaks``) are filled by magnitude.
-    /// When `maxPeaks == 0` all found peaks are returned.
+    /// The strongest peak from each mode occupies a guaranteed slot. All
+    /// remaining peaks are then appended in descending magnitude order.
     ///
     /// Each accepted peak has its frequency and magnitude refined with
     /// parabolic interpolation and its Q factor calculated using the −3 dB
@@ -531,24 +530,11 @@ extension TapToneAnalyzer {
             includedPeakIDs.insert(peak.id)
         }
         
-        // Then fill remaining slots with other peaks by magnitude.
-        // maxPeaks == 0 means "capture all peaks".
-        if maxPeaks == 0 {
-            // Add all remaining peaks (no limit)
-            let otherPeaks = allPeaks
-                .filter { !includedPeakIDs.contains($0.id) }
-                .sorted { $0.magnitude > $1.magnitude }
-            finalPeaks.append(contentsOf: otherPeaks)
-        } else {
-            let remainingSlots = maxPeaks - finalPeaks.count
-            if remainingSlots > 0 {
-                let otherPeaks = allPeaks
-                    .filter { !includedPeakIDs.contains($0.id) }
-                    .sorted { $0.magnitude > $1.magnitude }
-                    .prefix(remainingSlots)
-                finalPeaks.append(contentsOf: otherPeaks)
-            }
-        }
+        // Then append all remaining peaks by magnitude (no limit).
+        let otherPeaks = allPeaks
+            .filter { !includedPeakIDs.contains($0.id) }
+            .sorted { $0.magnitude > $1.magnitude }
+        finalPeaks.append(contentsOf: otherPeaks)
         
         // Sort final result by magnitude descending
         return finalPeaks.sorted(by: { $0.magnitude > $1.magnitude })

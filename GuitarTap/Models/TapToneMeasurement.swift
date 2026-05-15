@@ -179,9 +179,6 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// The tap-detection threshold (dB above noise floor) configured at save time.
     let tapDetectionThreshold: Float?
 
-    /// The hysteresis margin (dB) used to prevent re-triggering after a tap, at save time.
-    let hysteresisMargin: Float?
-
     /// The number of taps that were averaged to produce the final spectrum.
     let numberOfTaps: Int?
 
@@ -269,7 +266,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, timestamp, peaks, decayTime, measurementName, tapLocation, notes
         case spectrumSnapshot, peakAnnotationOffsets
-        case tapDetectionThreshold, hysteresisMargin, numberOfTaps, peakMinThreshold
+        case tapDetectionThreshold, numberOfTaps, peakMinThreshold
         // Legacy key used in files saved before the peakThreshold → peakMinThreshold rename
         case legacyPeakThreshold = "peakThreshold"
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
@@ -318,7 +315,6 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///   - spectrum: Guitar-mode averaged spectrum snapshot.
     ///   - annotationOffsets: Custom label positions keyed by peak UUID.
     ///   - tapDetectionThreshold: Detection threshold in dB at save time.
-    ///   - hysteresisMargin: Hysteresis margin in dB at save time.
     ///   - numberOfTaps: Number of taps averaged.
     ///   - peakMinThreshold: Minimum accepted peak magnitude in dBFS.
     ///   - selectedLongitudinalPeakID: UUID of the selected longitudinal peak (plate/brace).
@@ -342,7 +338,6 @@ struct TapToneMeasurement: Identifiable, Codable {
          spectrum: SpectrumSnapshot? = nil,
          annotationOffsets: [UUID: CGPoint]? = nil,
          tapDetectionThreshold: Float? = nil,
-         hysteresisMargin: Float? = nil,
          numberOfTaps: Int? = nil,
          peakMinThreshold: Float? = nil,
          selectedLongitudinalPeakID: UUID? = nil,
@@ -369,7 +364,6 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.spectrumSnapshot = spectrum
         self.peakAnnotationOffsets = annotationOffsets
         self.tapDetectionThreshold = tapDetectionThreshold
-        self.hysteresisMargin = hysteresisMargin
         self.numberOfTaps = numberOfTaps
         self.peakMinThreshold = peakMinThreshold
         self.selectedLongitudinalPeakID = selectedLongitudinalPeakID
@@ -403,7 +397,6 @@ struct TapToneMeasurement: Identifiable, Codable {
             spectrum: spectrumSnapshot,
             annotationOffsets: peakAnnotationOffsets,
             tapDetectionThreshold: tapDetectionThreshold,
-            hysteresisMargin: hysteresisMargin,
             numberOfTaps: numberOfTaps,
             peakMinThreshold: peakMinThreshold,
             selectedLongitudinalPeakID: selectedLongitudinalPeakID,
@@ -486,7 +479,6 @@ struct TapToneMeasurement: Identifiable, Codable {
             peakAnnotationOffsets = nil
         }
         tapDetectionThreshold = try container.decodeIfPresent(Float.self, forKey: .tapDetectionThreshold)
-        hysteresisMargin = try container.decodeIfPresent(Float.self, forKey: .hysteresisMargin)
         numberOfTaps     = try container.decodeIfPresent(Int.self,   forKey: .numberOfTaps)
         // Try new key first; fall back to legacy "peakThreshold" for files saved before rename.
         peakMinThreshold    = try container.decodeIfPresent(Float.self, forKey: .peakMinThreshold)
@@ -541,7 +533,6 @@ struct TapToneMeasurement: Identifiable, Codable {
         }
         try container.encodeIfPresent(namedOffsets, forKey: .peakAnnotationOffsets)
         try container.encodeIfPresent(tapDetectionThreshold, forKey: .tapDetectionThreshold)
-        try container.encodeIfPresent(hysteresisMargin, forKey: .hysteresisMargin)
         try container.encodeIfPresent(numberOfTaps,     forKey: .numberOfTaps)
         try container.encodeIfPresent(peakMinThreshold,    forKey: .peakMinThreshold)
         try container.encodeIfPresent(selectedLongitudinalPeakID, forKey: .selectedLongitudinalPeakID)

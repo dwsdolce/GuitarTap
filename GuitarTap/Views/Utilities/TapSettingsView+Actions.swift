@@ -158,8 +158,6 @@ extension TapSettingsView {
         TapDisplaySettings.analysisMinFrequency = validatedAnalysisFreq.min
         TapDisplaySettings.analysisMaxFrequency = validatedAnalysisFreq.max
         TapDisplaySettings.peakMinThreshold = clampedThreshold
-        TapDisplaySettings.maxPeaks = maxPeaks
-        TapDisplaySettings.hysteresisMargin = hysteresisMargin
 
         // Update input fields with validated values (in case they were clamped)
         minFreqInput = String(format: "%.0f", validatedFreq.min)
@@ -200,11 +198,6 @@ extension TapSettingsView {
         analysisMinFreqInput = String(format: "%.0f", TapDisplaySettings.defaultAnalysisMinFrequency)
         analysisMaxFreqInput = String(format: "%.0f", TapDisplaySettings.defaultAnalysisMaxFrequency)
         peakMinThresholdInput = String(format: "%.0f", TapDisplaySettings.defaultPeakMinThreshold)
-        maxPeaks = TapDisplaySettings.defaultMaxPeaks
-        // defaultMaxPeaks == 0 means "all peaks", so keep captureAllPeaks consistent
-        captureAllPeaks = TapDisplaySettings.defaultMaxPeaks == 0
-        maxPeaksInput = TapSettingsView.maxPeaksDisplayString(TapDisplaySettings.defaultMaxPeaks)
-        hysteresisMargin = TapDisplaySettings.defaultHysteresisMargin
     }
 
     // MARK: - Calibration Helpers

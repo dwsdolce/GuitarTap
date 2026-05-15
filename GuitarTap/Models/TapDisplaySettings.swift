@@ -127,9 +127,7 @@ struct TapDisplaySettings {
     private static let analysisMinFreqKey = "analysisMinFreq"
     private static let analysisMaxFreqKey = "analysisMaxFreq"
     private static let peakMinThresholdKey = "peakMinThreshold"
-    private static let maxPeaksKey = "maxPeaks"
     private static let tapDetectionThresholdKey = "tapDetectionThreshold"
-    private static let hysteresisMarginKey = "hysteresisMargin"
     private static let measureFlcKey = "measureFlc"
     private static let annotationVisibilityModeKey = "annotationVisibilityMode"
     private static let dumpCaptureAudioKey = "dumpCaptureAudio"
@@ -501,10 +499,7 @@ struct TapDisplaySettings {
     /// Default minimum magnitude threshold for peak detection (dB).
     /// Corresponds to the "Peak Min" slider in the UI.
     static let defaultPeakMinThreshold: Float = -60
-    
-    /// Default maximum number of peaks to detect and store (0 = all peaks)
-    static let defaultMaxPeaks: Int = 0
-    
+
     /// Persisted minimum frequency for analysis (Hz)
     static var analysisMinFrequency: Float {
         get {
@@ -549,30 +544,11 @@ struct TapDisplaySettings {
         }
     }
     
-    /// Persisted maximum number of peaks to detect and store
-    /// A value of 0 means "capture all peaks" (no limit)
-    static var maxPeaks: Int {
-        get {
-            // Use object check to distinguish between "not set" and "set to 0"
-            if defaults.object(forKey: maxPeaksKey) == nil {
-                return defaultMaxPeaks
-            }
-            return defaults.integer(forKey: maxPeaksKey)
-        }
-        set {
-            // Allow 0 (all peaks) or any positive value
-            defaults.set(max(0, newValue), forKey: maxPeaksKey)
-        }
-    }
-    
     // MARK: - Tap Detection Settings (Persisted)
-    
+
     /// Default tap detection threshold in dB
     static let defaultTapDetectionThreshold: Float = -40.0
-    
-    /// Default hysteresis margin in dB
-    static let defaultHysteresisMargin: Float = 3.0
-    
+
     /// Persisted tap detection threshold (dB)
     static var tapDetectionThreshold: Float {
         get {
@@ -610,20 +586,6 @@ struct TapDisplaySettings {
         set { defaults.set(newValue, forKey: dumpCaptureAudioKey) }
     }
 
-    /// Persisted hysteresis margin (dB)
-    static var hysteresisMargin: Float {
-        get {
-            // Use object check since 0 could theoretically be a valid value
-            if defaults.object(forKey: hysteresisMarginKey) == nil {
-                return defaultHysteresisMargin
-            }
-            return defaults.float(forKey: hysteresisMarginKey)
-        }
-        set {
-            defaults.set(newValue, forKey: hysteresisMarginKey)
-        }
-    }
-    
     // MARK: - Validation
     
     /// Validates and clamps frequency range
