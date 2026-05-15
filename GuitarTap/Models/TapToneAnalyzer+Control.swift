@@ -240,6 +240,17 @@ extension TapToneAnalyzer {
             self.displayMode = .live
             self.loadedMeasurementName = nil
             self.sourceMeasurementTimestamp = nil
+            // Also clear the played-file name so the chart title reverts to "New"
+            // when the user starts a fresh tap sequence (e.g. by changing
+            // measurement type across the guitar/material boundary).  Without
+            // this, chartTitle — computed as
+            //   fft.playingFileName ?? tap.loadedMeasurementName ?? "New"
+            // — keeps showing the previously-played filename even though the
+            // new sequence is unrelated to that file.  For the file-playback
+            // path (startFromFile) this is harmless because the playback
+            // setup re-assigns playingFileName immediately after
+            // startTapSequence returns.
+            self.fftAnalyzer.playingFileName = nil
             self.isMeasurementComplete = false
             // Clear the loaded-settings warning — the user is explicitly starting a new
             // sequence so the loaded threshold/tap-count are now their chosen settings.

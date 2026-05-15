@@ -599,8 +599,9 @@ extension TapToneAnalyzer {
         // and overwrite the displayed frozen spectrum, masking the real
         // brace/plate phase capture that runs in parallel.  Mirrors the
         // equivalent guard in Python tap_tone_analyzer_spectrum_capture.py
-        // finish_guitar_gated_capture.
-        if TapDisplaySettings.measurementType != .generic {
+        // finish_guitar_gated_capture.  Accepts any guitar measurement type
+        // (.generic, .acoustic, .classical, .flamenco); only rejects plate/brace.
+        if !TapDisplaySettings.measurementType.isGuitar {
             TAP_DEBUG("guitarGatedCapture", "ORPHAN — discarded (measurementType=\(TapDisplaySettings.measurementType), samples=\(samples.count))")
             return
         }
