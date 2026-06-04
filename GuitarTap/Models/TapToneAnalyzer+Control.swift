@@ -301,7 +301,9 @@ extension TapToneAnalyzer {
             // enqueued — see the comment above the DispatchQueue.main.async call.
             // setFrozenSpectrum was also called synchronously to prevent this block from
             // wiping a gated-FFT result captured between the sync section and here.
-            self.isDetecting = true
+            // Do not re-assign isDetecting here: handleTapDetection may have set it false
+            // between the sync arming above and this block running, and overwriting that
+            // leaves the analyzer stuck in "detecting" after the measurement completes.
 
             // Set context-appropriate status message.
             if isBraceMode {

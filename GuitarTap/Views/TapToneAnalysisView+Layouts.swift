@@ -313,7 +313,8 @@ extension TapToneAnalysisView {
 
                 Divider()
 
-                // Right pane: scrollable analysis results, sized to its content
+                // Right pane: scrollable analysis results, capped width so the
+                // FFT chart on the left always gets a usable share.
                 TapAnalysisResultsView(
                     analyzer: tap,
                     fftAnalyzer: fft,
@@ -322,7 +323,7 @@ extension TapToneAnalysisView {
                     onExportSpectrum: { exportCurrentSpectrum() },
                     onExportPDFReport: { exportPDFReport() }
                 )
-                .fixedSize(horizontal: true, vertical: false)
+                .frame(idealWidth: 360, maxWidth: 480)
             }
 
             Divider()
