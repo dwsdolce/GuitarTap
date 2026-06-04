@@ -114,4 +114,48 @@ struct StartTapSequenceRaceTests {
         #expect(sut.isDetecting == false)
         #expect(sut.isDetectionPaused == false)
     }
+
+    // R4: Audio-queue gated-capture path regression — the actual iPad bug.
+    //
+    // The audio-queue levelCrossingHandler starts a gated capture directly
+    // (sets gatedCaptureActive=true, seeds gatedAccumBuffer) without ever
+    // calling handleTapDetection.  So isDetecting stays true through the
+    // capture window.  When finishGuitarGatedCapture eventually runs and
+    // processMultipleTaps completes the measurement, isDetecting must be
+    // false — otherwise the UI shows the impossible (detecting && complete)
+    // state with Pause enabled and New Tap disabled.
+    //
+    // R1–R3 above drive the MODEL through the RMS path (they directly mutate
+    // isDetecting=false to simulate handleTapDetection); they passed even
+    // with the iPad bug present because they bypass the audio-queue path
+    // that exhibited it.  This test drives the audio-queue path: it never
+    // calls handleTapDetection, it goes straight from startTapSequence to
+    // finishGuitarGatedCapture (the function called by both paths once the
+    // capture buffer fills).
+    @Test func audioQueueGatedCapturePath_clearsIsDetecting() async throws {
+        let sut = makeSUT(numberOfTaps: 1)
+
+        sut.startTapSequence()
+        // NOTE: we intentionally do NOT simulate handleTapDetection here.
+        // This mirrors the audio-queue path where the level-crossing handler
+        // starts a gated capture directly and the RMS handler never runs.
+        #expect(sut.isDetecting == true, "post-startTapSequence: isDetecting must be true (detection armed)")
+
+        // finishGuitarGatedCapture is the merge point for both paths.
+        // Pass a synthetic raw-sample buffer of fftSize length.
+        let fftSize = sut.fftAnalyzer.fftSize
+        let samples = [Float](repeating: 0, count: fftSize)
+        sut.finishGuitarGatedCapture(samples: samples, sampleRate: 48000)
+
+        #expect(sut.isDetecting == false,
+                "REGRESSION: finishGuitarGatedCapture must clear isDetecting so the audio-queue path doesn't leave the analyzer stuck in 'detecting' through measurement completion")
+
+        // Now run processMultipleTaps to finish the measurement.  The end
+        // state must satisfy the invariants — isMeasurementComplete=true,
+        // isDetecting=false, isDetectionPaused=false.
+        sut.processMultipleTaps()
+        #expect(sut.isMeasurementComplete == true)
+        #expect(sut.isDetecting == false)
+        #expect(sut.isDetectionPaused == false)
+    }
 }

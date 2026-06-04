@@ -328,12 +328,19 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// `true` when tap detection is actively listening for taps.
     ///
-    /// `false` after `stop()`, `reset()`, or while paused.
+    /// `false` after `stop()`, `cancelTapSequence()`, or while paused.
     /// Setting this property automatically arms or disarms the audio-queue
     /// level-crossing handler that snapshots the pre-roll buffer.
     @Published var isDetecting: Bool = false {
         didSet {
-            TAP_DEBUG("isDetecting", "\(oldValue) → \(isDetecting) | isPlayingFile=\(fftAnalyzer.isPlayingFile)")
+            TAP_DEBUG("isDetecting", "\(oldValue) → \(isDetecting) | paused=\(isDetectionPaused) complete=\(isMeasurementComplete) ready=\(isReadyForDetection) tapCount=\(currentTapCount)/\(numberOfTaps) capt=\(capturedTaps.count) phase=\(materialTapPhase) measType=\(TapDisplaySettings.measurementType) | isPlayingFile=\(fftAnalyzer.isPlayingFile)")
+            // Brief call stack so we can see WHO flipped the flag (top 8 frames,
+            // first one is the dispatch_wrap for swift property setters and is
+            // skipped).  Strip the leading address columns to keep lines short.
+            let frames = Thread.callStackSymbols.dropFirst().prefix(8)
+                .map { $0.replacingOccurrences(of: "  +0x[0-9a-f]+", with: "", options: .regularExpression) }
+                .joined(separator: " | ")
+            TAP_DEBUG("isDetecting.stack", frames)
             if isDetecting && !oldValue {
                 // false → true transition only: arm the audio-queue level-
                 // crossing handler so it can start the gated capture at the
@@ -379,11 +386,29 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Distinct from `isDetecting = false` because pause preserves the in-progress
     /// tap count, while a full stop resets it.
-    @Published var isDetectionPaused: Bool = false
+    @Published var isDetectionPaused: Bool = false {
+        didSet {
+            guard oldValue != isDetectionPaused else { return }
+            TAP_DEBUG("isDetectionPaused", "\(oldValue) → \(isDetectionPaused) | detecting=\(isDetecting) complete=\(isMeasurementComplete) ready=\(isReadyForDetection)")
+            let frames = Thread.callStackSymbols.dropFirst().prefix(6)
+                .map { $0.replacingOccurrences(of: "  +0x[0-9a-f]+", with: "", options: .regularExpression) }
+                .joined(separator: " | ")
+            TAP_DEBUG("isDetectionPaused.stack", frames)
+        }
+    }
 
     /// `false` during the brief period after an audio route change while the engine
     /// reinitialises.  The UI disables the New Tap and Resume buttons while this is `false`.
-    @Published var isReadyForDetection: Bool = true
+    @Published var isReadyForDetection: Bool = true {
+        didSet {
+            guard oldValue != isReadyForDetection else { return }
+            TAP_DEBUG("isReadyForDetection", "\(oldValue) → \(isReadyForDetection) | detecting=\(isDetecting) complete=\(isMeasurementComplete) paused=\(isDetectionPaused)")
+            let frames = Thread.callStackSymbols.dropFirst().prefix(6)
+                .map { $0.replacingOccurrences(of: "  +0x[0-9a-f]+", with: "", options: .regularExpression) }
+                .joined(separator: " | ")
+            TAP_DEBUG("isReadyForDetection.stack", frames)
+        }
+    }
 
     /// Number of taps captured so far in the current multi-tap sequence.
     @Published var currentTapCount: Int = 0
@@ -614,9 +639,16 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Used as a unified guard to prevent auto-starting a new tap sequence when the analyzer
     /// engine restarts (e.g. after an AirDrop or returning from background).  Cleared by
-    /// `reset()`, `startTapSequence()`, and `newMeasurement()`.
+    /// `startTapSequence()` and `newMeasurement()`.
     @Published var isMeasurementComplete: Bool = false {
         didSet {
+            if oldValue != isMeasurementComplete {
+                TAP_DEBUG("isMeasurementComplete", "\(oldValue) → \(isMeasurementComplete) | detecting=\(isDetecting) paused=\(isDetectionPaused) ready=\(isReadyForDetection) tapCount=\(currentTapCount)/\(numberOfTaps) capt=\(capturedTaps.count) measType=\(TapDisplaySettings.measurementType)")
+                let frames = Thread.callStackSymbols.dropFirst().prefix(6)
+                    .map { $0.replacingOccurrences(of: "  +0x[0-9a-f]+", with: "", options: .regularExpression) }
+                    .joined(separator: " | ")
+                TAP_DEBUG("isMeasurementComplete.stack", frames)
+            }
             // A successful new tap clears the loaded-settings warning — the user
             // has now captured a measurement with the current (loaded) settings and
             // knows what they are.

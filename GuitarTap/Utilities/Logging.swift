@@ -16,8 +16,8 @@ import OSLog
 // and to the unified log (Console.app, subsystem: com.dolcesfogato.guitar-tap)
 // during development.
 
-private let _gtLogEnabled = true
-private let _tapDebugEnabled = true
+private let _gtLogEnabled = false
+private let _tapDebugEnabled = false
 
 private let _logger = Logger(subsystem: "com.dolcesfogato.guitar-tap", category: "general")
 

@@ -254,22 +254,4 @@ struct SpectrumAveragingTests {
         }
     }
 
-    // A5: After reset, capturedTaps is empty and currentTapCount is 0.
-    // reset() dispatches its work via DispatchQueue.main.async, so we must
-    // yield to the main queue before reading back state.
-    @Test func reset_clearsCapturedTapsAndCount() async {
-        let sut = makeSUT()
-        // Simulate accumulated state by directly mutating internal-state properties
-        // that are accessible because @testable import makes internal members visible.
-        sut.currentTapCount = 3
-        sut.capturedTaps = [
-            ([-20, -30], [100, 200], Date()),
-            ([-22, -32], [100, 200], Date())
-        ]
-        // Call the public reset method, then yield so main.async block executes.
-        sut.reset()
-        await Task.yield()
-        #expect(sut.capturedTaps.isEmpty, "capturedTaps should be empty after reset")
-        #expect(sut.currentTapCount == 0, "currentTapCount should be 0 after reset")
-    }
 }

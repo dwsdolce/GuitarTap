@@ -606,6 +606,18 @@ extension TapToneAnalyzer {
             return
         }
 
+        // A capture has been confirmed.  Clear isDetecting so the analyzer
+        // reflects "tap acknowledged" regardless of which path triggered the
+        // capture.  The RMS path (handleTapDetection) clears it earlier, at
+        // the moment of detection; the audio-queue path (levelCrossingHandler)
+        // does not touch isDetecting at all, so without this line a tap that
+        // came in via the audio queue leaves isDetecting=true through the
+        // capture and into processMultipleTaps, producing the impossible
+        // (isDetecting && isMeasurementComplete) state that drove the iPad
+        // type-change bug.  For multi-tap sequences, scheduleGuitarReEnable
+        // below sets isDetecting=true again after the cooldown.
+        isDetecting = false
+
         dumpCaptureWAV(samples: samples, sampleRate: sampleRate, label: "guitar")
 
         let fftSize = fftAnalyzer.fftSize
