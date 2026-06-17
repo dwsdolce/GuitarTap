@@ -1,179 +1,291 @@
 # Chapter 7 — Saving, Exporting, and Sharing Measurements
 
-<!-- STATUS: STUB — needs full content -->
+This chapter is a complete reference for everything you can do with
+a measurement after capture: store it, review it, send it
+elsewhere, and bring it back later.
 
 ## 7.1 Saving a Measurement
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - When Save is enabled: spectrum must be frozen and at least one peak detected;
-       Save is disabled when comparison mode is active for a new individual measurement
-       (use §7.8 to save a comparison)
-     - The Save sheet: location label field (optional, e.g. "Bridge", "Soundhole",
-       "Upper Bout"); Notes field (optional, free text)
-     - What is stored: frozen spectrum data, detected peaks, chart image (PNG sidecar),
-       all settings active at time of capture (guitar type, plate dimensions, etc.),
-       annotation positions, mode overrides
-     - Keyboard shortcut: ⌘S (macOS)
-     - After save: measurement appears at top of Measurements list -->
+Press **Save** <img src="images/symbols/square.and.arrow.down.png" width="18" height="18" class="inline-icon" alt="square.and.arrow.down"> in the toolbar to store the
+current measurement. Save is enabled whenever there is a finished
+measurement on screen — a frozen single tap, a complete plate or
+brace multi-phase capture, or an active comparison overlay — and
+disabled when the spectrum is live or no peaks have been
+identified.
+
+The Save sheet has two fields, both optional:
+
+- **Name** — a short label identifying what you measured. For a
+  guitar measurement this is typically the luthier's name for the
+  instrument (a serial number, a project name, a working title).
+  For a plate or brace it is the identifier for that specific
+  piece (a board number, supplier code, billet label). If left
+  blank, the date and time serve as the name.
+- **Notes** — free text. Use it to record provenance, build-stage
+  context, dimensions you measured by hand, or anything else you
+  want to carry alongside the data.
+
+What is stored depends on the type of measurement:
+
+- **Guitar / plate / brace** — the spectrum (or 2–3 spectra for a
+  plate measurement, one per phase), detected peaks and
+  selections, settings active at capture time (subtype, plate
+  dimensions, threshold, peak min, and so on), annotation
+  positions, and mode overrides.
+- **Comparison** — the constituent spectra (one per measurement
+  that was being compared) and their colours, plus the
+  Comparison Results table. Saving a comparison does not consume
+  the individual measurements that were combined; they remain in
+  the list as separate entries.
+
+Keyboard shortcut: **⌘S** on macOS; **Ctrl+S** on Windows and
+Linux.
+
+After Save, the measurement appears at the top of the Measurements
+list (§7.2).
 
 ## 7.2 Viewing Saved Measurements
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Opening the Measurements list (toolbar button; ⌘L on macOS)
-     - List layout: each row shows location label (or date if no label), date/time,
-       measurement type badge (Guitar / Plate / Brace / Comparison)
-     - Comparison records are identified by a distinct badge in the list
-     - The list is sorted by date, newest first -->
+<!--
+SCREENSHOT:
+
+  File:    images/ch07-measurements-list.png
+  Subject: Saved Measurements window showing a mix of saved items:
+           several guitar measurements with the waveform indicator,
+           at least one plate and one brace (no indicator), and at
+           least one saved comparison with the chart indicator.
+           Bottom toolbar showing Compare…, Import…, Delete All,
+           Done buttons.
+  Notes:   Use a real set of measurements so the dates and notes
+           are plausible. Crop tight to the window.
+-->
+
+![Saved Measurements window with a mix of guitar, plate, brace, and comparison rows.](images/ch07-measurements-list.png)
+
+Open the Measurements list with the toolbar **Measurements**
+button <img src="images/symbols/list.bullet.clipboard.png" width="18" height="18" class="inline-icon" alt="list.bullet.clipboard">, or with **⌘L** on macOS / **Ctrl+L**
+on Windows and Linux.
+
+Each row carries up to three lines plus a trailing column:
+
+- **Line 1** — the **name** (bold; "Measurement" or "Comparison"
+  as a fallback when no name has been set), and on the right a
+  waveform indicator <span class="nowrap">〜</span> for guitar
+  measurements that have a captured spectrum, a chart indicator
+  for saved comparisons, the **date and time** of capture, and a
+  chevron.
+- **Line 2** — for guitar measurements: peak count, tap-tone
+  ratio (if available), and decay time (if available). For
+  comparisons: "*N* spectra compared". For plate / brace: peak
+  count and the headline material values.
+- **Line 3** — the notes you entered on Save, if any.
+
+The list is shown in the order the measurements were saved —
+newest entries appear at the bottom — not sorted by date or name.
 
 ## 7.3 Loading a Measurement into the View
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Right-click / long-press a measurement row → Load into View (or equivalent button)
-     - What is restored: frozen spectrum, peaks, annotation positions, mode overrides,
-       the settings active at capture time (note: current Settings panel values are not
-       changed; loaded values are shown as a warning in the status bar)
-     - For a comparison record: all constituent spectra are overlaid; the Comparison
-       Results table is restored; comparison mode becomes active -->
+Either **double-click** the measurement row, or open the popup
+menu on the row (right-click on desktop, long-press on iOS /
+iPadOS) and choose **Load into View**.
+
+What is restored on load:
+
+- The frozen spectrum and its peaks
+- Annotation positions
+- Mode overrides
+- The settings that were active at capture time
+
+Loading a measurement replaces the analyzer's **current**
+settings — threshold, Peak Min, Taps, measurement type, and so on
+— with the values that were active when the measurement was
+captured. Your **saved** Settings values are untouched.
+
+The status bar shows a **"loaded settings"** notice while this is
+in effect. The notice matters because pressing **New Tap** with
+the loaded settings active will capture using the loaded
+measurement's values, not the ones you had configured before. If
+that is not what you want, change Settings (or load a different
+measurement whose settings you do want) before tapping.
+
+Loading a saved comparison restores all constituent spectra as
+the overlay, brings up the Comparison Results table, and switches
+the view into comparison mode.
 
 ## 7.4 Viewing Measurement Details
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Right-click / long-press → View Details (or tap the row on iPad/macOS where a
-       detail pane is available)
-     - Detail view contents: spectrum image thumbnail, peak frequency table, analysis
-       summary (decay time, Tap Tone Ratio for guitar; E_L, E_C etc. for plate/brace)
-     - Export buttons available within the detail view
-     - For comparison records: shows the constituent spectrum list and the
-       Air / Top / Back frequency table -->
+Open the popup menu on a measurement row (right-click on desktop,
+long-press on iOS / iPadOS) and choose **View Details**, or tap
+the row directly.
 
-## 7.5 Editing Location and Notes
+The detail view is read-only. It contains:
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Right-click / long-press → Edit Location & Notes (or Edit button in Detail toolbar)
-     - Edit sheet: Location label field and Notes multi-line text field
-     - Changes are saved immediately on tapping Save in the sheet
-     - There is no undo for label/notes edits -->
+- The peak table (mode, frequency, magnitude, Q, bandwidth, pitch
+  for guitar mode; the equivalent fields for plate / brace)
+- The analysis summary (decay time and Tap Tone Ratio for guitar;
+  E_L, E_C, specific modulus, quality rating, Gore thickness for
+  plate / brace)
+- The name and notes
+
+For a comparison, the detail view shows the list of constituent
+spectra and the Air / Top / Back frequency table.
+
+Load, Edit Name & Notes, and the export actions are reached from
+the popup menu on the row in the Measurements list, not from this
+view.
+
+To dismiss the detail view: click the window's close button on
+macOS, press **Close** in the Python desktop build, or tap
+anywhere outside the dialog on iOS / iPadOS.
+
+## 7.5 Editing Name and Notes
+
+You can change a measurement's name or notes at any time after it
+has been saved.
+
+Open the popup menu on the measurement row (right-click on
+desktop, long-press on iOS / iPadOS) and choose **Edit Name &
+Notes**. The edit sheet has the same two fields as Save. Tapping
+Save in the sheet commits the change immediately — there is no
+separate confirm step and no undo.
 
 ## 7.6 Exporting a Spectrum Image
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - What is produced: PNG image of the current chart at display resolution
-     - From toolbar: Export Spectrum Image… button (⌘E on macOS)
-     - From Measurements list: right-click / long-press a saved record → Export Spectrum
-     - For a single measurement: the frozen spectrum with peak annotations
-     - For a comparison (live or saved): the overlay PNG with all coloured curves, their
-       labels, and a legend; each curve colour matches the Comparison Results table -->
+Produces a PNG of the chart at display resolution. The image
+reflects whatever the measurement contains: a single tap is
+exported as one frozen spectrum with annotations, a plate
+measurement is exported with all of its phase spectra, and a
+comparison is exported as the overlay with every coloured curve,
+its label, and the legend.
+
+Two ways to invoke it:
+
+- For a measurement on screen — press the **Export Spectrum**
+  button at the bottom of the Analysis Results window. Keyboard
+  shortcut: **⌘E** on macOS; **Ctrl+E** on Windows and Linux.
+- For a saved measurement — open the popup menu on its row in
+  the Measurements list and choose **Export Spectrum**.
 
 ## 7.7 Exporting a PDF Report
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     SINGLE-MEASUREMENT PDF
-     - What the PDF contains: spectrum chart image, peak frequency table
-       (mode, frequency, magnitude, Q, bandwidth, pitch), analysis summary
-       (decay time, Tap Tone Ratio for guitar; E_L, E_C, specific modulus, quality
-       rating, Gore thickness for plate/brace), metadata (date, location, notes)
-     - From toolbar: Export PDF Report… button (⇧⌘E on macOS)
-     - From Measurements list: right-click / long-press → Export PDF Report
+Bundles the chart, the data, and the metadata into a single
+shareable PDF. Like the spectrum image export, this works on any
+measurement; the PDF contents follow the measurement type:
 
-     COMPARISON PDF
-     - What the comparison PDF contains: metadata header (number of spectra, labels, date),
-       overlay spectrum image showing all curves, Air / Top / Back frequency table with
-       one column per spectrum ("—" where a mode was not detected)
-     - From toolbar when comparison is active: Export PDF Report → comparison PDF
-     - From Measurements list for a saved comparison record: Export PDF Report → comparison PDF
-     - See §7.10 for details on the comparison PDF -->
+- **Guitar** — spectrum image, peak frequency table (mode,
+  frequency, magnitude, Q, bandwidth, pitch), and the analysis
+  summary (decay time and Tap Tone Ratio).
+- **Plate / brace** — spectrum image(s) for the captured phases,
+  the peak table, and the material properties (E_L, E_C, specific
+  modulus, radiation ratio, quality rating, and Gore thickness for
+  plate).
+- **Comparison** — a header listing the constituent measurements,
+  the overlay spectrum image, and the Air / Top / Back frequency
+  table with one column per constituent.
 
-## 7.8 Saving a Comparison
+Every PDF carries a metadata header with the date, name, and
+notes.
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - A comparison can be saved while it is active (initiated via the Measurements list
-       Compare button; see §3.9)
-     - The Save button is available during comparison (it saves the comparison itself,
-       not a new individual measurement)
-     - The Save sheet accepts a location label and notes; all constituent spectra are
-       embedded in the saved record
-     - The saved record appears in the Measurements list with a Comparison badge
-     - Reloading a saved comparison (§7.3) restores the full overlay and Comparison
-       Results table exactly as at save time
-     - Saving a comparison does not consume the individual constituent measurements;
-       they remain separately in the list -->
+Two ways to invoke it:
 
-## 7.9 Exporting a Comparison Spectrum Image
+- For a measurement on screen — press the **Export PDF Report**
+  button at the bottom of the Analysis Results window. Keyboard
+  shortcut: **⇧⌘E** on macOS; **Ctrl+Shift+E** on Windows and
+  Linux.
+- For a saved measurement — open the popup menu on its row in
+  the Measurements list and choose **Export PDF Report**.
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - From the toolbar while a live comparison is active: Export Spectrum produces the overlay PNG
-     - From the Measurements list: select a saved comparison record → Export Spectrum
-     - The PNG includes all coloured curves, their labels, and a legend
-     - On iOS the image is passed to the system share sheet (AirDrop, Mail, Files, etc.)
-     - On macOS a save dialog appears -->
+## 7.8 Exporting a Measurement
 
-## 7.10 Exporting a Comparison PDF Report
+The native portable container is the **`.guitartap`** file — a
+self-contained snapshot of a saved measurement that can be moved
+to any other device and re-opened without loss.
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - From the toolbar while a live comparison is active: Export PDF Report → comparison PDF
-     - From the Measurements list: select a saved comparison record → Export PDF Report
-     - Comparison PDF contents:
-         * Metadata header: number of spectra compared, each label, date exported
-         * Overlay spectrum image (same as the exported PNG)
-         * Air / Top / Back frequency table: rows = modes, columns = each spectrum;
-           frequency shown to 0.1 Hz; "—" where the mode was not detected
-     - On iOS: share sheet; on macOS: save dialog -->
+What it contains: the peaks (with selections and mode overrides),
+the full spectrum data (Base64-encoded little-endian float32
+arrays for frequency and magnitude), annotation positions, and
+the settings active at capture time. For a measurement that holds
+more than one spectrum — a plate measurement with its 2 or 3
+phase captures, or a comparison with its constituent waveforms —
+every spectrum is embedded, so the file is larger but stays fully
+self-contained.
 
-## 7.11 Exporting a .guitartap File
+How to export from the popup menu on the row:
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - What .guitartap contains: JSON container with all peaks, spectrum snapshot
-       (Base64-encoded little-endian float32 arrays), annotation offsets, mode overrides,
-       settings at capture time, chart PNG embedded as Base64
-     - For comparison records: all constituent spectra are embedded; the file is larger
-       but self-contained
-     - iOS/iPadOS: right-click / long-press → Export Measurement → system share sheet
-       (AirDrop, Mail, Files, etc.)
-     - macOS: right-click → Save Measurement to Disk… → save dialog
-     - File extension: .guitartap; compatible between iOS and macOS versions of the app -->
+- **iOS / iPadOS:** **Export Measurement** → system share sheet
+  (AirDrop, Mail, Files, etc.).
+- **Desktop:** **Save Measurement to Disk…** → save dialog.
 
-## 7.12 Importing a Measurement or Comparison
+The file extension is **`.guitartap`** on every platform, and the
+format is interchangeable across iOS, iPadOS, macOS, Windows, and
+Linux builds.
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Supported formats: .guitartap (native format) and .json (legacy)
-     - iOS/iPadOS: Import Measurement button in the Measurements toolbar → Files picker
-     - macOS: File menu → Import Measurement → open dialog, or drag-and-drop onto the
-       Measurements list
-     - What happens after import: the measurement appears in the list; comparison records
-       are automatically detected and will restore the overlay when loaded
-     - If a microphone name in the imported file does not match any available device on
-       the current system: a fallback is applied and the import succeeds -->
+## 7.9 Importing a Measurement
 
-## 7.13 Sharing Between iOS and macOS
+Supported formats: **`.guitartap`** (native) and **`.json`**
+(legacy).
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - AirDrop: iOS share sheet → AirDrop; on Mac: accept in Finder, then open with GuitarTap
-       (File → Import Measurement) or drag-and-drop onto the Measurements list
-     - iCloud / Files: save to iCloud Drive from iOS share sheet; open from Files on Mac
-     - Email: attach via share sheet; recipient opens the attachment in GuitarTap
-     - Round-trip: export from Mac with Save Measurement to Disk; transfer to iPhone;
-       import via Import Measurement
-     - Comparison files are cross-platform compatible (same .guitartap format) -->
+- **iOS / iPadOS:** the **Import Measurement** button in the
+  Measurements toolbar opens the Files picker.
+- **Desktop:** **File → Import Measurement** opens an open
+  dialog. Drag-and-drop onto the Measurements list also works.
 
-## 7.14 Deleting Measurements
+The imported measurement appears in the list regardless of its
+type — guitar, plate, brace, or comparison.
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Right-click / long-press → Delete (macOS) or swipe-to-delete on iOS
-     - A confirmation prompt prevents accidental deletion
-     - Deleting a comparison record removes all embedded constituent data
-     - Deleting a measurement that was used in a previously saved comparison does not
-       affect the comparison record (it is self-contained) -->
+If the input device named in the imported file is not available
+on the current system, the import still succeeds and the imported
+data is unchanged. A warning is shown **after** the import
+completes, letting you know that further capture will use a
+fallback input device until the original is reconnected.
+
+## 7.10 Sharing Between Devices
+
+Anything you can export — measurements (§7.8), spectrum images
+(§7.6), or PDF reports (§7.7) — can be shared between devices.
+Which action to use depends on where the file is going.
+
+**Apple ecosystem (iOS, iPadOS, macOS native build).** Use the
+**Export Measurement**, **Export Spectrum**, or **Export PDF
+Report** popup-menu actions. Each opens the system share sheet,
+from which:
+
+- **AirDrop** sends directly to a nearby Apple device.
+- **iCloud Drive / Files** stores the file to iCloud; the
+  receiver opens it from Files on their device.
+- **Mail / Messages** attaches the file; the recipient taps the
+  attachment to open it.
+
+**Non-Apple devices and archival.** Use **Save Measurement to
+Disk…** (macOS popup menu) — which is the file-save path, not a
+share-sheet path — to write a `.guitartap` directly to a folder
+of your choice. On Python desktop builds (Windows, Linux, and
+macOS Python) the **Export Measurement** action opens the same
+kind of save dialog, since no system share sheet exists on
+Windows or Linux. From disk the file can travel via any
+cross-platform channel — Dropbox, Google Drive, email, USB drive,
+network share — and the receiver imports it with §7.9. This same
+disk-save path is the right choice when you simply want a
+permanent file copy outside the app's library.
+
+**Cross-platform example.** Export from a Windows or Linux build
+with the **Export Measurement** action — which opens a save
+dialog on those platforms — transfer the resulting `.guitartap`
+file to an iPhone or iPad (via Files, email, Dropbox, etc.), and
+import it on the receiving Apple device via §7.9. The
+`.guitartap` format is identical on every platform, so no
+conversion is needed regardless of direction.
+
+## 7.11 Deleting Measurements
+
+- **Desktop:** popup menu → **Delete**.
+- **iOS / iPadOS:** swipe-to-delete on the row.
+
+A confirmation prompt appears before deletion so an accidental
+click or swipe does not lose data. Deleting a measurement removes
+it and any data embedded in it; nothing else in the list is
+affected. Because a comparison embeds copies of its constituent
+spectra at save time, deleting an individual measurement that was
+previously combined into a comparison leaves that comparison
+intact, and deleting a comparison leaves its source measurements
+intact.

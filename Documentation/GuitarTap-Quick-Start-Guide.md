@@ -1,6 +1,6 @@
 # GuitarTap Quick-Start Guide
 
-## ![](/tmp/guitar-tap-symbols/waveform.path.ecg.png){height=18pt width=18pt} What Guitar Tap Does
+## <img src="Manual/images/symbols/waveform.path.ecg.png" width="24" height="24" alt="waveform.path.ecg"> What Guitar Tap Does
 
 Guitar Tap uses your device's microphone to capture the brief ring-out after you tap a guitar or wood sample. A 65,536-point FFT (≈0.67 Hz resolution) reveals the resonant peaks that carry information about structural modes and material stiffness.
 
@@ -9,7 +9,7 @@ Three main workflows are supported:
 - Plate mode — measure Young's modulus and quality of a raw tonewood plate.
 - Brace mode — measure Young's modulus and quality of a brace strip (single longitudinal tap).
 
-## ![](/tmp/guitar-tap-symbols/wrench.and.screwdriver.png){height=18pt width=18pt} First-Time Setup
+## <img src="Manual/images/symbols/wrench.and.screwdriver.png" width="24" height="24" alt="wrench.and.screwdriver"> First-Time Setup
 
 ### Grant Microphone Access
 
@@ -31,7 +31,7 @@ Display range, analysis range, and FFT processing options are grouped under the 
 
 Background noise raises the noise floor. A quiet workbench with the device resting on a folded cloth a few centimetres from the tap point gives the most repeatable results.
 
-## ![](/tmp/guitar-tap-symbols/guitars.png){height=18pt width=18pt} Guitar Mode
+## <img src="Manual/images/symbols/guitars.png" width="24" height="24" alt="guitars"> Guitar Mode
 
 ### Overview
 
@@ -61,7 +61,7 @@ On iPhone, tap the Results button (doc icon) in the toolbar to open the results 
 
 Setting the tap count to 2–10 averages multiple taps together, reducing noise from finger squeaks and ambient sounds. Progress is shown in the status bar. Use Pause between taps to let the ring-out decay.
 
-### ![](/tmp/guitar-tap-symbols/waveform.path.badge.plus.png){height=14pt width=14pt} Multi-Tap Comparison
+### <img src="Manual/images/symbols/waveform.path.badge.plus.png" width="19" height="19" alt="waveform.path.badge.plus"> Multi-Tap Comparison
 
 After a multi-tap guitar sequence (2–10 taps), the Results panel header shows a Taps button. Tap it to switch to Multi-Tap Comparison view: the chart overlays each individual tap's spectrum in a distinct colour alongside the averaged spectrum, and the Results panel shows an Air / Top / Back frequency table with one row per tap plus a final Averaged row. Tap the button again to return to the normal averaged view. The per-tap data is saved with the measurement and reloads correctly — the Taps button reappears whenever a measurement with multi-tap data is loaded.
 
@@ -73,7 +73,7 @@ If a peak is labelled Unknown, or misclassified, tap it in the Results list and 
 
 Tap Save. Enter a measurement name (e.g. "Martin D-28" or "Ramirez 1075") and any notes. The measurement is stored with all peaks, the spectrum snapshot, and a chart image.
 
-## ![](/tmp/guitar-tap-symbols/square.3.layers.3d.png){height=18pt width=18pt} Plate Mode
+## <img src="Manual/images/symbols/square.3.layers.3d.png" width="24" height="24" alt="square.3.layers.3d"> Plate Mode
 
 ### Overview
 
@@ -122,7 +122,7 @@ Specific modulus (longitudinal): ≥ 25 → Excellent (Master grade); ≥ 22 →
 
 Enter the finished guitar body length and lower bout width in Settings (Material section). Choose the plate stiffness preset: Steel String Top (f_vs 75), Steel String Back (55), Classical (50), or Custom. The result is the plate thickness that hits the preset vibrational stiffness after bracing is factored in — a direct implementation of Gore Equation 4.5-7.
 
-## ![](/tmp/guitar-tap-symbols/align.horizontal.center.png){height=18pt width=18pt} Brace Mode
+## <img src="Manual/images/symbols/align.horizontal.center.png" width="24" height="24" alt="align.horizontal.center"> Brace Mode
 
 ### Overview
 
@@ -140,29 +140,29 @@ Hold the brace at one point 22% from one end along the length, near one edge in 
 
 E_L, c_L, specific modulus, and a spruce quality rating are reported. No cross-grain or Gore thickness calculation is available in Brace mode.
 
-## ![](/tmp/guitar-tap-symbols/hand.tap.png){height=18pt width=18pt} Controls Reference
+## <img src="Manual/images/symbols/hand.tap.png" width="24" height="24" alt="hand.tap"> Controls Reference
 
-### ![](/tmp/guitar-tap-symbols/hand.tap.png){height=14pt width=14pt} New Tap
+### <img src="Manual/images/symbols/hand.tap.png" width="19" height="19" alt="hand.tap"> New Tap
 
 Arms the detector for the next tap (or begins a plate measurement sequence). A green indicator shows when a tap has been registered.
 
-### ![](/tmp/guitar-tap-symbols/pause.circle.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/play.circle.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/checkmark.circle.png){height=14pt width=14pt} Pause / Resume  •  Accept (plate/brace review)
+### <img src="Manual/images/symbols/pause.circle.png" width="19" height="19" alt="pause.circle"> <img src="Manual/images/symbols/play.circle.png" width="19" height="19" alt="play.circle"> <img src="Manual/images/symbols/checkmark.circle.png" width="19" height="19" alt="checkmark.circle"> Pause / Resume  •  Accept (plate/brace review)
 
 Pause temporarily suspends tap detection while keeping the spectrum live — use it to let the ring-out decay between taps in a multi-tap sequence, or to reposition a plate or brace before continuing. Resume re-arms the detector.
 
 In plate and brace mode, after each phase is captured the spectrum freezes for review. While in a review state the button changes to Accept. Tap Accept to confirm the captured spectrum and advance to the next phase (or complete the measurement if it was the last phase).
 
-### ![](/tmp/guitar-tap-symbols/xmark.circle.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/arrow.counterclockwise.circle.png){height=14pt width=14pt} Cancel  •  Redo (plate/brace review)
+### <img src="Manual/images/symbols/xmark.circle.png" width="19" height="19" alt="xmark.circle"> <img src="Manual/images/symbols/arrow.counterclockwise.circle.png" width="19" height="19" alt="arrow.counterclockwise.circle"> Cancel  •  Redo (plate/brace review)
 
 Cancel aborts the current measurement sequence and discards all partial data.
 
 In plate and brace mode, while reviewing a captured phase the button changes to Redo. Tap Redo to discard only the current phase's data and re-capture it — earlier phases are preserved. The detector re-arms immediately so you can tap again without pressing New Tap.
 
-### ![](/tmp/guitar-tap-symbols/doc.text.png){height=14pt width=14pt} Results
+### <img src="Manual/images/symbols/doc.text.png" width="19" height="19" alt="doc.text"> Results
 
 Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons. On iPad (horizontal layout) and macOS this button is not shown — the results panel is permanently visible on the right side of the screen/window.
 
-### ![](/tmp/guitar-tap-symbols/arrow.trianglehead.2.counterclockwise.png){height=14pt width=14pt} Re-analyze Peaks
+### <img src="Manual/images/symbols/arrow.trianglehead.2.counterclockwise.png" width="19" height="19" alt="arrow.trianglehead.2.counterclockwise"> Re-analyze Peaks
 
 Shown in the results panel header next to the microphone name. Re-runs peak detection on a loaded measurement's frozen spectrum using the current algorithm. This is useful when loading measurements saved by older builds that may have missed peaks due to earlier algorithm limitations. The button is only enabled when viewing a loaded measurement. After re-analysis the peaks are recalculated as if the measurement were freshly captured with the current software.
 
@@ -190,11 +190,11 @@ Auto dB (⌘0) scales the magnitude axis to fit the current signal. Cycle Annota
 
 The Search field in the Help menu searches all menu items by name. Click 'GuitarTap Help' to open this Quick-Start Guide window.
 
-### ![](/tmp/guitar-tap-symbols/arrow.up.arrow.down.circle.png){height=14pt width=14pt} Auto dB
+### <img src="Manual/images/symbols/arrow.up.arrow.down.circle.png" width="19" height="19" alt="arrow.up.arrow.down.circle"> Auto dB
 
 Scales the magnitude axis to fit the current signal. Tap it after each measurement to keep peaks visible.
 
-### ![](/tmp/guitar-tap-symbols/eye.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/star.fill.png){height=14pt width=14pt} ![](/tmp/guitar-tap-symbols/eye.slash.png){height=14pt width=14pt} Annotations
+### <img src="Manual/images/symbols/eye.png" width="19" height="19" alt="eye"> <img src="Manual/images/symbols/star.fill.png" width="19" height="19" alt="star.fill"> <img src="Manual/images/symbols/eye.slash.png" width="19" height="19" alt="eye.slash"> Annotations
 
 Cycles through three label modes: All peaks annotated, Selected peaks only, or None.
 
@@ -202,41 +202,41 @@ Cycles through three label modes: All peaks annotated, Selected peaks only, or N
 
 Drag any peak label to reposition it and avoid overlaps. To reset an individual label: double-tap it (iOS/iPadOS) or right-click it and choose "Reset Position" (macOS). To reset all labels at once: use the ellipsis menu's "Reset Labels" (iOS/iPadOS) or right-click the chart area (not a label) and choose "Reset Labels" (macOS).
 
-### ![](/tmp/guitar-tap-symbols/play.circle.png){height=14pt width=14pt} Play Audio File
+### <img src="Manual/images/symbols/play.circle.png" width="19" height="19" alt="play.circle"> Play Audio File
 
 Feeds a WAV or audio file through the FFT pipeline instead of the microphone. The file's tap is analysed exactly as a live microphone tap — tap detection fires automatically, peaks are found, and results appear in the panel. The chart title shows the filename while the file plays. After playback the microphone restarts automatically. Access via File menu → Play Audio File… (⌘⌥O).
 
-### ![](/tmp/guitar-tap-symbols/square.and.arrow.down.png){height=14pt width=14pt} Save
+### <img src="Manual/images/symbols/square.and.arrow.down.png" width="19" height="19" alt="square.and.arrow.down"> Save
 
 Saves the current measurement — enabled only when the spectrum is frozen and peaks have been detected. Enter a measurement name and optional notes.
 
-### ![](/tmp/guitar-tap-symbols/list.bullet.clipboard.png){height=14pt width=14pt} Measurements
+### <img src="Manual/images/symbols/list.bullet.clipboard.png" width="19" height="19" alt="list.bullet.clipboard"> Measurements
 
 Lists all saved measurements. Double-click (macOS) or double-tap (iOS/iPadOS) a row to load the measurement into the main view — the measurements window closes automatically after loading. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Edit Name & Notes, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison. The measurement name and notes can also be edited from the Edit button in the Measurement Details toolbar.
 
-### ![](/tmp/guitar-tap-symbols/waveform.path.png){height=14pt width=14pt} Compare Measurements
+### <img src="Manual/images/symbols/waveform.path.png" width="19" height="19" alt="waveform.path"> Compare Measurements
 
 In the Measurements list, tap Compare to enter selection mode. Tap 2–5 saved guitar measurements to select them (plate and brace measurements cannot be compared). Tap Compare Selected (N) to overlay all selected spectra on the main chart as colour-coded curves with a legend. The chart, cursor, zoom, and pan all work normally. Press New Tap to exit comparison and return to single-measurement mode.
 
 While comparing: Annotations is disabled; Threshold and Peak Min sliders are disabled. Export Spectrum produces an overlay image with all curves, their colours, and a legend. Export PDF Report generates a comparison report showing the spectrum image and an Air / Top / Back peak frequency table for each spectrum. Save stores the entire comparison as a single record in the Measurements list — it can be reloaded later to restore the overlay view exactly as it was, and can itself be exported as a PDF or spectrum image from the list.
 
-### ![](/tmp/guitar-tap-symbols/chart.bar.png){height=14pt width=14pt} Metrics
+### <img src="Manual/images/symbols/chart.bar.png" width="19" height="19" alt="chart.bar"> Metrics
 
 Shows FFT engine statistics: frame rate, bin width (Hz/bin), sample rate, and buffer size.
 
-### ![](/tmp/guitar-tap-symbols/dot.viewfinder.png){height=14pt width=14pt} Crosshair *(iOS only)*
+### <img src="Manual/images/symbols/dot.viewfinder.png" width="19" height="19" alt="dot.viewfinder"> Crosshair *(iOS only)*
 
 Enables a draggable crosshair on the spectrum for reading the exact frequency and magnitude at any point.
 
-### ![](/tmp/guitar-tap-symbols/ellipsis.circle.png){height=14pt width=14pt} … Chart Options *(iOS only)*
+### <img src="Manual/images/symbols/ellipsis.circle.png" width="19" height="19" alt="ellipsis.circle"> … Chart Options *(iOS only)*
 
 The ellipsis button in the top-right corner of the spectrum opens the Chart Options sheet. From here you can reset either or both axes to the values you last saved in Settings ("Reset to Saved"), or restore the factory defaults ("Reset to Defaults"). If peak labels have been dragged from their auto-positions, "Reset Labels" moves them back.
 
-### ![](/tmp/guitar-tap-symbols/info.circle.png){height=14pt width=14pt} ⓘ Zoom & Pan Help *(macOS only)*
+### <img src="Manual/images/symbols/info.circle.png" width="19" height="19" alt="info.circle"> ⓘ Zoom & Pan Help *(macOS only)*
 
 The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom of both axes or each individual axis (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.
 
-## ![](/tmp/guitar-tap-symbols/slider.horizontal.3.png){height=18pt width=18pt} Tap Controls
+## <img src="Manual/images/symbols/slider.horizontal.3.png" width="24" height="24" alt="slider.horizontal.3"> Tap Controls
 
 ### Taps (stepper)
 
@@ -254,7 +254,7 @@ Minimum magnitude a spectral peak must reach to be annotated on the spectrum cha
 
 Each slider has a small ↺ button that resets it to the factory default value.
 
-## ![](/tmp/guitar-tap-symbols/gearshape.png){height=18pt width=18pt} Settings Reference
+## <img src="Manual/images/symbols/gearshape.png" width="24" height="24" alt="gearshape"> Settings Reference
 
 ### Audio Input & Calibration
 
@@ -288,7 +288,7 @@ Advanced → Analysis Settings. Peaks outside this window are ignored during det
 
 Advanced → Analysis Settings. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported; adjusting it on a frozen spectrum re-runs peak finding and updates selections. In brace/plate mode it only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB.
 
-## ![](/tmp/guitar-tap-symbols/lightbulb.png){height=18pt width=18pt} Tips & Technique
+## <img src="Manual/images/symbols/lightbulb.png" width="24" height="24" alt="lightbulb"> Tips & Technique
 
 ### Tap Technique
 
@@ -314,15 +314,15 @@ Save a measurement for each build stage or measurement name with a descriptive l
 
 Each saved measurement can generate a PDF report containing the spectrum chart, peak table, and analysis summary. Open Measurements, select a measurement, then tap the PDF export button. Saved comparison records generate a comparison PDF showing the overlay spectrum and an Air / Top / Back frequency table for each spectrum. A comparison PDF can also be exported directly from the main view while a live comparison is active, using Export PDF Report in the Analysis Results panel.
 
-### ![](/tmp/guitar-tap-symbols/ellipsis.circle.png){height=14pt width=14pt} Zooming the Spectrum *(iOS only)*
+### <img src="Manual/images/symbols/ellipsis.circle.png" width="19" height="19" alt="ellipsis.circle"> Zooming the Spectrum *(iOS only)*
 
 Pinch to zoom both axes or each individual axis and drag to pan within the chart or on an axis to pan that axis. To reset the axes, tap the … button in the top-right corner of the spectrum and choose Reset to Saved or Reset to Defaults.
 
-### ![](/tmp/guitar-tap-symbols/info.circle.png){height=14pt width=14pt} Zooming the Spectrum *(macOS only)*
+### <img src="Manual/images/symbols/info.circle.png" width="19" height="19" alt="info.circle"> Zooming the Spectrum *(macOS only)*
 
 Scroll over the chart to zoom — the axis depends on where the pointer is: over the plot area it zooms both axes; over the frequency axis (bottom) it zooms frequency only; over the magnitude axis (left) it zooms magnitude only. Drag to pan the same way. Modifier keys: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘/⌃ Scroll — zoom both axes. To reset the axes, right-click anywhere inside the chart.
 
-## ![](/tmp/guitar-tap-symbols/text.book.closed.png){height=18pt width=18pt} Glossary
+## <img src="Manual/images/symbols/text.book.closed.png" width="24" height="24" alt="text.book.closed"> Glossary
 
 ### Air (Helmholtz) mode
 

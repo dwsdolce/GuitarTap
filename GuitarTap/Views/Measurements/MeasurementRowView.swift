@@ -8,9 +8,9 @@
 /// A compact list-row cell for a single `TapToneMeasurement`.
 ///
 /// Displays the measurementName (or "Measurement" as a fallback), the timestamp
-/// formatted as a time string, peak count, and optional tap-tone ratio and
-/// decay time. A waveform indicator is shown when a spectrum snapshot is
-/// available.
+/// formatted as an abbreviated date and short time, peak count, and optional
+/// tap-tone ratio and decay time. A waveform indicator is shown when a
+/// spectrum snapshot is available.
 ///
 /// Used by `MeasurementsListView` inside a `ForEach` loop.
 ///
@@ -65,7 +65,7 @@ struct MeasurementRowView: View {
                         .font(.caption)
                         .foregroundColor(.blue)
 
-                    Text(measurement.timestamp, style: .time)
+                    Text(measurement.timestamp.formatted(date: .abbreviated, time: .shortened))
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -120,7 +120,7 @@ struct MeasurementRowView: View {
                             .foregroundColor(.green)
                     }
                     
-                    Text(measurement.timestamp, style: .time)
+                    Text(measurement.timestamp.formatted(date: .abbreviated, time: .shortened))
                         .font(.caption)
                         .foregroundColor(.secondary)
 

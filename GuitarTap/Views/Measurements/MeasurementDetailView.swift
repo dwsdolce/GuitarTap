@@ -46,138 +46,24 @@ struct MeasurementDetailView: View {
     @State private var showingEdit = false
     
     var body: some View {
+        // The detail view is read-only.  Load / Edit / Export / PDF Report
+        // are all reachable from the popup menu on the row in the
+        // Measurements list (MeasurementsListView), so no duplicate
+        // controls are presented here.
         #if os(macOS)
-        // On macOS in a separate window, no NavigationView needed
+        // On macOS in a separate window — the window's own close button
+        // dismisses the view; no in-view Close control is needed.
         contentView
             .frame(minWidth: 600, minHeight: 500)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: loadMeasurement) {
-                        Label("Load", systemImage: "arrow.down.doc")
-                    }
-                    .help("Load this measurement into the main analysis view")
-                }
-
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showingEdit = true }) {
-                        Label("Edit", systemImage: "pencil")
-                    }
-                    .help("Edit measurement name and notes for this measurement")
-                }
-                
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { exportMeasurement() }) {
-                        Label("Export", systemImage: "square.and.arrow.up")
-                    }
-                    .help("Export measurement data (JSON) and chart image")
-                }
-
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { generatePDFReport() }) {
-                        Label("PDF Report", systemImage: "doc.richtext")
-                    }
-                    .help("Export a PDF analysis report including the spectrum chart")
-                }
-            }
-            .sheet(isPresented: $showingExport) {
-                ExportView(text: exportText)
-            }
-            .sheet(isPresented: $showingEdit) {
-                EditMeasurementView(index: index, measurement: measurement, analyzer: analyzer)
-                    .onDisappear {
-                        // Refresh local copy in case measurementName/notes were edited
-                        if analyzer.savedMeasurements.indices.contains(index) {
-                            measurement = analyzer.savedMeasurements[index]
-                        }
-                    }
-            }
-            .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
-                Button("Cancel", role: .cancel) {}
-                Button("Load") {
-                    let m = measurement
-                    // Close window first, then load so mic warning alert
-                    // fires only on the main view (not the closing sheet).
-                    if let window = NSApplication.shared.keyWindow {
-                        window.close()
-                    }
-                    DispatchQueue.main.async {
-                        analyzer.loadMeasurement(m)
-                    }
-                }
-            } message: {
-                Text("This will replace the current analysis view with this measurement's data, including peaks and spectrum. Continue?")
-            }
-            .overlay {
-                if isExporting {
-                    LoadingOverlay(message: "Exporting...")
-                } else if isGeneratingReport {
-                    LoadingOverlay(message: "Generating PDF report...")
-                }
-            }
         #else
-        // On iOS, NavigationLink provides the navigation context
+        // On iOS, NavigationLink provides the navigation context.  Keep
+        // only the Done button as the cancellation action.
         contentView
             .navigationTitle("Measurement Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
-                }
-                
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: loadMeasurement) {
-                        Label("Load", systemImage: "arrow.down.doc")
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: { showingEdit = true }) {
-                            Label("Edit Name & Notes", systemImage: "pencil")
-                        }
-
-                        Divider()
-
-                        Button(action: { exportMeasurement() }) {
-                            Label("Export Data (JSON)", systemImage: "square.and.arrow.up")
-                        }
-                        Button(action: { generatePDFReport() }) {
-                            Label("Export PDF Report", systemImage: "doc.richtext")
-                        }
-                    } label: {
-                        Label("More", systemImage: "ellipsis.circle")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingExport) {
-                ExportView(text: exportText)
-            }
-            .sheet(isPresented: $showingEdit) {
-                EditMeasurementView(index: index, measurement: measurement, analyzer: analyzer)
-                    .onDisappear {
-                        // Refresh local copy in case measurementName/notes were edited
-                        if analyzer.savedMeasurements.indices.contains(index) {
-                            measurement = analyzer.savedMeasurements[index]
-                        }
-                    }
-            }
-            .alert("Load Measurement", isPresented: $showingLoadConfirmation) {
-                Button("Cancel", role: .cancel) {}
-                Button("Load") {
-                    let m = measurement
-                    dismiss()
-                    DispatchQueue.main.async {
-                        analyzer.loadMeasurement(m)
-                    }
-                }
-            } message: {
-                Text("This will replace the current analysis view with this measurement's data, including peaks and spectrum. Continue?")
-            }
-            .overlay {
-                if isExporting {
-                    LoadingOverlay(message: "Exporting...")
-                } else if isGeneratingReport {
-                    LoadingOverlay(message: "Generating PDF report...")
                 }
             }
         #endif

@@ -281,6 +281,18 @@ img {
     margin: 1rem auto;
 }
 
+/* Inline SF Symbol icons used mid-sentence (toolbar icons, button glyphs).
+   Override the block-level default and size to roughly match running text. */
+img.inline-icon {
+    display: inline;
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: -0.2em;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+}
+
 /* Full-width screenshot */
 .screenshot {
     width: 100%;
@@ -760,7 +772,7 @@ ol.steps li::before {
 </ul></li>
 <li class="nav-h1"><a href="#chapter-3-guitar-mode">Chapter 3 — Guitar Mode</a>
 <ul>
-  <li class="nav-h2"><a href="#31-overview-of-guitar-resonances">3.1 Overview of Guitar Resonances</a>
+  <li class="nav-h2"><a href="#31-mode-labels-and-classification">3.1 Mode Labels and Classification</a>
   <ul>
   </ul></li>
   <li class="nav-h2"><a href="#32-setting-up-for-guitar-mode">3.2 Setting Up for Guitar Mode</a>
@@ -802,19 +814,26 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#44-the-22-suspension-technique">4.4 The 22% Suspension Technique</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#45-tap-1-longitudinal">4.5 Tap 1 — Longitudinal</a>
+  <li class="nav-h2"><a href="#45-the-accept-redo-review-flow">4.5 The Accept / Redo Review Flow</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#46-tap-2-cross-grain">4.6 Tap 2 — Cross-Grain</a>
+  <li class="nav-h2"><a href="#46-tap-1-longitudinal">4.6 Tap 1 — Longitudinal</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#47-tap-3-flc-optional">4.7 Tap 3 — FLC (Optional)</a>
+  <li class="nav-h2"><a href="#47-tap-2-cross-grain">4.7 Tap 2 — Cross-Grain</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#48-reading-plate-results">4.8 Reading Plate Results</a>
+  <li class="nav-h2"><a href="#48-tap-3-flc-optional">4.8 Tap 3 — FLC (Optional)</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#49-interpreting-and-comparing-plate-results">4.9 Interpreting and Comparing Plate Results</a>
+  <li class="nav-h2"><a href="#49-reading-plate-results">4.9 Reading Plate Results</a>
+  <ul>
+    <li class="nav-h3"><a href="#detected-peaks">Detected Peaks</a></li>
+    <li class="nav-h3"><a href="#gore-target-thickness">Gore Target Thickness</a></li>
+    <li class="nav-h3"><a href="#plate-properties">Plate Properties</a></li>
+    <li class="nav-h3"><a href="#plate-process-instructions">Plate Process Instructions</a></li>
+  </ul></li>
+  <li class="nav-h2"><a href="#410-interpreting-plate-results">4.10 Interpreting Plate Results</a>
   <ul>
   </ul></li>
 </ul></li>
@@ -831,6 +850,9 @@ ol.steps li::before {
   </ul></li>
   <li class="nav-h2"><a href="#54-reading-brace-results">5.4 Reading Brace Results</a>
   <ul>
+    <li class="nav-h3"><a href="#detected-peaks">Detected Peaks</a></li>
+    <li class="nav-h3"><a href="#brace-properties">Brace Properties</a></li>
+    <li class="nav-h3"><a href="#brace-process-instructions">Brace Process Instructions</a></li>
   </ul></li>
   <li class="nav-h2"><a href="#55-using-brace-mode-to-compare-stock">5.5 Using Brace Mode to Compare Stock</a>
   <ul>
@@ -841,16 +863,16 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#61-live-vs-frozen-spectrum">6.1 Live vs. Frozen Spectrum</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#62-zooming-and-panning-iosipados">6.2 Zooming and Panning — iOS/iPadOS</a>
+  <li class="nav-h2"><a href="#62-zooming-and-panning-ios-and-ipados">6.2 Zooming and Panning — iOS and iPadOS</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#63-zooming-and-panning-macos">6.3 Zooming and Panning — macOS</a>
+  <li class="nav-h2"><a href="#63-zooming-and-panning-macos-windows-and-linux-desktop">6.3 Zooming and Panning — macOS, Windows, and Linux Desktop</a>
   <ul>
   </ul></li>
   <li class="nav-h2"><a href="#64-auto-db">6.4 Auto dB</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#65-the-crosshair-iosipados">6.5 The Crosshair (iOS/iPadOS)</a>
+  <li class="nav-h2"><a href="#65-the-crosshair-ios-and-ipados">6.5 The Crosshair (iOS and iPadOS)</a>
   <ul>
   </ul></li>
   <li class="nav-h2"><a href="#66-peak-labels">6.6 Peak Labels</a>
@@ -886,16 +908,25 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#77-exporting-a-pdf-report">7.7 Exporting a PDF Report</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#78-exporting-a-guitartap-file">7.8 Exporting a .guitartap File</a>
+  <li class="nav-h2"><a href="#78-saving-a-comparison">7.8 Saving a Comparison</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#79-importing-a-measurement">7.9 Importing a Measurement</a>
+  <li class="nav-h2"><a href="#79-exporting-a-comparison-spectrum-image">7.9 Exporting a Comparison Spectrum Image</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#710-sharing-between-ios-and-macos">7.10 Sharing Between iOS and macOS</a>
+  <li class="nav-h2"><a href="#710-exporting-a-comparison-pdf-report">7.10 Exporting a Comparison PDF Report</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#711-deleting-measurements">7.11 Deleting Measurements</a>
+  <li class="nav-h2"><a href="#711-exporting-a-guitartap-file">7.11 Exporting a .guitartap File</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#712-importing-a-measurement-or-comparison">7.12 Importing a Measurement or Comparison</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#713-sharing-between-ios-and-macos">7.13 Sharing Between iOS and macOS</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#714-deleting-measurements">7.14 Deleting Measurements</a>
   <ul>
   </ul></li>
 </ul></li>
@@ -1028,7 +1059,7 @@ ol.steps li::before {
   <li class="toc-h2"><a href="#27-setting-peak-min-filtering-the-peak-list-guitar-mode">2.7 Setting Peak Min — Filtering the Peak List (Guitar Mode)<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#28-your-first-tap-guitar-mode-walkthrough">2.8 Your First Tap — Guitar Mode Walkthrough<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#chapter-3-guitar-mode">Chapter 3 — Guitar Mode<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#31-overview-of-guitar-resonances">3.1 Overview of Guitar Resonances<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#31-mode-labels-and-classification">3.1 Mode Labels and Classification<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#32-setting-up-for-guitar-mode">3.2 Setting Up for Guitar Mode<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#33-microphone-placement">3.3 Microphone Placement<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#34-single-tap-measurement">3.4 Single Tap Measurement<span class="toc-page-num"></span></a></li>
@@ -1042,23 +1073,31 @@ ol.steps li::before {
   <li class="toc-h2"><a href="#42-preparing-the-sample">4.2 Preparing the Sample<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#43-entering-dimensions-in-settings">4.3 Entering Dimensions in Settings<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#44-the-22-suspension-technique">4.4 The 22% Suspension Technique<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#45-tap-1-longitudinal">4.5 Tap 1 — Longitudinal<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#46-tap-2-cross-grain">4.6 Tap 2 — Cross-Grain<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#47-tap-3-flc-optional">4.7 Tap 3 — FLC (Optional)<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#48-reading-plate-results">4.8 Reading Plate Results<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#49-interpreting-and-comparing-plate-results">4.9 Interpreting and Comparing Plate Results<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#45-the-accept-redo-review-flow">4.5 The Accept / Redo Review Flow<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#46-tap-1-longitudinal">4.6 Tap 1 — Longitudinal<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#47-tap-2-cross-grain">4.7 Tap 2 — Cross-Grain<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#48-tap-3-flc-optional">4.8 Tap 3 — FLC (Optional)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#49-reading-plate-results">4.9 Reading Plate Results<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#detected-peaks">Detected Peaks<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#gore-target-thickness">Gore Target Thickness<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#plate-properties">Plate Properties<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#plate-process-instructions">Plate Process Instructions<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#410-interpreting-plate-results">4.10 Interpreting Plate Results<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#chapter-5-brace-mode">Chapter 5 — Brace Mode<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#51-overview">5.1 Overview<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#52-setting-up-brace-dimensions">5.2 Setting Up Brace Dimensions<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#53-technique">5.3 Technique<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#54-reading-brace-results">5.4 Reading Brace Results<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#detected-peaks">Detected Peaks<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#brace-properties">Brace Properties<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#brace-process-instructions">Brace Process Instructions<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#55-using-brace-mode-to-compare-stock">5.5 Using Brace Mode to Compare Stock<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#chapter-6-working-with-the-spectrum">Chapter 6 — Working with the Spectrum<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#61-live-vs-frozen-spectrum">6.1 Live vs. Frozen Spectrum<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#62-zooming-and-panning-iosipados">6.2 Zooming and Panning — iOS/iPadOS<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#63-zooming-and-panning-macos">6.3 Zooming and Panning — macOS<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#62-zooming-and-panning-ios-and-ipados">6.2 Zooming and Panning — iOS and iPadOS<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#63-zooming-and-panning-macos-windows-and-linux-desktop">6.3 Zooming and Panning — macOS, Windows, and Linux Desktop<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#64-auto-db">6.4 Auto dB<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#65-the-crosshair-iosipados">6.5 The Crosshair (iOS/iPadOS)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#65-the-crosshair-ios-and-ipados">6.5 The Crosshair (iOS and iPadOS)<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#66-peak-labels">6.6 Peak Labels<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#67-annotation-modes">6.7 Annotation Modes<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#68-saving-the-current-view-as-default">6.8 Saving the Current View as Default<span class="toc-page-num"></span></a></li>
@@ -1070,10 +1109,13 @@ ol.steps li::before {
   <li class="toc-h2"><a href="#75-editing-location-and-notes">7.5 Editing Location and Notes<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#76-exporting-a-spectrum-image">7.6 Exporting a Spectrum Image<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#77-exporting-a-pdf-report">7.7 Exporting a PDF Report<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#78-exporting-a-guitartap-file">7.8 Exporting a .guitartap File<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#79-importing-a-measurement">7.9 Importing a Measurement<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#710-sharing-between-ios-and-macos">7.10 Sharing Between iOS and macOS<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#711-deleting-measurements">7.11 Deleting Measurements<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#78-saving-a-comparison">7.8 Saving a Comparison<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#79-exporting-a-comparison-spectrum-image">7.9 Exporting a Comparison Spectrum Image<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#710-exporting-a-comparison-pdf-report">7.10 Exporting a Comparison PDF Report<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#711-exporting-a-guitartap-file">7.11 Exporting a .guitartap File<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#712-importing-a-measurement-or-comparison">7.12 Importing a Measurement or Comparison<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#713-sharing-between-ios-and-macos">7.13 Sharing Between iOS and macOS<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#714-deleting-measurements">7.14 Deleting Measurements<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#chapter-8-settings-reference">Chapter 8 — Settings Reference<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#81-opening-settings">8.1 Opening Settings<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#82-audio-input-calibration">8.2 Audio Input &amp; Calibration<span class="toc-page-num"></span></a></li>
@@ -1111,196 +1153,1254 @@ ol.steps li::before {
 
       <h1 id="chapter-1-introduction">Chapter 1 — Introduction</h1>
 
-<!-- STATUS: STUB — needs full content -->
-
 <h2 id="11-what-guitar-tap-does">1.1 What Guitar Tap Does</h2>
 
-<!-- TODO: Write section -->
+<!--
+SCREENSHOT (single required image for Chapter 1):
 
+  File:   images/ch01-main-analysis-screen.png
+  Subject: Guitar Tap on macOS, full window, showing a completed
+           guitar-mode measurement. Frozen spectrum with annotated
+           peaks visible on the chart; Analysis Results panel open
+           on the right showing identified modes and frequencies.
+  Notes:  Use a real measurement (not a synthetic test signal) so
+          the peak shapes look natural. Window sized so all three
+          panes (top controls, chart, results panel) are clearly
+          legible. Crop to the window only — no desktop background.
+-->
+
+<p><img alt="A completed guitar-mode measurement: spectrum with annotated peaks, results panel showing identified modes and frequencies." src="images/ch01-main-analysis-screen.png"></p>
+<p>Guitar Tap captures a tap, runs an FFT, and presents the resulting
+spectrum with annotated peaks and a results panel. The app is designed
+around the three measurements a luthier following the Gore methodology
+(or any similar tap-tone-based workflow) actually takes:</p>
+<ul>
+<li>
+<p><strong>Guitar mode</strong> — for a complete instrument body. Single or
+  multi-tap averaging; identifies air, top, and back modes plus any
+  other significant body resonances above the detection threshold.</p>
+</li>
+<li>
+<p><strong>Plate mode</strong> — for a free plate. Walks you through a longitudinal
+  tap, a cross-grain tap, and optionally a free-length-cross tap, with
+  a review step between phases so you can accept or redo each one
+  before continuing.</p>
+</li>
+<li>
+<p><strong>Brace mode</strong> — for an individual brace. Captures a single
+  longitudinal resonance.</p>
+</li>
+</ul>
+<p>In all three modes the tap is captured with onset alignment so the same
+physical tap reliably yields the same spectrum, regardless of where in
+the FFT frame the impulse happens to land. Measurements can be saved
+locally, exported as PDF or spectrum data, and shared as <code>.guitartap</code>
+files that round-trip between the iOS, macOS, and desktop builds.</p>
 <h2 id="12-what-you-need">1.2 What You Need</h2>
 
-<!-- TODO: Write section -->
-
+<p><strong>Hardware</strong></p>
+<ul>
+<li>
+<p><strong>A device.</strong> Guitar Tap runs on iPhone or iPad (iOS 17 or later),
+  Mac (macOS 14 Sonoma or later), and Windows or Linux desktops via the
+  Python version of the app.</p>
+</li>
+<li>
+<p><strong>A microphone.</strong> The built-in microphone of an iPhone, iPad, or
+  modern Mac is good enough for relative comparisons (one plate against
+  another, before and after a thickness change) even if absolute
+  values may be slightly off. For repeatable absolute frequencies and
+  clean spectra, a calibrated measurement microphone (such as a miniDSP
+  UMIK-1) on a USB audio interface is the recommended setup.
+  Microphone choice is discussed further in §2.3.</p>
+</li>
+<li>
+<p><strong>A tapping implement.</strong> The recommended implement is a small bouncy
+  ball on the end of a stick — it produces a short, clean impulse with
+  low operator variability. A firm knuckle rap also works well,
+  particularly for guitar-body measurements.</p>
+</li>
+<li>
+<p><strong>A quiet workspace.</strong> A quieter room lets you set a lower detection
+  threshold and capture softer taps cleanly.</p>
+</li>
+<li>
+<p><strong>The material to be measured.</strong> A free plate, a brace, or a
+  complete instrument.</p>
+</li>
+</ul>
+<p><strong>Optional</strong></p>
+<ul>
+<li><strong>A microphone calibration file</strong> (<code>.txt</code> or <code>.cal</code>) for your
+  measurement microphone. Importing it lets the app correct the
+  spectrum for the microphone's frequency response. See §2.4.</li>
+</ul>
 <h2 id="13-how-this-manual-is-organised">1.3 How This Manual Is Organised</h2>
 
-<!-- TODO: Write section -->
-
+<p>If you have just installed Guitar Tap and want to take your first
+measurement, start with <strong>Chapter 2 — Getting Started</strong>. It covers
+installation, microphone permission, audio-input selection, threshold
+and peak-min tuning, and a complete first guitar measurement.</p>
+<p>If you already know the app and want a focused walk-through of a
+particular task — measuring a free plate, multi-tap sequences, export
+and share workflows — see the <strong>Guided Use Cases (Chapters 3 through
+8)</strong>.</p>
+<p>For complete details on a specific control, setting, or shortcut, see
+the <strong>Reference chapters (9 through 11)</strong> and the <strong>Appendices</strong>.</p>
+<p>A <strong>Glossary</strong> at the end defines the acoustic-analysis terms used
+throughout the manual.</p>
 <h1 id="chapter-2-getting-started">Chapter 2 — Getting Started</h1>
 
-<!-- STATUS: STUB — needs full content -->
-
+<p>This chapter takes you from a fresh install to your first measurement.
+Sections 2.6 and 2.7 cover one-time tuning that any new microphone or
+room benefits from; the settings persist so you only do it once.</p>
 <h2 id="21-installing-the-app">2.1 Installing the App</h2>
 
-<!-- TODO: Write section -->
-
+<p><strong>iOS / iPadOS.</strong> Search "Guitar Tap" in the App Store and install.</p>
+<p><strong>macOS (native).</strong> Search "Guitar Tap" in the Mac App Store and
+install.</p>
+<p><strong>macOS / Windows (Python desktop build).</strong> Run the installer for
+your platform from the project release page. The build is bundled
+with PyInstaller and ships with its own Python runtime — no separate
+Python installation is required.</p>
+<p><strong>Linux (Python desktop build).</strong> Download the AppImage from the
+project release page, mark it executable (<code>chmod +x
+GuitarTap-x.y.z.AppImage</code>), and run it directly. The AppImage
+includes everything required; no system packages need to be
+installed.</p>
+<p>The native and Python builds share the <code>.guitartap</code> file format —
+measurements written on one can be opened on the other without loss.</p>
 <h2 id="22-granting-microphone-permission">2.2 Granting Microphone Permission</h2>
 
-<!-- TODO: Write section -->
-
+<p>Guitar Tap cannot operate without microphone access. The grant
+procedure differs by platform.</p>
+<p><strong>iOS / iPadOS.</strong> A system dialog appears on first launch. Tap <strong>Allow</strong>.
+If you declined, re-enable in <strong>Settings → Guitar Tap → Microphone</strong>.</p>
+<p><strong>macOS.</strong> A system dialog appears on first launch. If you declined,
+or already declined for a previous build, open <strong>System Settings →
+Privacy &amp; Security → Microphone</strong> and enable Guitar Tap.</p>
+<p><strong>Windows.</strong> Open <strong>Settings → Privacy &amp; Security → Microphone</strong>.
+Ensure both "Microphone access" and "Let desktop apps access your
+microphone" are on.</p>
+<p><strong>Linux.</strong> PortAudio uses the system's PulseAudio or PipeWire
+permissions; there is no in-app dialog. If recording is silent, check
+the Recording tab of <code>pavucontrol</code> (or your equivalent mixer) while
+Guitar Tap is running.</p>
 <h2 id="23-selecting-your-audio-input">2.3 Selecting Your Audio Input</h2>
 
-<!-- TODO: Write section -->
+<!--
+SCREENSHOT (covers §2.3 and §2.5):
 
+  File:    images/ch02-settings-sheet.png
+  Subject: Settings sheet on macOS, showing both the Audio Input
+           section (input device list, calibration controls) and
+           the Measurement Type section in the same view.
+  Notes:   Scroll the sheet (or window-size the app) so both
+           sections are simultaneously visible. Show at least one
+           USB measurement mic plus a built-in option in the input
+           list. Crop to the sheet/window only.
+-->
+
+<p><img alt="Settings sheet showing Audio Input and Measurement Type sections." src="images/ch02-settings-sheet.png"></p>
+<p>Open Settings (gear icon, top toolbar) and use the <strong>Audio Input</strong>
+section to pick your microphone.</p>
+<ul>
+<li>Selecting a device takes effect immediately and persists across
+  launches; you do not need to confirm or apply the change.</li>
+<li>The built-in microphone of a modern Mac, iPhone, or iPad is fine
+  for relative comparisons.</li>
+<li>A USB measurement microphone (such as a miniDSP UMIK-1) on a USB
+  audio interface gives lower noise, flatter response, and supports
+  per-device calibration (§2.4).</li>
+<li>The currently selected input is shown in the analysis screen so
+  you always know what is being captured.</li>
+</ul>
 <h2 id="24-importing-a-microphone-calibration-file">2.4 Importing a Microphone Calibration File</h2>
 
-<!-- TODO: Write section -->
-
+<p>A calibration file corrects the captured spectrum for the
+microphone's own frequency response. Without it, the spectrum
+includes whatever roll-off and bumps the microphone contributes.</p>
+<p>Guitar Tap accepts <code>.txt</code> and <code>.cal</code> files in the standard
+two-column (frequency, dB) format that ships with most measurement
+microphones.</p>
+<p>To import:</p>
+<ol>
+<li>In <strong>Settings → Audio Input</strong>, with your measurement microphone
+   selected, choose <strong>Import Calibration File</strong> and pick the file.</li>
+<li>The calibration is bound to that input device. When you switch
+   away from it and back again later, the calibration reloads
+   automatically.</li>
+<li>To remove all stored calibrations, use <strong>Clear All Calibrations</strong>
+   in the same section.</li>
+</ol>
+<p>The status area indicates when a calibration is active for the
+current input.</p>
 <h2 id="25-choosing-a-measurement-type">2.5 Choosing a Measurement Type</h2>
 
-<!-- TODO: Write section -->
-
+<p>In Settings, the <strong>Measurement Type</strong> section determines what the
+analyzer is looking for:</p>
+<ul>
+<li><strong>Generic Guitar / Acoustic Guitar / Classical Guitar /
+  Flamenco Guitar.</strong> Guitar-body mode. The four sub-types differ in
+  the expected frequency windows for the air, top, back, and dipole
+  modes; pick the one closest to the instrument you are measuring.
+  Generic uses the broadest windows.</li>
+<li><strong>Plate.</strong> Free-plate measurement with the longitudinal,
+  cross-grain, and optional free-length-cross phases.</li>
+<li><strong>Brace.</strong> Single-tap longitudinal measurement on an individual
+  brace.</li>
+</ul>
+<p>The choice persists across launches. Changing it mid-sequence starts
+a new sequence in the new mode.</p>
 <h2 id="26-setting-the-threshold-finding-your-tap-level">2.6 Setting the Threshold — Finding Your Tap Level</h2>
 
-<!-- TODO: Write section -->
+<!--
+SCREENSHOT (covers §2.6 and §2.7):
 
+  File:    images/ch02-threshold-peakmin-toolbar.png
+  Subject: Main analysis screen on macOS with the toolbar at top
+           clearly showing the Threshold slider and Peak Min slider,
+           and a live (not frozen) spectrum below with a recent tap
+           impulse still visible.
+  Notes:   Detection should be paused so the spectrum is live and
+           a representative tap peak is visible. Crop to window.
+-->
+
+<p><img alt="Live spectrum showing a recent tap, with the Threshold and Peak Min sliders in the toolbar above." src="images/ch02-threshold-peakmin-toolbar.png"></p>
+<p>The Threshold slider sets the signal level a tap must exceed before
+the analyzer captures it. You will tune it once for your
+microphone, room, and tapping style; the value then persists.</p>
+<p>The tuning procedure is the same in all three measurement modes:</p>
+<ol>
+<li>Press <strong>Pause</strong>. The spectrum stays live, but no taps will
+   register — you can experiment without triggering a measurement.</li>
+<li>Make a representative tap and read the highest dB the live
+   spectrum reaches.</li>
+<li>Set Threshold roughly <strong>6 to 10 dB below</strong> that peak level. This
+   leaves headroom for tap-to-tap variation while staying clear of
+   ambient noise.</li>
+<li>Press <strong>Resume</strong> and tap again. The spectrum should freeze and
+   the <strong>Tap Detected</strong> indicator should appear.</li>
+</ol>
+<p>If taps are missed, lower the threshold. If ambient noise triggers
+false captures, raise it.</p>
 <h2 id="27-setting-peak-min-filtering-the-peak-list-guitar-mode">2.7 Setting Peak Min — Filtering the Peak List (Guitar Mode)</h2>
 
-<!-- TODO: Write section -->
-
+<p>Peak Min sets the minimum spectrum magnitude at which a peak is
+annotated on the chart and considered for guitar-mode analysis. It
+is a guitar-mode control: in Plate and Brace modes the per-phase
+capture uses its own adaptive noise floor, and Peak Min only
+affects which peaks are <em>drawn</em> — never which are <em>selected</em> for
+the calculation.</p>
+<p>Tune it from the same paused state used for Threshold:</p>
+<ol>
+<li>Still paused (continuing from §2.6), make a few representative
+   taps and watch the peaks appear on the live spectrum.</li>
+<li>Raise Peak Min until noise peaks disappear. Lower it until the
+   structural resonances you care about are visible.</li>
+<li>Press <strong>Resume</strong> and take the real measurement.</li>
+</ol>
+<p>If you adjust Peak Min on a frozen spectrum after a measurement,
+press the <strong>wand</strong> button to re-run automatic mode selection
+against the new threshold.</p>
+<p>Peak Min persists across launches.</p>
 <h2 id="28-your-first-tap-guitar-mode-walkthrough">2.8 Your First Tap — Guitar Mode Walkthrough</h2>
 
-<!-- TODO: Write section -->
-
+<p>You now have everything you need.</p>
+<ol>
+<li>Position the microphone 5 to 15 cm from the sound hole. (For
+   top- or back-tap measurements, position it 5 to 10 cm from the
+   tap point.)</li>
+<li>The analyzer is already running on launch. Confirm Threshold and
+   Peak Min are tuned per §2.6 and §2.7.</li>
+<li>Press <strong>Resume</strong> if you paused during tuning. The detector is
+   armed and the spectrum is live.</li>
+<li>Tap the guitar — a knuckle rap on the bridge or a bouncy-ball
+   strike on the back, depending on what you are measuring. The
+   spectrum freezes when the tap registers.</li>
+<li>Open the <strong>Analysis Results</strong> panel and review the identified
+   modes, frequencies, ring-out time, and tap-tone ratio.</li>
+<li>Press <strong>Save</strong> in the top toolbar to store the measurement so you
+   can compare it to future taps.</li>
+</ol>
+<p>That is a complete cycle. From here, see the use-case chapters for
+the workflow you actually want to run — guitar (Chapter 3), plate
+(Chapter 4), or brace (Chapter 5).</p>
 <h1 id="chapter-3-guitar-mode">Chapter 3 — Guitar Mode</h1>
 
-<!-- STATUS: STUB — needs full content -->
+<p>Guitar mode captures the body resonances of a completed instrument
+and presents them as a labelled peak list. This chapter assumes the
+microphone, calibration, threshold, and peak-min are already tuned
+as described in Chapter 2.</p>
+<h2 id="31-mode-labels-and-classification">3.1 Mode Labels and Classification</h2>
 
-<h2 id="31-overview-of-guitar-resonances">3.1 Overview of Guitar Resonances</h2>
-
-<!-- TODO: Write section -->
-
+<p>Guitar Tap identifies and labels six classes of guitar-body modes:
+<strong>Air</strong>, <strong>Top</strong>, <strong>Back</strong>, <strong>Dipole</strong>, <strong>Ring</strong>, and <strong>Upper Modes</strong>.
+Classification is by frequency window: each guitar subtype
+(Generic, Acoustic, Classical, Flamenco) defines a range of
+frequencies in which a candidate for each mode is expected. The
+strongest peak inside a window is assigned to that mode; peaks
+outside every window are labelled <strong>Unknown</strong>.</p>
+<p>Unknown peaks are shown on the chart by default so nothing in the
+spectrum is silently hidden. If you find them cluttering a chart
+that you intend to share or compare, turn them off via
+<strong>Settings → Advanced → Analysis Settings → Show Unknown Modes</strong>.</p>
+<p><strong>Generic is the recommended subtype for most measurement work.</strong>
+Its windows are wide enough to catch the air, top, and back modes
+of any of the common guitar archetypes, which is what you want when
+you simply need to see and label the resonances of the instrument
+in front of you. The other subtypes — Acoustic, Classical, Flamenco
+— are narrower and are most useful when:</p>
+<ul>
+<li>you want the <strong>quality indicators</strong> in the Results panel to
+  reflect the typical frequency band for that style (the colour
+  cues next to each mode and the tap-tone ratio are interpreted
+  against the chosen subtype's expectations); or</li>
+<li>you are building or voicing to a <strong>target frequency range</strong>
+  associated with a particular style and want the windows to
+  exclude peaks that fall outside that target.</li>
+</ul>
+<p>The frequency windows can be inspected in Settings → Measurement
+Type when a subtype is selected.</p>
 <h2 id="32-setting-up-for-guitar-mode">3.2 Setting Up for Guitar Mode</h2>
 
-<!-- TODO: Write section -->
-
+<ol>
+<li>Open <strong>Settings → Measurement Type</strong> and choose <strong>Generic
+   Guitar</strong> unless you have a specific reason (quality indicators
+   or a target frequency range) to choose Acoustic, Classical, or
+   Flamenco — see §3.1.</li>
+<li>The frequency-window panel updates to show the ranges for the
+   selected subtype. Confirm they bracket the modes you expect to
+   find.</li>
+<li><strong>Show Unknown Modes</strong> is on by default. Leave it on unless you
+   are preparing a chart for sharing and want to declutter.</li>
+<li>Confirm Threshold and Peak Min are tuned for the current mic and
+   room (see §2.6 and §2.7).</li>
+</ol>
 <h2 id="33-microphone-placement">3.3 Microphone Placement</h2>
 
-<!-- TODO: Write section -->
-
+<ul>
+<li><strong>Distance:</strong> 5 to 15 cm from the sound hole for body-cavity
+  measurements; 5 to 10 cm from the tap point for top or back
+  measurements.</li>
+<li><strong>Angle:</strong> roughly perpendicular to the soundboard or back, but
+  not so close that the diaphragm sees only one localized region.</li>
+<li><strong>Surroundings:</strong> avoid hard surfaces within ~30 cm of the
+  microphone. Reflections add spurious peaks and inflate the noise
+  floor at the comb frequencies of the workbench geometry.</li>
+<li><strong>Reproducibility:</strong> mark the mic position (a piece of tape on
+  the bench is sufficient) if you intend to compare measurements
+  across sessions on the same instrument. Small position changes
+  shift the relative magnitudes of modes you may want to track
+  build-to-build.</li>
+</ul>
 <h2 id="34-single-tap-measurement">3.4 Single Tap Measurement</h2>
 
-<!-- TODO: Write section -->
-
+<ol>
+<li>Press <strong>New Tap</strong> to arm the detector. The status area shows
+   the analyzer is waiting for a tap.</li>
+<li>Tap the instrument: a short, crisp knuckle or fingertip rap on
+   the bridge, or a bouncy-ball strike on the back.</li>
+<li>The <strong>Tap Detected</strong> indicator appears and the spectrum freezes
+   automatically.</li>
+<li>Read the annotated peaks on the frozen spectrum and the Analysis
+   Results panel (see §3.8 for what each column means).</li>
+</ol>
+<p>If the tap was missed or contaminated (a finger squeak, an ambient
+transient), press <strong>New Tap</strong> again to discard it and try once
+more.</p>
+<p>If Threshold or Peak Min need adjusting before the live take,
+press <strong>Pause</strong> first — the spectrum stays live and no taps will
+register while you experiment. Move the sliders, tap freely, then
+press <strong>Resume</strong> when ready.</p>
 <h2 id="35-multi-tap-averaging">3.5 Multi-Tap Averaging</h2>
 
-<!-- TODO: Write section -->
-
+<p>For tighter results, average several taps in one sequence.</p>
+<ol>
+<li>Set the <strong>Taps</strong> stepper at the top of the toolbar to the number
+   of taps you want (1 to 10). Five is a common choice.</li>
+<li>Press <strong>New Tap</strong> as before. The status bar now shows progress —
+   "Tap 1/5", "Tap 2/5", and so on.</li>
+<li>Tap the instrument the required number of times. Each captured
+   tap re-arms the detector after a short cooldown; the spectrum
+   re-freezes only after the final tap.</li>
+<li>When all taps are captured, the averaged spectrum is displayed
+   with annotated peaks. Individual tap spectra are retained for
+   comparison (see §6.x for the multi-tap comparison view).</li>
+</ol>
+<p><strong>Pause between taps.</strong> Press Pause if you need to pause mid-sequence
+(to reset the instrument's position, for example). The captured
+taps so far are preserved; Resume continues from where you left off.</p>
+<p><strong>Cancel mid-sequence.</strong> Press <strong>Cancel</strong> to discard all captured
+taps and end the sequence. New Tap then re-arms for a fresh
+attempt.</p>
 <h2 id="36-inspecting-and-adjusting-peak-selections">3.6 Inspecting and Adjusting Peak Selections</h2>
 
-<!-- TODO: Write section -->
-
+<p>Each peak in the frozen spectrum is shown with a label (mode name)
+and a coloured dot whose colour matches its row in the Analysis
+Results panel.</p>
+<ul>
+<li><strong>Toggle a peak's selection</strong> by tapping its label on the chart.
+  Selected peaks contribute to derived values such as the tap-tone
+  ratio; deselected peaks remain visible but are excluded from the
+  calculation.</li>
+<li><strong>Cycle the annotation set</strong> using the Annotations button:
+  <em>All</em> (every detected peak labelled), <em>Selected</em> (only currently
+  selected peaks), or <em>None</em> (no labels on the chart). The default
+  is <em>Selected</em>, which matches what most luthiers want to see.</li>
+<li><strong>Re-run automatic selection</strong> by pressing the <strong>wand</strong> button
+  in the Analysis Results header. This is useful after raising or
+  lowering Peak Min on a frozen spectrum: the wand re-classifies
+  the visible peaks against the current Peak Min and re-selects
+  one per mode window.</li>
+<li><strong>Select All / Select None</strong> are available in the Results header
+  for the cases where you want everything on or off in one step.</li>
+</ul>
+<p>Selection changes are preserved when the measurement is saved.</p>
 <h2 id="37-overriding-mode-classification">3.7 Overriding Mode Classification</h2>
 
-<!-- TODO: Write section -->
-
+<p>The automatic classifier occasionally picks the wrong peak — for
+example, when two candidates are close in magnitude and the wrong
+one falls inside the configured window. To correct it:</p>
+<ol>
+<li>In the Analysis Results panel, tap the row of the peak whose
+   label you want to change.</li>
+<li>A mode picker appears with <strong>Air</strong>, <strong>Top</strong>, <strong>Back</strong>,
+   <strong>Dipole</strong>, <strong>Ring</strong>, <strong>Upper Modes</strong>, <strong>Unknown</strong>, and a
+   <strong>Custom label</strong> field for free-text annotations.</li>
+<li>Pick the correct mode. The chart label updates immediately.</li>
+</ol>
+<p>Overrides are saved with the measurement and reapplied when the
+measurement is loaded later. The wand button respects manual
+overrides — a re-classify will not silently undo your choice.</p>
 <h2 id="38-reading-the-results-panel">3.8 Reading the Results Panel</h2>
 
-<!-- TODO: Write section -->
+<!--
+SCREENSHOT:
 
+  File:    images/ch03-results-panel.png
+  Subject: Close-up of the Analysis Results panel after a completed
+           guitar-mode measurement. All columns visible: mode label,
+           frequency, magnitude, Q, bandwidth, pitch. Ring-out and
+           tap-tone-ratio rows visible below the peak list.
+  Notes:   Crop tight to the results panel — no chart. Pick a
+           measurement with at least Air, Top, and Back identified
+           so the tap-tone ratio reads a sensible value.
+-->
+
+<p><img alt="Analysis Results panel with peak list, ring-out time, and tap-tone ratio." src="images/ch03-results-panel.png"></p>
+<p>For each identified peak the Analysis Results panel shows:</p>
+<ul>
+<li><strong>Mode label</strong> — Air, Top, Back, Dipole, Ring, Upper, or a custom
+  override.</li>
+<li><strong>Frequency</strong> — in Hz, to 0.1 Hz.</li>
+<li><strong>Magnitude</strong> — in dB, relative to the spectrum's reference.</li>
+<li><strong>Q</strong> — quality factor (centre frequency ÷ −3 dB bandwidth).</li>
+<li><strong>Bandwidth</strong> — −3 dB bandwidth in Hz.</li>
+<li><strong>Pitch</strong> — nearest equal-temperament note plus cents offset.</li>
+</ul>
+<p>Below the peak list:</p>
+<ul>
+<li><strong>Ring-out</strong> — decay time in seconds, computed from the magnitude
+  envelope after the tap impulse. A structural-damping indicator.</li>
+<li><strong>Tap Tone Ratio</strong> — f_Top ÷ f_Air. Typical values for a
+  well-voiced guitar fall in the 1.8–2.4 range; the value is shown
+  with a colour cue indicating whether it is in, near, or outside
+  that band.</li>
+</ul>
+<p>When a value is missing (a mode was not identified, or the ring-out
+could not be measured), the panel displays "—" rather than zero so
+the absence is unambiguous.</p>
 <h2 id="39-comparing-guitar-measurements">3.9 Comparing Guitar Measurements</h2>
 
-<!-- TODO: Write section -->
+<p>Comparison overlays two to five saved guitar measurements on the
+same chart. Useful for any pair-or-more of measurements you want to
+see side by side — different build stages of the same instrument,
+different tap locations on the same body, different instruments you
+have built, or measurements of instruments built by someone else
+that you want to study or learn from.</p>
+<!--
+SCREENSHOT:
 
+  File:    images/ch03-comparison-overlay.png
+  Subject: Comparison mode with three guitar spectra overlaid on a
+           single chart. Legend visible identifying each spectrum.
+           Comparison Results table visible in the Analysis Results
+           panel showing Air / Top / Back rows with colour-coded
+           dots for each spectrum.
+  Notes:   Choose three measurements with clearly different mode
+           frequencies so the overlay is visually informative.
+-->
+
+<p><img alt="Three-spectrum comparison overlay with the Comparison Results table." src="images/ch03-comparison-overlay.png"></p>
+<p><strong>Starting a comparison</strong></p>
+<ol>
+<li>Open the <strong>Measurements</strong> list.</li>
+<li>Tap to select two to five saved guitar measurements. Plate and
+   brace measurements are excluded — comparison is guitar-only.</li>
+<li>Tap the <strong>Compare</strong> button that appears once two or more
+   measurements are selected.</li>
+</ol>
+<p>The chart switches to comparison view: each selected spectrum is
+drawn in a distinct colour with a legend. The Analysis Results
+panel switches to a comparison table with one column per spectrum
+(labelled with the colour dot from the legend) and rows for Air,
+Top, and Back frequencies. "—" appears where a mode was not
+identified.</p>
+<p><strong>What is available during comparison</strong></p>
+<p>Save, Export Spectrum, and Export PDF Report all remain active, but
+they operate on the overlay rather than on an individual
+measurement:</p>
+<ul>
+<li><strong>Save</strong> stores the entire overlay as a single comparison in the
+  Measurements list. The save sheet accepts an optional location
+  label and notes. The saved comparison appears with a distinct
+  badge and can be reloaded later to restore the overlay — every
+  spectrum, its colour, and the Comparison Results table — exactly
+  as it was.</li>
+<li><strong>Export Spectrum</strong> (⌘E on macOS; Ctrl+E on Windows / Linux)
+  writes an overlay PNG with all curves, their colours, and the
+  legend.</li>
+<li><strong>Export PDF Report</strong> (⇧⌘E on macOS; Ctrl+Shift+E on Windows /
+  Linux) writes a comparison PDF: a metadata header (number of
+  spectra, labels, date), the overlay image, and an Air / Top /
+  Back frequency table with one column per spectrum.</li>
+</ul>
+<p>A saved comparison <code>.guitartap</code> file can be <strong>imported</strong> via
+<strong>File → Import Measurement</strong> (macOS / Python desktop) or the
+Import Measurement button in the Measurements list (iOS). The app
+detects the comparison on load and restores the overlay.</p>
+<p><strong>What is inactive during comparison</strong></p>
+<ul>
+<li><strong>Annotations</strong> button — each spectrum carries its own annotations
+  set at capture time; there is nothing to cycle in the overlay.</li>
+<li><strong>Threshold</strong> and <strong>Peak Min</strong> sliders — the comparison view is a
+  static overlay of frozen measurements; live detection is not
+  running.</li>
+<li><strong>Taps</strong> stepper — no active capture sequence to configure.</li>
+</ul>
+<p><strong>Exiting comparison.</strong> Press <strong>New Tap</strong> to leave comparison mode
+and return to single-measurement operation.</p>
 <h1 id="chapter-4-plate-mode">Chapter 4 — Plate Mode</h1>
 
-<!-- STATUS: STUB — needs full content -->
-
+<p>Plate mode captures the longitudinal, cross-grain, and (optionally)
+free-length-cross resonances of a rectangular tonewood blank and
+returns the moduli, specific modulus, radiation ratio, and Gore
+target thickness for the piece. This chapter assumes the
+microphone, calibration, threshold, and peak-min are already tuned
+as described in Chapter 2.</p>
 <h2 id="41-overview-of-plate-material-measurements">4.1 Overview of Plate Material Measurements</h2>
 
-<!-- TODO: Write section -->
-
+<p>Plate mode runs a guided sequence of two or three taps on a
+rectangular blank suspended at its nodal points and computes the
+material properties used to evaluate a piece of tonewood:</p>
+<ul>
+<li><strong>Longitudinal (L)</strong> — bending mode with grain. Yields E_L and
+  c_L.</li>
+<li><strong>Cross-grain (C)</strong> — bending mode across the grain. Yields E_C
+  and c_C.</li>
+<li><strong>Free-length-cross (FLC)</strong> — torsional mode, optional. Yields
+  the shear modulus G_LC, which feeds the Gore target thickness
+  calculation and tightens its result by roughly 5 to 7%.</li>
+</ul>
+<p>From these the app derives ρ (from your dimensions and mass),
+specific modulus E_L/ρ, radiation ratio R, the E_C/E_L
+cross-to-long ratio, a quality rating against the spruce scale,
+and the Gore target thickness for the body dimensions and
+stiffness preset you have selected.</p>
+<p>Plate mode is for raw blanks before bracing or cutting. For an
+individual brace, use Brace mode (Chapter 5); for a finished body,
+use Guitar mode (Chapter 3).</p>
 <h2 id="42-preparing-the-sample">4.2 Preparing the Sample</h2>
 
-<!-- TODO: Write section -->
-
+<p>The blank should be a clean rectangle with the grain parallel to
+one long axis. The numbers you enter into the app drive every
+derived quantity, so accuracy matters:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Target accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Length (along grain)</td>
+<td>0.5 mm</td>
+</tr>
+<tr>
+<td>Width (cross grain)</td>
+<td>0.5 mm</td>
+</tr>
+<tr>
+<td>Thickness</td>
+<td>0.1 mm</td>
+</tr>
+<tr>
+<td>Mass</td>
+<td>0.1 g</td>
+</tr>
+</tbody>
+</table>
+<p>A digital caliper handles the thickness measurement. Length and
+width are typically beyond the jaw span of a caliper for
+guitar-scale blanks; an accurate steel rule is the better tool
+there. A jeweller's scale or any 0.1 g kitchen scale handles
+mass.</p>
+<p>Mass error dominates. Length and width errors scale linearly into
+the moduli; thickness scales as the cube. A 1% mass error and a
+0.3% thickness error produce comparable changes in E.</p>
 <h2 id="43-entering-dimensions-in-settings">4.3 Entering Dimensions in Settings</h2>
 
-<!-- TODO: Write section -->
+<!--
+SCREENSHOT:
 
+  File:    images/ch04-settings-plate.png
+  Subject: Settings sheet on macOS, Measurement Type set to Plate.
+           All input fields visible: Length, Width, Thickness, Mass
+           with their entered values; live density preview line
+           below them; Body Length and Lower Bout Width fields for
+           the Gore thickness calculation; Plate Stiffness preset
+           selector with the four options; Measure FLC toggle.
+  Notes:   Use plausible spruce-top numbers (e.g. 540 x 220 x 4 mm,
+           50 g) so the density preview reads ~0.42 g/cm³. Crop to
+           the settings sheet only.
+-->
+
+<p><img alt="Settings sheet with the Plate measurement type selected — dimensions, density preview, body inputs, stiffness preset, and Measure FLC toggle." src="images/ch04-settings-plate.png"></p>
+<p>Open <strong>Settings → Measurement Type → Plate</strong>. Fill in:</p>
+<ul>
+<li><strong>Length</strong> (mm) — along the grain.</li>
+<li><strong>Width</strong> (mm) — across the grain.</li>
+<li><strong>Thickness</strong> (mm).</li>
+<li><strong>Mass</strong> (g).</li>
+</ul>
+<p>A live <strong>density preview</strong> appears below the dimension fields. Use
+it as a sanity check on data entry. Spruce typically lands in the
+0.35–0.45 g/cm³ band; a value below 0.30 or above 0.70 is almost
+always a transposed digit or a unit error somewhere in the four
+fields.</p>
+<p>For the Gore target thickness, also enter:</p>
+<ul>
+<li><strong>Body Length</strong> (mm) and <strong>Lower Bout Width</strong> (mm) — the
+  dimensions of the instrument the plate is destined for.</li>
+<li><strong>Plate Stiffness Preset</strong> — the target stiffness number the Gore
+  thickness calculation solves for. The named presets are starting
+  points calibrated to typical instrument styles:<ul>
+<li><strong>Steel String Top</strong> (75)</li>
+<li><strong>Steel String Back</strong> (55)</li>
+<li><strong>Classical</strong> (50)</li>
+<li><strong>Custom</strong> — accepts any numeric target.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Custom</strong> is where you encode a successful build back into the
+  calculation. The workflow has four steps:</p>
+<pre><code>1. Fully measure a plate — E_L, E_C, density, body dimensions
+   — *before* you build it, and keep the measurements. Note the
+   final plate thickness you settled on for the build (which may be the number from the Gore formula).
+2. Build the instrument and live with it long enough to decide
+   whether the result is what you want. If it is, you have a
+   calibration point. If not then you need to adjust the plate stiffness preset on your next build to either stiffen the board or loosen the board to adjust the sound.
+3. The Gore formula run on that plate's measurements with a
+   named preset would have predicted some recommended
+   thickness. Your finished thickness is the thickness that
+   actually produced the sound you liked. Scale the preset's
+   stiffness number linearly so the formula, applied to that
+   same plate's measurements, would output your finished
+   thickness. Save the scaled number as your **Custom** value.
+4. From this point on, run new plates with **Custom** selected.
+   Each new board, with its own E_L, E_C, and ρ, yields a
+   *different* recommended thickness — each one calculated to
+   reproduce the calibration build's tonal outcome on that
+   specific piece of wood.
+</code></pre>
+<p>The Custom number carries "this is the kind of plate that makes
+  the instrument I want." The Gore procedure does not predict an
+  objectively ideal thickness; it gives you a reproducible way to
+  translate a tonal target across pieces of wood that differ in
+  stiffness and density.</p>
+<p><strong>Measure FLC</strong> is a toggle in the same section. Turn it on if you
+intend to capture the FLC tap (§4.8). The sequence then runs in
+three phases instead of two.</p>
 <h2 id="44-the-22-suspension-technique">4.4 The 22% Suspension Technique</h2>
 
-<!-- TODO: Write section -->
+<p>The three taps share one principle: hold the blank at a nodal
+point of the mode you want to measure, and tap at an antinode.</p>
+<p>For longitudinal and cross-grain there is a catch — <strong>both modes
+are easy to excite at the same time</strong>, and the hold point alone
+decides which one wins in the spectrum. A hold on a mode's nodal
+line suspends that mode (it can vibrate freely); a hold on a
+mode's antinode damps it. To get a clean reading the hold must
+sit <strong>on the target mode's node <em>and</em> off the orthogonal mode's
+node.</strong></p>
+<p>In all three orientations the <strong>tap point is the centre of the
+plate face</strong>.</p>
+<ul>
+<li>
+<p><strong>Longitudinal.</strong> Plate oriented with grain horizontal.</p>
+<ul>
+<li>The longitudinal mode's nodal line runs cross-wise at 22%
+  from each short end.</li>
+<li>The cross-grain mode's nodal lines run length-wise at 22%
+  from each long edge.</li>
+<li>Hold between thumb and forefinger <strong>22% in from one short
+  end along the length, close to one long edge but not at 22%
+  in from it.</strong> The other end of the plate hangs free; tap at
+  the centre.</li>
+</ul>
+</li>
+<li>
+<p><strong>Cross-grain.</strong> Rotate the plate 90° so grain is now vertical.
+  Same logic with the modes swapped: now the cross-grain mode's
+  node is the one you want to be on, and the longitudinal mode's
+  node is the one to avoid.</p>
+<ul>
+<li>Hold <strong>22% in from one long edge, close to one short end but
+  not at 22% in from it.</strong> Other end hangs free.</li>
+</ul>
+</li>
+<li>
+<p><strong>FLC.</strong> One hand only. Hold at the <strong>midpoint of one long
+  edge</strong>. Tap near the <strong>opposite corner</strong>, approximately 22% in
+  from both the end and the side. The torsional mode FLC excites
+  has its node along the centreline of the plate, so a single
+  midpoint hold is enough.</p>
+</li>
+</ul>
+<p>Common errors: putting the hold on both modes' node lines at once
+(contamination — a longitudinal reading that looks like
+cross-grain or vice versa); holding too far in along the target
+axis (the support falls inside the mode shape and damps it);
+holding too firmly (adds damping regardless of position); and
+forgetting to rotate the plate between L and C — easy to do, easy
+to spot when C reads close to L.</p>
+<!--
+Diagrams of the three hold positions appear in the outline but
+are intentionally omitted from this chapter: the audience is
+expected to know what 22% from the ends of a free-free beam
+means, and the textual orientation conventions above are
+unambiguous.
+-->
 
-<h2 id="45-tap-1-longitudinal">4.5 Tap 1 — Longitudinal</h2>
+<h2 id="45-the-accept-redo-review-flow">4.5 The Accept / Redo Review Flow</h2>
 
-<!-- TODO: Write section -->
+<p>Plate mode runs each phase as: arm, tap, freeze, review.</p>
+<p>After a tap is captured the spectrum freezes and the detector
+pauses automatically. The tap controls re-label for the review
+state:</p>
+<ul>
+<li>The <strong>Pause</strong> button becomes <strong>Accept</strong> (green tint, checkmark
+  icon). Pressing it locks in the current phase result and advances
+  to the next phase. The next phase arms detection on its own — you
+  do not need to press New Tap between phases.</li>
+<li>The <strong>Cancel</strong> button becomes <strong>Redo</strong> (orange, labelled
+  <strong>Redo L</strong>, <strong>Redo C</strong>, or <strong>Redo FLC</strong> depending on which phase
+  is being reviewed). Pressing it discards the current phase
+  result and re-arms detection for the same phase.</li>
+</ul>
+<p>During review the live spectrum is suppressed so the captured
+spectrum stays on screen for inspection. The status bar shows the
+current phase and tap count: <strong>Phase 2/3 · Tap 1/1</strong>, for example.</p>
+<p>After every phase is accepted the Results panel updates with the
+complete plate calculations (§4.9).</p>
+<p>Individual phase redo is only available <strong>before</strong> that phase is
+accepted. To restart the entire sequence — for example, you realise
+mid-FLC that the longitudinal tap was made before you'd entered
+the right dimensions — press <strong>New Tap</strong>; the captured phases are
+discarded and the sequence starts again from Longitudinal.</p>
+<h2 id="46-tap-1-longitudinal">4.6 Tap 1 — Longitudinal</h2>
 
-<h2 id="46-tap-2-cross-grain">4.6 Tap 2 — Cross-Grain</h2>
+<ol>
+<li>Orient the plate with the <strong>grain running horizontally</strong>.</li>
+<li>Hold at 22% from each end along the length, near one long edge.</li>
+<li>Press <strong>New Tap</strong>. The status bar shows
+   <strong>Capturing Longitudinal · Phase 1/2</strong> (or <strong>Phase 1/3</strong> if
+   Measure FLC is on).</li>
+<li>Tap the centre of the plate face.</li>
+<li>The spectrum freezes. Inspect the lowest peak — it should be
+   the longitudinal bending mode for a free-free beam of your
+   dimensions, typically in the low hundreds of Hz for a guitar
+   top.</li>
+<li>Press <strong>Accept</strong> to lock the phase in, or <strong>Redo L</strong> to
+   re-capture if the tap was contaminated.</li>
+</ol>
+<p>After Accept the sequence advances to Cross-grain automatically.</p>
+<h2 id="47-tap-2-cross-grain">4.7 Tap 2 — Cross-Grain</h2>
 
-<!-- TODO: Write section -->
+<ol>
+<li><strong>Rotate the plate 90°</strong> so the grain now runs vertically.</li>
+<li>Hold at 22% from each end along the width, near one short edge.</li>
+<li>The status bar now reads <strong>Capturing Cross-grain · Phase 2/2</strong>
+   (or <strong>Phase 2/3</strong>). Detection is already armed — do not press
+   New Tap.</li>
+<li>Tap the centre of the plate face.</li>
+<li>Inspect the frozen spectrum, then <strong>Accept</strong> or <strong>Redo C</strong>.</li>
+</ol>
+<p>After Accept, the sequence either advances to FLC (if Measure FLC
+is on) or marks the measurement complete.</p>
+<h2 id="48-tap-3-flc-optional">4.8 Tap 3 — FLC (Optional)</h2>
 
-<h2 id="47-tap-3-flc-optional">4.7 Tap 3 — FLC (Optional)</h2>
+<p>FLC measures the flat long/cross torsional mode and yields the
+shear modulus G_LC. The Gore target thickness calculation uses
+G_LC for its shear correction; without it, the calculation
+substitutes a default that over-estimates target thickness by
+roughly 5 to 7%. For final plate thicknessing, capturing FLC is
+worth the extra tap.</p>
+<ol>
+<li>Enable Measure FLC in Settings before starting the sequence
+   if you have not already.</li>
+<li>Hold one long edge at its <strong>midpoint</strong>, with one hand only.</li>
+<li>The status bar reads <strong>Capturing FLC · Phase 3/3</strong>.</li>
+<li>Tap near the <strong>opposite corner</strong>, approximately 22% in from
+   the end and 22% in from the side.</li>
+<li><strong>Accept</strong> or <strong>Redo FLC</strong>.</li>
+</ol>
+<p>After Accept the measurement is complete and the Results panel
+updates with Gore target thickness including the shear correction.</p>
+<h2 id="49-reading-plate-results">4.9 Reading Plate Results</h2>
 
-<!-- TODO: Write section -->
+<!--
+SCREENSHOT:
 
-<h2 id="48-reading-plate-results">4.8 Reading Plate Results</h2>
+  File:    images/ch04-results-panel.png
+  Subject: Plate measurement Results panel scrolled to show all
+           four sections: Detected Peaks, Gore Target Thickness,
+           Plate Properties, Plate Process Instructions. Captured
+           from a completed three-phase sequence (FLC enabled) so
+           shear-modulus rows are populated and the Gore Target
+           Thickness section does not show the GLC-assumed-0 note.
+  Notes:   Use a real measurement so the numbers are plausible.
+           Crop to the panel only.
+-->
 
-<!-- TODO: Write section -->
+<p><img alt="Plate Results panel showing the four sections — Detected Peaks, Gore Target Thickness, Plate Properties, and Plate Process Instructions." src="images/ch04-results-panel.png"></p>
+<p>For a completed plate measurement the Results panel scrolls
+through four sections, top to bottom.</p>
+<h3 id="detected-peaks">Detected Peaks</h3>
 
-<h2 id="49-interpreting-and-comparing-plate-results">4.9 Interpreting and Comparing Plate Results</h2>
+<p>One row per captured phase — two rows (L, C) for a two-tap
+sequence, three rows (L, C, FLC) when FLC is enabled. Each row
+shows a selection-indicator star, the peak frequency, the peak
+magnitude in dB, and a coloured phase badge identifying which
+mode the peak belongs to (blue L, orange C, purple FLC). The full
+detected-peak list and the Peak Min filter from guitar mode do
+not apply here; what you see is the auto-selected best peak from
+each phase capture.</p>
+<h3 id="gore-target-thickness">Gore Target Thickness</h3>
 
-<!-- TODO: Write section -->
+<p>The headline thickness for the body dimensions and stiffness
+preset entered in Settings, displayed prominently in mm. Below the
+number:</p>
+<ul>
+<li><strong>Shear Modulus (G_LC)</strong> — the value used in the thickness
+  calculation, shown when FLC was measured.</li>
+<li><strong>"G_LC assumed 0 — enable FLC tap for a more accurate result"</strong>
+  — shown when FLC was skipped. The thickness above is then
+  approximate (roughly 5 to 7% over-estimate; see §4.8).</li>
+<li><strong>Body dimensions</strong> and the <strong>f_vs</strong> value (with preset name, or
+  a literal "custom" annotation when Custom is active) — the
+  parameters that fed the calculation, exposed so you can
+  cross-check Settings against the body the plate is destined for.</li>
+</ul>
+<h3 id="plate-properties">Plate Properties</h3>
 
+<p>Material characterisation of the wood:</p>
+<ul>
+<li><strong>Frequencies used</strong> — fL, fC, and (if measured) fLC.</li>
+<li><strong>Speed of Sound</strong> — c_L and c_C in m/s.</li>
+<li><strong>Young's Modulus (E)</strong> — E_L and E_C in GPa. <strong>G_LC</strong> is
+  appended to this block when FLC was measured; the row is absent
+  when FLC was skipped.</li>
+<li><strong>Specific Modulus (E/ρ)</strong> — the headline material number, in
+  GPa/(g/cm³). Shown in large type for both Longitudinal and
+  Cross-grain, each with a per-direction quality rating
+  (Excellent / Very Good / Good / Fair / Poor against the spruce
+  scale) and a colour cue matching that rating.</li>
+<li><strong>Radiation Ratio (R)</strong> — reported for both directions.</li>
+<li><strong>Cross/Long Ratio</strong> — E_C / E_L. Typical spruce 0.04 to 0.08;
+  the typical band is shown beside the value.</li>
+<li><strong>Long/Cross Ratio</strong> — the reciprocal. Typical spruce 12 to 25;
+  the typical band is shown beside the value.</li>
+<li><strong>Overall Quality</strong> — a separate row at the bottom of the
+  section combining both directions into a single rating
+  (Excellent / Very Good / Good / Fair / Poor) with the matching
+  colour cue.</li>
+</ul>
+<p>The quality scales are calibrated for spruce; readings on cedar,
+redwood, or other top woods read as a point of comparison rather
+than an absolute grade.</p>
+<h3 id="plate-process-instructions">Plate Process Instructions</h3>
+
+<p>A reference card describing the two-tap (or three-tap, if FLC is
+enabled) measurement procedure. Useful as an in-place refresher
+when you come back to plate mode after a break and want the hold
+and tap positions without leaving the results panel.</p>
+<h2 id="410-interpreting-plate-results">4.10 Interpreting Plate Results</h2>
+
+<p>Specific modulus and radiation ratio capture what Young's modulus
+alone misses: how stiff a plate is <strong>per unit of weight it is
+asking the player to drive</strong>. Two blanks with identical E_L can
+sit in very different quality bands when their densities differ.
+Sort by E_L/ρ, not E_L, when triaging a stack of blanks.</p>
+<p>Gore target thickness is a starting point for thicknessing, not a
+specification. Reproduce it on the bench, then voice from there
+with hands-on tap-tone evaluation; the final number lives at the
+intersection of your wood, your bracing pattern, and the
+instrument design you are building toward.</p>
+<p>For tracking measurements across multiple blanks: enter a brief
+identifier (board number, supplier, billet) into the Notes field
+on the Save sheet so the saved measurement carries its
+provenance.
+Plate measurements can be saved, reloaded, and exported the same
+way guitar measurements can (Chapter 7); the comparison overlay
+described in §3.9 is guitar-only.</p>
 <h1 id="chapter-5-brace-mode">Chapter 5 — Brace Mode</h1>
 
-<!-- STATUS: STUB — needs full content -->
-
+<p>Brace mode is a fast, single-tap longitudinal measurement for an
+individual brace strip. It reports the moduli, specific modulus,
+and quality rating in one capture; cross-grain, shear, and Gore
+thickness are all skipped. This chapter assumes the microphone,
+calibration, threshold, and peak-min are already tuned as in
+Chapter 2.</p>
 <h2 id="51-overview">5.1 Overview</h2>
 
-<!-- TODO: Write section -->
-
+<p>Brace mode runs a single longitudinal tap on a brace strip and
+returns the wood's stiffness and quality. Compared to Plate mode:</p>
+<ul>
+<li><strong>No cross-grain tap.</strong> E_C is not measured.</li>
+<li><strong>No FLC tap.</strong> G_LC is not measured.</li>
+<li><strong>No Cross/Long ratio.</strong></li>
+<li><strong>No Gore target thickness.</strong> Brace mode is for stock evaluation,
+  not for thicknessing.</li>
+</ul>
+<p>What you get: E_L, c_L, specific modulus E_L/ρ with a per-direction
+quality rating against the spruce scale, and radiation ratio R.</p>
+<p>Brace mode is intended for batch-evaluating brace strips before
+selecting stock for a build. For a free plate, use Plate mode
+(Chapter 4); for a complete instrument, use Guitar mode (Chapter 3).</p>
 <h2 id="52-setting-up-brace-dimensions">5.2 Setting Up Brace Dimensions</h2>
 
-<!-- TODO: Write section -->
+<!--
+SCREENSHOT:
 
+  File:    images/ch05-settings-brace.png
+  Subject: Settings sheet on macOS, Measurement Type set to Brace,
+           scrolled to the "Brace Dimensions" section. All four
+           input fields visible: Length (along grain), Width
+           (breadth), Height (tap direction) with its helper text,
+           and Mass. Calculated Density preview line below them.
+  Notes:   Use plausible spruce-brace numbers (e.g. 480 x 18 x 15
+           mm, 18 g) so the density preview reads in the spruce
+           range. Crop to the settings sheet.
+-->
+
+<p><img alt="Settings sheet with Measurement Type set to Brace — Length, Width, Height, and Mass fields with calculated density preview." src="images/ch05-settings-brace.png"></p>
+<p>Open <strong>Settings → Measurement Type → Brace</strong>. The Brace
+Dimensions section has four fields:</p>
+<ul>
+<li><strong>Length (along grain)</strong> (mm) — the long axis of the strip.</li>
+<li><strong>Width (breadth)</strong> (mm) — the brace's breadth lying flat.</li>
+<li><strong>Height (tap direction)</strong> (mm) — the dimension perpendicular
+  to the face you tap. This is the <code>t</code> in the Euler–Bernoulli
+  stiffness formula, so it's the one that drives E_L most
+  strongly. The Settings panel itself flags this with a helper
+  line under the field; double-check it before tapping.</li>
+<li><strong>Mass</strong> (g).</li>
+</ul>
+<p>A <strong>Calculated Density</strong> line appears below the fields once all
+four are populated. Use it the same way as the plate-mode density
+preview — spruce should land in the 0.35–0.45 g/cm³ range, and a
+value well outside that is almost always a digit transposition.</p>
 <h2 id="53-technique">5.3 Technique</h2>
 
-<!-- TODO: Write section -->
-
+<p>A brace strip is a long thin beam — the same free-free fundamental
+applies, but the measurement is much simpler than plate because
+only one mode is in play.</p>
+<ol>
+<li>Hold the strip between thumb and forefinger <strong>22% in from one
+   end along the length</strong>. The other end hangs free.</li>
+<li>Lay the strip flat (or mount it however you usually orient it
+   on the bench) so the face you intend to tap is exposed. The
+   <code>Height</code> value in Settings must match the dimension
+   perpendicular to this face.</li>
+<li>Press <strong>New Tap</strong>.</li>
+<li>Tap the centre of the top face. The spectrum freezes when the
+   tap registers.</li>
+</ol>
+<p>The <strong>Accept</strong> / <strong>Redo</strong> review flow is the same as in Plate mode
+(see §4.5). Accept locks in the measurement; Redo discards it and
+re-arms the detector. There is no phase counter — Brace mode runs
+in a single phase, so the status bar shows just the current state.</p>
 <h2 id="54-reading-brace-results">5.4 Reading Brace Results</h2>
 
-<!-- TODO: Write section -->
+<!--
+SCREENSHOT:
 
+  File:    images/ch05-results-panel.png
+  Subject: Brace measurement Results panel scrolled to show all
+           three sections: Detected Peaks (the single L row with
+           star + frequency + magnitude + L phase badge), Brace
+           Properties (Frequency used, Speed of Sound, Young's
+           Modulus, Specific Modulus in large type with quality
+           rating colour, Radiation Ratio), and Brace Process
+           Instructions.
+  Notes:   Use a real measurement so the numbers are plausible;
+           pick a strip whose specific modulus lands in one of
+           the named rating bands so the colour cue is visible.
+           Crop to the panel only.
+-->
+
+<p><img alt="Brace Results panel showing the three sections — Detected Peaks (single L row), Brace Properties, and Brace Process Instructions." src="images/ch05-results-panel.png"></p>
+<p>A completed brace measurement displays three sections in the
+Results panel.</p>
+<h3 id="detected-peaks">Detected Peaks</h3>
+
+<p>A single row for the longitudinal peak. It shows a
+selection-indicator star, the peak frequency, the peak magnitude
+in dB, and a blue <strong>L</strong> phase badge.</p>
+<h3 id="brace-properties">Brace Properties</h3>
+
+<ul>
+<li><strong>Frequency used</strong> — fL in Hz.</li>
+<li><strong>Speed of Sound</strong> — c_L in m/s.</li>
+<li><strong>Young's Modulus (E)</strong> — in GPa.</li>
+<li><strong>Specific Modulus (E/ρ)</strong> — the headline number, in
+  GPa/(g/cm³), shown in large type. A quality rating
+  (Excellent / Very Good / Good / Fair / Poor against the spruce
+  scale) accompanies the value with a matching colour cue.</li>
+<li><strong>Radiation Ratio (R)</strong> — in the same column.</li>
+</ul>
+<p>There is no Cross/Long ratio or Overall Quality row — both are
+plate-only since they need cross-grain data.</p>
+<h3 id="brace-process-instructions">Brace Process Instructions</h3>
+
+<p>A reference card describing the brace measurement procedure.
+Useful as an in-place refresher when you have come back to Brace
+mode after a break.</p>
 <h2 id="55-using-brace-mode-to-compare-stock">5.5 Using Brace Mode to Compare Stock</h2>
 
-<!-- TODO: Write section -->
-
+<p>A practical workflow for evaluating a batch of brace strips:</p>
+<ol>
+<li>Label each strip (a pencil mark on the end grain or a small
+   sticky label works) so you can match measurements to physical
+   pieces later.</li>
+<li>Enter the strip's Length, Width, Height, and Mass in Settings.
+   For a batch of strips with consistent stock dimensions you
+   only have to change Mass between measurements; for variable
+   stock all four fields need updating.</li>
+<li>Tap the strip.</li>
+<li>Record the result. The <strong>Notes</strong> field on the Save sheet is the
+   right place for the strip's identifier — once saved, the
+   saved measurement carries its provenance.</li>
+<li>Move on to the next strip.</li>
+</ol>
+<p>For sorting by stiffness alone, the longitudinal frequency at the
+same dimensions is a sufficient proxy — higher fL means stiffer
+stock. For triaging across different sizes, sort by specific
+modulus (E_L/ρ).</p>
+<p>A practical limitation worth keeping in mind: with no cross-grain
+or shear data, brace-to-brace comparisons are one-dimensional. A
+strip that reads well in brace mode might still have anisotropy
+or grain runout that only shows up in a plate-style measurement
+on the parent billet.</p>
 <h1 id="chapter-6-working-with-the-spectrum">Chapter 6 — Working with the Spectrum</h1>
 
-<!-- STATUS: STUB — needs full content -->
-
+<p>The spectrum chart is the centrepiece of the analysis screen.
+This chapter covers the gestures, shortcuts, and settings that
+let you read it the way you want without disturbing the
+measurement itself.</p>
 <h2 id="61-live-vs-frozen-spectrum">6.1 Live vs. Frozen Spectrum</h2>
 
-<!-- TODO: Write section -->
+<p>Before a tap registers, the spectrum is <strong>live</strong> — the chart
+redraws on every FFT frame, showing the current microphone input
+in real time. Use this state to monitor ambient noise, dial in
+Threshold and Peak Min while paused (§2.6, §2.7), or simply
+confirm the microphone is working.</p>
+<p>When a tap registers, the spectrum <strong>freezes</strong> on the capture so
+you can inspect peaks, drag labels, and read the Analysis Results
+panel without the chart moving under you. The status bar shows
+"Tap Detected" when the freeze happens.</p>
+<p>Pressing <strong>New Tap</strong> discards the frozen capture (or current
+sequence) and returns to live mode, arming the detector for the
+next tap.</p>
+<h2 id="62-zooming-and-panning-ios-and-ipados">6.2 Zooming and Panning — iOS and iPadOS</h2>
 
-<h2 id="62-zooming-and-panning-iosipados">6.2 Zooming and Panning — iOS/iPadOS</h2>
+<ul>
+<li><strong>Pinch</strong> anywhere over the plot area to zoom both axes.</li>
+<li><strong>Pinch over the frequency axis</strong> (the bottom of the chart) to
+  zoom the frequency axis only.</li>
+<li><strong>Pinch over the magnitude axis</strong> (the left edge) to zoom the
+  magnitude axis only.</li>
+<li><strong>Drag</strong> over the plot area to pan both axes. Drag over a
+  single axis to pan that axis only.</li>
+</ul>
+<p>To reset the view, tap the <strong>…</strong> button in the upper-right corner
+of the spectrum chart. The <strong>Chart Options</strong> sheet opens with two
+sections, each offering a per-axis or both-axes choice:</p>
+<ul>
+<li><strong>Reset to Saved</strong><ul>
+<li>Reset Both Axes</li>
+<li>Reset Frequency Axis</li>
+<li>Reset Magnitude Axis</li>
+</ul>
+</li>
+</ul>
+<p>These return the chosen axis (or both) to the view stored as
+  your default — see §6.8.</p>
+<ul>
+<li><strong>Reset to Defaults</strong><ul>
+<li>Reset Both Axes</li>
+<li>Reset Frequency Axis</li>
+<li>Reset Magnitude Axis</li>
+</ul>
+</li>
+</ul>
+<p>These return the chosen axis (or both) to the app's built-in
+  starting range.</p>
+<p>The same sheet also exposes <strong>Reset Labels</strong> when any peak labels
+have been dragged from their auto-positions; that control is
+covered in §6.6.</p>
+<h2 id="63-zooming-and-panning-macos-windows-and-linux-desktop">6.3 Zooming and Panning — macOS, Windows, and Linux Desktop</h2>
 
-<!-- TODO: Write section -->
+<p>Desktop interaction follows the same pattern as iOS/iPadOS but
+uses the scroll wheel and modifier keys. The chart is divided into
+three hover zones, each with its own scroll behaviour:</p>
+<!--
+SCREENSHOT:
 
-<h2 id="63-zooming-and-panning-macos">6.3 Zooming and Panning — macOS</h2>
+  File:    images/ch06-scroll-zones.png
+  Subject: macOS Guitar Tap window with the chart visible, an
+           overlay highlighting the three scroll-zones:
+             1. Plot area (the main chart region) — labelled
+                "Scroll: zoom both axes".
+             2. Frequency axis (bottom strip below the chart) —
+                labelled "Scroll: zoom frequency only".
+             3. Magnitude axis (left strip beside the chart) —
+                labelled "Scroll: zoom magnitude only".
+  Notes:   The overlay can be drawn on top of a real screenshot
+           with transparent fill colours and labels. Crop to the
+           window only.
+-->
 
-<!-- TODO: Write section -->
-
+<p><img alt="Chart hover zones for scroll-wheel zoom — plot area for both axes, frequency axis for frequency only, magnitude axis for magnitude only." src="images/ch06-scroll-zones.png"></p>
+<ul>
+<li><strong>Scroll over the plot area</strong> to zoom both axes simultaneously.</li>
+<li><strong>Scroll over the frequency axis</strong> (the bottom of the chart) to
+  zoom the frequency axis only.</li>
+<li><strong>Scroll over the magnitude axis</strong> (the left edge) to zoom the
+  magnitude axis only.</li>
+<li><strong>Drag</strong> in any of the three zones to pan with the same
+  axis-sensitivity rules.</li>
+</ul>
+<p>Modifier keys augment scrolling without changing which zone you
+are in:</p>
+<table>
+<thead>
+<tr>
+<th>Modifier</th>
+<th>Scroll effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⇧ Shift</td>
+<td>Pan the frequency axis</td>
+</tr>
+<tr>
+<td>⌥ Option (macOS) / Alt (Windows / Linux)</td>
+<td>Pan the magnitude axis</td>
+</tr>
+<tr>
+<td>⌘ Command (macOS) / Ctrl (Windows / Linux)</td>
+<td>Zoom both axes</td>
+</tr>
+</tbody>
+</table>
+<p>On a trackpad, two-finger <strong>pinch</strong> works the same as scroll-wheel
+zoom — over the plot area for both axes, over an axis for that
+axis only.</p>
+<p>To reset the view, <strong>right-click</strong> anywhere in the chart area and
+choose Reset Axes from the context menu.</p>
+<p>If you need to look the bindings up in place, the <strong>?</strong> icon in
+the upper-right corner of the spectrum window opens a Zoom &amp; Pan
+Controls popover that summarises all the gestures and modifier
+keys for the current platform.</p>
 <h2 id="64-auto-db">6.4 Auto dB</h2>
 
-<!-- TODO: Write section -->
+<p><strong>Auto dB</strong> scales the magnitude axis to fit the current signal:
+the floor moves to just below the lowest visible value and the
+ceiling to just above the highest. It is the fastest way to land
+on a sensible magnitude range after a measurement, especially when
+the captured tap was much louder or quieter than the live signal
+that preceded it.</p>
+<p>A button in the toolbar invokes Auto dB. The keyboard shortcut is
+<strong>⌘0</strong> on macOS; <strong>Ctrl+0</strong> on Windows and Linux.</p>
+<p>Use Auto dB after each measurement, or any time the spectrum
+clips or sits flat against the magnitude floor.</p>
+<h2 id="65-the-crosshair-ios-and-ipados">6.5 The Crosshair (iOS and iPadOS)</h2>
 
-<h2 id="65-the-crosshair-iosipados">6.5 The Crosshair (iOS/iPadOS)</h2>
-
-<!-- TODO: Write section -->
-
+<p>The crosshair is a touch-based readout for inspecting frequency
+and magnitude at any point on the chart.</p>
+<ol>
+<li>Tap the crosshair icon <img src="images/symbols/dot.viewfinder.png" width="18" height="18" class="inline-icon" alt="dot.viewfinder"> in the toolbar to enable it. The icon switches to <img src="images/symbols/plus.viewfinder.png" width="18" height="18" class="inline-icon" alt="plus.viewfinder"> while crosshair mode is active.</li>
+<li>Touch and drag anywhere on the chart. A vertical and
+   horizontal line follow your finger; a small readout shows the
+   frequency (Hz) and magnitude (dB) under the crosshair.</li>
+<li>Tap the icon again to disable.</li>
+</ol>
+<p>The crosshair is a read-only tool — it does not change the
+selected peaks, the spectrum, or any saved state. On desktop the
+mouse position over the chart serves the same role and no toggle
+is needed.</p>
 <h2 id="66-peak-labels">6.6 Peak Labels</h2>
 
-<!-- TODO: Write section -->
-
+<p>Each annotated peak carries a label showing the mode name,
+frequency (and pitch with cents offset in guitar mode). Labels are
+positioned automatically to minimise overlap, but you can move any
+label to a position you prefer.</p>
+<ul>
+<li><strong>Drag</strong> a label to reposition it. The new position is saved
+  with the measurement and restored when the measurement is
+  reloaded.</li>
+<li><strong>Reset an individual label</strong> — double-tap on iOS / iPadOS;
+  right-click and choose <strong>Reset Position</strong> on desktop.</li>
+<li><strong>Reset all labels</strong> — open the <strong>…</strong> menu in the upper-right
+  corner of the spectrum chart and choose <strong>Reset Labels</strong> on
+  iOS / iPadOS; right-click an empty area of the chart and choose
+  <strong>Reset Labels</strong> on desktop.</li>
+</ul>
 <h2 id="67-annotation-modes">6.7 Annotation Modes</h2>
 
-<!-- TODO: Write section -->
-
+<p>The <strong>Annotations</strong> button cycles through three states that
+control which peaks are labelled on the chart:</p>
+<ul>
+<li><strong>All</strong> — every detected peak is labelled. Useful for surveying
+  a spectrum where you have not yet decided which peaks matter.</li>
+<li><strong>Selected</strong> (default) — only peaks currently selected for
+  analysis are labelled. Matches what most luthiers want during
+  normal use.</li>
+<li><strong>None</strong> — no labels. Useful for clean export images or for
+  reading the bare spectrum shape without distractions.</li>
+</ul>
+<p>Cycle via the Annotations button, or with the keyboard shortcut
+<strong>⌘<code>** on macOS / **Ctrl+</code></strong> on Windows and Linux.</p>
+<p>Annotation mode applies to the current view only — it is not
+saved with the measurement, and does not affect which peaks
+contribute to derived values (selection does that, see §3.6).</p>
 <h2 id="68-saving-the-current-view-as-default">6.8 Saving the Current View as Default</h2>
 
-<!-- TODO: Write section -->
-
+<p>Once you have zoomed and panned to a view you want as your
+starting point for every new measurement, save it:</p>
+<p><strong>Settings → Advanced → Display Settings → Save Current View</strong></p>
+<p>What is saved: the <strong>frequency range</strong> (low and high Hz) and the
+<strong>magnitude range</strong> (low and high dB) of the current chart. The
+saved view becomes the target of <strong>Reset to Saved</strong> (§6.2) and
+of right-click → Reset Axes (§6.3) on subsequent launches.</p>
+<p>The default view is a single global setting, not per measurement
+mode. If you work in plate mode and guitar mode at different
+ranges, pick the view that suits the work you do most often and
+zoom from there for the other.</p>
 <h1 id="chapter-7-saving-exporting-and-sharing-measurements">Chapter 7 — Saving, Exporting, and Sharing Measurements</h1>
 
 <!-- STATUS: STUB — needs full content -->
@@ -1308,46 +2408,178 @@ ol.steps li::before {
 <h2 id="71-saving-a-measurement">7.1 Saving a Measurement</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - When Save is enabled: spectrum must be frozen and at least one peak detected;
+       Save is disabled when comparison mode is active for a new individual measurement
+       (use §7.8 to save a comparison)
+     - The Save sheet: location label field (optional, e.g. "Bridge", "Soundhole",
+       "Upper Bout"); Notes field (optional, free text)
+     - What is stored: frozen spectrum data, detected peaks, chart image (PNG sidecar),
+       all settings active at time of capture (guitar type, plate dimensions, etc.),
+       annotation positions, mode overrides
+     - Keyboard shortcut: ⌘S (macOS)
+     - After save: measurement appears at top of Measurements list -->
 
 <h2 id="72-viewing-saved-measurements">7.2 Viewing Saved Measurements</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Opening the Measurements list (toolbar button; ⌘L on macOS)
+     - List layout: each row shows location label (or date if no label), date/time,
+       measurement type badge (Guitar / Plate / Brace / Comparison)
+     - Comparisons are identified by a distinct badge in the list
+     - The list is sorted by date, newest first -->
 
 <h2 id="73-loading-a-measurement-into-the-view">7.3 Loading a Measurement into the View</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Right-click / long-press a measurement row → Load into View (or equivalent button)
+     - What is restored: frozen spectrum, peaks, annotation positions, mode overrides,
+       the settings active at capture time (note: current Settings panel values are not
+       changed; loaded values are shown as a warning in the status bar)
+     - For a comparison: all constituent spectra are overlaid; the Comparison
+       Results table is restored; comparison mode becomes active -->
 
 <h2 id="74-viewing-measurement-details">7.4 Viewing Measurement Details</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Right-click / long-press → View Details (or tap the row on iPad/macOS where a
+       detail pane is available)
+     - Detail view contents: spectrum image thumbnail, peak frequency table, analysis
+       summary (decay time, Tap Tone Ratio for guitar; E_L, E_C etc. for plate/brace)
+     - Export buttons available within the detail view
+     - For comparisons: shows the constituent spectrum list and the
+       Air / Top / Back frequency table -->
 
 <h2 id="75-editing-location-and-notes">7.5 Editing Location and Notes</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Right-click / long-press → Edit Location & Notes (or Edit button in Detail toolbar)
+     - Edit sheet: Location label field and Notes multi-line text field
+     - Changes are saved immediately on tapping Save in the sheet
+     - There is no undo for label/notes edits -->
 
 <h2 id="76-exporting-a-spectrum-image">7.6 Exporting a Spectrum Image</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - What is produced: PNG image of the current chart at display resolution
+     - From toolbar: Export Spectrum Image… button (⌘E on macOS)
+     - From Measurements list: right-click / long-press a saved measurement → Export Spectrum
+     - For a single measurement: the frozen spectrum with peak annotations
+     - For a comparison (live or saved): the overlay PNG with all coloured curves, their
+       labels, and a legend; each curve colour matches the Comparison Results table -->
 
 <h2 id="77-exporting-a-pdf-report">7.7 Exporting a PDF Report</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     SINGLE-MEASUREMENT PDF
+     - What the PDF contains: spectrum chart image, peak frequency table
+       (mode, frequency, magnitude, Q, bandwidth, pitch), analysis summary
+       (decay time, Tap Tone Ratio for guitar; E_L, E_C, specific modulus, quality
+       rating, Gore thickness for plate/brace), metadata (date, location, notes)
+     - From toolbar: Export PDF Report… button (⇧⌘E on macOS)
+     - From Measurements list: right-click / long-press → Export PDF Report
 
-<h2 id="78-exporting-a-guitartap-file">7.8 Exporting a .guitartap File</h2>
+     COMPARISON PDF
+     - What the comparison PDF contains: metadata header (number of spectra, labels, date),
+       overlay spectrum image showing all curves, Air / Top / Back frequency table with
+       one column per spectrum ("—" where a mode was not detected)
+     - From toolbar when comparison is active: Export PDF Report → comparison PDF
+     - From Measurements list for a saved comparison: Export PDF Report → comparison PDF
+     - See §7.10 for details on the comparison PDF -->
+
+<h2 id="78-saving-a-comparison">7.8 Saving a Comparison</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - A comparison can be saved while it is active (initiated via the Measurements list
+       Compare button; see §3.9)
+     - The Save button is available during comparison (it saves the comparison itself,
+       not a new individual measurement)
+     - The Save sheet accepts a location label and notes; all constituent spectra are
+       embedded in the saved comparison
+     - The saved comparison appears in the Measurements list with a Comparison badge
+     - Reloading a saved comparison (§7.3) restores the full overlay and Comparison
+       Results table exactly as at save time
+     - Saving a comparison does not consume the individual constituent measurements;
+       they remain separately in the list -->
 
-<h2 id="79-importing-a-measurement">7.9 Importing a Measurement</h2>
+<h2 id="79-exporting-a-comparison-spectrum-image">7.9 Exporting a Comparison Spectrum Image</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - From the toolbar while a live comparison is active: Export Spectrum produces the overlay PNG
+     - From the Measurements list: select a saved comparison → Export Spectrum
+     - The PNG includes all coloured curves, their labels, and a legend
+     - On iOS the image is passed to the system share sheet (AirDrop, Mail, Files, etc.)
+     - On macOS a save dialog appears -->
 
-<h2 id="710-sharing-between-ios-and-macos">7.10 Sharing Between iOS and macOS</h2>
+<h2 id="710-exporting-a-comparison-pdf-report">7.10 Exporting a Comparison PDF Report</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - From the toolbar while a live comparison is active: Export PDF Report → comparison PDF
+     - From the Measurements list: select a saved comparison → Export PDF Report
+     - Comparison PDF contents:
+         * Metadata header: number of spectra compared, each label, date exported
+         * Overlay spectrum image (same as the exported PNG)
+         * Air / Top / Back frequency table: rows = modes, columns = each spectrum;
+           frequency shown to 0.1 Hz; "—" where the mode was not detected
+     - On iOS: share sheet; on macOS: save dialog -->
 
-<h2 id="711-deleting-measurements">7.11 Deleting Measurements</h2>
+<h2 id="711-exporting-a-guitartap-file">7.11 Exporting a .guitartap File</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - What .guitartap contains: JSON container with all peaks, spectrum snapshot
+       (Base64-encoded little-endian float32 arrays), annotation offsets, mode overrides,
+       settings at capture time, chart PNG embedded as Base64
+     - For comparisons: all constituent spectra are embedded; the file is larger
+       but self-contained
+     - iOS/iPadOS: right-click / long-press → Export Measurement → system share sheet
+       (AirDrop, Mail, Files, etc.)
+     - macOS: right-click → Save Measurement to Disk… → save dialog
+     - File extension: .guitartap; compatible between iOS and macOS versions of the app -->
+
+<h2 id="712-importing-a-measurement-or-comparison">7.12 Importing a Measurement or Comparison</h2>
+
+<!-- TODO: Write section -->
+<!-- Cover:
+     - Supported formats: .guitartap (native format) and .json (legacy)
+     - iOS/iPadOS: Import Measurement button in the Measurements toolbar → Files picker
+     - macOS: File menu → Import Measurement → open dialog, or drag-and-drop onto the
+       Measurements list
+     - What happens after import: the measurement appears in the list; comparisons
+       are automatically detected and will restore the overlay when loaded
+     - If a microphone name in the imported file does not match any available device on
+       the current system: a fallback is applied and the import succeeds -->
+
+<h2 id="713-sharing-between-ios-and-macos">7.13 Sharing Between iOS and macOS</h2>
+
+<!-- TODO: Write section -->
+<!-- Cover:
+     - AirDrop: iOS share sheet → AirDrop; on Mac: accept in Finder, then open with GuitarTap
+       (File → Import Measurement) or drag-and-drop onto the Measurements list
+     - iCloud / Files: save to iCloud Drive from iOS share sheet; open from Files on Mac
+     - Email: attach via share sheet; recipient opens the attachment in GuitarTap
+     - Round-trip: export from Mac with Save Measurement to Disk; transfer to iPhone;
+       import via Import Measurement
+     - Comparison files are cross-platform compatible (same .guitartap format) -->
+
+<h2 id="714-deleting-measurements">7.14 Deleting Measurements</h2>
+
+<!-- TODO: Write section -->
+<!-- Cover:
+     - Right-click / long-press → Delete (macOS) or swipe-to-delete on iOS
+     - A confirmation prompt prevents accidental deletion
+     - Deleting a comparison removes all embedded constituent data
+     - Deleting a measurement that was used in a previously saved comparison does not
+       affect the comparison (it is self-contained) -->
 
 <h1 id="chapter-8-settings-reference">Chapter 8 — Settings Reference</h1>
 
@@ -1384,34 +2616,183 @@ ol.steps li::before {
 <h2 id="91-toolbar-ios-iphone-portrait">9.1 Toolbar — iOS iPhone (Portrait)</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Leading items (left): Results, Auto dB
+     - Trailing items (right): Metrics, Settings
+     - Below toolbar (always visible): Taps stepper, Threshold slider + reset,
+       Peak Min slider + reset
+     - Action buttons row: New Tap, Pause/Resume/Accept, Cancel/Redo
+     - Compact labels; no text for toolbar items — icon only
+     - Items that are hidden or disabled in comparison mode:
+       Threshold slider, Peak Min slider, Taps stepper -->
 
 <h2 id="92-toolbar-ios-iphone-landscape">9.2 Toolbar — iOS iPhone (Landscape)</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Leading items: Results, Auto dB, Crosshair, Annotations
+     - Trailing items: Save, Measurements, Metrics, Settings, Help (?)
+     - Tap controls are condensed; Taps stepper, Threshold, and Peak Min are
+       in a row below the spectrum rather than a full panel
+     - Landscape layout places the spectrum and controls side by side -->
 
 <h2 id="93-toolbar-ios-ipad-portrait-and-landscape">9.3 Toolbar — iOS iPad (Portrait and Landscape)</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Leading items: Results, Auto dB, Crosshair, Annotations
+     - Trailing items: Save, Measurements, Metrics, Settings, Help (?)
+     - Full tap controls panel visible (same as macOS); not collapsed to compact form
+     - iPad shows the Comparison Results table in the Results panel rather than a sheet -->
 
 <h2 id="94-menu-bar-macos-windows-and-linux">9.4 Menu Bar — macOS, Windows, and Linux</h2>
 
 <!-- TODO: Write section -->
+<!-- Overview paragraph noting that §9.4a covers macOS and §9.4b covers the Python
+     desktop app on Windows and Linux. Point out where the menus differ. -->
 
 <h3 id="94a-menu-bar-macos">9.4a Menu Bar — macOS</h3>
 
 <!-- TODO: Write section -->
+<!-- Cover each menu in order:
+
+     GuitarTap menu:
+     - Settings… (⌘,)
+
+     File menu:
+     - Save Measurement… (⌘S)
+     - Export Spectrum Image… (⌘E)
+     - Export PDF Report… (⇧⌘E)
+     - Import Measurement…
+
+     View menu:
+     - Auto dB (⌘0)
+     - Cycle Annotations (⌘`)
+     - Show Metrics (⌘M)
+     - Show Measurements (⌘L)
+
+     Help menu:
+     - Search field
+     - GuitarTap Help (opens HelpView sheet) -->
 
 <h3 id="94b-menu-bar-windows-and-linux-python-desktop-app">9.4b Menu Bar — Windows and Linux (Python desktop app)</h3>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - File menu: equivalent save and export actions (Save Measurement, Export Spectrum
+       Image, Export PDF Report, Import Measurement); keyboard shortcuts may differ
+     - Help menu: Guitar Tap Help item (opens in-app help dialog)
+     - Differences from macOS: no dedicated application menu; Settings accessed via
+       File menu or equivalent; macOS ⌘ shortcuts use Ctrl on Windows/Linux -->
 
 <h2 id="95-individual-controls">9.5 Individual Controls</h2>
 
 <!-- TODO: Write section -->
+<!-- For each control provide: icon description, name, what it does,
+     when it is enabled/disabled, any keyboard shortcut (macOS).
+
+     NEW TAP
+     - Icon: hand.tap
+     - Resets/arms the tap detector; clears the frozen spectrum and returns to live view
+     - Also exits comparison mode when comparison is active
+     - Always enabled
+
+     PAUSE / RESUME / ACCEPT
+     - Icon changes based on state:
+         * Pause (pause.circle): suspends tap detection; spectrum stays live; allows
+           Threshold and Peak Min adjustment without risking accidental detection;
+           also available during guitar multi-tap sequences between taps
+         * Resume (play.circle): re-arms detection after Pause
+         * Accept (checkmark.circle, green tint): appears only during plate/brace review
+           phases; locks in the current phase result and advances to the next phase
+     - Disabled during comparison mode and when no measurement is in progress
+
+     CANCEL / REDO
+     - Icon changes based on state:
+         * Cancel (xmark.circle, orange): cancels the current tap sequence in progress;
+           spectrum returns to live; available during guitar and plate/brace sequences
+         * Redo L / Redo C / Redo FLC (arrow.counterclockwise, orange): appears only
+           during the corresponding plate/brace review phase; discards the current phase
+           result and returns to capture for that phase
+     - Disabled when there is no active sequence
+
+     RESULTS
+     - Opens/closes the Analysis Results panel
+     - On iPhone: Results opens as a sheet
+     - On iPad and macOS: Results is a persistent side panel
+
+     AUTO DB
+     - Scales the magnitude (dB) axis to fit the currently visible spectrum
+     - Keyboard shortcut: ⌘0 (macOS)
+
+     ANNOTATIONS
+     - Cycles through annotation display modes: All → Selected → None → All…
+     - Keyboard shortcut: ⌘` (macOS)
+     - Disabled during comparison mode
+
+     SAVE
+     - Opens the Save Measurement sheet when a spectrum is frozen and peaks detected
+     - During comparison: saves the full comparison as a single measurement
+     - Keyboard shortcut: ⌘S (macOS)
+     - Disabled when spectrum is live (no frozen measurement) or no peaks detected
+
+     MEASUREMENTS
+     - Opens/closes the Measurements list
+     - Keyboard shortcut: ⌘L (macOS)
+
+     METRICS
+     - Opens/closes the FFT Diagnostics panel (frame rate, FFT size, input level etc.)
+     - Keyboard shortcut: ⌘M (macOS)
+
+     CROSSHAIR (iOS/iPadOS only)
+     - Toggles the crosshair overlay on the spectrum
+     - Drag the crosshair to read frequency and magnitude at any point
+     - Not available on macOS (use the mouse hover readout instead)
+
+     … CHART OPTIONS (iOS/iPadOS only)
+     - Opens a menu with: Reset Labels, Reset to Saved View, Reset to Defaults
+     - macOS equivalent: right-click on the chart area
+
+     ⓘ ZOOM & PAN HELP (macOS only)
+     - Displays a brief summary of scroll-wheel and trackpad zoom/pan gestures
+
+     SETTINGS
+     - Opens the Settings sheet
+     - Keyboard shortcut: ⌘, (macOS)
+
+     HELP (?)
+     - Opens the in-app Help sheet (HelpView)
+     - Lists all controls, tips, and gesture references in a searchable list -->
 
 <h2 id="96-tap-controls">9.6 Tap Controls</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+
+     TAPS STEPPER
+     - Range: 1–10
+     - Sets the number of taps to average for each phase
+     - For plate/brace: applies per phase (e.g. 3 Taps means 3 taps for Longitudinal,
+       3 for Cross-grain, 3 for FLC)
+     - Disabled during an active sequence and during comparison mode
+
+     THRESHOLD SLIDER
+     - Range: −80 dB to −20 dB
+     - Sets the signal level that triggers tap detection
+     - Value displayed in dB next to the slider
+     - Reset arrow (↺): resets to the factory default
+     - Disabled during comparison mode
+     - Tip: use Pause to adjust while tapping freely and watching the live spectrum
+
+     PEAK MIN SLIDER
+     - Range: −100 dB to −20 dB
+     - Sets the minimum magnitude a spectral peak must reach to be annotated
+       and included in guitar mode analysis
+     - In plate/brace modes: affects chart display only; does not change which peak
+       is selected for the calculation (determined by the capture algorithm)
+     - Value displayed in dB next to the slider
+     - Reset arrow (↺): resets to the factory default
+     - Disabled during comparison mode and during plate/brace measurements -->
 
 <h2 id="97-spectrum-chart-interactions">9.7 Spectrum Chart Interactions</h2>
 
@@ -1423,26 +2804,91 @@ ol.steps li::before {
 <h2 id="101-tap-technique">10.1 Tap Technique</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Recommended implement: small bouncy ball on the end of a stick — short contact time,
+       clean impulse, very repeatable; suitable for all three modes (Guitar, Plate, Brace)
+     - Alternative for guitar body surveys: short crisp knuckle or fingertip rap
+     - Why contact time matters: a long slow push excites fewer overtones and muddies the
+       spectrum; the shorter the contact the better the high-frequency content
+     - Where to tap:
+         * Guitar body: top, back, or sides — each position emphasises different modes
+         * Plate/brace: centre of the face; any off-centre tap position biases the result
+     - Consistent force: the tap does not need to be loud — it needs to be above Threshold;
+       an unnecessarily hard tap can cause distortion or trigger false multi-tap -->
 
 <h2 id="102-consistent-microphone-position">10.2 Consistent Microphone Position</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Why position affects magnitude but not frequency: the resonant frequencies of the
+       wood are fixed; only the coupling efficiency to the microphone changes
+     - Practical marking: a small piece of tape or chalk mark on the workbench defines the
+       microphone position and distance; reproducing it ensures valid comparisons over time
+     - Distance: 5–15 cm is a useful range; too close can cause off-axis rejection with
+       directional microphones; too far reduces signal-to-noise ratio -->
 
 <h2 id="103-dealing-with-background-noise">10.3 Dealing with Background Noise</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Threshold slider: moving right (higher dB, less negative) to reject ambient noise;
+       moving left (lower dB, more negative) to catch quiet taps
+     - Hysteresis margin: prevents double-detection by requiring the signal to drop below
+       Threshold by this margin before re-arming; default 3 dB is appropriate for most rooms
+     - Practical noise floor target: background noise should be at least 10 dB below Threshold
+       to avoid false triggers
+     - Using Pause to assess the noise floor: press Pause and watch the live spectrum for
+       sustained noise peaks; adjust Threshold until the noise is clearly below it
+     - Worst offenders: HVAC fans, refrigerators, traffic — consider switching them off or
+       moving to a quieter space for plate/brace measurements that require consistency -->
 
 <h2 id="104-air-mode-technique">10.4 Air Mode Technique</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - The Air (Helmholtz) mode is excited by compressing the air in the body cavity,
+       not by flexing the wood
+     - Technique: cup the palm over the sound hole and push quickly, or clap over the hole;
+       no wood tapping required; the entire guitar or soundbox can be in its normal position
+     - Threshold: the air tap is typically a different signal level than a wood tap;
+       consider using Pause to set Threshold specifically for air mode measurements
+     - Multi-tap averaging: 3–5 taps is usually sufficient for the air mode; the resonance
+       is stable and not affected by grain variation -->
 
 <h2 id="105-ring-out-and-decay-time">10.5 Ring-Out and Decay Time</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - What decay time measures: the time (seconds) for the tap response to decay to 1/e
+       (~37%) of its peak amplitude — a measure of structural damping
+     - Higher decay time = lower damping = more sustain; lower decay time = more damping
+       = the wood is absorbing energy more quickly
+     - Typical values for quality soundboards: >1.5 s is excellent; 1.0–1.5 s is good;
+       <0.8 s may indicate over-drying or excessive internal friction
+     - Braced vs. unbraced: a top plate before bracing typically has a higher decay time
+       than after bracing; comparing the two at each stage tracks how the bracing damps
+       the resonance
+     - Note: decay time is measured from the tap capture; multi-tap averaging averages
+       the spectra and uses the decay from the averaged capture -->
 
 <h2 id="106-multi-tap-averaging-strategy">10.6 Multi-Tap Averaging Strategy</h2>
 
 <!-- TODO: Write section -->
+<!-- Cover:
+     - Recommended tap counts for different scenarios:
+         * Guitar body survey: 1–3 taps; the resonances are stable and averaging mainly
+           reduces occasional missed or noisy taps
+         * Plate/brace material: 3–5 taps; averaging reduces variance from finger noise
+           and slight position variation; more taps give more stable E_L values
+         * FLC tap: 1–3 taps; the FLC resonance is often weaker; avoid over-tapping
+           as position consistency is more critical than averaging
+     - When averaging helps least: very quiet room, experienced tapper, firm bouncy-ball
+       implement; single-tap results are usually sufficient
+     - Checking stability: after a measurement, compare the frequency result from a single
+       tap to a 5-tap average for the same blank; if they agree to within 1 Hz the
+       technique is consistent enough that single-tap measurements are reliable
+     - Pause between taps in a multi-tap sequence: press Pause after each tap is registered
+       if you want to reposition your hand before the next tap; Resume to re-arm -->
 
 <h2 id="107-common-problems">10.7 Common Problems</h2>
 
@@ -1494,6 +2940,36 @@ ol.steps li::before {
 <td>Results panel not visible</td>
 <td>macOS: window too narrow</td>
 <td>Widen the window</td>
+</tr>
+<tr>
+<td>Plate/brace: stuck waiting for next phase</td>
+<td>Missed the Accept button</td>
+<td>Look for Accept (green, checkmark) in the tap controls — it replaces Pause during review</td>
+</tr>
+<tr>
+<td>Plate/brace: want to redo a phase already accepted</td>
+<td>Phase locked in</td>
+<td>Tap New Tap to restart the whole sequence; individual phase redo is only available before Accept is tapped</td>
+</tr>
+<tr>
+<td>Compare button not appearing</td>
+<td>Fewer than 2 or more than 5 selected, or a plate/brace record is in the selection</td>
+<td>Select 2–5 guitar measurements only; deselect any plate/brace records</td>
+</tr>
+<tr>
+<td>Comparison: all curves same colour in exported image</td>
+<td>Exporting from an older version</td>
+<td>Update the app and re-export</td>
+</tr>
+<tr>
+<td>Comparison PDF shows 0 spectra</td>
+<td>Older app version</td>
+<td>Update the app; comparison PDFs now report the correct spectra count</td>
+</tr>
+<tr>
+<td>Loaded measurement: threshold/tap count differ from Settings</td>
+<td>Loaded measurement values override live settings</td>
+<td>The status bar shows a warning; adjust Threshold and Taps stepper as needed, or press New Tap to clear the loaded state and restore your current settings</td>
 </tr>
 </tbody>
 </table>

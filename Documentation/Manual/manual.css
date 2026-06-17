@@ -274,6 +274,18 @@ img {
     margin: 1rem auto;
 }
 
+/* Inline SF Symbol icons used mid-sentence (toolbar icons, button glyphs).
+   Override the block-level default and size to roughly match running text. */
+img.inline-icon {
+    display: inline;
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: -0.2em;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+}
+
 /* Full-width screenshot */
 .screenshot {
     width: 100%;

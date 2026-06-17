@@ -121,7 +121,7 @@
 
      SAVE
      - Opens the Save Measurement sheet when a spectrum is frozen and peaks detected
-     - During comparison: saves the full comparison as a single record
+     - During comparison: saves the full comparison as a single measurement
      - Keyboard shortcut: ⌘S (macOS)
      - Disabled when spectrum is live (no frozen measurement) or no peaks detected
 

@@ -24,9 +24,23 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SWIFT_SOURCE="$SCRIPT_DIR/Views/HelpView.swift"
 OUTPUT_MD="$SCRIPT_DIR/../Documentation/GuitarTap-Quick-Start-Guide.md"
 OUTPUT_PDF="$SCRIPT_DIR/../Documentation/GuitarTap-Quick-Start-Guide.pdf"
-SYMBOL_DIR="/tmp/guitar-tap-symbols"
-SYMBOLS_LIST_FILE="/tmp/guitar-tap-symbols-list.txt"
-RENDER_SCRIPT="/tmp/guitar-tap-render-symbols.swift"
+
+# Persistent SF Symbol PNG cache.  Shared with the User Manual build
+# (Documentation/Manual/generate-manual.sh) and committed to git so the
+# Quick-Start markdown renders correctly on a fresh clone without an
+# Xcode build.  Render-symbols.sh writes PNGs here.
+#
+# Two paths are needed:
+#   SYMBOL_OUTPUT_DIR  — absolute path where PNGs are written.
+#   SYMBOL_MD_PATH     — path embedded in the Quick-Start markdown's
+#                        ![](…) tags, expressed RELATIVE to OUTPUT_MD's
+#                        directory (Documentation/).  Pandoc resolves
+#                        relative image paths against the markdown's
+#                        directory.
+SYMBOL_OUTPUT_DIR="$SCRIPT_DIR/../Documentation/Manual/images/symbols"
+SYMBOL_MD_PATH="Manual/images/symbols"
+SYMBOLS_LIST_FILE="$(mktemp -t guitar-tap-symbols-list-XXXXXX).txt"
+RENDER_SYMBOLS_SCRIPT="$SCRIPT_DIR/../Documentation/Manual/render-symbols.sh"
 
 if [ ! -f "$SWIFT_SOURCE" ]; then
     echo "ERROR: HelpView.swift not found at $SWIFT_SOURCE" >&2
@@ -39,7 +53,7 @@ mkdir -p "$(dirname "$OUTPUT_MD")"
 # Step 1: Parse HelpView.swift → Markdown
 # ---------------------------------------------------------------------------
 
-python3 - "$SWIFT_SOURCE" "$SYMBOL_DIR" "$SYMBOLS_LIST_FILE" > "$OUTPUT_MD" <<'PYEOF'
+python3 - "$SWIFT_SOURCE" "$SYMBOL_MD_PATH" "$SYMBOLS_LIST_FILE" > "$OUTPUT_MD" <<'PYEOF'
 import sys
 import re
 
@@ -113,7 +127,13 @@ def bullets_to_markdown(text):
     return '\n'.join(result)
 
 def img_tag(sym, height):
-    return f"![]({symbol_dir}/{sym}.png){{height={height}pt width={height}pt}}"
+    # Emit a raw HTML <img> tag so it renders correctly in any markdown
+    # previewer (GitHub, VS Code, etc.) in addition to pandoc.  The size
+    # is given in pixels (pt × 4/3) so the previewer respects it as a
+    # legacy HTML width/height attribute; pandoc and Weasy/HTML browsers
+    # honour the same attributes.
+    px = int(round(height * 4 / 3))
+    return f'<img src="{symbol_dir}/{sym}.png" width="{px}" height="{px}" alt="{sym}">'
 
 def img_prefix(symbols, height):
     """Inline image tags for a list of symbols, followed by a space."""
@@ -245,70 +265,13 @@ echo "Markdown written to $OUTPUT_MD"
 # ---------------------------------------------------------------------------
 # Step 1b: Render SF Symbol PNGs for inline icons
 # ---------------------------------------------------------------------------
+# Delegated to Documentation/Manual/render-symbols.sh so the User Manual
+# build can use the same code path and identical rendering parameters.
 
 if [ -f "$SYMBOLS_LIST_FILE" ] && [ -s "$SYMBOLS_LIST_FILE" ]; then
-    echo "Rendering SF Symbol PNGs to $SYMBOL_DIR ..."
-    mkdir -p "$SYMBOL_DIR"
-
-    cat > "$RENDER_SCRIPT" << 'SWEOF'
-import AppKit
-import Foundation
-
-let args = CommandLine.arguments
-guard args.count >= 2 else {
-    fputs("Usage: swift render.swift <outputDir> [symbol ...]\n", stderr)
-    exit(1)
-}
-let outputDir = args[1]
-let symbols   = Array(args.dropFirst(2))
-
-func renderSymbol(_ name: String, to path: String, canvasSize: Int = 64, pointSize: CGFloat = 40) {
-    let sizeConfig  = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
-    let colorConfig = NSImage.SymbolConfiguration(paletteColors: [
-        NSColor(calibratedRed: 0.333, green: 0.333, blue: 0.333, alpha: 1.0)
-    ])
-    let config = sizeConfig.applying(colorConfig)
-    guard let sym        = NSImage(systemSymbolName: name, accessibilityDescription: nil),
-          let configured = sym.withSymbolConfiguration(config) else {
-        fputs("WARNING: Symbol not found: \(name)\n", stderr)
-        return
-    }
-    let rep = NSBitmapImageRep(
-        bitmapDataPlanes: nil,
-        pixelsWide: canvasSize, pixelsHigh: canvasSize,
-        bitsPerSample: 8, samplesPerPixel: 4,
-        hasAlpha: true, isPlanar: false,
-        colorSpaceName: .deviceRGB,
-        bitmapFormat: [], bytesPerRow: 0, bitsPerPixel: 0
-    )!
-    let ctx = NSGraphicsContext(bitmapImageRep: rep)!
-    NSGraphicsContext.current = ctx
-    ctx.cgContext.clear(CGRect(x: 0, y: 0, width: canvasSize, height: canvasSize))
-    let drawSize = CGFloat(canvasSize) * 0.80
-    let origin   = (CGFloat(canvasSize) - drawSize) / 2.0
-    configured.draw(in: NSRect(x: origin, y: origin, width: drawSize, height: drawSize),
-                    from: .zero, operation: .sourceOver, fraction: 1.0)
-    NSGraphicsContext.current = nil
-    if let pngData = rep.representation(using: .png, properties: [:]) {
-        try? pngData.write(to: URL(fileURLWithPath: path))
-    }
-}
-
-for symbol in symbols {
-    renderSymbol(symbol, to: (outputDir as NSString).appendingPathComponent("\(symbol).png"))
-}
-SWEOF
-
-    SYMS_ARR=()
-    while IFS= read -r sym; do
-        [[ -n "$sym" ]] && SYMS_ARR+=("$sym")
-    done < "$SYMBOLS_LIST_FILE"
-
-    if [ ${#SYMS_ARR[@]} -gt 0 ]; then
-        swift "$RENDER_SCRIPT" "$SYMBOL_DIR" "${SYMS_ARR[@]}"
-        echo "Rendered ${#SYMS_ARR[@]} symbols to $SYMBOL_DIR"
-    fi
-    rm -f "$RENDER_SCRIPT"
+    echo "Rendering SF Symbol PNGs to $SYMBOL_OUTPUT_DIR ..."
+    bash "$RENDER_SYMBOLS_SCRIPT" "$SYMBOL_OUTPUT_DIR" --from-file "$SYMBOLS_LIST_FILE"
+    rm -f "$SYMBOLS_LIST_FILE"
 else
     echo "No symbols list found — skipping symbol rendering."
 fi
@@ -341,7 +304,11 @@ if command -v pandoc &>/dev/null; then
 \newunicodechar{√}{\textuf{√}}
 TEXEOF
 
+    # Resource path is the markdown's own directory so relative image
+    # paths like Manual/images/symbols/<sym>.png resolve correctly
+    # regardless of the caller's working directory.
     pandoc "$OUTPUT_MD" \
+        --resource-path="$(dirname "$OUTPUT_MD")" \
         --from=markdown+link_attributes \
         --to=pdf \
         --pdf-engine=xelatex \
