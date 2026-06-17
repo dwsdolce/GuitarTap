@@ -79,7 +79,7 @@ SCREENSHOT:
            window only.
 -->
 
-![Chart hover zones for scroll-wheel zoom — plot area for both axes, frequency axis for frequency only, magnitude axis for magnitude only.](images/ch06-scroll-zones.png)
+![Chart hover zones for scroll-wheel zoom — plot area for both axes, frequency axis for frequency only, magnitude axis for magnitude only.](images/ch06-scroll-zones.png){: .screenshot-desktop }
 
 - **Scroll over the plot area** to zoom both axes simultaneously.
 - **Scroll over the frequency axis** (the bottom of the chart) to
@@ -137,9 +137,10 @@ and magnitude at any point on the chart.
 3. Tap the icon again to disable.
 
 The crosshair is a read-only tool — it does not change the
-selected peaks, the spectrum, or any saved state. On desktop the
-mouse position over the chart serves the same role and no toggle
-is needed.
+selected peaks, the spectrum, or any saved state. On desktop
+there is no toggle; the crosshair follows the mouse pointer
+continuously whenever the pointer is over the chart, showing the
+frequency and magnitude under the cursor in real time.
 
 ## 6.6 Peak Labels
 

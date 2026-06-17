@@ -6,6 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		891AAAA0A0F0EDC500BCDEF1 /* UserManual */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 891AAAA2A0F0EDC500BCDEF1 /* Build configuration list for PBXAggregateTarget "UserManual" */;
+			buildPhases = (
+				891AAAA1A0F0EDC500BCDEF1 /* Generate User Manual */,
+			);
+			dependencies = (
+			);
+			name = UserManual;
+			productName = UserManual;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXContainerItemProxy section */
 		9ED35BBE140962EB77FE2D2A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -217,6 +231,7 @@
 			targets = (
 				8965D5BB2F061CE300243E14 /* GuitarTap */,
 				84053B88C1088D72CB562C12 /* GuitarTapTests */,
+				891AAAA0A0F0EDC500BCDEF1 /* UserManual */,
 			);
 		};
 /* End PBXProject section */
@@ -239,6 +254,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		891AAAA1A0F0EDC500BCDEF1 /* Generate User Manual */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Generate User Manual";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Build the User Manual (HTML + PDF) into Documentation/Manual/.\n# This phase belongs to the UserManual aggregate target; the app's\n# GuitarTap target does not depend on it, so manual builds do not\n# slow down regular app builds and the manual is never part of the\n# .app bundle that goes to Apple for testing or release.\nbash \"${SRCROOT}/Documentation/Manual/generate-manual.sh\"\n";
+		};
 		891DFA0A2F61ECD300A26408 /* Generate Help PDF (macOS only) */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -338,6 +372,24 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GuitarTap.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GuitarTap";
+			};
+			name = Release;
+		};
+		891AAAA3A0F0EDC500BCDEF1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		891AAAA4A0F0EDC500BCDEF1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -607,6 +659,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		891AAAA2A0F0EDC500BCDEF1 /* Build configuration list for PBXAggregateTarget "UserManual" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				891AAAA3A0F0EDC500BCDEF1 /* Debug */,
+				891AAAA4A0F0EDC500BCDEF1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		8965D5B72F061CE300243E14 /* Build configuration list for PBXProject "GuitarTap" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

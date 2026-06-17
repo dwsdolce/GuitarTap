@@ -41,7 +41,7 @@ SCREENSHOT:
            range. Crop to the settings sheet.
 -->
 
-![Settings sheet with Measurement Type set to Brace — Length, Width, Height, and Mass fields with calculated density preview.](images/ch05-settings-brace.png)
+![Settings sheet with Measurement Type set to Brace — Length, Width, Height, and Mass fields with calculated density preview.](images/ch05-settings-brace.png){: .screenshot-panel }
 
 Open **Settings → Measurement Type → Brace**. The Brace
 Dimensions section has four fields:
@@ -100,7 +100,7 @@ SCREENSHOT:
            Crop to the panel only.
 -->
 
-![Brace Results panel showing the three sections — Detected Peaks (single L row), Brace Properties, and Brace Process Instructions.](images/ch05-results-panel.png)
+![Brace Results panel showing the three sections — Detected Peaks (single L row), Brace Properties, and Brace Process Instructions.](images/ch05-results-panel.png){: .screenshot-panel }
 
 A completed brace measurement displays three sections in the
 Results panel.

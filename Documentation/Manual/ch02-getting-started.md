@@ -61,7 +61,7 @@ SCREENSHOT (covers §2.3 and §2.5):
            list. Crop to the sheet/window only.
 -->
 
-![Settings sheet showing Audio Input and Measurement Type sections.](images/ch02-settings-sheet.png)
+![Settings sheet showing Audio Input and Measurement Type sections.](images/ch02-settings-sheet.png){: .screenshot-panel }
 
 Open Settings (gear icon, top toolbar) and use the **Audio Input**
 section to pick your microphone.
@@ -131,7 +131,7 @@ SCREENSHOT (covers §2.6 and §2.7):
            a representative tap peak is visible. Crop to window.
 -->
 
-![Live spectrum showing a recent tap, with the Threshold and Peak Min sliders in the toolbar above.](images/ch02-threshold-peakmin-toolbar.png)
+![Live spectrum showing a recent tap, with the Threshold and Peak Min sliders in the toolbar above.](images/ch02-threshold-peakmin-toolbar.png){: .screenshot-strip }
 
 The Threshold slider sets the signal level a tap must exceed before
 the analyzer captures it. You will tune it once for your

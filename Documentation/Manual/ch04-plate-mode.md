@@ -71,7 +71,7 @@ SCREENSHOT:
            the settings sheet only.
 -->
 
-![Settings sheet with the Plate measurement type selected — dimensions, density preview, body inputs, stiffness preset, and Measure FLC toggle.](images/ch04-settings-plate.png)
+![Settings sheet with the Plate measurement type selected — dimensions, density preview, body inputs, stiffness preset, and Measure FLC toggle.](images/ch04-settings-plate.png){: .screenshot-panel }
 
 Open **Settings → Measurement Type → Plate**. Fill in:
 
@@ -101,24 +101,27 @@ For the Gore target thickness, also enter:
   **Custom** is where you encode a successful build back into the
   calculation. The workflow has four steps:
 
-    1. Fully measure a plate — E_L, E_C, density, body dimensions
-       — *before* you build it, and keep the measurements. Note the
-       final plate thickness you settled on for the build (which may be the number from the Gore formula).
-    2. Build the instrument and live with it long enough to decide
-       whether the result is what you want. If it is, you have a
-       calibration point. If not then you need to adjust the plate stiffness preset on your next build to either stiffen the board or loosen the board to adjust the sound.
-    3. The Gore formula run on that plate's measurements with a
-       named preset would have predicted some recommended
-       thickness. Your finished thickness is the thickness that
-       actually produced the sound you liked. Scale the preset's
-       stiffness number linearly so the formula, applied to that
-       same plate's measurements, would output your finished
-       thickness. Save the scaled number as your **Custom** value.
-    4. From this point on, run new plates with **Custom** selected.
-       Each new board, with its own E_L, E_C, and ρ, yields a
-       *different* recommended thickness — each one calculated to
-       reproduce the calibration build's tonal outcome on that
-       specific piece of wood.
+  1. Fully measure a plate — E_L, E_C, density, body dimensions
+     — *before* you build it, and keep the measurements. Note
+     the final plate thickness you settled on for the build
+     (which may be the number from the Gore formula).
+  2. Build the instrument and live with it long enough to decide
+     whether the result is what you want. If it is, you have a
+     calibration point. If not, you need to adjust the plate
+     stiffness preset on your next build to either stiffen the
+     board or loosen it to adjust the sound.
+  3. The Gore formula run on that plate's measurements with a
+     named preset would have predicted some recommended
+     thickness. Your finished thickness is the thickness that
+     actually produced the sound you liked. Scale the preset's
+     stiffness number linearly so the formula, applied to that
+     same plate's measurements, would output your finished
+     thickness. Save the scaled number as your **Custom** value.
+  4. From this point on, run new plates with **Custom** selected.
+     Each new board, with its own E_L, E_C, and ρ, yields a
+     *different* recommended thickness — each one calculated to
+     reproduce the calibration build's tonal outcome on that
+     specific piece of wood.
 
   The Custom number carries "this is the kind of plate that makes
   the instrument I want." The Gore procedure does not predict an
@@ -281,7 +284,7 @@ SCREENSHOT:
            Crop to the panel only.
 -->
 
-![Plate Results panel showing the four sections — Detected Peaks, Gore Target Thickness, Plate Properties, and Plate Process Instructions.](images/ch04-results-panel.png)
+![Plate Results panel showing the four sections — Detected Peaks, Gore Target Thickness, Plate Properties, and Plate Process Instructions.](images/ch04-results-panel.png){: .screenshot-panel }
 
 For a completed plate measurement the Results panel scrolls
 through four sections, top to bottom.

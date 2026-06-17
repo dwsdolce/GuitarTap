@@ -167,7 +167,7 @@ SCREENSHOT:
            so the tap-tone ratio reads a sensible value.
 -->
 
-![Analysis Results panel with peak list, ring-out time, and tap-tone ratio.](images/ch03-results-panel.png)
+![Analysis Results panel with peak list, ring-out time, and tap-tone ratio.](images/ch03-results-panel.png){: .screenshot-panel }
 
 For each identified peak the Analysis Results panel shows:
 
@@ -214,7 +214,7 @@ SCREENSHOT:
            frequencies so the overlay is visually informative.
 -->
 
-![Three-spectrum comparison overlay with the Comparison Results table.](images/ch03-comparison-overlay.png)
+![Three-spectrum comparison overlay with the Comparison Results table.](images/ch03-comparison-overlay.png){: .screenshot-desktop }
 
 **Starting a comparison**
 

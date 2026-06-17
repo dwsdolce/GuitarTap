@@ -60,7 +60,7 @@ SCREENSHOT:
            are plausible. Crop tight to the window.
 -->
 
-![Saved Measurements window with a mix of guitar, plate, brace, and comparison rows.](images/ch07-measurements-list.png)
+![Saved Measurements window with a mix of guitar, plate, brace, and comparison rows.](images/ch07-measurements-list.png){: .screenshot-desktop }
 
 Open the Measurements list with the toolbar **Measurements**
 button <img src="images/symbols/list.bullet.clipboard.png" width="18" height="18" class="inline-icon" alt="list.bullet.clipboard">, or with **⌘L** on macOS / **Ctrl+L**
@@ -210,11 +210,17 @@ phase captures, or a comparison with its constituent waveforms —
 every spectrum is embedded, so the file is larger but stays fully
 self-contained.
 
-How to export from the popup menu on the row:
+Which popup-menu item to use depends on platform:
 
 - **iOS / iPadOS:** **Export Measurement** → system share sheet
   (AirDrop, Mail, Files, etc.).
-- **Desktop:** **Save Measurement to Disk…** → save dialog.
+- **macOS (native build):** either **Export Measurement** (system
+  share sheet) or **Save Measurement to Disk…** (file-save
+  dialog).
+- **Python build (Windows / Linux / macOS Python):** **Export
+  Measurement** → file-save dialog. There is no share sheet on
+  these platforms, so the action behaves the same way as Swift
+  macOS's Save Measurement to Disk…
 
 The file extension is **`.guitartap`** on every platform, and the
 format is interchangeable across iOS, iPadOS, macOS, Windows, and
@@ -222,13 +228,31 @@ Linux builds.
 
 ## 7.9 Importing a Measurement
 
-Supported formats: **`.guitartap`** (native) and **`.json`**
-(legacy).
+<!--
+SCREENSHOT:
 
-- **iOS / iPadOS:** the **Import Measurement** button in the
-  Measurements toolbar opens the Files picker.
-- **Desktop:** **File → Import Measurement** opens an open
-  dialog. Drag-and-drop onto the Measurements list also works.
+  File:    images/ch07-measurements-list-ios.png
+  Subject: Saved Measurements dialog on iOS / iPadOS, with the
+           ellipsis menu in the upper-right corner expanded to show
+           "Import Measurement" and "Delete All". Capture in light
+           mode to match the macOS screenshot.
+  Notes:   The iOS dialog layout differs from macOS — there is no
+           separate row of Compare / Import / Delete All buttons
+           along the bottom. Crop tight to the dialog.
+-->
+
+![Saved Measurements dialog on iOS — Import Measurement and Delete All live inside the ellipsis menu in the upper-right.](images/ch07-measurements-list-ios.png){: .screenshot-mobile }
+
+The access path differs between platforms:
+
+- **iOS / iPadOS:** open the Saved Measurements dialog, tap the
+  **<img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle">**
+  menu in the upper-right corner, and choose **Import
+  Measurement**. (The same menu also hosts **Delete All**.)
+  The Files picker opens; select a `.guitartap` to import.
+- **Desktop (macOS native and Python builds):** **File → Import
+  Measurement** opens a file picker. Drag-and-drop onto the
+  Saved Measurements window also works.
 
 The imported measurement appears in the list regardless of its
 type — guitar, plate, brace, or comparison.

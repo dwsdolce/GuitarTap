@@ -266,7 +266,10 @@ tr:nth-child(even) td {
    Images
    -------------------------------------------------------------------------- */
 img {
-    max-width: 100%;
+    /* The PDF page (A4 with 25/22mm margins) has ~163mm = ~616px of
+       content width.  Cap any unclassified image at 95% to keep it
+       safely inside the page borders. */
+    max-width: 95%;
     height: auto;
     border-radius: 6px;
     border: 1px solid var(--color-border);
@@ -285,6 +288,17 @@ img.inline-icon {
     border-radius: 0;
     margin: 0;
 }
+
+/* Screenshot size variants.  Tag a markdown image with one of these classes
+   via attr_list, e.g.  ![alt](path){: .screenshot-mobile}
+   Sizes are chosen to fit the A4 print page content width (~163mm) and
+   also look reasonable in the HTML view. */
+img.screenshot-mobile      { max-width: 80mm; }    /* iPhone portrait */
+img.screenshot-mobile-wide { max-width: 120mm; }   /* iPhone landscape */
+img.screenshot-tablet      { max-width: 150mm; }   /* iPad */
+img.screenshot-desktop     { max-width: 160mm; }   /* macOS / Python window */
+img.screenshot-panel       { max-width: 120mm; }   /* Settings sheet, Results panel close-up */
+img.screenshot-strip       { max-width: 150mm; }   /* Horizontal toolbar / chart-strip crops */
 
 /* Full-width screenshot */
 .screenshot {

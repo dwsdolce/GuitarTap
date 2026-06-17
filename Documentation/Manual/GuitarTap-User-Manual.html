@@ -273,7 +273,10 @@ tr:nth-child(even) td {
    Images
    -------------------------------------------------------------------------- */
 img {
-    max-width: 100%;
+    /* The PDF page (A4 with 25/22mm margins) has ~163mm = ~616px of
+       content width.  Cap any unclassified image at 95% to keep it
+       safely inside the page borders. */
+    max-width: 95%;
     height: auto;
     border-radius: 6px;
     border: 1px solid var(--color-border);
@@ -292,6 +295,17 @@ img.inline-icon {
     border-radius: 0;
     margin: 0;
 }
+
+/* Screenshot size variants.  Tag a markdown image with one of these classes
+   via attr_list, e.g.  ![alt](path){: .screenshot-mobile}
+   Sizes are chosen to fit the A4 print page content width (~163mm) and
+   also look reasonable in the HTML view. */
+img.screenshot-mobile      { max-width: 80mm; }    /* iPhone portrait */
+img.screenshot-mobile-wide { max-width: 120mm; }   /* iPhone landscape */
+img.screenshot-tablet      { max-width: 150mm; }   /* iPad */
+img.screenshot-desktop     { max-width: 160mm; }   /* macOS / Python window */
+img.screenshot-panel       { max-width: 120mm; }   /* Settings sheet, Results panel close-up */
+img.screenshot-strip       { max-width: 150mm; }   /* Horizontal toolbar / chart-strip crops */
 
 /* Full-width screenshot */
 .screenshot {
@@ -899,7 +913,7 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#74-viewing-measurement-details">7.4 Viewing Measurement Details</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#75-editing-location-and-notes">7.5 Editing Location and Notes</a>
+  <li class="nav-h2"><a href="#75-editing-name-and-notes">7.5 Editing Name and Notes</a>
   <ul>
   </ul></li>
   <li class="nav-h2"><a href="#76-exporting-a-spectrum-image">7.6 Exporting a Spectrum Image</a>
@@ -908,25 +922,16 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#77-exporting-a-pdf-report">7.7 Exporting a PDF Report</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#78-saving-a-comparison">7.8 Saving a Comparison</a>
+  <li class="nav-h2"><a href="#78-exporting-a-measurement">7.8 Exporting a Measurement</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#79-exporting-a-comparison-spectrum-image">7.9 Exporting a Comparison Spectrum Image</a>
+  <li class="nav-h2"><a href="#79-importing-a-measurement">7.9 Importing a Measurement</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#710-exporting-a-comparison-pdf-report">7.10 Exporting a Comparison PDF Report</a>
+  <li class="nav-h2"><a href="#710-sharing-between-devices">7.10 Sharing Between Devices</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#711-exporting-a-guitartap-file">7.11 Exporting a .guitartap File</a>
-  <ul>
-  </ul></li>
-  <li class="nav-h2"><a href="#712-importing-a-measurement-or-comparison">7.12 Importing a Measurement or Comparison</a>
-  <ul>
-  </ul></li>
-  <li class="nav-h2"><a href="#713-sharing-between-ios-and-macos">7.13 Sharing Between iOS and macOS</a>
-  <ul>
-  </ul></li>
-  <li class="nav-h2"><a href="#714-deleting-measurements">7.14 Deleting Measurements</a>
+  <li class="nav-h2"><a href="#711-deleting-measurements">7.11 Deleting Measurements</a>
   <ul>
   </ul></li>
 </ul></li>
@@ -947,7 +952,7 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#85-advanced-analysis-settings">8.5 Advanced — Analysis Settings</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#86-advanced-fft-processing">8.6 Advanced — FFT Processing</a>
+  <li class="nav-h2"><a href="#86-about-help">8.6 About &amp; Help</a>
   <ul>
   </ul></li>
 </ul></li>
@@ -959,13 +964,11 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#92-toolbar-ios-iphone-landscape">9.2 Toolbar — iOS iPhone (Landscape)</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#93-toolbar-ios-ipad-portrait-and-landscape">9.3 Toolbar — iOS iPad (Portrait and Landscape)</a>
+  <li class="nav-h2"><a href="#93-toolbar-ios-ipad">9.3 Toolbar — iOS iPad</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#94-menu-bar-macos-windows-and-linux">9.4 Menu Bar — macOS, Windows, and Linux</a>
+  <li class="nav-h2"><a href="#94-menu-bar-desktop">9.4 Menu Bar — Desktop</a>
   <ul>
-    <li class="nav-h3"><a href="#94a-menu-bar-macos">9.4a Menu Bar — macOS</a></li>
-    <li class="nav-h3"><a href="#94b-menu-bar-windows-and-linux-python-desktop-app">9.4b Menu Bar — Windows and Linux (Python desktop app)</a></li>
   </ul></li>
   <li class="nav-h2"><a href="#95-individual-controls">9.5 Individual Controls</a>
   <ul>
@@ -973,7 +976,10 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#96-tap-controls">9.6 Tap Controls</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#97-spectrum-chart-interactions">9.7 Spectrum Chart Interactions</a>
+  <li class="nav-h2"><a href="#97-status-bar">9.7 Status Bar</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#98-spectrum-chart-interactions">9.8 Spectrum Chart Interactions</a>
   <ul>
   </ul></li>
 </ul></li>
@@ -988,7 +994,7 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#103-dealing-with-background-noise">10.3 Dealing with Background Noise</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#104-air-mode-technique">10.4 Air Mode Technique</a>
+  <li class="nav-h2"><a href="#104-decoupling-the-top-from-the-air-mode">10.4 Decoupling the Top from the Air Mode</a>
   <ul>
   </ul></li>
   <li class="nav-h2"><a href="#105-ring-out-and-decay-time">10.5 Ring-Out and Decay Time</a>
@@ -1004,21 +1010,37 @@ ol.steps li::before {
 <li class="nav-h1"><a href="#chapter-11-glossary">Chapter 11 — Glossary</a>
 <ul>
 </ul></li>
-<li class="nav-h1"><a href="#appendix-a-keyboard-shortcuts-macos">Appendix A — Keyboard Shortcuts (macOS)</a>
+<li class="nav-h1"><a href="#appendix-a-keyboard-shortcuts">Appendix A — Keyboard Shortcuts</a>
 <ul>
+  <li class="nav-h2"><a href="#application-menu">Application menu</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#file-menu">File menu</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#view-menu">View menu</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#help-menu">Help menu</a>
+  <ul>
+  </ul></li>
 </ul></li>
 <li class="nav-h1"><a href="#appendix-b-file-formats">Appendix B — File Formats</a>
 <ul>
-  <li class="nav-h2"><a href="#guitartap">.guitartap</a>
+  <li class="nav-h2"><a href="#measurement-files-guitartap">Measurement files (`.guitartap`)</a>
+  <ul>
+    <li class="nav-h3"><a href="#file-level-structure">File-level structure</a></li>
+    <li class="nav-h3"><a href="#measurement-object">Measurement object</a></li>
+    <li class="nav-h3"><a href="#spectrumsnapshot">SpectrumSnapshot</a></li>
+    <li class="nav-h3"><a href="#spectrum-data-encoding">Spectrum data encoding</a></li>
+    <li class="nav-h3"><a href="#peak">Peak</a></li>
+    <li class="nav-h3"><a href="#comparisonentry-when-comparisonentries-is-present">ComparisonEntry (when `comparisonEntries` is present)</a></li>
+    <li class="nav-h3"><a href="#tapentry-when-tapentries-is-present">TapEntry (when `tapEntries` is present)</a></li>
+  </ul></li>
+  <li class="nav-h2"><a href="#calibration-files-txt-cal">Calibration files (`.txt` / `.cal`)</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#calibration-files-txt-cal">Calibration Files (.txt / .cal)</a>
-  <ul>
-  </ul></li>
-</ul></li>
-<li class="nav-h1"><a href="#frequency-hz-magnitude-db">Frequency (Hz)   Magnitude (dB)</a>
-<ul>
-  <li class="nav-h2"><a href="#exported-formats">Exported Formats</a>
+  <li class="nav-h2"><a href="#exported-formats">Exported formats</a>
   <ul>
   </ul></li>
 </ul></li>
@@ -1106,48 +1128,54 @@ ol.steps li::before {
   <li class="toc-h2"><a href="#72-viewing-saved-measurements">7.2 Viewing Saved Measurements<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#73-loading-a-measurement-into-the-view">7.3 Loading a Measurement into the View<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#74-viewing-measurement-details">7.4 Viewing Measurement Details<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#75-editing-location-and-notes">7.5 Editing Location and Notes<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#75-editing-name-and-notes">7.5 Editing Name and Notes<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#76-exporting-a-spectrum-image">7.6 Exporting a Spectrum Image<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#77-exporting-a-pdf-report">7.7 Exporting a PDF Report<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#78-saving-a-comparison">7.8 Saving a Comparison<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#79-exporting-a-comparison-spectrum-image">7.9 Exporting a Comparison Spectrum Image<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#710-exporting-a-comparison-pdf-report">7.10 Exporting a Comparison PDF Report<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#711-exporting-a-guitartap-file">7.11 Exporting a .guitartap File<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#712-importing-a-measurement-or-comparison">7.12 Importing a Measurement or Comparison<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#713-sharing-between-ios-and-macos">7.13 Sharing Between iOS and macOS<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#714-deleting-measurements">7.14 Deleting Measurements<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#78-exporting-a-measurement">7.8 Exporting a Measurement<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#79-importing-a-measurement">7.9 Importing a Measurement<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#710-sharing-between-devices">7.10 Sharing Between Devices<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#711-deleting-measurements">7.11 Deleting Measurements<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#chapter-8-settings-reference">Chapter 8 — Settings Reference<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#81-opening-settings">8.1 Opening Settings<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#82-audio-input-calibration">8.2 Audio Input &amp; Calibration<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#83-measurement-type">8.3 Measurement Type<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#84-advanced-display-settings">8.4 Advanced — Display Settings<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#85-advanced-analysis-settings">8.5 Advanced — Analysis Settings<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#86-advanced-fft-processing">8.6 Advanced — FFT Processing<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#86-about-help">8.6 About &amp; Help<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#chapter-9-controls-reference">Chapter 9 — Controls Reference<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#91-toolbar-ios-iphone-portrait">9.1 Toolbar — iOS iPhone (Portrait)<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#92-toolbar-ios-iphone-landscape">9.2 Toolbar — iOS iPhone (Landscape)<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#93-toolbar-ios-ipad-portrait-and-landscape">9.3 Toolbar — iOS iPad (Portrait and Landscape)<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#94-menu-bar-macos-windows-and-linux">9.4 Menu Bar — macOS, Windows, and Linux<span class="toc-page-num"></span></a></li>
-  <li class="toc-h3"><a href="#94a-menu-bar-macos">9.4a Menu Bar — macOS<span class="toc-page-num"></span></a></li>
-  <li class="toc-h3"><a href="#94b-menu-bar-windows-and-linux-python-desktop-app">9.4b Menu Bar — Windows and Linux (Python desktop app)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#93-toolbar-ios-ipad">9.3 Toolbar — iOS iPad<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#94-menu-bar-desktop">9.4 Menu Bar — Desktop<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#95-individual-controls">9.5 Individual Controls<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#96-tap-controls">9.6 Tap Controls<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#97-spectrum-chart-interactions">9.7 Spectrum Chart Interactions<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#97-status-bar">9.7 Status Bar<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#98-spectrum-chart-interactions">9.8 Spectrum Chart Interactions<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#chapter-10-tips-technique-and-troubleshooting">Chapter 10 — Tips, Technique, and Troubleshooting<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#101-tap-technique">10.1 Tap Technique<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#102-consistent-microphone-position">10.2 Consistent Microphone Position<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#103-dealing-with-background-noise">10.3 Dealing with Background Noise<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#104-air-mode-technique">10.4 Air Mode Technique<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#104-decoupling-the-top-from-the-air-mode">10.4 Decoupling the Top from the Air Mode<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#105-ring-out-and-decay-time">10.5 Ring-Out and Decay Time<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#106-multi-tap-averaging-strategy">10.6 Multi-Tap Averaging Strategy<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#107-common-problems">10.7 Common Problems<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#chapter-11-glossary">Chapter 11 — Glossary<span class="toc-page-num"></span></a></li>
-  <li class="toc-h1"><a href="#appendix-a-keyboard-shortcuts-macos">Appendix A — Keyboard Shortcuts (macOS)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h1"><a href="#appendix-a-keyboard-shortcuts">Appendix A — Keyboard Shortcuts<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#application-menu">Application menu<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#file-menu">File menu<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#view-menu">View menu<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#help-menu">Help menu<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#appendix-b-file-formats">Appendix B — File Formats<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#guitartap">.guitartap<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#calibration-files-txt-cal">Calibration Files (.txt / .cal)<span class="toc-page-num"></span></a></li>
-  <li class="toc-h1"><a href="#frequency-hz-magnitude-db">Frequency (Hz)   Magnitude (dB)<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#exported-formats">Exported Formats<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#measurement-files-guitartap">Measurement files (`.guitartap`)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#file-level-structure">File-level structure<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#measurement-object">Measurement object<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#spectrumsnapshot">SpectrumSnapshot<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#spectrum-data-encoding">Spectrum data encoding<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#peak">Peak<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#comparisonentry-when-comparisonentries-is-present">ComparisonEntry (when `comparisonEntries` is present)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#tapentry-when-tapentries-is-present">TapEntry (when `tapEntries` is present)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#calibration-files-txt-cal">Calibration files (`.txt` / `.cal`)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#exported-formats">Exported formats<span class="toc-page-num"></span></a></li>
 </ul>
 </div>
 
@@ -1169,7 +1197,7 @@ SCREENSHOT (single required image for Chapter 1):
           legible. Crop to the window only — no desktop background.
 -->
 
-<p><img alt="A completed guitar-mode measurement: spectrum with annotated peaks, results panel showing identified modes and frequencies." src="images/ch01-main-analysis-screen.png"></p>
+<p><img alt="A completed guitar-mode measurement: spectrum with annotated peaks, results panel showing identified modes and frequencies." class="screenshot-desktop" src="images/ch01-main-analysis-screen.png"></p>
 <p>Guitar Tap captures a tap, runs an FFT, and presents the resulting
 spectrum with annotated peaks and a results panel. The app is designed
 around the three measurements a luthier following the Gore methodology
@@ -1301,7 +1329,7 @@ SCREENSHOT (covers §2.3 and §2.5):
            list. Crop to the sheet/window only.
 -->
 
-<p><img alt="Settings sheet showing Audio Input and Measurement Type sections." src="images/ch02-settings-sheet.png"></p>
+<p><img alt="Settings sheet showing Audio Input and Measurement Type sections." class="screenshot-panel" src="images/ch02-settings-sheet.png"></p>
 <p>Open Settings (gear icon, top toolbar) and use the <strong>Audio Input</strong>
 section to pick your microphone.</p>
 <ul>
@@ -1366,7 +1394,7 @@ SCREENSHOT (covers §2.6 and §2.7):
            a representative tap peak is visible. Crop to window.
 -->
 
-<p><img alt="Live spectrum showing a recent tap, with the Threshold and Peak Min sliders in the toolbar above." src="images/ch02-threshold-peakmin-toolbar.png"></p>
+<p><img alt="Live spectrum showing a recent tap, with the Threshold and Peak Min sliders in the toolbar above." class="screenshot-strip" src="images/ch02-threshold-peakmin-toolbar.png"></p>
 <p>The Threshold slider sets the signal level a tap must exceed before
 the analyzer captures it. You will tune it once for your
 microphone, room, and tapping style; the value then persists.</p>
@@ -1588,7 +1616,7 @@ SCREENSHOT:
            so the tap-tone ratio reads a sensible value.
 -->
 
-<p><img alt="Analysis Results panel with peak list, ring-out time, and tap-tone ratio." src="images/ch03-results-panel.png"></p>
+<p><img alt="Analysis Results panel with peak list, ring-out time, and tap-tone ratio." class="screenshot-panel" src="images/ch03-results-panel.png"></p>
 <p>For each identified peak the Analysis Results panel shows:</p>
 <ul>
 <li><strong>Mode label</strong> — Air, Top, Back, Dipole, Ring, Upper, or a custom
@@ -1632,7 +1660,7 @@ SCREENSHOT:
            frequencies so the overlay is visually informative.
 -->
 
-<p><img alt="Three-spectrum comparison overlay with the Comparison Results table." src="images/ch03-comparison-overlay.png"></p>
+<p><img alt="Three-spectrum comparison overlay with the Comparison Results table." class="screenshot-desktop" src="images/ch03-comparison-overlay.png"></p>
 <p><strong>Starting a comparison</strong></p>
 <ol>
 <li>Open the <strong>Measurements</strong> list.</li>
@@ -1767,7 +1795,7 @@ SCREENSHOT:
            the settings sheet only.
 -->
 
-<p><img alt="Settings sheet with the Plate measurement type selected — dimensions, density preview, body inputs, stiffness preset, and Measure FLC toggle." src="images/ch04-settings-plate.png"></p>
+<p><img alt="Settings sheet with the Plate measurement type selected — dimensions, density preview, body inputs, stiffness preset, and Measure FLC toggle." class="screenshot-panel" src="images/ch04-settings-plate.png"></p>
 <p>Open <strong>Settings → Measurement Type → Plate</strong>. Fill in:</p>
 <ul>
 <li><strong>Length</strong> (mm) — along the grain.</li>
@@ -1796,25 +1824,29 @@ fields.</p>
 </ul>
 <p><strong>Custom</strong> is where you encode a successful build back into the
   calculation. The workflow has four steps:</p>
-<pre><code>1. Fully measure a plate — E_L, E_C, density, body dimensions
-   — *before* you build it, and keep the measurements. Note the
-   final plate thickness you settled on for the build (which may be the number from the Gore formula).
-2. Build the instrument and live with it long enough to decide
-   whether the result is what you want. If it is, you have a
-   calibration point. If not then you need to adjust the plate stiffness preset on your next build to either stiffen the board or loosen the board to adjust the sound.
-3. The Gore formula run on that plate's measurements with a
-   named preset would have predicted some recommended
-   thickness. Your finished thickness is the thickness that
-   actually produced the sound you liked. Scale the preset's
-   stiffness number linearly so the formula, applied to that
-   same plate's measurements, would output your finished
-   thickness. Save the scaled number as your **Custom** value.
-4. From this point on, run new plates with **Custom** selected.
-   Each new board, with its own E_L, E_C, and ρ, yields a
-   *different* recommended thickness — each one calculated to
-   reproduce the calibration build's tonal outcome on that
-   specific piece of wood.
-</code></pre>
+<ol>
+<li>Fully measure a plate — E_L, E_C, density, body dimensions
+     — <em>before</em> you build it, and keep the measurements. Note
+     the final plate thickness you settled on for the build
+     (which may be the number from the Gore formula).</li>
+<li>Build the instrument and live with it long enough to decide
+     whether the result is what you want. If it is, you have a
+     calibration point. If not, you need to adjust the plate
+     stiffness preset on your next build to either stiffen the
+     board or loosen it to adjust the sound.</li>
+<li>The Gore formula run on that plate's measurements with a
+     named preset would have predicted some recommended
+     thickness. Your finished thickness is the thickness that
+     actually produced the sound you liked. Scale the preset's
+     stiffness number linearly so the formula, applied to that
+     same plate's measurements, would output your finished
+     thickness. Save the scaled number as your <strong>Custom</strong> value.</li>
+<li>From this point on, run new plates with <strong>Custom</strong> selected.
+     Each new board, with its own E_L, E_C, and ρ, yields a
+     <em>different</em> recommended thickness — each one calculated to
+     reproduce the calibration build's tonal outcome on that
+     specific piece of wood.</li>
+</ol>
 <p>The Custom number carries "this is the kind of plate that makes
   the instrument I want." The Gore procedure does not predict an
   objectively ideal thickness; it gives you a reproducible way to
@@ -1974,7 +2006,7 @@ SCREENSHOT:
            Crop to the panel only.
 -->
 
-<p><img alt="Plate Results panel showing the four sections — Detected Peaks, Gore Target Thickness, Plate Properties, and Plate Process Instructions." src="images/ch04-results-panel.png"></p>
+<p><img alt="Plate Results panel showing the four sections — Detected Peaks, Gore Target Thickness, Plate Properties, and Plate Process Instructions." class="screenshot-panel" src="images/ch04-results-panel.png"></p>
 <p>For a completed plate measurement the Results panel scrolls
 through four sections, top to bottom.</p>
 <h3 id="detected-peaks">Detected Peaks</h3>
@@ -2095,7 +2127,7 @@ SCREENSHOT:
            range. Crop to the settings sheet.
 -->
 
-<p><img alt="Settings sheet with Measurement Type set to Brace — Length, Width, Height, and Mass fields with calculated density preview." src="images/ch05-settings-brace.png"></p>
+<p><img alt="Settings sheet with Measurement Type set to Brace — Length, Width, Height, and Mass fields with calculated density preview." class="screenshot-panel" src="images/ch05-settings-brace.png"></p>
 <p>Open <strong>Settings → Measurement Type → Brace</strong>. The Brace
 Dimensions section has four fields:</p>
 <ul>
@@ -2151,7 +2183,7 @@ SCREENSHOT:
            Crop to the panel only.
 -->
 
-<p><img alt="Brace Results panel showing the three sections — Detected Peaks (single L row), Brace Properties, and Brace Process Instructions." src="images/ch05-results-panel.png"></p>
+<p><img alt="Brace Results panel showing the three sections — Detected Peaks (single L row), Brace Properties, and Brace Process Instructions." class="screenshot-panel" src="images/ch05-results-panel.png"></p>
 <p>A completed brace measurement displays three sections in the
 Results panel.</p>
 <h3 id="detected-peaks">Detected Peaks</h3>
@@ -2283,7 +2315,7 @@ SCREENSHOT:
            window only.
 -->
 
-<p><img alt="Chart hover zones for scroll-wheel zoom — plot area for both axes, frequency axis for frequency only, magnitude axis for magnitude only." src="images/ch06-scroll-zones.png"></p>
+<p><img alt="Chart hover zones for scroll-wheel zoom — plot area for both axes, frequency axis for frequency only, magnitude axis for magnitude only." class="screenshot-desktop" src="images/ch06-scroll-zones.png"></p>
 <ul>
 <li><strong>Scroll over the plot area</strong> to zoom both axes simultaneously.</li>
 <li><strong>Scroll over the frequency axis</strong> (the bottom of the chart) to
@@ -2350,9 +2382,10 @@ and magnitude at any point on the chart.</p>
 <li>Tap the icon again to disable.</li>
 </ol>
 <p>The crosshair is a read-only tool — it does not change the
-selected peaks, the spectrum, or any saved state. On desktop the
-mouse position over the chart serves the same role and no toggle
-is needed.</p>
+selected peaks, the spectrum, or any saved state. On desktop
+there is no toggle; the crosshair follows the mouse pointer
+continuously whenever the pointer is over the chart, showing the
+frequency and magnitude under the cursor in real time.</p>
 <h2 id="66-peak-labels">6.6 Peak Labels</h2>
 
 <p>Each annotated peak carries a label showing the mode name,
@@ -2403,493 +2436,989 @@ ranges, pick the view that suits the work you do most often and
 zoom from there for the other.</p>
 <h1 id="chapter-7-saving-exporting-and-sharing-measurements">Chapter 7 — Saving, Exporting, and Sharing Measurements</h1>
 
-<!-- STATUS: STUB — needs full content -->
-
+<p>This chapter is a complete reference for everything you can do with
+a measurement after capture: store it, review it, send it
+elsewhere, and bring it back later.</p>
 <h2 id="71-saving-a-measurement">7.1 Saving a Measurement</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - When Save is enabled: spectrum must be frozen and at least one peak detected;
-       Save is disabled when comparison mode is active for a new individual measurement
-       (use §7.8 to save a comparison)
-     - The Save sheet: location label field (optional, e.g. "Bridge", "Soundhole",
-       "Upper Bout"); Notes field (optional, free text)
-     - What is stored: frozen spectrum data, detected peaks, chart image (PNG sidecar),
-       all settings active at time of capture (guitar type, plate dimensions, etc.),
-       annotation positions, mode overrides
-     - Keyboard shortcut: ⌘S (macOS)
-     - After save: measurement appears at top of Measurements list -->
-
+<p>Press <strong>Save</strong> <img src="images/symbols/square.and.arrow.down.png" width="18" height="18" class="inline-icon" alt="square.and.arrow.down"> in the toolbar to store the
+current measurement. Save is enabled whenever there is a finished
+measurement on screen — a frozen single tap, a complete plate or
+brace multi-phase capture, or an active comparison overlay — and
+disabled when the spectrum is live or no peaks have been
+identified.</p>
+<p>The Save sheet has two fields, both optional:</p>
+<ul>
+<li><strong>Name</strong> — a short label identifying what you measured. For a
+  guitar measurement this is typically the luthier's name for the
+  instrument (a serial number, a project name, a working title).
+  For a plate or brace it is the identifier for that specific
+  piece (a board number, supplier code, billet label). If left
+  blank, the date and time serve as the name.</li>
+<li><strong>Notes</strong> — free text. Use it to record provenance, build-stage
+  context, dimensions you measured by hand, or anything else you
+  want to carry alongside the data.</li>
+</ul>
+<p>What is stored depends on the type of measurement:</p>
+<ul>
+<li><strong>Guitar / plate / brace</strong> — the spectrum (or 2–3 spectra for a
+  plate measurement, one per phase), detected peaks and
+  selections, settings active at capture time (subtype, plate
+  dimensions, threshold, peak min, and so on), annotation
+  positions, and mode overrides.</li>
+<li><strong>Comparison</strong> — the constituent spectra (one per measurement
+  that was being compared) and their colours, plus the
+  Comparison Results table. Saving a comparison does not consume
+  the individual measurements that were combined; they remain in
+  the list as separate entries.</li>
+</ul>
+<p>Keyboard shortcut: <strong>⌘S</strong> on macOS; <strong>Ctrl+S</strong> on Windows and
+Linux.</p>
+<p>After Save, the measurement appears at the top of the Measurements
+list (§7.2).</p>
 <h2 id="72-viewing-saved-measurements">7.2 Viewing Saved Measurements</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Opening the Measurements list (toolbar button; ⌘L on macOS)
-     - List layout: each row shows location label (or date if no label), date/time,
-       measurement type badge (Guitar / Plate / Brace / Comparison)
-     - Comparisons are identified by a distinct badge in the list
-     - The list is sorted by date, newest first -->
+<!--
+SCREENSHOT:
 
+  File:    images/ch07-measurements-list.png
+  Subject: Saved Measurements window showing a mix of saved items:
+           several guitar measurements with the waveform indicator,
+           at least one plate and one brace (no indicator), and at
+           least one saved comparison with the chart indicator.
+           Bottom toolbar showing Compare…, Import…, Delete All,
+           Done buttons.
+  Notes:   Use a real set of measurements so the dates and notes
+           are plausible. Crop tight to the window.
+-->
+
+<p><img alt="Saved Measurements window with a mix of guitar, plate, brace, and comparison rows." class="screenshot-desktop" src="images/ch07-measurements-list.png"></p>
+<p>Open the Measurements list with the toolbar <strong>Measurements</strong>
+button <img src="images/symbols/list.bullet.clipboard.png" width="18" height="18" class="inline-icon" alt="list.bullet.clipboard">, or with <strong>⌘L</strong> on macOS / <strong>Ctrl+L</strong>
+on Windows and Linux.</p>
+<p>Each row carries up to three lines plus a trailing column:</p>
+<ul>
+<li><strong>Line 1</strong> — the <strong>name</strong> (bold; "Measurement" or "Comparison"
+  as a fallback when no name has been set), and on the right a
+  waveform indicator <span class="nowrap">〜</span> for guitar
+  measurements that have a captured spectrum, a chart indicator
+  for saved comparisons, the <strong>date and time</strong> of capture, and a
+  chevron.</li>
+<li><strong>Line 2</strong> — for guitar measurements: peak count, tap-tone
+  ratio (if available), and decay time (if available). For
+  comparisons: "<em>N</em> spectra compared". For plate / brace: peak
+  count and the headline material values.</li>
+<li><strong>Line 3</strong> — the notes you entered on Save, if any.</li>
+</ul>
+<p>The list is shown in the order the measurements were saved —
+newest entries appear at the bottom — not sorted by date or name.</p>
 <h2 id="73-loading-a-measurement-into-the-view">7.3 Loading a Measurement into the View</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Right-click / long-press a measurement row → Load into View (or equivalent button)
-     - What is restored: frozen spectrum, peaks, annotation positions, mode overrides,
-       the settings active at capture time (note: current Settings panel values are not
-       changed; loaded values are shown as a warning in the status bar)
-     - For a comparison: all constituent spectra are overlaid; the Comparison
-       Results table is restored; comparison mode becomes active -->
-
+<p>Either <strong>double-click</strong> the measurement row, or open the popup
+menu on the row (right-click on desktop, long-press on iOS /
+iPadOS) and choose <strong>Load into View</strong>.</p>
+<p>What is restored on load:</p>
+<ul>
+<li>The frozen spectrum and its peaks</li>
+<li>Annotation positions</li>
+<li>Mode overrides</li>
+<li>The settings that were active at capture time</li>
+</ul>
+<p>Loading a measurement replaces the analyzer's <strong>current</strong>
+settings — threshold, Peak Min, Taps, measurement type, and so on
+— with the values that were active when the measurement was
+captured. Your <strong>saved</strong> Settings values are untouched.</p>
+<p>The status bar shows a <strong>"loaded settings"</strong> notice while this is
+in effect. The notice matters because pressing <strong>New Tap</strong> with
+the loaded settings active will capture using the loaded
+measurement's values, not the ones you had configured before. If
+that is not what you want, change Settings (or load a different
+measurement whose settings you do want) before tapping.</p>
+<p>Loading a saved comparison restores all constituent spectra as
+the overlay, brings up the Comparison Results table, and switches
+the view into comparison mode.</p>
 <h2 id="74-viewing-measurement-details">7.4 Viewing Measurement Details</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Right-click / long-press → View Details (or tap the row on iPad/macOS where a
-       detail pane is available)
-     - Detail view contents: spectrum image thumbnail, peak frequency table, analysis
-       summary (decay time, Tap Tone Ratio for guitar; E_L, E_C etc. for plate/brace)
-     - Export buttons available within the detail view
-     - For comparisons: shows the constituent spectrum list and the
-       Air / Top / Back frequency table -->
+<p>Open the popup menu on a measurement row (right-click on desktop,
+long-press on iOS / iPadOS) and choose <strong>View Details</strong>, or tap
+the row directly.</p>
+<p>The detail view is read-only. It contains:</p>
+<ul>
+<li>The peak table (mode, frequency, magnitude, Q, bandwidth, pitch
+  for guitar mode; the equivalent fields for plate / brace)</li>
+<li>The analysis summary (decay time and Tap Tone Ratio for guitar;
+  E_L, E_C, specific modulus, quality rating, Gore thickness for
+  plate / brace)</li>
+<li>The name and notes</li>
+</ul>
+<p>For a comparison, the detail view shows the list of constituent
+spectra and the Air / Top / Back frequency table.</p>
+<p>Load, Edit Name &amp; Notes, and the export actions are reached from
+the popup menu on the row in the Measurements list, not from this
+view.</p>
+<p>To dismiss the detail view: click the window's close button on
+macOS, press <strong>Close</strong> in the Python desktop build, or tap
+anywhere outside the dialog on iOS / iPadOS.</p>
+<h2 id="75-editing-name-and-notes">7.5 Editing Name and Notes</h2>
 
-<h2 id="75-editing-location-and-notes">7.5 Editing Location and Notes</h2>
-
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Right-click / long-press → Edit Location & Notes (or Edit button in Detail toolbar)
-     - Edit sheet: Location label field and Notes multi-line text field
-     - Changes are saved immediately on tapping Save in the sheet
-     - There is no undo for label/notes edits -->
-
+<p>You can change a measurement's name or notes at any time after it
+has been saved.</p>
+<p>Open the popup menu on the measurement row (right-click on
+desktop, long-press on iOS / iPadOS) and choose <strong>Edit Name &amp;
+Notes</strong>. The edit sheet has the same two fields as Save. Tapping
+Save in the sheet commits the change immediately — there is no
+separate confirm step and no undo.</p>
 <h2 id="76-exporting-a-spectrum-image">7.6 Exporting a Spectrum Image</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - What is produced: PNG image of the current chart at display resolution
-     - From toolbar: Export Spectrum Image… button (⌘E on macOS)
-     - From Measurements list: right-click / long-press a saved measurement → Export Spectrum
-     - For a single measurement: the frozen spectrum with peak annotations
-     - For a comparison (live or saved): the overlay PNG with all coloured curves, their
-       labels, and a legend; each curve colour matches the Comparison Results table -->
-
+<p>Produces a PNG of the chart at display resolution. The image
+reflects whatever the measurement contains: a single tap is
+exported as one frozen spectrum with annotations, a plate
+measurement is exported with all of its phase spectra, and a
+comparison is exported as the overlay with every coloured curve,
+its label, and the legend.</p>
+<p>Two ways to invoke it:</p>
+<ul>
+<li>For a measurement on screen — press the <strong>Export Spectrum</strong>
+  button at the bottom of the Analysis Results window. Keyboard
+  shortcut: <strong>⌘E</strong> on macOS; <strong>Ctrl+E</strong> on Windows and Linux.</li>
+<li>For a saved measurement — open the popup menu on its row in
+  the Measurements list and choose <strong>Export Spectrum</strong>.</li>
+</ul>
 <h2 id="77-exporting-a-pdf-report">7.7 Exporting a PDF Report</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     SINGLE-MEASUREMENT PDF
-     - What the PDF contains: spectrum chart image, peak frequency table
-       (mode, frequency, magnitude, Q, bandwidth, pitch), analysis summary
-       (decay time, Tap Tone Ratio for guitar; E_L, E_C, specific modulus, quality
-       rating, Gore thickness for plate/brace), metadata (date, location, notes)
-     - From toolbar: Export PDF Report… button (⇧⌘E on macOS)
-     - From Measurements list: right-click / long-press → Export PDF Report
+<p>Bundles the chart, the data, and the metadata into a single
+shareable PDF. Like the spectrum image export, this works on any
+measurement; the PDF contents follow the measurement type:</p>
+<ul>
+<li><strong>Guitar</strong> — spectrum image, peak frequency table (mode,
+  frequency, magnitude, Q, bandwidth, pitch), and the analysis
+  summary (decay time and Tap Tone Ratio).</li>
+<li><strong>Plate / brace</strong> — spectrum image(s) for the captured phases,
+  the peak table, and the material properties (E_L, E_C, specific
+  modulus, radiation ratio, quality rating, and Gore thickness for
+  plate).</li>
+<li><strong>Comparison</strong> — a header listing the constituent measurements,
+  the overlay spectrum image, and the Air / Top / Back frequency
+  table with one column per constituent.</li>
+</ul>
+<p>Every PDF carries a metadata header with the date, name, and
+notes.</p>
+<p>Two ways to invoke it:</p>
+<ul>
+<li>For a measurement on screen — press the <strong>Export PDF Report</strong>
+  button at the bottom of the Analysis Results window. Keyboard
+  shortcut: <strong>⇧⌘E</strong> on macOS; <strong>Ctrl+Shift+E</strong> on Windows and
+  Linux.</li>
+<li>For a saved measurement — open the popup menu on its row in
+  the Measurements list and choose <strong>Export PDF Report</strong>.</li>
+</ul>
+<h2 id="78-exporting-a-measurement">7.8 Exporting a Measurement</h2>
 
-     COMPARISON PDF
-     - What the comparison PDF contains: metadata header (number of spectra, labels, date),
-       overlay spectrum image showing all curves, Air / Top / Back frequency table with
-       one column per spectrum ("—" where a mode was not detected)
-     - From toolbar when comparison is active: Export PDF Report → comparison PDF
-     - From Measurements list for a saved comparison: Export PDF Report → comparison PDF
-     - See §7.10 for details on the comparison PDF -->
+<p>The native portable container is the <strong><code>.guitartap</code></strong> file — a
+self-contained snapshot of a saved measurement that can be moved
+to any other device and re-opened without loss.</p>
+<p>What it contains: the peaks (with selections and mode overrides),
+the full spectrum data (Base64-encoded little-endian float32
+arrays for frequency and magnitude), annotation positions, and
+the settings active at capture time. For a measurement that holds
+more than one spectrum — a plate measurement with its 2 or 3
+phase captures, or a comparison with its constituent waveforms —
+every spectrum is embedded, so the file is larger but stays fully
+self-contained.</p>
+<p>Which popup-menu item to use depends on platform:</p>
+<ul>
+<li><strong>iOS / iPadOS:</strong> <strong>Export Measurement</strong> → system share sheet
+  (AirDrop, Mail, Files, etc.).</li>
+<li><strong>macOS (native build):</strong> either <strong>Export Measurement</strong> (system
+  share sheet) or <strong>Save Measurement to Disk…</strong> (file-save
+  dialog).</li>
+<li><strong>Python build (Windows / Linux / macOS Python):</strong> <strong>Export
+  Measurement</strong> → file-save dialog. There is no share sheet on
+  these platforms, so the action behaves the same way as Swift
+  macOS's Save Measurement to Disk…</li>
+</ul>
+<p>The file extension is <strong><code>.guitartap</code></strong> on every platform, and the
+format is interchangeable across iOS, iPadOS, macOS, Windows, and
+Linux builds.</p>
+<h2 id="79-importing-a-measurement">7.9 Importing a Measurement</h2>
 
-<h2 id="78-saving-a-comparison">7.8 Saving a Comparison</h2>
+<!--
+SCREENSHOT:
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - A comparison can be saved while it is active (initiated via the Measurements list
-       Compare button; see §3.9)
-     - The Save button is available during comparison (it saves the comparison itself,
-       not a new individual measurement)
-     - The Save sheet accepts a location label and notes; all constituent spectra are
-       embedded in the saved comparison
-     - The saved comparison appears in the Measurements list with a Comparison badge
-     - Reloading a saved comparison (§7.3) restores the full overlay and Comparison
-       Results table exactly as at save time
-     - Saving a comparison does not consume the individual constituent measurements;
-       they remain separately in the list -->
+  File:    images/ch07-measurements-list-ios.png
+  Subject: Saved Measurements dialog on iOS / iPadOS, with the
+           ellipsis menu in the upper-right corner expanded to show
+           "Import Measurement" and "Delete All". Capture in light
+           mode to match the macOS screenshot.
+  Notes:   The iOS dialog layout differs from macOS — there is no
+           separate row of Compare / Import / Delete All buttons
+           along the bottom. Crop tight to the dialog.
+-->
 
-<h2 id="79-exporting-a-comparison-spectrum-image">7.9 Exporting a Comparison Spectrum Image</h2>
+<p><img alt="Saved Measurements dialog on iOS — Import Measurement and Delete All live inside the ellipsis menu in the upper-right." class="screenshot-mobile" src="images/ch07-measurements-list-ios.png"></p>
+<p>The access path differs between platforms:</p>
+<ul>
+<li><strong>iOS / iPadOS:</strong> open the Saved Measurements dialog, tap the
+  <strong><img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle"></strong>
+  menu in the upper-right corner, and choose <strong>Import
+  Measurement</strong>. (The same menu also hosts <strong>Delete All</strong>.)
+  The Files picker opens; select a <code>.guitartap</code> to import.</li>
+<li><strong>Desktop (macOS native and Python builds):</strong> <strong>File → Import
+  Measurement</strong> opens a file picker. Drag-and-drop onto the
+  Saved Measurements window also works.</li>
+</ul>
+<p>The imported measurement appears in the list regardless of its
+type — guitar, plate, brace, or comparison.</p>
+<p>If the input device named in the imported file is not available
+on the current system, the import still succeeds and the imported
+data is unchanged. A warning is shown <strong>after</strong> the import
+completes, letting you know that further capture will use a
+fallback input device until the original is reconnected.</p>
+<h2 id="710-sharing-between-devices">7.10 Sharing Between Devices</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - From the toolbar while a live comparison is active: Export Spectrum produces the overlay PNG
-     - From the Measurements list: select a saved comparison → Export Spectrum
-     - The PNG includes all coloured curves, their labels, and a legend
-     - On iOS the image is passed to the system share sheet (AirDrop, Mail, Files, etc.)
-     - On macOS a save dialog appears -->
+<p>Anything you can export — measurements (§7.8), spectrum images
+(§7.6), or PDF reports (§7.7) — can be shared between devices.
+Which action to use depends on where the file is going.</p>
+<p><strong>Apple ecosystem (iOS, iPadOS, macOS native build).</strong> Use the
+<strong>Export Measurement</strong>, <strong>Export Spectrum</strong>, or <strong>Export PDF
+Report</strong> popup-menu actions. Each opens the system share sheet,
+from which:</p>
+<ul>
+<li><strong>AirDrop</strong> sends directly to a nearby Apple device.</li>
+<li><strong>iCloud Drive / Files</strong> stores the file to iCloud; the
+  receiver opens it from Files on their device.</li>
+<li><strong>Mail / Messages</strong> attaches the file; the recipient taps the
+  attachment to open it.</li>
+</ul>
+<p><strong>Non-Apple devices and archival.</strong> Use <strong>Save Measurement to
+Disk…</strong> (macOS popup menu) — which is the file-save path, not a
+share-sheet path — to write a <code>.guitartap</code> directly to a folder
+of your choice. On Python desktop builds (Windows, Linux, and
+macOS Python) the <strong>Export Measurement</strong> action opens the same
+kind of save dialog, since no system share sheet exists on
+Windows or Linux. From disk the file can travel via any
+cross-platform channel — Dropbox, Google Drive, email, USB drive,
+network share — and the receiver imports it with §7.9. This same
+disk-save path is the right choice when you simply want a
+permanent file copy outside the app's library.</p>
+<p><strong>Cross-platform example.</strong> Export from a Windows or Linux build
+with the <strong>Export Measurement</strong> action — which opens a save
+dialog on those platforms — transfer the resulting <code>.guitartap</code>
+file to an iPhone or iPad (via Files, email, Dropbox, etc.), and
+import it on the receiving Apple device via §7.9. The
+<code>.guitartap</code> format is identical on every platform, so no
+conversion is needed regardless of direction.</p>
+<h2 id="711-deleting-measurements">7.11 Deleting Measurements</h2>
 
-<h2 id="710-exporting-a-comparison-pdf-report">7.10 Exporting a Comparison PDF Report</h2>
-
-<!-- TODO: Write section -->
-<!-- Cover:
-     - From the toolbar while a live comparison is active: Export PDF Report → comparison PDF
-     - From the Measurements list: select a saved comparison → Export PDF Report
-     - Comparison PDF contents:
-         * Metadata header: number of spectra compared, each label, date exported
-         * Overlay spectrum image (same as the exported PNG)
-         * Air / Top / Back frequency table: rows = modes, columns = each spectrum;
-           frequency shown to 0.1 Hz; "—" where the mode was not detected
-     - On iOS: share sheet; on macOS: save dialog -->
-
-<h2 id="711-exporting-a-guitartap-file">7.11 Exporting a .guitartap File</h2>
-
-<!-- TODO: Write section -->
-<!-- Cover:
-     - What .guitartap contains: JSON container with all peaks, spectrum snapshot
-       (Base64-encoded little-endian float32 arrays), annotation offsets, mode overrides,
-       settings at capture time, chart PNG embedded as Base64
-     - For comparisons: all constituent spectra are embedded; the file is larger
-       but self-contained
-     - iOS/iPadOS: right-click / long-press → Export Measurement → system share sheet
-       (AirDrop, Mail, Files, etc.)
-     - macOS: right-click → Save Measurement to Disk… → save dialog
-     - File extension: .guitartap; compatible between iOS and macOS versions of the app -->
-
-<h2 id="712-importing-a-measurement-or-comparison">7.12 Importing a Measurement or Comparison</h2>
-
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Supported formats: .guitartap (native format) and .json (legacy)
-     - iOS/iPadOS: Import Measurement button in the Measurements toolbar → Files picker
-     - macOS: File menu → Import Measurement → open dialog, or drag-and-drop onto the
-       Measurements list
-     - What happens after import: the measurement appears in the list; comparisons
-       are automatically detected and will restore the overlay when loaded
-     - If a microphone name in the imported file does not match any available device on
-       the current system: a fallback is applied and the import succeeds -->
-
-<h2 id="713-sharing-between-ios-and-macos">7.13 Sharing Between iOS and macOS</h2>
-
-<!-- TODO: Write section -->
-<!-- Cover:
-     - AirDrop: iOS share sheet → AirDrop; on Mac: accept in Finder, then open with GuitarTap
-       (File → Import Measurement) or drag-and-drop onto the Measurements list
-     - iCloud / Files: save to iCloud Drive from iOS share sheet; open from Files on Mac
-     - Email: attach via share sheet; recipient opens the attachment in GuitarTap
-     - Round-trip: export from Mac with Save Measurement to Disk; transfer to iPhone;
-       import via Import Measurement
-     - Comparison files are cross-platform compatible (same .guitartap format) -->
-
-<h2 id="714-deleting-measurements">7.14 Deleting Measurements</h2>
-
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Right-click / long-press → Delete (macOS) or swipe-to-delete on iOS
-     - A confirmation prompt prevents accidental deletion
-     - Deleting a comparison removes all embedded constituent data
-     - Deleting a measurement that was used in a previously saved comparison does not
-       affect the comparison (it is self-contained) -->
-
+<ul>
+<li><strong>Desktop:</strong> popup menu → <strong>Delete</strong>.</li>
+<li><strong>iOS / iPadOS:</strong> swipe-to-delete on the row.</li>
+</ul>
+<p>A confirmation prompt appears before deletion so an accidental
+click or swipe does not lose data. Deleting a measurement removes
+it and any data embedded in it; nothing else in the list is
+affected. Because a comparison embeds copies of its constituent
+spectra at save time, deleting an individual measurement that was
+previously combined into a comparison leaves that comparison
+intact, and deleting a comparison leaves its source measurements
+intact.</p>
 <h1 id="chapter-8-settings-reference">Chapter 8 — Settings Reference</h1>
 
-<!-- STATUS: STUB — needs full content -->
-
+<p>The Settings sheet collects every persisted configuration the
+analyzer uses: audio input, measurement-type-specific inputs (mode
+frequency windows for guitar, dimensions for plate / brace), and
+the Advanced display- and analysis-tuning values.</p>
+<p>This chapter is the reference for every field. Workflow context
+for the most-used ones — choosing a measurement type, tuning
+threshold and peak min, importing a calibration — lives in
+Chapter 2.</p>
 <h2 id="81-opening-settings">8.1 Opening Settings</h2>
 
-<!-- TODO: Write section -->
-
+<ul>
+<li><strong>iOS / iPadOS:</strong> tap the <strong>Settings</strong> <img src="images/symbols/gearshape.png" width="18" height="18" class="inline-icon" alt="gearshape"> icon in the
+  main toolbar.</li>
+<li><strong>macOS (native build):</strong> <strong>Guitar Tap → Settings…</strong> in the
+  application menu, or <strong>⌘,</strong>.</li>
+<li><strong>Python desktop (macOS Python):</strong> <strong>Guitar Tap → Settings…</strong>
+  in the application menu, or <strong>⌘,</strong>, or the <strong>Settings</strong>
+  button in the toolbar.</li>
+<li><strong>Python desktop (Windows / Linux):</strong> <strong>File → Settings…</strong>, or
+  <strong>Ctrl+,</strong>, or the <strong>Settings</strong> button in the toolbar.</li>
+</ul>
+<p>Changes apply immediately (no Apply step) and persist across
+launches.</p>
 <h2 id="82-audio-input-calibration">8.2 Audio Input &amp; Calibration</h2>
 
-<!-- TODO: Write section -->
-
+<ul>
+<li><strong>Input device</strong> — picker listing the microphones available on
+  the current system. Selecting a device makes it the active
+  input.</li>
+<li><strong>Calibration</strong> — shows the calibration file currently
+  associated with the active input device, or "None".</li>
+<li><strong>Import Calibration File</strong> — opens a file picker; accepts
+  <code>.txt</code> and <code>.cal</code> two-column (frequency, dB) files. The
+  selected file is bound to the currently active device and
+  reloads automatically when you next select that device.</li>
+<li><strong>Clear All Calibrations</strong> — removes every stored calibration
+  across all devices. Use when you want a clean baseline.</li>
+</ul>
+<p>See §2.3 and §2.4 for the workflow.</p>
 <h2 id="83-measurement-type">8.3 Measurement Type</h2>
 
-<!-- TODO: Write section -->
-
+<p>The Measurement Type section adapts to the type you select.</p>
+<p><strong>Guitar subtype</strong> — pick one of:</p>
+<ul>
+<li><strong>Generic Guitar</strong> — broad frequency windows; recommended
+  default.</li>
+<li><strong>Acoustic Guitar</strong> — narrower windows tuned for steel-string
+  flat-tops.</li>
+<li><strong>Classical Guitar</strong> — windows for classical builds.</li>
+<li><strong>Flamenco Guitar</strong> — windows for flamenco builds.</li>
+</ul>
+<p>Below the subtype picker, <strong>Mode Frequency Ranges</strong> displays the
+windows the analyzer uses to classify air, top, back, dipole,
+ring, and upper modes for the chosen subtype. The display is
+read-only — the windows are a property of the subtype, not a
+user-tunable value.</p>
+<p><strong>Plate</strong> — the section reveals the plate inputs (described in
+detail in §4.3):</p>
+<ul>
+<li><strong>Length</strong> (mm) — along the grain.</li>
+<li><strong>Width</strong> (mm) — across the grain.</li>
+<li><strong>Thickness</strong> (mm).</li>
+<li><strong>Mass</strong> (g).</li>
+<li><strong>Calculated Density</strong> — live preview computed from the four
+  values above; sanity-check against the expected range for the
+  wood (spruce: 0.35–0.45 g/cm³).</li>
+<li><strong>Body Length</strong> (mm) and <strong>Lower Bout Width</strong> (mm) — used by
+  the Gore target thickness calculation.</li>
+<li><strong>Plate Stiffness Preset</strong> — Steel String Top (75), Steel
+  String Back (55), Classical (50), or Custom. See §4.3 for the
+  Custom calibration workflow.</li>
+<li><strong>Measure FLC</strong> — when on, the sequence runs in three phases
+  (L, C, FLC) instead of two (L, C).</li>
+</ul>
+<p><strong>Brace</strong> — the section reveals the brace inputs (described in
+detail in §5.2):</p>
+<ul>
+<li><strong>Length (along grain)</strong> (mm).</li>
+<li><strong>Width (breadth)</strong> (mm).</li>
+<li><strong>Height (tap direction)</strong> (mm) — the <code>t</code> dimension in the
+  stiffness formula. The Settings panel includes a helper line
+  below the field to flag this.</li>
+<li><strong>Mass</strong> (g).</li>
+<li><strong>Calculated Density</strong> — same live preview as the plate
+  section.</li>
+</ul>
 <h2 id="84-advanced-display-settings">8.4 Advanced — Display Settings</h2>
 
-<!-- TODO: Write section -->
-
+<p>Tap <strong>Advanced</strong> to reveal these.</p>
+<ul>
+<li><strong>Frequency Range</strong> — min and max Hz shown on the spectrum
+  chart. Defaults are wide enough to cover guitar / plate /
+  brace ranges; narrow them when you want a closer look at a
+  specific band.</li>
+<li><strong>Magnitude Range</strong> — min and max dB shown on the chart.</li>
+<li><strong>Save Current View</strong> — saves the <em>current</em> chart axes
+  (frequency and magnitude ranges) as your default. Reset to
+  Saved in the chart's <strong>…</strong> menu (§6.2) returns to this view.</li>
+<li><strong>Reset to Defaults</strong> — restores the built-in starting ranges.</li>
+</ul>
 <h2 id="85-advanced-analysis-settings">8.5 Advanced — Analysis Settings</h2>
 
-<!-- TODO: Write section -->
+<!--
+SCREENSHOT:
 
-<h2 id="86-advanced-fft-processing">8.6 Advanced — FFT Processing</h2>
+  File:    images/ch08-settings-advanced.png
+  Subject: Settings sheet on macOS scrolled to the Advanced
+           section, with the disclosure expanded so both the
+           Display Settings and Analysis Settings sub-sections
+           are visible. Captured in guitar mode so the
+           Peak Detection Minimum field is enabled and the Show
+           Unknown Modes toggle is shown.
+  Notes:   Crop to the settings sheet only.
+-->
 
-<!-- TODO: Write section -->
+<p><img alt="Advanced section of Settings showing Display Settings and Analysis Settings sub-sections." class="screenshot-panel" src="images/ch08-settings-advanced.png"></p>
+<ul>
+<li><strong>Show Unknown Modes</strong> (guitar only) — when on, peaks that do
+  not fall within any classified mode window are still annotated
+  on the chart. On by default; turn off to declutter a chart
+  intended for sharing. (Cross-ref §3.1.)</li>
+<li><strong>Analysis Frequency Range</strong> — min and max Hz used for peak
+  detection. Distinct from the <em>display</em> frequency range above:
+  this controls which peaks the analyzer considers, not what is
+  shown on the chart.</li>
+<li><strong>Peak Detection Minimum</strong> (guitar only) — the same Peak Min
+  value as the toolbar slider (§2.7); the Settings field accepts
+  a precise numeric value. Sets the minimum magnitude (dB) a peak
+  must reach to be annotated and included in the analysis. Typical
+  range: −60 to −40 dB. Disabled in plate / brace mode (the
+  per-phase capture uses its own adaptive noise floor).</li>
+<li><strong>Dump Capture Audio</strong> — diagnostic. When on, each captured
+  tap is saved as a mono 32-bit-float WAV file. Useful for
+  debugging; leave off in normal use. The save location is:<ul>
+<li><strong>macOS / Linux (native and Python builds):</strong>
+  <code>~/Documents/GuitarTap/</code></li>
+<li><strong>Windows (Python build):</strong>
+  <code>%USERPROFILE%\Documents\GuitarTap\</code></li>
+<li><strong>iOS / iPadOS:</strong> the app's sandbox Documents directory,
+  reachable via <strong>Files → On My iPad/iPhone → Guitar Tap</strong>.</li>
+</ul>
+</li>
+</ul>
+<p>File names are timestamped, prefixed by the originating build —
+  <code>swift_&lt;label&gt;_&lt;timestamp&gt;.wav</code> or <code>python_&lt;label&gt;_&lt;timestamp&gt;.wav</code>
+  — so dumps from cross-platform comparison runs are easy to tell
+  apart.
+- <strong>Reset Analysis Settings</strong> — restores the analysis defaults.</p>
+<h2 id="86-about-help">8.6 About &amp; Help</h2>
 
+<p>The final section of the Settings sheet carries three items:</p>
+<ul>
+<li><strong>Version</strong> — the running build's version string.</li>
+<li><strong>Copyright</strong> — the copyright line from the app's bundle
+  metadata.</li>
+<li><strong>Help</strong> <img src="images/symbols/questionmark.circle.png" width="18" height="18" class="inline-icon" alt="questionmark.circle"> — opens the in-app Quick-Start
+  Guide. The content matches the printable Quick-Start PDF that
+  ships with the app.</li>
+</ul>
 <h1 id="chapter-9-controls-reference">Chapter 9 — Controls Reference</h1>
 
-<!-- STATUS: STUB — needs full content -->
-
+<p>A scannable reference for every button, control, and gesture.
+For the workflows that exercise them, see Chapters 3–7. For the
+chart-interaction details, see Chapter 6.</p>
 <h2 id="91-toolbar-ios-iphone-portrait">9.1 Toolbar — iOS iPhone (Portrait)</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Leading items (left): Results, Auto dB
-     - Trailing items (right): Metrics, Settings
-     - Below toolbar (always visible): Taps stepper, Threshold slider + reset,
-       Peak Min slider + reset
-     - Action buttons row: New Tap, Pause/Resume/Accept, Cancel/Redo
-     - Compact labels; no text for toolbar items — icon only
-     - Items that are hidden or disabled in comparison mode:
-       Threshold slider, Peak Min slider, Taps stepper -->
+<!--
+SCREENSHOT:
 
+  File:    images/ch09-iphone-portrait.png
+  Subject: iPhone in portrait, screenshot cropped to the top of the
+           main screen so the three stacked control rows are clearly
+           visible: the navigation toolbar (Results, Play File,
+           Auto dB on the left; Metrics, Settings on the right), the
+           secondary icon row (Crosshair, Annotations, Save,
+           Measurements), and the top of the Tap Controls panel. The
+           spectrum chart may be visible below but is not the focus.
+  Notes:   Capture in light mode. Crop tight enough that the three
+           rows fill the image.
+-->
+
+<p><img alt="iPhone portrait — navigation toolbar, secondary icon row, and the top of the Tap Controls panel." class="screenshot-mobile" src="images/ch09-iphone-portrait.png"></p>
+<p>Vertical layout with three stacked control rows above the chart.</p>
+<p><strong>Top — navigation toolbar:</strong></p>
+<ul>
+<li><strong>Leading (left):</strong> Results <img src="images/symbols/doc.text.png" width="18" height="18" class="inline-icon" alt="doc.text">,
+  Play File <img src="images/symbols/waveform.badge.plus.png" width="18" height="18" class="inline-icon" alt="waveform.badge.plus">,
+  Auto dB <img src="images/symbols/arrow.up.arrow.down.circle.png" width="18" height="18" class="inline-icon" alt="arrow.up.arrow.down.circle">.</li>
+<li><strong>Trailing (right):</strong> Metrics <img src="images/symbols/chart.bar.png" width="18" height="18" class="inline-icon" alt="chart.bar">,
+  Settings <img src="images/symbols/gearshape.png" width="18" height="18" class="inline-icon" alt="gearshape">.</li>
+</ul>
+<p><strong>Middle — secondary icon row</strong> (just below the toolbar):</p>
+<ul>
+<li>Crosshair <img src="images/symbols/dot.viewfinder.png" width="18" height="18" class="inline-icon" alt="dot.viewfinder">,
+  Annotations <img src="images/symbols/eye.png" width="18" height="18" class="inline-icon" alt="eye">,
+  Save <img src="images/symbols/square.and.arrow.down.png" width="18" height="18" class="inline-icon" alt="square.and.arrow.down">,
+  Measurements <img src="images/symbols/list.bullet.clipboard.png" width="18" height="18" class="inline-icon" alt="list.bullet.clipboard">.</li>
+</ul>
+<p><strong>Bottom — Tap Controls panel</strong> (§9.6):</p>
+<p>Taps stepper, Threshold slider, Peak Min slider, and the action
+buttons New Tap / Pause-Resume-Accept / Cancel-Redo.</p>
 <h2 id="92-toolbar-ios-iphone-landscape">9.2 Toolbar — iOS iPhone (Landscape)</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Leading items: Results, Auto dB, Crosshair, Annotations
-     - Trailing items: Save, Measurements, Metrics, Settings, Help (?)
-     - Tap controls are condensed; Taps stepper, Threshold, and Peak Min are
-       in a row below the spectrum rather than a full panel
-     - Landscape layout places the spectrum and controls side by side -->
+<!--
+SCREENSHOT:
 
-<h2 id="93-toolbar-ios-ipad-portrait-and-landscape">9.3 Toolbar — iOS iPad (Portrait and Landscape)</h2>
+  File:    images/ch09-iphone-landscape.png
+  Subject: iPhone in landscape, showing the full app screen with the
+           tap-controls / spectrum split. The navigation toolbar
+           across the top should be clearly legible — leading items
+           on the left, trailing on the right.
+  Notes:   Capture with a measurement loaded so the chart, peak
+           annotations, and trailing icons (Save / Measurements /
+           etc.) are all populated. Light mode.
+-->
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Leading items: Results, Auto dB, Crosshair, Annotations
-     - Trailing items: Save, Measurements, Metrics, Settings, Help (?)
-     - Full tap controls panel visible (same as macOS); not collapsed to compact form
-     - iPad shows the Comparison Results table in the Results panel rather than a sheet -->
+<p><img alt="iPhone landscape — Tap Controls panel on the left, spectrum on the right, with the full navigation toolbar across the top and a status bar below the chart." class="screenshot-mobile-wide" src="images/ch09-iphone-landscape.png"></p>
+<p>Horizontal split layout with the <strong>Tap Controls</strong> in a vertical
+panel on the left and the spectrum chart filling the right side.
+The navigation toolbar runs across the top of the screen.</p>
+<ul>
+<li><strong>Leading:</strong> Results <img src="images/symbols/doc.text.png" width="18" height="18" class="inline-icon" alt="doc.text">,
+  Play File <img src="images/symbols/waveform.badge.plus.png" width="18" height="18" class="inline-icon" alt="waveform.badge.plus">,
+  Auto dB <img src="images/symbols/arrow.up.arrow.down.circle.png" width="18" height="18" class="inline-icon" alt="arrow.up.arrow.down.circle">,
+  Crosshair <img src="images/symbols/dot.viewfinder.png" width="18" height="18" class="inline-icon" alt="dot.viewfinder">,
+  Annotations <img src="images/symbols/eye.png" width="18" height="18" class="inline-icon" alt="eye">.</li>
+<li><strong>Trailing:</strong> Save <img src="images/symbols/square.and.arrow.down.png" width="18" height="18" class="inline-icon" alt="square.and.arrow.down">,
+  Measurements <img src="images/symbols/list.bullet.clipboard.png" width="18" height="18" class="inline-icon" alt="list.bullet.clipboard">,
+  Metrics <img src="images/symbols/chart.bar.png" width="18" height="18" class="inline-icon" alt="chart.bar">,
+  Settings <img src="images/symbols/gearshape.png" width="18" height="18" class="inline-icon" alt="gearshape">,
+  Help <img src="images/symbols/questionmark.circle.png" width="18" height="18" class="inline-icon" alt="questionmark.circle">.</li>
+</ul>
+<p>The Tap Controls panel scrolls vertically when there is not
+enough height to show every control at once.</p>
+<h2 id="93-toolbar-ios-ipad">9.3 Toolbar — iOS iPad</h2>
 
-<h2 id="94-menu-bar-macos-windows-and-linux">9.4 Menu Bar — macOS, Windows, and Linux</h2>
+<!--
+SCREENSHOT:
 
-<!-- TODO: Write section -->
-<!-- Overview paragraph noting that §9.4a covers macOS and §9.4b covers the Python
-     desktop app on Windows and Linux. Point out where the menus differ. -->
+  File:    images/ch09-ipad.png
+  Subject: iPad showing the inline three-pane layout: Tap Controls
+           panel at the top, spectrum on the left below, and the
+           Analysis Results panel on the right. The navigation
+           toolbar at the very top should be clearly visible —
+           leading: Play File, Auto dB, Crosshair, Annotations;
+           trailing: Save, Measurements, Metrics, Settings, Help.
+           Note: no Results button on the toolbar.
+  Notes:   Either orientation works — the layout is the same.
+           Capture with a completed guitar measurement so all
+           buttons in the toolbar are populated. Light mode.
+-->
 
-<h3 id="94a-menu-bar-macos">9.4a Menu Bar — macOS</h3>
+<p><img alt="iPad — toolbar across the top, Tap Controls panel below, then spectrum on the left and Analysis Results inline on the right." class="screenshot-tablet" src="images/ch09-ipad.png"></p>
+<p>iPad uses a single layout in both portrait and landscape (the
+horizontal size class is <code>.regular</code> in either orientation, so the
+same inline three-pane arrangement applies). The Analysis Results
+panel is shown inline alongside the chart — like the desktop
+layout — so the toolbar does <strong>not</strong> include a Results button.</p>
+<ul>
+<li><strong>Leading:</strong> Play File <img src="images/symbols/waveform.badge.plus.png" width="18" height="18" class="inline-icon" alt="waveform.badge.plus">,
+  Auto dB <img src="images/symbols/arrow.up.arrow.down.circle.png" width="18" height="18" class="inline-icon" alt="arrow.up.arrow.down.circle">,
+  Crosshair <img src="images/symbols/dot.viewfinder.png" width="18" height="18" class="inline-icon" alt="dot.viewfinder">,
+  Annotations <img src="images/symbols/eye.png" width="18" height="18" class="inline-icon" alt="eye">.</li>
+<li><strong>Trailing:</strong> Save <img src="images/symbols/square.and.arrow.down.png" width="18" height="18" class="inline-icon" alt="square.and.arrow.down">,
+  Measurements <img src="images/symbols/list.bullet.clipboard.png" width="18" height="18" class="inline-icon" alt="list.bullet.clipboard">,
+  Metrics <img src="images/symbols/chart.bar.png" width="18" height="18" class="inline-icon" alt="chart.bar">,
+  Settings <img src="images/symbols/gearshape.png" width="18" height="18" class="inline-icon" alt="gearshape">,
+  Help <img src="images/symbols/questionmark.circle.png" width="18" height="18" class="inline-icon" alt="questionmark.circle">.</li>
+</ul>
+<p>The full Tap Controls panel is visible above the chart in both
+orientations.</p>
+<h2 id="94-menu-bar-desktop">9.4 Menu Bar — Desktop</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover each menu in order:
+<!--
+SCREENSHOT:
 
-     GuitarTap menu:
-     - Settings… (⌘,)
+  File:    images/ch09-desktop.png
+  Subject: Guitar Tap on macOS (or any desktop platform — Python on
+           Windows, Linux, or macOS works equivalently). Show the
+           full window with the toolbar and chart visible, plus one
+           menu pulled down (the File menu is the most informative —
+           it shows Play Audio File…, Save Measurement…, Export
+           Spectrum Image…, Export PDF Report… and their keyboard
+           shortcuts).
+  Notes:   macOS native or Python desktop, your choice — the
+           top-of-window toolbar layout is essentially identical
+           between them. Light mode.
+-->
 
-     File menu:
-     - Save Measurement… (⌘S)
-     - Export Spectrum Image… (⌘E)
-     - Export PDF Report… (⇧⌘E)
-     - Import Measurement…
-
-     View menu:
-     - Auto dB (⌘0)
-     - Cycle Annotations (⌘`)
-     - Show Metrics (⌘M)
-     - Show Measurements (⌘L)
-
-     Help menu:
-     - Search field
-     - GuitarTap Help (opens HelpView sheet) -->
-
-<h3 id="94b-menu-bar-windows-and-linux-python-desktop-app">9.4b Menu Bar — Windows and Linux (Python desktop app)</h3>
-
-<!-- TODO: Write section -->
-<!-- Cover:
-     - File menu: equivalent save and export actions (Save Measurement, Export Spectrum
-       Image, Export PDF Report, Import Measurement); keyboard shortcuts may differ
-     - Help menu: Guitar Tap Help item (opens in-app help dialog)
-     - Differences from macOS: no dedicated application menu; Settings accessed via
-       File menu or equivalent; macOS ⌘ shortcuts use Ctrl on Windows/Linux -->
-
+<p><img alt="Desktop layout — full window with the File menu pulled down to show Play Audio File, Save Measurement, Export Spectrum Image, and Export PDF Report with their shortcuts." class="screenshot-desktop" src="images/ch09-desktop.png"></p>
+<p>Both the Swift native macOS build and the Python desktop build
+(Windows, Linux, macOS Python) expose the same operations through
+a menu bar. The placement and shortcuts differ per platform
+following the host OS conventions.</p>
+<p><strong>Application menu</strong> (macOS — both native and Python; on Windows
+and Linux these items move into the File and Help menus per the
+notes below):</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>macOS shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>About Guitar Tap</td>
+<td>(system default)</td>
+</tr>
+<tr>
+<td>Settings…</td>
+<td>⌘,</td>
+</tr>
+<tr>
+<td>Quit Guitar Tap</td>
+<td>⌘Q</td>
+</tr>
+</tbody>
+</table>
+<p><strong>File menu:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>macOS shortcut</th>
+<th>Windows / Linux shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Close (macOS only)</td>
+<td>⌘W</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Play Audio File…</td>
+<td>⌘⌥O</td>
+<td>Ctrl+Alt+O</td>
+</tr>
+<tr>
+<td>Save Measurement…</td>
+<td>⌘S</td>
+<td>Ctrl+S</td>
+</tr>
+<tr>
+<td>Export Spectrum Image…</td>
+<td>⌘E</td>
+<td>Ctrl+E</td>
+</tr>
+<tr>
+<td>Export PDF Report…</td>
+<td>⇧⌘E</td>
+<td>Ctrl+Shift+E</td>
+</tr>
+<tr>
+<td>Settings… (Win / Linux Python only)</td>
+<td>—</td>
+<td>Ctrl+,</td>
+</tr>
+<tr>
+<td>Exit / Quit (Win / Linux Python only)</td>
+<td>—</td>
+<td>(system default)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>View menu:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>macOS shortcut</th>
+<th>Windows / Linux shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Auto dB</td>
+<td>⌘0</td>
+<td>Ctrl+0</td>
+</tr>
+<tr>
+<td>Cycle Annotations</td>
+<td>⌘`</td>
+<td>Ctrl+`</td>
+</tr>
+<tr>
+<td>Show Metrics</td>
+<td>⌘M</td>
+<td>Ctrl+M</td>
+</tr>
+<tr>
+<td>Show Measurements</td>
+<td>⌘L</td>
+<td>Ctrl+L</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Help menu:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>macOS shortcut</th>
+<th>Windows / Linux shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Guitar Tap Help</td>
+<td>⌘?</td>
+<td>F1</td>
+</tr>
+<tr>
+<td>About Guitar Tap… (Win / Linux Python only)</td>
+<td>—</td>
+<td>(no default)</td>
+</tr>
+</tbody>
+</table>
 <h2 id="95-individual-controls">9.5 Individual Controls</h2>
 
-<!-- TODO: Write section -->
-<!-- For each control provide: icon description, name, what it does,
-     when it is enabled/disabled, any keyboard shortcut (macOS).
-
-     NEW TAP
-     - Icon: hand.tap
-     - Resets/arms the tap detector; clears the frozen spectrum and returns to live view
-     - Also exits comparison mode when comparison is active
-     - Always enabled
-
-     PAUSE / RESUME / ACCEPT
-     - Icon changes based on state:
-         * Pause (pause.circle): suspends tap detection; spectrum stays live; allows
-           Threshold and Peak Min adjustment without risking accidental detection;
-           also available during guitar multi-tap sequences between taps
-         * Resume (play.circle): re-arms detection after Pause
-         * Accept (checkmark.circle, green tint): appears only during plate/brace review
-           phases; locks in the current phase result and advances to the next phase
-     - Disabled during comparison mode and when no measurement is in progress
-
-     CANCEL / REDO
-     - Icon changes based on state:
-         * Cancel (xmark.circle, orange): cancels the current tap sequence in progress;
-           spectrum returns to live; available during guitar and plate/brace sequences
-         * Redo L / Redo C / Redo FLC (arrow.counterclockwise, orange): appears only
-           during the corresponding plate/brace review phase; discards the current phase
-           result and returns to capture for that phase
-     - Disabled when there is no active sequence
-
-     RESULTS
-     - Opens/closes the Analysis Results panel
-     - On iPhone: Results opens as a sheet
-     - On iPad and macOS: Results is a persistent side panel
-
-     AUTO DB
-     - Scales the magnitude (dB) axis to fit the currently visible spectrum
-     - Keyboard shortcut: ⌘0 (macOS)
-
-     ANNOTATIONS
-     - Cycles through annotation display modes: All → Selected → None → All…
-     - Keyboard shortcut: ⌘` (macOS)
-     - Disabled during comparison mode
-
-     SAVE
-     - Opens the Save Measurement sheet when a spectrum is frozen and peaks detected
-     - During comparison: saves the full comparison as a single measurement
-     - Keyboard shortcut: ⌘S (macOS)
-     - Disabled when spectrum is live (no frozen measurement) or no peaks detected
-
-     MEASUREMENTS
-     - Opens/closes the Measurements list
-     - Keyboard shortcut: ⌘L (macOS)
-
-     METRICS
-     - Opens/closes the FFT Diagnostics panel (frame rate, FFT size, input level etc.)
-     - Keyboard shortcut: ⌘M (macOS)
-
-     CROSSHAIR (iOS/iPadOS only)
-     - Toggles the crosshair overlay on the spectrum
-     - Drag the crosshair to read frequency and magnitude at any point
-     - Not available on macOS (use the mouse hover readout instead)
-
-     … CHART OPTIONS (iOS/iPadOS only)
-     - Opens a menu with: Reset Labels, Reset to Saved View, Reset to Defaults
-     - macOS equivalent: right-click on the chart area
-
-     ⓘ ZOOM & PAN HELP (macOS only)
-     - Displays a brief summary of scroll-wheel and trackpad zoom/pan gestures
-
-     SETTINGS
-     - Opens the Settings sheet
-     - Keyboard shortcut: ⌘, (macOS)
-
-     HELP (?)
-     - Opens the in-app Help sheet (HelpView)
-     - Lists all controls, tips, and gesture references in a searchable list -->
-
+<p>Each entry: icon, name, what it does, and any platform notes.
+Keyboard shortcuts are given in macOS form first followed by
+Windows / Linux where they differ.</p>
+<p><strong>New Tap</strong> <img src="images/symbols/hand.tap.png" width="18" height="18" class="inline-icon" alt="hand.tap"> — Arms the tap detector, clears the
+frozen spectrum, and returns to the live view. Also exits
+comparison mode when a comparison is active. Always enabled
+unless detection is unavailable.</p>
+<p><strong>Play File</strong> <img src="images/symbols/waveform.badge.plus.png" width="18" height="18" class="inline-icon" alt="waveform.badge.plus"> — Opens a
+file picker; the selected audio file is fed through the analysis
+pipeline as if it were live microphone input. Useful for analyzing
+captured WAVs or running the analyzer against a reference
+recording. The icon tints orange while a file is playing. Also
+reached from the desktop menu bar (<strong>File → Play Audio File…</strong>,
+<strong>⌘⌥O</strong> macOS / <strong>Ctrl+Alt+O</strong> Windows / Linux).</p>
+<p><strong>Pause</strong> <img src="images/symbols/pause.circle.png" width="18" height="18" class="inline-icon" alt="pause.circle"> /
+<strong>Resume</strong> <img src="images/symbols/play.circle.png" width="18" height="18" class="inline-icon" alt="play.circle"> /
+<strong>Accept</strong> <img src="images/symbols/checkmark.circle.png" width="18" height="18" class="inline-icon" alt="checkmark.circle"> — A
+single button whose label and icon change with state.
+<strong>Pause</strong> suspends tap detection while keeping the spectrum live
+— use it to tune Threshold and Peak Min freely (§2.6, §2.7).
+<strong>Resume</strong> re-arms detection. <strong>Accept</strong> (green) replaces the
+pair during plate / brace review phases (§4.5) and locks in the
+current phase result before advancing.</p>
+<p><strong>Cancel</strong> <img src="images/symbols/xmark.circle.png" width="18" height="18" class="inline-icon" alt="xmark.circle"> /
+<strong>Redo</strong> <img src="images/symbols/arrow.counterclockwise.circle.png" width="18" height="18" class="inline-icon" alt="arrow.counterclockwise.circle"> —
+A single button whose label and icon change with state.
+<strong>Cancel</strong> discards the active sequence and returns to the live
+view. During a plate / brace review phase it becomes <strong>Redo L</strong>,
+<strong>Redo C</strong>, or <strong>Redo FLC</strong> (orange) and re-arms detection for
+that phase only (§4.5).</p>
+<p><strong>Results</strong> <img src="images/symbols/doc.text.png" width="18" height="18" class="inline-icon" alt="doc.text"> (iPhone only) — Opens the
+Analysis Results sheet.</p>
+<p><strong>Auto dB</strong> <img src="images/symbols/arrow.up.arrow.down.circle.png" width="18" height="18" class="inline-icon" alt="arrow.up.arrow.down.circle"> — Scales
+the magnitude axis to fit the current signal (§6.4). Shortcut:
+<strong>⌘0</strong> / <strong>Ctrl+0</strong>.</p>
+<p><strong>Annotations</strong> <img src="images/symbols/eye.png" width="18" height="18" class="inline-icon" alt="eye"> /
+<img src="images/symbols/star.fill.png" width="18" height="18" class="inline-icon" alt="star.fill"> /
+<img src="images/symbols/eye.slash.png" width="18" height="18" class="inline-icon" alt="eye.slash"> —
+Cycles through the annotation display modes: <strong>All → Selected →
+None → All …</strong> (§6.7). The icon shows which state is currently
+active. Shortcut: <strong>⌘`</strong> / <strong>Ctrl+`</strong>.</p>
+<p><strong>Save</strong> <img src="images/symbols/square.and.arrow.down.png" width="18" height="18" class="inline-icon" alt="square.and.arrow.down"> —
+Opens the Save Measurement sheet (§7.1). Enabled whenever there
+is a finished measurement on screen — single tap, plate / brace
+multi-phase capture, or active comparison overlay. Shortcut:
+<strong>⌘S</strong> / <strong>Ctrl+S</strong>.</p>
+<p><strong>Measurements</strong> <img src="images/symbols/list.bullet.clipboard.png" width="18" height="18" class="inline-icon" alt="list.bullet.clipboard"> —
+Opens or closes the Measurements list (§7.2). Shortcut: <strong>⌘L</strong> /
+<strong>Ctrl+L</strong>.</p>
+<p><strong>Metrics</strong> <img src="images/symbols/chart.bar.png" width="18" height="18" class="inline-icon" alt="chart.bar"> — Opens or closes the FFT
+Diagnostics panel (frame rate, FFT size, input level, and so
+on). Shortcut: <strong>⌘M</strong> / <strong>Ctrl+M</strong>.</p>
+<p><strong>Crosshair</strong> <img src="images/symbols/dot.viewfinder.png" width="18" height="18" class="inline-icon" alt="dot.viewfinder"> /
+<img src="images/symbols/plus.viewfinder.png" width="18" height="18" class="inline-icon" alt="plus.viewfinder"> (iOS /
+iPadOS only) — Toggles the touch-readout crosshair (§6.5). On
+desktop there is no toggle; the crosshair follows the mouse
+pointer whenever the pointer is over the chart, showing the
+frequency and magnitude under the cursor in real time.</p>
+<p><strong>Chart Options</strong> <img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle"> (iOS / iPadOS
+only) — Opens the <strong>Chart Options</strong> sheet from the upper-right
+corner of the spectrum chart. Hosts the Reset to Saved and Reset
+to Defaults groups, plus Reset Labels when there are dragged
+labels to reset (§6.2, §6.6). On desktop the same actions are
+reached by right-clicking the chart.</p>
+<p><strong>Zoom &amp; Pan Help</strong> <img src="images/symbols/info.circle.png" width="18" height="18" class="inline-icon" alt="info.circle"> (desktop only) — Shows a
+summary popover of the scroll, modifier-key, and trackpad
+gestures for axis zoom and pan (§6.3).</p>
+<p><strong>Settings</strong> <img src="images/symbols/gearshape.png" width="18" height="18" class="inline-icon" alt="gearshape"> — Opens the Settings sheet
+(Chapter 8). Shortcut: <strong>⌘,</strong> / <strong>Ctrl+,</strong>.</p>
+<p><strong>Help</strong> <img src="images/symbols/questionmark.circle.png" width="18" height="18" class="inline-icon" alt="questionmark.circle"> — Opens the in-app
+Quick-Start Guide. Shortcut: <strong>⌘?</strong> (macOS); <strong>F1</strong> (Windows /
+Linux).</p>
 <h2 id="96-tap-controls">9.6 Tap Controls</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
+<p>The Tap Controls panel groups the per-measurement settings and
+action buttons. Its placement varies by platform — see §9.1
+(iPhone portrait), §9.2 (iPhone landscape), §9.3 (iPad), and
+§9.4 (desktop) for where it sits on each layout. The contents
+themselves are the same everywhere:</p>
+<ul>
+<li>
+<p><strong>Taps stepper (1 – 10)</strong> — number of taps to capture in each
+  guitar-mode sequence, or per phase in plate / brace mode (e.g.
+  3 means three taps for Longitudinal, three for Cross-grain, and
+  three for FLC if enabled). Disabled while a sequence is in
+  progress and during comparison mode.</p>
+</li>
+<li>
+<p><strong>Threshold slider</strong> — signal level (dB) that triggers tap
+  detection (§2.6). The current value is shown next to the
+  slider; the <strong>reset arrow</strong> restores the factory default.
+  Range: −80 dB to −20 dB. Disabled during comparison mode.</p>
+</li>
+<li>
+<p><strong>Peak Min slider</strong> — minimum spectrum magnitude (dB) at which
+  a peak is annotated on the chart and included in guitar-mode
+  analysis (§2.7, §8.5). The current value is shown next to the
+  slider; the <strong>reset arrow</strong> restores the factory default.
+  Range: −100 dB to −20 dB. In plate / brace mode the slider
+  affects only what is drawn on the chart — the selected peak
+  for each phase comes from the capture algorithm and is not
+  changed by Peak Min. Disabled during comparison mode and during
+  plate / brace measurements.</p>
+</li>
+</ul>
+<h2 id="97-status-bar">9.7 Status Bar</h2>
 
-     TAPS STEPPER
-     - Range: 1–10
-     - Sets the number of taps to average for each phase
-     - For plate/brace: applies per phase (e.g. 3 Taps means 3 taps for Longitudinal,
-       3 for Cross-grain, 3 for FLC)
-     - Disabled during an active sequence and during comparison mode
+<p>A thin status bar runs below the spectrum chart on every
+platform and orientation. It is a read-only feedback area that
+reflects the current state of the analyzer; the contents change
+with state.</p>
+<p><strong>Normal tap-detection (default).</strong> Left to right:</p>
+<ul>
+<li>A circle indicator — green when a tap has been captured
+  (label: <strong>Tap Detected!</strong>), grey while waiting (<strong>Waiting for
+  tap…</strong>).</li>
+<li>The current input level in dB.</li>
+<li>During a multi-tap guitar sequence or a plate / brace sequence:
+  a counter such as <strong>Tap 2/3</strong> or <strong>Phase 1/2 · Tap 1/3</strong>, plus
+  a thin progress bar.</li>
+<li><strong>Peak: <em>X.X</em> dB @ <em>Y.Y</em> Hz</strong> — the loudest spectrum bin in the
+  current view, shown on the right side.</li>
+<li>A pause-fill glyph when the spectrum has frozen on a completed
+  measurement.</li>
+<li>A small circle indicating audio-engine state — green for
+  running, red for stopped.</li>
+</ul>
+<p><strong>Loaded-settings warning.</strong> After a saved measurement is loaded
+(see §7.3) the bar shows an orange triangle and the message
+<strong>Loaded settings — Threshold: <em>X<em> dB · Taps: </em>N</em></strong>. The notice
+remains visible until you change Settings or start a fresh
+capture.</p>
+<p><strong>Comparison mode.</strong> A waveform glyph and a one-line description
+of the comparison — <strong>Comparing <em>N</em> measurements</strong> for a saved
+comparison, or <strong>Tap comparison — <em>N</em> taps + averaged</strong> for the
+multi-tap comparison view — plus a hint about how to exit the
+mode (press <strong>Taps</strong> or <strong>New Tap</strong>).</p>
+<p>The iPhone layout uses a single-line condensed version of this
+bar; the iPad and desktop layouts use a slightly taller version
+that stacks the warning above the tap-state row when both apply
+at once.</p>
+<h2 id="98-spectrum-chart-interactions">9.8 Spectrum Chart Interactions</h2>
 
-     THRESHOLD SLIDER
-     - Range: −80 dB to −20 dB
-     - Sets the signal level that triggers tap detection
-     - Value displayed in dB next to the slider
-     - Reset arrow (↺): resets to the factory default
-     - Disabled during comparison mode
-     - Tip: use Pause to adjust while tapping freely and watching the live spectrum
-
-     PEAK MIN SLIDER
-     - Range: −100 dB to −20 dB
-     - Sets the minimum magnitude a spectral peak must reach to be annotated
-       and included in guitar mode analysis
-     - In plate/brace modes: affects chart display only; does not change which peak
-       is selected for the calculation (determined by the capture algorithm)
-     - Value displayed in dB next to the slider
-     - Reset arrow (↺): resets to the factory default
-     - Disabled during comparison mode and during plate/brace measurements -->
-
-<h2 id="97-spectrum-chart-interactions">9.7 Spectrum Chart Interactions</h2>
-
-<p>See Chapter 6 for a complete reference to spectrum chart gestures and interactions.</p>
+<p>See Chapter 6 for a complete reference covering live and frozen
+state, zoom / pan gestures and shortcuts, the <strong>?</strong> popover, the
+crosshair, peak-label dragging and reset, and the Annotation
+modes cycle.</p>
 <h1 id="chapter-10-tips-technique-and-troubleshooting">Chapter 10 — Tips, Technique, and Troubleshooting</h1>
 
-<!-- STATUS: STUB — needs full content -->
-
+<p>Practical advice for tighter results, plus a table of common
+problems and their fixes.</p>
 <h2 id="101-tap-technique">10.1 Tap Technique</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Recommended implement: small bouncy ball on the end of a stick — short contact time,
-       clean impulse, very repeatable; suitable for all three modes (Guitar, Plate, Brace)
-     - Alternative for guitar body surveys: short crisp knuckle or fingertip rap
-     - Why contact time matters: a long slow push excites fewer overtones and muddies the
-       spectrum; the shorter the contact the better the high-frequency content
-     - Where to tap:
-         * Guitar body: top, back, or sides — each position emphasises different modes
-         * Plate/brace: centre of the face; any off-centre tap position biases the result
-     - Consistent force: the tap does not need to be loud — it needs to be above Threshold;
-       an unnecessarily hard tap can cause distortion or trigger false multi-tap -->
-
+<p>The cleanest impulse comes from a <strong>small bouncy ball on the end
+of a stick</strong>. Short contact time, clean impulse, low operator
+variability, and reproducible day to day. Works for all three
+modes (guitar, plate, brace).</p>
+<p>A <strong>firm knuckle or fingertip rap</strong> is the day-to-day alternative
+for guitar-body surveys and works well there. It is less ideal
+for plate and brace measurements because contact time varies
+more.</p>
+<p><strong>Contact time matters.</strong> A long slow push excites fewer
+overtones and muddies the spectrum; the shorter the contact, the
+better the high-frequency content. If the spectrum looks
+smeared-out around the peaks you care about, suspect contact time
+before suspecting the mic or the room.</p>
+<p><strong>Tap location:</strong></p>
+<ul>
+<li><strong>Guitar body</strong> — on the bridge centered, on each wing of the bridge, below the bridge centered, on each side. The decision comes from experience and which node excitation is desired.</li>
+<li><strong>Plate or brace</strong> — centre of the face. Off-centre taps bias
+  the result; the centre is at the antinode of every mode the
+  measurement is designed to capture.</li>
+</ul>
+<p><strong>Force.</strong> The tap does not have to be loud — it just has to
+clear Threshold (§2.6). An unnecessarily hard tap is more likely
+to trigger double-detection or saturate the input than a
+deliberate, medium tap.</p>
 <h2 id="102-consistent-microphone-position">10.2 Consistent Microphone Position</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Why position affects magnitude but not frequency: the resonant frequencies of the
-       wood are fixed; only the coupling efficiency to the microphone changes
-     - Practical marking: a small piece of tape or chalk mark on the workbench defines the
-       microphone position and distance; reproducing it ensures valid comparisons over time
-     - Distance: 5–15 cm is a useful range; too close can cause off-axis rejection with
-       directional microphones; too far reduces signal-to-noise ratio -->
-
+<p>The wood's resonant <em>frequencies</em> are fixed; only the <em>magnitude</em>
+the microphone sees depends on where the mic is sitting. Position
+therefore matters for any comparison you make over time — across
+build stages, across thinning passes, across instruments.</p>
+<p>Mark the position with a piece of tape or a chalk line on the
+bench. When you come back tomorrow, set up against the same mark.</p>
+<p><strong>Distance:</strong> 5–15 cm is a useful range. Closer than 5 cm risks
+off-axis rejection from a directional mic; further than ~20 cm
+gives away signal-to-noise without much benefit.</p>
 <h2 id="103-dealing-with-background-noise">10.3 Dealing with Background Noise</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Threshold slider: moving right (higher dB, less negative) to reject ambient noise;
-       moving left (lower dB, more negative) to catch quiet taps
-     - Hysteresis margin: prevents double-detection by requiring the signal to drop below
-       Threshold by this margin before re-arming; default 3 dB is appropriate for most rooms
-     - Practical noise floor target: background noise should be at least 10 dB below Threshold
-       to avoid false triggers
-     - Using Pause to assess the noise floor: press Pause and watch the live spectrum for
-       sustained noise peaks; adjust Threshold until the noise is clearly below it
-     - Worst offenders: HVAC fans, refrigerators, traffic — consider switching them off or
-       moving to a quieter space for plate/brace measurements that require consistency -->
+<p>The Threshold slider is the first line of defence. Move it
+<strong>higher</strong> (closer to 0 dB) to reject ambient noise; <strong>lower</strong>
+(more negative) to catch quieter taps. The goal is to put
+Threshold comfortably above the noise floor and comfortably below
+your tap peak.</p>
+<p>The detector also applies a <strong>3 dB hysteresis margin</strong>: after a
+tap fires, the signal must drop 3 dB below Threshold before the
+detector re-arms. This prevents the ring-out tail from
+re-triggering as a second tap. The 3 dB value is fixed and is
+appropriate for typical rooms.</p>
+<p><strong>Practical target.</strong> Keep your noise floor at least 10 dB below
+Threshold; if it is closer, false triggers become likely.</p>
+<p><strong>Pausing to measure the noise floor.</strong> Press <strong>Pause</strong> (§2.6),
+leave the analyzer running, and watch the live spectrum for a few
+seconds. Sustained noise peaks tell you where the noise floor
+sits; pick Threshold a comfortable margin above them.</p>
+<p><strong>Worst offenders.</strong> HVAC fans, refrigerator compressors,
+traffic, and computer fans. Plate and brace measurements that
+need to compare cleanly across days are worth either silencing or
+moving away from these sources.</p>
+<h2 id="104-decoupling-the-top-from-the-air-mode">10.4 Decoupling the Top from the Air Mode</h2>
 
-<h2 id="104-air-mode-technique">10.4 Air Mode Technique</h2>
-
-<!-- TODO: Write section -->
-<!-- Cover:
-     - The Air (Helmholtz) mode is excited by compressing the air in the body cavity,
-       not by flexing the wood
-     - Technique: cup the palm over the sound hole and push quickly, or clap over the hole;
-       no wood tapping required; the entire guitar or soundbox can be in its normal position
-     - Threshold: the air tap is typically a different signal level than a wood tap;
-       consider using Pause to set Threshold specifically for air mode measurements
-     - Multi-tap averaging: 3–5 taps is usually sufficient for the air mode; the resonance
-       is stable and not affected by grain variation -->
-
+<p>A normal tap of the guitar body excites the air (Helmholtz) mode
+and the top mode together, and the two are coupled — the
+displayed top frequency is pulled away from the wood's true value
+by the coupling.</p>
+<p>To read the top resonance without that bias, block the air
+cavity before tapping: <strong>stuff a rag, foam, or other soft fill
+into the sound hole</strong> so air cannot pump in and out. With the
+cavity blocked the Helmholtz resonance disappears from the
+spectrum, and the top peak shifts to the position it would have
+without air coupling.</p>
+<p>Tap, capture, and read the top frequency. Remove the fill before
+returning to normal use.</p>
 <h2 id="105-ring-out-and-decay-time">10.5 Ring-Out and Decay Time</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - What decay time measures: the time (seconds) for the tap response to decay to 1/e
-       (~37%) of its peak amplitude — a measure of structural damping
-     - Higher decay time = lower damping = more sustain; lower decay time = more damping
-       = the wood is absorbing energy more quickly
-     - Typical values for quality soundboards: >1.5 s is excellent; 1.0–1.5 s is good;
-       <0.8 s may indicate over-drying or excessive internal friction
-     - Braced vs. unbraced: a top plate before bracing typically has a higher decay time
-       than after bracing; comparing the two at each stage tracks how the bracing damps
-       the resonance
-     - Note: decay time is measured from the tap capture; multi-tap averaging averages
-       the spectra and uses the decay from the averaged capture -->
-
+<p>Ring-out (decay time) is the time, in seconds, for the tap's
+amplitude envelope to fall to 1/e (~37%) of its peak. It is a
+direct read on structural damping.</p>
+<ul>
+<li><strong>Higher decay time</strong> → lower damping → more sustain.</li>
+<li><strong>Lower decay time</strong> → more damping → energy is being absorbed
+  faster.</li>
+</ul>
+<p><strong>Typical soundboard ranges:</strong></p>
+<ul>
+<li><strong>&gt; 1.5 s</strong> — excellent.</li>
+<li><strong>1.0–1.5 s</strong> — good.</li>
+<li><strong>&lt; 0.8 s</strong> — worth investigating; may indicate over-drying or
+  excessive internal friction.</li>
+</ul>
+<p><strong>Before-and-after.</strong> A top plate before bracing typically has a
+higher decay time than after bracing. Measuring at each stage
+quantifies how much the bracing is damping the resonance — a
+useful data point for tracking your own bracing pattern's
+behaviour over multiple builds.</p>
+<p>Decay time is computed from the tap capture. In a multi-tap
+sequence the averaged-capture decay is reported.</p>
 <h2 id="106-multi-tap-averaging-strategy">10.6 Multi-Tap Averaging Strategy</h2>
 
-<!-- TODO: Write section -->
-<!-- Cover:
-     - Recommended tap counts for different scenarios:
-         * Guitar body survey: 1–3 taps; the resonances are stable and averaging mainly
-           reduces occasional missed or noisy taps
-         * Plate/brace material: 3–5 taps; averaging reduces variance from finger noise
-           and slight position variation; more taps give more stable E_L values
-         * FLC tap: 1–3 taps; the FLC resonance is often weaker; avoid over-tapping
-           as position consistency is more critical than averaging
-     - When averaging helps least: very quiet room, experienced tapper, firm bouncy-ball
-       implement; single-tap results are usually sufficient
-     - Checking stability: after a measurement, compare the frequency result from a single
-       tap to a 5-tap average for the same blank; if they agree to within 1 Hz the
-       technique is consistent enough that single-tap measurements are reliable
-     - Pause between taps in a multi-tap sequence: press Pause after each tap is registered
-       if you want to reposition your hand before the next tap; Resume to re-arm -->
-
+<p>The right tap count depends on what you are measuring:</p>
+<ul>
+<li><strong>Guitar body survey</strong> — 1–3 taps. The body resonances are
+  stable; averaging mainly reduces the impact of an occasional
+  noisy or missed tap.</li>
+<li><strong>Plate or brace material measurement</strong> — 3–5 taps. Averaging
+  reduces variance from finger noise and small position
+  differences, which matters for the absolute E_L value.</li>
+<li><strong>FLC tap (plate mode)</strong> — 1–3 taps. The FLC resonance is
+  weaker, so position consistency matters more than averaging.
+  Tapping the FLC repeatedly with imperfect positioning can
+  <em>increase</em> variance rather than reduce it.</li>
+</ul>
+<p><strong>When averaging helps least.</strong> Very quiet room, experienced
+tapper, firm bouncy-ball implement: single-tap is usually
+sufficient.</p>
+<p><strong>Sanity check.</strong> For a new piece of stock or a new technique,
+take a single tap and a 5-tap average of the same blank and
+compare the frequencies. If they agree to within 1 Hz you can
+trust single-tap measurements for that piece going forward.</p>
+<p><strong>Pause within a sequence.</strong> Press Pause after any captured tap
+to reposition your hand or settle the room; Resume re-arms the
+detector for the next tap.</p>
 <h2 id="107-common-problems">10.7 Common Problems</h2>
 
 <table>
@@ -2904,72 +3433,67 @@ zoom from there for the other.</p>
 <tr>
 <td>No tap detected</td>
 <td>Threshold too high</td>
-<td>Lower Threshold slider</td>
+<td>Lower the Threshold slider (§2.6).</td>
 </tr>
 <tr>
 <td>False detections</td>
-<td>Threshold too low or noisy room</td>
-<td>Raise Threshold; use Pause between taps</td>
+<td>Threshold too low, or noisy room</td>
+<td>Raise Threshold; verify the noise floor with Pause (§10.3).</td>
 </tr>
 <tr>
-<td>Peaks missing</td>
+<td>Peaks missing on the chart</td>
 <td>Peak Min too high</td>
-<td>Lower Peak Min slider</td>
+<td>Lower the Peak Min slider (§2.7).</td>
 </tr>
 <tr>
 <td>Unknown peaks everywhere</td>
-<td>Analysis range too wide</td>
-<td>Narrow analysis range in Advanced settings</td>
+<td>Analysis range too wide for the measurement</td>
+<td>Narrow <strong>Analysis Frequency Range</strong> in Settings → Advanced → Analysis Settings (§8.5).</td>
 </tr>
 <tr>
 <td>Spectrum doesn't update</td>
 <td>Microphone permission not granted</td>
-<td>Check System Settings (macOS) or iOS Settings</td>
+<td>iOS / iPadOS: Settings → Guitar Tap → Microphone. macOS: System Settings → Privacy &amp; Security → Microphone. Windows: Settings → Privacy &amp; Security → Microphone. Linux: check <code>pavucontrol</code> (§2.2).</td>
 </tr>
 <tr>
 <td>Plate calculation missing</td>
 <td>Dimensions not entered</td>
-<td>Open Settings → Measurement Type → Material</td>
+<td>Settings → Measurement Type → Plate; fill in Length / Width / Thickness / Mass (§4.3, §8.3).</td>
 </tr>
 <tr>
-<td>Gore thickness not shown</td>
-<td>FLC not captured or not enabled</td>
-<td>Enable Measure FLC in Settings</td>
+<td>Gore thickness shows "G_LC assumed 0"</td>
+<td>FLC tap not captured</td>
+<td>Enable <strong>Measure FLC</strong> in Settings and re-run the plate sequence (§4.8).</td>
 </tr>
 <tr>
-<td>Results panel not visible</td>
-<td>macOS: window too narrow</td>
-<td>Widen the window</td>
+<td>Analysis Results panel not visible (desktop)</td>
+<td>Window too narrow</td>
+<td>Widen the window.</td>
 </tr>
 <tr>
-<td>Plate/brace: stuck waiting for next phase</td>
-<td>Missed the Accept button</td>
-<td>Look for Accept (green, checkmark) in the tap controls — it replaces Pause during review</td>
+<td>Plate / brace stuck waiting for next phase</td>
+<td>Accept not pressed</td>
+<td>Look for <strong>Accept</strong> (green checkmark) in the tap controls — it replaces Pause during the review phase (§4.5).</td>
 </tr>
 <tr>
-<td>Plate/brace: want to redo a phase already accepted</td>
+<td>Plate / brace: need to redo a phase already accepted</td>
 <td>Phase locked in</td>
-<td>Tap New Tap to restart the whole sequence; individual phase redo is only available before Accept is tapped</td>
+<td>Press <strong>New Tap</strong> to restart the whole sequence. Per-phase redo is only available before that phase is accepted.</td>
 </tr>
 <tr>
-<td>Compare button not appearing</td>
-<td>Fewer than 2 or more than 5 selected, or a plate/brace record is in the selection</td>
-<td>Select 2–5 guitar measurements only; deselect any plate/brace records</td>
+<td>Compare button does not appear</td>
+<td>Fewer than 2, more than 5, or a plate / brace measurement is in the selection</td>
+<td>Select 2–5 guitar measurements only (§3.9).</td>
 </tr>
 <tr>
-<td>Comparison: all curves same colour in exported image</td>
-<td>Exporting from an older version</td>
-<td>Update the app and re-export</td>
+<td>Threshold / Taps differ from your Settings after loading a measurement</td>
+<td>Loaded measurement's settings are active</td>
+<td>The status bar shows a <strong>Loaded settings</strong> notice (§7.3 and §9.7). Change Settings, or press <strong>New Tap</strong> to start fresh with your own values.</td>
 </tr>
 <tr>
-<td>Comparison PDF shows 0 spectra</td>
-<td>Older app version</td>
-<td>Update the app; comparison PDFs now report the correct spectra count</td>
-</tr>
-<tr>
-<td>Loaded measurement: threshold/tap count differ from Settings</td>
-<td>Loaded measurement values override live settings</td>
-<td>The status bar shows a warning; adjust Threshold and Taps stepper as needed, or press New Tap to clear the loaded state and restore your current settings</td>
+<td>Imported file: input device warning after import</td>
+<td>Mic named in the file isn't on this system</td>
+<td>The import succeeded; a fallback device is in use. Reconnect the original mic, or pick a current one in Settings → Audio Input (§7.9).</td>
 </tr>
 </tbody>
 </table>
@@ -2985,8 +3509,10 @@ zoom from there for the other.</p>
 <p><strong>E_C (Young's modulus, cross-grain)</strong> — Stiffness of the wood measured perpendicular to the grain direction (radial or tangential). Expressed in GPa.</p>
 <p><strong>E_L (Young's modulus, longitudinal)</strong> — Stiffness of the wood measured along the grain direction. Expressed in GPa. The primary stiffness parameter for tonewood selection.</p>
 <p><strong>FFT (Fast Fourier Transform)</strong> — The algorithm used to convert the time-domain microphone signal into the frequency-domain spectrum displayed by the app.</p>
-<p><strong>FLC tap</strong> — A third tap measurement (Flat Long/Cross) used in Plate mode to estimate the shear modulus, which is required for the Gore target thickness calculation.</p>
-<p><strong>Free-free beam</strong> — A beam supported only at its nodal points (22% from each end), leaving it free to vibrate without damping at the supports. The standard suspension technique for Plate and Brace mode measurements.</p>
+<p><strong>FLC tap</strong> — A third tap measurement (Free-Length-Cross) used in Plate mode to estimate the shear modulus G_LC, which feeds the Gore target thickness calculation. Optional — when omitted the Gore thickness is reported with the message "G_LC assumed 0" and carries an over-estimate of roughly 5–7% (§4.8).</p>
+<p><strong>Free-free beam</strong> — A beam suspended at its bending-mode nodal points (22% from each end), leaving it free to vibrate without damping at the supports. The standard suspension assumption for Plate and Brace material measurements. In practice a single hold at one of the two nodal points is sufficient — see §4.4.</p>
+<p><strong>Free-Length-Cross (FLC) mode</strong> — The torsional mode excited by the FLC tap; its frequency feeds the shear-modulus calculation. See FLC tap.</p>
+<p><strong>G_LC (shear modulus)</strong> — The shear modulus of the plate, derived from the FLC tap frequency. Required by the full Gore target thickness formula; substituted with zero when FLC is not measured.</p>
 <p><strong>Gore target thickness</strong> — The recommended final thickness for a guitar top or back plate, calculated from the plate dimensions, Young's moduli, and a stiffness target, following the method described by Trevor Gore.</p>
 <p><strong>Q factor</strong> — Quality factor; the ratio of a resonant peak's centre frequency to its −3 dB bandwidth. Q = f₀ / Δf. Higher Q indicates lower damping.</p>
 <p><strong>Radiation ratio (R)</strong> — A figure of merit for tonewood; R = c_L / √ρ = √(E_L/ρ³). Higher values indicate a lighter, stiffer wood that radiates sound more efficiently.</p>
@@ -2995,102 +3521,610 @@ zoom from there for the other.</p>
 <p><strong>Speed of sound (c)</strong> — The speed at which a longitudinal stress wave travels through the wood: c_L = √(E_L / ρ). Expressed in m/s.</p>
 <p><strong>Tap Tone Ratio</strong> — The ratio of the top mode frequency to the air mode frequency (f_top / f_air). Typical range for a well-voiced guitar: 1.8–2.4.</p>
 <p><strong>Top / Back mode</strong> — The fundamental bending mode of the guitar top plate or back plate, respectively; often the strongest peak in a guitar tap spectrum.</p>
-<p><strong>Unknown mode</strong> — A detected spectral peak that does not fall within any defined frequency window for the selected guitar type. Shown with a "?" label when Show Unknown Modes is enabled.</p>
+<p><strong>Unknown mode</strong> — A detected spectral peak that does not fall within any defined frequency window for the selected guitar subtype. Shown on the chart by default; can be hidden with <strong>Settings → Advanced → Analysis Settings → Show Unknown Modes</strong> (§3.1, §8.5). An Unknown peak can be re-identified by tapping its row in the Analysis Results panel and assigning a standard mode (Air, Top, Back, Dipole, Ring, Upper Modes) or a custom label (§3.7).</p>
 <p><strong>Upper modes</strong> — Resonant modes above the main top and back modes; their significance increases with frequency and build stage.</p>
-<h1 id="appendix-a-keyboard-shortcuts-macos">Appendix A — Keyboard Shortcuts (macOS)</h1>
+<h1 id="appendix-a-keyboard-shortcuts">Appendix A — Keyboard Shortcuts</h1>
+
+<p>Desktop keyboard shortcuts for every action with one assigned in
+Guitar Tap, grouped by the menu where the action appears. The
+same shortcuts are listed in §9.4 alongside the menu items
+themselves; this appendix is the lookup table.</p>
+<p>The Swift native macOS build and the Python desktop build
+(Windows, Linux, macOS Python) follow the host OS conventions —
+⌘ shortcuts on macOS, Ctrl shortcuts on Windows and Linux.</p>
+<h2 id="application-menu">Application menu</h2>
 
 <table>
 <thead>
 <tr>
-<th>Shortcut</th>
 <th>Action</th>
+<th>macOS</th>
+<th>Windows / Linux</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>⌘,</td>
 <td>Settings</td>
+<td>⌘,</td>
+<td>Ctrl+,</td>
 </tr>
 <tr>
-<td>⌘S</td>
-<td>Save Measurement…</td>
-</tr>
-<tr>
-<td>⌘E</td>
-<td>Export Spectrum Image…</td>
-</tr>
-<tr>
-<td>⇧⌘E</td>
-<td>Export PDF Report…</td>
-</tr>
-<tr>
-<td>⌘0</td>
-<td>Auto dB</td>
-</tr>
-<tr>
-<td>⌘`</td>
-<td>Cycle Annotations</td>
-</tr>
-<tr>
-<td>⌘M</td>
-<td>Show Metrics</td>
-</tr>
-<tr>
-<td>⌘L</td>
-<td>Show Measurements</td>
+<td>Quit</td>
+<td>⌘Q</td>
+<td>(system default)</td>
 </tr>
 </tbody>
 </table>
-<div class="note">Keyboard shortcuts apply to the macOS native app only. The Python desktop app on Windows and Linux uses equivalent menu items; shortcut keys may differ by platform.</div>
-
-<h1 id="appendix-b-file-formats">Appendix B — File Formats</h1>
-
-<h2 id="guitartap">.guitartap</h2>
-
-<p>A JSON-based measurement container. Contains:</p>
-<ul>
-<li>All detected peaks (frequency, magnitude, Q, bandwidth, mode assignment, annotation offset, manual overrides)</li>
-<li>Spectrum snapshot: Base64-encoded little-endian float32 array of magnitude values</li>
-<li>Settings at time of capture (measurement type, frequency windows, Peak Min, analysis range)</li>
-<li>Metadata: capture date, device, location label, notes</li>
-</ul>
-<p>Compatible between iOS, iPadOS, and macOS versions of GuitarTap. Can be round-tripped: exported on iOS, imported on macOS, and vice versa.</p>
-<h2 id="calibration-files-txt-cal">Calibration Files (.txt / .cal)</h2>
-
-<p>Frequency response compensation data for a measurement microphone. Format: two-column plain text, one frequency–magnitude pair per line.</p>
-<pre><code>&lt;h1 id=&quot;frequency-hz-magnitude-db&quot;&gt;Frequency (Hz)   Magnitude (dB)&lt;/h1&gt;
-20.0               -1.2
-50.0               -0.4
-100.0               0.0
-...
-20000.0            -3.1
-</code></pre>
-<p>The app applies the inverse of the calibration curve to the incoming spectrum, correcting for microphone frequency response deviations.</p>
-<h2 id="exported-formats">Exported Formats</h2>
+<h2 id="file-menu">File menu</h2>
 
 <table>
 <thead>
 <tr>
-<th>Format</th>
+<th>Action</th>
+<th>macOS</th>
+<th>Windows / Linux</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Close</td>
+<td>⌘W</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Play Audio File</td>
+<td>⌘⌥O</td>
+<td>Ctrl+Alt+O</td>
+</tr>
+<tr>
+<td>Save Measurement</td>
+<td>⌘S</td>
+<td>Ctrl+S</td>
+</tr>
+<tr>
+<td>Export Spectrum Image</td>
+<td>⌘E</td>
+<td>Ctrl+E</td>
+</tr>
+<tr>
+<td>Export PDF Report</td>
+<td>⇧⌘E</td>
+<td>Ctrl+Shift+E</td>
+</tr>
+</tbody>
+</table>
+<h2 id="view-menu">View menu</h2>
+
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>macOS</th>
+<th>Windows / Linux</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Auto dB</td>
+<td>⌘0</td>
+<td>Ctrl+0</td>
+</tr>
+<tr>
+<td>Cycle Annotations</td>
+<td>⌘`</td>
+<td>Ctrl+`</td>
+</tr>
+<tr>
+<td>Show Metrics</td>
+<td>⌘M</td>
+<td>Ctrl+M</td>
+</tr>
+<tr>
+<td>Show Measurements</td>
+<td>⌘L</td>
+<td>Ctrl+L</td>
+</tr>
+</tbody>
+</table>
+<h2 id="help-menu">Help menu</h2>
+
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>macOS</th>
+<th>Windows / Linux</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Guitar Tap Help</td>
+<td>⌘?</td>
+<td>F1</td>
+</tr>
+</tbody>
+</table>
+<p>iOS and iPadOS do not expose menu items or keyboard shortcuts in
+Guitar Tap; everything on those platforms is reached through the
+toolbar (Chapter 9) or the popup menu in the Measurements list
+(§7.2).</p>
+<h1 id="appendix-b-file-formats">Appendix B — File Formats</h1>
+
+<h2 id="measurement-files-guitartap">Measurement files (`.guitartap`)</h2>
+
+<p>The native portable measurement container. UTF-8 JSON,
+self-contained, and identical across every platform Guitar Tap
+runs on (iOS, iPadOS, macOS native, and the Python build on
+Windows / Linux / macOS Python). A file written on any platform
+opens on any other without conversion. The export and import
+workflows are documented in §7.8 and §7.9.</p>
+<p>The remainder of this section is a structural reference for
+anyone parsing or generating <code>.guitartap</code> files outside the app.</p>
+<h3 id="file-level-structure">File-level structure</h3>
+
+<p>The file is pretty-printed JSON. The top-level value is an
+<strong>array</strong> containing exactly one measurement object — the array
+wrapping is part of the format and parsers must accept it even
+when only one measurement is present.</p>
+<pre><code class="language-json">[
+  {
+    &quot;id&quot;: &quot;…&quot;,
+    &quot;timestamp&quot;: &quot;…&quot;,
+    ...
+  }
+]
+</code></pre>
+<p>Dates are ISO-8601 strings (<code>YYYY-MM-DDTHH:MM:SSZ</code>). UUIDs are
+RFC 4122 strings. Numbers are JSON numbers (single-precision
+floats are encoded as decimal; per-spectrum arrays use the
+compact binary encoding below).</p>
+<h3 id="measurement-object">Measurement object</h3>
+
+<p>Required fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>Stable identifier.</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>ISO-8601</td>
+<td>When the measurement was saved.</td>
+</tr>
+<tr>
+<td><code>peaks</code></td>
+<td>array of Peak</td>
+<td>All detected peaks (empty for a saved comparison).</td>
+</tr>
+</tbody>
+</table>
+<p>Optional fields — populated depending on measurement type and on
+what the user did at save time:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>measurementName</code></td>
+<td>string</td>
+<td>User-entered name (§7.1).</td>
+</tr>
+<tr>
+<td><code>notes</code></td>
+<td>string</td>
+<td>User notes.</td>
+</tr>
+<tr>
+<td><code>decayTime</code></td>
+<td>float</td>
+<td>Seconds; guitar only.</td>
+</tr>
+<tr>
+<td><code>spectrumSnapshot</code></td>
+<td>SpectrumSnapshot</td>
+<td>Averaged guitar spectrum.</td>
+</tr>
+<tr>
+<td><code>longitudinalSnapshot</code>, <code>crossSnapshot</code>, <code>flcSnapshot</code></td>
+<td>SpectrumSnapshot</td>
+<td>Plate / brace per-phase spectra.</td>
+</tr>
+<tr>
+<td><code>selectedLongitudinalPeakID</code>, <code>selectedCrossPeakID</code>, <code>selectedFlcPeakID</code></td>
+<td>UUID</td>
+<td>The peak chosen as L / C / FLC.</td>
+</tr>
+<tr>
+<td><code>selectedPeakIDs</code></td>
+<td>array of UUID</td>
+<td>Currently-selected peaks (guitar).</td>
+</tr>
+<tr>
+<td><code>selectedPeakFrequencies</code></td>
+<td>array of float</td>
+<td>Frequencies (Hz) parallel to the IDs, used to re-match after a Peak Min change generates new UUIDs.</td>
+</tr>
+<tr>
+<td><code>peakAnnotationOffsets</code></td>
+<td>object</td>
+<td>Map of peak UUID → <code>{ "x": &lt;freq Hz&gt;, "y": &lt;magnitude dB&gt; }</code>. Custom label positions.</td>
+</tr>
+<tr>
+<td><code>annotationVisibilityMode</code></td>
+<td>string</td>
+<td>Enum: <code>all</code> / <code>selected</code> / <code>none</code>.</td>
+</tr>
+<tr>
+<td><code>tapDetectionThreshold</code></td>
+<td>float</td>
+<td>Threshold (dB) at save time.</td>
+</tr>
+<tr>
+<td><code>numberOfTaps</code></td>
+<td>int</td>
+<td>Taps stepper value at save time.</td>
+</tr>
+<tr>
+<td><code>peakMinThreshold</code></td>
+<td>float</td>
+<td>Peak Min (dB) at save time.</td>
+</tr>
+<tr>
+<td><code>peakModeOverrides</code></td>
+<td>object</td>
+<td>Map of peak UUID → user-assigned mode label.</td>
+</tr>
+<tr>
+<td><code>microphoneName</code>, <code>microphoneUID</code></td>
+<td>string</td>
+<td>Input device provenance.</td>
+</tr>
+<tr>
+<td><code>calibrationName</code></td>
+<td>string</td>
+<td>Active calibration profile, if any.</td>
+</tr>
+<tr>
+<td><code>comparisonEntries</code></td>
+<td>array of ComparisonEntry</td>
+<td>Present <strong>only</strong> for saved comparisons.</td>
+</tr>
+<tr>
+<td><code>tapEntries</code></td>
+<td>array of TapEntry</td>
+<td>Per-tap data for multi-tap guitar.</td>
+</tr>
+<tr>
+<td><code>measurementType</code>, <code>guitarType</code></td>
+<td>string</td>
+<td>Convenience copies for external consumers; mirror <code>spectrumSnapshot</code> fields.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="spectrumsnapshot">SpectrumSnapshot</h3>
+
+<p>Required fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>frequenciesData</code></td>
+<td>Base64 string</td>
+<td>See "Spectrum data encoding" below.</td>
+</tr>
+<tr>
+<td><code>magnitudesData</code></td>
+<td>Base64 string</td>
+<td>Same length as <code>frequenciesData</code>.</td>
+</tr>
+<tr>
+<td><code>minFreq</code>, <code>maxFreq</code></td>
+<td>float</td>
+<td>Chart frequency range (Hz).</td>
+</tr>
+<tr>
+<td><code>minDB</code>, <code>maxDB</code></td>
+<td>float</td>
+<td>Chart magnitude range (dB).</td>
+</tr>
+<tr>
+<td><code>isLogarithmic</code></td>
+<td>bool</td>
+<td>Axis scale.</td>
+</tr>
+</tbody>
+</table>
+<p>Optional measurement-type fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>showUnknownModes</code></td>
+<td>bool</td>
+<td>Mirrors the Settings toggle.</td>
+</tr>
+<tr>
+<td><code>guitarType</code></td>
+<td>string</td>
+<td><code>generic</code> / <code>acoustic</code> / <code>classical</code> / <code>flamenco</code>.</td>
+</tr>
+<tr>
+<td><code>measurementType</code></td>
+<td>string</td>
+<td><code>generic</code> / <code>acoustic</code> / <code>classical</code> / <code>flamenco</code> / <code>plate</code> / <code>brace</code>.</td>
+</tr>
+<tr>
+<td><code>plateLength</code>, <code>plateWidth</code>, <code>plateThickness</code>, <code>plateMass</code></td>
+<td>float</td>
+<td>Plate dimensions in mm / g.</td>
+</tr>
+<tr>
+<td><code>guitarBodyLength</code>, <code>guitarBodyWidth</code></td>
+<td>float</td>
+<td>Body inputs for Gore thickness (mm).</td>
+</tr>
+<tr>
+<td><code>plateStiffnessPreset</code></td>
+<td>string</td>
+<td><code>steelStringTop</code> / <code>steelStringBack</code> / <code>classical</code> / <code>custom</code>.</td>
+</tr>
+<tr>
+<td><code>customPlateStiffness</code></td>
+<td>float</td>
+<td>Value when preset is <code>custom</code>.</td>
+</tr>
+<tr>
+<td><code>measureFlc</code></td>
+<td>bool</td>
+<td>Whether the FLC phase was captured.</td>
+</tr>
+<tr>
+<td><code>braceLength</code>, <code>braceWidth</code>, <code>braceThickness</code>, <code>braceMass</code></td>
+<td>float</td>
+<td>Brace dimensions in mm / g.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="spectrum-data-encoding">Spectrum data encoding</h3>
+
+<p><code>frequenciesData</code> and <code>magnitudesData</code> are Base64-encoded byte
+strings. After Base64 decoding the bytes are a contiguous
+little-endian IEEE-754 single-precision (<code>float32</code>) array — 4
+bytes per value, length implicit (<code>byteCount / 4</code>). The two
+arrays are the same length and are parallel: element <em>i</em> of
+<code>magnitudesData</code> is the magnitude (dB) at the frequency (Hz)
+given by element <em>i</em> of <code>frequenciesData</code>.</p>
+<p>Reference decoder (Python):</p>
+<pre><code class="language-python">import base64, struct
+b = base64.b64decode(snapshot[&quot;frequenciesData&quot;])
+freqs = list(struct.unpack(f&quot;&lt;{len(b)//4}f&quot;, b))
+</code></pre>
+<h3 id="peak">Peak</h3>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>Stable identifier within the measurement.</td>
+</tr>
+<tr>
+<td><code>frequency</code></td>
+<td>float</td>
+<td>Hz.</td>
+</tr>
+<tr>
+<td><code>magnitude</code></td>
+<td>float</td>
+<td>dB.</td>
+</tr>
+<tr>
+<td><code>quality</code></td>
+<td>float</td>
+<td>Q factor.</td>
+</tr>
+<tr>
+<td><code>bandwidth</code></td>
+<td>float</td>
+<td>−3 dB bandwidth, Hz.</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>ISO-8601</td>
+<td>When the peak was detected.</td>
+</tr>
+<tr>
+<td><code>pitchNote</code></td>
+<td>string</td>
+<td>Nearest equal-temperament note, e.g. <code>"D4"</code>.</td>
+</tr>
+<tr>
+<td><code>pitchCents</code></td>
+<td>float</td>
+<td>Cents offset from <code>pitchNote</code>.</td>
+</tr>
+<tr>
+<td><code>pitchFrequency</code></td>
+<td>float</td>
+<td>Frequency of <code>pitchNote</code> in Hz.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="comparisonentry-when-comparisonentries-is-present">ComparisonEntry (when `comparisonEntries` is present)</h3>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>Identifier for the overlay entry.</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>string</td>
+<td>Display label shown in the legend.</td>
+</tr>
+<tr>
+<td><code>colorComponents</code></td>
+<td>array of 4 floats</td>
+<td>RGBA, each 0.0 – 1.0.</td>
+</tr>
+<tr>
+<td><code>snapshot</code></td>
+<td>SpectrumSnapshot</td>
+<td>Full spectrum data for this overlay curve.</td>
+</tr>
+<tr>
+<td><code>peaks</code></td>
+<td>array of Peak</td>
+<td>Peaks for this overlay's source measurement.</td>
+</tr>
+<tr>
+<td><code>guitarType</code></td>
+<td>string</td>
+<td>For mode classification.</td>
+</tr>
+<tr>
+<td><code>sourceMeasurementID</code></td>
+<td>UUID</td>
+<td>The measurement this entry was created from, if known.</td>
+</tr>
+</tbody>
+</table>
+<p>When <code>comparisonEntries</code> is non-null the measurement is a saved
+comparison: the top-level <code>peaks</code>, <code>spectrumSnapshot</code>,
+<code>decayTime</code>, and similar fields are not meaningful and should
+not be read.</p>
+<h3 id="tapentry-when-tapentries-is-present">TapEntry (when `tapEntries` is present)</h3>
+
+<p>Present only for guitar multi-tap measurements (<code>numberOfTaps &gt; 1</code>).
+Each entry preserves the raw spectrum and peaks for one tap so
+the multi-tap comparison view can be reconstructed:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td></td>
+</tr>
+<tr>
+<td><code>tapIndex</code></td>
+<td>int</td>
+<td>1-based display index.</td>
+</tr>
+<tr>
+<td><code>snapshot</code></td>
+<td>SpectrumSnapshot</td>
+<td>Raw single-tap spectrum.</td>
+</tr>
+<tr>
+<td><code>peaks</code></td>
+<td>array of Peak</td>
+<td>Peaks detected in this single tap.</td>
+</tr>
+<tr>
+<td><code>selectedPeakIDs</code></td>
+<td>array of UUID</td>
+<td>Auto-selected modes for this tap.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="calibration-files-txt-cal">Calibration files (`.txt` / `.cal`)</h2>
+
+<p>Frequency-response compensation data for a measurement
+microphone. Plain text; each data line carries a frequency and a
+magnitude correction, separated by <strong>tab, space, or comma</strong>.
+Either of the two common vendor formats works directly — UMIK-1
+<code>.txt</code> files and Room EQ Wizard <code>.cal</code> files are both accepted:</p>
+<pre><code>&quot;Sens Factor =-1.2 dB, SERNO 7123456&quot;
+&quot;Frequency (Hz)   Magnitude (dB)&quot;
+20.0      -1.2
+50.0      -0.4
+100.0      0.0
+...
+20000.0   -3.1
+</code></pre>
+<p>Header and comment lines begin with <code>"</code> (UMIK-1) or <code>*</code> (REW)
+and are skipped. Only frequencies in the range <strong>1 Hz to
+24,000 Hz</strong> are used; values outside that range are ignored.</p>
+<p>The app applies the inverse of this curve to the incoming
+spectrum so that the displayed result reflects the wood, not the
+microphone. Calibrations bind per-input-device — see §2.4 for
+the import workflow.</p>
+<h2 id="exported-formats">Exported formats</h2>
+
+<p>The export actions described in §7.6 – §7.8 produce these file
+types:</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
 <th>Extension</th>
 <th>Contents</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Measurement data</td>
-<td>.guitartap</td>
-<td>Full peak data + spectrum (JSON)</td>
+<td>Export Measurement / Save Measurement to Disk</td>
+<td><code>.guitartap</code></td>
+<td>Full measurement — peaks, spectrum data, settings, metadata (see above).</td>
 </tr>
 <tr>
-<td>Spectrum image</td>
-<td>.png</td>
-<td>Chart as rendered on screen</td>
+<td>Export Spectrum Image</td>
+<td><code>.png</code></td>
+<td>Chart as rendered on screen — frozen spectrum with peak annotations for a single measurement, or the overlay with all coloured curves and legend for a comparison.</td>
 </tr>
 <tr>
-<td>PDF report</td>
-<td>.pdf</td>
-<td>Spectrum chart + peak table + analysis summary</td>
+<td>Export PDF Report</td>
+<td><code>.pdf</code></td>
+<td>Spectrum image + peak table + analysis summary + metadata header. Contents vary by measurement type; see §7.7 for the per-type breakdown.</td>
 </tr>
 </tbody>
 </table>

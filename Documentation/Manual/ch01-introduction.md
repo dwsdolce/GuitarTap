@@ -16,7 +16,7 @@ SCREENSHOT (single required image for Chapter 1):
           legible. Crop to the window only — no desktop background.
 -->
 
-![A completed guitar-mode measurement: spectrum with annotated peaks, results panel showing identified modes and frequencies.](images/ch01-main-analysis-screen.png)
+![A completed guitar-mode measurement: spectrum with annotated peaks, results panel showing identified modes and frequencies.](images/ch01-main-analysis-screen.png){: .screenshot-desktop }
 
 Guitar Tap captures a tap, runs an FFT, and presents the resulting
 spectrum with annotated peaks and a results panel. The app is designed
