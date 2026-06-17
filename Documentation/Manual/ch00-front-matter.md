@@ -1,11 +1,11 @@
 <div id="title-page">
   <div class="title-logo-wrap">
-    <img src="../../GuitarTap/guitar-tap.png" alt="Guitar Tap logo" class="title-logo">
+    <img src="images/guitar-tap.png" alt="Guitar Tap logo" class="title-logo">
   </div>
   <div class="title-text">
     <h1 class="title-main">Guitar Tap</h1>
     <p class="title-subtitle">User Manual</p>
-    <p class="title-version">Version 1.0</p>
+    <p class="title-version">Version {{VERSION}}</p>
     <p class="title-platforms">iOS/iPadOS &nbsp;·&nbsp; macOS &nbsp;·&nbsp; Windows &nbsp;·&nbsp; Linux</p>
   </div>
   <div class="title-footer">

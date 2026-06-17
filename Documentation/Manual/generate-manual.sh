@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # generate-manual.sh — Build GuitarTap User Manual (HTML and PDF)
 #
-# Outputs:
-#   GuitarTap-User-Manual.html   — full HTML with sticky nav sidebar
-#   GuitarTap-User-Manual.pdf    — PDF with bookmark tree and TOC page
+# Outputs (X.Y is the MARKETING_VERSION read from the Xcode project):
+#   GuitarTap-User-Manual-X.Y.html   — full HTML with sticky nav sidebar
+#   GuitarTap-User-Manual-X.Y.pdf    — PDF with bookmark tree and TOC page
 #
 # Requirements:
 #   - Python 3 venv at ../../.venv (relative to this script)
@@ -23,6 +23,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 VENV_PYTHON="$REPO_ROOT/.venv/bin/python3"
 OUTPUT_DIR="$SCRIPT_DIR"
+
+# Pull MARKETING_VERSION from the Xcode project so the manual filenames and
+# title-page version stay in lock-step with the app's marketing version.
+# The pbxproj has one entry per build configuration; both are kept equal so
+# the first match is sufficient.
+PBXPROJ="$REPO_ROOT/GuitarTap.xcodeproj/project.pbxproj"
+MARKETING_VERSION="$(grep -m1 "MARKETING_VERSION" "$PBXPROJ" | sed 's/.*= //; s/;.*//' | tr -d ' ')"
+if [[ -z "$MARKETING_VERSION" ]]; then
+    echo "ERROR: Could not read MARKETING_VERSION from $PBXPROJ" >&2
+    exit 1
+fi
+echo "Marketing version: $MARKETING_VERSION"
 
 # macOS: ensure Homebrew libs are found by python.org Python
 export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
@@ -202,19 +214,20 @@ echo "Assembling full HTML document..."
 NAV_HTML="$SCRIPT_DIR/nav.html"
 TOC_HTML="$SCRIPT_DIR/ch00-toc.html"
 TITLE_PAGE="$SCRIPT_DIR/ch00-front-matter.md"
-FULL_HTML="$OUTPUT_DIR/GuitarTap-User-Manual.html"
+FULL_HTML="$OUTPUT_DIR/GuitarTap-User-Manual-${MARKETING_VERSION}.html"
 CSS_PATH="$SCRIPT_DIR/manual.css"
 
 # Assemble the full HTML page
-"$VENV_PYTHON" - "$NAV_HTML" "$TOC_HTML" "$TITLE_PAGE" "$HTML_BODY" "$CSS_PATH" "$FULL_HTML" <<'PYEOF'
+"$VENV_PYTHON" - "$NAV_HTML" "$TOC_HTML" "$TITLE_PAGE" "$HTML_BODY" "$CSS_PATH" "$FULL_HTML" "$MARKETING_VERSION" <<'PYEOF'
 import sys, os
 
-nav_path        = sys.argv[1]
-toc_path        = sys.argv[2]
-title_page_path = sys.argv[3]
-body_path       = sys.argv[4]
-css_path        = sys.argv[5]
-out_path        = sys.argv[6]
+nav_path          = sys.argv[1]
+toc_path          = sys.argv[2]
+title_page_path   = sys.argv[3]
+body_path         = sys.argv[4]
+css_path          = sys.argv[5]
+out_path          = sys.argv[6]
+marketing_version = sys.argv[7]
 
 def read(p):
     if os.path.exists(p):
@@ -225,6 +238,7 @@ def read(p):
 nav_html        = read(nav_path)
 toc_html        = read(toc_path)
 title_page_html = read(title_page_path)   # raw HTML fragment, not Markdown-processed
+title_page_html = title_page_html.replace('{{VERSION}}', marketing_version)
 body_html       = read(body_path)
 
 # Inline CSS so the HTML file is self-contained
@@ -259,7 +273,7 @@ PYEOF
 
 echo "Generating PDF via WeasyPrint..."
 
-PDF_OUT="$OUTPUT_DIR/GuitarTap-User-Manual.pdf"
+PDF_OUT="$OUTPUT_DIR/GuitarTap-User-Manual-${MARKETING_VERSION}.pdf"
 
 "$VENV_PYTHON" - "$FULL_HTML" "$PDF_OUT" <<'PYEOF'
 import sys
@@ -280,5 +294,5 @@ rm -f "$COMBINED" "$HTML_BODY" "$NAV_HTML" "$TOC_HTML"   # ch00-front-matter.md 
 
 echo ""
 echo "Done."
-echo "  HTML: $OUTPUT_DIR/GuitarTap-User-Manual.html"
-echo "  PDF:  $OUTPUT_DIR/GuitarTap-User-Manual.pdf"
+echo "  HTML: $FULL_HTML"
+echo "  PDF:  $PDF_OUT"
