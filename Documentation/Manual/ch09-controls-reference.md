@@ -179,7 +179,8 @@ notes below):
 
 | Item | macOS shortcut | Windows / Linux shortcut |
 |---|---|---|
-| Guitar Tap Help | ⌘? | F1 |
+| Quick Start Guide | ⌘? | F1 |
+| User Manual | — | — |
 | About Guitar Tap… (Win / Linux Python only) | — | (no default) |
 
 ## 9.5 Individual Controls
@@ -268,9 +269,13 @@ gestures for axis zoom and pan (§6.3).
 **Settings** <img src="images/symbols/gearshape.png" width="18" height="18" class="inline-icon" alt="gearshape"> — Opens the Settings sheet
 (Chapter 8). Shortcut: **⌘,** / **Ctrl+,**.
 
-**Help** <img src="images/symbols/questionmark.circle.png" width="18" height="18" class="inline-icon" alt="questionmark.circle"> — Opens the in-app
-Quick-Start Guide. Shortcut: **⌘?** (macOS); **F1** (Windows /
-Linux).
+**Help** <img src="images/symbols/questionmark.circle.png" width="18" height="18" class="inline-icon" alt="questionmark.circle"> — Opens a small menu with
+two items: **Quick Start Guide** (the in-app help content; also
+reachable directly via **⌘?** on macOS or **F1** on Windows /
+Linux) and **User Manual** (opens the published manual in the
+system browser). On iOS and iPadOS the menu lives behind the
+toolbar **?** button; on desktop the same two items appear in
+the **Help** menu bar.
 
 ## 9.6 Tap Controls
 

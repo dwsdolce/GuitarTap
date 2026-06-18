@@ -21,7 +21,7 @@ Open Settings. The Audio Input & Calibration section appears at the top. Choose 
 
 ### Choose a Measurement Type
 
-In Settings, the Measurement Type section is directly below Audio Input. Pick Generic Guitar (broad ranges that work for any guitar), Acoustic/Steel String, Classical, Flamenco, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated.
+In Settings, the Measurement Type section is directly below Audio Input. Pick Generic Guitar (the default, with broad ranges that work for any guitar), Classical, Flamenco, Acoustic / Steel String, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated.
 
 ### Advanced Settings
 
@@ -39,7 +39,7 @@ Guitar mode identifies the key structural resonances of a completed body: Air (H
 
 ### Step 1 — Configure
 
-In Settings choose the guitar type in the Measurement Type section. Generic Guitar uses broad ranges that work for any guitar and is the default. Classical, Flamenco, and Acoustic/Steel String use narrower calibrated windows. The Show Unknown Modes toggle is in the Advanced section.
+In Settings choose the guitar type in the Measurement Type section. Generic Guitar (the default) uses broad ranges that work for any guitar; Classical, Flamenco, and Acoustic / Steel String use narrower calibrated windows shown in the same section. The Show Unknown Modes toggle is in the Advanced section.
 
 ### Step 2 — Position the Microphone
 
@@ -158,9 +158,9 @@ Cancel aborts the current measurement sequence and discards all partial data.
 
 In plate and brace mode, while reviewing a captured phase the button changes to Redo. Tap Redo to discard only the current phase's data and re-capture it — earlier phases are preserved. The detector re-arms immediately so you can tap again without pressing New Tap.
 
-### <img src="Manual/images/symbols/doc.text.png" width="19" height="19" alt="doc.text"> Results
+### <img src="Manual/images/symbols/doc.text.png" width="19" height="19" alt="doc.text"> Analysis Results
 
-Opens the analysis results panel: peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. The panel also contains Export Spectrum and Export PDF Report buttons. On iPad (horizontal layout) and macOS this button is not shown — the results panel is permanently visible on the right side of the screen/window.
+The Analysis Results panel shows the peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. It also contains Export Spectrum and Export PDF Report buttons. On iPhone, tap the Results button (doc icon) in the toolbar to open the panel as a sheet. On iPad and desktop, the panel is permanently visible on the right side of the window.
 
 ### <img src="Manual/images/symbols/arrow.trianglehead.2.counterclockwise.png" width="19" height="19" alt="arrow.trianglehead.2.counterclockwise"> Re-analyze Peaks
 
@@ -174,21 +174,33 @@ On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Au
 
 On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings, Help (?). The tap controls (taps, threshold, peak min) remain below the toolbar.
 
-### Menu Bar — GuitarTap Menu *(macOS only)*
+### Menu Bar *(macOS only)*
 
-Settings… (⌘,) opens the Settings sheet.
+The menu bar has five menus:
 
-### Menu Bar — File Menu *(macOS only)*
+GuitarTap menu:
+- Settings… — ⌘, — opens the Settings sheet
 
-Play Audio File… (⌘⌥O) feeds a WAV or audio file through the FFT pipeline instead of the microphone — ideal for reproducible comparisons using a recorded tap. Save Measurement… (⌘S) saves the current spectrum. Export Spectrum Image… (⌘E) saves the chart as a PNG. Export PDF Report… (⇧⌘E) generates a PDF summary of the current measurement.
+File menu:
+- Play Audio File… — ⌘⌥O — feeds a WAV or audio file through the FFT pipeline instead of the microphone
+- Save Measurement… — ⌘S
+- Export Spectrum Image… — ⌘E
+- Export PDF Report… — ⇧⌘E
+Save and Export items are disabled until a measurement is complete.
 
-### Menu Bar — View Menu *(macOS only)*
+View menu:
+- Auto dB — ⌘0 — toggles auto-scaling of the dB axis
+- Cycle Annotations — ⌘` — cycles Selected → None → All
+- Show Metrics — ⌘M — opens the FFT diagnostics panel
+- Show Measurements — ⌘L — opens the saved measurements browser
 
-Auto dB (⌘0) scales the magnitude axis to fit the current signal. Cycle Annotations (⌘`) steps through All / Selected / None label modes. Show Metrics (⌘M) opens the FFT engine statistics panel. Show Measurements (⌘L) opens the saved measurements list.
+Help menu:
+- Quick Start Guide — ⌘? — opens this window
+- User Manual — opens the full User Manual at dolcesfogato.com in your default browser
 
-### Menu Bar — Help Menu *(macOS only)*
+### <img src="Manual/images/symbols/book.closed.png" width="19" height="19" alt="book.closed"> User Manual (online)
 
-The Search field in the Help menu searches all menu items by name. Click 'GuitarTap Help' to open this Quick-Start Guide window.
+For a complete reference — every measurement mode walked through in detail, full settings and controls reference, troubleshooting, glossary, and file-format specs — see the User Manual, hosted at dolcesfogato.com. Open it from the Help menu (macOS) or the Settings → About & Help section. On iPhone and iPad, tap the Help (?) button in the toolbar and choose User Manual.
 
 ### <img src="Manual/images/symbols/arrow.up.arrow.down.circle.png" width="19" height="19" alt="arrow.up.arrow.down.circle"> Auto dB
 
@@ -212,7 +224,7 @@ Saves the current measurement — enabled only when the spectrum is frozen and p
 
 ### <img src="Manual/images/symbols/list.bullet.clipboard.png" width="19" height="19" alt="list.bullet.clipboard"> Measurements
 
-Lists all saved measurements. Double-click (macOS) or double-tap (iOS/iPadOS) a row to load the measurement into the main view — the measurements window closes automatically after loading. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Edit Name & Notes, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap (or .json) file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison. The measurement name and notes can also be edited from the Edit button in the Measurement Details toolbar.
+Lists all saved measurements. Double-click (macOS) or double-tap (iOS/iPadOS) a row to load the measurement into the main view — the measurements window closes automatically after loading. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Edit Name & Notes, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison. The measurement name and notes can also be edited from the Edit button in the Measurement Details toolbar.
 
 ### <img src="Manual/images/symbols/waveform.path.png" width="19" height="19" alt="waveform.path"> Compare Measurements
 

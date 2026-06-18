@@ -390,10 +390,13 @@ extension TapToneAnalysisView {
                 .accessibilityLabel("Settings")
                 .hint(HintText.settings)
 
-                Button(action: { showingHelp = true }) {
+                Button(action: { showingHelpMenu = true }) {
                     Image(systemName: "questionmark.circle")
                 }
                 .accessibilityLabel("Help")
+                .popover(isPresented: $showingHelpMenu, arrowEdge: .top) {
+                    helpMenuPopover
+                }
             }
         }
     }
@@ -492,10 +495,13 @@ extension TapToneAnalysisView {
                 .accessibilityLabel("Settings")
                 .hint(HintText.settings)
 
-                Button(action: { showingHelp = true }) {
+                Button(action: { showingHelpMenu = true }) {
                     Image(systemName: "questionmark.circle")
                 }
                 .accessibilityLabel("Help")
+                .popover(isPresented: $showingHelpMenu, arrowEdge: .top) {
+                    helpMenuPopover
+                }
             }
         }
     }
@@ -802,13 +808,69 @@ extension TapToneAnalysisView {
                     .accessibilityLabel("Settings")
                     .hint(HintText.settings)
 
-                    Button(action: { showingHelp = true }) {
+                    Button(action: { showingHelpMenu = true }) {
                         Image(systemName: "questionmark.circle")
                     }
                     .accessibilityLabel("Help")
+                    .popover(isPresented: $showingHelpMenu, arrowEdge: .top) {
+                        helpMenuPopover
+                    }
                 }
             }
         }
         #endif
     }
+
+    #if os(iOS)
+    /// Popover content for the iOS / iPadOS Help button.
+    ///
+    /// Replaces the previous `Menu` which had flaky hit-testing for any item
+    /// whose action set `@State` driving a sheet (Menu dismissal raced with
+    /// sheet presentation). Custom popover controls dismissal timing
+    /// explicitly so both items behave the same way.
+    @ViewBuilder
+    var helpMenuPopover: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button(action: {
+                showingHelpMenu = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    showingHelp = true
+                }
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: "questionmark.bubble")
+                        .frame(width: 22)
+                    Text("Quick Start Guide")
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Divider()
+
+            Button(action: {
+                showingHelpMenu = false
+                if let url = DocumentationLinks.userManual {
+                    UIApplication.shared.open(url)
+                }
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: "book.closed")
+                        .frame(width: 22)
+                    Text("User Manual")
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(width: 260)
+        .presentationCompactAdaptation(.popover)
+    }
+    #endif
 }

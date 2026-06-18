@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guitar Tap — Example Measurement</title>
+<link rel="canonical" href="https://www.dolcesfogato.com/guitar_tap/examples.html">
+<meta name="description" content="A complete Guitar Tap tap-tone measurement shown three ways: a sample .guitartap file, the exported spectrum image, and a PDF report.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Guitar Tap">
+<meta property="og:title" content="Guitar Tap — Example Measurement">
+<meta property="og:description" content="A complete tap-tone measurement: sample .guitartap file, exported spectrum image, and PDF report.">
+<meta property="og:url" content="https://www.dolcesfogato.com/guitar_tap/examples.html">
+<meta property="og:image" content="https://www.dolcesfogato.com/guitar_tap/examples/dws-2024-spectrum.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://www.dolcesfogato.com/guitar_tap/examples/dws-2024-spectrum.png">
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    max-width: 50rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 4rem;
+    color: #1d1d1f;
+    background: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e8e8ea; background: #1c1c1e; }
+    a { color: #6ab0ff; }
+    .note { background: rgba(255,255,255,0.06) !important; }
+    figure img, code { border-color: rgba(255,255,255,0.2) !important; }
+  }
+  h1 { font-size: 1.9rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.25rem; margin-top: 2.25rem; border-bottom: 1px solid rgba(128,128,128,0.25); padding-bottom: 0.25rem; }
+  .lead { font-size: 1.05rem; color: #444; }
+  @media (prefers-color-scheme: dark) { .lead { color: #c7c7cc; } }
+  a { color: #0066cc; }
+  code { background: rgba(128,128,128,0.12); padding: 0.1rem 0.35rem; border-radius: 5px; font-size: 0.95em; }
+  .btn {
+    display: inline-block; margin: 0.4rem 0.4rem 0 0; padding: 0.55rem 1rem;
+    border-radius: 9px; background: #0066cc; color: #fff !important;
+    text-decoration: none; font-weight: 600;
+  }
+  .btn.secondary { background: #444; }
+  figure { margin: 1.25rem 0; }
+  figure img {
+    width: 100%; height: auto; border: 1px solid rgba(128,128,128,0.3);
+    border-radius: 10px; display: block;
+  }
+  figcaption { font-size: 0.9rem; color: #666; margin-top: 0.4rem; }
+  .note { background: rgba(0,102,204,0.06); border-radius: 12px; padding: 1rem 1.25rem; font-size: 0.97rem; }
+</style>
+</head>
+<body>
+
+<h1>Example measurement — DWS 2024</h1>
+<p class="lead">Here is a complete tap-tone measurement of a classical guitar,
+shown three ways: the raw measurement file you can open in Guitar Tap, the
+exported spectrum image, and the exported PDF report. Use it to see the kind of
+results Guitar Tap produces before you measure your own instrument.</p>
+
+<h2>1. Sample measurement file</h2>
+<p>A <code>.guitartap</code> file holds the full spectrum, detected peaks, mode
+classifications, and notes for one measurement.</p>
+<p>
+  <a class="btn" href="examples/dws-2024.guitartap">Download dws-2024.guitartap</a>
+</p>
+<div class="note">
+  <strong>How to open it:</strong> Save the file, then in Guitar Tap use
+  <em>Measurements → Import Measurement</em> and select the downloaded file. The
+  same file opens in both the Apple app and the open-source edition.
+</div>
+
+<h2>2. Exported spectrum image</h2>
+<p>Guitar Tap can export the annotated spectrum as a PNG image — handy for notes,
+email, or build logs.</p>
+<figure>
+  <img src="examples/dws-2024-spectrum.png"
+       alt="Exported frequency-response spectrum for the DWS 2024 guitar with labeled Air, Top, and Back peaks">
+  <figcaption>Exported spectrum: labeled Air (Helmholtz), Top, and Back
+  resonances with a detected-peaks summary.</figcaption>
+</figure>
+
+<h2>3. Exported PDF report</h2>
+<p>The PDF report bundles the spectrum chart, the peak table, and the analysis
+summary into a single shareable document.</p>
+<p>
+  <a class="btn secondary" href="examples/dws-2024-report.pdf">View the PDF report</a>
+</p>
+
+<p style="margin-top:2.5rem;">
+  <a href="index.html">&larr; Back to Guitar Tap</a>
+</p>
+
+</body>
+</html>

@@ -111,10 +111,16 @@ struct StaticCommands: Commands {
 
         // Replace the default Help menu item with one that opens the in-app Help window.
         CommandGroup(replacing: .help) {
-            Button("GuitarTap Help") {
+            Button("Quick Start Guide") {
                 openWindow(id: "help")
             }
             .keyboardShortcut("?", modifiers: .command)
+
+            Button("User Manual") {
+                if let url = DocumentationLinks.userManual {
+                    NSWorkspace.shared.open(url)
+                }
+            }
         }
     }
 }
@@ -227,13 +233,13 @@ struct GuitarTapApp: App {
         // Help window - opened via the Help menu item.
         // .commandsRemoved() prevents SwiftUI from adding a "Help" entry to
         // the Window menu for this scene.
-        Window("Help", id: "help") {
+        Window("Quick Start Guide", id: "help") {
             NavigationStack {
                 HelpView()
             }
             .onAppear {
                 // Prevent the Help window from being restored on next launch.
-                NSApp.windows.first { $0.title == "Help" }?.isRestorable = false
+                NSApp.windows.first { $0.title == "Quick Start Guide" }?.isRestorable = false
             }
         }
         .defaultSize(width: 520, height: 620)

@@ -100,6 +100,7 @@ struct TapToneAnalysisView: View {
     @State var showingResults = false
     @State var showingSettings = false
     @State var showingHelp = false
+    @State var showingHelpMenu = false
     @State var isExportingSpectrum = false
     @State var isSavingMeasurement = false
     @State var isGeneratingReport = false

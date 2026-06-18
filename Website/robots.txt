@@ -1,0 +1,8 @@
+# robots.txt for dolcesfogato.com
+# IMPORTANT: upload this to the DOMAIN ROOT -> https://www.dolcesfogato.com/robots.txt
+# (NOT inside /guitar_tap/ — crawlers only read robots.txt at the domain root.)
+
+User-agent: *
+Allow: /
+
+Sitemap: https://www.dolcesfogato.com/guitar_tap/sitemap.xml

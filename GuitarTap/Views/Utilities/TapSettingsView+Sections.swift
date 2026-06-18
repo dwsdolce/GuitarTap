@@ -659,7 +659,13 @@ extension TapSettingsView {
             NavigationLink {
                 HelpView()
             } label: {
-                Label("Help", systemImage: "questionmark.circle")
+                Label("Quick Start Guide", systemImage: "questionmark.circle")
+            }
+
+            if let url = DocumentationLinks.userManual {
+                Link(destination: url) {
+                    Label("User Manual", systemImage: "book.closed")
+                }
             }
         } header: {
             Label("About & Help", systemImage: "info.circle")

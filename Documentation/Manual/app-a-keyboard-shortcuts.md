@@ -39,7 +39,7 @@ The Swift native macOS build and the Python desktop build
 
 | Action | macOS | Windows / Linux |
 |---|---|---|
-| Guitar Tap Help | ⌘? | F1 |
+| Quick Start Guide | ⌘? | F1 |
 
 iOS and iPadOS do not expose menu items or keyboard shortcuts in
 Guitar Tap; everything on those platforms is reached through the
