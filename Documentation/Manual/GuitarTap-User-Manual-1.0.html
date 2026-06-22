@@ -1031,6 +1031,7 @@ ol.steps li::before {
   <ul>
     <li class="nav-h3"><a href="#file-level-structure">File-level structure</a></li>
     <li class="nav-h3"><a href="#measurement-object">Measurement object</a></li>
+    <li class="nav-h3"><a href="#uuid-keyed-maps">UUID-keyed maps</a></li>
     <li class="nav-h3"><a href="#spectrumsnapshot">SpectrumSnapshot</a></li>
     <li class="nav-h3"><a href="#spectrum-data-encoding">Spectrum data encoding</a></li>
     <li class="nav-h3"><a href="#peak">Peak</a></li>
@@ -1169,6 +1170,7 @@ ol.steps li::before {
   <li class="toc-h2"><a href="#measurement-files-guitartap">Measurement files (`.guitartap`)<span class="toc-page-num"></span></a></li>
   <li class="toc-h3"><a href="#file-level-structure">File-level structure<span class="toc-page-num"></span></a></li>
   <li class="toc-h3"><a href="#measurement-object">Measurement object<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#uuid-keyed-maps">UUID-keyed maps<span class="toc-page-num"></span></a></li>
   <li class="toc-h3"><a href="#spectrumsnapshot">SpectrumSnapshot<span class="toc-page-num"></span></a></li>
   <li class="toc-h3"><a href="#spectrum-data-encoding">Spectrum data encoding<span class="toc-page-num"></span></a></li>
   <li class="toc-h3"><a href="#peak">Peak<span class="toc-page-num"></span></a></li>
@@ -3772,8 +3774,8 @@ what the user did at save time:</p>
 </tr>
 <tr>
 <td><code>peakAnnotationOffsets</code></td>
-<td>object</td>
-<td>Map of peak UUID → <code>{ "x": &lt;freq Hz&gt;, "y": &lt;magnitude dB&gt; }</code>. Custom label positions.</td>
+<td>array</td>
+<td>UUID-keyed map of custom label positions, encoded as a flat array (see "UUID-keyed maps"). Each value is <code>{ "absFreqHz": &lt;freq Hz&gt;, "absDB": &lt;magnitude dB&gt; }</code>.</td>
 </tr>
 <tr>
 <td><code>annotationVisibilityMode</code></td>
@@ -3797,8 +3799,8 @@ what the user did at save time:</p>
 </tr>
 <tr>
 <td><code>peakModeOverrides</code></td>
-<td>object</td>
-<td>Map of peak UUID → user-assigned mode label.</td>
+<td>array</td>
+<td>UUID-keyed map of per-peak mode overrides, encoded as a flat array (see "UUID-keyed maps"). Each value is <code>{ "type": "assigned", "label": &lt;mode&gt; }</code>.</td>
 </tr>
 <tr>
 <td><code>microphoneName</code>, <code>microphoneUID</code></td>
@@ -3827,6 +3829,33 @@ what the user did at save time:</p>
 </tr>
 </tbody>
 </table>
+<h3 id="uuid-keyed-maps">UUID-keyed maps</h3>
+
+<p><code>peakAnnotationOffsets</code> and <code>peakModeOverrides</code> are logically maps from
+a peak UUID to a value. Because a UUID is not a JSON string key, both
+are encoded as a <strong>flat array</strong> of alternating key/value elements — the
+array form produced by the platform's JSON encoder. A parser must read
+element 0 as a UUID string, element 1 as its value, element 2 as the
+next UUID, and so on:</p>
+<pre><code class="language-json">&quot;peakModeOverrides&quot;: [
+  &quot;5E2A8C7D-…&quot;,
+  { &quot;type&quot;: &quot;assigned&quot;, &quot;label&quot;: &quot;Top&quot; },
+  &quot;9F31B0A4-…&quot;,
+  { &quot;type&quot;: &quot;auto&quot; }
+]
+</code></pre>
+<p>A mode value is <code>{ "type": "auto" }</code> or
+<code>{ "type": "assigned", "label": "&lt;string&gt;" }</code>; a peak with no entry (or
+a <code>"type": "auto"</code> entry) uses automatic classification.
+<code>peakAnnotationOffsets</code> uses the same alternating layout with values of
+<code>{ "absFreqHz": &lt;Hz&gt;, "absDB": &lt;dB&gt; }</code>.</p>
+<blockquote>
+<p><strong>Compatibility note.</strong> Some files written by early Guitar Tap Python
+1.0.x builds encode <code>peakModeOverrides</code> as a JSON <em>object</em>
+(<code>{ "&lt;uuid&gt;": { "type": …, "label": … } }</code>) instead of the flat array.
+Robust parsers should accept both shapes; current builds always write
+the flat array.</p>
+</blockquote>
 <h3 id="spectrumsnapshot">SpectrumSnapshot</h3>
 
 <p>Required fields:</p>
@@ -3884,12 +3913,12 @@ what the user did at save time:</p>
 <tr>
 <td><code>guitarType</code></td>
 <td>string</td>
-<td><code>generic</code> / <code>acoustic</code> / <code>classical</code> / <code>flamenco</code>.</td>
+<td>One of <code>Generic</code>, <code>Acoustic</code>, <code>Classical</code>, <code>Flamenco</code>.</td>
 </tr>
 <tr>
 <td><code>measurementType</code></td>
 <td>string</td>
-<td><code>generic</code> / <code>acoustic</code> / <code>classical</code> / <code>flamenco</code> / <code>plate</code> / <code>brace</code>.</td>
+<td>One of <code>Generic Guitar</code>, <code>Acoustic Guitar</code>, <code>Classical Guitar</code>, <code>Flamenco Guitar</code>, <code>Material (Plate)</code>, <code>Material (Brace)</code>.</td>
 </tr>
 <tr>
 <td><code>plateLength</code>, <code>plateWidth</code>, <code>plateThickness</code>, <code>plateMass</code></td>
@@ -3904,12 +3933,12 @@ what the user did at save time:</p>
 <tr>
 <td><code>plateStiffnessPreset</code></td>
 <td>string</td>
-<td><code>steelStringTop</code> / <code>steelStringBack</code> / <code>classical</code> / <code>custom</code>.</td>
+<td>One of <code>Steel String Top</code>, <code>Steel String Back</code>, <code>Classical Top</code>, <code>Classical Back</code>, <code>Custom</code>.</td>
 </tr>
 <tr>
 <td><code>customPlateStiffness</code></td>
 <td>float</td>
-<td>Value when preset is <code>custom</code>.</td>
+<td>Value when <code>plateStiffnessPreset</code> is <code>Custom</code>.</td>
 </tr>
 <tr>
 <td><code>measureFlc</code></td>

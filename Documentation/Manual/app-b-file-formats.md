@@ -57,17 +57,47 @@ what the user did at save time:
 | `selectedLongitudinalPeakID`, `selectedCrossPeakID`, `selectedFlcPeakID` | UUID | The peak chosen as L / C / FLC. |
 | `selectedPeakIDs` | array of UUID | Currently-selected peaks (guitar). |
 | `selectedPeakFrequencies` | array of float | Frequencies (Hz) parallel to the IDs, used to re-match after a Peak Min change generates new UUIDs. |
-| `peakAnnotationOffsets` | object | Map of peak UUID → `{ "x": <freq Hz>, "y": <magnitude dB> }`. Custom label positions. |
+| `peakAnnotationOffsets` | array | UUID-keyed map of custom label positions, encoded as a flat array (see "UUID-keyed maps"). Each value is `{ "absFreqHz": <freq Hz>, "absDB": <magnitude dB> }`. |
 | `annotationVisibilityMode` | string | Enum: `all` / `selected` / `none`. |
 | `tapDetectionThreshold` | float | Threshold (dB) at save time. |
 | `numberOfTaps` | int | Taps stepper value at save time. |
 | `peakMinThreshold` | float | Peak Min (dB) at save time. |
-| `peakModeOverrides` | object | Map of peak UUID → user-assigned mode label. |
+| `peakModeOverrides` | array | UUID-keyed map of per-peak mode overrides, encoded as a flat array (see "UUID-keyed maps"). Each value is `{ "type": "assigned", "label": <mode> }`. |
 | `microphoneName`, `microphoneUID` | string | Input device provenance. |
 | `calibrationName` | string | Active calibration profile, if any. |
 | `comparisonEntries` | array of ComparisonEntry | Present **only** for saved comparisons. |
 | `tapEntries` | array of TapEntry | Per-tap data for multi-tap guitar. |
 | `measurementType`, `guitarType` | string | Convenience copies for external consumers; mirror `spectrumSnapshot` fields. |
+
+### UUID-keyed maps
+
+`peakAnnotationOffsets` and `peakModeOverrides` are logically maps from
+a peak UUID to a value. Because a UUID is not a JSON string key, both
+are encoded as a **flat array** of alternating key/value elements — the
+array form produced by the platform's JSON encoder. A parser must read
+element 0 as a UUID string, element 1 as its value, element 2 as the
+next UUID, and so on:
+
+```json
+"peakModeOverrides": [
+  "5E2A8C7D-…",
+  { "type": "assigned", "label": "Top" },
+  "9F31B0A4-…",
+  { "type": "auto" }
+]
+```
+
+A mode value is `{ "type": "auto" }` or
+`{ "type": "assigned", "label": "<string>" }`; a peak with no entry (or
+a `"type": "auto"` entry) uses automatic classification.
+`peakAnnotationOffsets` uses the same alternating layout with values of
+`{ "absFreqHz": <Hz>, "absDB": <dB> }`.
+
+> **Compatibility note.** Some files written by early Guitar Tap Python
+> 1.0.x builds encode `peakModeOverrides` as a JSON *object*
+> (`{ "<uuid>": { "type": …, "label": … } }`) instead of the flat array.
+> Robust parsers should accept both shapes; current builds always write
+> the flat array.
 
 ### SpectrumSnapshot
 
@@ -86,12 +116,12 @@ Optional measurement-type fields:
 | Field | Type | Notes |
 |---|---|---|
 | `showUnknownModes` | bool | Mirrors the Settings toggle. |
-| `guitarType` | string | `generic` / `acoustic` / `classical` / `flamenco`. |
-| `measurementType` | string | `generic` / `acoustic` / `classical` / `flamenco` / `plate` / `brace`. |
+| `guitarType` | string | One of `Generic`, `Acoustic`, `Classical`, `Flamenco`. |
+| `measurementType` | string | One of `Generic Guitar`, `Acoustic Guitar`, `Classical Guitar`, `Flamenco Guitar`, `Material (Plate)`, `Material (Brace)`. |
 | `plateLength`, `plateWidth`, `plateThickness`, `plateMass` | float | Plate dimensions in mm / g. |
 | `guitarBodyLength`, `guitarBodyWidth` | float | Body inputs for Gore thickness (mm). |
-| `plateStiffnessPreset` | string | `steelStringTop` / `steelStringBack` / `classical` / `custom`. |
-| `customPlateStiffness` | float | Value when preset is `custom`. |
+| `plateStiffnessPreset` | string | One of `Steel String Top`, `Steel String Back`, `Classical Top`, `Classical Back`, `Custom`. |
+| `customPlateStiffness` | float | Value when `plateStiffnessPreset` is `Custom`. |
 | `measureFlc` | bool | Whether the FLC phase was captured. |
 | `braceLength`, `braceWidth`, `braceThickness`, `braceMass` | float | Brace dimensions in mm / g. |
 

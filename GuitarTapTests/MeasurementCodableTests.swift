@@ -623,6 +623,43 @@ struct ModeOverridesCodableTests {
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
         #expect(decoded.peakModeOverrides?[peak.id] == .auto)
     }
+
+    // D9: legacy {uuidString: mode} object form (written by GuitarTap Python 1.0.x)
+    // decodes into peakModeOverrides.  The canonical encoding is a flat array, but
+    // older Python files used a JSON object keyed by the lowercase peak UUID; those
+    // files must remain loadable rather than throwing a typeMismatch.
+    @Test func legacyObjectFormOverrides_decode() throws {
+        let peakID = UUID()
+        let json = """
+        [{
+          "id": "\(UUID().uuidString)",
+          "timestamp": "2026-01-01T00:00:00Z",
+          "peaks": [],
+          "peakModeOverrides": { "\(peakID.uuidString.lowercased())": { "type": "assigned", "label": "Back" } }
+        }]
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode([TapToneMeasurement].self, from: Data(json.utf8))
+        #expect(decoded.first?.peakModeOverrides?[peakID] == .assigned("Back"))
+    }
+
+    // D10: a file produced by the GuitarTap Python build (canonical flat-array
+    // overrides + "peakMinThreshold" key, lowercase peak UUID) decodes correctly.
+    // This is the exact payload emitted by tap_tone_measurement.to_dict(); it
+    // pins cross-implementation read parity.
+    @Test func pythonWrittenFile_decodes() throws {
+        let json = """
+        [{"id":"00000000-0000-0000-0000-0000000000CC","timestamp":"2026-01-01T00:00:00Z","peaks":[],"peakModeOverrides":["5e2a8c7d-1111-2222-3333-444455556666",{"type":"assigned","label":"Top"}],"peakMinThreshold":-60.0}]
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode([TapToneMeasurement].self, from: Data(json.utf8))
+        let m = try #require(decoded.first)
+        let pid = try #require(UUID(uuidString: "5e2a8c7d-1111-2222-3333-444455556666"))
+        #expect(m.peakModeOverrides?[pid] == .assigned("Top"))
+        #expect(m.peakMinThreshold == -60.0)
+    }
 }
 
 // ---------------------------------------------------------------------------

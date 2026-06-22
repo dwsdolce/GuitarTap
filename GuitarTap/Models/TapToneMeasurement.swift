@@ -492,7 +492,19 @@ struct TapToneMeasurement: Identifiable, Codable {
         selectedPeakIDs          = try container.decodeIfPresent([UUID].self,  forKey: .selectedPeakIDs)
         selectedPeakFrequencies  = try container.decodeIfPresent([Float].self, forKey: .selectedPeakFrequencies)
         annotationVisibilityMode = try container.decodeIfPresent(AnnotationVisibilityMode.self, forKey: .annotationVisibilityMode)
-        peakModeOverrides    = try container.decodeIfPresent([UUID: UserAssignedMode].self, forKey: .peakModeOverrides)
+        // Canonical encoding is a flat [uuid, mode, uuid, mode, …] array — how
+        // JSONEncoder serialises [UUID: UserAssignedMode] (UUID is not a string key).
+        // GuitarTap Python 1.0.x instead wrote a {uuidString: mode} JSON object;
+        // accept that legacy shape on import so those files remain loadable.
+        if let native = try? container.decodeIfPresent([UUID: UserAssignedMode].self, forKey: .peakModeOverrides) {
+            peakModeOverrides = native
+        } else if let legacy = try? container.decodeIfPresent([String: UserAssignedMode].self, forKey: .peakModeOverrides) {
+            peakModeOverrides = Dictionary(uniqueKeysWithValues: legacy.compactMap { key, value in
+                UUID(uuidString: key).map { ($0, value) }
+            })
+        } else {
+            peakModeOverrides = nil
+        }
         microphoneName       = try container.decodeIfPresent(String.self, forKey: .microphoneName)
         microphoneUID        = try container.decodeIfPresent(String.self, forKey: .microphoneUID)
         calibrationName      = try container.decodeIfPresent(String.self, forKey: .calibrationName)
