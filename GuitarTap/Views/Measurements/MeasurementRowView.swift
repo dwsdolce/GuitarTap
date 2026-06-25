@@ -18,10 +18,32 @@
 
 import SwiftUI
 
-struct MeasurementRowView: View {
+struct MeasurementRowView<MenuItems: View>: View {
     let measurement: TapToneMeasurement
     var isHovered: Bool = false
-    
+    /// Per-row action items, shared with the list's right-click `.contextMenu` so the
+    /// hover "⋯" button and right-click present the identical menu (same labels + icons).
+    @ViewBuilder var menuItems: () -> MenuItems
+
+    /// macOS hover "⋯" — now a functional Menu opening the same actions as right-click.
+    @ViewBuilder private var ellipsisMenu: some View {
+        #if os(macOS)
+        Menu {
+            menuItems()
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .opacity(isHovered ? 1.0 : 0.0)
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .help("Actions")
+        #endif
+    }
+
     // Break down complex expressions for better compilation
     private var peaksText: String {
         "\(measurement.peaks.count) peaks"
@@ -73,13 +95,7 @@ struct MeasurementRowView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    #if os(macOS)
-                    Image(systemName: "ellipsis.circle")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .opacity(isHovered ? 1.0 : 0.0)
-                        .animation(.easeInOut(duration: 0.15), value: isHovered)
-                    #endif
+                    ellipsisMenu
                 }
             }
 
@@ -129,14 +145,7 @@ struct MeasurementRowView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    #if os(macOS)
-                    // Ellipsis hint — appears on hover to signal right-click context menu
-                    Image(systemName: "ellipsis.circle")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .opacity(isHovered ? 1.0 : 0.0)
-                        .animation(.easeInOut(duration: 0.15), value: isHovered)
-                    #endif
+                    ellipsisMenu
                 }
             }
             

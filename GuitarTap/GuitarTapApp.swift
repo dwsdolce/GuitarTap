@@ -211,9 +211,28 @@ struct AppCommands: Commands {
 }
 #endif
 
+#if os(macOS)
+/// macOS app delegate.
+///
+/// Guitar Tap is a single-window utility on macOS, so it quits when the main
+/// window is closed — the Apple-sanctioned behavior for single-window apps
+/// (App Store Guideline 4). Without this, closing the window leaves the app
+/// running with no way to reopen it. This is macOS-only: iOS apps must never
+/// terminate themselves.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+}
+#endif
+
 // MARK: - App Entry Point
 @main
 struct GuitarTapApp: App {
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #endif
+
     var body: some Scene {
         #if os(macOS)
         // On macOS, use Window instead of WindowGroup to prevent multiple instances

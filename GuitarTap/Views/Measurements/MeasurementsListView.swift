@@ -234,71 +234,7 @@ struct MeasurementsListView: View {
                         }
                         #endif
                         .help(isComparing ? "Toggle selection for comparison" : "Double-click to load measurement")
-                        .contextMenu {
-                            Button(action: {
-                                let m = measurement
-                                dismiss()
-                                DispatchQueue.main.async {
-                                    analyzer.loadMeasurement(m)
-                                }
-                            }) {
-                                Label("Load into View", systemImage: "arrow.down.doc")
-                            }
-                            
-                            Divider()
-                            
-                            Button(action: {
-                                showDetail(index: index, measurement: measurement)
-                            }) {
-                                Label("View Details", systemImage: "eye")
-                            }
-
-                            Button(action: {
-                                editTarget = (index: index, measurement: measurement)
-                            }) {
-                                Label("Edit Name & Notes", systemImage: "pencil")
-                            }
-
-                            Button(action: {
-                                exportSingleMeasurement(measurement)
-                            }) {
-                                Label("Export Measurement", systemImage: "doc.badge.arrow.up")
-                            }
-
-                            #if os(macOS)
-                            Button(action: {
-                                saveMeasurementToDisk(measurement)
-                            }) {
-                                Label("Save Measurement to Disk…", systemImage: "arrow.down.doc")
-                            }
-                            #endif
-
-                            Button(action: {
-                                exportSpectrumMeasurement(measurement)
-                            }) {
-                                Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
-                            }
-
-                            Button(action: {
-                                if measurement.tapEntries?.isEmpty == false {
-                                    exportMultiTapPDFReport(for: measurement)
-                                } else if measurement.isComparison {
-                                    exportComparisonPDFReport(for: measurement)
-                                } else {
-                                    exportPDFReport(for: measurement)
-                                }
-                            }) {
-                                Label("Export PDF Report", systemImage: "doc.richtext")
-                            }
-
-                            Divider()
-                            
-                            Button(role: .destructive, action: {
-                                measurementPendingDelete = (index: index, measurement: measurement)
-                            }) {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
+                        .contextMenu { rowMenuContents(index: index, measurement: measurement) }
                     }
                     .onDelete { indexSet in
                         if let index = indexSet.first {
@@ -650,6 +586,73 @@ struct MeasurementsListView: View {
 
     /// Row content that adds a selection checkbox overlay when in compare mode.
     @ViewBuilder
+    private func rowMenuContents(index: Int, measurement: TapToneMeasurement) -> some View {
+        Button(action: {
+            let m = measurement
+            dismiss()
+            DispatchQueue.main.async {
+                analyzer.loadMeasurement(m)
+            }
+        }) {
+            Label("Load into View", systemImage: "arrow.down.doc")
+        }
+        
+        Divider()
+        
+        Button(action: {
+            showDetail(index: index, measurement: measurement)
+        }) {
+            Label("View Details", systemImage: "eye")
+        }
+
+        Button(action: {
+            editTarget = (index: index, measurement: measurement)
+        }) {
+            Label("Edit Name & Notes", systemImage: "pencil")
+        }
+
+        Button(action: {
+            exportSingleMeasurement(measurement)
+        }) {
+            Label("Export Measurement", systemImage: "doc.badge.arrow.up")
+        }
+
+        #if os(macOS)
+        Button(action: {
+            saveMeasurementToDisk(measurement)
+        }) {
+            Label("Save Measurement to Disk…", systemImage: "arrow.down.doc")
+        }
+        #endif
+
+        Button(action: {
+            exportSpectrumMeasurement(measurement)
+        }) {
+            Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+        }
+
+        Button(action: {
+            if measurement.tapEntries?.isEmpty == false {
+                exportMultiTapPDFReport(for: measurement)
+            } else if measurement.isComparison {
+                exportComparisonPDFReport(for: measurement)
+            } else {
+                exportPDFReport(for: measurement)
+            }
+        }) {
+            Label("Export PDF Report", systemImage: "doc.richtext")
+        }
+
+        Divider()
+        
+        Button(role: .destructive, action: {
+            measurementPendingDelete = (index: index, measurement: measurement)
+        }) {
+            Label("Delete", systemImage: "trash")
+        }
+    }
+
+    @ViewBuilder
     private func compareRowContent(at index: Int, for measurement: TapToneMeasurement) -> some View {
         let isHovered = hoveredMeasurementIndex == index
         if isComparing {
@@ -659,11 +662,11 @@ struct MeasurementsListView: View {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundColor(selected ? .accentColor : (comparable ? .secondary : .secondary.opacity(0.4)))
-                MeasurementRowView(measurement: measurement, isHovered: isHovered)
+                MeasurementRowView(measurement: measurement, isHovered: isHovered) { rowMenuContents(index: index, measurement: measurement) }
                     .opacity(comparable ? 1.0 : 0.4)
             }
         } else {
-            MeasurementRowView(measurement: measurement, isHovered: isHovered)
+            MeasurementRowView(measurement: measurement, isHovered: isHovered) { rowMenuContents(index: index, measurement: measurement) }
         }
     }
 

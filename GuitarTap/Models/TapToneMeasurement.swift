@@ -237,6 +237,10 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// Name of the active calibration profile applied during this measurement, if any.
     let calibrationName: String?
 
+    /// Effective capture sample rate (Hz) used for this measurement, for reload
+    /// provenance checks. `nil` for older files saved before this field existed.
+    let sampleRate: Double?
+
     // MARK: - Comparison Record
 
     /// Non-nil when this measurement is a saved comparison rather than a single tap event.
@@ -273,7 +277,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case longitudinalSnapshot, crossSnapshot, flcSnapshot
         case selectedPeakIDs, selectedPeakFrequencies, annotationVisibilityMode
         case peakModeOverrides
-        case microphoneName, microphoneUID, calibrationName
+        case microphoneName, microphoneUID, calibrationName, sampleRate
         case comparisonEntries
         case tapEntries
         // Encode-only convenience fields for external consumers
@@ -353,6 +357,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          microphoneName: String? = nil,
          microphoneUID: String? = nil,
          calibrationName: String? = nil,
+         sampleRate: Double? = nil,
          comparisonEntries: [ComparisonEntry]? = nil,
          tapEntries: [TapEntry]? = nil) {
         self.id = id
@@ -379,6 +384,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.microphoneName = microphoneName
         self.microphoneUID = microphoneUID
         self.calibrationName = calibrationName
+        self.sampleRate = sampleRate
         self.comparisonEntries = comparisonEntries
         self.tapEntries = tapEntries
     }
@@ -412,6 +418,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             microphoneName: microphoneName,
             microphoneUID: microphoneUID,
             calibrationName: calibrationName,
+            sampleRate: sampleRate,
             comparisonEntries: comparisonEntries,
             tapEntries: tapEntries
         )
@@ -508,6 +515,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         microphoneName       = try container.decodeIfPresent(String.self, forKey: .microphoneName)
         microphoneUID        = try container.decodeIfPresent(String.self, forKey: .microphoneUID)
         calibrationName      = try container.decodeIfPresent(String.self, forKey: .calibrationName)
+        sampleRate           = try container.decodeIfPresent(Double.self, forKey: .sampleRate)
         comparisonEntries    = try container.decodeIfPresent([ComparisonEntry].self, forKey: .comparisonEntries)
         tapEntries           = try container.decodeIfPresent([TapEntry].self, forKey: .tapEntries)
         // Decode peaks as [ResonantPeak]; the extra modeLabel key in each entry is
@@ -560,6 +568,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(microphoneName,    forKey: .microphoneName)
         try container.encodeIfPresent(microphoneUID,     forKey: .microphoneUID)
         try container.encodeIfPresent(calibrationName,   forKey: .calibrationName)
+        try container.encodeIfPresent(sampleRate, forKey: .sampleRate)
         try container.encodeIfPresent(comparisonEntries, forKey: .comparisonEntries)
         try container.encodeIfPresent(tapEntries,        forKey: .tapEntries)
 

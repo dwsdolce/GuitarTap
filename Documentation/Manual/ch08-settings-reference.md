@@ -41,6 +41,25 @@ launches.
 
 See §2.3 and §2.4 for the workflow.
 
+### Capture sample rate
+
+GuitarTap captures at whatever sample rate the operating system provides
+for the selected input device — it does not override it. The rate is set
+outside the app:
+
+- **macOS:** *Audio MIDI Setup* (in `/Applications/Utilities`). Select the
+  input device and choose a Format rate. Because the app's audio context
+  follows the default **output** device, set both the input and the output
+  device to the same rate (e.g. 48 000 Hz) to avoid resampling.
+- **Windows:** *Sound settings → Device properties → Advanced* (Default
+  Format). **Linux:** your audio server's configuration (e.g. PipeWire/JACK).
+
+Why it matters: the analysis frequency resolution and the captured spectrum
+are tied to the rate, so the same instrument measured at a different rate
+will read slightly differently. The rate in effect is **recorded with each
+measurement** (see Appendix B) so that loading a measurement can warn you if
+your current setup differs — see §10.7.
+
 ## 8.3 Measurement Type
 
 The Measurement Type section adapts to the type you select.

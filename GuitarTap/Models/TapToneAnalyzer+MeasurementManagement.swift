@@ -218,6 +218,7 @@ extension TapToneAnalyzer {
         microphoneName: String? = nil,
         microphoneUID: String? = nil,
         calibrationName: String? = nil,
+        sampleRate: Double? = nil,
         minFreq: Float? = nil,
         maxFreq: Float? = nil,
         minDB: Float? = nil,
@@ -305,6 +306,7 @@ extension TapToneAnalyzer {
             microphoneName: microphoneName,
             microphoneUID: microphoneUID,
             calibrationName: calibrationName,
+            sampleRate: sampleRate,
             tapEntries: measurementType.isGuitar && !tapEntries.isEmpty ? tapEntries : nil
         )
 
@@ -513,6 +515,11 @@ extension TapToneAnalyzer {
             materialTapPhase = .complete
         } else if let snapshot = measurement.spectrumSnapshot {
             setFrozenSpectrum(frequencies: snapshot.frequencies, magnitudes: snapshot.magnitudes)
+            // A loaded measurement is complete. Mark the phase complete so the
+            // displaySpectrum live-FFT race guard (frozenFrequencies.isEmpty &&
+            // materialTapPhase != .complete) doesn't blank a guitar spectrum that
+            // is loaded while the previous measurement type was plate/brace.
+            materialTapPhase = .complete
         } else {
             setFrozenSpectrum(frequencies: [], magnitudes: [])
         }
@@ -727,7 +734,19 @@ extension TapToneAnalyzer {
                     try? fftAnalyzer.setInputDevice(match)
                     gtLog("🎤 Auto-selected microphone '\(name)' for loaded measurement")
                 }
-                microphoneWarning = nil
+                // Same microphone — but flag a calibration or sample-rate difference,
+                // since a newly captured tap would then not match this saved measurement.
+                var diffs: [String] = []
+                if measurement.calibrationName != fftAnalyzer.activeCalibration?.name {
+                    diffs.append("calibration")
+                }
+                if let recordedRate = measurement.sampleRate,
+                   Int(recordedRate.rounded()) != Int(fftAnalyzer.actualSampleRate.rounded()) {
+                    diffs.append("sample rate")
+                }
+                microphoneWarning = diffs.isEmpty
+                    ? nil
+                    : "This measurement was recorded with a different \(diffs.joined(separator: " and ")). A newly captured tap may not match the saved result."
             } else {
                 microphoneWarning = "This measurement was recorded with '\(name)', which is not currently connected. Attach it and select it in the microphone settings for accurate analysis."
             }

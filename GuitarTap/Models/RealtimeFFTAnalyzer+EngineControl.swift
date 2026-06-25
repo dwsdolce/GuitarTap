@@ -56,11 +56,18 @@ extension RealtimeFFTAnalyzer {
         // AVAudioEngine() from init() is always available for that case anyway.
         audioEngine.stop()
         audioEngine.reset()
-        // Assign inputNode on first call (it is intentionally left nil in init until
-        // permissions are confirmed). On subsequent calls it remains valid across reset().
+        // The HAL input node must NOT be acquired until microphone permission is
+        // confirmed .authorized. Acquiring it during the first .notDetermined start()
+        // binds a muted input that keeps delivering silent buffers even after the user
+        // grants access — the cause of a false "Microphone Access Required" alert
+        // post-grant (macOS App Review 2.1a). On macOS it is acquired after the
+        // authorization switch below; on iOS the caller handles permission before
+        // start(), so acquire it here.
+        #if os(iOS)
         if inputNode == nil {
             inputNode = audioEngine.inputNode
         }
+        #endif
         
         #if os(macOS)
         // Request microphone permission explicitly on macOS
@@ -84,6 +91,9 @@ extension RealtimeFFTAnalyzer {
                     // kicks off startTapSequence). Falling back to self.start() would
                     // restart only the FFT engine, leaving tap detection never started.
                     DispatchQueue.main.async {
+                        // Flag the grant so the 3-second silence check does not misread the
+                        // HAL input-acquisition transition as a denial (false-alert backstop).
+                        self.permissionJustGranted = true
                         if let handler = self.onPermissionGranted {
                             handler()
                         } else {
@@ -111,6 +121,13 @@ extension RealtimeFFTAnalyzer {
                           userInfo: [NSLocalizedDescriptionKey: "Microphone access restricted"])
         @unknown default:
             break
+        }
+
+        // Reaching here means permission is .authorized (.notDetermined returns above;
+        // .denied/.restricted throw). Acquire the HAL input only now, so it binds an
+        // authorized device and captures real audio instead of silent buffers.
+        if inputNode == nil {
+            inputNode = audioEngine.inputNode
         }
         
         #endif
@@ -457,7 +474,13 @@ extension RealtimeFFTAnalyzer {
                     && self.firstBufferReceived
                     && tccStatus != .notDetermined
                 gtLog("🎤 3s TCC check — status: \(tccStatus.rawValue), peak: \(self.peakMagnitude) dB, perfectSilence: \(perfectSilence), buffersReceived: \(self.firstBufferReceived)")
-                if tccDenied || perfectSilence {
+                if self.permissionJustGranted {
+                    // First check right after a grant: silence here is the HAL
+                    // input-acquisition transition, not a denial — clear the flag and
+                    // never show the alert. (Backstop; the deferred-binding fix should
+                    // prevent silence entirely.)
+                    self.permissionJustGranted = false
+                } else if tccDenied || perfectSilence {
                     gtLog("⚠️ Microphone permission confirmed DENIED after 3s — tccDenied=\(tccDenied), perfectSilence=\(perfectSilence)")
                     self.stop()
                     self.microphonePermissionDenied = true

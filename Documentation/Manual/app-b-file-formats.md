@@ -30,9 +30,26 @@ when only one measurement is present.
 ```
 
 Dates are ISO-8601 strings (`YYYY-MM-DDTHH:MM:SSZ`). UUIDs are
-RFC 4122 strings. Numbers are JSON numbers (single-precision
-floats are encoded as decimal; per-spectrum arrays use the
-compact binary encoding below).
+RFC 4122 strings.
+
+**Number precision.** Most numeric fields are single-precision
+(`float32`): they are written as the shortest decimal that
+round-trips to the stored value, and integral values carry no
+decimal point (`-100`, not `-100.0`). Treat them as accurate to
+about 7 significant digits, no more. A few fields are full
+double-precision and are written at full precision — `pitchCents`,
+`pitchFrequency`, `sampleRate`, the four `colorComponents`, and
+the `absFreqHz` / `absDB` annotation offsets. Per-spectrum arrays
+do not use JSON numbers at all; they use the compact binary
+encoding described below.
+
+**Key order and whitespace are not significant.** Current writers
+sort object keys alphabetically and indent two spaces, but a
+parser must not depend on either — always read by key name.
+
+**Optional fields are omitted, never `null`.** A field that is
+not set is left out of the object entirely. Treat a missing field
+and an explicit `null` the same way on read.
 
 ### Measurement object
 
@@ -65,6 +82,7 @@ what the user did at save time:
 | `peakModeOverrides` | array | UUID-keyed map of per-peak mode overrides, encoded as a flat array (see "UUID-keyed maps"). Each value is `{ "type": "assigned", "label": <mode> }`. |
 | `microphoneName`, `microphoneUID` | string | Input device provenance. |
 | `calibrationName` | string | Active calibration profile, if any. |
+| `sampleRate` | float | Capture sample rate (Hz) in effect when recorded. Omitted in files saved before this field existed; absence is treated as "unknown" (no warning). |
 | `comparisonEntries` | array of ComparisonEntry | Present **only** for saved comparisons. |
 | `tapEntries` | array of TapEntry | Per-tap data for multi-tap guitar. |
 | `measurementType`, `guitarType` | string | Convenience copies for external consumers; mirror `spectrumSnapshot` fields. |
@@ -153,9 +171,23 @@ freqs = list(struct.unpack(f"<{len(b)//4}f", b))
 | `quality` | float | Q factor. |
 | `bandwidth` | float | −3 dB bandwidth, Hz. |
 | `timestamp` | ISO-8601 | When the peak was detected. |
-| `pitchNote` | string | Nearest equal-temperament note, e.g. `"D4"`. |
-| `pitchCents` | float | Cents offset from `pitchNote`. |
-| `pitchFrequency` | float | Frequency of `pitchNote` in Hz. |
+| `pitchNote` | string | Nearest equal-temperament note, e.g. `"D4"`. Optional. |
+| `pitchCents` | number | Cents offset from `pitchNote` (double precision). Optional. |
+| `pitchFrequency` | number | Frequency of `pitchNote` in Hz (double precision). Optional. |
+| `modeLabel` | string | Resolved mode label — see note below. Top-level peaks only. |
+
+`pitchNote`, `pitchCents`, and `pitchFrequency` are present only
+when pitch detection produced a result; otherwise all three are
+omitted together.
+
+`modeLabel` is a convenience the writer adds to each peak in the
+**top-level** `peaks` array: the resolved guitar mode name (e.g.
+`"Air (Helmholtz)"`, `"Top"`), the user's assigned override if
+any, or — for plate / brace — the peak's role (`"Longitudinal"`,
+`"Cross-grain"`, `"FLC"`, or `"Peak"`). It is derived from the
+other fields and the measurement settings, so a reader can use it
+directly or ignore it and reclassify. It is **not** written on
+peaks nested inside `tapEntries` or `comparisonEntries`.
 
 ### ComparisonEntry (when `comparisonEntries` is present)
 
@@ -187,6 +219,28 @@ the multi-tap comparison view can be reconstructed:
 | `snapshot` | SpectrumSnapshot | Raw single-tap spectrum. |
 | `peaks` | array of Peak | Peaks detected in this single tap. |
 | `selectedPeakIDs` | array of UUID | Auto-selected modes for this tap. |
+
+### Legacy compatibility (reader-only)
+
+Everything above describes what current builds **write**. Files
+saved by older versions of Guitar Tap may differ in the ways
+listed here. If you are parsing `.guitartap` files you are likely
+to meet some of these in the wild, so a robust reader should
+accept them all; a writer should emit only the current forms.
+
+| You may encounter | Read it as | Why |
+|---|---|---|
+| `peakThreshold` | `peakMinThreshold` | The field was renamed; older files use the old name. If both are present, prefer `peakMinThreshold`. |
+| `tapLocation` | `measurementName` | Renamed. |
+| `frequencies` / `magnitudes` (plain arrays of float) | `frequenciesData` / `magnitudesData` | The spectrum arrays predate the compact Base64 binary encoding and were stored as ordinary JSON float arrays. |
+| `peakModeOverrides` as a JSON **object** (`{ "<uuid>": { … } }`) | the flat alternating array | Early Python 1.0.x builds. See "UUID-keyed maps" above. |
+| Annotation offsets as `{ "hzOffset": …, "dbOffset": … }` | *(drop them)* | An old delta-based label-position format that cannot be converted reliably; affected labels simply revert to their default position. |
+| Any field not documented here (e.g. `hysteresisMargin`, `maxPeaks`) | *(ignore it)* | The format is additive. Skip unknown keys rather than rejecting the file. |
+
+Two absences are themselves meaningful: a missing `sampleRate`
+means the capture rate was not recorded (treated as "unknown",
+no warning), and a missing `selectedPeakIDs` means every peak is
+considered selected.
 
 ## Calibration files (`.txt` / `.cal`)
 

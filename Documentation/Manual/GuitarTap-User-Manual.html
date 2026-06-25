@@ -942,6 +942,7 @@ ol.steps li::before {
   </ul></li>
   <li class="nav-h2"><a href="#82-audio-input-calibration">8.2 Audio Input &amp; Calibration</a>
   <ul>
+    <li class="nav-h3"><a href="#capture-sample-rate">Capture sample rate</a></li>
   </ul></li>
   <li class="nav-h2"><a href="#83-measurement-type">8.3 Measurement Type</a>
   <ul>
@@ -1037,6 +1038,7 @@ ol.steps li::before {
     <li class="nav-h3"><a href="#peak">Peak</a></li>
     <li class="nav-h3"><a href="#comparisonentry-when-comparisonentries-is-present">ComparisonEntry (when `comparisonEntries` is present)</a></li>
     <li class="nav-h3"><a href="#tapentry-when-tapentries-is-present">TapEntry (when `tapEntries` is present)</a></li>
+    <li class="nav-h3"><a href="#legacy-compatibility-reader-only">Legacy compatibility (reader-only)</a></li>
   </ul></li>
   <li class="nav-h2"><a href="#calibration-files-txt-cal">Calibration files (`.txt` / `.cal`)</a>
   <ul>
@@ -1056,7 +1058,7 @@ ol.steps li::before {
   <div class="title-text">
     <h1 class="title-main">Guitar Tap</h1>
     <p class="title-subtitle">User Manual</p>
-    <p class="title-version">Version 1.0</p>
+    <p class="title-version">Version 1.0.1</p>
     <p class="title-platforms">iOS/iPadOS &nbsp;·&nbsp; macOS &nbsp;·&nbsp; Windows &nbsp;·&nbsp; Linux</p>
   </div>
   <div class="title-footer">
@@ -1139,6 +1141,7 @@ ol.steps li::before {
   <li class="toc-h1"><a href="#chapter-8-settings-reference">Chapter 8 — Settings Reference<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#81-opening-settings">8.1 Opening Settings<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#82-audio-input-calibration">8.2 Audio Input &amp; Calibration<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#capture-sample-rate">Capture sample rate<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#83-measurement-type">8.3 Measurement Type<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#84-advanced-display-settings">8.4 Advanced — Display Settings<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#85-advanced-analysis-settings">8.5 Advanced — Analysis Settings<span class="toc-page-num"></span></a></li>
@@ -1176,6 +1179,7 @@ ol.steps li::before {
   <li class="toc-h3"><a href="#peak">Peak<span class="toc-page-num"></span></a></li>
   <li class="toc-h3"><a href="#comparisonentry-when-comparisonentries-is-present">ComparisonEntry (when `comparisonEntries` is present)<span class="toc-page-num"></span></a></li>
   <li class="toc-h3"><a href="#tapentry-when-tapentries-is-present">TapEntry (when `tapEntries` is present)<span class="toc-page-num"></span></a></li>
+  <li class="toc-h3"><a href="#legacy-compatibility-reader-only">Legacy compatibility (reader-only)<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#calibration-files-txt-cal">Calibration files (`.txt` / `.cal`)<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#exported-formats">Exported formats<span class="toc-page-num"></span></a></li>
 </ul>
@@ -2354,12 +2358,14 @@ are in:</p>
 <p>On a trackpad, two-finger <strong>pinch</strong> works the same as scroll-wheel
 zoom — over the plot area for both axes, over an axis for that
 axis only.</p>
-<p>To reset the view, <strong>right-click</strong> anywhere in the chart area and
-choose Reset Axes from the context menu.</p>
-<p>If you need to look the bindings up in place, the <strong>?</strong> icon in
-the upper-right corner of the spectrum window opens a Zoom &amp; Pan
-Controls popover that summarises all the gestures and modifier
-keys for the current platform.</p>
+<p>To reset the view, click the <strong>…</strong> (Chart Options) button in the
+upper-right corner of the chart and choose a Reset option, or
+<strong>right-click</strong> anywhere in the chart area for the same menu.</p>
+<p>Two icons sit in the upper-right corner of the spectrum window:
+the <strong>…</strong> Chart Options button (axis/label resets, above) and the
+<strong>?</strong> icon, which opens a Zoom &amp; Pan Controls popover that
+summarises all the gestures and modifier keys for the current
+platform.</p>
 <h2 id="64-auto-db">6.4 Auto dB</h2>
 
 <p><strong>Auto dB</strong> scales the magnitude axis to fit the current signal:
@@ -2517,8 +2523,7 @@ newest entries appear at the bottom — not sorted by date or name.</p>
 <h2 id="73-loading-a-measurement-into-the-view">7.3 Loading a Measurement into the View</h2>
 
 <p>Either <strong>double-click</strong> the measurement row, or open the popup
-menu on the row (right-click on desktop, long-press on iOS /
-iPadOS) and choose <strong>Load into View</strong>.</p>
+menu on the row (click the row's <strong>…</strong> button or right-click on desktop, or long-press on iOS / iPadOS) and choose <strong>Load into View</strong>.</p>
 <p>What is restored on load:</p>
 <ul>
 <li>The frozen spectrum and its peaks</li>
@@ -2541,8 +2546,7 @@ the overlay, brings up the Comparison Results table, and switches
 the view into comparison mode.</p>
 <h2 id="74-viewing-measurement-details">7.4 Viewing Measurement Details</h2>
 
-<p>Open the popup menu on a measurement row (right-click on desktop,
-long-press on iOS / iPadOS) and choose <strong>View Details</strong>, or tap
+<p>Open the popup menu on a measurement row (click the row's <strong>…</strong> button or right-click on desktop, or long-press on iOS / iPadOS) and choose <strong>View Details</strong>, or tap
 the row directly.</p>
 <p>The detail view is read-only. It contains:</p>
 <ul>
@@ -2565,8 +2569,7 @@ anywhere outside the dialog on iOS / iPadOS.</p>
 
 <p>You can change a measurement's name or notes at any time after it
 has been saved.</p>
-<p>Open the popup menu on the measurement row (right-click on
-desktop, long-press on iOS / iPadOS) and choose <strong>Edit Name &amp;
+<p>Open the popup menu on the measurement row (click the row's <strong>…</strong> button or right-click on desktop, or long-press on iOS / iPadOS) and choose <strong>Edit Name &amp;
 Notes</strong>. The edit sheet has the same two fields as Save. Tapping
 Save in the sheet commits the change immediately — there is no
 separate confirm step and no undo.</p>
@@ -2765,6 +2768,24 @@ launches.</p>
   across all devices. Use when you want a clean baseline.</li>
 </ul>
 <p>See §2.3 and §2.4 for the workflow.</p>
+<h3 id="capture-sample-rate">Capture sample rate</h3>
+
+<p>GuitarTap captures at whatever sample rate the operating system provides
+for the selected input device — it does not override it. The rate is set
+outside the app:</p>
+<ul>
+<li><strong>macOS:</strong> <em>Audio MIDI Setup</em> (in <code>/Applications/Utilities</code>). Select the
+  input device and choose a Format rate. Because the app's audio context
+  follows the default <strong>output</strong> device, set both the input and the output
+  device to the same rate (e.g. 48 000 Hz) to avoid resampling.</li>
+<li><strong>Windows:</strong> <em>Sound settings → Device properties → Advanced</em> (Default
+  Format). <strong>Linux:</strong> your audio server's configuration (e.g. PipeWire/JACK).</li>
+</ul>
+<p>Why it matters: the analysis frequency resolution and the captured spectrum
+are tied to the rate, so the same instrument measured at a different rate
+will read slightly differently. The rate in effect is <strong>recorded with each
+measurement</strong> (see Appendix B) so that loading a measurement can warn you if
+your current setup differs — see §10.7.</p>
 <h2 id="83-measurement-type">8.3 Measurement Type</h2>
 
 <p>The Measurement Type section adapts to the type you select.</p>
@@ -3509,6 +3530,16 @@ detector for the next tap.</p>
 <td>Mic named in the file isn't on this system</td>
 <td>The import succeeded; a fallback device is in use. Reconnect the original mic, or pick a current one in Settings → Audio Input (§7.9).</td>
 </tr>
+<tr>
+<td>Loaded measurement: warning about a different calibration and/or sample rate</td>
+<td>The recorded microphone matches, but the active calibration or the OS sample rate differs from when the measurement was made</td>
+<td>Informational only — the saved data is unaffected. A <strong>newly captured</strong> tap will not match the saved one until they agree. Match the sample rate in your OS audio settings (§8.2) and reselect the calibration in Settings → Audio Input.</td>
+</tr>
+<tr>
+<td>A fresh tap of the same instrument doesn't match a saved measurement</td>
+<td>Microphone, calibration, or sample rate changed since the measurement was saved</td>
+<td>These determine the captured spectrum. Reproduce the original microphone, calibration, and sample rate (§8.2); the load-time warning tells you which one differs.</td>
+</tr>
 </tbody>
 </table>
 <h1 id="chapter-11-glossary">Chapter 11 — Glossary</h1>
@@ -3689,9 +3720,23 @@ when only one measurement is present.</p>
 ]
 </code></pre>
 <p>Dates are ISO-8601 strings (<code>YYYY-MM-DDTHH:MM:SSZ</code>). UUIDs are
-RFC 4122 strings. Numbers are JSON numbers (single-precision
-floats are encoded as decimal; per-spectrum arrays use the
-compact binary encoding below).</p>
+RFC 4122 strings.</p>
+<p><strong>Number precision.</strong> Most numeric fields are single-precision
+(<code>float32</code>): they are written as the shortest decimal that
+round-trips to the stored value, and integral values carry no
+decimal point (<code>-100</code>, not <code>-100.0</code>). Treat them as accurate to
+about 7 significant digits, no more. A few fields are full
+double-precision and are written at full precision — <code>pitchCents</code>,
+<code>pitchFrequency</code>, <code>sampleRate</code>, the four <code>colorComponents</code>, and
+the <code>absFreqHz</code> / <code>absDB</code> annotation offsets. Per-spectrum arrays
+do not use JSON numbers at all; they use the compact binary
+encoding described below.</p>
+<p><strong>Key order and whitespace are not significant.</strong> Current writers
+sort object keys alphabetically and indent two spaces, but a
+parser must not depend on either — always read by key name.</p>
+<p><strong>Optional fields are omitted, never <code>null</code>.</strong> A field that is
+not set is left out of the object entirely. Treat a missing field
+and an explicit <code>null</code> the same way on read.</p>
 <h3 id="measurement-object">Measurement object</h3>
 
 <p>Required fields:</p>
@@ -3811,6 +3856,11 @@ what the user did at save time:</p>
 <td><code>calibrationName</code></td>
 <td>string</td>
 <td>Active calibration profile, if any.</td>
+</tr>
+<tr>
+<td><code>sampleRate</code></td>
+<td>float</td>
+<td>Capture sample rate (Hz) in effect when recorded. Omitted in files saved before this field existed; absence is treated as "unknown" (no warning).</td>
 </tr>
 <tr>
 <td><code>comparisonEntries</code></td>
@@ -4010,20 +4060,36 @@ freqs = list(struct.unpack(f&quot;&lt;{len(b)//4}f&quot;, b))
 <tr>
 <td><code>pitchNote</code></td>
 <td>string</td>
-<td>Nearest equal-temperament note, e.g. <code>"D4"</code>.</td>
+<td>Nearest equal-temperament note, e.g. <code>"D4"</code>. Optional.</td>
 </tr>
 <tr>
 <td><code>pitchCents</code></td>
-<td>float</td>
-<td>Cents offset from <code>pitchNote</code>.</td>
+<td>number</td>
+<td>Cents offset from <code>pitchNote</code> (double precision). Optional.</td>
 </tr>
 <tr>
 <td><code>pitchFrequency</code></td>
-<td>float</td>
-<td>Frequency of <code>pitchNote</code> in Hz.</td>
+<td>number</td>
+<td>Frequency of <code>pitchNote</code> in Hz (double precision). Optional.</td>
+</tr>
+<tr>
+<td><code>modeLabel</code></td>
+<td>string</td>
+<td>Resolved mode label — see note below. Top-level peaks only.</td>
 </tr>
 </tbody>
 </table>
+<p><code>pitchNote</code>, <code>pitchCents</code>, and <code>pitchFrequency</code> are present only
+when pitch detection produced a result; otherwise all three are
+omitted together.</p>
+<p><code>modeLabel</code> is a convenience the writer adds to each peak in the
+<strong>top-level</strong> <code>peaks</code> array: the resolved guitar mode name (e.g.
+<code>"Air (Helmholtz)"</code>, <code>"Top"</code>), the user's assigned override if
+any, or — for plate / brace — the peak's role (<code>"Longitudinal"</code>,
+<code>"Cross-grain"</code>, <code>"FLC"</code>, or <code>"Peak"</code>). It is derived from the
+other fields and the measurement settings, so a reader can use it
+directly or ignore it and reclassify. It is <strong>not</strong> written on
+peaks nested inside <code>tapEntries</code> or <code>comparisonEntries</code>.</p>
 <h3 id="comparisonentry-when-comparisonentries-is-present">ComparisonEntry (when `comparisonEntries` is present)</h3>
 
 <table>
@@ -4117,6 +4183,58 @@ the multi-tap comparison view can be reconstructed:</p>
 </tr>
 </tbody>
 </table>
+<h3 id="legacy-compatibility-reader-only">Legacy compatibility (reader-only)</h3>
+
+<p>Everything above describes what current builds <strong>write</strong>. Files
+saved by older versions of Guitar Tap may differ in the ways
+listed here. If you are parsing <code>.guitartap</code> files you are likely
+to meet some of these in the wild, so a robust reader should
+accept them all; a writer should emit only the current forms.</p>
+<table>
+<thead>
+<tr>
+<th>You may encounter</th>
+<th>Read it as</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>peakThreshold</code></td>
+<td><code>peakMinThreshold</code></td>
+<td>The field was renamed; older files use the old name. If both are present, prefer <code>peakMinThreshold</code>.</td>
+</tr>
+<tr>
+<td><code>tapLocation</code></td>
+<td><code>measurementName</code></td>
+<td>Renamed.</td>
+</tr>
+<tr>
+<td><code>frequencies</code> / <code>magnitudes</code> (plain arrays of float)</td>
+<td><code>frequenciesData</code> / <code>magnitudesData</code></td>
+<td>The spectrum arrays predate the compact Base64 binary encoding and were stored as ordinary JSON float arrays.</td>
+</tr>
+<tr>
+<td><code>peakModeOverrides</code> as a JSON <strong>object</strong> (<code>{ "&lt;uuid&gt;": { … } }</code>)</td>
+<td>the flat alternating array</td>
+<td>Early Python 1.0.x builds. See "UUID-keyed maps" above.</td>
+</tr>
+<tr>
+<td>Annotation offsets as <code>{ "hzOffset": …, "dbOffset": … }</code></td>
+<td><em>(drop them)</em></td>
+<td>An old delta-based label-position format that cannot be converted reliably; affected labels simply revert to their default position.</td>
+</tr>
+<tr>
+<td>Any field not documented here (e.g. <code>hysteresisMargin</code>, <code>maxPeaks</code>)</td>
+<td><em>(ignore it)</em></td>
+<td>The format is additive. Skip unknown keys rather than rejecting the file.</td>
+</tr>
+</tbody>
+</table>
+<p>Two absences are themselves meaningful: a missing <code>sampleRate</code>
+means the capture rate was not recorded (treated as "unknown",
+no warning), and a missing <code>selectedPeakIDs</code> means every peak is
+considered selected.</p>
 <h2 id="calibration-files-txt-cal">Calibration files (`.txt` / `.cal`)</h2>
 
 <p>Frequency-response compensation data for a measurement

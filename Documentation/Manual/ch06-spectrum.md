@@ -102,13 +102,15 @@ On a trackpad, two-finger **pinch** works the same as scroll-wheel
 zoom — over the plot area for both axes, over an axis for that
 axis only.
 
-To reset the view, **right-click** anywhere in the chart area and
-choose Reset Axes from the context menu.
+To reset the view, click the **…** (Chart Options) button in the
+upper-right corner of the chart and choose a Reset option, or
+**right-click** anywhere in the chart area for the same menu.
 
-If you need to look the bindings up in place, the **?** icon in
-the upper-right corner of the spectrum window opens a Zoom & Pan
-Controls popover that summarises all the gestures and modifier
-keys for the current platform.
+Two icons sit in the upper-right corner of the spectrum window:
+the **…** Chart Options button (axis/label resets, above) and the
+**?** icon, which opens a Zoom & Pan Controls popover that
+summarises all the gestures and modifier keys for the current
+platform.
 
 ## 6.4 Auto dB
 

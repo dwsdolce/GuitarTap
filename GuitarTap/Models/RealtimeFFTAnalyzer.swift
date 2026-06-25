@@ -533,6 +533,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// `TapToneAnalyzer.start()` path (which sets `analyzerStartTime` and kicks off
     /// `startTapSequence`) is taken instead of restarting only the FFT engine.
     var onPermissionGranted: (() -> Void)?
+
+    /// Set true on the main thread the moment the user grants microphone permission, so the
+    /// 3-second post-start silence check (RealtimeFFTAnalyzer+EngineControl) does not misread
+    /// the brief HAL input-acquisition transition as a denial and show a false
+    /// "Microphone Access Required" alert. Cleared by that check after one cycle.
+    var permissionJustGranted: Bool = false
     #endif
     
     // MARK: - Performance and Analysis Metrics

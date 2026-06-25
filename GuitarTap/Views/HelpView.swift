@@ -301,7 +301,7 @@ Help menu:
                 )
                 helpRow(
                     title: "Measurements",
-                    body: "Lists all saved measurements. Double-click (macOS) or double-tap (iOS/iPadOS) a row to load the measurement into the main view — the measurements window closes automatically after loading. Right-click (macOS) or long-press (iOS/iPadOS) a row to access: Load into View, View Details, Edit Name & Notes, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison. The measurement name and notes can also be edited from the Edit button in the Measurement Details toolbar.",
+                    body: "Lists all saved measurements. Double-click (macOS) or double-tap (iOS/iPadOS) a row to load the measurement into the main view — the measurements window closes automatically after loading. Click a row's ⋯ button or right-click it (macOS), or long-press it (iOS/iPadOS), to access: Load into View, View Details, Edit Name & Notes, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap file from Files or another device. Tap Compare to enter multi-select mode and overlay 2–5 saved guitar measurements on the main chart for side-by-side comparison. The measurement name and notes can also be edited from the Edit button in the Measurement Details toolbar.",
                     systemImages: ["list.bullet.clipboard"]
                 )
                 helpRow(
@@ -320,18 +320,17 @@ Help menu:
                     body: "Enables a draggable crosshair on the spectrum for reading the exact frequency and magnitude at any point.",
                     systemImages: ["dot.viewfinder"]
                 )
+                #endif
                 helpRow(
                     title: "… Chart Options",
-                    body: "The ellipsis button in the top-right corner of the spectrum opens the Chart Options sheet. From here you can reset either or both axes to the values you last saved in Settings (\"Reset to Saved\"), or restore the factory defaults (\"Reset to Defaults\"). If peak labels have been dragged from their auto-positions, \"Reset Labels\" moves them back.",
+                    body: "The ellipsis button in the top-right corner of the spectrum opens the Chart Options menu (on macOS, right-clicking the chart opens the same menu). From here you can reset either or both axes to the values you last saved in Settings (\"Reset to Saved\"), or restore the factory defaults (\"Reset to Defaults\"). If peak labels have been dragged from their auto-positions, \"Reset Labels\" moves them back.",
                     systemImages: ["ellipsis.circle"]
                 )
-                #else
                 helpRow(
                     title: "ⓘ Zoom & Pan Help",
                     body: "The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom of both axes or each individual axis (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.",
                     systemImages: ["info.circle"]
                 )
-                #endif
             } header: {
                 Label("Controls Reference", systemImage: "hand.tap")
             }

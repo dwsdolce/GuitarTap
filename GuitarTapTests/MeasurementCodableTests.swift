@@ -207,7 +207,8 @@ struct TapToneMeasurementCodableTests {
             peakModeOverrides: overrides,
             microphoneName: "Built-in Microphone",
             microphoneUID: "BuiltIn_Bottom",
-            calibrationName: nil
+            calibrationName: nil,
+            sampleRate: 48000
         )
     }
 
@@ -232,6 +233,7 @@ struct TapToneMeasurementCodableTests {
         #expect(decoded.numberOfTaps == original.numberOfTaps)
         #expect(decoded.microphoneName == original.microphoneName)
         #expect(decoded.microphoneUID == original.microphoneUID)
+        #expect(decoded.sampleRate == original.sampleRate)
         #expect(decoded.annotationVisibilityMode == original.annotationVisibilityMode)
         // selectedPeakIDs must round-trip
         #expect(decoded.selectedPeakIDs == original.selectedPeakIDs)
@@ -240,6 +242,22 @@ struct TapToneMeasurementCodableTests {
     }
 
     // Empty (nil) peakAnnotationOffsets encodes to an empty marker and decodes to nil.
+    // A nil sampleRate is omitted from JSON, and a file with no sampleRate key
+    // (saved before the field existed) decodes to nil — backward compatible.
+    @Test func missingSampleRate_decodesAsNil() throws {
+        let original = TapToneMeasurement(peaks: [])  // sampleRate defaults to nil
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let data = try encoder.encode(original)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(!json.contains("sampleRate"), "nil sampleRate must be omitted via encodeIfPresent")
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let decoded = try decoder.decode(TapToneMeasurement.self, from: data)
+        #expect(decoded.sampleRate == nil)
+    }
+
     @Test func emptyAnnotationOffsets_roundTrip() throws {
         let measurement = TapToneMeasurement(peaks: [])
         let data = try JSONEncoder().encode(measurement)
@@ -807,5 +825,71 @@ struct FixtureLoadingTests {
                         "Peak frequency \(peak.frequency) Hz should be in valid audio range")
             }
         }
+    }
+
+    /// Resolves the bundled or source-tree Contreras fixture URL, or nil when absent.
+    private static func contrerasFixtureURL() -> URL? {
+        let name = "contreras-classical-1774731564"
+        if let bundled = Bundle.allBundles.lazy
+            .compactMap({ $0.url(forResource: name, withExtension: "guitartap") }).first {
+            return bundled
+        }
+        let local = URL(fileURLWithPath: #file)
+            .deletingLastPathComponent()
+            .appendingPathComponent("\(name).guitartap")
+        return FileManager.default.fileExists(atPath: local.path) ? local : nil
+    }
+
+    // R4 (extended): the real fixture must decode -> re-encode -> re-decode with every
+    // modeled field preserved, the legacy keys mapped on the way in, and the writer
+    // emitting only the canonical key set. Pinned identically in the Python
+    // TestFixtureLoading round-trip and the GuitarTapWeb g5-measurement-codable suite so
+    // the three writers can't drift. The Contreras file is an OLD save, so this also
+    // exercises legacy decode (peakThreshold, no sampleRate, extra ignored fields).
+    @Test func realFixture_roundTripsAndCanonicalizes() throws {
+        guard let url = Self.contrerasFixtureURL() else {
+            withKnownIssue("Fixture file not found in bundle or source tree") { }
+            return
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let m = try decoder.decode([TapToneMeasurement].self, from: Data(contentsOf: url))[0]
+
+        // Decode + legacy-mapping assertions.
+        #expect(m.peaks.count == 44)
+        #expect(m.peakMinThreshold == Float(-78))   // legacy "peakThreshold" -> peakMinThreshold
+        #expect(m.sampleRate == nil)                 // absent -> unknown
+        #expect(m.measurementName == "Contreras Classical")
+        #expect(m.numberOfTaps == 10)
+        let s = try #require(m.spectrumSnapshot)
+        #expect(s.measurementType?.rawValue == "Classical Guitar")
+        #expect(s.guitarType?.rawValue == "Classical")
+        #expect(s.minFreq == 75 && s.maxFreq == 350 && s.minDB == -100 && s.maxDB == 0)
+        #expect(abs(m.peaks[0].frequency - 212.24847) < 1e-3)
+        #expect(m.peaks[0].pitchNote == "G#3")
+
+        // Re-encode with the app's canonical encoder (matches saveMeasurement).
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode([m])
+        let json = String(data: data, encoding: .utf8)!
+
+        // Writer = minimal canonical: only current keys, never legacy ones.
+        #expect(json.contains("\"peakMinThreshold\""))
+        #expect(!json.contains("\"peakThreshold\""))
+        #expect(!json.contains("\"hysteresisMargin\""))
+        #expect(!json.contains("\"maxPeaks\""))
+        #expect(json.contains("\"modeLabel\""))   // convenience label on top-level peaks
+        #expect(json.contains("\"Top\""))          // peak 0 classifies as Top
+
+        // Semantic round-trip: re-decoding preserves the modeled fields exactly.
+        let again = try decoder.decode([TapToneMeasurement].self, from: data)[0]
+        #expect(again.peaks.count == m.peaks.count)
+        #expect(again.peakMinThreshold == m.peakMinThreshold)
+        #expect(again.sampleRate == m.sampleRate)
+        #expect(again.spectrumSnapshot?.frequencies == m.spectrumSnapshot?.frequencies)
+        #expect(again.spectrumSnapshot?.magnitudes == m.spectrumSnapshot?.magnitudes)
+        #expect(again.peaks.map(\.frequency) == m.peaks.map(\.frequency))
     }
 }

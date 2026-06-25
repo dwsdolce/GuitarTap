@@ -86,8 +86,7 @@ newest entries appear at the bottom — not sorted by date or name.
 ## 7.3 Loading a Measurement into the View
 
 Either **double-click** the measurement row, or open the popup
-menu on the row (right-click on desktop, long-press on iOS /
-iPadOS) and choose **Load into View**.
+menu on the row (click the row's **…** button or right-click on desktop, or long-press on iOS / iPadOS) and choose **Load into View**.
 
 What is restored on load:
 
@@ -114,8 +113,7 @@ the view into comparison mode.
 
 ## 7.4 Viewing Measurement Details
 
-Open the popup menu on a measurement row (right-click on desktop,
-long-press on iOS / iPadOS) and choose **View Details**, or tap
+Open the popup menu on a measurement row (click the row's **…** button or right-click on desktop, or long-press on iOS / iPadOS) and choose **View Details**, or tap
 the row directly.
 
 The detail view is read-only. It contains:
@@ -143,8 +141,7 @@ anywhere outside the dialog on iOS / iPadOS.
 You can change a measurement's name or notes at any time after it
 has been saved.
 
-Open the popup menu on the measurement row (right-click on
-desktop, long-press on iOS / iPadOS) and choose **Edit Name &
+Open the popup menu on the measurement row (click the row's **…** button or right-click on desktop, or long-press on iOS / iPadOS) and choose **Edit Name &
 Notes**. The edit sheet has the same two fields as Save. Tapping
 Save in the sheet commits the change immediately — there is no
 separate confirm step and no undo.

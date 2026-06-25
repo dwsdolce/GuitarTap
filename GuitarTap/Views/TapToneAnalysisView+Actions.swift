@@ -235,6 +235,7 @@ extension TapToneAnalysisView {
             microphoneName: fft.selectedInputDevice?.name,
             microphoneUID: fft.selectedInputDevice?.uid,
             calibrationName: fft.activeCalibration?.name,
+            sampleRate: fft.actualSampleRate > 0 ? fft.actualSampleRate : nil,
             minFreq: minFreq,
             maxFreq: maxFreq,
             minDB: minDB,

@@ -284,6 +284,12 @@ struct SpectrumView: View {
     /// Used on both macOS and iOS.
     @State private var dragRegion: PointerRegion = .plot
 
+    /// Whether the chart-options (⋯) menu/sheet is showing. All platforms now show the
+    /// ⋯ button in the chart's upper-right, so this is no longer iOS-only.
+    @State private var showingChartOptions: Bool = false
+    /// Whether the zoom/pan controls (?) help popover is showing. All platforms.
+    @State private var showingControlsHelp: Bool = false
+
     #if os(macOS)
     /// Snapped cursor position in data coordinates, including series identity. Nil when not hovering.
     @State private var cursorSnapState: CursorSnapState? = nil
@@ -291,8 +297,6 @@ struct SpectrumView: View {
     /// Whether the cursor readout is currently visible
     @State private var isCursorVisible: Bool = false
 
-    /// Whether the zoom/pan controls help popover is showing
-    @State private var showingControlsHelp: Bool = false
 
     /// Raw screen-local position of the mouse within the chart overlay, updated on every hover tick.
     /// Used by the scroll-wheel zoom handler to zoom around the cursor rather than the range midpoint.
@@ -344,8 +348,6 @@ struct SpectrumView: View {
     }
 
     #else
-    /// Whether the iOS chart options sheet is showing
-    @State private var showingChartOptions: Bool = false
 
     /// Whether crosshair tracking mode is active (iOS only). Defaults to false when not provided.
     var crosshairMode: Binding<Bool> = .constant(false)
@@ -452,49 +454,35 @@ struct SpectrumView: View {
 
     // MARK: - Body
 
-    var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                Text(chartTitle)
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .center)
+    /// ⋯ Chart Options button — shown on every platform (matches the web).
+    private var chartOptionsButton: some View {
+        Button { showingChartOptions = true } label: {
+            Image(systemName: "ellipsis.circle").font(.caption).foregroundColor(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Chart options")
+        .popover(isPresented: $showingChartOptions) {
+                    ChartOptionsSheet(
+                        hasLabelsToReset: hasLabelsToReset,
+                        onResetBothToSaved: { resetBothAxesToSaved(); showingChartOptions = false },
+                        onResetFreqToSaved: { resetFrequencyAxisToSaved(); showingChartOptions = false },
+                        onResetMagToSaved: { resetMagnitudeAxisToSaved(); showingChartOptions = false },
+                        onResetBothToDefaults: { resetBothAxesToDefaults(); showingChartOptions = false },
+                        onResetFreqToDefaults: { resetFrequencyAxisToDefaults(); showingChartOptions = false },
+                        onResetMagToDefaults: { resetMagnitudeAxisToDefaults(); showingChartOptions = false },
+                        onResetLabels: onResetLabels.map { action in { action(); showingChartOptions = false } }
+                    )
+        }
+    }
 
-                HStack {
-                    Spacer()
-                #if os(macOS)
-                Button {
-                    showingControlsHelp.toggle()
-                } label: {
-                    Image(systemName: "info.circle")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .contentShape(Rectangle())
-                        .onHover { hovering in
-                            if hovering {
-                                NSCursor.pointingHand.set()
-                            } else {
-                                NSCursor.arrow.set()
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-                .help("""
-                    Zoom & Pan Controls:
-                    • Scroll over plot: Zoom both axes around cursor
-                    • Scroll over frequency axis: Zoom frequency only
-                    • Scroll over magnitude axis: Zoom magnitude only
-                    • ⇧ + Scroll: Pan frequency axis
-                    • ⌥ + Scroll: Pan magnitude axis
-                    • ⌘/⌃ + Scroll: Zoom both axes
-                    • Pinch over plot: Zoom both axes (trackpad)
-                    • Pinch over frequency axis: Zoom frequency only
-                    • Pinch over magnitude axis: Zoom magnitude only
-                    • Drag over plot: Pan both axes
-                    • Drag over frequency axis: Pan frequency only
-                    • Drag over magnitude axis: Pan magnitude only
-                    • Right-click: Reset axes & labels
-                    """)
-                .popover(isPresented: $showingControlsHelp, arrowEdge: .bottom) {
+    /// ? help button — shown on every platform.
+    private var controlsHelpButton: some View {
+        Button { showingControlsHelp.toggle() } label: {
+            Image(systemName: "info.circle").font(.caption).foregroundColor(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Zoom & Pan Controls")
+        .popover(isPresented: $showingControlsHelp, arrowEdge: .bottom) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Zoom & Pan Controls")
                             .font(.headline)
@@ -526,31 +514,20 @@ struct SpectrumView: View {
                     }
                     .padding()
                     .frame(minWidth: 300)
-                }
-                #else
-                // iOS: plain button opens a sheet — avoids UIContextMenuInteraction conflicts
-                // with the chart's gesture recognizers that a Menu would cause.
-                Button {
-                    showingChartOptions = true
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showingChartOptions) {
-                    ChartOptionsSheet(
-                        hasLabelsToReset: hasLabelsToReset,
-                        onResetBothToSaved: { resetBothAxesToSaved(); showingChartOptions = false },
-                        onResetFreqToSaved: { resetFrequencyAxisToSaved(); showingChartOptions = false },
-                        onResetMagToSaved: { resetMagnitudeAxisToSaved(); showingChartOptions = false },
-                        onResetBothToDefaults: { resetBothAxesToDefaults(); showingChartOptions = false },
-                        onResetFreqToDefaults: { resetFrequencyAxisToDefaults(); showingChartOptions = false },
-                        onResetMagToDefaults: { resetMagnitudeAxisToDefaults(); showingChartOptions = false },
-                        onResetLabels: onResetLabels.map { action in { action(); showingChartOptions = false } }
-                    )
-                }
-                #endif
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Text(chartTitle)
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                HStack(spacing: 14) {
+                    Spacer()
+                    chartOptionsButton
+                    controlsHelpButton
                 }
             }
             .padding(.bottom, 8)
@@ -1269,12 +1246,12 @@ struct SpectrumView: View {
     .padding()
 }
 
-// MARK: - iOS Chart Options Sheet
+// MARK: - Chart Options Sheet
 
-#if !os(macOS)
-/// A sheet presenting axis-reset and label-reset options for the spectrum chart on iOS.
-/// Using a sheet instead of a Menu avoids UIContextMenuInteraction conflicts with
-/// the chart's gesture recognizers.
+/// A sheet/popover presenting axis-reset and label-reset options for the spectrum chart.
+/// Shown from the chart's ⋯ button on every platform (and via right-click on macOS).
+/// Using a sheet instead of a Menu avoids UIContextMenuInteraction conflicts with the
+/// chart's gesture recognizers on iOS.
 private struct ChartOptionsSheet: View {
     let hasLabelsToReset: Bool
     let onResetBothToSaved: () -> Void
@@ -1342,4 +1319,3 @@ private struct ChartOptionsSheet: View {
         .buttonStyle(.plain)
     }
 }
-#endif
