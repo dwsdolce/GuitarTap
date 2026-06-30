@@ -308,6 +308,11 @@ struct MeasurementsListView: View {
                             Label("Import Measurement", systemImage: "square.and.arrow.down")
                         }
 
+                        Button(action: { exportAllMeasurements() }) {
+                            Label("Export All Measurements", systemImage: "square.and.arrow.up")
+                        }
+                        .disabled(analyzer.savedMeasurements.isEmpty)
+
                         Divider()
 
                         Button(role: .destructive, action: { showingDeleteAllConfirmation = true }) {
@@ -343,6 +348,21 @@ struct MeasurementsListView: View {
             }
 
             ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button(action: { exportAllMeasurements() }) {
+                        Label("Export All… (Share / AirDrop)", systemImage: "square.and.arrow.up")
+                    }
+                    Button(action: { saveAllMeasurementsToDisk() }) {
+                        Label("Save All to Disk…", systemImage: "arrow.down.doc")
+                    }
+                } label: {
+                    Label("Export All", systemImage: "square.and.arrow.up")
+                }
+                .disabled(analyzer.savedMeasurements.isEmpty || isComparing)
+                .help("Export the whole library as one .guitartap file (share/AirDrop or save to disk)")
+            }
+
+            ToolbarItem(placement: .primaryAction) {
                 Button(role: .destructive, action: { showingDeleteAllConfirmation = true }) {
                     Label("Delete All", systemImage: "trash")
                 }
@@ -361,11 +381,36 @@ struct MeasurementsListView: View {
         }
     }
 
+    /// Export the whole library as one `.guitartap` file (backup / migration to another
+    /// platform or browser). Reuses the JSON form persisted to saved_measurements.json.
+    private func exportAllMeasurements() {
+        guard !analyzer.savedMeasurements.isEmpty else { return }
+        isExporting = true
+        analyzer.exportAllMeasurements { json in
+            let name = "guitartap-library-\(Int(Date().timeIntervalSince1970))"
+            MeasurementFileExporter.exportJSON(json: json, suggestedName: name) {
+                self.isExporting = false
+            }
+        }
+    }
+
     #if os(macOS)
     private func saveMeasurementToDisk(_ measurement: TapToneMeasurement) {
         isExporting = true
         analyzer.exportMeasurement(measurement) { json, measurement in
             MeasurementFileExporter.saveMeasurementToDisk(json: json, measurement: measurement) {
+                self.isExporting = false
+            }
+        }
+    }
+
+    /// Save the whole library to a chosen file via NSSavePanel (macOS "Save All to Disk…").
+    private func saveAllMeasurementsToDisk() {
+        guard !analyzer.savedMeasurements.isEmpty else { return }
+        isExporting = true
+        analyzer.exportAllMeasurements { json in
+            let name = "guitartap-library-\(Int(Date().timeIntervalSince1970))"
+            MeasurementFileExporter.saveMeasurementsToDisk(json: json, suggestedName: name) {
                 self.isExporting = false
             }
         }

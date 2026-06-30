@@ -75,6 +75,28 @@ private let plateFlcExpectedQ: Float = 6.000
 
 private let plateTapThreshold: Float = -53.33838  // dB — matches .guitartap reference
 
+// plate-umik-1-web-mac-3-taps.wav — Plate, UMIK-1, 48 kHz, recorded by the WEB app (Chrome) with
+// numberOfTaps = 3 (3 taps PER PHASE, 9 total). Replaying at numberOfTaps = 3 averages each phase.
+// Expected values are the WEB capture's (companion .guitartap, same recording) — so a pass means
+// Swift agrees with the web on multi-tap material averaging. (Close to, not equal to, the separate
+// Swift 3-tap capture L66.6/C117.1/FLC35.5.)
+private let plate3TapLExpectedFrequency: Float = 68.2587
+private let plate3TapLExpectedMagnitude: Float = -71.5858
+private let plate3TapLExpectedQ: Float = 15.667
+private let plate3TapCExpectedFrequency: Float = 117.4681
+private let plate3TapCExpectedMagnitude: Float = -56.5436
+private let plate3TapCExpectedQ: Float = 26.667
+private let plate3TapFlcExpectedFrequency: Float = 35.3011
+private let plate3TapFlcExpectedMagnitude: Float = -63.6008  // peak read off the AVERAGED spectrum
+private let plate3TapFlcExpectedQ: Float = 6.000
+private let plate3TapThreshold: Float = -40.0  // dB — matches the .guitartap reference
+// REG-P2 uses a tighter magnitude tolerance than the generic 1.0 dB.  The averaged
+// values are deterministic across platforms, so they agree far more closely than a
+// single tap would; 0.5 dB still leaves headroom for FFT-library differences while
+// reliably catching a regression to last-tap selection (the masked deltas were
+// fL 0.94, fC 0.81, fLC 2.62 dB — all caught at 0.5).
+private let plate3TapMagTolerance: Float = 0.5  // dB
+
 // ---------------------------------------------------------------------------
 // MARK: - Tests  (REG-B1)
 // ---------------------------------------------------------------------------
@@ -501,5 +523,62 @@ struct FilePlaybackRegressionTests {
         let flcQDelta = abs(flcPeak.quality - plateFlcExpectedQ)
         #expect(flcQDelta < qTolerance,
                 "fLC Q factor: expected \(plateFlcExpectedQ) ±\(qTolerance), got \(flcPeak.quality) (delta \(flcQDelta))")
+    }
+
+    // MARK: - REG-P2: Plate, 3 taps per phase (multi-tap averaging)
+
+    /// REG-P2: Plate at numberOfTaps = 3 — each phase (L/C/FLC) averages 3 taps.
+    ///
+    /// Replays a 3-taps-per-phase plate session (recorded by the web app) at
+    /// numberOfTaps = 3, exercising the multi-tap-per-phase averaging path
+    /// (handleLongitudinalGatedProgress collecting numberOfTaps before
+    /// averageSpectra). Expected values are the WEB capture's, so a pass means
+    /// Swift agrees with the web. printPlateDiagnostics prints Swift's actual
+    /// fL/fC/fLC regardless of pass/fail.
+    @Test func REG_P2_plateThreeTapsPerPhase_averagesEachPhase() throws {
+        let stem = "plate-umik-1-web-mac-3-taps"
+        guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
+            Issue.record("\(stem).wav not found in test bundle")
+            return
+        }
+        let calURL = testBundle.url(forResource: "7108913", withExtension: "txt")
+
+        let originalMeasureFlc = TapDisplaySettings.measureFlc
+        TapDisplaySettings.measureFlc = true
+        defer { TapDisplaySettings.measureFlc = originalMeasureFlc }
+
+        let sut = TapToneAnalyzer.forTesting()
+        sut.tapDetectionThreshold = plate3TapThreshold
+        try sut.playFileForTesting(url: url, measurementType: .plate, numberOfTaps: 3, calibrationURL: calURL)
+
+        printPlateDiagnostics(sut, phase: "P2 - 3 taps/phase", wavFile: stem)
+
+        #expect(sut.materialTapPhase == .complete,
+                "materialTapPhase should be .complete, got \(sut.materialTapPhase)")
+        #expect(sut.isMeasurementComplete, "isMeasurementComplete should be true")
+
+        guard let lPeak = sut.selectedLongitudinalPeak else { Issue.record("selectedLongitudinalPeak is nil"); return }
+        #expect(abs(lPeak.frequency - plate3TapLExpectedFrequency) < freqTolerance,
+                "fL frequency: expected \(plate3TapLExpectedFrequency) Hz, got \(lPeak.frequency) Hz")
+        #expect(abs(lPeak.magnitude - plate3TapLExpectedMagnitude) < plate3TapMagTolerance,
+                "fL magnitude: expected \(plate3TapLExpectedMagnitude) dB, got \(lPeak.magnitude) dB")
+        #expect(abs(lPeak.quality - plate3TapLExpectedQ) < qTolerance,
+                "fL Q: expected \(plate3TapLExpectedQ), got \(lPeak.quality)")
+
+        guard let cPeak = sut.selectedCrossPeak else { Issue.record("selectedCrossPeak is nil"); return }
+        #expect(abs(cPeak.frequency - plate3TapCExpectedFrequency) < freqTolerance,
+                "fC frequency: expected \(plate3TapCExpectedFrequency) Hz, got \(cPeak.frequency) Hz")
+        #expect(abs(cPeak.magnitude - plate3TapCExpectedMagnitude) < plate3TapMagTolerance,
+                "fC magnitude: expected \(plate3TapCExpectedMagnitude) dB, got \(cPeak.magnitude) dB")
+        #expect(abs(cPeak.quality - plate3TapCExpectedQ) < qTolerance,
+                "fC Q: expected \(plate3TapCExpectedQ), got \(cPeak.quality)")
+
+        guard let flcPeak = sut.selectedFlcPeak else { Issue.record("selectedFlcPeak is nil"); return }
+        #expect(abs(flcPeak.frequency - plate3TapFlcExpectedFrequency) < freqTolerance,
+                "fLC frequency: expected \(plate3TapFlcExpectedFrequency) Hz, got \(flcPeak.frequency) Hz")
+        #expect(abs(flcPeak.magnitude - plate3TapFlcExpectedMagnitude) < plate3TapMagTolerance,
+                "fLC magnitude: expected \(plate3TapFlcExpectedMagnitude) dB, got \(flcPeak.magnitude) dB")
+        #expect(abs(flcPeak.quality - plate3TapFlcExpectedQ) < qTolerance,
+                "fLC Q: expected \(plate3TapFlcExpectedQ), got \(flcPeak.quality)")
     }
 }

@@ -187,6 +187,31 @@ struct MeasurementFileExporter {
         #endif
     }
 
+    /// Share a `.guitartap` file with an explicit base name (no single measurement). Used by
+    /// Export All — writes the library JSON to a temp `<suggestedName>.guitartap` and shares it
+    /// (iOS share sheet / macOS sharing picker), reusing the same plumbing as the single export.
+    static func exportJSON(
+        json: String,
+        suggestedName: String,
+        completion: @escaping () -> Void
+    ) {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GuitarTap-Export-\(UUID().uuidString)")
+        do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            let fileURL = tempDir.appendingPathComponent("\(suggestedName).guitartap")
+            try json.write(to: fileURL, atomically: true, encoding: .utf8)
+            #if os(iOS)
+            presentShareSheet(items: [fileURL], completion: completion)
+            #elseif os(macOS)
+            presentSharingPicker(items: [fileURL], completion: completion)
+            #endif
+        } catch {
+            gtLog("Failed to export measurements: \(error)")
+            completion()
+        }
+    }
+
     #if os(macOS)
     /// Saves the measurement JSON directly to a user-chosen location on disk.
     ///
@@ -214,9 +239,36 @@ struct MeasurementFileExporter {
                 lastUsedDirectory = url.deletingLastPathComponent()
                 do {
                     try json.write(to: url, atomically: true, encoding: .utf8)
-                    gtLog("✅ Saved measurement to: \(url.path)")
+                    gtLog("\u{2705} Saved measurement to: \(url.path)")
                 } catch {
-                    gtLog("❌ Failed to save measurement: \(error)")
+                    gtLog("\u{274C} Failed to save measurement: \(error)")
+                }
+            }
+            completion()
+        }
+    }
+
+    /// macOS Save-to-Disk for the whole library (a chosen base name, no single measurement).
+    /// Mirrors saveMeasurementToDisk(json:measurement:) but names the file from suggestedName.
+    static func saveMeasurementsToDisk(
+        json: String,
+        suggestedName: String,
+        completion: @escaping () -> Void
+    ) {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.guitarTapMeasurement]
+        savePanel.nameFieldStringValue = "\(suggestedName).guitartap"
+        savePanel.canCreateDirectories = true
+        savePanel.message = "Save Measurements to Disk"
+        savePanel.directoryURL = startDirectory
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                lastUsedDirectory = url.deletingLastPathComponent()
+                do {
+                    try json.write(to: url, atomically: true, encoding: .utf8)
+                    gtLog("\u{2705} Saved measurements to: \(url.path)")
+                } catch {
+                    gtLog("\u{274C} Failed to save measurements: \(error)")
                 }
             }
             completion()

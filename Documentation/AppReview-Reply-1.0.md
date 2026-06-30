@@ -34,5 +34,9 @@ Guitar Tap is a single-window application on macOS, so we have updated it to qui
 when the main window is closed, per your suggestion. No data is lost: measurements
 are saved explicitly by the user, and settings are persisted automatically.
 
+We are bumping the build number to 1.0.1 since the iOS version of the app was
+already approved and we are including some minor fixes that affect both the iOS
+and macOS versions.
+
 We appreciate your guidance and are happy to make any further adjustments.
 Thank you.

@@ -618,7 +618,9 @@ extension TapToneAnalyzer {
         // below sets isDetecting=true again after the cooldown.
         isDetecting = false
 
-        dumpCaptureWAV(samples: samples, sampleRate: sampleRate, label: "guitar")
+        // NOTE: no per-tap WAV dump here. The "Dump Capture Audio" diagnostic writes only ONE
+        // continuous session WAV per measurement (finishSessionRecording), which already contains
+        // every approved tap/phase in order — the per-tap intermediate dumps were redundant.
 
         let fftSize = fftAnalyzer.fftSize
 
@@ -934,15 +936,21 @@ extension TapToneAnalyzer {
         case .capturingLongitudinal:
             handleLongitudinalGatedProgress(magnitudes: magnitudes,
                                             frequencies: frequencies,
-                                            dominantPeak: dominantPeak)
+                                            dominantPeak: dominantPeak,
+                                            minHz: hpsMinHz, maxHz: hpsMaxHz,
+                                            preferLowest: preferLowest)
         case .capturingCross:
             handleCrossGatedProgress(magnitudes: magnitudes,
                                      frequencies: frequencies,
-                                     dominantPeak: dominantPeak)
+                                     dominantPeak: dominantPeak,
+                                     minHz: hpsMinHz, maxHz: hpsMaxHz,
+                                     preferLowest: preferLowest)
         case .capturingFlc, .waitingForFlcTap:
             handleFlcGatedProgress(magnitudes: magnitudes,
                                    frequencies: frequencies,
-                                   dominantPeak: dominantPeak)
+                                   dominantPeak: dominantPeak,
+                                   minHz: hpsMinHz, maxHz: hpsMaxHz,
+                                   preferLowest: preferLowest)
         case .notStarted, .complete,
              .reviewingLongitudinal, .reviewingCross, .reviewingFlc:
             gtLog("⚠️ Unexpected gated FFT capture in phase: \(phase)")
@@ -1127,7 +1135,10 @@ extension TapToneAnalyzer {
     ///   - dominantPeak: The pre-selected dominant peak from this tap.
     func handleLongitudinalGatedProgress(magnitudes: [Float],
                                          frequencies: [Float],
-                                         dominantPeak: ResonantPeak) {
+                                         dominantPeak: ResonantPeak,
+                                         minHz: Float,
+                                         maxHz: Float,
+                                         preferLowest: Bool) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
         gtLog("📊 Gated LONGITUDINAL tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
@@ -1142,25 +1153,35 @@ extension TapToneAnalyzer {
         let (avgMags, avgFreqs) = averageSpectra(from: materialCapturedTaps)
         longitudinalSpectrum = (magnitudes: avgMags, frequencies: avgFreqs)
 
-        // Build the full peak list for display/manual override, but auto-select the
-        // dominant peak from the most recent (or averaged) tap.
+        // Re-find the dominant peak on the AVERAGED spectrum. Averaging exists so the
+        // resolved peak reflects all taps, not just the last one captured — so the
+        // auto-selected peak must come from the averaged spectrum, exactly as the
+        // guitar multi-tap path (and the web/Python ports) do.
+        let avgPeak = findDominantPeak(magnitudes: avgMags,
+                                       frequencies: avgFreqs,
+                                       minHz: minHz,
+                                       maxHz: maxHz,
+                                       preferLowestSignificant: preferLowest) ?? dominantPeak
+
+        // Build the full peak list for display/manual override, auto-selecting the
+        // dominant peak found on the averaged spectrum.
         longitudinalPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs,
-                                          dominantPeak: dominantPeak)
-        autoSelectedLongitudinalPeakID = dominantPeak.id
-        selectedLongitudinalPeak = longitudinalPeaks.first(where: { $0.id == dominantPeak.id }) ?? dominantPeak
-        gtLog("🔵 Auto-selected longitudinal peak: \(dominantPeak.frequency) Hz")
+                                          dominantPeak: avgPeak)
+        autoSelectedLongitudinalPeakID = avgPeak.id
+        selectedLongitudinalPeak = longitudinalPeaks.first(where: { $0.id == avgPeak.id }) ?? avgPeak
+        gtLog("🔵 Auto-selected longitudinal peak: \(avgPeak.frequency) Hz")
 
         currentPeaks      = longitudinalPeaks
         // Only the identified (auto-selected) peak is selected — others are informational.
-        selectedPeakIDs   = Set([dominantPeak.id])
+        selectedPeakIDs   = Set([avgPeak.id])
         materialCapturedTaps = []
 
         let isBrace = TapDisplaySettings.measurementType == .brace
         if isBrace {
-            if let selPeak = longitudinalPeaks.first(where: { $0.id == dominantPeak.id }) {
+            if let selPeak = longitudinalPeaks.first(where: { $0.id == avgPeak.id }) {
                 currentPeaks = [selPeak]
             } else {
-                currentPeaks = [dominantPeak]
+                currentPeaks = [avgPeak]
             }
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             materialTapPhase = .complete
@@ -1168,7 +1189,7 @@ extension TapToneAnalyzer {
             finishSessionRecording(label: "Brace")
             tapProgress = 1.0
             statusMessage = "Complete - check Results"
-            gtLog("✅ Brace measurement complete: fL=\(dominantPeak.frequency) Hz")
+            gtLog("✅ Brace measurement complete: fL=\(avgPeak.frequency) Hz")
         } else if fftAnalyzer.isPlayingFile {
             // File playback: auto-advance L → C without pausing at the review state.
             // The file audio flows continuously, so pausing detection would miss
@@ -1199,7 +1220,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
             materialTapPhase = .reviewingLongitudinal
             isDetecting = false
-            statusMessage = "fL: \(String(format: "%.1f", dominantPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
+            statusMessage = "fL: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
         }
     }
 
@@ -1253,7 +1274,10 @@ extension TapToneAnalyzer {
     ///   - dominantPeak: The pre-selected dominant peak from this tap.
     func handleCrossGatedProgress(magnitudes: [Float],
                                    frequencies: [Float],
-                                   dominantPeak: ResonantPeak) {
+                                   dominantPeak: ResonantPeak,
+                                   minHz: Float,
+                                   maxHz: Float,
+                                   preferLowest: Bool) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
         gtLog("📊 Gated CROSS-GRAIN tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
@@ -1266,10 +1290,17 @@ extension TapToneAnalyzer {
 
         let (avgMags, avgFreqs) = averageSpectra(from: materialCapturedTaps)
         crossSpectrum = (magnitudes: avgMags, frequencies: avgFreqs)
-        crossPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs, dominantPeak: dominantPeak)
-        autoSelectedCrossPeakID = dominantPeak.id
-        selectedCrossPeak = crossPeaks.first(where: { $0.id == dominantPeak.id }) ?? dominantPeak
-        gtLog("🟠 Auto-selected cross-grain peak: \(dominantPeak.frequency) Hz")
+        // Re-find the dominant peak on the AVERAGED spectrum (see the longitudinal
+        // handler) so the auto-selected cross peak reflects all taps, not the last.
+        let avgPeak = findDominantPeak(magnitudes: avgMags,
+                                       frequencies: avgFreqs,
+                                       minHz: minHz,
+                                       maxHz: maxHz,
+                                       preferLowestSignificant: preferLowest) ?? dominantPeak
+        crossPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs, dominantPeak: avgPeak)
+        autoSelectedCrossPeakID = avgPeak.id
+        selectedCrossPeak = crossPeaks.first(where: { $0.id == avgPeak.id }) ?? avgPeak
+        gtLog("🟠 Auto-selected cross-grain peak: \(avgPeak.frequency) Hz")
         materialCapturedTaps = []
 
         currentPeaks = combinePlatePeaks()
@@ -1307,7 +1338,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
             materialTapPhase = .reviewingCross
             isDetecting = false
-            statusMessage = "fC: \(String(format: "%.1f", dominantPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
+            statusMessage = "fC: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
         }
     }
 
@@ -1323,7 +1354,10 @@ extension TapToneAnalyzer {
     ///   - dominantPeak: The pre-selected dominant peak from this tap.
     func handleFlcGatedProgress(magnitudes: [Float],
                                  frequencies: [Float],
-                                 dominantPeak: ResonantPeak) {
+                                 dominantPeak: ResonantPeak,
+                                 minHz: Float,
+                                 maxHz: Float,
+                                 preferLowest: Bool) {
         let captured = materialCapturedTaps.count
         let total = numberOfTaps
         gtLog("📊 Gated FLC tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
@@ -1336,10 +1370,17 @@ extension TapToneAnalyzer {
 
         let (avgMags, avgFreqs) = averageSpectra(from: materialCapturedTaps)
         flcSpectrum = (magnitudes: avgMags, frequencies: avgFreqs)
-        flcPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs, dominantPeak: dominantPeak)
-        autoSelectedFlcPeakID = dominantPeak.id
-        selectedFlcPeak = flcPeaks.first(where: { $0.id == dominantPeak.id }) ?? dominantPeak
-        gtLog("🟣 Auto-selected FLC peak: \(dominantPeak.frequency) Hz")
+        // Re-find the dominant peak on the AVERAGED spectrum (see the longitudinal
+        // handler) so the auto-selected FLC peak reflects all taps, not the last.
+        let avgPeak = findDominantPeak(magnitudes: avgMags,
+                                       frequencies: avgFreqs,
+                                       minHz: minHz,
+                                       maxHz: maxHz,
+                                       preferLowestSignificant: preferLowest) ?? dominantPeak
+        flcPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs, dominantPeak: avgPeak)
+        autoSelectedFlcPeakID = avgPeak.id
+        selectedFlcPeak = flcPeaks.first(where: { $0.id == avgPeak.id }) ?? avgPeak
+        gtLog("🟣 Auto-selected FLC peak: \(avgPeak.frequency) Hz")
         materialCapturedTaps = []
 
         // Pre-compute the displayed peak selection.  The review-state branch
@@ -1347,7 +1388,7 @@ extension TapToneAnalyzer {
         // shows all three plate peaks; `finalisePlateWithFLC` recomputes
         // the same values for the file-playback branch.  Mirrors the
         // structure of Python `_handle_flc_gated_progress`.
-        let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? dominantPeak)
+        let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? avgPeak)
         currentPeaks = sel
         selectedPeakIDs = Set(sel.map { $0.id })
 
@@ -1361,9 +1402,9 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
             materialTapPhase = .reviewingFlc
             isDetecting = false
-            statusMessage = "fLC: \(String(format: "%.1f", dominantPeak.frequency)) Hz — Accept to complete or Redo to re-tap"
+            statusMessage = "fLC: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to complete or Redo to re-tap"
         }
-        gtLog("📊 FLC review: L=\(selectedLongitudinalPeak?.frequency ?? 0) C=\(selectedCrossPeak?.frequency ?? 0) FLC=\(dominantPeak.frequency) Hz")
+        gtLog("📊 FLC review: L=\(selectedLongitudinalPeak?.frequency ?? 0) C=\(selectedCrossPeak?.frequency ?? 0) FLC=\(avgPeak.frequency) Hz")
     }
 
     /// Builds a display-ready peak list from a gated-FFT spectrum, ensuring

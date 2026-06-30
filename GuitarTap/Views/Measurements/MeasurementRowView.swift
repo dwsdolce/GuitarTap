@@ -87,7 +87,7 @@ struct MeasurementRowView<MenuItems: View>: View {
                         .font(.caption)
                         .foregroundColor(.blue)
 
-                    Text(measurement.timestamp.formatted(date: .abbreviated, time: .shortened))
+                    Text(DateDisplay.string(measurement.timestamp))
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -136,7 +136,7 @@ struct MeasurementRowView<MenuItems: View>: View {
                             .foregroundColor(.green)
                     }
                     
-                    Text(measurement.timestamp.formatted(date: .abbreviated, time: .shortened))
+                    Text(DateDisplay.string(measurement.timestamp))
                         .font(.caption)
                         .foregroundColor(.secondary)
 

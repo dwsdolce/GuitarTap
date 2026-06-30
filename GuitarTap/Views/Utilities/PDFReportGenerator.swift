@@ -349,10 +349,7 @@ private struct PDFReportContentView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(data.timestamp, style: .date)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                Text(data.timestamp, style: .time)
+                Text(DateDisplay.string(data.timestamp))
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }
@@ -1045,7 +1042,7 @@ private struct PDFReportContentView: View {
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
                 Spacer()
-                Text(Date().formatted(date: .abbreviated, time: .shortened))
+                Text(DateDisplay.string(Date()))
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
             }
@@ -1207,10 +1204,7 @@ private struct ComparisonPDFReportContentView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(data.timestamp, style: .date)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                Text(data.timestamp, style: .time)
+                Text(DateDisplay.string(data.timestamp))
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }
@@ -1372,7 +1366,7 @@ private struct ComparisonPDFReportContentView: View {
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
                 Spacer()
-                Text(Date().formatted(date: .abbreviated, time: .shortened))
+                Text(DateDisplay.string(Date()))
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
             }

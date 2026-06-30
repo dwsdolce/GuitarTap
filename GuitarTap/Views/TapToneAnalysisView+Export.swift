@@ -437,7 +437,7 @@ extension TapToneAnalysisView {
             maxDB:   snaps.map(\.maxDB).max()   ?? maxDB,
             peaks: [], measurementType: TapDisplaySettings.measurementType,
             materialSpectra: spectra,
-            dateLabel: Date().formatted(),
+            dateLabel: DateDisplay.string(Date()),
             chartTitle: "Tap Comparison — \(subtitle)"
         )
     }
@@ -463,7 +463,7 @@ extension TapToneAnalysisView {
             modeOverrides: tap.peakModeOverrides,
             peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
             materialSpectra: materialSpectra,
-            dateLabel: Date().formatted(),
+            dateLabel: DateDisplay.string(Date()),
             chartTitle: "FFT Peaks — \(subtitle)"
         )
     }
@@ -489,7 +489,7 @@ extension TapToneAnalysisView {
             modeOverrides: tap.peakModeOverrides,
             peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
             materialSpectra: materialSpectra,
-            dateLabel: Date().formatted(),
+            dateLabel: DateDisplay.string(Date()),
             chartTitle: chartTitle
         )
     }

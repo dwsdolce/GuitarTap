@@ -66,6 +66,34 @@ extension TapToneAnalyzer {
         return documentsDirectory.appendingPathComponent("saved_measurements.json")
     }
     
+    // MARK: - Measurement Codec
+
+    /// The single JSON encoding of the measurement library.
+    ///
+    /// Every write path — persistence (`saved_measurements.json`), single-measurement
+    /// export, and whole-library "Export All" — goes through this so the on-disk file
+    /// and any exported `.guitartap` file are byte-for-byte the same form. The only
+    /// things that differ between callers are *where* the bytes are written and *what*
+    /// the file is named.
+    ///
+    /// Pretty-printed, sorted-key JSON with ISO-8601 dates.
+    static func encodeMeasurements(_ measurements: [TapToneMeasurement]) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(measurements)
+    }
+
+    /// The single JSON decoding of the measurement library.
+    ///
+    /// Every read path — loading `saved_measurements.json` and importing a `.guitartap`
+    /// file or string — goes through this. Counterpart to ``encodeMeasurements(_:)``.
+    static func decodeMeasurements(_ data: Data) throws -> [TapToneMeasurement] {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode([TapToneMeasurement].self, from: data)
+    }
+
     /// Loads all persisted measurements from disk.
     ///
     /// Reads `saved_measurements.json` from the Documents directory and decodes
@@ -83,9 +111,7 @@ extension TapToneAnalyzer {
         
         do {
             let data = try Data(contentsOf: fileURL)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let measurements = try decoder.decode([TapToneMeasurement].self, from: data)
+            let measurements = try TapToneAnalyzer.decodeMeasurements(data)
             savedMeasurements = measurements
             gtLog("📂 Loaded \(measurements.count) persisted measurements")
         } catch {
@@ -112,10 +138,7 @@ extension TapToneAnalyzer {
                     at: fileURL.deletingLastPathComponent(),
                     withIntermediateDirectories: true
                 )
-                let encoder = JSONEncoder()
-                encoder.dateEncodingStrategy = .iso8601
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                let data = try encoder.encode(snapshot)
+                let data = try TapToneAnalyzer.encodeMeasurements(snapshot)
                 try data.write(to: fileURL, options: .atomic)
                 gtLog("💾 Persisted \(snapshot.count) measurements to disk")
             } catch {
@@ -363,10 +386,7 @@ extension TapToneAnalyzer {
     /// - Throws: A decoding error if `jsonData` is not a valid
     ///   `[TapToneMeasurement]` JSON array.
     func importMeasurements(from jsonData: Data) throws -> [TapToneMeasurement] {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        let measurements = try decoder.decode([TapToneMeasurement].self, from: jsonData)
+        let measurements = try TapToneAnalyzer.decodeMeasurements(jsonData)
         
         // Add imported measurements
         savedMeasurements.append(contentsOf: measurements)
@@ -789,14 +809,24 @@ extension TapToneAnalyzer {
     ///     original measurement.
     func exportMeasurement(_ measurement: TapToneMeasurement, completion: @escaping (String, TapToneMeasurement) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            
-            if let data = try? encoder.encode([measurement]),
+            if let data = try? TapToneAnalyzer.encodeMeasurements([measurement]),
                let json = String(data: data, encoding: .utf8) {
                 DispatchQueue.main.async {
                     completion(json, measurement)
+                }
+            }
+        }
+    }
+
+    /// Encodes the whole library (`savedMeasurements`) as a `.guitartap` JSON array — the same
+    /// form written to `saved_measurements.json` — for Export All / backup / migration.
+    func exportAllMeasurements(completion: @escaping (String) -> Void) {
+        let snapshot = savedMeasurements
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let data = try? TapToneAnalyzer.encodeMeasurements(snapshot),
+               let json = String(data: data, encoding: .utf8) {
+                DispatchQueue.main.async {
+                    completion(json)
                 }
             }
         }
@@ -815,11 +845,8 @@ extension TapToneAnalyzer {
     /// - SeeAlso: ``importMeasurements(from:)`` for the full import path with
     ///   image loading and microphone warning support.
     func importMeasurements(json: String) -> Bool {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        
         guard let data = json.data(using: .utf8),
-              let measurements = try? decoder.decode([TapToneMeasurement].self, from: data) else {
+              let measurements = try? TapToneAnalyzer.decodeMeasurements(data) else {
             return false
         }
         
@@ -840,7 +867,7 @@ extension TapToneAnalyzer {
         if let measurementName = measurement.measurementName, !measurementName.isEmpty {
             return measurementName
         }
-        return measurement.timestamp.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        return DateDisplay.compact(measurement.timestamp)
     }
 
     /// Loads the given guitar measurements as comparison overlays in the main chart.

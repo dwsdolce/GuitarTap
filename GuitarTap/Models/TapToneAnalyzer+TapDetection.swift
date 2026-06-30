@@ -274,8 +274,9 @@ extension TapToneAnalyzer {
                     lastTapTime = now
 
                     // Capture the recent peak input level for decay tracking reference.
-                    // Use recentPeakLevelDB which holds the max level over the last 0.5 s.
-                    // This ensures we get the actual tap peak even though FFT detection is delayed.
+                    // Use recentPeakLevelDB, which holds the max level over the last
+                    // `fftAnalyzer.peakHoldDuration` (2.0 s). This ensures we get the actual tap peak
+                    // even though FFT detection is delayed.
                     tapPeakLevel = fftAnalyzer.recentPeakLevelDB
 
                     // Handle tap in multi-tap sequence

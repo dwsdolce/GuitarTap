@@ -151,6 +151,17 @@ extension TapToneAnalyzer {
         mpmLock.lock()
         gatedAccumBuffer = []
         preRollBuffer = []
+        // Clear the audio-queue fast-start markers so the first tap of this
+        // sequence cannot mistake a stale "already handled" equality
+        // (gatedCaptureID == lastLevelCrossingCaptureID) for a real fast-start
+        // capture.  A material (plate/brace) completion leaves these two IDs
+        // equal — unlike the guitar re-enable paths, it never resets them — so
+        // a material→guitar boundary switch would otherwise make
+        // startGuitarGatedCapture bail out (accum 0 samples) without capturing
+        // or completing, stranding the analyzer with all controls disabled.
+        // Mirrors the reset in postEngineStopHandler / reEnableDetectionForNextPlateTap.
+        gatedCaptureID = 0
+        lastLevelCrossingCaptureID = -1
         // Session recording: clear the buffer and begin recording.  The
         // buffer accumulates raw audio while detection is active, producing
         // a single WAV per measurement for replay.  Seed with checkpoint 0

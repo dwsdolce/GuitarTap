@@ -745,7 +745,7 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
         modeOverrides: measurement.peakModeOverrides ?? [:],
         peakModes: GuitarMode.classifyAll(visiblePeaks),
         materialSpectra: materialSpectra,
-        dateLabel: measurement.timestamp.formatted(),
+        dateLabel: DateDisplay.string(measurement.timestamp),
         chartTitle: "FFT Peaks — \(measurement.measurementName ?? "New")"
     )
 
@@ -810,7 +810,7 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? 
         peaks: [],
         measurementType: .classical,
         materialSpectra: spectra,
-        dateLabel: measurement.timestamp.formatted(),
+        dateLabel: DateDisplay.string(measurement.timestamp),
         chartTitle: "Tap Comparison — \(measurement.measurementName ?? "Multi-Tap")"
     )
 
@@ -861,7 +861,7 @@ func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) -> Data
         peaks: [],
         measurementType: .classical,
         materialSpectra: comparisonSpectra,
-        dateLabel: measurement.timestamp.formatted(),
+        dateLabel: DateDisplay.string(measurement.timestamp),
         chartTitle: "Comparison — \(measurement.measurementName ?? "Comparison")"
     )
 

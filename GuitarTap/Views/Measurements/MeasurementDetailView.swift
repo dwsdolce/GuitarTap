@@ -69,6 +69,15 @@ struct MeasurementDetailView: View {
         #endif
     }
     
+    /// Single Settings-vocabulary type word for the Details pane:
+    /// Acoustic / Classical / Flamenco / Generic / Plate / Brace / Comparison.
+    private var measurementTypeName: String {
+        if measurement.isComparison { return "Comparison" }
+        let mt = measurement.spectrumSnapshot?.measurementType
+            ?? measurement.longitudinalSnapshot?.measurementType
+        return mt?.shortName ?? "—"
+    }
+
     @ViewBuilder
     private var contentView: some View {
         ScrollView {
@@ -91,37 +100,48 @@ struct MeasurementDetailView: View {
                                 Text("Date:")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text(measurement.timestamp, style: .date)
+                                Text(DateDisplay.string(measurement.timestamp))
                                     .font(.body)
-                                Text("at")
+                            }
+                            
+                            HStack {
+                                Text("Measurement Type:")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text(measurement.timestamp, style: .time)
+                                Text(measurementTypeName)
                                     .font(.body)
                             }
-                            
-                            if let decay = measurement.decayTime {
+
+                            if let taps = measurement.numberOfTaps {
                                 HStack {
-                                    Text("Ring-Out:")
+                                    Text("Number of Taps:")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
-                                    Text("\(decay, specifier: "%.2f") seconds")
+                                    Text("\(taps)")
                                         .font(.body)
-                                        .fontWeight(.medium)
                                 }
                             }
-                            
-                            if let ratio = measurement.tapToneRatio {
+
+                            if let mic = measurement.microphoneName {
                                 HStack {
-                                    Text("Tap Tone Ratio:")
+                                    Text("Microphone:")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
-                                    Text("\(ratio, specifier: "%.2f") : 1")
+                                    Text(mic)
                                         .font(.body)
-                                        .fontWeight(.medium)
                                 }
                             }
-                            
+
+                            if let cal = measurement.calibrationName {
+                                HStack {
+                                    Text("Calibration:")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text(cal)
+                                        .font(.body)
+                                }
+                            }
+
                             if let notes = measurement.notes, !notes.isEmpty {
                                 Divider()
                                 Text("Notes:")
@@ -134,64 +154,72 @@ struct MeasurementDetailView: View {
                         .padding(.vertical, 4)
                     }
                     
-                    // Peaks (filtered based on unknown mode setting)
-                    // Plate/brace measurements don't use guitar mode classification, so skip the filter for them
-                    let isMaterialMeasurement = measurement.longitudinalSnapshot != nil || measurement.selectedLongitudinalPeakID != nil
-                    let selectedIDs = Set(measurement.selectedPeakIDs ?? measurement.peaks.map { $0.id })
-                    let filteredPeaks = measurement.peaks
-                        .sorted(by: { $0.frequency < $1.frequency })
-                        .filter { peak in
-                            isMaterialMeasurement ||
-                            TapDisplaySettings.showUnknownModes ||
-                            GuitarMode.isKnown(frequency: peak.frequency)
+                    // Comparison records show the per-spectrum Air/Top/Back table; everything
+                    // else shows the identified (selected) peaks only.
+                    if let entries = measurement.comparisonEntries {
+                        GroupBox("Compared Spectra (\(entries.count))") {
+                            ComparisonResultsView(spectra: entries.map { entry in
+                                let c = entry.colorComponents
+                                let color = Color(
+                                    red: c.indices.contains(0) ? c[0] : 0,
+                                    green: c.indices.contains(1) ? c[1] : 0,
+                                    blue: c.indices.contains(2) ? c[2] : 1,
+                                    opacity: c.indices.contains(3) ? c[3] : 1
+                                )
+                                return (magnitudes: entry.snapshot.magnitudes,
+                                        frequencies: entry.snapshot.frequencies,
+                                        color: color,
+                                        label: entry.label,
+                                        peaks: entry.peaks,
+                                        guitarType: entry.guitarType)
+                            })
+                            .padding(.vertical, 4)
                         }
-                    let selectedCount = filteredPeaks.filter { selectedIDs.contains($0.id) }.count
-                    let unselectedCount = filteredPeaks.filter { !selectedIDs.contains($0.id) }.count
-                    // Context-aware mode map so overlapping ranges (e.g. classical Top/Back) show distinct labels.
-                    let modeMap: [UUID: GuitarMode] = isMaterialMeasurement ? [:] : GuitarMode.classifyAll(filteredPeaks)
+                    } else {
+                        // Identified Peaks = the selected peaks only, sorted by frequency.
+                        // Plate/brace skip guitar-mode classification.
+                        let isMaterialMeasurement = measurement.longitudinalSnapshot != nil || measurement.selectedLongitudinalPeakID != nil
+                        let selectedIDs = Set(measurement.selectedPeakIDs ?? measurement.peaks.map { $0.id })
+                        let shownPeaks = measurement.peaks
+                            .filter { selectedIDs.contains($0.id) }
+                            .sorted(by: { $0.frequency < $1.frequency })
+                        // Context-aware mode map so overlapping ranges (e.g. classical Top/Back) show distinct labels.
+                        let modeMap: [UUID: GuitarMode] = isMaterialMeasurement ? [:] : GuitarMode.classifyAll(shownPeaks)
 
-                    GroupBox("Detected Peaks (\(selectedCount) selected\(unselectedCount > 0 ? ", \(unselectedCount) unselected" : ""))") {
-                        if filteredPeaks.isEmpty {
-                            Text("No peaks detected")
-                                .foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                        } else {
-                            VStack(alignment: .leading, spacing: 12) {
-                                ForEach(filteredPeaks) { peak in
-                                    let isSelected = selectedIDs.contains(peak.id)
-                                    let mode = modeMap[peak.id] ?? .unknown
-                                    let effectiveLabel: String = {
-                                        if isMaterialMeasurement {
-                                            if peak.id == measurement.selectedLongitudinalPeakID { return "fL" }
-                                            if peak.id == measurement.selectedCrossPeakID { return "fC" }
-                                            if peak.id == measurement.selectedFlcPeakID { return "fLC" }
-                                            return "Peak"
-                                        }
-                                        switch measurement.peakModeOverrides?[peak.id] ?? .auto {
-                                        case .auto: return mode.displayName
-                                        case .assigned(let label): return label
-                                        }
-                                    }()
-                                    let isOverridden = !isMaterialMeasurement && measurement.peakModeOverrides?[peak.id].flatMap {
-                                        if case .assigned = $0 { return $0 }
-                                        return nil
-                                    } != nil
-                                    CombinedPeakModeRowView(
-                                        peak: peak,
-                                        mode: mode,
-                                        effectiveModeLabel: effectiveLabel,
-                                        isManualOverride: isOverridden,
-                                        isSelected: isSelected
-                                    )
-                                        .opacity(isSelected ? 1.0 : 0.4)
-                                        .overlay(alignment: .trailing) {
-                                            if !isSelected {
-                                                Image(systemName: "star.slash")
-                                                    .font(.caption)
-                                                    .foregroundColor(.secondary)
+                        GroupBox("Identified Peaks") {
+                            if shownPeaks.isEmpty {
+                                Text("No identified peaks")
+                                    .foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                            } else {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    ForEach(shownPeaks) { peak in
+                                        let mode = modeMap[peak.id] ?? .unknown
+                                        let effectiveLabel: String = {
+                                            if isMaterialMeasurement {
+                                                if peak.id == measurement.selectedLongitudinalPeakID { return "Longitudinal" }
+                                                if peak.id == measurement.selectedCrossPeakID { return "Cross-grain" }
+                                                if peak.id == measurement.selectedFlcPeakID { return "FLC" }
+                                                return "Peak"
                                             }
-                                        }
+                                            switch measurement.peakModeOverrides?[peak.id] ?? .auto {
+                                            case .auto: return mode.displayName
+                                            case .assigned(let label): return label
+                                            }
+                                        }()
+                                        let isOverridden = !isMaterialMeasurement && measurement.peakModeOverrides?[peak.id].flatMap {
+                                            if case .assigned = $0 { return $0 }
+                                            return nil
+                                        } != nil
+                                        CombinedPeakModeRowView(
+                                            peak: peak,
+                                            mode: mode,
+                                            effectiveModeLabel: effectiveLabel,
+                                            isManualOverride: isOverridden,
+                                            isSelected: true
+                                        )
+                                    }
                                 }
                             }
                         }
