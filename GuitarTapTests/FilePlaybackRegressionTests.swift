@@ -311,6 +311,36 @@ struct FilePlaybackRegressionTests {
                 "Back mag: expected \(Self.g1BackMag) ±\(magTolerance), got \(backPeak.magnitude)")
     }
 
+    // MARK: - REG-G: ring-out (decay) time
+
+    /// REG-G ring-out — the post-tap level for Recording 5.wav decays to peak−15 dB. Shared
+    /// cross-platform golden (web g4d-decay + Python test_REG_G_generic_guitar_ringout assert the
+    /// same value): 0.0853 s ± 0.03 s. The web is audio-clock-deterministic; Swift's wall-clock
+    /// decay reaches the same crossing because file playback runs at real-time pace (wall-clock ≈
+    /// audio time). The loose tolerance covers per-platform chunk-granularity + clock jitter
+    /// (web 0.0853, Python ~0.091).
+    @Test func REG_G_genericGuitarRingOut_matchesGolden() throws {
+        let stem = "Recording 5"
+        guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
+            Issue.record("\(stem).wav not found in test bundle")
+            return
+        }
+
+        let sut = TapToneAnalyzer.forTesting()
+        sut.peakMinThreshold = -76
+        sut.tapDetectionThreshold = -40
+        try sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 1)
+
+        guard let decay = sut.currentDecayTime else {
+            Issue.record("No ring-out measured")
+            return
+        }
+        let golden: Float = 0.0853
+        let tol: Float = 0.03
+        #expect(abs(decay - golden) < tol,
+                "Ring-out: expected \(golden) ±\(tol), got \(decay)")
+    }
+
     // MARK: - REG-G2: O'Brien 8-tap generic guitar
 
     // Recording.wav — Generic guitar, 8-tap multi-tap, 48 kHz.
