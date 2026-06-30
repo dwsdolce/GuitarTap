@@ -587,7 +587,35 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Time at which the audio engine most recently started. Used in the 3-second
     /// post-start diagnostic to determine whether to warn about missing buffers.
     var engineStartTime: Date?
-    
+
+    // MARK: - Buffer-delivery Watchdog
+    //
+    // Recovers from a silently-wedged audio I/O context: the tap stops delivering
+    // buffers with no thrown error (e.g. another app forces the shared input through
+    // a CADefaultDeviceAggregate, a sleep/wake, or an OS HAL glitch). Nothing else
+    // notices, so the spectrum freezes indefinitely. A repeating timer detects the
+    // silence and performs a clean, bounded, backed-off restart via `start()`.
+
+    /// Monotonic timestamp (`CACurrentMediaTime`) of the most recent tap buffer.
+    /// Stamped on the audio thread; read on the main thread by the watchdog.
+    var lastBufferTime: CFTimeInterval = 0
+
+    /// Repeating main-runloop timer that checks for buffer starvation.
+    var watchdogTimer: Timer?
+
+    /// Re-entrancy guard so overlapping notifications can't stack recovery restarts.
+    var isRecoveringEngine = false
+
+    /// Consecutive recovery attempts; reset to 0 once buffers resume.
+    var watchdogRecoveryAttempts = 0
+
+    /// Seconds with zero delivered buffers before the I/O is considered wedged.
+    let watchdogSilenceThreshold: CFTimeInterval = 2.5
+
+    /// Give up (and surface an error) after this many consecutive failed restarts,
+    /// so a genuinely-unavailable device can't cause a restart storm.
+    let watchdogMaxAttempts = 6
+
     // MARK: - Testing Support
 
     /// When `true`, the analyzer was created via ``forTesting()`` and has no

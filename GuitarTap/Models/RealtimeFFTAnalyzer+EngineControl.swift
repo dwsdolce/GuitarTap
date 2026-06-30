@@ -6,6 +6,7 @@
 import AVFoundation
 import Accelerate
 import AudioToolbox
+import QuartzCore
 #if os(macOS)
 import CoreAudio
 #endif
@@ -404,6 +405,7 @@ extension RealtimeFFTAnalyzer {
         
         inputNode.installTap(onBus: 0, bufferSize: requestedBufferSize, format: tapFormat) { [weak self] buffer, time in
             guard let self = self else { return }
+            self.lastBufferTime = CACurrentMediaTime()  // watchdog liveness stamp (audio thread)
             self.audioProcessingQueue.async {
                 self.processAudioBuffer(buffer)
             }
@@ -429,7 +431,12 @@ extension RealtimeFFTAnalyzer {
         DispatchQueue.main.async {
             self.isRunning = true
             self.engineStartTime = Date()  // Track start time
-            
+            // Prime the watchdog clock so it doesn't fire during the start-up grace
+            // window, then (re)start the buffer-delivery watchdog. Not armed during
+            // file playback (the file path feeds buffers synthetically).
+            self.lastBufferTime = CACurrentMediaTime()
+            if !self.isPlayingFile { self.startBufferWatchdog() }
+
             #if os(iOS)
             // Refresh device list now that audio session is fully configured
             // This ensures USB devices that weren't visible before are now available
@@ -833,6 +840,10 @@ extension RealtimeFFTAnalyzer {
 
     func stop() {
         gtLog("🎤 Stop requested")
+
+        // Stop the buffer-delivery watchdog so it can't fire a recovery restart
+        // during an intentional stop/restart cycle.
+        stopBufferWatchdog()
 
         #if os(macOS)
         // Remove the sample-rate listener so it doesn't fire during the stop/restart cycle
