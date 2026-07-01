@@ -230,7 +230,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Re-analyze Peaks",
-                    body: "Shown in the results panel header next to the microphone name. Re-runs peak detection on a loaded measurement's frozen spectrum using the current algorithm. This is useful when loading measurements saved by older builds that may have missed peaks due to earlier algorithm limitations. The button is only enabled when viewing a loaded measurement. After re-analysis the peaks are recalculated as if the measurement were freshly captured with the current software.",
+                    body: "Shown in the results panel header next to the microphone name. Re-runs peak detection on a loaded measurement's stored spectrum using the current analysis settings — useful for trying a different Peak Min, analysis range, or guitar type on a saved measurement without re-tapping. The button is enabled only when viewing a loaded measurement.",
                     systemImages: ["arrow.trianglehead.2.counterclockwise"]
                 )
                 #if os(iOS)

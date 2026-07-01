@@ -73,6 +73,11 @@ struct TapAnalysisResultsView: View {
     /// Called when the user taps "Export PDF Report". Pass `nil` to hide the button.
     var onExportPDFReport: (() -> Void)? = nil
 
+    /// When true (the iPhone landscape side panel), hides the device-name row and the Ring-Out /
+    /// Tap-Ratio summary so the peak list gets the full height. Default false → the iPad panel and
+    /// the portrait sheet are unchanged.
+    var compactLandscape: Bool = false
+
     /// Maximum width for instruction text blocks in plate/brace mode (macOS only).
     /// Provides a finite width inside the .fixedSize panel so text wraps rather than
     /// expanding the panel. Scales with the system font size. On iOS the sheet has
@@ -183,28 +188,32 @@ struct TapAnalysisResultsView: View {
                         }
                     }
 
-                    HStack {
-                        if let deviceName = fftAnalyzer.selectedInputDevice?.name {
-                            Text(deviceName)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                    // Device name + Re-analyze — hidden in the compact landscape side panel so the
+                    // peak list gets the full height (Re-analyze stays available in portrait / iPad).
+                    if !compactLandscape {
+                        HStack {
+                            if let deviceName = fftAnalyzer.selectedInputDevice?.name {
+                                Text(deviceName)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            // Re-analyze: re-run findPeaks() on the frozen spectrum
+                            // using the current analysis settings (Peak Min, analysis range, guitar
+                            // type) — lets the user retune a saved measurement without re-tapping.
+                            Button {
+                                analyzer.reanalyzePeaks()
+                            } label: {
+                                Image(systemName: "arrow.trianglehead.2.counterclockwise")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                            .disabled(analyzer.loadedMeasurementPeaks == nil
+                                      || analyzer.frozenFrequencies.isEmpty
+                                      || analyzer.frozenMagnitudes.isEmpty)
+                            .help("Re-analyze peaks from the spectrum using the current settings")
                         }
-                        Spacer()
-                        // Re-analyze: re-run findPeaks() on the frozen spectrum
-                        // using the current algorithm. Useful for upgrading
-                        // measurements saved by older builds that missed peaks.
-                        Button {
-                            analyzer.reanalyzePeaks()
-                        } label: {
-                            Image(systemName: "arrow.trianglehead.2.counterclockwise")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.mini)
-                        .disabled(analyzer.loadedMeasurementPeaks == nil
-                                  || analyzer.frozenFrequencies.isEmpty
-                                  || analyzer.frozenMagnitudes.isEmpty)
-                        .help("Re-analyze peaks from spectrum using the current algorithm")
                     }
 
                     HStack {
@@ -317,7 +326,10 @@ struct TapAnalysisResultsView: View {
                     // or for plate/brace; shown during multi-tap comparison since it's still guitar).
                     if measurementType.isGuitar
                         && (analyzer.displayMode != .comparison || analyzer.showingMultiTapComparison) {
-                        guitarAnalysisSummary
+                        // Hidden in the compact landscape side panel — peaks get the full height.
+                        if !compactLandscape {
+                            guitarAnalysisSummary
+                        }
                     }
 
                     // Status indicator + export buttons
@@ -330,6 +342,7 @@ struct TapAnalysisResultsView: View {
                                     exportSpectrum()
                                 } label: {
                                     Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
+                                        .fixedSize()
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
@@ -339,6 +352,7 @@ struct TapAnalysisResultsView: View {
                                     exportPDF()
                                 } label: {
                                     Label("Export PDF", systemImage: "doc.richtext")
+                                        .fixedSize()
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)

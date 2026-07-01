@@ -147,6 +147,7 @@ struct CombinedPeakModeRowView: View {
                         Text("\(peak.bandwidth, specifier: "%.1f") Hz")
                             .font(.caption)
                             .fontWeight(.medium)
+                            .fixedSize()
                     }
 
                     Spacer()
@@ -156,6 +157,7 @@ struct CombinedPeakModeRowView: View {
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(magnitudeColor(peak.magnitude))
+                        .fixedSize()
                 }
             }
         }

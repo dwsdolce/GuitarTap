@@ -177,7 +177,10 @@ extension TapToneAnalysisView {
             .interactiveDismissDisabled()
         }
         // Results sheet is only used on non-iPad-horizontal layouts
-        .sheet(isPresented: $showingResults) {
+        .sheet(isPresented: Binding(
+            get: { showingResults && !isPhoneLandscape },
+            set: { showingResults = $0 }
+        )) {
             NavigationView {
                 TapAnalysisResultsView(
                     analyzer: tap,
@@ -430,12 +433,42 @@ extension TapToneAnalysisView {
             }
             .frame(maxWidth: .infinity)
         }
+        // Results slides in as an overlay on top of the spectrum — the graph does NOT resize.
+        // On iPhone landscape we intentionally do not show graph + results together (mirrors
+        // the web); portrait uses a bottom sheet instead.
+        .overlay {
+            if showingResults {
+                ZStack(alignment: .trailing) {
+                    // Dimming backdrop — tap anywhere off the panel to dismiss.
+                    Color.black.opacity(0.35)
+                        .ignoresSafeArea()
+                        .onTapGesture { showingResults = false }
+                        .transition(.opacity)
+
+                    TapAnalysisResultsView(
+                        analyzer: tap,
+                        fftAnalyzer: fft,
+                        minFreq: minFreq,
+                        maxFreq: maxFreq,
+                        onExportSpectrum: { exportCurrentSpectrum() },
+                        onExportPDFReport: { exportPDFReport() },
+                        compactLandscape: true
+                    )
+                    .frame(width: 420)
+                    .frame(maxHeight: .infinity)
+                    .background(Color(.systemBackground))
+                    .overlay(alignment: .leading) { Divider() }
+                    .transition(.move(edge: .trailing))
+                }
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: showingResults)
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // Left: Results, Play File, Auto dB, Crosshair, Annotations
             ToolbarItemGroup(placement: .topBarLeading) {
-                Button(action: { showResults() }) {
+                Button(action: { showingResults.toggle() }) {
                     Image(systemName: "doc.text")
                 }
                 .accessibilityLabel("Results")

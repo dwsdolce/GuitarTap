@@ -223,6 +223,13 @@ that phase only (§4.5).
 **Results** <img src="images/symbols/doc.text.png" width="18" height="18" class="inline-icon" alt="doc.text"> (iPhone only) — Opens the
 Analysis Results sheet.
 
+**Re-analyze** <img src="images/symbols/arrow.trianglehead.2.counterclockwise.png" width="18" height="18" class="inline-icon" alt="arrow.trianglehead.2.counterclockwise"> —
+In the Analysis Results header, next to the microphone name. Re-runs
+peak detection on a loaded measurement's stored spectrum using the
+current analysis settings — useful for trying a different Peak Min,
+analysis range, or guitar type on a saved measurement without
+re-tapping. Enabled only when a loaded measurement is shown.
+
 **Auto dB** <img src="images/symbols/arrow.up.arrow.down.circle.png" width="18" height="18" class="inline-icon" alt="arrow.up.arrow.down.circle"> — Scales
 the magnitude axis to fit the current signal (§6.4). Shortcut:
 **⌘0** / **Ctrl+0**.
