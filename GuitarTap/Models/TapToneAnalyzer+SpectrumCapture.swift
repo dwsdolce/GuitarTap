@@ -4,6 +4,9 @@
 //
 //  Created on 1/25/26.
 //
+// @parity dsp/gated-fft tests=test/gated-fft
+// @parity dsp/gated-capture
+// @parity dsp/spectrum-average
 
 /// # TapToneAnalyzer+SpectrumCapture
 ///

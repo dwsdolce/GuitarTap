@@ -15,6 +15,7 @@
 //  trace for each scenario is hardcoded identically in both languages — if
 //  one side changes, the other must follow.
 //
+// @parity test/scenario-trace
 
 import Testing
 import Foundation

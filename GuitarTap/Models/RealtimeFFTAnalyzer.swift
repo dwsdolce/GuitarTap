@@ -4,6 +4,7 @@
 //
 //  Created by David Smith on 12/31/25.
 //
+// @parity audio/realtime-analyzer
 
 /// # RealtimeFFTAnalyzer
 ///

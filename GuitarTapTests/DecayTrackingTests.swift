@@ -10,6 +10,7 @@
 //
 //  Test plan coverage: DK1–DK7
 //
+// @parity test/decay-tracking
 
 import Testing
 import Foundation

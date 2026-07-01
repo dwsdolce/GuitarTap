@@ -10,6 +10,7 @@
 //
 //  Test plan coverage: GFFT1–GFFT5
 //
+// @parity test/gated-fft
 
 import Testing
 import Foundation

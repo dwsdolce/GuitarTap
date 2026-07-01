@@ -2,6 +2,8 @@
 //  RealtimeFFTAnalyzer+FFTProcessing.swift
 //  GuitarTap
 //
+// @parity dsp/fft
+// @parity dsp/guitar-fft
 
 import AVFoundation
 import Accelerate

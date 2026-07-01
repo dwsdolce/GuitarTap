@@ -15,6 +15,7 @@
 //  The rule is duplicated here on purpose: if the view drifts from this table,
 //  one side has to give.  Mirror in Python: tests/test_button_enablement.py.
 //
+// @parity test/button-enablement
 
 import Testing
 import Foundation

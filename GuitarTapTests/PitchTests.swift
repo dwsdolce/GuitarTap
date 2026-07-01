@@ -6,6 +6,7 @@
 //  nearest-note frequency, and in-tune detection.
 //  All computations are pure math, requiring no hardware.
 //
+// @parity test/pitch
 
 import Testing
 import Foundation

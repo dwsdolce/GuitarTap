@@ -9,6 +9,7 @@
 //
 //  Test plan coverage: G1–G20
 //
+// @parity test/classify
 
 import Testing
 import Foundation

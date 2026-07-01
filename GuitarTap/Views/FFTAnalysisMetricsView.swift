@@ -2,6 +2,7 @@
 //  FFTAnalysisMetricsView.swift
 //  GuitarTap
 //
+// @parity view/analysis-metrics
 
 /// # FFTAnalysisMetricsView
 ///

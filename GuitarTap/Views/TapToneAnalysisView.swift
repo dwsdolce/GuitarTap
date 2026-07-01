@@ -56,6 +56,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity view/main
 
 import SwiftUI
 import Charts

@@ -16,6 +16,7 @@
 //  Mirror in Python: tests/test_state_invariants.py.  If either side's set of
 //  invariants changes, the other must follow.
 //
+// @parity test/state-invariants
 
 import Testing
 import Foundation

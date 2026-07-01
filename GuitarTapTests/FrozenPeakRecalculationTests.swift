@@ -20,6 +20,7 @@
 //
 //  Test plan coverage: PR1–PR7
 //
+// @parity test/frozen-peak-recalc
 
 import Testing
 import Foundation

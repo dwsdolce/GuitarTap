@@ -13,6 +13,7 @@
 //
 //  Test plan coverage: T1–T9
 //
+// @parity test/tap-decisions
 
 import Testing
 import Foundation

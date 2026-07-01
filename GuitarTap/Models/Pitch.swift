@@ -4,6 +4,7 @@
 //
 //  Converted from pitch.py
 //
+// @parity dsp/pitch tests=test/pitch
 
 /// # Pitch
 ///

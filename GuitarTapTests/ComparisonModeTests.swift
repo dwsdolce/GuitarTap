@@ -10,6 +10,7 @@
 //
 //  Test plan coverage: CP1–CP5 (unit-testable subset)
 //
+// @parity test/comparison
 
 import Testing
 import Foundation

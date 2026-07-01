@@ -56,6 +56,7 @@
 //
 //  Zoom, pan, and scroll-wheel gesture handlers for SpectrumView.
 //
+// @parity view/spectrum-gestures
 
 import SwiftUI
 import Charts

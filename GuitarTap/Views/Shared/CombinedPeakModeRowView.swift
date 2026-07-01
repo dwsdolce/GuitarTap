@@ -2,6 +2,7 @@
 //  CombinedPeakModeRowView.swift
 //  GuitarTap
 //
+// @parity view/peak-card
 
 /// # CombinedPeakModeRowView
 ///

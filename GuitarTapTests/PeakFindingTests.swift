@@ -7,6 +7,7 @@
 //
 //  Test plan coverage: F10–F16, A1–A5
 //
+// @parity test/peaks
 
 import Testing
 import Foundation

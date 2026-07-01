@@ -19,6 +19,7 @@
 //
 //  Test plan coverage: REG-G1, REG-B1, REG-G2
 //
+// @parity test/file-playback
 
 import Testing
 import Foundation

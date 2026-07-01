@@ -11,6 +11,7 @@
 //
 //  Test plan coverage: IP1–IP3
 //
+// @parity test/import-persistence
 
 import Testing
 import Foundation

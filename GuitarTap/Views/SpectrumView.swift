@@ -50,6 +50,7 @@
 //
 //  Created by David Smith on 12/31/25.
 //
+// @parity view/spectrum-chart
 
 import SwiftUI
 import Charts

@@ -10,6 +10,7 @@
 ///
 //  ComparisonResultsView.swift
 //  GuitarTap
+// @parity view/comparison-results
 
 import SwiftUI
 

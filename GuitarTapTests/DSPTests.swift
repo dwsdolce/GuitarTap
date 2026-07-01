@@ -8,6 +8,7 @@
 //
 //  Test plan coverage: F1–F9
 //
+// @parity test/dsp
 
 import Testing
 @testable import GuitarTap

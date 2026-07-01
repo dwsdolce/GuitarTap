@@ -1,0 +1,654 @@
+{
+  "groups": [
+    {
+      "slug": "audio/realtime-analyzer",
+      "swift": [
+        "GuitarTap/Models/RealtimeFFTAnalyzer.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/realtime_fft_analyzer.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "audio/tap-analyzer",
+      "swift": [
+        "GuitarTap/Models/TapToneAnalyzer.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/tap_tone_analyzer.py"
+      ],
+      "web": [
+        "src/audio/engine.ts"
+      ],
+      "tests": [
+        "test/tap-decisions"
+      ],
+      "equivalence": "oracle + tests"
+    },
+    {
+      "slug": "dsp/calibration",
+      "swift": [
+        "GuitarTap/Models/MicrophoneCalibration.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/microphone_calibration.py"
+      ],
+      "web": [
+        "src/dsp/calibration.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "dsp/decay",
+      "swift": [
+        "GuitarTap/Models/TapToneAnalyzer+DecayTracking.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/tap_tone_analyzer_decay_tracking.py"
+      ],
+      "web": [
+        "src/dsp/decay.ts"
+      ],
+      "tests": [
+        "test/decay-tracking"
+      ],
+      "equivalence": "oracle + tests"
+    },
+    {
+      "slug": "dsp/fft",
+      "swift": [
+        "GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/realtime_fft_analyzer_fft_processing.py"
+      ],
+      "web": [
+        "src/dsp/fft.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "dsp/find-peaks",
+      "swift": [
+        "GuitarTap/Models/ResonantPeak.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/resonant_peak.py"
+      ],
+      "web": [
+        "src/dsp/peaks.ts"
+      ],
+      "tests": [
+        "test/peaks"
+      ],
+      "equivalence": "oracle + tests"
+    },
+    {
+      "slug": "dsp/gated-capture",
+      "swift": [
+        "GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py"
+      ],
+      "web": [
+        "src/dsp/gatedCapture.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "dsp/gated-fft",
+      "swift": [
+        "GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py"
+      ],
+      "web": [
+        "src/dsp/gatedFFT.ts"
+      ],
+      "tests": [
+        "test/gated-fft"
+      ],
+      "equivalence": "oracle + tests"
+    },
+    {
+      "slug": "dsp/guitar-fft",
+      "swift": [
+        "GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/realtime_fft_analyzer_fft_processing.py"
+      ],
+      "web": [
+        "src/dsp/guitarFFT.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "dsp/guitar-modes",
+      "swift": [
+        "GuitarTap/Models/GuitarMode.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/guitar_mode.py"
+      ],
+      "web": [
+        "src/dsp/guitarModes.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "dsp/material-properties",
+      "swift": [
+        "GuitarTap/Models/MaterialProperties.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/material_properties.py"
+      ],
+      "web": [
+        "src/dsp/material.ts"
+      ],
+      "tests": [
+        "test/brace",
+        "test/plate"
+      ],
+      "equivalence": "oracle + tests"
+    },
+    {
+      "slug": "dsp/pitch",
+      "swift": [
+        "GuitarTap/Models/Pitch.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/pitch.py"
+      ],
+      "web": [
+        "src/dsp/pitch.ts"
+      ],
+      "tests": [
+        "test/pitch"
+      ],
+      "equivalence": "oracle + tests"
+    },
+    {
+      "slug": "dsp/spectrum-average",
+      "swift": [
+        "GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py"
+      ],
+      "web": [
+        "src/dsp/spectrumAverage.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "model/guitar-mode-classify",
+      "swift": [
+        "GuitarTap/Models/GuitarMode.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/guitar_mode.py"
+      ],
+      "web": [
+        "src/dsp/classify.ts"
+      ],
+      "tests": [
+        "test/classify"
+      ],
+      "equivalence": "oracle + tests"
+    },
+    {
+      "slug": "model/mode-colors",
+      "swift": [
+        "GuitarTap/Models/GuitarMode.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/guitar_mode.py"
+      ],
+      "web": [
+        "src/presentation/modeColors.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "test/annotation-state",
+      "swift": [
+        "GuitarTapTests/AnnotationStateTests.swift"
+      ],
+      "python": [
+        "tests/test_annotation_state.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/brace",
+      "swift": [
+        "GuitarTapTests/BracePropertiesTests.swift"
+      ],
+      "python": [
+        "tests/test_material_properties.py"
+      ],
+      "web": [
+        "test/g3b-brace.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/button-enablement",
+      "swift": [
+        "GuitarTapTests/ButtonEnablementTests.swift"
+      ],
+      "python": [
+        "tests/test_button_enablement.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/classify",
+      "swift": [
+        "GuitarTapTests/GuitarModeTests.swift"
+      ],
+      "python": [
+        "tests/test_guitar_mode.py"
+      ],
+      "web": [
+        "test/g4c-classify.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/comparison",
+      "swift": [
+        "GuitarTapTests/ComparisonModeTests.swift"
+      ],
+      "python": [
+        "tests/test_comparison_mode.py"
+      ],
+      "web": [
+        "test/g10-comparison.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/decay-tracking",
+      "swift": [
+        "GuitarTapTests/DecayTrackingTests.swift"
+      ],
+      "python": [
+        "tests/test_decay_tracking.py"
+      ],
+      "web": [
+        "test/g4d-decay.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/display-range",
+      "swift": [
+        "GuitarTapTests/DisplayRangeTests.swift"
+      ],
+      "python": [],
+      "web": [
+        "test/settings-display-range.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/dsp",
+      "swift": [
+        "GuitarTapTests/DSPTests.swift"
+      ],
+      "python": [
+        "tests/test_dsp.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/file-playback",
+      "swift": [
+        "GuitarTapTests/FilePlaybackRegressionTests.swift"
+      ],
+      "python": [
+        "tests/test_file_playback_regression.py"
+      ],
+      "web": [
+        "test/g11-file-playback.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/frozen-peak-recalc",
+      "swift": [
+        "GuitarTapTests/FrozenPeakRecalculationTests.swift"
+      ],
+      "python": [
+        "tests/test_frozen_peak_recalculation.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/gated-fft",
+      "swift": [
+        "GuitarTapTests/GatedFFTParityTests.swift"
+      ],
+      "python": [
+        "tests/test_gated_fft_parity.py"
+      ],
+      "web": [
+        "test/g1-gated-fft.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/import-persistence",
+      "swift": [
+        "GuitarTapTests/ImportPersistenceTests.swift"
+      ],
+      "python": [
+        "tests/test_import_persistence.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/measurement-codable",
+      "swift": [
+        "GuitarTapTests/MeasurementCodableTests.swift"
+      ],
+      "python": [
+        "tests/test_measurement_codable.py"
+      ],
+      "web": [
+        "test/g5-measurement-codable.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/measurement-complete",
+      "swift": [
+        "GuitarTapTests/MeasurementCompleteTransitionTests.swift"
+      ],
+      "python": [
+        "tests/test_measurement_complete_transitions.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/peaks",
+      "swift": [
+        "GuitarTapTests/PeakFindingTests.swift"
+      ],
+      "python": [
+        "tests/test_peak_finding.py"
+      ],
+      "web": [
+        "test/g2-peaks.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/pitch",
+      "swift": [
+        "GuitarTapTests/PitchTests.swift"
+      ],
+      "python": [
+        "tests/test_pitch.py"
+      ],
+      "web": [
+        "test/g4a-pitch.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/plate",
+      "swift": [
+        "GuitarTapTests/PlatePropertiesTests.swift"
+      ],
+      "python": [
+        "tests/test_material_properties.py"
+      ],
+      "web": [
+        "test/g3c-plate.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/scenario-trace",
+      "swift": [
+        "GuitarTapTests/ScenarioStateTraceTests.swift"
+      ],
+      "python": [
+        "tests/test_scenario_state_trace.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/start-tap-race",
+      "swift": [
+        "GuitarTapTests/StartTapSequenceRaceTests.swift"
+      ],
+      "python": [
+        "tests/test_start_tap_sequence_race.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/state-invariants",
+      "swift": [
+        "GuitarTapTests/StateInvariantTests.swift"
+      ],
+      "python": [
+        "tests/test_state_invariants.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/tap-decisions",
+      "swift": [
+        "GuitarTapTests/TapDetectionTests.swift"
+      ],
+      "python": [
+        "tests/test_tap_detection.py"
+      ],
+      "web": [
+        "test/g5-tap-decisions.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "view/analysis-metrics",
+      "swift": [
+        "GuitarTap/Views/FFTAnalysisMetricsView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/fft_analysis_metrics_view.py"
+      ],
+      "web": [
+        "src/components/AnalysisResults.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/comparison-results",
+      "swift": [
+        "GuitarTap/Views/ComparisonResultsView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/comparison_results_view.py"
+      ],
+      "web": [
+        "src/components/ComparisonResultsView.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/help",
+      "swift": [
+        "GuitarTap/Views/HelpView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/help_view.py"
+      ],
+      "web": [
+        "src/components/QuickStartGuide.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/main",
+      "swift": [
+        "GuitarTap/Views/TapToneAnalysisView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/tap_tone_analysis_view.py"
+      ],
+      "web": [
+        "src/App.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/multi-tap-results",
+      "swift": [
+        "GuitarTap/Views/MultiTapComparisonResultsView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/multi_tap_comparison_results_view.py"
+      ],
+      "web": [
+        "src/components/MultiTapComparisonResultsView.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/peak-card",
+      "swift": [
+        "GuitarTap/Views/Shared/CombinedPeakModeRowView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/shared/combined_peak_mode_row_view.py"
+      ],
+      "web": [
+        "src/components/PeakCard.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/save-sheet",
+      "swift": [
+        "GuitarTap/Views/SaveMeasurementSheet.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/save_measurement_sheet.py"
+      ],
+      "web": [
+        "src/components/SaveSheet.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/settings",
+      "swift": [
+        "GuitarTap/Views/Utilities/TapSettingsView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/utilities/tap_settings_view.py"
+      ],
+      "web": [
+        "src/components/SettingsPanel.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/spectrum-chart",
+      "swift": [
+        "GuitarTap/Views/SpectrumView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/fft_canvas.py"
+      ],
+      "web": [
+        "src/components/SpectrumChart.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/spectrum-gestures",
+      "swift": [
+        "GuitarTap/Views/SpectrumView+GestureHandlers.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/spectrum_view_gesture_handlers.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/threshold-slider",
+      "swift": [
+        "GuitarTap/Views/Shared/ThresholdSlider.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/shared/threshold_slider.py"
+      ],
+      "web": [
+        "src/components/ThresholdMeter.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    }
+  ],
+  "platformSpecific": []
+}

@@ -11,6 +11,7 @@
 //
 //  Test plan coverage: R1–R6, R11–R14
 //
+// @parity test/measurement-codable
 
 import Testing
 import Foundation

@@ -13,6 +13,7 @@
 //  natural way to show the user what the threshold is being compared
 //  against.
 //
+// @parity view/threshold-slider
 
 import Combine
 import SwiftUI

@@ -5,6 +5,7 @@
 //  Calculates acoustic properties of wood from tap test measurements on rectangular plates.
 //  Used for evaluating tonewood quality for guitar tops, backs, and other instrument parts.
 //
+// @parity dsp/material-properties tests=test/brace,test/plate
 
 /// # MaterialProperties
 ///

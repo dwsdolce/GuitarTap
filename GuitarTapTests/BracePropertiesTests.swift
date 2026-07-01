@@ -15,6 +15,7 @@
 //  All test fixtures are derived from a real measured brace blank:
 //    Length 556 mm, Width 20.4 mm, Thickness (Height) 29.4 mm, Mass 128 g, fL 512.3 Hz
 //    → ρ ≈ 383.8 kg/m³, EL ≈ 10.54 GPa, c ≈ 5240 m/s, specific modulus ≈ 27.46 → Excellent
+// @parity test/brace
 
 import Testing
 import Foundation

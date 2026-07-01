@@ -4,6 +4,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity dsp/decay tests=test/decay-tracking
 
 /// # TapToneAnalyzer+DecayTracking
 ///

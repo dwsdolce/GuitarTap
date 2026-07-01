@@ -10,6 +10,7 @@
 //
 //  Test plan coverage: D1–D10
 //
+// @parity test/annotation-state
 
 import Testing
 import Foundation

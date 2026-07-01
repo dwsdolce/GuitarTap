@@ -13,6 +13,7 @@
 //  UserDefaults), and the `displayMinFreq_<rawValue>` keys are touched by no
 //  other test.
 //
+// @parity test/display-range
 
 import Testing
 @testable import GuitarTap

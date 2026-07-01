@@ -2,6 +2,7 @@
 //  TapSettingsView.swift
 //  GuitarTap
 //
+// @parity view/settings
 
 /// # TapSettingsView
 ///

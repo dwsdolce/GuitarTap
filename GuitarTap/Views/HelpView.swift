@@ -2,6 +2,7 @@
 //  HelpView.swift
 //  GuitarTap
 //
+// @parity view/help
 
 /// # HelpView
 ///

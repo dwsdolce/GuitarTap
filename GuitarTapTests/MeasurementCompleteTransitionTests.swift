@@ -24,6 +24,7 @@
 //
 //  Test plan coverage: MC1–MC9
 //
+// @parity test/measurement-complete
 
 import Testing
 import Foundation

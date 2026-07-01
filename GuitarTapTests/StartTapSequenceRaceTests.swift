@@ -20,6 +20,7 @@
 //  against any reintroduction of an async path that re-asserts isDetecting in
 //  startTapSequence.
 //
+// @parity test/start-tap-race
 
 import Testing
 import Foundation

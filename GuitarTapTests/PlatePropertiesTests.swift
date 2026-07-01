@@ -9,6 +9,7 @@
 //    E = 48π²ρf²L⁴ / (22.37·t)²
 //  for a free-free beam (the tap-tone beam bending method).
 //
+// @parity test/plate
 
 import Testing
 import Foundation

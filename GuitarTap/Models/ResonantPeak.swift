@@ -4,6 +4,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity dsp/find-peaks tests=test/peaks
 
 /// # ResonantPeak
 ///
