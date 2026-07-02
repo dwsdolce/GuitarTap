@@ -260,7 +260,43 @@ data is unchanged. A warning is shown **after** the import
 completes, letting you know that further capture will use a
 fallback input device until the original is reconnected.
 
-## 7.10 Sharing Between Devices
+## 7.10 Exporting or Backing Up the Whole Library
+
+Where §7.8 exports a single measurement, **Export All** writes your
+**entire** saved-measurement library to one `.guitartap` file. Its
+purpose is to back up the complete collection or to move it in a single
+step — from one platform to another (macOS ↔ iPad ↔ Windows / Linux),
+or, on the web build, from one browser to another.
+
+The action lives in the Saved Measurements list:
+
+- **iOS / iPadOS, web, and Python (Windows / Linux / macOS Python):**
+  **Export All**.
+- **macOS (native build):** **Export All…** (opens the share sheet —
+  AirDrop, Mail, Files) or **Save All to Disk…** (a file-save dialog
+  that writes the library file to a folder you choose).
+
+The result is a single `.guitartap` file containing every saved
+measurement — guitar, plate, brace, and comparison. Re-import it on any
+platform with **Import Measurement** (§7.9); the measurements are merged
+back into the list. The file is interchangeable across all builds, so
+Export All on one platform followed by Import on another is the
+supported way to carry a whole library across.
+
+**Web build — why the backup matters.** In a browser the library is
+stored *in that browser*, and the browser can clear it — on iOS, roughly
+seven days after the app was last used. Installing the app (**Add to
+Home Screen** on iOS, **Add to Dock** on desktop) promotes the storage
+to durable; keeping an **Export All** file elsewhere is the portable
+backup. The app shows this reminder in the Saved Measurements panel on
+affected browsers:
+
+> Your library is stored in this browser and can be cleared by the
+> browser (on iOS, after ~7 days unused). Install the app (Add to Home
+> Screen / Add to Dock) for durable storage, and use Export All to keep
+> a backup.
+
+## 7.11 Sharing Between Devices
 
 Anything you can export — measurements (§7.8), spectrum images
 (§7.6), or PDF reports (§7.7) — can be shared between devices.
@@ -297,7 +333,7 @@ import it on the receiving Apple device via §7.9. The
 `.guitartap` format is identical on every platform, so no
 conversion is needed regardless of direction.
 
-## 7.11 Deleting Measurements
+## 7.12 Deleting Measurements
 
 - **Desktop:** popup menu → **Delete**.
 - **iOS / iPadOS:** swipe-to-delete on the row.
