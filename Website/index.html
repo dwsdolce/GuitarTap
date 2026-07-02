@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Guitar Tap — Tap tune guitars &amp; tonewood</title>
-<meta name="description" content="Tap-tone analysis for luthiers: capture a tap on a guitar, plate, or brace, run an FFT, and reveal resonant modes and tonewood stiffness. Free & open source.">
+<meta name="description" content="Tap-tone analysis for luthiers: capture a tap on a guitar, plate, or brace, run an FFT, and reveal resonant modes and tonewood stiffness. Free in your browser, a native Apple app, or open source.">
 <link rel="canonical" href="https://www.dolcesfogato.com/guitar_tap/">
 
 <!-- Open Graph (Facebook, LinkedIn, Discord, iMessage, etc.) -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Guitar Tap">
 <meta property="og:title" content="Guitar Tap — Tap-tone analysis for luthiers">
-<meta property="og:description" content="Capture a tap, run an FFT, and reveal a guitar's resonant modes and tonewood stiffness — free and open source.">
+<meta property="og:description" content="Capture a tap, run an FFT, and reveal a guitar's resonant modes and tonewood stiffness — free in your browser, or a native Apple app.">
 <meta property="og:url" content="https://www.dolcesfogato.com/guitar_tap/">
 <meta property="og:image" content="https://www.dolcesfogato.com/guitar_tap/images/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -21,7 +21,7 @@
 <!-- Twitter / X card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Guitar Tap — Tap-tone analysis for luthiers">
-<meta name="twitter:description" content="Capture a tap, run an FFT, and reveal a guitar's resonant modes and tonewood stiffness — free and open source.">
+<meta name="twitter:description" content="Capture a tap, run an FFT, and reveal a guitar's resonant modes and tonewood stiffness — free in your browser, or a native Apple app.">
 <meta name="twitter:image" content="https://www.dolcesfogato.com/guitar_tap/images/og-image.png">
 
 <!-- Structured data for rich search results -->
@@ -31,13 +31,14 @@
   "@type": "SoftwareApplication",
   "name": "Guitar Tap",
   "applicationCategory": "MultimediaApplication",
-  "operatingSystem": "iOS, iPadOS, macOS, Windows, Linux",
+  "operatingSystem": "iOS, iPadOS, macOS, Windows, Linux, Web browser",
   "description": "Tap-tone analysis for luthiers: capture a tap on a guitar, tonewood plate, or brace, run a high-resolution FFT, and reveal resonant modes and material properties such as Young's modulus, specific modulus, and a Gore target thickness.",
   "url": "https://www.dolcesfogato.com/guitar_tap/",
   "image": "https://www.dolcesfogato.com/guitar_tap/images/macos-classical.jpg",
   "author": { "@type": "Organization", "name": "Dolce Sfogato", "url": "https://www.dolcesfogato.com/" },
   "offers": [
     { "@type": "Offer", "name": "Guitar Tap for iPhone, iPad & Mac", "price": "14.99", "priceCurrency": "USD", "url": "https://apps.apple.com/app/guitar-tap/id6759410596" },
+    { "@type": "Offer", "name": "Guitar Tap in your browser (web app)", "price": "0", "priceCurrency": "USD", "url": "https://www.dolcesfogato.com/guitar_tap/guitar_tap_web/" },
     { "@type": "Offer", "name": "Guitar Tap (open source)", "price": "0", "priceCurrency": "USD" }
   ]
 }
@@ -111,7 +112,7 @@ bracing, mass distribution, and plate thickness — methods drawn from
 <em>Contemporary Acoustic Guitar Design and Build</em> by Trevor Gore and
 Gerard Gilet.</p>
 
-<h2>Two ways to use Guitar Tap</h2>
+<h2>Three ways to use Guitar Tap</h2>
 <div class="gt-cards">
 
   <div class="gt-card">
@@ -133,17 +134,47 @@ Gerard Gilet.</p>
   </div>
 
   <div class="gt-card">
+    <h3>Guitar Tap in your browser</h3>
+    <p>The same analysis engine, free in any modern browser — nothing to buy,
+    nothing to install. Capture a tap, watch the live spectrum, measure guitars,
+    plates, and braces, and keep your measurement library saved locally. Works in
+    Chrome, Safari, and Edge on desktop and mobile, and installs as an app for a
+    standalone window and durable storage (see below).</p>
+    <p class="price">Free — runs in your browser</p>
+    <a class="btn" href="https://www.dolcesfogato.com/guitar_tap/guitar_tap_web/">Open the web app</a>
+  </div>
+
+  <div class="gt-card">
     <h3>Guitar Tap (open source)</h3>
     <p>A free, open-source edition for Windows, macOS, and Linux. Install
     a prebuilt release or build it yourself from source — and contribute on
     GitHub. Each download includes its own quick-start guide for the open-source
-    edition; the shared User Manual below applies to both editions.</p>
+    edition; the shared User Manual below applies to every edition.</p>
     <p class="price">Free &amp; open source</p>
     <a class="btn" href="https://github.com/dwsdolce/guitar_tap/releases">Download releases</a>
     <a class="btn secondary" href="https://github.com/dwsdolce/guitar_tap">Source on GitHub</a>
   </div>
 
 </div>
+
+<h2>Install the browser app (optional)</h2>
+<p>The web app runs fine in a browser tab, but installing it as a Progressive
+Web App gives it an app icon, a standalone window, and durable local storage for
+your saved measurements.</p>
+<ul class="gt-links">
+  <li><strong>Chrome / Edge (desktop):</strong> click the install icon at the
+  right end of the address bar, or open the menu (⋮) and choose
+  <strong>Install Guitar Tap…</strong></li>
+  <li><strong>Chrome (Android):</strong> open the menu (⋮) and choose
+  <strong>Add to Home screen</strong> / <strong>Install app</strong>.</li>
+  <li><strong>Safari (iPhone / iPad):</strong> tap <strong>Share</strong>, then
+  <strong>Add to Home Screen</strong>.</li>
+  <li><strong>Safari (Mac, macOS Sonoma or later):</strong> choose
+  <strong>File → Add to Dock</strong>.</li>
+</ul>
+<p>On iOS, installing also keeps your saved-measurement library from being
+cleared by the browser (which can happen after about a week unused). Use
+<strong>Export All</strong> in Saved Measurements to keep a portable backup.</p>
 
 <h2>What it measures</h2>
 <div class="feature-grid">
@@ -166,9 +197,14 @@ Gerard Gilet.</p>
 </div>
 
 <h2>See it in action</h2>
-<p>Screenshots from the native Apple app — the open-source edition shares the
+<p>Screenshots from the browser app and the native Apple app — the open-source edition shares the
 same analysis engine and views.</p>
 <div class="gt-gallery">
+  <figure class="gt-shot">
+    <img src="images/web-classical.png"
+         alt="Guitar Tap running in a browser: guitar mode with labeled Air, Top, and Back peaks and the analysis results panel">
+    <figcaption>In your browser — guitar mode</figcaption>
+  </figure>
   <figure class="gt-shot">
     <img src="images/macos-classical.jpg"
          alt="Guitar mode: live spectrum with labeled Air, Top, and Back resonant peaks">
@@ -207,8 +243,8 @@ same analysis engine and views.</p>
 </div>
 
 <h2>Documentation &amp; help</h2>
-<p>The User Manual covers both editions. The Quick-Start Guides differ by edition:
-the Apple app's is linked below; the open-source edition's is included in its download.</p>
+<p>The User Manual covers every edition. The Quick-Start Guides differ by edition:
+the Apple app's is linked below; the open-source edition's is included in its download; the browser app has a built-in Quick Start under its Help menu.</p>
 <ul class="gt-links">
   <li>📖 <a href="manual/">User Manual — online</a> (shared)</li>
   <li>📄 <a href="manual/GuitarTap-User-Manual.pdf">User Manual — PDF</a> (shared)</li>
