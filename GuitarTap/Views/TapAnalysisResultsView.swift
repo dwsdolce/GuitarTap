@@ -140,33 +140,32 @@ struct TapAnalysisResultsView: View {
                         // Also suppressed during saved-measurement comparison (displayMode == .comparison &&
                         // !showingMultiTapComparison), where tapEntries belong to a loaded measurement
                         // and the chart is already showing the comparison overlays.
-                        if measurementType.isGuitar
-                            && analyzer.isMeasurementComplete
-                            && !analyzer.tapEntries.isEmpty
+                        // Multi-tap toggle: shown whenever it could ever be useful (guitar
+                        // context), enabled only when there's a completed >1-tap sequence to
+                        // compare (or it's already open). Hidden in material / saved-measurement
+                        // comparison, where it can never do anything — so it enables/disables in
+                        // place instead of appearing and disappearing (all 3 platforms).
+                        let inSavedComparison = analyzer.displayMode == .comparison
                             && !analyzer.showingMultiTapComparison
-                            && analyzer.displayMode != .comparison {
+                        if measurementType.isGuitar && !inSavedComparison {
+                            let multiTapUsable = (analyzer.isMeasurementComplete
+                                && !analyzer.tapEntries.isEmpty)
+                                || analyzer.showingMultiTapComparison
                             Button {
-                                analyzer.showingMultiTapComparison = true
-                                analyzer.applyMultiTapComparisonOverlays(enabled: true)
+                                let show = !analyzer.showingMultiTapComparison
+                                analyzer.showingMultiTapComparison = show
+                                analyzer.applyMultiTapComparisonOverlays(enabled: show)
                             } label: {
-                                Label("Taps", systemImage: "waveform.path.badge.plus")
+                                Label("Taps", systemImage: analyzer.showingMultiTapComparison
+                                      ? "waveform.path.badge.minus" : "waveform.path.badge.plus")
                                     .font(.caption)
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.mini)
-                            .help("Compare individual taps")
-                        } else if analyzer.showingMultiTapComparison {
-                            Button {
-                                analyzer.showingMultiTapComparison = false
-                                analyzer.applyMultiTapComparisonOverlays(enabled: false)
-                            } label: {
-                                Label("Taps", systemImage: "waveform.path.badge.minus")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.mini)
-                            .tint(.orange)
-                            .help("Show averaged result only")
+                            .tint(analyzer.showingMultiTapComparison ? .orange : .accentColor)
+                            .disabled(!multiTapUsable)
+                            .help(analyzer.showingMultiTapComparison
+                                  ? "Show averaged result only" : "Compare individual taps")
                         }
 
                         // Show "Comparison" badge only for saved-measurement comparisons,
