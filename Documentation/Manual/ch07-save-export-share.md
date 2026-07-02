@@ -284,15 +284,16 @@ Export All on one platform followed by Import on another is the
 supported way to carry a whole library across.
 
 **Web build — why the backup matters.** In a browser the library is
-stored *in that browser*, and the browser can clear it — on iOS, roughly
-seven days after the app was last used. Installing the app (**Add to
+stored *in that browser*, and the browser can clear it — Safari deletes a
+site's stored data after roughly seven days without a visit, on both macOS and
+iOS. Installing the app (**Add to
 Home Screen** on iOS, **Add to Dock** on desktop) promotes the storage
 to durable; keeping an **Export All** file elsewhere is the portable
 backup. The app shows this reminder in the Saved Measurements panel on
 affected browsers:
 
 > Your library is stored in this browser and can be cleared by the
-> browser (on iOS, after ~7 days unused). Install the app (Add to Home
+> browser (Safari deletes it after about 7 days without a visit, on macOS and iOS). Install the app (Add to Home
 > Screen / Add to Dock) for durable storage, and use Export All to keep
 > a backup.
 
