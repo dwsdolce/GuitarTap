@@ -260,7 +260,7 @@ extension RealtimeFFTAnalyzer {
     ///
     /// This method contains the deterministic DSP core shared by `performFFT(on:)`
     /// (streaming/display path) and the test suite.  It has no side effects: it
-    /// reads `fftSetup`, `window`, and `calibrationCorrections` from `self` but
+    /// reads `fftSetup` and `window` from `self` but
     /// writes nothing — all results are returned.
     ///
     /// - Parameter samples: Audio samples to analyse, must be of length `fftSize`.
