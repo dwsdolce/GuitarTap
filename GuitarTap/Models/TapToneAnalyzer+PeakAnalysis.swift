@@ -305,12 +305,13 @@ extension TapToneAnalyzer {
         gtLog("🎯 resetToAutoSelection: selected \(selectedPeakIDs.count) peak(s)")
     }
 
-    /// Re-runs peak detection on the frozen spectrum using the current `findPeaks()`
-    /// algorithm, replacing the peaks that were stored in the saved measurement.
+    /// Re-runs peak detection on the frozen spectrum using the current analysis
+    /// settings (Peak Min, analysis range, guitar type), replacing the peaks that
+    /// were stored in the saved measurement.
     ///
-    /// Use this to upgrade a measurement saved by an older build whose peak-finding
-    /// algorithm missed some peaks.  After re-analysis the user can re-save the
-    /// measurement to persist the updated peaks.
+    /// Lets the user retune a saved measurement — trying a different Peak Min,
+    /// analysis range, or guitar type — without re-tapping.  After re-analysis the
+    /// user can re-save the measurement to persist the updated peaks.
     ///
     /// Does nothing if no frozen spectrum is available.
     func reanalyzePeaks() {

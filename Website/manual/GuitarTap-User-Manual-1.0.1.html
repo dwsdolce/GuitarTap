@@ -928,10 +928,13 @@ ol.steps li::before {
   <li class="nav-h2"><a href="#79-importing-a-measurement">7.9 Importing a Measurement</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#710-sharing-between-devices">7.10 Sharing Between Devices</a>
+  <li class="nav-h2"><a href="#710-exporting-or-backing-up-the-whole-library">7.10 Exporting or Backing Up the Whole Library</a>
   <ul>
   </ul></li>
-  <li class="nav-h2"><a href="#711-deleting-measurements">7.11 Deleting Measurements</a>
+  <li class="nav-h2"><a href="#711-sharing-between-devices">7.11 Sharing Between Devices</a>
+  <ul>
+  </ul></li>
+  <li class="nav-h2"><a href="#712-deleting-measurements">7.12 Deleting Measurements</a>
   <ul>
   </ul></li>
 </ul></li>
@@ -1136,8 +1139,9 @@ ol.steps li::before {
   <li class="toc-h2"><a href="#77-exporting-a-pdf-report">7.7 Exporting a PDF Report<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#78-exporting-a-measurement">7.8 Exporting a Measurement<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#79-importing-a-measurement">7.9 Importing a Measurement<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#710-sharing-between-devices">7.10 Sharing Between Devices<span class="toc-page-num"></span></a></li>
-  <li class="toc-h2"><a href="#711-deleting-measurements">7.11 Deleting Measurements<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#710-exporting-or-backing-up-the-whole-library">7.10 Exporting or Backing Up the Whole Library<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#711-sharing-between-devices">7.11 Sharing Between Devices<span class="toc-page-num"></span></a></li>
+  <li class="toc-h2"><a href="#712-deleting-measurements">7.12 Deleting Measurements<span class="toc-page-num"></span></a></li>
   <li class="toc-h1"><a href="#chapter-8-settings-reference">Chapter 8 — Settings Reference<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#81-opening-settings">8.1 Opening Settings<span class="toc-page-num"></span></a></li>
   <li class="toc-h2"><a href="#82-audio-input-calibration">8.2 Audio Input &amp; Calibration<span class="toc-page-num"></span></a></li>
@@ -2679,7 +2683,42 @@ on the current system, the import still succeeds and the imported
 data is unchanged. A warning is shown <strong>after</strong> the import
 completes, letting you know that further capture will use a
 fallback input device until the original is reconnected.</p>
-<h2 id="710-sharing-between-devices">7.10 Sharing Between Devices</h2>
+<h2 id="710-exporting-or-backing-up-the-whole-library">7.10 Exporting or Backing Up the Whole Library</h2>
+
+<p>Where §7.8 exports a single measurement, <strong>Export All</strong> writes your
+<strong>entire</strong> saved-measurement library to one <code>.guitartap</code> file. Its
+purpose is to back up the complete collection or to move it in a single
+step — from one platform to another (macOS ↔ iPad ↔ Windows / Linux),
+or, on the web build, from one browser to another.</p>
+<p>The action lives in the Saved Measurements list:</p>
+<ul>
+<li><strong>iOS / iPadOS, web, and Python (Windows / Linux / macOS Python):</strong>
+  <strong>Export All</strong>.</li>
+<li><strong>macOS (native build):</strong> <strong>Export All…</strong> (opens the share sheet —
+  AirDrop, Mail, Files) or <strong>Save All to Disk…</strong> (a file-save dialog
+  that writes the library file to a folder you choose).</li>
+</ul>
+<p>The result is a single <code>.guitartap</code> file containing every saved
+measurement — guitar, plate, brace, and comparison. Re-import it on any
+platform with <strong>Import Measurement</strong> (§7.9); the measurements are merged
+back into the list. The file is interchangeable across all builds, so
+Export All on one platform followed by Import on another is the
+supported way to carry a whole library across.</p>
+<p><strong>Web build — why the backup matters.</strong> In a browser the library is
+stored <em>in that browser</em>, and the browser can clear it — Safari deletes a
+site's stored data after roughly seven days without a visit, on both macOS and
+iOS. Installing the app (<strong>Add to
+Home Screen</strong> on iOS, <strong>Add to Dock</strong> on desktop) promotes the storage
+to durable; keeping an <strong>Export All</strong> file elsewhere is the portable
+backup. The app shows this reminder in the Saved Measurements panel on
+affected browsers:</p>
+<blockquote>
+<p>Your library is stored in this browser and can be cleared by the
+browser (Safari deletes it after about 7 days without a visit, on macOS and iOS). Install the app (Add to Home
+Screen / Add to Dock) for durable storage, and use Export All to keep
+a backup.</p>
+</blockquote>
+<h2 id="711-sharing-between-devices">7.11 Sharing Between Devices</h2>
 
 <p>Anything you can export — measurements (§7.8), spectrum images
 (§7.6), or PDF reports (§7.7) — can be shared between devices.
@@ -2713,7 +2752,7 @@ file to an iPhone or iPad (via Files, email, Dropbox, etc.), and
 import it on the receiving Apple device via §7.9. The
 <code>.guitartap</code> format is identical on every platform, so no
 conversion is needed regardless of direction.</p>
-<h2 id="711-deleting-measurements">7.11 Deleting Measurements</h2>
+<h2 id="712-deleting-measurements">7.12 Deleting Measurements</h2>
 
 <ul>
 <li><strong>Desktop:</strong> popup menu → <strong>Delete</strong>.</li>
@@ -3209,6 +3248,12 @@ view. During a plate / brace review phase it becomes <strong>Redo L</strong>,
 that phase only (§4.5).</p>
 <p><strong>Results</strong> <img src="images/symbols/doc.text.png" width="18" height="18" class="inline-icon" alt="doc.text"> (iPhone only) — Opens the
 Analysis Results sheet.</p>
+<p><strong>Re-analyze</strong> <img src="images/symbols/arrow.trianglehead.2.counterclockwise.png" width="18" height="18" class="inline-icon" alt="arrow.trianglehead.2.counterclockwise"> —
+In the Analysis Results header, next to the microphone name. Re-runs
+peak detection on a loaded measurement's stored spectrum using the
+current analysis settings — useful for trying a different Peak Min,
+analysis range, or guitar type on a saved measurement without
+re-tapping. Enabled only when a loaded measurement is shown.</p>
 <p><strong>Auto dB</strong> <img src="images/symbols/arrow.up.arrow.down.circle.png" width="18" height="18" class="inline-icon" alt="arrow.up.arrow.down.circle"> — Scales
 the magnitude axis to fit the current signal (§6.4). Shortcut:
 <strong>⌘0</strong> / <strong>Ctrl+0</strong>.</p>
