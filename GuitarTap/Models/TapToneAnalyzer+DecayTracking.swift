@@ -15,10 +15,10 @@
 /// ## Architecture
 /// Because the continuous FFT operates on a long window (≈ 400 ms) it delivers
 /// only about 1 update per second — far too coarse for accurate decay timing.
-/// Instead, decay tracking uses `RealtimeFFTAnalyzer.inputLevelDB`, which
-/// updates at approximately 10 Hz via the fast `recentPeakLevelDB` polling
-/// subscription in the main `TapToneAnalyzer`.  The fast callback is
-/// ``trackDecayFast(inputLevel:)``.
+/// Instead, decay tracking uses `RealtimeFFTAnalyzer.inputLevelDB` (the
+/// per-buffer 20·log10(rms) level), which is published once per audio buffer
+/// (about 43 Hz at 44.1 kHz).  The main `TapToneAnalyzer` subscribes to
+/// `$inputLevelDB` and forwards each value to ``trackDecayFast(inputLevel:)``.
 ///
 /// ## Ring-Out Definition
 /// Ring-out time is measured as the elapsed time from the post-tap peak level
@@ -80,8 +80,8 @@ extension TapToneAnalyzer {
         // established during the window (or nil if none was).
     }
     
-    /// Fast-path decay tracker called at ~10 Hz from the input-level polling
-    /// subscription.
+    /// Fast-path decay tracker called once per audio buffer (~43 Hz at 44.1 kHz)
+    /// from the `$inputLevelDB` Combine subscription.
     ///
     /// Appends the current `inputLevel` to `peakMagnitudeHistory` and trims
     /// entries older than 5 seconds. When enough history is present it calls
@@ -89,7 +89,7 @@ extension TapToneAnalyzer {
     ///
     /// - Parameter inputLevel: The current instantaneous input level in dBFS,
     ///   typically sourced from
-    ///   `RealtimeFFTAnalyzer.inputLevelDB` sampled at ~10 Hz.
+    ///   `RealtimeFFTAnalyzer.inputLevelDB` (one value per audio buffer).
     ///
     /// - Note: Returns immediately (no-op) when `isTrackingDecay` is `false`.
     func trackDecayFast(inputLevel: Float) {

@@ -1391,7 +1391,7 @@ final class TapToneAnalyzer: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Fast path: per-buffer input level → decay tracking (~10 Hz update).
+        // Fast path: per-buffer input level → decay tracking (~43 Hz at 44.1 kHz).
         fftAnalyzer.$inputLevelDB
             .receive(on: DispatchQueue.main)
             .sink { [weak self] levelDB in
