@@ -15,23 +15,29 @@
 /// for both multi-tap guitar and material measurements.
 ///
 /// ## Gated FFT Architecture
-/// The continuous FFT operates on a fixed long window (≈ 400 ms at the
-/// `gatedCaptureDuration` constant). For guitar measurements this is fine
+/// The live/continuous FFT operates on a fixed long window (`fftSize` = 65536
+/// samples ≈ 1.36 s at 48 kHz). For guitar measurements this is fine
 /// because the tap-detection threshold ensures we see the ring-out. For
 /// plate and brace measurements the ring-out is much shorter and the
 /// transient tap energy is spread across the full window, reducing the
 /// apparent peak magnitude by up to ~15 dB.
 ///
 /// The gated approach captures *raw PCM samples* starting just before the
-/// tap onset (via the pre-roll buffer) and running until the window fills:
+/// tap onset (via the pre-roll buffer) and running until the buffer fills.
+/// The accumulation buffer is `gatedCaptureDuration` = 500 ms total and is
+/// SEEDED WITH the 200 ms pre-roll, so it holds ~300 ms of new post-onset
+/// audio on top of the pre-roll:
 ///
 /// ```
-/// ┌────────────────────────────────────┐
-/// │  200 ms pre-roll  │  400 ms gate   │
-/// │  (ring buffer)    │  (new samples) │
-/// └────────────────────────────────────┘
-///               ↑ tap onset
+/// ┌──────────────────┬────────────────────────┐
+/// │  200 ms pre-roll │  ~300 ms new samples   │
+/// │  (ring buffer)   │  (accumulated live)    │
+/// └──────────────────┴────────────────────────┘
+///          ↑ tap onset          (500 ms total)
 /// ```
+///
+/// Onset alignment then extracts the `gatedFFTWindowDuration` = 400 ms FFT
+/// window, anchored `preOnsetDuration` = 100 ms before the detected onset.
 ///
 /// The pre-roll ring buffer (``preRollBuffer``) holds the most recent
 /// `preRollSamples` worth of audio at all times.  For guitar mode, the
@@ -197,8 +203,9 @@ extension TapToneAnalyzer {
     /// Called on `audioProcessingQueue` for every incoming audio buffer.
     /// When `gatedCaptureActive` is `true`, incoming samples are appended
     /// to `gatedAccumBuffer`. When the buffer reaches `gatedCaptureSamples`
-    /// the capture is closed and `finishGatedFFTCapture` is dispatched to
-    /// the main thread.
+    /// the capture is closed and either `finishGatedFFTCapture` (plate/brace,
+    /// `gatedCapturePhase != nil`) or `finishGuitarGatedCapture` (guitar,
+    /// `gatedCapturePhase == nil`) is dispatched to the main thread.
     ///
     /// - Parameters:
     ///   - samples: Raw PCM samples (mono, normalised to ±1.0) from the
@@ -294,6 +301,14 @@ extension TapToneAnalyzer {
             let completeProfile = captureWindowProfile(captured, label: "ACCUM_COMPLETE(\(String(describing: phase)))")
             TAP_DEBUG("gatedAccum", "CAPTURE COMPLETE | samples=\(captured.count) fileSamplePos=\(diagConsumed) captureRMS=\(String(format: "%.2f", diagRms))dB first16hash=\(String(format: "%.6f", diagHash))\n\(completeProfile)")
 
+            // PLATFORM PLUMBING — deliberately different from Python; do NOT "unify".
+            // Swift hops to the main thread with a GCD closure, which can hold logic, so
+            // we branch to the right handler HERE at the source: finishGatedFFTCapture
+            // (plate/brace) vs finishGuitarGatedCapture (guitar).  Python's thread-hop is
+            // a Qt signal (gatedCaptureComplete) that delivers to a SINGLE slot, so it
+            // emits once and branches inside finish_gated_fft_capture instead.  Same
+            // inputs → same handler → same result; only the branch LOCATION differs,
+            // because the concurrency primitive differs (GCD closure vs Qt signal/slot).
             DispatchQueue.main.async { [weak self] in
                 if let phase = phase {
                     // File-playback plate/brace: read materialTapPhase NOW
@@ -383,7 +398,7 @@ extension TapToneAnalyzer {
         // The audio-queue level-crossing handler may have already started
         // (and possibly already completed) the gated capture for this tap.
         // Check lastLevelCrossingCaptureID rather than gatedCaptureActive,
-        // because during file playback the 400 ms capture window can fill
+        // because during file playback the 500 ms capture window can fill
         // and complete on the audio queue before this main-thread call runs.
         mpmLock.lock()
         let fastStartHandled = (gatedCaptureID == lastLevelCrossingCaptureID)
@@ -974,7 +989,7 @@ extension TapToneAnalyzer {
     /// - Filter out candidates with Q < 3 (impact thuds / broadband noise).
     /// - If `preferLowestSignificant` is `true` (plate/brace longitudinal and
     ///   cross-grain phases): among Q-filtered candidates, pick the
-    ///   lowest-frequency one within 15 dB of the strongest.
+    ///   lowest-frequency one within 6 dB of the strongest.
     /// - Otherwise: the highest-magnitude candidate wins unless a
     ///   lower-frequency candidate is within 6 dB and has an HPS score
     ///   within one order of magnitude (prefers fundamental over harmonics).
@@ -988,7 +1003,7 @@ extension TapToneAnalyzer {
     ///   - minHz: Lower search bound in Hz. Defaults to 20 Hz.
     ///   - maxHz: Upper search bound in Hz. Defaults to 2000 Hz.
     ///   - preferLowestSignificant: When `true`, the lowest-frequency
-    ///     candidate within 15 dB of the peak is chosen instead of the
+    ///     candidate within 6 dB of the peak is chosen instead of the
     ///     highest-magnitude candidate. Use for longitudinal and cross-grain
     ///     phases where the tap orientation selects the plate's fundamental.
     /// - Returns: The best ``ResonantPeak``, or `nil` if no candidates are

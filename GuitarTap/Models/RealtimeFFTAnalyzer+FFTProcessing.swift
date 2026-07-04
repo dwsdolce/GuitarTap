@@ -344,11 +344,11 @@ extension RealtimeFFTAnalyzer {
             vDSP_vadd(db, 1, calibrationCorrections, 1, &db, 1, vDSP_Length(db.count))
         }
 
-        // ── FILE_DEBUG: per-FFT-frame trace ─────────────────────────────
-        // Records frame ordinal, file-time of frame start, peakMag, dominant-
-        // bin frequency, and whether the file-playback source is the active
-        // producer.  Mirrors the equivalent block in Python
-        // _FftProcessingThread.run().
+        // ── Per-FFT-frame bookkeeping ─────────────────────────────
+        // Advance per-frame bookkeeping: fftFrameCounter (frame ordinal) and
+        // samplesConsumed (audio-source sample position, += fftSize per frame),
+        // used by the file-playback timing/traces elsewhere.  Mirrors the frame
+        // bookkeeping in Python _FftProcessingThread.run().
         fftFrameCounter += 1
         samplesConsumed += fftSize
 
