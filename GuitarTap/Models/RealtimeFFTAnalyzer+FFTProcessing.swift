@@ -397,12 +397,12 @@ extension RealtimeFFTAnalyzer {
     
     // MARK: - Gated FFT (for plate/brace tap measurement)
 
-    /// Run a one-shot FFT on a pre-captured sample buffer and return linear
+    /// Run a one-shot FFT on a pre-captured sample buffer and return dB
     /// magnitudes and a matching frequency axis.
     ///
     /// Unlike `performFFT(on:)` this method:
     ///  - Accepts an arbitrary-length buffer (zero-padded to the next power of
-    ///    two, capped at 32 768 samples for ~0.74 Hz/bin resolution at 44.1 kHz)
+    ///    two, capped at 32 768 samples for ~1.35 Hz/bin resolution at 44.1 kHz)
     ///  - Creates a temporary DFT setup rather than reusing the continuous one
     ///  - Returns raw values rather than publishing them
     ///  - Applies `activeCalibration` corrections at the bin frequencies
@@ -444,8 +444,12 @@ extension RealtimeFFTAnalyzer {
         // Use HANN_DENORM (standard unit-peak Hann window) rather than HANN_NORM.
         // HANN_NORM energy-normalises the window by scaling each sample by √(8/3),
         // which inflates magnitudes by +4.26 dB when combined with 1/N normalisation.
-        // HANN_DENORM produces w[n] = 0.5·(1 − cos(2πn/N)) with peak = 1.0, matching
-        // the standard Hann window used by numpy (np.hanning) in the Python port.
+        // HANN_DENORM produces the periodic Hann w[n] = 0.5·(1 − cos(2πn/N)) with
+        // peak = 1.0.  numpy's np.hanning, used by the Python/web ports, is the
+        // *symmetric* form 0.5·(1 − cos(2πn/(N−1))) — a different window, but the two
+        // agree to sub-precision at the gated sizes here (16384–32768 samples):
+        // the measured peak-frequency difference is ~1e-7 Hz, so all three stay
+        // oracle-equal.
         vDSP_hann_window(&hannWindow, vDSP_Length(paddedSize), Int32(vDSP_HANN_DENORM))
         vDSP_vmul(padded, 1, hannWindow, 1, &padded, 1, vDSP_Length(paddedSize))
 

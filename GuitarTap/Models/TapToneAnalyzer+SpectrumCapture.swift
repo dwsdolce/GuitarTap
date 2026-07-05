@@ -1151,6 +1151,19 @@ extension TapToneAnalyzer {
     ///   - magnitudes: Averaged gated-FFT magnitude spectrum (dBFS).
     ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
     ///   - dominantPeak: The pre-selected dominant peak from this tap.
+    /// Gated-FFT handler for the longitudinal (fL) capture phase.
+    ///
+    /// Accumulates longitudinal taps until `numberOfTaps` are collected, averages
+    /// the captured spectra, re-finds the dominant peak on the average, then either
+    /// completes (brace — single phase) or moves toward cross-grain: pausing at
+    /// `.reviewingLongitudinal` for Accept/Redo during live capture, or
+    /// auto-advancing to `.capturingCross` during file playback. Mirrors Python
+    /// `_handle_longitudinal_gated_progress`.
+    ///
+    /// - Parameters:
+    ///   - magnitudes: Current gated-FFT magnitude spectrum (dBFS).
+    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
+    ///   - dominantPeak: The pre-selected dominant peak from this tap.
     func handleLongitudinalGatedProgress(magnitudes: [Float],
                                          frequencies: [Float],
                                          dominantPeak: ResonantPeak,
@@ -1282,9 +1295,9 @@ extension TapToneAnalyzer {
     /// Gated-FFT handler for the cross-grain capture phase.
     ///
     /// Accumulates cross-grain taps until `numberOfTaps` have been collected.
-    /// Averages all captured spectra, auto-selects the best cross-grain peak,
-    /// and either transitions to `.waitingForFlcTap` (FLC enabled) or marks
-    /// the measurement `.complete`.
+    /// Averages the captured spectra, auto-selects the best cross-grain peak, then
+    /// pauses at `.reviewingCross` for Accept/Redo (live) or, during file playback,
+    /// auto-advances to `.capturingFlc` (FLC enabled) or finalises (no FLC).
     ///
     /// - Parameters:
     ///   - magnitudes: Current gated-FFT magnitude spectrum (dBFS).
@@ -1360,11 +1373,12 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Gated-FFT handler for the FLC (shear/diagonal) capture phase.
+    /// Gated-FFT handler for the FLC (torsional/twist) capture phase.
     ///
     /// Accumulates FLC taps until `numberOfTaps` have been collected, then
-    /// averages all captured spectra, auto-selects the best FLC peak, and
-    /// marks the measurement `.complete` with all three phase peaks populated.
+    /// averages the captured spectra, auto-selects the best FLC peak, then pauses
+    /// at `.reviewingFlc` for Accept/Redo (live) or, during file playback,
+    /// finalises the measurement with all three phase peaks populated.
     ///
     /// - Parameters:
     ///   - magnitudes: Current gated-FFT magnitude spectrum (dBFS).
