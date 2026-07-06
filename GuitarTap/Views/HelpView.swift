@@ -13,14 +13,15 @@
 /// | Section | Topics |
 /// |---|---|
 /// | What Guitar Tap Does | App overview and three workflows |
-/// | First-Time Setup | Microphone permission, measurement type, quiet environment |
-/// | Guitar Mode | Steps 1–5, mode descriptions, interpreting results |
-/// | Plate Mode | Two-tap / three-tap process (L, C, FLC), node-point technique |
+/// | First-Time Setup | Microphone permission, audio input, measurement type, quiet environment |
+/// | Guitar Mode | Steps 1–6, modes, multi-tap averaging/comparison, saving |
+/// | Plate Mode | Two-/three-tap process (L, C, FLC), node-point technique, results |
 /// | Brace Mode | Single-tap longitudinal process |
-/// | Ring-Out Time | Decay quality thresholds and interpretation |
-/// | Tap Tone Ratio | Top/Air frequency ratio and quality levels |
-/// | Material Properties | Young's modulus, radiation ratio, Gore equations |
-/// | Tips & Troubleshooting | Common issues and remedies |
+/// | Controls Reference | New Tap, Pause/Accept, Cancel/Redo, results, export, menu bar, chart |
+/// | Tap Controls | Taps, Threshold, Peak Min, reset |
+/// | Settings Reference | Audio input, measurement type, advanced display/analysis/FFT |
+/// | Tips & Technique | Tap technique, mic position, decay, comparing, PDF reports |
+/// | Glossary | Modes, Q, E/ρ, E, c, R, ratios, FLC, free-free beam, FFT |
 ///
 /// ## Presentation
 ///
@@ -69,7 +70,7 @@ Three main workflows are supported:
                 )
                 helpRow(
                     title: "Choose a Measurement Type",
-                    body: "In Settings, the Measurement Type section is directly below Audio Input. Pick Generic Guitar (the default, with broad ranges that work for any guitar), Classical, Flamenco, Acoustic / Steel String, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated."
+                    body: "In Settings, the Measurement Type section is directly below Audio Input. Pick Generic Guitar (the default, with broad ranges that work for any guitar), Acoustic / Steel String, Classical, Flamenco, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated."
                 )
                 helpRow(
                     title: "Advanced Settings",
@@ -91,7 +92,7 @@ Three main workflows are supported:
                 )
                 helpRow(
                     title: "Step 1 — Configure",
-                    body: "In Settings choose the guitar type in the Measurement Type section. Generic Guitar (the default) uses broad ranges that work for any guitar; Classical, Flamenco, and Acoustic / Steel String use narrower calibrated windows shown in the same section. The Show Unknown Modes toggle is in the Advanced section."
+                    body: "In Settings choose the guitar type in the Measurement Type section. Generic Guitar (the default) uses broad ranges that work for any guitar; Acoustic / Steel String, Classical, and Flamenco use narrower calibrated windows shown in the same section. The Show Unknown Modes toggle is in the Advanced section."
                 )
                 helpRow(
                     title: "Step 2 — Position the Microphone",
