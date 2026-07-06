@@ -47,7 +47,7 @@
 ///   recent raw audio samples.
 /// - When tap detection fires, ``startGatedCapture(phase:)`` seeds the accumulator with the
 ///   pre-roll contents so the tap attack is not missed.
-/// - The capture window (``gatedCaptureDuration``: 400 ms) then accumulates the ring-out.
+/// - The capture window (``gatedCaptureDuration``: 500 ms) then accumulates the ring-out.
 /// - When the window closes, ``finishGatedFFTCapture`` runs a dedicated FFT and routes
 ///   results to the appropriate phase handler.
 ///
@@ -55,8 +55,8 @@
 ///
 /// | Mode | Signal used | Reason |
 /// |------|-------------|--------|
-/// | Guitar | FFT `peakMagnitude` (~1 Hz) | Slower but includes full spectrum analysis |
-/// | Plate / Brace | `inputLevelDB` (~10 Hz RMS) | Long-window FFT dilutes short transients by ~15 dB |
+/// | Guitar | FFT `peakMagnitude` (~0.7 Hz) | Slower but includes full spectrum analysis |
+/// | Plate / Brace | `inputLevelDB` (~43 Hz RMS) | Long-window FFT dilutes short transients by ~15 dB |
 ///
 /// In all modes a **hysteresis state machine** (`isAboveThreshold`) prevents retriggering:
 /// the rising edge fires only when the signal crosses the rising threshold from below; the
@@ -700,7 +700,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Explicit user override for the cross-grain peak selection.
     @Published var userSelectedCrossPeakID: UUID?
 
-    /// Peaks detected from the FLC (diagonal/shear) tap.
+    /// Peaks detected from the FLC (torsional/twist) tap.
     @Published var flcPeaks: [ResonantPeak] = []
 
     /// Averaged FFT spectrum from the FLC tap, once captured.
@@ -736,7 +736,7 @@ final class TapToneAnalyzer: ObservableObject {
         userSelectedCrossPeakID ?? selectedCrossPeak?.id ?? autoSelectedCrossPeakID
     }
 
-    /// Resolved UUID for the FLC (diagonal/shear) peak.
+    /// Resolved UUID for the FLC (torsional/twist) peak.
     ///
     /// Priority order: ``userSelectedFlcPeakID`` > ``selectedFlcPeak``
     /// > ``autoSelectedFlcPeakID``.
@@ -1005,7 +1005,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Target size of the gated-capture window, in samples.
     ///
     /// Set at capture-start time so the same accumulator infrastructure can serve
-    /// different capture lengths: plate/brace uses ``gatedCaptureDuration`` (~400 ms);
+    /// different capture lengths: plate/brace uses ``gatedCaptureDuration`` (~500 ms);
     /// guitar uses the full ``fftSize`` so the resulting spectrum has the same
     /// frequency resolution as the live FFT path.
     var gatedCaptureSamples: Int = 0
@@ -1106,7 +1106,7 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// EMA smoothing factor for noise-floor tracking.
     ///
-    /// At ~10 ms audio buffer updates, α = 0.05 gives a time constant τ ≈ 190 ms:
+    /// At ~23 ms audio buffer updates (1024 samples at 44.1 kHz), α = 0.05 gives a time constant τ ≈ 450 ms:
     /// `α ≈ 1 − exp(−dt/τ)`.  Slower than a one-pole would normally be so that brief
     /// transients (instrument handling noise, room noise spikes) do not drive the estimate up.
     let noiseFloorAlpha: Float = 0.05
@@ -1251,8 +1251,8 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Four subscriptions are created:
     /// 1. **FFT magnitudes + peakMagnitude** — drives ``analyzeMagnitudes(_:frequencies:peakMagnitude:)``
-    ///    for peak detection and guitar-mode tap detection (~1 Hz).
-    /// 2. **inputLevelDB (fast)** — drives ``trackDecayFast(inputLevel:)`` for ring-out tracking (~10 Hz).
+    ///    for peak detection and guitar-mode tap detection (~0.7 Hz).
+    /// 2. **inputLevelDB (fast)** — drives ``trackDecayFast(inputLevel:)`` for ring-out tracking (~43 Hz).
     /// 3. **inputLevelDB (fast, plate/brace only)** — drives `detectTap(peakMagnitude:magnitudes:frequencies:)`
     ///    for plate/brace mode, where the long-window FFT is unreliable for short transient taps.
     /// 4. **routeChangeRestartCount** — triggers ``handleRouteChangeRestart()`` when the audio
@@ -1325,7 +1325,7 @@ final class TapToneAnalyzer: ObservableObject {
 
                 // Keep the pre-roll even when it contains digital silence
                 // (e.g. inter-tap gaps in a concatenated playback file).
-                // The pre-roll positions the tap transient at ~sample 9600
+                // The pre-roll positions the tap transient at ~sample 4800
                 // of the 32768-sample Hann window, matching the live-capture
                 // weighting.  Discarding it shifts the transient to sample 0
                 // where the Hann weight is ~0, distorting magnitudes by
@@ -1478,11 +1478,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// Responds to an audio engine restart triggered by a device or route change.
     ///
     /// Temporarily disables tap detection, resets the warm-up timer, and re-enables
-    /// detection 2 seconds later (after the 65 536-sample FFT window has filled with
+    /// detection 3 seconds later (after the 65 536-sample FFT window has filled with
     /// valid post-restart data).  If detection was active before the route change it is
     /// restored; otherwise the analyzer returns to the "Ready" state.
     ///
-    /// - Important: The 2-second settle delay is conservative to ensure `peakMagnitude`
+    /// - Important: The 3-second settle delay is conservative to ensure `peakMagnitude`
     ///   reflects real audio data rather than silence or the engine startup transient
     ///   before `isAboveThreshold` is re-anchored.
     func handleRouteChangeRestart() {

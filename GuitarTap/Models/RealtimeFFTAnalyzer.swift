@@ -24,11 +24,11 @@
 /// AVAudioInputNode tap (1 024-sample buffers, hardware rate)
 ///        │
 ///        ├──► audioProcessingQueue
-///        │         ├─ RMS level → inputLevelDB / recentPeakLevelDB (main thread, ~10 Hz)
+///        │         ├─ RMS level → inputLevelDB / recentPeakLevelDB (main thread, ~43 Hz)
 ///        │         ├─ rawSampleHandler → TapToneAnalyzer pre-roll + gated capture
 ///        │         └─ inputBuffer accumulation
 ///        │                  └─ when ≥ fftSize samples:
-///        │                         performFFT(on:) → magnitudes / peakMagnitude (main, ~2 Hz)
+///        │                         performFFT(on:) → magnitudes / peakMagnitude (main, ~0.7 Hz)
 ///
 /// computeGatedFFT(samples:sampleRate:) — called externally by TapToneAnalyzer,
 ///        not part of the continuous tap path
@@ -269,8 +269,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     /// Maximum input level observed over the last `peakHoldDuration` seconds (dBFS).
     ///
-    /// Updated on every audio buffer callback (~10 Hz). Because the continuous FFT
-    /// window is ~400 ms, `peakMagnitude` lags the actual tap transient by up to that
+    /// Updated on every audio buffer callback (~43 Hz). Because the continuous FFT
+    /// window is ~1.4 s, `peakMagnitude` lags the actual tap transient by up to that
     /// amount. `recentPeakLevelDB` captures the true tap peak before the FFT result
     /// arrives, and is used by ``TapToneAnalyzer`` as the `tapPeakLevel` reference for
     /// decay tracking.
@@ -347,7 +347,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///
     /// Set by ``TapToneAnalyzer`` to feed the gated FFT pre-roll ring buffer and
     /// the gated accumulation buffer used for plate/brace measurements. Called on
-    /// every audio buffer at the hardware callback rate (~10 Hz at 1024 samples).
+    /// every audio buffer at the hardware callback rate (~43 Hz at 1024 samples).
     ///
     /// - Important: Do **not** update any `@Published` properties or touch UIKit/SwiftUI
     ///   from this callback — it runs on a background queue.
