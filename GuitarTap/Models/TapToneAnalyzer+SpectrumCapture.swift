@@ -827,6 +827,11 @@ extension TapToneAnalyzer {
         return result
     }
 
+    /// Finish a gated material-tap capture for the given phase: align the captured buffer to
+    /// the sample-level tap onset, run the Hann-windowed gated FFT, apply calibration, and
+    /// locate the phase's dominant peak. The captured buffer is intentionally longer than the
+    /// FFT window so the aligner can re-anchor regardless of the chunk boundary that triggered
+    /// the level crossing.
     func finishGatedFFTCapture(samples: [Float], sampleRate: Double, phase: MaterialTapPhase) {
         // DIAG: log what goes into computeGatedFFT
         let nonZero = samples.filter { $0 != 0 }.count

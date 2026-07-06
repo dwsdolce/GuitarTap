@@ -92,6 +92,14 @@ private let micLog = Logger(subsystem: "com.dolcesfogato.GuitarTap", category: "
 
 // MARK: - FFT Analyzer
 
+/// Real-time FFT analyzer for the live spectrum.
+///
+/// Owns the `AVAudioEngine` graph, taps the microphone, runs a windowed FFT on the
+/// captured buffers, and publishes magnitude / peak updates to the UI. The class is
+/// split across four files: this one (declaration + init/deinit),
+/// `+EngineControl` (start/stop), `+FFTProcessing` (computeFFT, peak detection,
+/// parabolic interpolation, Q-factor, HPS), and `+DeviceManagement` (device
+/// enumeration + CoreAudio / AVAudioSession listeners).
 final class RealtimeFFTAnalyzer: ObservableObject {
     
     // MARK: - Audio Engine Components
@@ -568,10 +576,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     /// Circular buffer for tracking recent processing times
     var processingTimeHistory: [Float] = []
-    let processingTimeHistorySize = 30  // Track last 30 frames
+    /// Number of recent frames retained for the processing-time moving average.
+    let processingTimeHistorySize = 30
     
     /// Tracks the last time we published UI updates to avoid flooding the main queue
     var lastPublishTime: CFAbsoluteTime = 0
+    /// Minimum interval between UI publishes (0.5 s ≈ 2 Hz) to avoid overwhelming SwiftUI.
     let minPublishInterval: CFAbsoluteTime = 0.5  // Update every 500ms (2 Hz) to avoid overwhelming SwiftUI
     
     // MARK: - Debug Tracking
