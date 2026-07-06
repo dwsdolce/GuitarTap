@@ -18,14 +18,14 @@
 ///
 /// ## Mode Map (approximate detection ranges, guitar-type-dependent)
 ///
-/// | Mode | Classical | Flamenco | Acoustic | Physical description |
-/// |------|-----------|----------|----------|----------------------|
-/// | Air  | 80–110 Hz | 85–115 Hz | 90–120 Hz | Helmholtz air resonance of the sound-hole cavity |
-/// | Top  | 170–230 Hz | 190–250 Hz | 150–210 Hz | Main monopole resonance of the top plate |
-/// | Back | 190–280 Hz | 180–240 Hz | 210–290 Hz | Main monopole resonance of the back plate |
-/// | Dipole | 330–430 Hz | 350–450 Hz | 360–460 Hz | T(1,2) anti-symmetric bending mode |
-/// | Ring Mode | 580–820 Hz | 600–850 Hz | 620–880 Hz | Higher structural mode |
-/// | Upper Modes | 820+ Hz | 850+ Hz | 880+ Hz | Cluster of higher-order modes |
+/// | Mode | Generic (default) | Classical | Flamenco | Acoustic | Physical description |
+/// |------|-------------------|-----------|----------|----------|----------------------|
+/// | Air  | 70–135 Hz | 80–110 Hz | 85–115 Hz | 90–120 Hz | Helmholtz air resonance of the sound-hole cavity |
+/// | Top  | 140–260 Hz | 170–230 Hz | 190–250 Hz | 150–210 Hz | Main monopole resonance of the top plate |
+/// | Back | 180–300 Hz | 190–280 Hz | 180–240 Hz | 210–290 Hz | Main monopole resonance of the back plate |
+/// | Dipole | 310–460 Hz | 330–430 Hz | 350–450 Hz | 360–460 Hz | T(1,2) anti-symmetric bending mode |
+/// | Ring Mode | 580–880 Hz | 580–820 Hz | 600–850 Hz | 620–880 Hz | Higher structural mode |
+/// | Upper Modes | 880+ Hz | 820+ Hz | 850+ Hz | 880+ Hz | Cluster of higher-order modes |
 ///
 /// Exact boundaries are defined in ``GuitarType/modeRanges``.
 ///
@@ -149,11 +149,14 @@ enum GuitarMode: String, Codable {
     ///    lower-bound of their frequency range for the given guitar type.
     /// 2. For each mode in that order, picks the highest-magnitude unclaimed peak whose
     ///    frequency lies within the mode's range, then marks that peak as claimed.
+    ///    Back is additionally constrained to lie strictly above the claimed Top
+    ///    frequency (the back plate resonance is always higher than the top plate's),
+    ///    so an overlapping Back range cannot claim a peak below Top.
     /// 3. Any remaining unclaimed peaks are classified via the per-frequency
-    ///    ``classify(frequency:guitarType:)`` lookup. Peaks outside all mode ranges
-    ///    resolve to `.unknown`; peaks inside a range resolve to that mode (including
-    ///    overlap-zone frequencies, which always resolve to the earlier/lower mode
-    ///    since that mode's `case` appears first in the `classify` switch statement).
+    ///    ``classify(frequency:guitarType:)`` lookup — except that a peak above the
+    ///    claimed Top frequency and within the Back range resolves to `.back` (not the
+    ///    earlier/lower mode the switch would pick), preserving the Top-below-Back
+    ///    ordering. Peaks outside all mode ranges resolve to `.unknown`.
     ///
     /// - Parameters:
     ///   - peaks: The detected peaks to classify.
