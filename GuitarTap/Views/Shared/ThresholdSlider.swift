@@ -5,7 +5,7 @@
 //  SwiftUI view that displays a horizontal level meter inside a slider
 //  groove with a draggable threshold handle, peak-hold dot, and clipping
 //  indicator.  Mirrors Python `ThresholdSlider` (PySide6 QSlider subclass)
-//  in `views/widgets/threshold_slider.py`.
+//  in `views/shared/threshold_slider.py`.
 //
 //  Used for the tap-detection threshold control across all measurement
 //  types (guitar, plate, brace), since detection now compares the audio
