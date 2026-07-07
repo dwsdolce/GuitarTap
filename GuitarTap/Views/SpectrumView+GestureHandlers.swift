@@ -227,6 +227,9 @@ extension SpectrumView {
     }
 #endif
 
+    /// Applies a frequency-axis zoom about `anchorFreq` (the value kept fixed).
+    /// Linear or log₁₀ depending on `isLogarithmic`; clamps to 0/20 Hz…5 kHz with a
+    /// minimum visible span (50 Hz linear / 1.1× log) and notifies via `onFrequencyRangeChanged`.
     func applyFrequencyZoom(scale: CGFloat, anchorFreq: Float) {
         if isLogarithmic {
             let logAnchor = log10(Double(anchorFreq))
@@ -275,6 +278,8 @@ extension SpectrumView {
     }
 #endif
 
+    /// Applies a magnitude-axis zoom about `anchorDB` (the value kept fixed),
+    /// clamped to −120…+20 dB with a minimum visible span of 10 dB.
     func applyMagnitudeZoom(scale: CGFloat, anchorDB: Float) {
         var newMinDB = anchorDB - (anchorDB - minDB) / Float(scale)
         var newMaxDB = anchorDB + (maxDB - anchorDB) / Float(scale)
