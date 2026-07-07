@@ -15,7 +15,7 @@
 /// |---|---|
 /// | Measurement Type | Guitar type, plate/brace selection; mode-frequency ranges; unknown-modes toggle (guitar); plate/brace dimensions, FLC toggle, Gore body dimensions, stiffness preset (plate); brace dimensions (brace) |
 /// | Display Range | Min/max frequency (Hz) and dB range; validated text-field input |
-/// | Analysis Range | Analysis min/max frequency; peak threshold (dBFS); max peaks; hysteresis margin |
+/// | Analysis Range | Show-unknown-modes toggle (guitar); analysis min/max frequency; peak detection minimum (dBFS); dump-capture-audio toggle |
 /// | Audio Input & Calibration | Microphone / input device picker; calibration import, selection, and deletion |
 /// | About & Help | App version, copyright, help link |
 ///
@@ -123,7 +123,7 @@ struct TapSettingsView: View {
     // Advanced section expansion state
     @State private var showingAdvanced = false
 
-    // Computed property for compact layout
+    /// Whether the layout should use the compact (narrow iOS) form.
     var isCompact: Bool {
         #if os(iOS)
         return horizontalSizeClass == .compact
@@ -144,6 +144,8 @@ struct TapSettingsView: View {
     /// indicating that the current measurement should be cancelled and restarted.
     var onApply: ((_ measurementChanged: Bool) -> Void)?
 
+    /// Binds the display/analysis values and seeds the companion text-input `@State`
+    /// strings from persisted settings (not the current pan/zoomed session state).
     init(minFreq: Binding<Float>,
          maxFreq: Binding<Float>,
          minDB: Binding<Float>,

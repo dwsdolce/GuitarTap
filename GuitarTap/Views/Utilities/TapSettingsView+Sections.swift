@@ -14,7 +14,7 @@
 /// |---|---|
 /// | `measurementTypeSection` | Measurement-type picker, guitar mode ranges, plate/brace dimensions, Gore thicknessing |
 /// | `displayRangeSection` | Display frequency range, magnitude range, Save Current View / Reset buttons |
-/// | `analysisSettingsSection` | Analysis frequency range, peak threshold, max peaks, hysteresis margin |
+/// | `analysisSettingsSection` | Show-unknown-modes toggle, analysis frequency range, peak detection minimum, dump-capture-audio toggle |
 /// | `audioInputSection` | Audio-input device picker, calibration picker, import / delete calibration |
 /// | `aboutSection` | App version, copyright, Help navigation link |
 ///
