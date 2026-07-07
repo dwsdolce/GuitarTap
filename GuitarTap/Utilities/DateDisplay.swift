@@ -5,7 +5,6 @@
 //  Single source of truth for user-facing date/time display. Locale-aware, in the user's
 //  local time: medium date + short time, e.g. en-US "Jun 25, 2026, 2:34 PM"; de-DE
 //  "25.06.2026, 14:34". Mirrors the web's Intl medium/short and Python's Babel medium/short.
-//  See DATE-TIME-FORMAT-CONSISTENCY.md (GuitarTapWeb repo).
 //
 //  DISPLAY only — the .guitartap `timestamp` stays ISO-8601 UTC and export filenames keep
 //  their `<slug>-<unix>` form; neither goes through here.

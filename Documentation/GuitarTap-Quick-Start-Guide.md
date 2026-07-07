@@ -21,7 +21,7 @@ Open Settings. The Audio Input & Calibration section appears at the top. Choose 
 
 ### Choose a Measurement Type
 
-In Settings, the Measurement Type section is directly below Audio Input. Pick Generic Guitar (the default, with broad ranges that work for any guitar), Classical, Flamenco, Acoustic / Steel String, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated.
+In Settings, the Measurement Type section is directly below Audio Input. Pick Generic Guitar (the default, with broad ranges that work for any guitar), Acoustic / Steel String, Classical, Flamenco, Material (Plate), or Material (Brace). The right choice determines which mode-frequency ranges are used and which measurements are calculated.
 
 ### Advanced Settings
 
@@ -39,7 +39,7 @@ Guitar mode identifies the key structural resonances of a completed body: Air (H
 
 ### Step 1 — Configure
 
-In Settings choose the guitar type in the Measurement Type section. Generic Guitar (the default) uses broad ranges that work for any guitar; Classical, Flamenco, and Acoustic / Steel String use narrower calibrated windows shown in the same section. The Show Unknown Modes toggle is in the Advanced section.
+In Settings choose the guitar type in the Measurement Type section. Generic Guitar (the default) uses broad ranges that work for any guitar; Acoustic / Steel String, Classical, and Flamenco use narrower calibrated windows shown in the same section. The Show Unknown Modes toggle is in the Advanced section.
 
 ### Step 2 — Position the Microphone
 
