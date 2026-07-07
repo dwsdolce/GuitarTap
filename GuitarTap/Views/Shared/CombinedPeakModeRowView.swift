@@ -37,13 +37,17 @@
 import SwiftUI
 
 struct CombinedPeakModeRowView: View {
+    /// The resonant peak this row displays.
     let peak: ResonantPeak
+    /// Auto-classified guitar mode for the peak (drives the in-range badge).
     let mode: GuitarMode
     /// Effective label to display (auto-detected or user override)
     var effectiveModeLabel: String
     /// Whether the label has been manually overridden by the user
     var isManualOverride: Bool = false
+    /// Whether this peak is currently selected (filled star).
     var isSelected: Bool = true
+    /// Called when the star is tapped to toggle selection; the star is hidden when nil.
     var onToggleSelection: (() -> Void)? = nil
     /// Called when the user picks a mode label (from quick-list or custom text)
     var onSetModeOverride: ((String) -> Void)? = nil
