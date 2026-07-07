@@ -160,7 +160,7 @@ struct DraggablePeakAnnotation: View {
     /// The peak this annotation describes.
     let peak: ResonantPeak
     /// Pre-computed context-aware mode (from ``GuitarMode/classifyAll(_:guitarType:)``).
-    /// When provided, used instead of the per-frequency ``GuitarMode/classify(frequency:)``
+    /// When provided, used instead of the per-frequency `GuitarMode.classify(frequency:guitarType:)`
     /// so that peaks in overlapping mode ranges display distinct labels.
     var classifiedMode: GuitarMode? = nil
     /// Persisted label position in absolute data-space (x = Hz, y = dB).

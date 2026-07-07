@@ -360,6 +360,8 @@ extension TapToneAnalyzer {
     ///     ``TapToneAnalyzer/minFrequency``.
     ///   - maxHz: Upper frequency bound (Hz). Defaults to
     ///     ``TapToneAnalyzer/maxFrequency``.
+    ///   - peakMinOverride: Adaptive magnitude floor (dBFS) supplied for plate/brace
+    ///     captures; when `nil`, the guitar-mode `peakMinThreshold` is used.
     /// - Returns: Array of ``ResonantPeak`` values sorted by magnitude
     ///   (descending).
     func findPeaks(magnitudes: [Float], frequencies: [Float], minHz: Float? = nil, maxHz: Float? = nil, peakMinOverride: Float? = nil) -> [ResonantPeak] {

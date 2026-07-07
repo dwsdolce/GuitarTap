@@ -43,7 +43,7 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
 
     /// Frequency classification bands for each guitar body mode, in Hz.
     ///
-    /// Used by ``GuitarMode/classify(frequency:guitarType:)`` to assign a mode label to each
+    /// Used by `GuitarMode.classify(frequency:guitarType:)` to assign a mode label to each
     /// detected peak.  Bands are non-overlapping and cover the full audible spectrum via
     /// `upperModes`.
     struct ModeRanges {

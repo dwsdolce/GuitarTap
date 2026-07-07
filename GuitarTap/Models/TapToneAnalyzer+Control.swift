@@ -76,6 +76,8 @@ extension TapToneAnalyzer {
     ///   that the 0.5 s warm-up period has already elapsed when the first audio buffer arrives.
     ///   Use this for file-playback mode where the audio source is deterministic and the tap
     ///   transient may occur within the first half-second of the recording.
+    /// - Parameter initialPhase: For material (plate/brace) modes, the tap phase to begin
+    ///   capturing in; when `nil`, the sequence starts at its first phase.
     func startTapSequence(skipWarmup: Bool = false, initialPhase: MaterialTapPhase? = nil) {
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
@@ -401,8 +403,8 @@ extension TapToneAnalyzer {
     /// Resolves the displayed peak selection, freezes the spectrum, marks
     /// the phase complete, writes the session WAV, and sets the completion
     /// status message.  Called from both the user-Accept path
-    /// (``acceptCurrentPhase`` on `.reviewingCross`) and the file-playback
-    /// auto-complete path (``handleCrossGatedProgress`` when `measureFlc`
+    /// (`acceptCurrentPhase` on `.reviewingCross`) and the file-playback
+    /// auto-complete path (`handleCrossGatedProgress` when `measureFlc`
     /// is `false`).  Mirrors Python `_finalise_plate_no_flc()`.
     func finalisePlateNoFLC() {
         let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? crossPeaks.first)
@@ -423,8 +425,8 @@ extension TapToneAnalyzer {
     /// Resolves the displayed peak selection, freezes the spectrum, marks
     /// the phase complete, writes the session WAV, and sets the completion
     /// status message.  Called from both the user-Accept path
-    /// (``acceptCurrentPhase`` on `.reviewingFlc`) and the file-playback
-    /// auto-complete path (``handleFlcGatedProgress``).  Mirrors Python
+    /// (`acceptCurrentPhase` on `.reviewingFlc`) and the file-playback
+    /// auto-complete path (`handleFlcGatedProgress`).  Mirrors Python
     /// `_finalise_plate_with_flc()`.
     func finalisePlateWithFLC() {
         let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? flcPeaks.first)

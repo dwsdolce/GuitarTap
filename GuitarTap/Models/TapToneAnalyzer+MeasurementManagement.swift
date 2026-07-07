@@ -229,6 +229,11 @@ extension TapToneAnalyzer {
     ///     for device matching on load.
     ///   - calibrationName: Name of the active calibration profile, for
     ///     reference information.
+    ///   - sampleRate: Capture sample rate in Hz; `nil` falls back to the engine's actual rate.
+    ///   - minFreq: Lower bound of the saved display frequency range (Hz); `nil` uses `TapDisplaySettings.minFrequency`.
+    ///   - maxFreq: Upper bound of the saved display frequency range (Hz); `nil` uses `TapDisplaySettings.maxFrequency`.
+    ///   - minDB: Lower bound of the saved display magnitude range (dBFS); `nil` uses `TapDisplaySettings.minMagnitude`.
+    ///   - maxDB: Upper bound of the saved display magnitude range (dBFS); `nil` uses `0.0`.
     func saveMeasurement(
         measurementName: String? = nil,
         notes: String? = nil,

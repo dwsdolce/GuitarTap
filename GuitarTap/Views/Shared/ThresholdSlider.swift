@@ -21,12 +21,12 @@ import SwiftUI
 /// Horizontal slider with an integrated input-level meter, peak-hold dot,
 /// and clipping indicator.
 ///
-/// - The level fill (cyan→blue gradient) spans from ``range.lowerBound``
+/// - The level fill (cyan→blue gradient) spans from `range.lowerBound`
 ///   to the current ``level`` (dB).
 /// - A bright amber dot tracks the recent peak; it snaps up immediately to
-///   any new high, holds for ``peakHoldSeconds``, then decays at
-///   ``peakDecayDBPerSec``.
-/// - When ``isClipping`` is `true`, the rightmost ``clipZoneFraction`` of
+///   any new high, holds for `peakHoldSeconds`, then decays at
+///   `peakDecayDBPerSec`.
+/// - When ``isClipping`` is `true`, the rightmost `clipZoneFraction` of
 ///   the groove is overlaid with red.
 /// - The threshold handle (red vertical bar) is draggable along the dB axis.
 struct ThresholdSlider: View {

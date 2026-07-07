@@ -217,14 +217,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Counter so each FFT frame produced by ``performFFT(on:)`` has a unique
     /// ordinal.  Used by FILE_DEBUG logs to correlate FFT frames with file-
     /// playback progress and tap detection.  Resets to 0 on each playback
-    /// restart via ``resetFftThreadState()``.
-    /// Mirrors Python ``_FftProcessingThread._fft_frame_counter``.
+    /// restart via ``prepareForFilePlayback(sampleRate:fileName:)``.
+    /// Mirrors Python `_FftProcessingThread._fft_frame_counter`.
     var fftFrameCounter: Int = 0
 
     /// Running total of samples consumed by FFT frames (incremented by
     /// ``fftSize`` per frame).  Used to compute the file-time of each FFT
     /// frame for FILE_DEBUG logging.
-    /// Mirrors Python ``_FftProcessingThread._samples_consumed``.
+    /// Mirrors Python `_FftProcessingThread._samples_consumed`.
     var samplesConsumed: Int = 0
 
     /// Hann window coefficients applied to audio samples before FFT to reduce spectral leakage
@@ -255,7 +255,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Edge-triggered clipping flag — `true` when any audio chunk in the last
     /// ``clipHoldSeconds`` reached full scale (sample |x| ≥ 0.99) or RMS ≥ 0
     /// dBFS, `false` otherwise.  Drives a remediation message in the status
-    /// bar (handled by ``TapToneAnalyzer.setClipping(_:)``).  Mirrors Python
+    /// bar (``TapToneAnalyzer`` swaps the displayed `statusMessage` when this toggles).  Mirrors Python
     /// `_FftProcessingThread.clippingChanged` signal + `is_clipping` flag.
     @Published var isClipping: Bool = false
 
@@ -366,10 +366,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Optional callback fired **synchronously on the audio processing queue**
     /// for every chunk with the per-chunk RMS level in dBFS.
     ///
-    /// Mirrors Python ``proc_thread.rmsLevelChanged`` signal.
-    /// ``TapToneAnalyzer`` wires this to ``onRmsLevelChanged(_:)`` so tap
+    /// Mirrors Python `proc_thread.rmsLevelChanged` signal.
+    /// ``TapToneAnalyzer`` wires this to `onRmsLevelChanged(_:)` so tap
     /// detection runs at ~43 Hz per chunk, identically to Python's
-    /// ``_on_rms_level_changed``.
+    /// `_on_rms_level_changed`.
     ///
     /// - Important: The callback runs on a background queue.  The handler
     ///   is responsible for dispatching to the main thread if needed.
@@ -449,14 +449,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///   bogus gated captures — especially during file playback, which has
     ///   no human review-time gap between phases.
     /// - Cons: trigger fires `levelCrossingConfirmationChunks - 1` chunks
-    ///   later than before.  ``alignCaptureToOnset`` compensates by
+    ///   later than before.  `alignCaptureToOnset` compensates by
     ///   anchoring the FFT window to the sample-precise tap onset, so the
     ///   FFT input is unchanged.  A bump spanning 2+ chunks could still
     ///   slip through; a louder/higher value would start cutting into
     ///   weak marginal taps like the brace example above.
     ///
     /// This constant is also consulted by the main-thread tap detector
-    /// (``TapToneAnalyzer.detectTap``) so both rising-edge paths apply
+    /// (`TapToneAnalyzer.detectTap`) so both rising-edge paths apply
     /// the same confirmation logic — otherwise a bump rejected here can
     /// still fire the main-thread detector and start a bogus capture.
     static let levelCrossingConfirmationChunks: Int = 2
@@ -632,7 +632,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// When `true`, the analyzer was created via ``forTesting()`` and has no
     /// audio hardware wired.  Checked by `deinit` to skip hardware teardown and
     /// by `start()`/`stop()` to short-circuit engine operations.
-    /// Mirrors Python ``RealtimeFFTAnalyzer.for_testing()`` which sets ``stream = None``.
+    /// Mirrors Python `RealtimeFFTAnalyzer.for_testing()` which sets `stream = None`.
     private(set) var isForTesting: Bool = false
 
     /// Creates a `RealtimeFFTAnalyzer` suitable for unit testing.
@@ -645,7 +645,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// The FFT size is the class-level constant (65 536); it is not
     /// configurable per-instance.
     ///
-    /// Mirrors Python ``RealtimeFFTAnalyzer.for_testing()``.
+    /// Mirrors Python `RealtimeFFTAnalyzer.for_testing()`.
     static func forTesting() -> RealtimeFFTAnalyzer {
         return RealtimeFFTAnalyzer(forTesting: true)
     }

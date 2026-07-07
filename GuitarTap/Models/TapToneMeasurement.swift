@@ -312,6 +312,8 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// supply the fields relevant to their measurement type.
     ///
     /// - Parameters:
+    ///   - id: Stable unique identifier; defaults to a fresh `UUID`.
+    ///   - timestamp: Capture time; defaults to now.
     ///   - peaks: Detected resonant peaks for this measurement.
     ///   - decayTime: Ring-out decay time in seconds, if measured.
     ///   - measurementName: User-supplied measurement name label, e.g. `"Martin"`.
@@ -333,6 +335,11 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///   - microphoneName: Human-readable device name at time of recording.
     ///   - microphoneUID: Device UID at time of recording.
     ///   - calibrationName: Active calibration profile name, if any.
+    ///   - sampleRate: Capture sample rate in Hz, if recorded.
+    ///   - comparisonEntries: Per-tap comparison rows for multi-tap measurements.
+    ///   - tapEntries: Per-tap raw entries retained for the multi-tap breakdown.
+    ///   - selectedPeakFrequencies: Frequencies (Hz) of user-marked significant peaks, a
+    ///     format-stable fallback to `selectedPeakIDs`.
     init(id: UUID = UUID(),
          timestamp: Date = Date(),
          peaks: [ResonantPeak],

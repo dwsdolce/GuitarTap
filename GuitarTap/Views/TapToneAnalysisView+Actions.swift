@@ -256,10 +256,10 @@ extension TapToneAnalysisView {
     }
 
     /// Apply all four axis values atomically — called by ``SpectrumView``'s
-    /// ``onAxisRangeReset`` callback so that all four ``@State`` vars are
+    /// `onAxisRangeReset` callback so that all four `@State` vars are
     /// mutated in a single closure.  SwiftUI coalesces the mutations into one
-    /// render pass, preventing the transient ``minDB > maxDB`` state that
-    /// causes the clamping artifact when individual ``@Binding`` writes arrive
+    /// render pass, preventing the transient `minDB > maxDB` state that
+    /// causes the clamping artifact when individual `@Binding` writes arrive
     /// in separate update cycles.
     func applyAxisRange(minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float) {
         self.minFreq    = minFreq

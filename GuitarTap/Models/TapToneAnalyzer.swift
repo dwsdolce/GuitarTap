@@ -88,13 +88,13 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// The returned instance has the full pipeline connected (Combine
     /// subscriptions, raw-sample handler, level-crossing handler) but no
-    /// audio hardware.  Use ``playFileForTesting(url:measurementType:numberOfTaps:)``
+    /// audio hardware.  Use `playFileForTesting(url:measurementType:numberOfTaps:)`
     /// to feed a WAV file through the pipeline.
     ///
     /// The FFT size is the class-level constant in `RealtimeFFTAnalyzer`
     /// (65 536); it is not configurable per-instance.
     ///
-    /// Mirrors Python ``TapToneAnalyzer.for_testing()``.
+    /// Mirrors Python `TapToneAnalyzer.for_testing()`.
     static func forTesting() -> TapToneAnalyzer {
         let fft = RealtimeFFTAnalyzer.forTesting()
         return TapToneAnalyzer(fftAnalyzer: fft)
@@ -107,7 +107,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// skipped, pre-fills the pre-roll buffer with silence, and synchronously
     /// processes all audio through `processFileData`.
     ///
-    /// Mirrors Python ``TapToneAnalyzer.play_file_for_testing()``.
+    /// Mirrors Python `TapToneAnalyzer.play_file_for_testing()`.
     ///
     /// - Parameters:
     ///   - url: URL of the audio file (WAV, AIFF, CAF, etc.).
@@ -958,7 +958,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Target duration of the gated capture buffer, in seconds.
     ///
     /// 500 ms is intentionally longer than ``gatedFFTWindowDuration`` so that
-    /// ``alignCaptureToOnset`` always has at least 400 ms of audio available
+    /// `alignCaptureToOnset` always has at least 400 ms of audio available
     /// to extract a sample-aligned window — regardless of how full the
     /// pre-roll ring buffer happens to be when the level crossing fires.
     /// Without this slack, a partially-filled pre-roll (e.g. when the user
@@ -1006,7 +1006,7 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Set at capture-start time so the same accumulator infrastructure can serve
     /// different capture lengths: plate/brace uses ``gatedCaptureDuration`` (~500 ms);
-    /// guitar uses the full ``fftSize`` so the resulting spectrum has the same
+    /// guitar uses the full `fftSize` so the resulting spectrum has the same
     /// frequency resolution as the live FFT path.
     var gatedCaptureSamples: Int = 0
 
@@ -1022,7 +1022,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Stored at capture-start time so the completion handler knows which phase to finalise
     /// even if ``materialTapPhase`` has advanced by the time the window closes.
     /// `nil` is the sentinel value identifying a guitar-mode capture, parallel to
-    /// Python's ``_gated_capture_phase = None``.
+    /// Python's `_gated_capture_phase = None`.
     var gatedCapturePhase: MaterialTapPhase? = nil
 
     /// Most recent hardware sample rate, in Hz.
@@ -1170,7 +1170,7 @@ final class TapToneAnalyzer: ObservableObject {
     var isAboveThreshold: Bool = false
 
     /// Running count of consecutive above-rising-threshold chunks within the
-    /// current candidate rising-edge run for the main-thread ``detectTap``.
+    /// current candidate rising-edge run for the main-thread `detectTap`.
     /// Reset to `0` whenever the signal falls back below the rising threshold
     /// before reaching ``RealtimeFFTAnalyzer/levelCrossingConfirmationChunks``.
     /// Once it reaches the target, ``isAboveThreshold`` latches to `true` and

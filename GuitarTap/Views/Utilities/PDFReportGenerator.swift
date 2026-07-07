@@ -116,7 +116,7 @@ struct PDFReportData {
     /// Context-aware mode classification for all peaks, keyed by peak UUID.
     /// Computed via ``GuitarMode/classifyAll(_:guitarType:)`` so overlapping ranges
     /// (e.g. classical Top/Back) resolve correctly.  Used by the peak table and
-    /// chart summary in place of per-frequency ``GuitarMode/classify(frequency:guitarType:)``.
+    /// chart summary in place of per-frequency `GuitarMode.classify(frequency:guitarType:)`.
     var peakModes: [UUID: GuitarMode] = [:]
 
     // MARK: Microphone info
@@ -143,6 +143,8 @@ struct PDFReportData {
     /// the saved display frequency range.
     ///
     /// - Parameter measurement: The saved measurement to generate a report for.
+    /// - Parameter spectrumImageData: Optional pre-rendered spectrum image (PNG) to embed;
+    ///   when `nil`, the report renders without an embedded chart image.
     /// - Returns: A fully populated `PDFReportData` ready for `PDFReportGenerator.generate(data:)`.
     static func from(measurement: TapToneMeasurement, spectrumImageData: Data? = nil) -> PDFReportData {
         let snapshot = measurement.spectrumSnapshot

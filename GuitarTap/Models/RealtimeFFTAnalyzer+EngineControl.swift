@@ -499,26 +499,13 @@ extension RealtimeFFTAnalyzer {
     
     // MARK: - WAV File Playback
 
-    /// Processes pre-read mono audio samples through the FFT pipeline.
-    ///
-    /// This is the data-processing core of ``startFromFile(_:completion:)``,
-    /// factored out so tests can drive the pipeline without audio hardware.
-    /// The chunk-pacing loop, partial flush, and ``preMicRestartHandler`` call
-    /// are all included.  Mic stop/restart and UI state management are NOT.
-    ///
-    /// Mirrors Python ``RealtimeFFTAnalyzer.process_file_data()``.
-    ///
-    /// - Parameters:
-    ///   - samples: Mono Float32 PCM samples.
-    ///   - sampleRate: Sample rate in Hz.
-    ///   - fileName: Display name for status/logging.
     /// Configures @Published and internal state for file playback.
     ///
     /// MUST be called on the **main thread** because it writes `@Published`
     /// properties (`actualSampleRate`, `magnitudes`, `peakMagnitude`,
     /// `isPlayingFile`, `playingFileName`).  ``startFromFile(_:completion:)``
-    /// calls this before dispatching ``processFileData`` to a background queue.
-    /// ``playFileForTesting`` calls this on whatever thread it runs on (main
+    /// calls this before dispatching `processFileData` to a background queue.
+    /// `playFileForTesting` calls this on whatever thread it runs on (main
     /// in tests).
     ///
     /// - Parameters:
@@ -540,6 +527,19 @@ extension RealtimeFFTAnalyzer {
         playingFileName = fileName
     }
 
+    /// Processes pre-read mono audio samples through the FFT pipeline.
+    ///
+    /// This is the data-processing core of ``startFromFile(_:completion:)``,
+    /// factored out so tests can drive the pipeline without audio hardware.
+    /// The chunk-pacing loop, partial flush, and ``preMicRestartHandler`` call
+    /// are all included.  Mic stop/restart and UI state management are NOT.
+    ///
+    /// Mirrors Python `RealtimeFFTAnalyzer.process_file_data()`.
+    ///
+    /// - Parameters:
+    ///   - samples: Mono Float32 PCM samples.
+    ///   - sampleRate: Sample rate in Hz.
+    ///   - fileName: Display name for status/logging.
     func processFileData(samples: [Float], sampleRate: Double, fileName: String) {
         let frameCount = samples.count
 

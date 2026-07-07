@@ -70,12 +70,12 @@ extension TapToneAnalyzer {
     /// Receives one full FFT frame (~2.7 Hz) and routes it to peak analysis.
     ///
     /// Called from the `$magnitudes` Combine sink in
-    /// ``setupSubscriptions()``.  Mirrors Python ``on_fft_frame`` in
-    /// ``tap_tone_analyzer_tap_detection.py`` so the FFT-frame entry point
+    /// ``setupSubscriptions()``.  Mirrors Python `on_fft_frame` in
+    /// `tap_tone_analyzer_tap_detection.py` so the FFT-frame entry point
     /// lives in matching files between the two ports.  The peak-analysis
     /// implementation itself remains in ``analyzeMagnitudes(_:frequencies:peakMagnitude:)``
-    /// in `+PeakAnalysis.swift`, parallel to Python's ``analyze_magnitudes``
-    /// in ``tap_tone_analyzer_peak_analysis.py``.
+    /// in `+PeakAnalysis.swift`, parallel to Python's `analyze_magnitudes`
+    /// in `tap_tone_analyzer_peak_analysis.py`.
     ///
     /// Tap detection is no longer driven from this slow FFT-rate path — see
     /// ``onRmsLevelChanged(_:)`` for the per-chunk RMS-driven detector.
@@ -89,13 +89,13 @@ extension TapToneAnalyzer {
     /// tap detector for whichever measurement type is currently active.
     ///
     /// Called from the `$inputLevelDB` Combine sink in ``setupSubscriptions()``.
-    /// Mirrors Python ``_on_rms_level_changed`` in
-    /// ``tap_tone_analyzer_tap_detection.py``.  The guards (isDetecting /
+    /// Mirrors Python `_on_rms_level_changed` in
+    /// `tap_tone_analyzer_tap_detection.py`.  The guards (isDetecting /
     /// isDetectionPaused / isMeasurementComplete) live here in the handler, not
     /// inline at the sink, so the file-level placement matches Python.
     ///
     /// Guitar mode previously detected from the FFT-rate path
-    /// (``analyzeMagnitudes``); now all modes detect from this finer-resolution
+    /// (`analyzeMagnitudes`); now all modes detect from this finer-resolution
     /// RMS path.  The captured spectrum for guitar is then assembled via
     /// ``startGuitarGatedCapture()``.
     func onRmsLevelChanged(_ levelDB: Float) {

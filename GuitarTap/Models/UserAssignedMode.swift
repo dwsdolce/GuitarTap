@@ -39,7 +39,7 @@ import Foundation
 /// - SeeAlso: ``TapToneAnalyzer`` for the three-layer peak-selection system that consults this type.
 enum UserAssignedMode: Codable, Equatable, Hashable {
 
-    /// Use the auto-detected label produced by ``GuitarMode/classify(frequency:)`` at display time.
+    /// Use the auto-detected label produced by `GuitarMode.classify(frequency:guitarType:)` at display time.
     ///
     /// - Warning: This label is not stored and may differ from what was shown when the measurement
     ///   was originally saved if classification boundaries change in a future app version.

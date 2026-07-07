@@ -486,7 +486,7 @@ extension TapToneAnalyzer {
 
     /// Opens a raw-PCM capture window for guitar mode, aligned to the tap onset.
     ///
-    /// Capture window size = ``RealtimeFFTAnalyzer.fftSize`` so the resulting
+    /// Capture window size = `RealtimeFFTAnalyzer.fftSize` so the resulting
     /// spectrum has the same frequency resolution as the live FFT path.  The
     /// pre-roll buffer (~200 ms) is seeded into ``gatedAccumBuffer`` so the
     /// impulse onset (which arrives ~one RMS chunk before this call fires)
@@ -1141,34 +1141,27 @@ extension TapToneAnalyzer {
                             pitchFrequency: pitchFreq)
     }
 
-    /// Gated-FFT handler for the longitudinal capture phase.
+    /// Gated-FFT handler for the longitudinal (fL) capture phase.
     ///
-    /// Mirrors ``handleLongitudinalTapProgress(magnitudes:frequencies:)`` but
-    /// uses the pre-computed `dominantPeak` from `findDominantPeak` instead of
-    /// re-running `findPeaks`. Also calls
+    /// Uses the pre-computed `dominantPeak` from `findDominantPeak` instead of
+    /// re-running `findPeaks`. Accumulates longitudinal taps until `numberOfTaps`
+    /// are collected, averages the captured spectra, then re-finds the dominant
+    /// peak on the average. Also calls
     /// ``buildAllPeaks(magnitudes:frequencies:dominantPeak:)`` to populate the
     /// full peak list for manual override.
     ///
-    /// Transitions to `.reviewingLongitudinal` (plate) or `.complete` (brace)
-    /// when `numberOfTaps` longitudinal taps have been collected.
-    ///
-    /// - Parameters:
-    ///   - magnitudes: Averaged gated-FFT magnitude spectrum (dBFS).
-    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
-    ///   - dominantPeak: The pre-selected dominant peak from this tap.
-    /// Gated-FFT handler for the longitudinal (fL) capture phase.
-    ///
-    /// Accumulates longitudinal taps until `numberOfTaps` are collected, averages
-    /// the captured spectra, re-finds the dominant peak on the average, then either
-    /// completes (brace — single phase) or moves toward cross-grain: pausing at
-    /// `.reviewingLongitudinal` for Accept/Redo during live capture, or
-    /// auto-advancing to `.capturingCross` during file playback. Mirrors Python
-    /// `_handle_longitudinal_gated_progress`.
+    /// When the taps are complete it either completes (brace — single phase) or
+    /// moves toward cross-grain: pausing at `.reviewingLongitudinal` for
+    /// Accept/Redo during live capture, or auto-advancing to `.capturingCross`
+    /// during file playback. Mirrors Python `_handle_longitudinal_gated_progress`.
     ///
     /// - Parameters:
     ///   - magnitudes: Current gated-FFT magnitude spectrum (dBFS).
     ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
     ///   - dominantPeak: The pre-selected dominant peak from this tap.
+    ///   - minHz: Lower bound of the search band when re-finding the peak (Hz).
+    ///   - maxHz: Upper bound of the search band when re-finding the peak (Hz).
+    ///   - preferLowest: Prefer the lowest significant peak over the highest-magnitude one.
     func handleLongitudinalGatedProgress(magnitudes: [Float],
                                          frequencies: [Float],
                                          dominantPeak: ResonantPeak,
@@ -1308,6 +1301,9 @@ extension TapToneAnalyzer {
     ///   - magnitudes: Current gated-FFT magnitude spectrum (dBFS).
     ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
     ///   - dominantPeak: The pre-selected dominant peak from this tap.
+    ///   - minHz: Lower bound of the search band when re-finding the peak (Hz).
+    ///   - maxHz: Upper bound of the search band when re-finding the peak (Hz).
+    ///   - preferLowest: Prefer the lowest significant peak over the highest-magnitude one.
     func handleCrossGatedProgress(magnitudes: [Float],
                                    frequencies: [Float],
                                    dominantPeak: ResonantPeak,
@@ -1389,6 +1385,9 @@ extension TapToneAnalyzer {
     ///   - magnitudes: Current gated-FFT magnitude spectrum (dBFS).
     ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
     ///   - dominantPeak: The pre-selected dominant peak from this tap.
+    ///   - minHz: Lower bound of the search band when re-finding the peak (Hz).
+    ///   - maxHz: Upper bound of the search band when re-finding the peak (Hz).
+    ///   - preferLowest: Prefer the lowest significant peak over the highest-magnitude one.
     func handleFlcGatedProgress(magnitudes: [Float],
                                  frequencies: [Float],
                                  dominantPeak: ResonantPeak,
@@ -1447,7 +1446,7 @@ extension TapToneAnalyzer {
     /// Builds a display-ready peak list from a gated-FFT spectrum, ensuring
     /// that `dominantPeak` is always present.
     ///
-    /// Runs the standard ``findPeaks(magnitudes:frequencies:minHz:maxHz:)``
+    /// Runs the standard ``findPeaks(magnitudes:frequencies:minHz:maxHz:peakMinOverride:)``
     /// finder with no range restrictions so the user can see and manually
     /// select any peak in the spectrum. If a peak near `dominantPeak.frequency`
     /// (within 2 Hz) is found, it is replaced with `dominantPeak` so that the

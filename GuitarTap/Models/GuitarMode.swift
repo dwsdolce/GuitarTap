@@ -38,8 +38,8 @@ import SwiftUI
 
 /// A resonance mode classification for a completed guitar body.
 ///
-/// Use ``classify(frequency:)`` or ``classify(frequency:guitarType:)`` to map a detected
-/// peak frequency to the appropriate mode.  The ``normalized`` property converts any legacy
+/// Use ``classifyAll(_:guitarType:)`` to map detected peaks to the appropriate modes.  The
+/// ``normalized`` property converts any legacy
 /// case to its modern equivalent for programmatic comparisons.
 ///
 /// - SeeAlso: ``GuitarType`` for the frequency-band definitions used during classification.
@@ -139,7 +139,7 @@ enum GuitarMode: String, Codable {
 
     /// Classifies a set of peaks into guitar modes using a context-aware claiming algorithm.
     ///
-    /// Unlike ``classify(frequency:guitarType:)``, which maps each frequency independently,
+    /// Unlike `classify(frequency:guitarType:)`, which maps each frequency independently,
     /// this method processes all peaks together so that overlapping mode ranges (e.g. the
     /// Top/Back overlap zone for classical guitar) resolve correctly: the first peak
     /// claimed by a lower-frequency mode cannot be re-claimed by a higher-frequency mode.
@@ -153,7 +153,7 @@ enum GuitarMode: String, Codable {
     ///    frequency (the back plate resonance is always higher than the top plate's),
     ///    so an overlapping Back range cannot claim a peak below Top.
     /// 3. Any remaining unclaimed peaks are classified via the per-frequency
-    ///    ``classify(frequency:guitarType:)`` lookup — except that a peak above the
+    ///    `classify(frequency:guitarType:)` lookup — except that a peak above the
     ///    claimed Top frequency and within the Back range resolves to `.back` (not the
     ///    earlier/lower mode the switch would pick), preserving the Top-below-Back
     ///    ordering. Peaks outside all mode ranges resolve to `.unknown`.
@@ -226,7 +226,7 @@ enum GuitarMode: String, Codable {
     /// Returns `true` if `frequency` falls within any named mode range for the given guitar type.
     ///
     /// Use this for filtering peaks by visibility (the "hide unknown modes" setting) instead of
-    /// calling ``classify(frequency:guitarType:)`` and comparing against `.unknown`. This avoids
+    /// calling `classify(frequency:guitarType:)` and comparing against `.unknown`. This avoids
     /// any ambiguity around the overlap zone: a frequency in the Top/Back overlap is always
     /// "known" regardless of which mode `classifyAll` ultimately assigns it to.
     ///

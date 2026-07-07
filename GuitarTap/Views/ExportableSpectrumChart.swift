@@ -104,7 +104,7 @@ struct ExportableSpectrumChart: View {
     ///
     /// Pass `Dictionary(uniqueKeysWithValues: analyzer.identifiedModes.map { ($0.peak.id, $0.mode) })`
     /// so peaks in overlapping ranges (e.g. classical Top/Back) get distinct labels.
-    /// When empty, the chart falls back to computing a local classification from ``visiblePeaks``.
+    /// When empty, the chart falls back to computing a local classification from `visiblePeaks`.
     var peakModes: [UUID: GuitarMode] = [:]
 
     /// Per-phase spectra overlay for plate/brace measurements. Each element
@@ -467,8 +467,13 @@ struct ExportableSpectrumChart: View {
 ///   - selectedCrossPeakID: UUID of the selected cross-grain (C) peak (plate).
 ///   - selectedFlcPeakID: UUID of the selected FLC peak (plate, optional).
 ///   - modeOverrides: Per-peak user-assigned mode label overrides.
+///   - peakModes: Pre-computed context-aware guitar modes keyed by peak UUID; overrides
+///     the per-frequency classification when non-empty.
 ///   - materialSpectra: Per-phase spectrum series for plate/brace overlays.
 ///   - dateLabel: Date/time string shown in the header (e.g. formatted measurement timestamp).
+///   - chartTitle: Title shown in the chart header. Defaults to `"FFT Peaks"`.
+///   - softwareVersion: App version/build string stamped in the header; defaults to the running app's version.
+///   - platform: Platform name (`macOS` / `iOS/iPadOS`) stamped in the header.
 /// - Returns: A self-contained `View` suitable for off-screen rendering with `ImageRenderer`.
 @MainActor
 func makeExportableSpectrumView(
