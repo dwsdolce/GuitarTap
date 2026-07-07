@@ -579,6 +579,8 @@ struct TapAnalysisResultsView: View {
     }
     
     /// Compact horizontal summary of ring-out time and tap tone ratio for the guitar footer.
+    // @parity view/guitar-summary — Ring-Out + Tap-Ratio bar (Python: inline guitar-summary in
+    // tap_tone_analysis_view; web: AnalysisResults.tsx). Quality logic in decayQuality / tapToneRatioQuality.
     private var guitarAnalysisSummary: some View {
         HStack(spacing: 12) {
             // Ring-out time
