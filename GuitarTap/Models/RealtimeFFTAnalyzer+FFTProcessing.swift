@@ -4,6 +4,7 @@
 //
 // @parity dsp/fft
 // @parity dsp/guitar-fft
+// @parity dsp/wav
 
 import AVFoundation
 import Accelerate

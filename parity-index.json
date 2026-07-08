@@ -21,12 +21,27 @@
         "src/guitar_tap/models/tap_tone_analyzer.py"
       ],
       "web": [
-        "src/audio/engine.ts"
+        "src/audio/engine.ts",
+        "src/dsp/guitarFFT.ts"
       ],
       "tests": [
         "test/tap-decisions"
       ],
       "equivalence": "oracle + tests"
+    },
+    {
+      "slug": "dsp/analysis-quality",
+      "swift": [
+        "GuitarTap/Views/Utilities/Extensions.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/guitar_type.py"
+      ],
+      "web": [
+        "src/dsp/analysisQuality.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
     },
     {
       "slug": "dsp/calibration",
@@ -111,6 +126,7 @@
         "src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py"
       ],
       "web": [
+        "src/dsp/gatedCapture.ts",
         "src/dsp/gatedFFT.ts"
       ],
       "tests": [
@@ -164,6 +180,20 @@
       "equivalence": "oracle + tests"
     },
     {
+      "slug": "dsp/peak-analysis",
+      "swift": [
+        "GuitarTap/Models/TapToneAnalyzer+PeakAnalysis.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/tap_tone_analyzer_peak_analysis.py"
+      ],
+      "web": [
+        "src/dsp/peaks.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
       "slug": "dsp/pitch",
       "swift": [
         "GuitarTap/Models/Pitch.swift"
@@ -188,7 +218,22 @@
         "src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py"
       ],
       "web": [
+        "src/dsp/guitarFFT.ts",
         "src/dsp/spectrumAverage.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "dsp/wav",
+      "swift": [
+        "GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/realtime_fft_analyzer_engine_control.py"
+      ],
+      "web": [
+        "src/dsp/wav.ts"
       ],
       "tests": [],
       "equivalence": "review only"
@@ -219,6 +264,20 @@
       ],
       "web": [
         "src/presentation/modeColors.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "state/settings-store",
+      "swift": [
+        "GuitarTap/Models/TapDisplaySettings.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/tap_display_settings.py"
+      ],
+      "web": [
+        "src/settings.ts"
       ],
       "tests": [],
       "equivalence": "review only"
@@ -506,7 +565,7 @@
         "src/guitar_tap/views/fft_analysis_metrics_view.py"
       ],
       "web": [
-        "src/components/AnalysisResults.tsx"
+        "src/components/MetricsPanel.tsx"
       ],
       "tests": [],
       "equivalence": "review only"
@@ -521,6 +580,20 @@
       ],
       "web": [
         "src/components/ComparisonResultsView.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/guitar-summary",
+      "swift": [
+        "GuitarTap/Views/TapAnalysisResultsView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/tap_tone_analysis_view.py"
+      ],
+      "web": [
+        "src/components/AnalysisResults.tsx"
       ],
       "tests": [],
       "equivalence": "review only"
@@ -554,6 +627,64 @@
       "equivalence": "review only"
     },
     {
+      "slug": "view/material-instructions",
+      "swift": [
+        "GuitarTap/Views/TapToneAnalysisView+SpectrumViews.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/tap_tone_analysis_view.py"
+      ],
+      "web": [
+        "src/components/MaterialInstructionPanel.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/material-results",
+      "swift": [
+        "GuitarTap/Views/TapAnalysisResultsView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/tap_tone_analysis_view.py"
+      ],
+      "web": [
+        "src/components/MaterialResults.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/measurement-detail",
+      "swift": [
+        "GuitarTap/Views/Measurements/MeasurementDetailView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/measurements/measurement_detail_view.py"
+      ],
+      "web": [
+        "src/components/MeasurementDetail.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/measurements-list",
+      "swift": [
+        "GuitarTap/Views/Measurements/MeasurementRowView.swift",
+        "GuitarTap/Views/Measurements/MeasurementsListView.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/measurements/measurement_row_view.py",
+        "src/guitar_tap/views/measurements/measurements_list_view.py"
+      ],
+      "web": [
+        "src/components/MeasurementsPanel.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
       "slug": "view/multi-tap-results",
       "swift": [
         "GuitarTap/Views/MultiTapComparisonResultsView.swift"
@@ -573,7 +704,8 @@
         "GuitarTap/Views/Shared/CombinedPeakModeRowView.swift"
       ],
       "python": [
-        "src/guitar_tap/views/shared/combined_peak_mode_row_view.py"
+        "src/guitar_tap/views/shared/combined_peak_mode_row_view.py",
+        "src/guitar_tap/views/shared/peak_card_widget.py"
       ],
       "web": [
         "src/components/PeakCard.tsx"
@@ -601,7 +733,7 @@
         "GuitarTap/Views/Utilities/TapSettingsView.swift"
       ],
       "python": [
-        "src/guitar_tap/views/utilities/tap_settings_view.py"
+        "src/guitar_tap/views/tap_tone_analysis_view.py"
       ],
       "web": [
         "src/components/SettingsPanel.tsx"
@@ -631,7 +763,9 @@
       "python": [
         "src/guitar_tap/views/spectrum_view_gesture_handlers.py"
       ],
-      "web": [],
+      "web": [
+        "src/components/SpectrumChart.tsx"
+      ],
       "tests": [],
       "equivalence": "review only"
     },
