@@ -22,7 +22,7 @@
 /// - Per-type display frequency range (min/max Hz, stored per MeasurementType)
 /// - Per-type dB range (min/max dB)
 /// - Analysis frequency range (Hz)
-/// - Peak detection parameters (threshold, max peaks, hysteresis, etc.)
+/// - Peak detection parameters (peak-min threshold, tap-detection threshold)
 /// - Tap counting and sequencing parameters
 ///
 /// ## Guitar type vs measurement type
@@ -44,6 +44,7 @@
 //
 //  Created on 2/12/26.
 //
+// @parity state/settings-store
 
 import Foundation
 
@@ -61,7 +62,7 @@ import Foundation
 /// - **Display frequency range** — per-measurement-type min/max Hz for the chart.
 /// - **dB range** — min/max dB for the vertical axis.
 /// - **Analysis frequency range** — band within which peaks are searched.
-/// - **Peak detection** — threshold, maximum peak count, hysteresis margin.
+/// - **Peak detection** — peak-min threshold and tap-detection threshold.
 /// - **Tap sequencing** — FLC tap inclusion (`measureFlc`).
 ///
 /// - SeeAlso: `TapSettingsView`, `TapToneAnalyzer`, `SpectrumView`
