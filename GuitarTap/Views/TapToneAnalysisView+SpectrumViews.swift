@@ -426,10 +426,10 @@ extension TapToneAnalysisView {
             return "FLC tap captured. Review the spectrum — press Accept to complete the measurement, or Redo to re-capture."
         case .complete:
             if isBrace {
-                return "fL captured! Review the fL (blue) peak selection in the Results panel. Adjust if the auto-selection isn\u{2019}t correct."
+                return "fL captured! Review the fL (blue) peak selection in the Results panel. Redo if the auto-selection isn\u{2019}t correct."
             }
             let flcPart = TapDisplaySettings.measureFlc ? ", and FLC (purple)" : ""
-            return "All modes captured! Review the L (blue), C (orange)\(flcPart) peak selections in the Results panel. Adjust if the auto-selection isn\u{2019}t correct."
+            return "All modes captured! Review the L (blue), C (orange)\(flcPart) peak selections in the Results panel. Redo if the auto-selection isn\u{2019}t correct."
         }
     }
 
