@@ -58,6 +58,8 @@ extension Float {
         }
     }
     
+    // @parity dsp/analysis-quality — decay/tap-ratio quality labels + colors
+    //   (ratio math is on TapToneMeasurement.tapToneRatio; thresholds on GuitarType.decayThresholds)
     /// Qualitative label for this value interpreted as a ring-out time (seconds),
     /// using the currently selected guitar type's decay thresholds.
     ///
