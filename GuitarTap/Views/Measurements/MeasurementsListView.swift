@@ -2,6 +2,7 @@
 //  MeasurementsListView.swift
 //  GuitarTap
 //
+// @parity view/measurements-list
 
 /// # MeasurementsListView
 ///

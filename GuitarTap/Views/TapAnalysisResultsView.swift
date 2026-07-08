@@ -698,6 +698,7 @@ struct TapAnalysisResultsView: View {
         )
     }
     
+    // @parity view/material-results
     private var platePropertiesSection: some View {
         GroupBox("Plate Properties") {
             if let props = calculatedPlateProperties {
@@ -818,7 +819,7 @@ struct TapAnalysisResultsView: View {
                         Text(String(format: "%.3f", props.crossLongRatio))
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        Text("(typical: 0.04-0.08)")
+                        Text("(typical: 0.04–0.08)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -831,7 +832,7 @@ struct TapAnalysisResultsView: View {
                         Text(String(format: "%.1f", props.longCrossRatio))
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        Text("(typical: 12-25)")
+                        Text("(typical: 12–25)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

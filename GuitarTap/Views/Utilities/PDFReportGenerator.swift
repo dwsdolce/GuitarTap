@@ -724,7 +724,7 @@ private struct PDFReportContentView: View {
                         subtitle: "Top / Air",
                         detail: ratio.tapToneRatioQuality,
                         detailColor: ratio.tapToneRatioQualityColor,
-                        hint: "Ideal: 1.9 – 2.1"
+                        hint: "Ideal: 1.9–2.1"
                     )
                 }
             }
@@ -844,7 +844,7 @@ private struct PDFReportContentView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     platePropRow("Cross/Long Ratio",
                                    String(format: "%.3f", props.crossLongRatio))
-                    Text("typical: 0.04 – 0.08")
+                    Text("typical: 0.04–0.08")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                         .italic()
@@ -853,7 +853,7 @@ private struct PDFReportContentView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     platePropRow("Long/Cross Ratio",
                                    String(format: "%.1f", props.longCrossRatio))
-                    Text("typical: 12 – 25")
+                    Text("typical: 12–25")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                         .italic()

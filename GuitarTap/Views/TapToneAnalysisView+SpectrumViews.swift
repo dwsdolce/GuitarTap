@@ -288,6 +288,7 @@ extension TapToneAnalysisView {
     }
 
     /// Material measurement instructions panel
+    // @parity view/material-instructions
     var materialInstructionsView: some View {
         GroupBox(TapDisplaySettings.measurementType == .brace ? "Brace Measurement" : "Plate Measurement") {
             VStack(alignment: .leading, spacing: 8) {

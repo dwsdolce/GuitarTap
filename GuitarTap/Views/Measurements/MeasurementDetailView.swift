@@ -2,6 +2,7 @@
 //  MeasurementDetailView.swift
 //  GuitarTap
 //
+// @parity view/measurement-detail
 
 /// # MeasurementDetailView
 ///
