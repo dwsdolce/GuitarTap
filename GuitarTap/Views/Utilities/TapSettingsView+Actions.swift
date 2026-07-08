@@ -44,12 +44,13 @@ extension TapSettingsView {
         // Detect whether the measurement type or FLC toggle changed.
         // Switching between guitar types only (e.g. acoustic → generic) does NOT require
         // a new tap sequence — the captured data is unchanged; only the mode classification
-        // ranges and annotations differ.  A full reset is only needed when crossing the
-        // guitar ↔ material boundary, or when the FLC toggle changes.
+        // ranges and annotations differ.  A full reset IS needed for any *other* type change:
+        // guitar ↔ material AND plate ↔ brace (different tap phases), or when the FLC toggle
+        // changes.  (Mirrors Python `_needs_restart`, which restarts on any material-type
+        // change; the earlier guitar↔material-only check wrongly skipped plate ↔ brace.)
         let typeChanged = selectedMeasurementType != previousMeasurementType
-        let crossesBoundary = typeChanged
-            && (previousMeasurementType.isGuitar != selectedMeasurementType.isGuitar)
-        let measurementChanged = crossesBoundary || measureFlc != previousMeasureFlc
+        let bothGuitar = previousMeasurementType.isGuitar && selectedMeasurementType.isGuitar
+        let measurementChanged = (typeChanged && !bothGuitar) || measureFlc != previousMeasureFlc
 
         // Save plate dimensions
         if selectedMeasurementType == .plate {
