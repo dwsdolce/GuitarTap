@@ -25,15 +25,12 @@ private final class GestureState {
     var maxFreq: Float
     var minDB: Float
     var maxDB: Float
-    var isLogarithmic: Bool
 
-    init(minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float,
-         isLogarithmic: Bool = false) {
+    init(minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float) {
         self.minFreq = minFreq
         self.maxFreq = maxFreq
         self.minDB = minDB
         self.maxDB = maxDB
-        self.isLogarithmic = isLogarithmic
     }
 
     /// Returns a SpectrumView wired to this state object's properties.
@@ -44,8 +41,7 @@ private final class GestureState {
             minFreq: Binding(get: { self.minFreq }, set: { self.minFreq = $0 }),
             maxFreq: Binding(get: { self.maxFreq }, set: { self.maxFreq = $0 }),
             minDB:   Binding(get: { self.minDB   }, set: { self.minDB   = $0 }),
-            maxDB:   Binding(get: { self.maxDB   }, set: { self.maxDB   = $0 }),
-            isLogarithmic: Binding(get: { self.isLogarithmic }, set: { self.isLogarithmic = $0 })
+            maxDB:   Binding(get: { self.maxDB   }, set: { self.maxDB   = $0 })
         )
     }
 }

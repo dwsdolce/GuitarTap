@@ -123,13 +123,12 @@ struct CursorSnapState {
 /// A SwiftUI view that displays a frequency spectrum chart with interactive zoom and pan capabilities.
 ///
 /// This view renders the FFT magnitude data as an area chart with gradient fill and a line overlay.
-/// It supports both linear and logarithmic frequency scales, pinch-to-zoom, and drag-to-pan gestures.
+/// It supports pinch-to-zoom and drag-to-pan gestures.
 ///
 /// ## Features
 /// - Area chart with gradient fill for visual appeal
 /// - Line chart overlay showing the spectrum shape
 /// - Automatic axis labels with smart frequency formatting (Hz or kHz)
-/// - Logarithmic or linear frequency scale
 /// - Interactive zoom and pan gestures
 /// - Clamped ranges to prevent invalid zoom levels
 /// - Mode boundary markers
@@ -158,9 +157,6 @@ struct SpectrumView: View {
 
     /// The maximum magnitude to display on the y-axis, in dB
     @Binding var maxDB: Float
-
-    /// Whether to use logarithmic scale for the frequency axis
-    @Binding var isLogarithmic: Bool
 
     /// All detected peaks — every peak gets a dot on the chart regardless of annotation visibility.
     var peaks: [ResonantPeak]?
@@ -319,16 +315,7 @@ struct SpectrumView: View {
             guard plotFrame.width > 0, plotFrame.height > 0,
                   freqRange > 0, dbRange > 0 else { return nil }
             // X from frequency
-            let freqNormalized: CGFloat
-            if isLogarithmic {
-                let logMin = log10(Double(minFreq))
-                let logMax = log10(Double(maxFreq))
-                let logRange = logMax - logMin
-                guard logRange > 0, minFreq > 0, maxFreq > 0 else { return nil }
-                freqNormalized = CGFloat((log10(Double(peak.frequency)) - logMin) / logRange)
-            } else {
-                freqNormalized = CGFloat((peak.frequency - minFreq)) / freqRange
-            }
+            let freqNormalized = CGFloat((peak.frequency - minFreq)) / freqRange
             let baseX = plotFrame.minX + freqNormalized * plotFrame.width
             // Y from magnitude (inverted, offset up 70pt for default label position)
             let clampedMag = max(minDB, min(maxDB, peak.magnitude))
@@ -431,19 +418,16 @@ struct SpectrumView: View {
 
     /// Calculates appropriate frequency values for axis labels based on the current zoom level.
     ///
-    /// The values are chosen to provide clear, readable labels that adjust to the visible range:
-    /// - In logarithmic mode, uses standard audio frequency markers (20, 100, 1k, 10k, etc.)
-    /// - In linear mode, uses evenly spaced values with appropriate step sizes
+    /// The values are evenly spaced with appropriate step sizes for the visible range.
     ///
     /// - Returns: An array of frequency values (in Hz) where axis labels should be placed
     private var frequencyAxisValues: [Double] {
         let lo = Double(minFreq)
         let hi = Double(maxFreq)
-        let scale: AxisScale = isLogarithmic ? AxisScale.logarithmic() : .linear
         // Filter to the visible domain so ticks produced by the "nice number" rounding
         // that fall outside [minFreq, maxFreq] (e.g. a 0 Hz tick when minFreq is 20)
         // are not passed to AxisMarks, which would place them in the axis-label gutter.
-        return AxisTickGenerator.generateTicks(min: lo, max: hi, maxTicks: 8, scale: scale)
+        return AxisTickGenerator.generateTicks(min: lo, max: hi, maxTicks: 8)
             .filter { $0 >= lo && $0 <= hi }
     }
 
@@ -631,7 +615,6 @@ struct SpectrumView: View {
                         maxFreq: maxFreq,
                         minDB: minDB,
                         maxDB: maxDB,
-                        isLogarithmic: isLogarithmic,
                         isAnnotationDragging: $isAnnotationDragging,
                         measurementType: measurementType,
                         selectedLongitudinalPeakID: selectedLongitudinalPeakID,
@@ -836,17 +819,8 @@ struct SpectrumView: View {
 
     /// Converts a frequency value to an x-coordinate within the given plot frame.
     private func chartX(frequency: Float, in plotFrame: CGRect) -> CGFloat {
-        if isLogarithmic {
-            let logMin = log10(Double(minFreq))
-            let logMax = log10(Double(maxFreq))
-            let logRange = logMax - logMin
-            guard logRange > 0, minFreq > 0, maxFreq > 0 else { return plotFrame.minX }
-            let norm = (log10(Double(frequency)) - logMin) / logRange
-            return plotFrame.minX + CGFloat(norm) * plotFrame.width
-        } else {
-            let norm = CGFloat(frequency - minFreq) / CGFloat(maxFreq - minFreq)
-            return plotFrame.minX + norm * plotFrame.width
-        }
+        let norm = CGFloat(frequency - minFreq) / CGFloat(maxFreq - minFreq)
+        return plotFrame.minX + norm * plotFrame.width
     }
 
     /// Converts a magnitude (dB) value to a y-coordinate within the given plot frame.
@@ -1044,7 +1018,7 @@ struct SpectrumView: View {
         .chartXScale(domain: minFreq < maxFreq
                         ? Double(minFreq)...Double(maxFreq)
                         : Double(minFreq)...Double(minFreq + 100),
-                     type: isLogarithmic ? .log : .linear)
+                     type: .linear)
         .chartYScale(domain: minDB < maxDB
                         ? Double(minDB)...Double(maxDB)
                         : Double(minDB)...Double(minDB + 10))
@@ -1212,7 +1186,6 @@ struct SpectrumView: View {
     @Previewable @State var maxFreq: Float = 350
     @Previewable @State var minDB: Float = -100
     @Previewable @State var maxDB: Float = 0
-    @Previewable @State var isLogarithmic = false
     @Previewable @State var annotationOffsets: [UUID: CGPoint] = [:]
 
     let sampleFrequencies = stride(from: Float(20), through: Float(20000), by: Float(10)).map { $0 }
@@ -1238,7 +1211,6 @@ struct SpectrumView: View {
         maxFreq: $maxFreq,
         minDB: $minDB,
         maxDB: $maxDB,
-        isLogarithmic: $isLogarithmic,
         peaks: samplePeaks,
         showModeBoundaries: true,
         annotationOffsets: $annotationOffsets

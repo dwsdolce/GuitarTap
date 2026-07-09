@@ -181,7 +181,8 @@ struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init be
     /// Upper bound of the displayed magnitude range, in dBFS.
     let maxDB: Float
 
-    /// `true` when the frequency axis was displayed on a logarithmic scale.
+    /// Legacy field retained for `.guitartap` format compatibility; always `false`.
+    /// The frequency axis is linear on all platforms (log-axis support was removed).
     let isLogarithmic: Bool
 
     // MARK: - Display Settings
@@ -292,7 +293,7 @@ struct SpectrumSnapshot: Codable { // Codable satisfied by custom encode/init be
     ///   - maxFreq: Upper displayed frequency bound, in Hz.
     ///   - minDB: Lower displayed magnitude bound, in dBFS.
     ///   - maxDB: Upper displayed magnitude bound, in dBFS.
-    ///   - isLogarithmic: `true` if the frequency axis was logarithmic.
+    ///   - isLogarithmic: Legacy format-compatibility flag; always `false`.
     ///   - showUnknownModes: Whether unknown-mode peaks were visible.
     ///   - guitarType: Guitar classification active at save time.
     ///   - measurementType: Measurement mode (guitar / plate / brace) at save time.

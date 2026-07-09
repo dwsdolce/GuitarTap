@@ -39,15 +39,8 @@
 /// ## Axis bounds
 ///
 /// Both axes are clamped to prevent invalid states:
-/// - Frequency: 0 Hz – 5 kHz (linear) / 20 Hz – 5 kHz (log); minimum visible span 50 Hz (linear) / 1.1× ratio (log)
+/// - Frequency: 0 Hz – 5 kHz; minimum visible span 50 Hz
 /// - Magnitude: −120 dB – +20 dB; minimum visible span 10 dB
-///
-/// ## Logarithmic zoom
-///
-/// Frequency zoom in log mode works in log₁₀ space: the log-distance from the
-/// anchor to each edge is divided by the zoom scale, then the result is
-/// exponentiated.  This keeps the perceived zoom speed constant regardless
-/// of where in the frequency range the anchor falls.
 ///
 /// - SeeAlso: `SpectrumScrollWheel`, `SpectrumView+SnapInterpolation`
 //
@@ -228,34 +221,17 @@ extension SpectrumView {
 #endif
 
     /// Applies a frequency-axis zoom about `anchorFreq` (the value kept fixed).
-    /// Linear or log₁₀ depending on `isLogarithmic`; clamps to 0/20 Hz…5 kHz with a
-    /// minimum visible span (50 Hz linear / 1.1× log) and notifies via `onFrequencyRangeChanged`.
+    /// Clamps to 0 Hz…5 kHz with a minimum visible span of 50 Hz and notifies via
+    /// `onFrequencyRangeChanged`.
     func applyFrequencyZoom(scale: CGFloat, anchorFreq: Float) {
-        if isLogarithmic {
-            let logAnchor = log10(Double(anchorFreq))
-            let logMin = log10(Double(minFreq))
-            let logMax = log10(Double(maxFreq))
-            let newLogMin = logAnchor - (logAnchor - logMin) / Double(scale)
-            let newLogMax = logAnchor + (logMax - logAnchor) / Double(scale)
-            var newMinFreq = Float(pow(10, newLogMin))
-            var newMaxFreq = Float(pow(10, newLogMax))
-            newMinFreq = max(20, newMinFreq)
-            newMaxFreq = min(maxDisplayFrequency, newMaxFreq)
-            if newMaxFreq > newMinFreq * 1.1 {
-                minFreq = newMinFreq
-                maxFreq = newMaxFreq
-                onFrequencyRangeChanged?()
-            }
-        } else {
-            var newMinFreq = anchorFreq - (anchorFreq - minFreq) / Float(scale)
-            var newMaxFreq = anchorFreq + (maxFreq - anchorFreq) / Float(scale)
-            newMinFreq = max(0, newMinFreq)
-            newMaxFreq = min(maxDisplayFrequency, newMaxFreq)
-            if newMaxFreq > newMinFreq + 50 {
-                minFreq = newMinFreq
-                maxFreq = newMaxFreq
-                onFrequencyRangeChanged?()
-            }
+        var newMinFreq = anchorFreq - (anchorFreq - minFreq) / Float(scale)
+        var newMaxFreq = anchorFreq + (maxFreq - anchorFreq) / Float(scale)
+        newMinFreq = max(0, newMinFreq)
+        newMaxFreq = min(maxDisplayFrequency, newMaxFreq)
+        if newMaxFreq > newMinFreq + 50 {
+            minFreq = newMinFreq
+            maxFreq = newMaxFreq
+            onFrequencyRangeChanged?()
         }
     }
 
@@ -325,13 +301,7 @@ extension SpectrumView {
                 let screenX = anchor.x * viewWidth
                 let plotFraction = (screenX - lastPlotFrame.minX) / lastPlotFrame.width
                 let fraction = plotFraction.clamped(to: 0...1)
-                if isLogarithmic {
-                    let logMin = log10(Double(minFreq))
-                    let logMax = log10(Double(maxFreq))
-                    return Float(pow(10, logMin + fraction * (logMax - logMin)))
-                } else {
-                    return minFreq + Float(fraction) * (maxFreq - minFreq)
-                }
+                return minFreq + Float(fraction) * (maxFreq - minFreq)
             }
             return (maxFreq + minFreq) / 2
         }()
@@ -365,62 +335,34 @@ extension SpectrumView {
     /// Handles drag gestures for panning the view.
     ///
     /// Pan sensitivity is adjusted based on the current visible range.
-    /// Different panning algorithms are used for logarithmic vs. linear frequency scales.
     ///
     /// - Parameter translation: The drag translation from the gesture
     ///
     /// - Note: Panning is constrained to keep the view within valid bounds
     func handlePan(translation: CGSize) {
-        if isLogarithmic {
-            // Pan on frequency axis (logarithmic scale)
-            // Work in log space for natural panning behavior
-            let freqLogRange = log10(Double(maxFreq)) - log10(Double(minFreq))
-            let freqPanFactor = Double(translation.width) / 400.0 // Adjust sensitivity
-            let freqLogShift = freqLogRange * freqPanFactor
+        // Pan on frequency axis (linear scale)
+        let freqRange = maxFreq - minFreq
+        let freqPanFactor = Float(translation.width) / 400.0 // Adjust sensitivity
+        let freqShift = freqRange * freqPanFactor
 
-            var newMinFreq = Float(pow(10, log10(Double(minFreq)) - freqLogShift))
-            var newMaxFreq = Float(pow(10, log10(Double(maxFreq)) - freqLogShift))
+        var newMinFreq = minFreq - freqShift
+        var newMaxFreq = maxFreq - freqShift
 
-            // Clamp to boundaries and adjust both values to maintain range
-            if newMinFreq < 20 {
-                let shift = 20 - newMinFreq
-                newMinFreq = 20
-                newMaxFreq += shift
-            }
-            if newMaxFreq > maxDisplayFrequency {
-                let shift = newMaxFreq - maxDisplayFrequency
-                newMaxFreq = maxDisplayFrequency
-                newMinFreq -= shift
-            }
-
-            minFreq = max(20, newMinFreq)
-            maxFreq = min(maxDisplayFrequency, newMaxFreq)
-            onFrequencyRangeChanged?()
-        } else {
-            // Pan on frequency axis (linear scale)
-            let freqRange = maxFreq - minFreq
-            let freqPanFactor = Float(translation.width) / 400.0 // Adjust sensitivity
-            let freqShift = freqRange * freqPanFactor
-
-            var newMinFreq = minFreq - freqShift
-            var newMaxFreq = maxFreq - freqShift
-
-            // Clamp to boundaries
-            if newMinFreq < 0 {
-                let shift = -newMinFreq
-                newMinFreq = 0
-                newMaxFreq += shift
-            }
-            if newMaxFreq > maxDisplayFrequency {
-                let shift = newMaxFreq - maxDisplayFrequency
-                newMaxFreq = maxDisplayFrequency
-                newMinFreq -= shift
-            }
-
-            minFreq = max(0, newMinFreq)
-            maxFreq = min(maxDisplayFrequency, newMaxFreq)
-            onFrequencyRangeChanged?()
+        // Clamp to boundaries
+        if newMinFreq < 0 {
+            let shift = -newMinFreq
+            newMinFreq = 0
+            newMaxFreq += shift
         }
+        if newMaxFreq > maxDisplayFrequency {
+            let shift = newMaxFreq - maxDisplayFrequency
+            newMaxFreq = maxDisplayFrequency
+            newMinFreq -= shift
+        }
+
+        minFreq = max(0, newMinFreq)
+        maxFreq = min(maxDisplayFrequency, newMaxFreq)
+        onFrequencyRangeChanged?()
 
         // Pan on dB axis (always linear)
         let dbRange = maxDB - minDB

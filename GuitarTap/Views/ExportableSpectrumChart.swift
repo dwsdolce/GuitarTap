@@ -73,8 +73,6 @@ struct ExportableSpectrumChart: View {
     let minDB: Float
     /// Maximum magnitude (dBFS) of the visible chart range.
     let maxDB: Float
-    /// When `true`, the frequency axis uses a logarithmic scale.
-    let isLogarithmic: Bool
     /// Peaks to annotate. Pass `nil` to suppress all peak annotations.
     var peaks: [ResonantPeak]?
     /// Whether to draw guitar mode boundary lines.
@@ -158,8 +156,7 @@ struct ExportableSpectrumChart: View {
     private var frequencyAxisValues: [Double] {
         let lo = Double(minFreq)
         let hi = Double(maxFreq)
-        let scale: AxisScale = isLogarithmic ? AxisScale.logarithmic() : .linear
-        return AxisTickGenerator.generateTicks(min: lo, max: hi, maxTicks: 8, scale: scale)
+        return AxisTickGenerator.generateTicks(min: lo, max: hi, maxTicks: 8)
             .filter { $0 >= lo && $0 <= hi }
     }
 
@@ -335,7 +332,7 @@ struct ExportableSpectrumChart: View {
                 .chartPlotStyle { plotArea in
                     plotArea.border(Color.gray, width: 1)
                 }
-                .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: isLogarithmic ? .log : .linear)
+                .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: .linear)
                 .chartYScale(domain: Double(minDB)...Double(maxDB))
                 .chartXAxis {
                     AxisMarks(values: frequencyAxisValues) { value in
@@ -602,7 +599,6 @@ func makeExportableSpectrumView(
             maxFreq: maxFreq,
             minDB: minDB,
             maxDB: maxDB,
-            isLogarithmic: false,
             peaks: peaks,
             showModeBoundaries: true,
             annotationOffsets: annotationOffsets,

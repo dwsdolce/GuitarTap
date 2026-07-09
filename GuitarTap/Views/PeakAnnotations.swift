@@ -20,10 +20,9 @@
 /// ## Position Calculation
 ///
 /// Label positions are computed from chart coordinates using the current axis
-/// ranges. Both linear and logarithmic frequency scales are supported:
+/// ranges:
 ///
-/// - **Linear X**: `freqNormalized = (freq - minFreq) / (maxFreq - minFreq)`
-/// - **Log X**: `freqNormalized = (log10(freq) - log10(min)) / (log10(max) - log10(min))`
+/// - **X**: `freqNormalized = (freq - minFreq) / (maxFreq - minFreq)`
 /// - **Y**: `dbNormalized = (clampedMag - minDB) / (maxDB - minDB)` — inverted
 ///   because SwiftUI's coordinate system has y=0 at the top.
 ///
@@ -73,8 +72,6 @@ struct PeakAnnotationsOverlay: View {
     let minDB: Float
     /// Maximum displayed magnitude (dBFS).
     let maxDB: Float
-    /// When `true`, the frequency axis is logarithmic.
-    let isLogarithmic: Bool
     /// Set to `true` while any annotation is being dragged; used to suppress
     /// chart interactions during a drag gesture.
     @Binding var isAnnotationDragging: Bool
@@ -122,7 +119,6 @@ struct PeakAnnotationsOverlay: View {
                     maxFreq: maxFreq,
                     minDB: minDB,
                     maxDB: maxDB,
-                    isLogarithmic: isLogarithmic,
                     isAnnotationDragging: $isAnnotationDragging,
                     measurementType: measurementType,
                     selectedLongitudinalPeakID: selectedLongitudinalPeakID,
@@ -178,8 +174,6 @@ struct DraggablePeakAnnotation: View {
     let minDB: Float
     /// Maximum displayed magnitude (dBFS).
     let maxDB: Float
-    /// When `true`, frequency-to-X mapping uses a log10 transform.
-    let isLogarithmic: Bool
     /// Propagated to the parent so it can suppress chart interactions.
     @Binding var isAnnotationDragging: Bool
 
@@ -273,18 +267,8 @@ struct DraggablePeakAnnotation: View {
 
         // Calculate X position (frequency)
         let freqRange = maxFreq - minFreq
-        let freqNormalized: CGFloat
-        if isLogarithmic {
-            let logMin = log10(Double(minFreq))
-            let logMax = log10(Double(maxFreq))
-            let logRange = logMax - logMin
-            guard logRange > 0, minFreq > 0, maxFreq > 0 else { return .zero }
-            let logFreq = log10(Double(peak.frequency))
-            freqNormalized = CGFloat((logFreq - logMin) / logRange)
-        } else {
-            guard freqRange > 0 else { return .zero }
-            freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
-        }
+        guard freqRange > 0 else { return .zero }
+        let freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
         let x = plotFrame.minX + freqNormalized * chartWidth
 
         // Calculate Y position (magnitude)
@@ -305,18 +289,8 @@ struct DraggablePeakAnnotation: View {
 
         // Calculate X position (frequency)
         let freqRange = maxFreq - minFreq
-        let freqNormalized: CGFloat
-        if isLogarithmic {
-            let logMin = log10(Double(minFreq))
-            let logMax = log10(Double(maxFreq))
-            let logRange = logMax - logMin
-            guard logRange > 0, minFreq > 0, maxFreq > 0 else { return .zero }
-            let logFreq = log10(Double(peak.frequency))
-            freqNormalized = CGFloat((logFreq - logMin) / logRange)
-        } else {
-            guard freqRange > 0 else { return .zero }
-            freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
-        }
+        guard freqRange > 0 else { return .zero }
+        let freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
         let x = plotFrame.minX + freqNormalized * chartWidth
 
         // Calculate Y position (magnitude)
