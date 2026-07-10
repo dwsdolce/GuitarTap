@@ -78,6 +78,7 @@ extension TapToneAnalyzer {
     ///   transient may occur within the first half-second of the recording.
     /// - Parameter initialPhase: For material (plate/brace) modes, the tap phase to begin
     ///   capturing in; when `nil`, the sequence starts at its first phase.
+    // @parity state/tap-session
     func startTapSequence(skipWarmup: Bool = false, initialPhase: MaterialTapPhase? = nil) {
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate

@@ -212,6 +212,7 @@ struct TapToneAnalysisView: View {
 
     /// Cancel restarts the current sequence; it's offered during a review phase (where it
     /// acts as "Redo") or while an active multi-step sequence is in progress.
+    // @parity state/button-enablement
     var cancelButtonEnabled: Bool {
         isInReviewPhase || isInActiveMultiStepSequence
     }
