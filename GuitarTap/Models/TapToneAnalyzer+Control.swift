@@ -290,52 +290,30 @@ extension TapToneAnalyzer {
 
     // MARK: - Cancel
 
-    /// Cancels the current tap sequence and stops detection.
+    /// Cancels the current tap sequence by restarting it.
     ///
-    /// All per-sequence data (captured taps, phase spectra, peaks) is cleared and the
-    /// spectrum is unfrozen.  Detection is stopped — the user presses New Tap to begin
-    /// a new sequence, allowing them to adjust settings first.
+    /// Cancel is a **restart**: it returns the analyzer to the exact state that New
+    /// Tap produces — a fresh, re-armed sequence waiting for the first tap — rather
+    /// than completing the measurement.  (Previously this set
+    /// `isMeasurementComplete = true` purely to re-enable the New Tap button; that
+    /// button-gating hack is gone now that the button rule keys off whether a
+    /// multi-step sequence is active.)  Cancel is only offered while a multi-step
+    /// (multi-tap or multi-phase) sequence is in progress; re-arming there returns
+    /// to tap 0 of that sequence.
+    ///
+    /// Runs fully synchronously, matching Python's `cancel_tap_sequence`.  All call
+    /// sites are main-thread (Cancel button action).
     func cancelTapSequence() {
-        gtLog("❌ Tap sequence cancelled")
-
-        // Runs fully synchronously, matching Python's cancel_tap_sequence.
-        // All call sites are main-thread (Cancel button action).
-
-        capturedTaps        = []
-        tapEntries          = []
-        showingMultiTapComparison = false
-        currentTapCount     = 0
-        tapProgress         = 0.0
-        tapDetected         = false
-        isDetectionPaused   = false
-        isDetecting         = false
-        // Mark as complete so New Tap is re-enabled after cancel.
-        isMeasurementComplete = true
-
-        // Cancel any in-flight gated capture (must be explicit since
-        // resetMaterialPhaseState no longer clears gated state).
-        gatedCaptureActive = false
-        mpmLock.lock()
-        gatedAccumBuffer = []
-        // Session recording: discard the buffer on cancel.
-        isSessionRecording = false
-        sessionRecordingBuffer = []
-        sessionCheckpoints = []
-        mpmLock.unlock()
-
-        resetMaterialPhaseState(to: .notStarted)
-        resetDecayTracking()
-
-        // Clear frozen spectrum data (atomic — prevents transient length mismatch).
-        setFrozenSpectrum(frequencies: [], magnitudes: [])
-
-        analyzerStartTime = Date()
-        isAboveThreshold  = false
-
+        gtLog("❌ Tap sequence cancelled — restarting")
+        // A pending capture-completion timer from the sequence being abandoned must
+        // not fire into the fresh one.
         captureTimer?.invalidate()
         captureTimer = nil
-
-        statusMessage = "Cancelled — press New Tap to start again"
+        // Re-arm a fresh sequence — identical to pressing New Tap. startTapSequence
+        // clears captured taps / counts / frozen spectrum, resets the material phase,
+        // restarts session recording, and sets isDetecting = true with the correct
+        // "Ready…" status.
+        startTapSequence()
     }
 
     // MARK: - Phase Review (Accept / Redo)

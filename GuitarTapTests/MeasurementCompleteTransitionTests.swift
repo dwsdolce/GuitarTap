@@ -111,24 +111,20 @@ struct MeasurementCompleteTransitionTests {
                 "startTapSequence must reset isMeasurementComplete to false")
     }
 
-    // MC5: cancelTapSequence clears the frozen spectrum arrays.
-    // NOTE: cancelTapSequence does NOT set isMeasurementComplete = false —
-    // it only calls setFrozenSpectrum([], []).  The display therefore shows
-    // nothing (empty frozen arrays) until the next startTapSequence() call
-    // sets the flag to false.  This matches Swift's documented behaviour.
-    // cancelTapSequence also dispatches to DispatchQueue.main.async.
-    @Test func cancelTapSequence_clearsFrozenSpectrum() async {
+    // MC5: Cancel is a restart — it re-arms a fresh sequence (≡ New Tap), which clears
+    // the frozen spectrum, resets isMeasurementComplete to false, and re-arms detection.
+    @Test func cancelTapSequence_reArmsAndClearsFrozen() {
         let sut = makeSUT(numberOfTaps: 1)
         sut.capturedTaps = [fakeTap()]
         sut.processMultipleTaps()
         #expect(!sut.frozenMagnitudes.isEmpty)
+        #expect(sut.isMeasurementComplete == true)
 
         sut.cancelTapSequence()
-        await Task.yield()   // let the main.async block execute
-        #expect(sut.frozenMagnitudes.isEmpty,
-                "cancelTapSequence must clear frozenMagnitudes")
-        #expect(sut.frozenFrequencies.isEmpty,
-                "cancelTapSequence must clear frozenFrequencies")
+        #expect(sut.frozenMagnitudes.isEmpty, "cancel must clear frozenMagnitudes")
+        #expect(sut.frozenFrequencies.isEmpty, "cancel must clear frozenFrequencies")
+        #expect(sut.isMeasurementComplete == false, "cancel re-arms → measurement not complete")
+        #expect(sut.isDetecting == true, "cancel re-arms detection")
     }
 
     // MC6: processMultipleTaps with empty capturedTaps does NOT set isMeasurementComplete

@@ -187,8 +187,9 @@ struct ScenarioStateTraceTests {
         #expect(trace == expected, "trace mismatch:\n  got: \(trace)\n  exp: \(expected)")
     }
 
-    // S4: Multi-tap cancelled mid-sequence.  cancelTapSequence sets
-    // isMeasurementComplete=true so New Tap re-enables.
+    // S4: Multi-tap cancelled mid-sequence.  Cancel is a restart — cancelTapSequence
+    // re-arms a fresh sequence (≡ New Tap): isDetecting=true, isMeasurementComplete=false,
+    // counts reset to 0.
     @Test func scenario_multiTap_cancel() async throws {
         let sut = makeSUT(numberOfTaps: 3)
         var trace: [StateSnapshot] = []
@@ -211,7 +212,7 @@ struct ScenarioStateTraceTests {
             StateSnapshot(label: "init",       isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
             StateSnapshot(label: "postStart",  isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
             StateSnapshot(label: "postTap1",   isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "postCancel", isDetecting: false, isDetectionPaused: false, isMeasurementComplete: true,  currentTapCount: 0, capturedTapsCount: 0),
+            StateSnapshot(label: "postCancel", isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
         ]
         #expect(trace == expected, "trace mismatch:\n  got: \(trace)\n  exp: \(expected)")
     }

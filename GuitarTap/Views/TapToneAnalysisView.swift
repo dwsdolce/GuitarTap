@@ -194,18 +194,26 @@ struct TapToneAnalysisView: View {
         }
     }
 
-    /// Cancel button is enabled during any active tap detection sequence.
-    /// During a review phase it acts as "Redo" and is always enabled.
+    /// True while an **active multi-step** sequence — multi-tap (`numberOfTaps > 1`) or
+    /// multi-phase (plate; brace is single-phase) — is in progress.
+    ///
+    /// Cancel (restart) is offered here.  "Active" means a sequence is underway (not
+    /// complete): for guitar, detecting or paused; for material, past `notStarted` and
+    /// before completion.  Single-tap / single-phase captures are not restartable via
+    /// Cancel — there's nothing collected to discard; just tap, or New Tap once complete.
+    var isInActiveMultiStepSequence: Bool {
+        let type = TapDisplaySettings.measurementType
+        let active = type.isGuitar
+            ? (tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused)
+            : (tapToneAnalyzer.materialTapPhase != .notStarted && !tapToneAnalyzer.isMeasurementComplete)
+        guard active else { return false }
+        return tapToneAnalyzer.numberOfTaps > 1 || type == .plate
+    }
+
+    /// Cancel restarts the current sequence; it's offered during a review phase (where it
+    /// acts as "Redo") or while an active multi-step sequence is in progress.
     var cancelButtonEnabled: Bool {
-        // "Redo" is available whenever we are in a review phase.
-        if isInReviewPhase { return true }
-        guard tapToneAnalyzer.isDetecting else { return false }
-        // For plate/brace: always available during an active multi-phase sequence.
-        guard TapDisplaySettings.measurementType.isGuitar else { return true }
-        // Guitar: only useful in multi-tap mode before all taps are captured.
-        guard tapToneAnalyzer.numberOfTaps > 1 else { return false }
-        guard tapToneAnalyzer.currentTapCount < tapToneAnalyzer.numberOfTaps else { return false }
-        return true
+        isInReviewPhase || isInActiveMultiStepSequence
     }
 
     /// Pause/Resume button is enabled during any active tap detection sequence.
@@ -215,21 +223,14 @@ struct TapToneAnalysisView: View {
         return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
     }
 
-    /// New Tap button is disabled only when there is nothing to start over from.
-    ///
-    /// For guitar mode it is disabled while a sequence is actively in progress (taps being
-    /// captured). The user must finish or cancel first.
-    /// For plate/brace mode it is always enabled so the user can start over at any point,
-    /// including while in a review phase or mid-capture.
+    /// New Tap starts a fresh measurement, so it only makes sense once one is **complete**
+    /// — every type-switch auto-arms into capturing, so there is no disarmed idle state.
+    /// Disabled while capturing/reviewing; always enabled in comparison mode; disabled when
+    /// the FFT isn't ready.
     var newTapButtonDisabled: Bool {
         guard tapToneAnalyzer.displayMode != .comparison else { return false }
         guard fft.isRunning && tapToneAnalyzer.isReadyForDetection else { return true }
-        // Plate/brace: always allow starting over (even during capture or review).
-        if !TapDisplaySettings.measurementType.isGuitar { return false }
-        // Guitar: disabled while detecting or before any sequence has run.
-        if tapToneAnalyzer.isDetecting { return true }
-        if !tapToneAnalyzer.isMeasurementComplete { return true }
-        return false
+        return !tapToneAnalyzer.isMeasurementComplete
     }
 
     /// Creates the view and its paired audio analyzers.

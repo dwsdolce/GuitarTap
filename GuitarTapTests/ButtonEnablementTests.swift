@@ -65,6 +65,16 @@ func buttonRule(_ s: ButtonState) -> ButtonOutput {
         }
     }()
 
+    // New Tap starts a fresh measurement, so it's enabled only once one is complete
+    // (every type-switch auto-arms into capturing — there's no disarmed idle state).
+    // Cancel restarts, offered during a review phase (as "Redo") or an active multi-step
+    // sequence (multi-tap or multi-phase = plate).
+    let active: Bool = isGuitar
+        ? (s.isDetecting || s.isDetectionPaused)
+        : (s.materialTapPhase != .notStarted && !s.isMeasurementComplete)
+    let multiStep = s.numberOfTaps > 1 || s.measurementType == .plate
+    let inActiveMultiStep = active && multiStep
+
     let pauseEnabled: Bool
     if isInReviewPhase {
         pauseEnabled = true
@@ -77,30 +87,11 @@ func buttonRule(_ s: ButtonState) -> ButtonOutput {
         newTapDisabled = false
     } else if !(s.fftIsRunning && s.isReadyForDetection) {
         newTapDisabled = true
-    } else if !isGuitar {
-        newTapDisabled = false
-    } else if s.isDetecting {
-        newTapDisabled = true
-    } else if !s.isMeasurementComplete {
-        newTapDisabled = true
     } else {
-        newTapDisabled = false
+        newTapDisabled = !s.isMeasurementComplete
     }
 
-    let cancelEnabled: Bool
-    if isInReviewPhase {
-        cancelEnabled = true
-    } else if !s.isDetecting {
-        cancelEnabled = false
-    } else if !isGuitar {
-        cancelEnabled = true
-    } else if s.numberOfTaps <= 1 {
-        cancelEnabled = false
-    } else if s.currentTapCount >= s.numberOfTaps {
-        cancelEnabled = false
-    } else {
-        cancelEnabled = true
-    }
+    let cancelEnabled = isInReviewPhase || inActiveMultiStep
 
     return ButtonOutput(pauseEnabled: pauseEnabled,
                         newTapDisabled: newTapDisabled,
@@ -115,21 +106,21 @@ func buttonRule(_ s: ButtonState) -> ButtonOutput {
 @MainActor
 struct ButtonEnablementTests {
 
-    // B1: Fresh / idle guitar — nothing started, nothing complete.  All disabled.
+    // B1: Fresh / idle guitar — nothing complete, nothing active.  All disabled (New Tap
+    // only lights up once a measurement is complete).
     @Test func guitar_idle_allDisabled() {
         let s = ButtonState(isDetecting: false,
                             isDetectionPaused: false,
                             isMeasurementComplete: false)
         #expect(buttonRule(s) == ButtonOutput(
             pauseEnabled: false,
-            newTapDisabled: true,    // !isMeasurementComplete && !isDetecting
+            newTapDisabled: true,    // not complete → New Tap disabled
             cancelEnabled: false))
     }
 
-    // B2: Guitar mid single-tap sequence — detecting, not paused, not complete.
-    // Pause enabled, New Tap disabled (sequence in progress), Cancel disabled
-    // because numberOfTaps == 1 (no point in cancelling a one-tap sequence).
-    @Test func guitar_midSingleTap_pauseAndCancelOnly() {
+    // B2: Guitar single-tap listening — mid-capture, so New Tap is disabled (it only makes
+    // sense once complete).  Pause enabled; Cancel disabled (nothing multi-step to restart).
+    @Test func guitar_singleTapListening_pauseOnly() {
         let s = ButtonState(isDetecting: true,
                             isDetectionPaused: false,
                             isMeasurementComplete: false,
@@ -154,26 +145,22 @@ struct ButtonEnablementTests {
             cancelEnabled: false))
     }
 
-    // B4: REGRESSION — the impossible state the iPad bug produced.  If the
-    // analyzer state ever reaches (isDetecting && isMeasurementComplete) for
-    // guitar mode, the buttons reflect "detecting" (Pause on, New Tap off),
-    // not "complete".  StateInvariantTests guards against the state existing;
-    // this test documents what the button rule WOULD do if the invariant
-    // were ever violated.
-    @Test func guitar_impossibleState_detectingAndComplete_showsDetectingButtons() {
+    // B4: The impossible (isDetecting && isMeasurementComplete) state — StateInvariantTests
+    // forbids it.  New Tap keys off "complete" and Pause off "detecting", so this
+    // contradictory state lights up BOTH — the witness that it must never occur.
+    @Test func guitar_impossibleState_lightsBothNewTapAndPause() {
         let s = ButtonState(isDetecting: true,
                             isDetectionPaused: false,
                             isMeasurementComplete: true)
         let out = buttonRule(s)
-        #expect(out.pauseEnabled == true,
-                "Bug witness: Pause enabled despite measurement complete")
-        #expect(out.newTapDisabled == true,
-                "Bug witness: New Tap disabled despite measurement complete")
+        #expect(out.newTapDisabled == false)  // complete → New Tap enabled
+        #expect(out.pauseEnabled == true)     // detecting → Pause enabled
+        #expect(out.cancelEnabled == false)
     }
 
-    // B5: Guitar mid multi-tap — detecting next tap of N.  Pause and Cancel
-    // both enabled (Cancel only useful in multi-tap mode).
-    @Test func guitar_midMultiTap_pauseAndCancelEnabled() {
+    // B5: Guitar mid multi-tap — locked in the sequence.  New Tap disabled; Pause and
+    // Cancel (restart) enabled.
+    @Test func guitar_midMultiTap_newTapDisabled_pauseCancelEnabled() {
         let s = ButtonState(isDetecting: true,
                             isDetectionPaused: false,
                             isMeasurementComplete: false,
@@ -185,10 +172,10 @@ struct ButtonEnablementTests {
             cancelEnabled: true))
     }
 
-    // B6: Guitar paused — isDetecting false, isDetectionPaused true.  Pause
-    // (now "Resume") still enabled; New Tap disabled because measurement isn't
-    // complete; Cancel disabled because !isDetecting.
-    @Test func guitar_paused_pauseStillEnabled() {
+    // B6: Guitar multi-tap paused — still an active multi-step sequence.  Pause (now
+    // "Resume") enabled; New Tap disabled; Cancel (restart) enabled (paused counts as
+    // active, unlike the old rule which gated Cancel on isDetecting).
+    @Test func guitar_multiTapPaused_cancelStillEnabled() {
         let s = ButtonState(isDetecting: false,
                             isDetectionPaused: true,
                             isMeasurementComplete: false,
@@ -197,12 +184,12 @@ struct ButtonEnablementTests {
         #expect(buttonRule(s) == ButtonOutput(
             pauseEnabled: true,
             newTapDisabled: true,
-            cancelEnabled: false))
+            cancelEnabled: true))
     }
 
-    // B7: Plate review phase — buttons reflect Accept/Redo semantics with all
-    // three enabled regardless of detection state.
-    @Test func plate_review_allEnabled() {
+    // B7: Plate review — plate is multi-phase, so the sequence is active: New Tap
+    // disabled (Cancel restarts it), Pause = "Accept", Cancel = "Redo".
+    @Test func plate_review_newTapDisabled_cancelPauseEnabled() {
         let s = ButtonState(isDetecting: false,
                             isDetectionPaused: false,
                             isMeasurementComplete: false,
@@ -210,13 +197,12 @@ struct ButtonEnablementTests {
                             materialTapPhase: .reviewingLongitudinal)
         #expect(buttonRule(s) == ButtonOutput(
             pauseEnabled: true,    // "Accept"
-            newTapDisabled: false, // plate/brace always allow start-over
+            newTapDisabled: true,  // locked in the active multi-phase sequence
             cancelEnabled: true))  // "Redo"
     }
 
-    // B8: Plate active capture — detecting, not in review.  Pause and Cancel
-    // enabled; New Tap enabled because plate/brace always permit start-over.
-    @Test func plate_capturing_pauseCancelNewTapAll_Enabled() {
+    // B8: Plate active capture — multi-phase, active: New Tap disabled, Pause + Cancel enabled.
+    @Test func plate_capturing_newTapDisabled_cancelPauseEnabled() {
         let s = ButtonState(isDetecting: true,
                             isDetectionPaused: false,
                             isMeasurementComplete: false,
@@ -224,7 +210,7 @@ struct ButtonEnablementTests {
                             materialTapPhase: .capturingLongitudinal)
         #expect(buttonRule(s) == ButtonOutput(
             pauseEnabled: true,
-            newTapDisabled: false,
+            newTapDisabled: true,
             cancelEnabled: true))
     }
 
@@ -244,5 +230,36 @@ struct ButtonEnablementTests {
                             isMeasurementComplete: false,
                             displayModeIsComparison: true)
         #expect(buttonRule(s).newTapDisabled == false)
+    }
+
+    // B11: Brace single-tap capturing — single-phase + single-tap (like single-tap guitar):
+    // not complete so New Tap disabled; Pause on (threshold-setting); Cancel disabled
+    // (nothing multi-step to restart).
+    @Test func brace_singleTapCapturing_pauseOnly() {
+        let s = ButtonState(isDetecting: true,
+                            isDetectionPaused: false,
+                            isMeasurementComplete: false,
+                            measurementType: .brace,
+                            materialTapPhase: .capturingLongitudinal,
+                            numberOfTaps: 1)
+        #expect(buttonRule(s) == ButtonOutput(
+            pauseEnabled: true,
+            newTapDisabled: true,
+            cancelEnabled: false))
+    }
+
+    // B12: Brace multi-tap capturing — multi-tap makes it multi-step: New Tap disabled,
+    // Cancel (restart) enabled.
+    @Test func brace_multiTapCapturing_newTapDisabled_cancelEnabled() {
+        let s = ButtonState(isDetecting: true,
+                            isDetectionPaused: false,
+                            isMeasurementComplete: false,
+                            measurementType: .brace,
+                            materialTapPhase: .capturingLongitudinal,
+                            numberOfTaps: 3)
+        #expect(buttonRule(s) == ButtonOutput(
+            pauseEnabled: true,
+            newTapDisabled: true,
+            cancelEnabled: true))
     }
 }
