@@ -634,6 +634,16 @@
       "equivalence": "test suite"
     },
     {
+      "slug": "test/tap-count-change",
+      "swift": [],
+      "python": [],
+      "web": [
+        "test/tap-count-change.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
       "slug": "test/tap-decisions",
       "swift": [
         "GuitarTapTests/TapDetectionTests.swift"
