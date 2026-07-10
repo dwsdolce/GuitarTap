@@ -315,7 +315,7 @@
       "equivalence": "tests"
     },
     {
-      "slug": "state/tap-session",
+      "slug": "state/tap-tone-analyzer",
       "swift": [
         "GuitarTap/Models/TapToneAnalyzer+Control.swift"
       ],
@@ -323,7 +323,7 @@
         "src/guitar_tap/models/tap_tone_analyzer_control.py"
       ],
       "web": [
-        "src/state/tapSession.ts"
+        "src/state/tapToneAnalyzer.ts"
       ],
       "tests": [
         "test/measurement-complete",
