@@ -463,7 +463,9 @@
       "python": [
         "tests/test_frozen_peak_recalculation.py"
       ],
-      "web": [],
+      "web": [
+        "test/frozen-peak-recalc.test.ts"
+      ],
       "tests": [],
       "equivalence": "test suite"
     },
