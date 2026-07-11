@@ -8,7 +8,9 @@
       "python": [
         "src/guitar_tap/models/realtime_fft_analyzer.py"
       ],
-      "web": [],
+      "web": [
+        "src/audio/realtimeFFTAnalyzer.ts"
+      ],
       "tests": [],
       "equivalence": "review only"
     },
@@ -21,8 +23,8 @@
         "src/guitar_tap/models/tap_tone_analyzer.py"
       ],
       "web": [
-        "src/audio/engine.ts",
-        "src/dsp/guitarFFT.ts"
+        "src/dsp/guitarFFT.ts",
+        "src/state/tapToneAnalyzer.ts"
       ],
       "tests": [
         "test/tap-decisions"

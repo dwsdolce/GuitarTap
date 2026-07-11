@@ -19,8 +19,8 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 
 | slug | Swift | Python | Web | Equivalence |
 |---|---|---|---|---|
-| `audio/realtime-analyzer` | `GuitarTap/Models/RealtimeFFTAnalyzer.swift` | `src/guitar_tap/models/realtime_fft_analyzer.py` | — | review only |
-| `audio/tap-analyzer` | `GuitarTap/Models/TapToneAnalyzer.swift` | `src/guitar_tap/models/tap_tone_analyzer.py` | `src/audio/engine.ts`<br>`src/dsp/guitarFFT.ts` | tests |
+| `audio/realtime-analyzer` | `GuitarTap/Models/RealtimeFFTAnalyzer.swift` | `src/guitar_tap/models/realtime_fft_analyzer.py` | `src/audio/realtimeFFTAnalyzer.ts` | review only |
+| `audio/tap-analyzer` | `GuitarTap/Models/TapToneAnalyzer.swift` | `src/guitar_tap/models/tap_tone_analyzer.py` | `src/dsp/guitarFFT.ts`<br>`src/state/tapToneAnalyzer.ts` | tests |
 | `dsp/analysis-quality` | `GuitarTap/Views/Utilities/Extensions.swift` | `src/guitar_tap/models/guitar_type.py` | `src/dsp/analysisQuality.ts` | review only |
 | `dsp/calibration` | `GuitarTap/Models/MicrophoneCalibration.swift` | `src/guitar_tap/models/microphone_calibration.py` | `src/dsp/calibration.ts` | review only |
 | `dsp/decay` | `GuitarTap/Models/TapToneAnalyzer+DecayTracking.swift` | `src/guitar_tap/models/tap_tone_analyzer_decay_tracking.py` | `src/dsp/decay.ts` | tests |
