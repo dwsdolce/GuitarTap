@@ -309,7 +309,7 @@
         "src/guitar_tap/models/tap_tone_analyzer.py"
       ],
       "web": [
-        "src/state/statusMessage.ts"
+        "src/state/tapToneAnalyzer.ts"
       ],
       "tests": [
         "test/status-message"
