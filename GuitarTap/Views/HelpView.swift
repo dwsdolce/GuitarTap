@@ -212,7 +212,7 @@ After all taps, tap Results to see:
             Section {
                 helpRow(
                     title: "New Tap",
-                    body: "Arms the detector for the next tap (or begins a plate measurement sequence). A green indicator shows when a tap has been registered.",
+                    body: "Starts a fresh measurement — arms the detector (or begins a plate/brace sequence). Enabled only once the current measurement is complete; during a measurement it is disabled (use Cancel to start over). A green indicator shows when a tap has been registered.",
                     systemImages: ["hand.tap"]
                 )
                 helpRow(
@@ -222,7 +222,7 @@ After all taps, tap Results to see:
                 )
                 helpRow(
                     title: "Cancel  •  Redo (plate/brace review)",
-                    body: "Cancel aborts the current measurement sequence and discards all partial data.\n\nIn plate and brace mode, while reviewing a captured phase the button changes to Redo. Tap Redo to discard only the current phase's data and re-capture it — earlier phases are preserved. The detector re-arms immediately so you can tap again without pressing New Tap.",
+                    body: "Cancel restarts the measurement — it discards all partial data and immediately re-arms a fresh sequence, so you can tap again without pressing New Tap. Cancel is available while a measurement is in progress.\n\nIn plate and brace mode, while reviewing a captured phase the button changes to Redo. Tap Redo to discard only the current phase's data and re-capture it, preserving earlier phases. Either way the detector re-arms immediately.",
                     systemImages: ["xmark.circle", "arrow.counterclockwise.circle"]
                 )
                 helpRow(

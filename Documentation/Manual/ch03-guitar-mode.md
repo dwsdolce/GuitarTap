@@ -107,9 +107,10 @@ For tighter results, average several taps in one sequence.
 (to reset the instrument's position, for example). The captured
 taps so far are preserved; Resume continues from where you left off.
 
-**Cancel mid-sequence.** Press **Cancel** to discard all captured
-taps and end the sequence. New Tap then re-arms for a fresh
-attempt.
+**Cancel mid-sequence.** Press **Cancel** to restart the sequence — it
+discards the captured taps and immediately re-arms for a fresh attempt,
+so you can tap again straight away (no need to press New Tap). **New Tap**
+itself is only available once a measurement is complete.
 
 ## 3.6 Inspecting and Adjusting Peak Selections
 
