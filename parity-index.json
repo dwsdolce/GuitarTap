@@ -511,7 +511,9 @@
       "python": [
         "tests/test_import_persistence.py"
       ],
-      "web": [],
+      "web": [
+        "test/import-persistence.test.ts"
+      ],
       "tests": [],
       "equivalence": "test suite"
     },
