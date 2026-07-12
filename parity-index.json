@@ -30,7 +30,8 @@
         "src/state/tapToneAnalyzer.ts"
       ],
       "tests": [
-        "test/tap-decisions"
+        "test/tap-decisions",
+        "test/tap-progress"
       ],
       "equivalence": "tests"
     },
@@ -672,6 +673,20 @@
       ],
       "web": [
         "test/tap-decisions.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/tap-progress",
+      "swift": [
+        "GuitarTapTests/TapProgressTests.swift"
+      ],
+      "python": [
+        "tests/test_tap_progress.py"
+      ],
+      "web": [
+        "test/tap-progress.test.ts"
       ],
       "tests": [],
       "equivalence": "test suite"

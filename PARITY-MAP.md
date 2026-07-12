@@ -64,6 +64,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `test/status-message` | `GuitarTapTests/StatusMessageTests.swift` | `tests/test_status_message.py` | `test/status-message.test.ts` | test suite |
 | `test/tap-count-change` | `GuitarTapTests/TapCountChangeTests.swift` | `tests/test_tap_count_change.py` | `test/tap-count-change.test.ts` | test suite |
 | `test/tap-decisions` | `GuitarTapTests/TapDetectionTests.swift` | `tests/test_tap_detection.py` | `test/tap-decisions.test.ts` | test suite |
+| `test/tap-progress` | `GuitarTapTests/TapProgressTests.swift` | `tests/test_tap_progress.py` | `test/tap-progress.test.ts` | test suite |
 | `view/analysis-metrics` | `GuitarTap/Views/FFTAnalysisMetricsView.swift` | `src/guitar_tap/views/fft_analysis_metrics_view.py` | `src/components/MetricsPanel.tsx` | review only |
 | `view/comparison-results` | `GuitarTap/Views/ComparisonResultsView.swift` | `src/guitar_tap/views/comparison_results_view.py` | `src/components/ComparisonResultsView.tsx` | review only |
 | `view/guitar-summary` | `GuitarTap/Views/TapAnalysisResultsView.swift` | `src/guitar_tap/views/tap_tone_analysis_view.py` | `src/components/AnalysisResults.tsx` | review only |

@@ -416,9 +416,18 @@ extension TapToneAnalysisView {
                         .fontWeight(.semibold)
                         .foregroundColor(.blue)
                         .lineLimit(1)
+                }
 
+                // The BAR is gated on the tap COUNT ONLY — deliberately NOT on isDetecting, and so
+                // deliberately NOT inside the label's `if` above. isDetecting drops for the 0.5 s
+                // per-tap cooldown (scheduleGuitarReEnable), so sharing the label's gate made the bar
+                // blink out after every tap. Keyed on the count, it appears on the first tap and stays
+                // up for the whole measurement; New Tap / Cancel reset the count and clear it.
+                // This matches `fullStatusBar`, which already gates its bar on `currentTapCount > 0`.
+                if tap.currentTapCount > 0 {
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
+                        .tint(.blue) // systemBlue — see note on the fullStatusBar bar
                         .frame(width: 50)
                 }
 
@@ -497,8 +506,17 @@ extension TapToneAnalysisView {
             } else {
                 // Normal tap detection state
                 if tap.currentTapCount > 0 {
+                    // Tinted systemBlue EXPLICITLY rather than left to inherit the accent colour.
+                    // Untinted, a ProgressView takes the user's macOS accent (AccentColor.colorset is
+                    // empty), so the bar drifted with a System Settings preference while the phase
+                    // label beside it is a hard `.blue` — and neither Python (Qt `palette(highlight)`)
+                    // nor the web (its own `--accent`) could ever agree with it. All three now pin
+                    // systemBlue, which is itself light/dark adaptive (#007AFF / #0A84FF).
+                    // This is the colour token the Light/Dark/System theme work will own — see
+                    // GuitarTapWeb/Development/THEME-SPEC.md.
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
+                        .tint(.blue)
                 }
 
                 HStack(spacing: 12) {

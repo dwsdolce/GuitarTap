@@ -683,6 +683,7 @@ extension TapToneAnalysisView {
                         .fontWeight(.semibold)
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
+                        .tint(.blue) // systemBlue — see note on the fullStatusBar bar
                 }
             }
         }
