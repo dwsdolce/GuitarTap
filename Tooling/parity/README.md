@@ -35,12 +35,19 @@ paired tests, and this column shows which rows actually have that proof.
 ## Commands
 
 ```
-python3 Tooling/parity/gen_parity_map.py          # regenerate PARITY-MAP.md + parity-index.json
-python3 Tooling/parity/gen_parity_map.py --check  # CI: verify current + no orphan/malformed slugs
-python3 Tooling/parity/gen_parity_map.py --gaps   # report testable impl groups with NO test evidence
-python3 Tooling/parity/parity_lookup.py classify  # show a group's counterparts (any column)
-python3 Tooling/parity/parity_lookup.py . --sort=web   # browse everything, sorted by web path
+python3 Tooling/parity/gen_parity_map.py            # regenerate PARITY-MAP.md + parity-index.json + TEST-COVERAGE.md's coverage block
+python3 Tooling/parity/gen_parity_map.py --check    # CI: verify all three are current + no orphan/malformed slugs
+python3 Tooling/parity/gen_parity_map.py --coverage # print the functional-block coverage report (read-only)
+python3 Tooling/parity/gen_parity_map.py --gaps     # report testable impl groups with NO test evidence
+python3 Tooling/parity/parity_lookup.py classify    # show a group's counterparts (any column)
+python3 Tooling/parity/parity_lookup.py . --sort=web    # browse everything, sorted by web path
 ```
+
+`--coverage` prints the **functional-block coverage report** — of the testable blocks, how many are
+covered by a test group, how many are *proven on all three platforms* (≥1 linked `test/*` group that
+exists in every repo), and which are gaps — plus a per-area breakdown. The same numbers are written
+into `../../TEST-COVERAGE.md`'s "Current coverage state" block by `generate`, and `--check` fails if
+that block drifts. `--coverage` is read-only; it never writes.
 
 `--gaps` (also printed by `generate`/`--check`) lists **testable** impl groups
 (`dsp/` `audio/` `state/` `model/` — `view/*` is UI, review-only by design) whose
