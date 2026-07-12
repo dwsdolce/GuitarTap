@@ -226,7 +226,7 @@ extension TapToneAnalyzer {
                 statusMessage = "Ready for L tap"
             }
         } else {
-            statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
+            statusMessage = tapPrompt()
         }
 
         // Clear previous results so the chart shows a clean slate while waiting.
@@ -281,10 +281,8 @@ extension TapToneAnalyzer {
             default:
                 statusMessage = "Ready for C tap"
             }
-        } else if currentTapCount == 0 {
-            statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
         } else {
-            statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
+            statusMessage = guitarLoopStatus(capturing: false)
         }
         gtLog("▶️ Tap detection resumed at \(currentTapCount)/\(numberOfTaps)")
     }

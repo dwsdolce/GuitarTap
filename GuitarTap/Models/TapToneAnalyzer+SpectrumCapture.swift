@@ -699,7 +699,7 @@ extension TapToneAnalyzer {
         tapProgress = min(1.0, Float(currentTapCount) / Float(numberOfTaps))
 
         if currentTapCount < numberOfTaps {
-            statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
+            statusMessage = guitarLoopStatus(capturing: false)
             scheduleGuitarReEnable()
         } else {
             statusMessage = "All taps captured. Processing..."

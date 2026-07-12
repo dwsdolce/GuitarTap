@@ -624,8 +624,12 @@
     },
     {
       "slug": "test/tap-count-change",
-      "swift": [],
-      "python": [],
+      "swift": [
+        "GuitarTapTests/TapCountChangeTests.swift"
+      ],
+      "python": [
+        "tests/test_tap_count_change.py"
+      ],
       "web": [
         "test/tap-count-change.test.ts"
       ],

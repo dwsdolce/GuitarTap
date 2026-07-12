@@ -176,10 +176,12 @@ extension TapToneAnalyzer {
             }
         }
 
-        // Check if we're still in warm-up period (prevents false detections on startup)
+        // Check if we're still in warm-up period (prevents false detections on startup).
+        // The warm-up is SILENT: it suppresses detection but never writes statusMessage, so
+        // the prompt set at the transition (arm / accept / redo / resume) survives — mirrors
+        // the web's counter-based warm-up. (Was: overwrote the status with "Initializing…".)
         if let startTime = analyzerStartTime, now.timeIntervalSince(startTime) < warmupPeriod {
             tapDetected = false
-            statusMessage = "Initializing... (\(String(format: "%.1f", warmupPeriod - now.timeIntervalSince(startTime)))s)"
             justExitedWarmup = true  // Mark that next frame is first after warm-up
             return
         }
@@ -203,9 +205,9 @@ extension TapToneAnalyzer {
                 isAboveThreshold = peakMagnitude > effectiveRisingThreshold
                 TAP_DEBUG("detectTap", "WARMUP EXIT (absolute) | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAboveThreshold=\(isAboveThreshold)")
             }
-            // Don't detect on this frame - just sync the state
+            // Don't detect on this frame - just sync the state.  (The noise-floor
+            // re-anchor above stays; only the status write is gone — the warm-up is silent.)
             tapDetected = false
-            statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
             return
         }
 
@@ -223,11 +225,6 @@ extension TapToneAnalyzer {
             return
         } else {
             cooldownLogged = false
-        }
-
-        // Update status message if ready and waiting for tap
-        if currentTapCount == 0 && statusMessage.contains("Initializing") {
-            statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
         }
 
         // Update the detection level for UI display
@@ -253,7 +250,7 @@ extension TapToneAnalyzer {
                 // Falling edge.
                 if currentTapCount > 0 && currentTapCount < numberOfTaps {
                     TAP_DEBUG("detectTap", "SIGNAL SETTLED | tap \(currentTapCount)/\(numberOfTaps) — signal dropped below falling threshold")
-                    statusMessage = "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
+                    statusMessage = guitarLoopStatus(capturing: false)
                 }
                 TAP_DEBUG("detectTap", "FALLING EDGE | peakMag=\(String(format: "%.2f", peakMagnitude)) fallingThresh=\(String(format: "%.2f", fallingThreshold)) — signal settled, ready for next tap")
                 isAboveThreshold = false
@@ -340,13 +337,9 @@ extension TapToneAnalyzer {
         startDecayTracking()
 
         // Provisional status update — final status is emitted after the gated
-        // capture completes and capturedTaps grows.
-        let provisionalCount = capturedTaps.count + 1
-        if provisionalCount < numberOfTaps {
-            statusMessage = "Tap \(provisionalCount)/\(numberOfTaps) capturing..."
-        } else {
-            statusMessage = "All taps captured. Processing..."
-        }
+        // capture completes and capturedTaps grows.  (currentTapCount == capturedTaps.count
+        // here, so guitarLoopStatus's provisional +1 == the old capturedTaps.count + 1.)
+        statusMessage = guitarLoopStatus(capturing: true)
 
         // Open the guitar gated capture.  accumulateGatedSamples will fill the
         // accumulator over the next fftSize samples and dispatch

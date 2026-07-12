@@ -238,7 +238,7 @@ final class TapToneAnalyzer: ObservableObject {
         didSet {
             // Update the prompt if we're still waiting for the first tap.
             if isDetecting && currentTapCount == 0 {
-                statusMessage = numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
+                statusMessage = tapPrompt()
             }
             // If the user reduces numberOfTaps to at or below the taps already captured
             // mid-sequence, treat the already-captured taps as sufficient and process them.
@@ -255,6 +255,32 @@ final class TapToneAnalyzer: ObservableObject {
                 showLoadedSettingsWarning = false
             }
         }
+    }
+
+    // MARK: - Status derivation (mirrors the web state→string machine)
+
+    /// The guitar resting prompt (post-warm-up steady state) — the single source for the
+    /// "Tap the guitar…" / "Tap the guitar N times…" strings.  Mirrors the web `tapPrompt()`.
+    func tapPrompt() -> String {
+        numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
+    }
+
+    /// Guitar detection-loop status derived from the current state — the analyzer's
+    /// equivalent of the web `setGuitarStatus(engineState)`.  `capturing == false` →
+    /// the resting prompt (count 0) or the between-taps "…captured. Tap again…";
+    /// `capturing == true` → the in-progress "Tap n/N capturing…" or, on the final tap,
+    /// "All taps captured. Processing…".  (guitar mode keeps `currentTapCount ==
+    /// capturedTaps.count`, so the provisional `+1` matches the old `capturedTaps.count + 1`.)
+    func guitarLoopStatus(capturing: Bool) -> String {
+        if capturing {
+            let prov = min(currentTapCount + 1, numberOfTaps)
+            return prov < numberOfTaps
+                ? "Tap \(prov)/\(numberOfTaps) capturing..."
+                : "All taps captured. Processing..."
+        }
+        return currentTapCount == 0
+            ? tapPrompt()
+            : "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
     }
 
     /// Duration of the spectrum-capture window after each tap, in seconds.
@@ -1558,9 +1584,7 @@ final class TapToneAnalyzer: ObservableObject {
 
                     if wasDetecting {
                         self.isDetecting = true
-                        self.statusMessage = self.numberOfTaps == 1
-                            ? "Tap the guitar..."
-                            : "Tap the guitar \(self.numberOfTaps) times..."
+                        self.statusMessage = self.tapPrompt()
                     } else {
                         self.statusMessage = "Ready"
                     }

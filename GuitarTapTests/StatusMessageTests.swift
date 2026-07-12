@@ -13,13 +13,12 @@
 //  paused/resume, completion (frozen across recalc), loaded, plate completion.
 //  Two families are intentionally NOT pinned here:
 //
-//  1. Material phase-guidance — "Ready for L tap", "Rotate 90° and tap for C",
-//     "Set up for FLC tap, then tap", redo "Ready for L/C/FLC tap — tap again" —
-//     is SET but then overwritten by the per-phase warm-up restart
-//     (analyzerStartTime = Date()), so the user never sees it.  That divergence +
-//     its tests ride PLATFORM-PARITY-GAPS OUT-1 (Option B), lock-step with the fix.
-//     A headless test would falsely green on these (warm-up never runs with no
-//     frames fed), so they are excluded.
+//  1. Material phase-guidance — "Ready for L tap", "Rotate 90° and tap for C" — is now
+//     VISIBLE (OUT-1 fixed by the status state-machine alignment: the warm-up is silent).
+//     Pinned below by the "survives the warm-up" cases, which feed a warm-up frame and
+//     assert the guidance persists (these FAILED before the alignment — the warm-up
+//     overwrote them with "Initializing…"). The redo / FLC phase strings follow the same
+//     mechanism and are covered by the material accept/redo transitions.
 //
 //  2. Per-tap capture PROGRESS transients — "Tap n/N capturing...",
 //     "Tap n/N captured. Tap again...", "All taps captured. Processing...", the
@@ -194,5 +193,26 @@ struct StatusMessageTests {
         sut.materialTapPhase = .reviewingFlc
         sut.acceptCurrentPhase() // → finalisePlateWithFLC
         #expect(sut.statusMessage == "Complete - check Results") // ASCII hyphen
+    }
+
+    // ── OUT-1 fixed: material phase-guidance survives the (now silent) warm-up ───
+    // Each phase-arm restarts the warm-up; feed a warm-up frame and assert the guidance
+    // persists. These FAILED before the state-machine alignment (the warm-up overwrote
+    // them with "Initializing…" → "Tap the guitar…").
+    @Test func materialArm_readyForLTap_survivesWarmup() {
+        let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
+        sut.startTapSequence(initialPhase: .capturingLongitudinal)
+        #expect(sut.statusMessage == "Ready for L tap")
+        sut.onRmsLevelChanged(-80) // a warm-up frame (analyzerStartTime just set to now)
+        #expect(sut.statusMessage == "Ready for L tap")
+    }
+
+    @Test func acceptL_rotate90_survivesWarmup() {
+        let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
+        sut.materialTapPhase = .reviewingLongitudinal
+        sut.acceptCurrentPhase() // → "Rotate 90° and tap for C" + warm-up restart
+        #expect(sut.statusMessage == "Rotate 90° and tap for C")
+        sut.onRmsLevelChanged(-80) // a warm-up frame
+        #expect(sut.statusMessage == "Rotate 90° and tap for C")
     }
 }
