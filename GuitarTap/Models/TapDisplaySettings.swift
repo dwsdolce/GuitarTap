@@ -44,8 +44,7 @@
 //
 //  Created on 2/12/26.
 //
-// @parity state/settings-store
-
+// @parity state/settings-store tests=test/display-range
 import Foundation
 
 /// Global, `UserDefaults`-backed settings for spectrum display and analysis

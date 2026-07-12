@@ -9,6 +9,9 @@
 //
 //  Covered: C1–C8
 //
+// @parity none — SwiftUI zoom/pan gesture math (SpectrumView+GestureHandlers), a UI-mechanism
+// unit test that is platform-specific by design (web/Python drive gestures through different
+// stacks: pointer events / Qt). Justified platform-only; not a cross-platform behavioural contract.
 
 import Testing
 import SwiftUI

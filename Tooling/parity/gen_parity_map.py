@@ -291,6 +291,32 @@ def print_problems(problems: list[dict]) -> None:
                   f"existing test/* group", file=sys.stderr)
 
 
+# Impl areas expected to carry test evidence; view/* is UI (review-only by design).
+TESTABLE_AREAS = ("dsp/", "audio/", "state/", "model/")
+
+
+def coverage_gaps(groups: list[dict]) -> list[dict]:
+    """Testable impl groups (dsp/audio/state/model) with NO test evidence — equivalence
+    "review only", i.e. no `tests=` link to any `test/*` group. Behaviour rests on code
+    review alone; each is a candidate for a test back-fill or a documented, justified gap.
+    (view/* is intentionally excluded — UI, verified by review.)"""
+    return [g for g in groups
+            if g["slug"].startswith(TESTABLE_AREAS) and g.get("equivalence") == "review only"]
+
+
+def print_coverage_gaps(groups: list[dict]) -> None:
+    gaps = coverage_gaps(groups)
+    if not gaps:
+        print("coverage: every testable impl group (dsp/audio/state/model) has test evidence.")
+        return
+    print(f"coverage-gap: {len(gaps)} testable impl group(s) with NO test evidence "
+          f"(no tests= link):", file=sys.stderr)
+    for g in gaps:
+        anchor = (g["swift"] or g["python"] or g["web"] or ["?"])[0]
+        print(f"  GAP  `{g['slug']}`  ({anchor}) — add `tests=test/<slug>` or document as a "
+              f"justified gap", file=sys.stderr)
+
+
 def cmd_generate() -> int:
     groups, platform_specific, problems = collect()
     MAP_MD.write_text(render_markdown(groups, platform_specific), encoding="utf-8")
@@ -300,6 +326,13 @@ def cmd_generate() -> int:
     if problems:
         print(f"{len(problems)} problem(s):", file=sys.stderr)
         print_problems(problems)
+    print_coverage_gaps(groups)
+    return 0
+
+
+def cmd_gaps() -> int:
+    groups, _, _ = collect()
+    print_coverage_gaps(groups)
     return 0
 
 
@@ -326,6 +359,7 @@ def cmd_check() -> int:
         print("problems: " + ", ".join(f"{n} {k}" for k, n in sorted(counts.items())),
               file=sys.stderr)
         print_problems(problems)
+    print_coverage_gaps(groups)
     if ok:
         print(f"parity map current: {len(groups)} groups, {len(platform_specific)} "
               f"platform-specific, no problems.")
@@ -338,7 +372,12 @@ def main() -> int:
     ap.add_argument("--check", action="store_true",
                     help="verify PARITY-MAP.md + parity-index.json are current and "
                          "there are no orphan/malformed slugs (exit 1 on failure)")
+    ap.add_argument("--gaps", action="store_true",
+                    help="report testable impl groups (dsp/audio/state/model) with no "
+                         "test evidence (no tests= link)")
     args = ap.parse_args()
+    if args.gaps:
+        return cmd_gaps()
     return cmd_check() if args.check else cmd_generate()
 
 

@@ -4,8 +4,7 @@
 //
 //  Created by David Smith on 12/31/25.
 //
-// @parity audio/realtime-analyzer
-
+// @parity audio/realtime-analyzer tests=test/file-playback,test/tap-decisions
 /// # RealtimeFFTAnalyzer
 ///
 /// A real-time FFT analyser that captures audio from the device microphone,

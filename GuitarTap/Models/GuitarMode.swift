@@ -4,7 +4,7 @@
 //
 //  Created on 1/25/26.
 //
-// @parity dsp/guitar-modes
+// @parity dsp/guitar-modes tests=test/classify
 // @parity model/guitar-mode-classify tests=test/classify
 // @parity model/mode-colors
 

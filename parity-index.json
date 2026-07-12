@@ -11,8 +11,11 @@
       "web": [
         "src/audio/realtimeFFTAnalyzer.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/file-playback",
+        "test/tap-decisions"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "audio/tap-analyzer",
@@ -56,8 +59,10 @@
       "web": [
         "src/dsp/calibration.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/file-playback"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "dsp/decay",
@@ -86,8 +91,11 @@
       "web": [
         "src/dsp/fft.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/file-playback",
+        "test/gated-fft"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "dsp/find-peaks",
@@ -116,8 +124,11 @@
       "web": [
         "src/dsp/gatedCapture.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/file-playback",
+        "test/tap-decisions"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "dsp/gated-fft",
@@ -147,8 +158,10 @@
       "web": [
         "src/dsp/guitarFFT.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/file-playback"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "dsp/guitar-modes",
@@ -161,8 +174,10 @@
       "web": [
         "src/dsp/guitarModes.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/classify"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "dsp/material-properties",
@@ -192,8 +207,12 @@
       "web": [
         "src/dsp/peaks.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/dsp",
+        "test/frozen-peak-recalc",
+        "test/peaks"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "dsp/pitch",
@@ -222,8 +241,10 @@
       "web": [
         "src/dsp/spectrumAverage.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/peaks"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "dsp/wav",
@@ -236,8 +257,11 @@
       "web": [
         "src/dsp/wav.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/file-playback",
+        "test/tap-decisions"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "model/guitar-mode-classify",
@@ -296,8 +320,10 @@
       "web": [
         "src/settings.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/display-range"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "state/status-message",
@@ -878,5 +904,14 @@
       "equivalence": "review only"
     }
   ],
-  "platformSpecific": []
+  "platformSpecific": [
+    {
+      "repo": "python",
+      "path": "tests/test_wi10_qtimer_slots.py"
+    },
+    {
+      "repo": "swift",
+      "path": "GuitarTapTests/SpectrumViewGestureTests.swift"
+    }
+  ]
 }

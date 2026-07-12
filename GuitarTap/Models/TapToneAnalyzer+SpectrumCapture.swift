@@ -5,9 +5,8 @@
 //  Created on 1/25/26.
 //
 // @parity dsp/gated-fft tests=test/gated-fft
-// @parity dsp/gated-capture
-// @parity dsp/spectrum-average
-
+// @parity dsp/gated-capture tests=test/file-playback,test/tap-decisions
+// @parity dsp/spectrum-average tests=test/peaks
 /// # TapToneAnalyzer+SpectrumCapture
 ///
 /// Implements the gated-FFT capture pipeline used for plate and brace
