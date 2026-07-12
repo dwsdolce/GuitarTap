@@ -33,7 +33,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `dsp/material-properties` | `GuitarTap/Models/MaterialProperties.swift` | `src/guitar_tap/models/material_properties.py` | `src/dsp/material.ts` | tests |
 | `dsp/peak-analysis` | `GuitarTap/Models/TapToneAnalyzer+PeakAnalysis.swift` | `src/guitar_tap/models/tap_tone_analyzer_peak_analysis.py` | `src/dsp/peaks.ts` | review only |
 | `dsp/pitch` | `GuitarTap/Models/Pitch.swift` | `src/guitar_tap/models/pitch.py` | `src/dsp/pitch.ts` | tests |
-| `dsp/spectrum-average` | `GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift` | `src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py` | `src/dsp/guitarFFT.ts`<br>`src/dsp/spectrumAverage.ts` | review only |
+| `dsp/spectrum-average` | `GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift` | `src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py` | `src/dsp/spectrumAverage.ts` | review only |
 | `dsp/wav` | `GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift` | `src/guitar_tap/models/realtime_fft_analyzer_engine_control.py` | `src/dsp/wav.ts` | review only |
 | `model/guitar-mode-classify` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/dsp/classify.ts` | tests |
 | `model/mode-colors` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/presentation/modeColors.ts` | review only |
@@ -51,9 +51,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `test/dsp` | `GuitarTapTests/DSPTests.swift` | `tests/test_dsp.py` | — | test suite |
 | `test/file-playback` | `GuitarTapTests/FilePlaybackRegressionTests.swift` | `tests/test_file_playback_regression.py` | `test/file-playback.test.ts` | test suite |
 | `test/frozen-peak-recalc` | `GuitarTapTests/FrozenPeakRecalculationTests.swift` | `tests/test_frozen_peak_recalculation.py` | `test/frozen-peak-recalc.test.ts` | test suite |
-| `test/gated-capture` | — | — | `test/gated-capture.test.ts` | test suite |
 | `test/gated-fft` | `GuitarTapTests/GatedFFTParityTests.swift` | `tests/test_gated_fft_parity.py` | `test/gated-fft.test.ts` | test suite |
-| `test/guitar-fft` | — | — | `test/guitar-fft.test.ts` | test suite |
 | `test/import-persistence` | `GuitarTapTests/ImportPersistenceTests.swift` | `tests/test_import_persistence.py` | `test/import-persistence.test.ts` | test suite |
 | `test/measurement-codable` | `GuitarTapTests/MeasurementCodableTests.swift` | `tests/test_measurement_codable.py` | `test/measurement-codable.test.ts` | test suite |
 | `test/measurement-complete` | `GuitarTapTests/MeasurementCompleteTransitionTests.swift` | `tests/test_measurement_complete_transitions.py` | `test/measurement-complete.test.ts` | test suite |

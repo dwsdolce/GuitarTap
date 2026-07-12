@@ -220,7 +220,6 @@
         "src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py"
       ],
       "web": [
-        "src/dsp/guitarFFT.ts",
         "src/dsp/spectrumAverage.ts"
       ],
       "tests": [],
@@ -470,16 +469,6 @@
       "equivalence": "test suite"
     },
     {
-      "slug": "test/gated-capture",
-      "swift": [],
-      "python": [],
-      "web": [
-        "test/gated-capture.test.ts"
-      ],
-      "tests": [],
-      "equivalence": "test suite"
-    },
-    {
       "slug": "test/gated-fft",
       "swift": [
         "GuitarTapTests/GatedFFTParityTests.swift"
@@ -489,16 +478,6 @@
       ],
       "web": [
         "test/gated-fft.test.ts"
-      ],
-      "tests": [],
-      "equivalence": "test suite"
-    },
-    {
-      "slug": "test/guitar-fft",
-      "swift": [],
-      "python": [],
-      "web": [
-        "test/guitar-fft.test.ts"
       ],
       "tests": [],
       "equivalence": "test suite"
