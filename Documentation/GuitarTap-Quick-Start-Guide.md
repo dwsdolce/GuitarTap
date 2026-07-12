@@ -144,7 +144,7 @@ E_L, c_L, specific modulus, and a spruce quality rating are reported. No cross-g
 
 ### <img src="Manual/images/symbols/hand.tap.png" width="19" height="19" alt="hand.tap"> New Tap
 
-Arms the detector for the next tap (or begins a plate measurement sequence). A green indicator shows when a tap has been registered.
+Starts a fresh measurement — arms the detector (or begins a plate/brace sequence). Enabled only once the current measurement is complete; during a measurement it is disabled (use Cancel to start over). A green indicator shows when a tap has been registered.
 
 ### <img src="Manual/images/symbols/pause.circle.png" width="19" height="19" alt="pause.circle"> <img src="Manual/images/symbols/play.circle.png" width="19" height="19" alt="play.circle"> <img src="Manual/images/symbols/checkmark.circle.png" width="19" height="19" alt="checkmark.circle"> Pause / Resume  •  Accept (plate/brace review)
 
@@ -154,9 +154,9 @@ In plate and brace mode, after each phase is captured the spectrum freezes for r
 
 ### <img src="Manual/images/symbols/xmark.circle.png" width="19" height="19" alt="xmark.circle"> <img src="Manual/images/symbols/arrow.counterclockwise.circle.png" width="19" height="19" alt="arrow.counterclockwise.circle"> Cancel  •  Redo (plate/brace review)
 
-Cancel aborts the current measurement sequence and discards all partial data.
+Cancel restarts the measurement — it discards all partial data and immediately re-arms a fresh sequence, so you can tap again without pressing New Tap. Cancel is available while a measurement is in progress.
 
-In plate and brace mode, while reviewing a captured phase the button changes to Redo. Tap Redo to discard only the current phase's data and re-capture it — earlier phases are preserved. The detector re-arms immediately so you can tap again without pressing New Tap.
+In plate and brace mode, while reviewing a captured phase the button changes to Redo. Tap Redo to discard only the current phase's data and re-capture it, preserving earlier phases. Either way the detector re-arms immediately.
 
 ### <img src="Manual/images/symbols/doc.text.png" width="19" height="19" alt="doc.text"> Analysis Results
 

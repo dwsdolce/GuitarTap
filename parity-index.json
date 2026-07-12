@@ -610,8 +610,12 @@
     },
     {
       "slug": "test/status-message",
-      "swift": [],
-      "python": [],
+      "swift": [
+        "GuitarTapTests/StatusMessageTests.swift"
+      ],
+      "python": [
+        "tests/test_status_message.py"
+      ],
       "web": [
         "test/status-message.test.ts"
       ],
