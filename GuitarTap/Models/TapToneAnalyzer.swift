@@ -240,15 +240,21 @@ final class TapToneAnalyzer: ObservableObject {
             if isDetecting && currentTapCount == 0 {
                 statusMessage = tapPrompt()
             }
-            // If the user reduces numberOfTaps to at or below the taps already captured
-            // mid-sequence, treat the already-captured taps as sufficient and process them.
-            if isDetecting && currentTapCount >= numberOfTaps && currentTapCount > 0 {
-                isDetecting = false
-                statusMessage = "All taps captured. Processing..."
-                DispatchQueue.main.asyncAfter(deadline: .now() + captureWindow) { [weak self] in
-                    self?.processMultipleTaps()
-                }
-            }
+            // NOTE: there is deliberately NO "reduce the count mid-sequence → finalise with the taps
+            // already captured" branch here. The Taps stepper is disabled the moment a sequence has a
+            // tap — `.disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)`, on every
+            // stepper on every platform — so the count simply cannot change mid-sequence; to change
+            // it you cancel first. The branch that used to live here was therefore unreachable, and
+            // being unreachable it had silently drifted three ways: Swift deferred processing by
+            // `captureWindow` and averaged ALL captured taps, Python finalised synchronously and
+            // truncated to the new count, and the web never implemented it at all. Removed rather
+            // than reconciled (OUT-5) — reachable behaviour is unchanged. It was also a latent trap:
+            // `loadMeasurement` writes `numberOfTaps`, so a load during a live sequence would have
+            // kicked off `processMultipleTaps()` mid-load, guarded only by call ordering.
+            //
+            // If a mid-sequence count change is ever wanted, unlock the stepper and define the
+            // semantics deliberately — do not resurrect an implicit finalise.
+
             // If the user changes tap count manually, the loaded-settings warning
             // is no longer relevant for this setting.
             if numberOfTaps != loadedNumberOfTaps {
