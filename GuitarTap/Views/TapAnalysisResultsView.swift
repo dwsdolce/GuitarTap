@@ -200,6 +200,9 @@ struct TapAnalysisResultsView: View {
                             // Re-analyze: re-run findPeaks() on the frozen spectrum
                             // using the current analysis settings (Peak Min, analysis range, guitar
                             // type) — lets the user retune a saved measurement without re-tapping.
+                            // Enabled exactly when the peaks on screen are NOT the auto-found peaks
+                            // for the current settings — see TapToneAnalyzer.canReanalyze, which owns
+                            // the rule so all three platforms answer it identically.
                             Button {
                                 analyzer.reanalyzePeaks()
                             } label: {
@@ -208,9 +211,7 @@ struct TapAnalysisResultsView: View {
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.mini)
-                            .disabled(analyzer.loadedMeasurementPeaks == nil
-                                      || analyzer.frozenFrequencies.isEmpty
-                                      || analyzer.frozenMagnitudes.isEmpty)
+                            .disabled(!analyzer.canReanalyze)
                             .help("Re-analyze peaks from the spectrum using the current settings")
                         }
                     }

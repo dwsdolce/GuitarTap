@@ -922,6 +922,14 @@
   "platformSpecific": [
     {
       "repo": "python",
+      "path": "src/guitar_tap/models/update_checker.py"
+    },
+    {
+      "repo": "python",
+      "path": "tests/test_update_checker.py"
+    },
+    {
+      "repo": "python",
       "path": "tests/test_wi10_qtimer_slots.py"
     },
     {

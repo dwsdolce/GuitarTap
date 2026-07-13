@@ -544,3 +544,106 @@ struct FrozenPeakRecalculation_LiveTapPathTests {
                 "Annotation offset should be remapped to the new peak UUID at ~\(peakHz) Hz, got \(String(describing: remapped))")
     }
 }
+
+// ---------------------------------------------------------------------------
+// MARK: - PR8: canReanalyze — when the Re-analyze button is offered
+// ---------------------------------------------------------------------------
+//
+// Re-analyze is a RESET, not a dirty-flag indicator: it is offered whenever it COULD do
+// something, not only when we can prove it WILL.  What can leave the displayed analysis
+// differing from a clean re-derivation is open-ended (peaks came from a file; mode
+// assignments carried forward across Peak Min moves instead of being re-claimed; the
+// analysis range moved; selections were hand-edited), and the two failure modes are not
+// symmetric — a wrongly-DISABLED button is a dead end, a wrongly-ENABLED one costs a
+// pointless click.  So: any complete guitar measurement with a frozen spectrum; never
+// material.
+//
+// This replaces `loadedMeasurementPeaks != nil`, a proxy for "the peaks are stale" that was
+// wrong in both directions — it disabled itself after one press, and never lit up for a live
+// capture whose mode assignments had drifted.
+
+@Suite("FrozenPeakRecalculation_CanReanalyze", .serialized)
+struct FrozenPeakRecalculation_CanReanalyzeTests {
+
+    // PR8a: a live (never-loaded) frozen capture CAN be re-analyzed. It is the only route back
+    // to a clean mode classification once assignments have drifted across Peak Min moves.
+    @Test func liveFrozenCapture_canReanalyze() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        TapDisplaySettings.measurementType = .classical
+
+        let sut = makeSUT()
+        freeze(sut, peaks: [makePeak(frequency: 200)])
+        sut.loadedMeasurementPeaks = nil     // never loaded — a fresh capture
+
+        #expect(sut.canReanalyze == true,
+                "A frozen guitar capture must offer Re-analyze — it can always re-claim the modes")
+    }
+
+    // PR8b: a loaded measurement can be re-analyzed (its saved peaks were never derived here).
+    @Test func loadedMeasurement_canReanalyze() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        TapDisplaySettings.measurementType = .classical
+
+        let sut = makeSUT()
+        let savedPeaks = [makePeak(frequency: 200)]
+        freeze(sut, peaks: savedPeaks)
+        sut.loadedMeasurementPeaks = savedPeaks
+
+        #expect(sut.canReanalyze == true)
+    }
+
+    // PR8c: THE ONE-SHOT REGRESSION. reanalyzePeaks() clears loadedMeasurementPeaks, which used
+    // to be the button's only enabling condition — so a single press disabled it forever.
+    @Test func reanalyze_isNotAOneShot_buttonStaysAvailable() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        TapDisplaySettings.measurementType = .classical
+
+        let sut = makeSUT()
+        let savedPeaks = [makePeak(frequency: 200)]
+        freeze(sut, peaks: savedPeaks)
+        sut.loadedMeasurementPeaks = savedPeaks
+        #expect(sut.canReanalyze == true)
+
+        sut.reanalyzePeaks()
+
+        #expect(sut.loadedMeasurementPeaks == nil, "Re-analyze drops the saved peaks (they are now derived)")
+        #expect(sut.canReanalyze == true,
+                "Re-analyze must remain available after a press — it is a reset, not a one-shot")
+    }
+
+    // PR8d: material can never re-analyze. Its peaks come from the per-phase captures; running
+    // findPeaks over them would destroy the saved L / C / FLC peaks. This previously held only by
+    // accident (a loaded material measurement leaves the frozen spectrum empty), so pin it.
+    @Test func material_canNeverReanalyze() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+
+        for type in [MeasurementType.plate, .brace] {
+            TapDisplaySettings.measurementType = type
+            let sut = makeSUT()
+            freeze(sut, peaks: [makePeak(frequency: 200)])          // even WITH a frozen spectrum…
+            sut.loadedMeasurementPeaks = [makePeak(frequency: 200)] // …and loaded peaks
+            #expect(sut.canReanalyze == false,
+                    "Re-analyze is meaningless for \(type.shortName) and must never be offered")
+        }
+    }
+
+    // PR8e: nothing to re-analyze without a completed measurement and a frozen spectrum.
+    @Test func incompleteOrNoFrozenSpectrum_cannotReanalyze() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        TapDisplaySettings.measurementType = .classical
+
+        let noSpectrum = makeSUT()
+        noSpectrum.isMeasurementComplete = true
+        #expect(noSpectrum.canReanalyze == false, "No frozen spectrum — nothing to re-analyze from")
+
+        let incomplete = makeSUT()
+        freeze(incomplete, peaks: [makePeak(frequency: 200)])
+        incomplete.isMeasurementComplete = false
+        #expect(incomplete.canReanalyze == false, "Measurement still in progress — nothing to re-analyze")
+    }
+}

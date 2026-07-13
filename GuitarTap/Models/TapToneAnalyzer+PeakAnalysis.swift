@@ -305,6 +305,35 @@ extension TapToneAnalyzer {
         gtLog("🎯 resetToAutoSelection: selected \(selectedPeakIDs.count) peak(s)")
     }
 
+    /// Whether the Re-analyze button is offered: **any complete guitar measurement with a frozen
+    /// spectrum**, and never a plate/brace one.
+    ///
+    /// Re-analyze is a **reset**, not a dirty-flag indicator.  It is offered whenever it *could*
+    /// do something, not only when we can prove it *will* — deliberately.  The things that can
+    /// leave the displayed analysis differing from a clean re-derivation are open-ended: the peaks
+    /// came from a file; mode assignments were carried forward across Peak Min moves rather than
+    /// re-claimed (``applyFrozenPeakState``); the analysis range moved; selections were hand-edited.
+    /// Proving "it will definitely change something" would mean enumerating all of those correctly,
+    /// forever, with nothing to tell us when we got it wrong.  The two failure modes are not
+    /// symmetric: a wrongly-DISABLED button is a dead end (the user cannot force the recomputation
+    /// they want and has no other route to it), while a wrongly-ENABLED one costs a click that
+    /// recomputes the same answer.  So it is offered whenever it can apply.
+    ///
+    /// (The previous rule, `loadedMeasurementPeaks != nil`, was a proxy for "the peaks are stale"
+    /// and was wrong in both directions: it disabled itself after a single press, and it never lit
+    /// up for a live capture whose mode assignments had drifted.)
+    ///
+    /// Never for plate/brace: material peaks come from the per-phase captures, and running
+    /// `findPeaks` over them would destroy the saved L / C / FLC peaks.  Material used to be
+    /// disabled only *by accident* — a loaded material measurement leaves the frozen spectrum
+    /// empty, and the emptiness check happened to catch it — so the intent is now stated.
+    var canReanalyze: Bool {
+        TapDisplaySettings.measurementType.isGuitar
+            && isMeasurementComplete
+            && !frozenFrequencies.isEmpty
+            && !frozenMagnitudes.isEmpty
+    }
+
     /// Re-runs peak detection on the frozen spectrum using the current analysis
     /// settings (Peak Min, analysis range, guitar type), replacing the peaks that
     /// were stored in the saved measurement.
@@ -312,6 +341,16 @@ extension TapToneAnalyzer {
     /// Lets the user retune a saved measurement — trying a different Peak Min,
     /// analysis range, or guitar type — without re-tapping.  After re-analysis the
     /// user can re-save the measurement to persist the updated peaks.
+    ///
+    /// Also re-claims the mode assignments from scratch: `identifiedModes` is cleared, so the
+    /// carry-forward in ``applyFrozenPeakState`` has nothing to match and every peak is classified
+    /// afresh by ``GuitarMode/classifyAll(_:)``.  This is the only route back to a clean
+    /// classification once assignments have drifted across Peak Min moves.
+    ///
+    /// What survives: user mode **overrides** (remapped onto the new peak UUIDs by ±5 Hz frequency
+    /// proximity) and annotation offsets.  What does not: the manual **selection** — auto-selection
+    /// re-runs, so a hand-selected peak is deselected (its override is still attached; re-select it
+    /// and the custom label returns).
     ///
     /// Does nothing if no frozen spectrum is available.
     func reanalyzePeaks() {
