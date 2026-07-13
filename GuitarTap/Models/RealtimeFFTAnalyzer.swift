@@ -226,6 +226,21 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Mirrors Python `_FftProcessingThread._samples_consumed`.
     var samplesConsumed: Int = 0
 
+    /// Seconds of AUDIO processed since the engine started — the audio clock.
+    ///
+    /// Advanced by `processRawSamples` (`samples.count / sampleRate`), so it tracks the audio itself
+    /// rather than the wall clock. The detection **warm-up** is measured against this.
+    ///
+    /// Why: the warm-up must cover the first 0.5 s of AUDIO, not 0.5 s of wall-time. Live, the two
+    /// coincide (audio is already flowing when a sequence arms). In FILE PLAYBACK they do not — the
+    /// file is read and the engine reconfigured between arming and the first chunk, and if that setup
+    /// takes longer than the warm-up, a wall-clock warm-up expires *before any audio arrives*: the
+    /// warm-up never runs, the noise-floor re-anchor never fires, and the EMA latches at its seed value.
+    /// That silently disabled relative detection in playback. An audio clock cannot be outrun by setup,
+    /// and behaves identically whether playback is real-time paced or not.
+    /// See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
+    var audioElapsed: Double = 0
+
     /// Hann window coefficients applied to audio samples before FFT to reduce spectral leakage
     /// - Note: The window is pre-computed during initialization for performance
     var window: [Float] = []
@@ -372,7 +387,14 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     ///
     /// - Important: The callback runs on a background queue.  The handler
     ///   is responsible for dispatching to the main thread if needed.
-    var rmsLevelHandler: ((Float) -> Void)?
+    /// Per-chunk RMS callback: `(levelDB, audioTime)`.
+    ///
+    /// `audioTime` is `audioElapsed` AT THE MOMENT THIS CHUNK WAS PROCESSED — it travels WITH the
+    /// sample rather than being read later by the consumer. That matters: the handler may be delivered
+    /// to the main thread asynchronously, and the audio thread races ahead. Reading `audioElapsed` at
+    /// the consumer would give the CURRENT audio time, not this chunk's — which silently skipped the
+    /// detection warm-up when the audio thread got ahead (as it does at the start of file playback).
+    var rmsLevelHandler: ((Float, Double) -> Void)?
 
     // MARK: - Audio-Queue Level-Crossing Callback
 
@@ -538,7 +560,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     #if os(macOS)
     /// Called on the main thread when the user grants microphone permission during the
     /// first-launch `requestAccess` dialog. Set by `TapToneAnalyzer` so the full
-    /// `TapToneAnalyzer.start()` path (which sets `analyzerStartTime` and kicks off
+    /// `TapToneAnalyzer.start()` path (which sets `warmupStartAudioTime` and kicks off
     /// `startTapSequence`) is taken instead of restarting only the FFT engine.
     var onPermissionGranted: (() -> Void)?
 

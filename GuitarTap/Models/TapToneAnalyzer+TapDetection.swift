@@ -101,7 +101,7 @@ extension TapToneAnalyzer {
     /// (`analyzeMagnitudes`); now all modes detect from this finer-resolution
     /// RMS path.  The captured spectrum for guitar is then assembled via
     /// ``startGuitarGatedCapture()``.
-    func onRmsLevelChanged(_ levelDB: Float) {
+    func onRmsLevelChanged(_ levelDB: Float, audioTime: Double) {
         if fftAnalyzer.isPlayingFile {
             TAP_DEBUG("onRmsLevel", "FILE | levelDB=\(String(format: "%.2f", levelDB)) isDetecting=\(isDetecting) isPaused=\(isDetectionPaused) isComplete=\(isMeasurementComplete)")
         }
@@ -109,6 +109,7 @@ extension TapToneAnalyzer {
             return
         }
         detectTap(level: levelDB,
+                  audioTime: audioTime,
                   magnitudes: fftAnalyzer.magnitudes,
                   frequencies: fftAnalyzer.frequencies)
     }
@@ -136,7 +137,7 @@ extension TapToneAnalyzer {
     ///     ``handleTapDetection(magnitudes:frequencies:time:)`` for spectrum
     ///     capture on a confirmed tap).
     ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
-    func detectTap(level: Float, magnitudes: [Float], frequencies: [Float]) {
+    func detectTap(level: Float, audioTime: Double, magnitudes: [Float], frequencies: [Float]) {
         let now = Date()
 
         // For plate/brace modes, use relative spike detection: compare the
@@ -190,7 +191,7 @@ extension TapToneAnalyzer {
         // The warm-up is SILENT: it suppresses detection but never writes statusMessage, so
         // the prompt set at the transition (arm / accept / redo / resume) survives — mirrors
         // the web's counter-based warm-up. (Was: overwrote the status with "Initializing…".)
-        if let startTime = analyzerStartTime, now.timeIntervalSince(startTime) < warmupPeriod {
+        if let t0 = warmupStartAudioTime, audioTime - t0 < warmupPeriod {
             tapDetected = false
             justExitedWarmup = true  // Mark that next frame is first after warm-up
             return
@@ -419,7 +420,7 @@ extension TapToneAnalyzer {
     /// to seed `isAboveThreshold` correctly so the hysteresis logic starts
     /// from an accurate state.
     ///
-    /// - Important: Does **not** reset `analyzerStartTime` — doing so would
+    /// - Important: Does **not** reset `warmupStartAudioTime` — doing so would
     ///   restart the warm-up timer and destabilise `isAboveThreshold` via
     ///   the `justExitedWarmup` sync path.
     func reEnableDetectionForNextPlateTap() {
@@ -438,7 +439,7 @@ extension TapToneAnalyzer {
             self.lastLevelCrossingCaptureID = -1
             self.mpmLock.unlock()
             TAP_DEBUG("reEnableDetectionForNextPlateTap", "Re-enabled | currentLevel=\(String(format: "%.2f", currentLevel)) fallingThreshold=\(String(format: "%.2f", fallingThreshold)) isAboveThreshold=\(self.isAboveThreshold) isDetecting=\(self.isDetecting)")
-            // Do NOT reset analyzerStartTime here — that would restart warmup and
+            // Do NOT reset warmupStartAudioTime here — that would restart warmup and
             // destabilise isAboveThreshold via the justExitedWarmup sync path.
         }
     }

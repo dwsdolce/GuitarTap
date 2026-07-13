@@ -119,6 +119,13 @@ extension RealtimeFFTAnalyzer {
         // Deliver raw samples to MPM or other consumers (runs on audioProcessingQueue)
         rawSampleHandler?(samples, actualSampleRate)
         
+        // Advance the AUDIO clock — seconds of audio processed, not wall-clock seconds. The detection
+        // warm-up is measured against this so it always covers the first 0.5 s of AUDIO, however long
+        // the setup before the first chunk took. (See `audioElapsed`.)
+        if actualSampleRate > 0 {
+            audioElapsed += Double(samples.count) / Double(actualSampleRate)
+        }
+
         // Calculate fast input level (RMS) for decay tracking
         // This updates on every audio buffer (~43Hz with 1024 buffer) instead of per FFT frame
         var rms: Float = 0
@@ -202,7 +209,7 @@ extension RealtimeFFTAnalyzer {
         // onRmsLevelChanged so tap detection runs synchronously per chunk
         // during both live mic and file playback — identical to Python's
         // proc_thread.rmsLevelChanged.connect(self._on_rms_level_changed).
-        rmsLevelHandler?(levelDB)
+        rmsLevelHandler?(levelDB, audioElapsed)
 
         // Update @Published properties on main thread for UI (level meter,
         // clipping indicator).  This is display-only — tap detection no

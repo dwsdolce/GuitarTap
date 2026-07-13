@@ -42,7 +42,7 @@ private func makeSUT(numberOfTaps: Int = 1,
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.numberOfTaps = numberOfTaps
     sut.tapDetectionThreshold = -40
-    sut.analyzerStartTime = Date(timeIntervalSinceNow: -2)
+    sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed
     sut.justExitedWarmup = false
     TapDisplaySettings.measurementType = measurementType
     // NOTE: unlike ScenarioStateTraceTests, keep `cancellables` intact — the
@@ -65,9 +65,9 @@ private func fakeTap() -> (magnitudes: [Float], frequencies: [Float], captureTim
 @MainActor
 private func armAndSettle(_ sut: TapToneAnalyzer, level: Float = -80) {
     sut.startTapSequence()
-    sut.analyzerStartTime = Date(timeIntervalSinceNow: -2) // past the warm-up window
+    sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed // past the warm-up window
     sut.justExitedWarmup = true                            // next frame is the first post-warm-up
-    sut.onRmsLevelChanged(level)                           // → warm-up exit sets the resting prompt
+    sut.onRmsLevelChanged(level, audioTime: 0)                           // → warm-up exit sets the resting prompt
 }
 
 @Suite("StatusMessage", .serialized)
@@ -203,7 +203,7 @@ struct StatusMessageTests {
         let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
         sut.startTapSequence(initialPhase: .capturingLongitudinal)
         #expect(sut.statusMessage == "Ready for L tap")
-        sut.onRmsLevelChanged(-80) // a warm-up frame (analyzerStartTime just set to now)
+        sut.onRmsLevelChanged(-80, audioTime: 0) // a warm-up frame (warm-up clock just armed at the current audio time)
         #expect(sut.statusMessage == "Ready for L tap")
     }
 
@@ -212,7 +212,7 @@ struct StatusMessageTests {
         sut.materialTapPhase = .reviewingLongitudinal
         sut.acceptCurrentPhase() // → "Rotate 90° and tap for C" + warm-up restart
         #expect(sut.statusMessage == "Rotate 90° and tap for C")
-        sut.onRmsLevelChanged(-80) // a warm-up frame
+        sut.onRmsLevelChanged(-80, audioTime: 0) // a warm-up frame
         #expect(sut.statusMessage == "Rotate 90° and tap for C")
     }
 }

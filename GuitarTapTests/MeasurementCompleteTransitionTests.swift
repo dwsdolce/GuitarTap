@@ -41,7 +41,7 @@ private func makeSUT(numberOfTaps: Int = 1) -> TapToneAnalyzer {
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.numberOfTaps = numberOfTaps
     sut.tapDetectionThreshold = -40
-    sut.analyzerStartTime = Date(timeIntervalSinceNow: -2)
+    sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed
     sut.justExitedWarmup = false
     TapDisplaySettings.measurementType = .classical
     // Disconnect Combine subs so $magnitudes cannot race with test assertions.

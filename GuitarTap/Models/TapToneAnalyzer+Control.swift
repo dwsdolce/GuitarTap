@@ -44,7 +44,7 @@ extension TapToneAnalyzer {
     ///   microphone permission denial or audio session configuration failure.
     func start() throws {
         try fftAnalyzer.start()
-        analyzerStartTime = Date()  // Begin the warm-up period for the new session.
+        warmupStartAudioTime = fftAnalyzer.audioElapsed  // Begin the warm-up period for the new session.
         gtLog("🎬 Analyzer started - warm-up period: \(warmupPeriod)s")
 
         // Evaluate the auto-start guard after pending state changes have settled.
@@ -72,8 +72,8 @@ extension TapToneAnalyzer {
     ///
     /// `isAboveThreshold` is always reset to `false` regardless of the current signal level.
     /// The ``warmupPeriod`` then handles any audio transients at the start of the session.
-    /// - Parameter skipWarmup: When `true`, sets `analyzerStartTime` far enough in the past
-    ///   that the 0.5 s warm-up period has already elapsed when the first audio buffer arrives.
+    /// - Parameter skipWarmup: When `true`, backdates `warmupStartAudioTime` on the AUDIO clock so the
+    ///   warm-up window has already elapsed when the first audio chunk arrives.
     ///
     ///   Callers key this on the **measurement type**, not on "is this a file":
     ///   - **Guitar** file playback passes `true` — the tap transient may occur within the first
@@ -86,7 +86,7 @@ extension TapToneAnalyzer {
     ///     path or it cannot tell us whether live and playback agree.
     ///
     ///   A saved session WAV always contains its warm-up by construction: `isSessionRecording` is set
-    ///   before `analyzerStartTime`, and live suppresses detection during the warm-up, so no accepted
+    ///   before the warm-up clock, and live suppresses detection during the warm-up, so no accepted
     ///   tap can land in the first 0.5 s. See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
     /// - Parameter initialPhase: For material (plate/brace) modes, the tap phase to begin
     ///   capturing in; when `nil`, the sequence starts at its first phase.
@@ -106,7 +106,7 @@ extension TapToneAnalyzer {
         // false between the sync arming and a deferred re-arming.
         //
         // State that detectTap() reads on the audio thread (isMeasurementComplete,
-        // isDetecting, analyzerStartTime, isAboveThreshold, justExitedWarmup,
+        // isDetecting, warmupStartAudioTime, isAboveThreshold, justExitedWarmup,
         // materialTapPhase, noiseFloorEstimate, gatedCaptureActive / preRollBuffer)
         // is set BEFORE `isDetecting = true` so the first audio buffer observed
         // by the crossing handler sees a fully-reset analyzer.
@@ -228,9 +228,11 @@ extension TapToneAnalyzer {
         resetMaterialPhaseState(to: newPhase)
 
         // ===== Arm detection =====
-        analyzerStartTime = skipWarmup
-            ? Date().addingTimeInterval(-(warmupPeriod + 0.1))
-            : Date()
+        // AUDIO clock, not wall clock — see `warmupStartAudioTime`. Skipping the warm-up backdates it
+        // so the window has already elapsed when the first chunk arrives.
+        warmupStartAudioTime = skipWarmup
+            ? fftAnalyzer.audioElapsed - (warmupPeriod + 0.1)
+            : fftAnalyzer.audioElapsed
         isDetecting = true
 
         // ===== Status message and final UI clear =====
@@ -281,7 +283,7 @@ extension TapToneAnalyzer {
         isDetectionPaused = false
 
         // Reset warm-up to prevent an immediate false trigger on the first frame.
-        analyzerStartTime = Date()
+        warmupStartAudioTime = fftAnalyzer.audioElapsed
         isAboveThreshold  = false
 
         isSessionRecording = true  // Resume accumulating audio after pause
@@ -358,7 +360,7 @@ extension TapToneAnalyzer {
             materialTapPhase = .capturingCross
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
-            analyzerStartTime = Date()
+            warmupStartAudioTime = fftAnalyzer.audioElapsed
             isDetecting = true
             tapDetected = false
             statusMessage = "Rotate 90° and tap for C"
@@ -374,7 +376,7 @@ extension TapToneAnalyzer {
                     self.materialTapPhase = .capturingFlc
                     self.setFrozenSpectrum(frequencies: [], magnitudes: [])
                     self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
-                    self.analyzerStartTime = Date()
+                    self.warmupStartAudioTime = fftAnalyzer.audioElapsed
                     self.isDetecting = true
                     self.tapDetected = false
                 }
@@ -468,7 +470,7 @@ extension TapToneAnalyzer {
             materialTapPhase = .capturingLongitudinal
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
-            analyzerStartTime = Date()
+            warmupStartAudioTime = fftAnalyzer.audioElapsed
             isDetecting = true
             tapDetected = false
             statusMessage = "Ready for L tap — tap again"
@@ -487,7 +489,7 @@ extension TapToneAnalyzer {
             materialTapPhase = .capturingCross
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
-            analyzerStartTime = Date()
+            warmupStartAudioTime = fftAnalyzer.audioElapsed
             isDetecting = true
             tapDetected = false
             statusMessage = "Ready for C tap — tap again"
@@ -506,7 +508,7 @@ extension TapToneAnalyzer {
             materialTapPhase = .capturingFlc
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
-            analyzerStartTime = Date()
+            warmupStartAudioTime = fftAnalyzer.audioElapsed
             isDetecting = true
             tapDetected = false
             statusMessage = "Ready for FLC tap — tap again"

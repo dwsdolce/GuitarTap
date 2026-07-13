@@ -556,6 +556,69 @@ struct FilePlaybackRegressionTests {
                 "fLC Q factor: expected \(plateFlcExpectedQ) ±\(qTolerance), got \(flcPeak.quality) (delta \(flcQDelta))")
     }
 
+    // ── OUT-4: the one test that can tell the two detection models apart ────────────────────────
+    //
+    // plate-umik-1-noisy-52.wav is the SAME plate session with broadband noise mixed in to raise its
+    // noise floor from -77 dBFS to -52 dBFS — i.e. ABOVE the -53.34 dB tap threshold.
+    //
+    // Swift/Python detect material taps against an EMA-tracked noise floor; the web port uses a fixed
+    // absolute dBFS threshold. The relative rule reduces to
+    //     rising = max(tapDetectionThreshold, noiseFloor + 10 dB)
+    // so the two are the SAME FUNCTION until the floor climbs within 10 dB of the threshold. Every
+    // other fixture sits at -64…-69 dBFS, far below that — which is why no test has ever separated them.
+    //
+    // At a -52 floor an ABSOLUTE detector SATURATES: the level never drops below the threshold, so no
+    // rising edge can be confirmed and it captures NOTHING. (The web's counterpart test asserts exactly
+    // that failure.) The RELATIVE detector floats its threshold to floor+10 = -42 dB and still finds
+    // every tap (they peak at -24…-27 dBFS chunk-RMS). That is precisely the failure the relative model
+    // exists to prevent: "keeps detection working when ambient noise is elevated".
+    //
+    // This test only became possible once file playback stopped pinning noiseFloorEstimate = -100,
+    // which collapsed `rising` onto the absolute threshold and silently disabled relative detection in
+    // playback on every platform.
+    //
+    // Asserts the PHASE COUNT, not peak values: the added noise sums into the gated FFT, so fL/fC/fLC
+    // shift slightly. A tight peak assertion here would be measuring the noise, not the detector.
+    //
+    // Regenerate: python3 GuitarTapWeb/tooling/make-noisy-fixture.py (deterministic, seeded).
+    // Analysis:   GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md
+    @Test func OUT4_noisyPlate_relativeNoiseFloor_stillCapturesAllPhases() throws {
+        let stem = "plate-umik-1-noisy-52"
+        guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
+            Issue.record("\(stem).wav not found in test bundle")
+            return
+        }
+        let calURL = testBundle.url(forResource: "7108913", withExtension: "txt")
+
+        let originalMeasureFlc = TapDisplaySettings.measureFlc
+        TapDisplaySettings.measureFlc = true
+        defer { TapDisplaySettings.measureFlc = originalMeasureFlc }
+
+        let sut = TapToneAnalyzer.forTesting()
+        sut.tapDetectionThreshold = plateTapThreshold
+        try sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL)
+
+        let captured = [
+            ("L", sut.longitudinalSpectrum != nil),
+            ("C", sut.crossSpectrum != nil),
+            ("FLC", sut.flcSpectrum != nil),
+        ].filter { $0.1 }.map { $0.0 }
+
+        #expect(captured.count == 3,
+                """
+                absolute-threshold detection saturates on an elevated noise floor and captures nothing; \
+                the noise-floor-relative detector must still find all three taps. \
+                Captured: \(captured), noiseFloorEstimate=\(sut.noiseFloorEstimate) dBFS
+                """)
+
+        // The floor must have actually CONVERGED to the noisy ambient. If it is still pinned near -100,
+        // the relative model has silently degraded to the absolute one and this test would be passing
+        // for the wrong reason.
+        #expect(sut.noiseFloorEstimate > -60 && sut.noiseFloorEstimate < -40,
+                "noiseFloorEstimate should have converged to the fixture's ~-52 dBFS floor; got \(sut.noiseFloorEstimate) (pinned at -100 means relative detection is OFF)")
+    }
+
+
     // MARK: - REG-P2: Plate, 3 taps per phase (multi-tap averaging)
 
     /// REG-P2: Plate at numberOfTaps = 3 — each phase (L/C/FLC) averages 3 taps.

@@ -145,7 +145,7 @@ final class TapToneAnalyzer: ObservableObject {
         //    makes `rising` compute to exactly `tapDetectionThreshold` — i.e. it silently DEGRADED
         //    relative detection to absolute, so playback was never exercising the path live users take.
         //    A saved session WAV always contains the warm-up by construction (isSessionRecording is set
-        //    before analyzerStartTime, and live suppresses detection during it, so no tap can land in
+        //    before the warm-up clock, and live suppresses detection during it, so no tap can land in
         //    the first 0.5 s), and every material fixture carries 2.3–2.9 s of lead-in.
         //
         //    Playback must run the LIVE detection path — otherwise it cannot tell us whether live and
@@ -1201,10 +1201,16 @@ final class TapToneAnalyzer: ObservableObject {
     /// Minimum inter-tap interval to prevent double-trigger artefacts, in seconds.
     let tapCooldown: TimeInterval = 0.5
 
-    /// Wall-clock time when `start()` or `startTapSequence()` was called.
+    /// Value of the engine's AUDIO clock (`fftAnalyzer.audioElapsed`, in seconds of audio processed)
+    /// when `start()` or `startTapSequence()` last armed a sequence. `nil` until first armed.
     ///
-    /// Used to enforce the warm-up period.
-    var analyzerStartTime: Date?
+    /// Used to enforce the warm-up period. This is deliberately the AUDIO clock, not the wall clock:
+    /// the warm-up must cover the first `warmupPeriod` of AUDIO. Live, the two coincide. In FILE
+    /// PLAYBACK they do not — the file is read and the engine reconfigured between arming and the first
+    /// chunk, and if that setup outlasts the warm-up, a wall-clock warm-up expires *before any audio
+    /// arrives*: it never runs, the noise-floor re-anchor never fires, and the EMA latches at its seed.
+    /// That silently disabled relative detection in playback. See OUT-4-DETECTION-SPEC.md.
+    var warmupStartAudioTime: Double?
 
     /// Duration of the warm-up period during which all taps are suppressed, in seconds.
     ///
@@ -1269,7 +1275,7 @@ final class TapToneAnalyzer: ObservableObject {
         // When the user grants microphone permission during the first-launch dialog,
         // RealtimeFFTAnalyzer's requestAccess callback fires on a background thread.
         // Without this hook it would call fftAnalyzer.start() directly, bypassing
-        // TapToneAnalyzer.start() — so analyzerStartTime would never be set and
+        // TapToneAnalyzer.start() — so warmupStartAudioTime would never be set and
         // startTapSequence() would never be called, leaving the app stuck showing
         // "Tap the guitar to begin" with no peak detection active.
         fftAnalyzer.onPermissionGranted = { [weak self] in
@@ -1481,9 +1487,12 @@ final class TapToneAnalyzer: ObservableObject {
         //    the main run loop time to drain queued blocks.
         //  - Tap detection sees the same sequence of values, just with
         //    negligible (~1 chunk) latency.
-        fftAnalyzer.rmsLevelHandler = { [weak self] levelDB in
+        fftAnalyzer.rmsLevelHandler = { [weak self] levelDB, audioTime in
             DispatchQueue.main.async { [weak self] in
-                self?.onRmsLevelChanged(levelDB)
+                // audioTime is THIS chunk's audio timestamp, captured on the audio thread. It must be
+                // carried across the hop — the audio thread races ahead of the main queue, so reading
+                // fftAnalyzer.audioElapsed here would give a LATER time and silently skip the warm-up.
+                self?.onRmsLevelChanged(levelDB, audioTime: audioTime)
             }
         }
 
@@ -1556,7 +1565,7 @@ final class TapToneAnalyzer: ObservableObject {
         isDetecting = false
 
         // Reset the warm-up timer so the new engine session starts cleanly.
-        analyzerStartTime = Date()
+        warmupStartAudioTime = fftAnalyzer.audioElapsed
 
         // Pre-set isAboveThreshold = true so the first FFT frame does not fire a false
         // rising edge.  The actual value will be corrected after the settle delay.

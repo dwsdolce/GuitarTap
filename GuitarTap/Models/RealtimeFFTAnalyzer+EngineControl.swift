@@ -88,7 +88,7 @@ extension RealtimeFFTAnalyzer {
                 guard let self else { return }
                 if granted {
                     // Permission just granted — resume via the owner's callback so the
-                    // full TapToneAnalyzer.start() path runs (sets analyzerStartTime and
+                    // full TapToneAnalyzer.start() path runs (sets warmupStartAudioTime and
                     // kicks off startTapSequence). Falling back to self.start() would
                     // restart only the FFT engine, leaving tap detection never started.
                     DispatchQueue.main.async {
