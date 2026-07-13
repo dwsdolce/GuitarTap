@@ -1569,9 +1569,10 @@ press <strong>Resume</strong> when ready.</p>
 <p><strong>Pause between taps.</strong> Press Pause if you need to pause mid-sequence
 (to reset the instrument's position, for example). The captured
 taps so far are preserved; Resume continues from where you left off.</p>
-<p><strong>Cancel mid-sequence.</strong> Press <strong>Cancel</strong> to discard all captured
-taps and end the sequence. New Tap then re-arms for a fresh
-attempt.</p>
+<p><strong>Cancel mid-sequence.</strong> Press <strong>Cancel</strong> to restart the sequence — it
+discards the captured taps and immediately re-arms for a fresh attempt,
+so you can tap again straight away (no need to press New Tap). <strong>New Tap</strong>
+itself is only available once a measurement is complete.</p>
 <h2 id="36-inspecting-and-adjusting-peak-selections">3.6 Inspecting and Adjusting Peak Selections</h2>
 
 <p>Each peak in the frozen spectrum is shown with a label (mode name)
@@ -3428,6 +3429,19 @@ re-triggering as a second tap. The 3 dB value is fixed and is
 appropriate for typical rooms.</p>
 <p><strong>Practical target.</strong> Keep your noise floor at least 10 dB below
 Threshold; if it is closer, false triggers become likely.</p>
+<p><strong>Plate and brace track the noise floor for you.</strong> In Plate and
+Brace modes Threshold is not used as a fixed level. The analyzer
+measures the room's noise floor continuously and fires only on
+signals rising at least 10 dB above it, with Threshold acting as
+the upper bound. Material taps are quiet, and this is what keeps
+them detectable in a room whose noise floor drifts — where a fixed
+level would either sit under the noise (triggering constantly) or
+over the tap (detecting nothing). Guitar mode is unchanged:
+Threshold is an absolute level.</p>
+<p>The floor is measured from the audio in the half-second <strong>before</strong>
+detection begins, which is why the analyzer ignores taps struck the
+instant you press New Tap: it is listening to the room first. Give
+it that moment.</p>
 <p><strong>Pausing to measure the noise floor.</strong> Press <strong>Pause</strong> (§2.6),
 leave the analyzer running, and watch the live spectrum for a few
 seconds. Sustained noise peaks tell you where the noise floor
@@ -3436,6 +3450,18 @@ sits; pick Threshold a comfortable margin above them.</p>
 traffic, and computer fans. Plate and brace measurements that
 need to compare cleanly across days are worth either silencing or
 moving away from these sources.</p>
+<p><strong>Plate/brace audio files need half a second before the first
+tap.</strong> Because the plate and brace detectors measure the room from
+the audio ahead of the first tap (above), a file played back in
+those modes must actually contain that audio — at least half a
+second of room tone before the first strike. Recordings made by
+Guitar Tap always do, so replaying a session you captured here
+always works. A file recorded elsewhere may not: if its first tap
+falls inside that opening half-second, the tap is treated as part
+of the settling period, is not detected, and nothing is captured.
+Re-record with a moment of silence in front of the first tap.
+Guitar files are unaffected — guitar detection uses the absolute
+Threshold and needs no lead-in.</p>
 <h2 id="104-decoupling-the-top-from-the-air-mode">10.4 Decoupling the Top from the Air Mode</h2>
 
 <p>A normal tap of the guitar body excites the air (Helmholtz) mode
@@ -3514,6 +3540,11 @@ detector for the next tap.</p>
 <td>No tap detected</td>
 <td>Threshold too high</td>
 <td>Lower the Threshold slider (§2.6).</td>
+</tr>
+<tr>
+<td>Plate / brace: playing an audio file recorded elsewhere detects nothing</td>
+<td>The file has less than half a second of room tone before the first tap, so the tap falls inside the noise-floor settling period</td>
+<td>Re-record with a moment of silence before the first tap (§10.3). Files recorded by Guitar Tap always contain it.</td>
 </tr>
 <tr>
 <td>False detections</td>

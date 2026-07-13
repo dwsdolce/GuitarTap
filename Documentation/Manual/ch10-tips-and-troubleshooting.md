@@ -64,6 +64,21 @@ appropriate for typical rooms.
 **Practical target.** Keep your noise floor at least 10 dB below
 Threshold; if it is closer, false triggers become likely.
 
+**Plate and brace track the noise floor for you.** In Plate and
+Brace modes Threshold is not used as a fixed level. The analyzer
+measures the room's noise floor continuously and fires only on
+signals rising at least 10 dB above it, with Threshold acting as
+the upper bound. Material taps are quiet, and this is what keeps
+them detectable in a room whose noise floor drifts — where a fixed
+level would either sit under the noise (triggering constantly) or
+over the tap (detecting nothing). Guitar mode is unchanged:
+Threshold is an absolute level.
+
+The floor is measured from the audio in the half-second **before**
+detection begins, which is why the analyzer ignores taps struck the
+instant you press New Tap: it is listening to the room first. Give
+it that moment.
+
 **Pausing to measure the noise floor.** Press **Pause** (§2.6),
 leave the analyzer running, and watch the live spectrum for a few
 seconds. Sustained noise peaks tell you where the noise floor
@@ -73,6 +88,19 @@ sits; pick Threshold a comfortable margin above them.
 traffic, and computer fans. Plate and brace measurements that
 need to compare cleanly across days are worth either silencing or
 moving away from these sources.
+
+**Plate/brace audio files need half a second before the first
+tap.** Because the plate and brace detectors measure the room from
+the audio ahead of the first tap (above), a file played back in
+those modes must actually contain that audio — at least half a
+second of room tone before the first strike. Recordings made by
+Guitar Tap always do, so replaying a session you captured here
+always works. A file recorded elsewhere may not: if its first tap
+falls inside that opening half-second, the tap is treated as part
+of the settling period, is not detected, and nothing is captured.
+Re-record with a moment of silence in front of the first tap.
+Guitar files are unaffected — guitar detection uses the absolute
+Threshold and needs no lead-in.
 
 ## 10.4 Decoupling the Top from the Air Mode
 
@@ -150,6 +178,7 @@ detector for the next tap.
 | Problem | Likely cause | Fix |
 |---|---|---|
 | No tap detected | Threshold too high | Lower the Threshold slider (§2.6). |
+| Plate / brace: playing an audio file recorded elsewhere detects nothing | The file has less than half a second of room tone before the first tap, so the tap falls inside the noise-floor settling period | Re-record with a moment of silence before the first tap (§10.3). Files recorded by Guitar Tap always contain it. |
 | False detections | Threshold too low, or noisy room | Raise Threshold; verify the noise floor with Pause (§10.3). |
 | Peaks missing on the chart | Peak Min too high | Lower the Peak Min slider (§2.7). |
 | Unknown peaks everywhere | Analysis range too wide for the measurement | Narrow **Analysis Frequency Range** in Settings → Advanced → Analysis Settings (§8.5). |
