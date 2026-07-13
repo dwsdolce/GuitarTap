@@ -132,12 +132,32 @@ final class TapToneAnalyzer: ObservableObject {
             fftAnalyzer.setTemporaryCalibration(cal)
         }
 
-        // 2. Start the tap sequence with warmup skipped (deterministic file audio).
+        // 2. Start the tap sequence.  The MEASUREMENT TYPE decides whether to skip the warm-up.
+        //
+        //    Guitar: SKIP it.  The guitar fixtures are externally recorded files (not session dumps)
+        //    with only 0.15–0.26 s before the tap, so a 0.5 s warm-up would suppress the transient.
+        //    Guitar detects against the ABSOLUTE threshold and never uses the noise floor, so skipping
+        //    costs nothing.
+        //
+        //    Material (plate/brace): RUN it.  Material is the ONLY mode that uses the relative
+        //    noise-floor detector, and the warm-up is what establishes that floor (it feeds the EMA and
+        //    fires the re-anchor at exit).  Skipping it also pinned `noiseFloorEstimate = -100`, which
+        //    makes `rising` compute to exactly `tapDetectionThreshold` — i.e. it silently DEGRADED
+        //    relative detection to absolute, so playback was never exercising the path live users take.
+        //    A saved session WAV always contains the warm-up by construction (isSessionRecording is set
+        //    before analyzerStartTime, and live suppresses detection during it, so no tap can land in
+        //    the first 0.5 s), and every material fixture carries 2.3–2.9 s of lead-in.
+        //
+        //    Playback must run the LIVE detection path — otherwise it cannot tell us whether live and
+        //    playback agree, which is the whole point of the file-playback regression.
+        //    See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
+        //
         //    When plateTapPhase is provided, pass it as initialPhase so both the
         //    synchronous setup and the async housekeeping block use the correct
         //    phase — preventing the async block from resetting the phase back to
         //    .capturingLongitudinal after the override.
-        startTapSequence(skipWarmup: true, initialPhase: plateTapPhase)
+        let isMaterial = measurementType == .plate || measurementType == .brace
+        startTapSequence(skipWarmup: !isMaterial, initialPhase: plateTapPhase)
 
         // 3. Read the audio file.
         let (monoSamples, fileSampleRate) = try RealtimeFFTAnalyzer.readAudioFileAsMonoFloat32(url: url)
@@ -303,8 +323,14 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var tapDetectionThreshold: Float = TapDisplaySettings.tapDetectionThreshold {
         didSet {
             TapDisplaySettings.tapDetectionThreshold = tapDetectionThreshold
-            // Keep the audio-queue level-crossing threshold in sync so the
-            // pre-roll snapshot fires at the same level as the main-thread detector.
+            // Keep the audio-queue level-crossing threshold in sync with the slider.
+            //
+            // NOTE: this is the ABSOLUTE threshold, and for plate/brace it deliberately does NOT match
+            // the main-thread detector, which compares against the noise-floor-RELATIVE threshold
+            // (`noiseFloorEstimate + headroom`). The level crossing is only a PRE-ROLL SNAPSHOT
+            // mechanism — it grabs pre-onset audio so the gated window has lead-in; `detectTap` alone
+            // decides whether a tap actually happened. (The comment here used to claim the two "fire at
+            // the same level", which is false for material.)
             fftAnalyzer.levelCrossingThreshold = tapDetectionThreshold
             // If the user changes the threshold manually, the loaded-settings warning
             // is no longer relevant for this setting.
@@ -1284,10 +1310,12 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Four subscriptions are created:
     /// 1. **FFT magnitudes + peakMagnitude** — drives ``analyzeMagnitudes(_:frequencies:peakMagnitude:)``
-    ///    for peak detection and guitar-mode tap detection (~0.7 Hz).
+    ///    for peak *analysis* (~0.7 Hz). This is the only place a genuine FFT peak-bin magnitude is used.
     /// 2. **inputLevelDB (fast)** — drives ``trackDecayFast(inputLevel:)`` for ring-out tracking (~43 Hz).
-    /// 3. **inputLevelDB (fast, plate/brace only)** — drives `detectTap(peakMagnitude:magnitudes:frequencies:)`
-    ///    for plate/brace mode, where the long-window FFT is unreliable for short transient taps.
+    /// 3. **inputLevelDB (fast, ALL modes)** — drives `detectTap(level:magnitudes:frequencies:)`, the
+    ///    per-chunk RMS rising-edge detector (~43 Hz). Guitar compares it against the ABSOLUTE threshold;
+    ///    plate/brace against the noise-floor-RELATIVE threshold. The long-window FFT is unreliable for
+    ///    short transient taps, so no mode detects from the FFT-rate path any more.
     /// 4. **routeChangeRestartCount** — triggers ``handleRouteChangeRestart()`` when the audio
     ///    engine restarts after a device/route change.
     func setupSubscriptions() {

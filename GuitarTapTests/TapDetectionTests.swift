@@ -79,7 +79,7 @@ struct TapDetectionTests {
         // Rising-edge fires after RealtimeFFTAnalyzer.levelCrossingConfirmationChunks
         // consecutive above-rising-threshold calls — see TapToneAnalyzer+TapDetection.
         for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(peakMagnitude: -35, magnitudes: fakeMags, frequencies: fakeFreqs)
+            sut.detectTap(level: -35, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
 
         #expect(sut.tapDetected == true, "tapDetected should be true after crossing rising threshold")
@@ -93,7 +93,7 @@ struct TapDetectionTests {
 
         let before = Date()
         for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(peakMagnitude: -35, magnitudes: fakeMags, frequencies: fakeFreqs)
+            sut.detectTap(level: -35, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
         let after = Date()
 
@@ -109,7 +109,7 @@ struct TapDetectionTests {
         sut.isDetecting = true
         sut.isAboveThreshold = false
 
-        sut.detectTap(peakMagnitude: -50, magnitudes: fakeMags, frequencies: fakeFreqs)
+        sut.detectTap(level: -50, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         #expect(sut.tapDetected == false, "Signal below threshold must not trigger detection")
     }
@@ -122,7 +122,7 @@ struct TapDetectionTests {
         // Set start time to "now" so warmup is still active
         sut.analyzerStartTime = Date()
 
-        sut.detectTap(peakMagnitude: -20, magnitudes: fakeMags, frequencies: fakeFreqs)
+        sut.detectTap(level: -20, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         #expect(sut.tapDetected == false, "Should not detect during warm-up")
     }
@@ -136,7 +136,7 @@ struct TapDetectionTests {
         // Simulate that a tap was just recorded 0.1 s ago
         sut.lastTapTime = Date(timeIntervalSinceNow: -0.1)
 
-        sut.detectTap(peakMagnitude: -30, magnitudes: fakeMags, frequencies: fakeFreqs)
+        sut.detectTap(level: -30, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         #expect(sut.tapDetected == false, "Should not fire while in cooldown window")
     }
@@ -152,7 +152,7 @@ struct TapDetectionTests {
         // above-rising-threshold calls before firing — feed enough to latch.
         sut.isAboveThreshold = false
         for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(peakMagnitude: -35, magnitudes: fakeMags, frequencies: fakeFreqs)
+            sut.detectTap(level: -35, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
         // tapDetected == true, isAboveThreshold == true
 
@@ -162,7 +162,7 @@ struct TapDetectionTests {
         // Second call: signal at -42 dB — between fallingThreshold (-43) and
         // risingThreshold (-40). Should stay "above" and not fire a new tap.
         sut.tapDetected = false
-        sut.detectTap(peakMagnitude: -42, magnitudes: fakeMags, frequencies: fakeFreqs)
+        sut.detectTap(level: -42, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         // isAboveThreshold should still be true (signal > fallingThreshold -43)
         #expect(sut.isAboveThreshold == true,
@@ -179,7 +179,7 @@ struct TapDetectionTests {
         sut.isAboveThreshold = true   // currently above
 
         // Signal drops below fallingThreshold (-43)
-        sut.detectTap(peakMagnitude: -50, magnitudes: fakeMags, frequencies: fakeFreqs)
+        sut.detectTap(level: -50, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         #expect(sut.isAboveThreshold == false,
                 "Signal below fallingThreshold should set isAboveThreshold = false")
@@ -193,7 +193,7 @@ struct TapDetectionTests {
         sut.justExitedWarmup = true
         // analyzerStartTime is 2 s ago → warmup check passes
 
-        sut.detectTap(peakMagnitude: -30, magnitudes: fakeMags, frequencies: fakeFreqs)
+        sut.detectTap(level: -30, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         // tapDetected must NOT fire on the first sync frame
         #expect(sut.tapDetected == false,
@@ -229,7 +229,7 @@ struct TapDetectionTests {
         // effectiveRisingThreshold = -70 + 30 = -40 dB
         // So a signal at -35 dB should fire after N consecutive above-threshold calls.
         for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(peakMagnitude: -35, magnitudes: fakeMags, frequencies: fakeFreqs)
+            sut.detectTap(level: -35, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
 
         #expect(sut.tapDetected == true,
@@ -253,7 +253,7 @@ struct TapDetectionTests {
 
         // Feed 50 frames at -55 dB (below threshold → EMA updates)
         for _ in 0..<50 {
-            sut.detectTap(peakMagnitude: target, magnitudes: fakeMags, frequencies: fakeFreqs)
+            sut.detectTap(level: target, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
 
         // EMA with α=0.05, 50 steps from -60 toward -55:

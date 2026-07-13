@@ -178,11 +178,22 @@ extension TapToneAnalysisView {
         // capturedTaps right after startTapSequence cleared it.  Mirrors
         // Python views/tap_tone_analysis_view.py _open_audio_file.
         //
-        // skipWarmup: the audio source is a deterministic file, so the 0.5s
-        // warm-up is not needed to suppress microphone startup noise.  The
-        // tap transient may also appear within the first 0.5 s of the
-        // recording, so skipping warm-up ensures it is not suppressed.
-        tapToneAnalyzer.startTapSequence(skipWarmup: true)
+        // skipWarmup is decided by the MEASUREMENT TYPE, not by "is this a file".
+        //
+        // Guitar: skip it.  The audio source is deterministic (no mic startup noise to suppress), and
+        // the tap transient may appear within the first 0.5 s of an externally recorded file, so a
+        // warm-up would suppress it.  Guitar uses the ABSOLUTE threshold and never reads the noise
+        // floor, so there is nothing to lose.
+        //
+        // Material (plate/brace): RUN the warm-up.  It is the only mode that uses the relative
+        // noise-floor detector, and the warm-up is what establishes that floor.  Skipping it pinned
+        // `noiseFloorEstimate = -100`, which collapses `rising` onto `tapDetectionThreshold` — silently
+        // degrading relative detection to absolute, so replaying a session did NOT reproduce what the
+        // live session did.  A saved session WAV always contains its warm-up by construction.
+        // See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
+        let isMaterialPlayback = TapDisplaySettings.measurementType == .plate
+            || TapDisplaySettings.measurementType == .brace
+        tapToneAnalyzer.startTapSequence(skipWarmup: !isMaterialPlayback)
 
         do {
             try fft.startFromFile(url) { [fft] in

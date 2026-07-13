@@ -79,6 +79,9 @@ extension TapToneAnalyzer {
     ///
     /// Tap detection is no longer driven from this slow FFT-rate path — see
     /// ``onRmsLevelChanged(_:)`` for the per-chunk RMS-driven detector.
+    ///
+    /// NOTE: `peakMagnitude` here is a GENUINE FFT peak-bin magnitude — unlike `detectTap(level:)`,
+    /// which takes the per-chunk RMS level. The two are different quantities; do not conflate them.
     func onFftFrame(magnitudes: [Float], frequencies: [Float], peakMagnitude: Float) {
         analyzeMagnitudes(magnitudes, frequencies: frequencies, peakMagnitude: peakMagnitude)
     }
@@ -105,7 +108,7 @@ extension TapToneAnalyzer {
         guard isDetecting && !isDetectionPaused && !isMeasurementComplete else {
             return
         }
-        detectTap(peakMagnitude: levelDB,
+        detectTap(level: levelDB,
                   magnitudes: fftAnalyzer.magnitudes,
                   frequencies: fftAnalyzer.frequencies)
     }
@@ -119,14 +122,21 @@ extension TapToneAnalyzer {
     /// (per-chunk RMS input level).
     ///
     /// - Parameters:
-    ///   - peakMagnitude: Current RMS input level in dBFS used for threshold
+    ///   - level: Current RMS input level in dBFS used for threshold
     ///     comparison (`fftAnalyzer.inputLevelDB`, sampled per audio chunk at
     ///     ~43 Hz).
+    ///
+    ///     This was previously named `peakMagnitude`, which was wrong and actively misleading: it is
+    ///     the broadband **RMS chunk level**, never an FFT peak-bin magnitude. (A genuine FFT peak does
+    ///     exist — `onFftFrame(magnitudes:frequencies:peakMagnitude:)` — but it drives peak *analysis*,
+    ///     not tap detection.) The old name cost real time during the OUT-4 investigation: it looked as
+    ///     though Swift and the web were detecting on entirely different signals. They are not — all
+    ///     three platforms detect on the per-chunk RMS level.
     ///   - magnitudes: Current FFT magnitude spectrum (passed through to
     ///     ``handleTapDetection(magnitudes:frequencies:time:)`` for spectrum
     ///     capture on a confirmed tap).
     ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
-    func detectTap(peakMagnitude: Float, magnitudes: [Float], frequencies: [Float]) {
+    func detectTap(level: Float, magnitudes: [Float], frequencies: [Float]) {
         let now = Date()
 
         // For plate/brace modes, use relative spike detection: compare the
@@ -142,7 +152,7 @@ extension TapToneAnalyzer {
         // accurate noise floor since no taps have occurred yet.
         // Only update while not above threshold so tap energy doesn't inflate the estimate.
         if useRelativeDetection && !isAboveThreshold {
-            noiseFloorEstimate = noiseFloorAlpha * peakMagnitude + (1 - noiseFloorAlpha) * noiseFloorEstimate
+            noiseFloorEstimate = noiseFloorAlpha * level + (1 - noiseFloorAlpha) * noiseFloorEstimate
         }
 
         // Compute effective thresholds.
@@ -166,13 +176,13 @@ extension TapToneAnalyzer {
             effectiveRisingThreshold  = noiseFloorEstimate + headroom
             effectiveFallingThreshold = noiseFloorEstimate + max(headroom - hysteresisMargin, 4.0)
             if fftAnalyzer.isPlayingFile {
-                TAP_DEBUG("detectTap", "FILE_CHUNK | peakMag=\(String(format: "%.2f", peakMagnitude)) noiseFloor=\(String(format: "%.2f", noiseFloorEstimate)) headroom=\(String(format: "%.1f", headroom)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAbove=\(isAboveThreshold)")
+                TAP_DEBUG("detectTap", "FILE_CHUNK | peakMag=\(String(format: "%.2f", level)) noiseFloor=\(String(format: "%.2f", noiseFloorEstimate)) headroom=\(String(format: "%.1f", headroom)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAbove=\(isAboveThreshold)")
             }
         } else {
             effectiveRisingThreshold  = tapDetectionThreshold
             effectiveFallingThreshold = tapDetectionThreshold - hysteresisMargin
             if fftAnalyzer.isPlayingFile {
-                TAP_DEBUG("detectTap", "FILE_CHUNK | peakMag=\(String(format: "%.2f", peakMagnitude)) absThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAbove=\(isAboveThreshold)")
+                TAP_DEBUG("detectTap", "FILE_CHUNK | peakMag=\(String(format: "%.2f", level)) absThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAbove=\(isAboveThreshold)")
             }
         }
 
@@ -195,15 +205,15 @@ extension TapToneAnalyzer {
             justExitedWarmup = false
             if useRelativeDetection {
                 // Re-anchor to current signal level; EMA will track from here.
-                noiseFloorEstimate = peakMagnitude
+                noiseFloorEstimate = level
                 // Recompute rising threshold with the corrected noise floor.
                 let h = max(tapDetectionThreshold - noiseFloorEstimate, 10.0)
                 let risingAnchored = noiseFloorEstimate + h
-                isAboveThreshold = peakMagnitude > risingAnchored
-                TAP_DEBUG("detectTap", "WARMUP EXIT (relative) | peakMag=\(String(format: "%.2f", peakMagnitude)) noiseFloorAnchored=\(String(format: "%.2f", noiseFloorEstimate)) risingAnchored=\(String(format: "%.2f", risingAnchored)) isAboveThreshold=\(isAboveThreshold)")
+                isAboveThreshold = level > risingAnchored
+                TAP_DEBUG("detectTap", "WARMUP EXIT (relative) | peakMag=\(String(format: "%.2f", level)) noiseFloorAnchored=\(String(format: "%.2f", noiseFloorEstimate)) risingAnchored=\(String(format: "%.2f", risingAnchored)) isAboveThreshold=\(isAboveThreshold)")
             } else {
-                isAboveThreshold = peakMagnitude > effectiveRisingThreshold
-                TAP_DEBUG("detectTap", "WARMUP EXIT (absolute) | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAboveThreshold=\(isAboveThreshold)")
+                isAboveThreshold = level > effectiveRisingThreshold
+                TAP_DEBUG("detectTap", "WARMUP EXIT (absolute) | peakMag=\(String(format: "%.2f", level)) risingThresh=\(String(format: "%.2f", effectiveRisingThreshold)) isAboveThreshold=\(isAboveThreshold)")
             }
             // Don't detect on this frame - just sync the state.  (The noise-floor
             // re-anchor above stays; only the status write is gone — the warm-up is silent.)
@@ -218,7 +228,7 @@ extension TapToneAnalyzer {
             // not every chunk for the full 0.5 s.  ~43 Hz × 0.5 s = ~22 redundant
             // lines per cooldown otherwise.  Mirrors Python.
             if !cooldownLogged {
-                TAP_DEBUG("detectTap", "COOLDOWN active | remaining=\(String(format: "%.3f", cooldownRemaining))s peakMag=\(String(format: "%.2f", peakMagnitude))")
+                TAP_DEBUG("detectTap", "COOLDOWN active | remaining=\(String(format: "%.3f", cooldownRemaining))s peakMag=\(String(format: "%.2f", level))")
                 cooldownLogged = true
             }
             tapDetected = false
@@ -246,13 +256,13 @@ extension TapToneAnalyzer {
 
         if isAboveThreshold {
             // Currently latched above — apply falling-threshold hysteresis.
-            if peakMagnitude <= fallingThreshold {
+            if level <= fallingThreshold {
                 // Falling edge.
                 if currentTapCount > 0 && currentTapCount < numberOfTaps {
                     TAP_DEBUG("detectTap", "SIGNAL SETTLED | tap \(currentTapCount)/\(numberOfTaps) — signal dropped below falling threshold")
                     statusMessage = guitarLoopStatus(capturing: false)
                 }
-                TAP_DEBUG("detectTap", "FALLING EDGE | peakMag=\(String(format: "%.2f", peakMagnitude)) fallingThresh=\(String(format: "%.2f", fallingThreshold)) — signal settled, ready for next tap")
+                TAP_DEBUG("detectTap", "FALLING EDGE | peakMag=\(String(format: "%.2f", level)) fallingThresh=\(String(format: "%.2f", fallingThreshold)) — signal settled, ready for next tap")
                 isAboveThreshold = false
                 detectTapConsecutiveAbove = 0
             }
@@ -260,11 +270,11 @@ extension TapToneAnalyzer {
         } else {
             // Currently latched below — apply rising-threshold gate with
             // N-chunk confirmation.
-            if peakMagnitude > risingThreshold {
+            if level > risingThreshold {
                 detectTapConsecutiveAbove += 1
                 if detectTapConsecutiveAbove >= confirmTarget {
                     // Confirmed rising edge — fire the tap-detection event.
-                    TAP_DEBUG("detectTap", "RISING EDGE FIRED | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", risingThreshold)) tapCount=\(currentTapCount+1)/\(numberOfTaps) confirmedBy=\(confirmTarget)")
+                    TAP_DEBUG("detectTap", "RISING EDGE FIRED | peakMag=\(String(format: "%.2f", level)) risingThresh=\(String(format: "%.2f", risingThreshold)) tapCount=\(currentTapCount+1)/\(numberOfTaps) confirmedBy=\(confirmTarget)")
                     isAboveThreshold = true
                     detectTapConsecutiveAbove = 0
                     tapDetected = true
@@ -281,14 +291,14 @@ extension TapToneAnalyzer {
                 } else {
                     // Pending — waiting for more above-threshold chunks.
                     if fftAnalyzer.isPlayingFile && detectTapConsecutiveAbove == 1 {
-                        TAP_DEBUG("detectTap", "RISING EDGE PENDING | peakMag=\(String(format: "%.2f", peakMagnitude)) risingThresh=\(String(format: "%.2f", risingThreshold)) need=\(confirmTarget - 1) more")
+                        TAP_DEBUG("detectTap", "RISING EDGE PENDING | peakMag=\(String(format: "%.2f", level)) risingThresh=\(String(format: "%.2f", risingThreshold)) need=\(confirmTarget - 1) more")
                     }
                     tapDetected = false
                 }
             } else {
                 // Below rising threshold.
                 if detectTapConsecutiveAbove > 0 && fftAnalyzer.isPlayingFile {
-                    TAP_DEBUG("detectTap", "RISING EDGE CANCELED | peakMag=\(String(format: "%.2f", peakMagnitude)) (signal fell below after \(detectTapConsecutiveAbove)/\(confirmTarget) chunks)")
+                    TAP_DEBUG("detectTap", "RISING EDGE CANCELED | peakMag=\(String(format: "%.2f", level)) (signal fell below after \(detectTapConsecutiveAbove)/\(confirmTarget) chunks)")
                 }
                 detectTapConsecutiveAbove = 0
                 tapDetected = false

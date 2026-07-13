@@ -74,8 +74,20 @@ extension TapToneAnalyzer {
     /// The ``warmupPeriod`` then handles any audio transients at the start of the session.
     /// - Parameter skipWarmup: When `true`, sets `analyzerStartTime` far enough in the past
     ///   that the 0.5 s warm-up period has already elapsed when the first audio buffer arrives.
-    ///   Use this for file-playback mode where the audio source is deterministic and the tap
-    ///   transient may occur within the first half-second of the recording.
+    ///
+    ///   Callers key this on the **measurement type**, not on "is this a file":
+    ///   - **Guitar** file playback passes `true` — the tap transient may occur within the first
+    ///     half-second of an externally recorded file, and guitar detects against the absolute
+    ///     threshold, so it never reads the noise floor.
+    ///   - **Material** (plate/brace) file playback passes `false` — it is the only mode that uses
+    ///     the relative noise-floor detector, and the warm-up is what establishes that floor. Skipping
+    ///     it pins `noiseFloorEstimate = -100`, which collapses the relative threshold onto the
+    ///     absolute one and silently disables relative detection. Playback must run the LIVE detection
+    ///     path or it cannot tell us whether live and playback agree.
+    ///
+    ///   A saved session WAV always contains its warm-up by construction: `isSessionRecording` is set
+    ///   before `analyzerStartTime`, and live suppresses detection during the warm-up, so no accepted
+    ///   tap can land in the first 0.5 s. See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
     /// - Parameter initialPhase: For material (plate/brace) modes, the tap phase to begin
     ///   capturing in; when `nil`, the sequence starts at its first phase.
     // @parity state/tap-tone-analyzer
@@ -177,12 +189,19 @@ extension TapToneAnalyzer {
         sessionRecordingSampleRate = mpmSampleRate > 0 ? mpmSampleRate : 48000
         mpmLock.unlock()
 
-        // Seed the noise-floor estimate so the first relative-threshold
-        // (plate/brace) calculation has a reasonable baseline.  For file
-        // playback (skipWarmup), use -100 dB (silence) so the file's audio —
-        // even a quiet ring-out — will cross the rising threshold; mic
-        // ambient noise must not influence file playback.  For live mic,
-        // seed from the current ambient level.
+        // Seed the noise-floor estimate so the first relative-threshold (plate/brace) calculation has a
+        // reasonable baseline.  Seed from the current input level; the warm-up's EMA then converges it,
+        // and the warm-up-exit re-anchor snaps it to the real floor.
+        //
+        // The -100 case now only arises when the warm-up is skipped, which — since the caller keys
+        // skipWarmup on the measurement type — means GUITAR, where the estimate is never read
+        // (guitar uses the absolute threshold).  It must not be reached for material: -100 makes
+        //     headroom = max(threshold - (-100), 10) = threshold + 100
+        //     rising   = -100 + headroom             = threshold
+        // i.e. the relative rule collapses onto the absolute one, silently disabling the very model
+        // it is meant to implement.  That is what used to happen on EVERY file playback, which is why
+        // the relative detector was never exercised by any regression test on any platform.
+        // See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
         noiseFloorEstimate = skipWarmup ? -100.0 : fftAnalyzer.inputLevelDB
 
         // For file playback (skipWarmup): start with isAboveThreshold = true
