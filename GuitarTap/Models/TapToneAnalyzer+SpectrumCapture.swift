@@ -109,15 +109,18 @@ extension TapToneAnalyzer {
 
     // MARK: - WAV Dump Helper
 
-    /// Writes raw PCM samples to a mono 32-bit float WAV file in
-    /// `~/Documents/GuitarTap/` when `TapDisplaySettings.dumpCaptureAudio`
-    /// is enabled.  Shared by guitar, plate, and brace capture paths.
+    /// Writes raw PCM samples to a mono 32-bit float WAV file in the app's `Documents/GuitarTap/`
+    /// when `TapDisplaySettings.dumpCaptureAudio` is enabled.  Shared by guitar, plate, and brace
+    /// capture paths.
+    ///
+    /// Under App Sandbox that is the **container's** Documents, not the user's `~/Documents`.
+    /// FILE-PATHS-AND-NAMES-SPEC §4b makes this a user-settable folder.
     ///
     /// - Parameters:
     ///   - samples: Raw Float32 PCM samples to dump.
     ///   - sampleRate: Hardware sample rate in Hz.
-    ///   - label: Short string identifying the capture type (e.g. "guitar",
-    ///     "capturingLongitudinal").
+    ///   - label: Short string identifying the capture type (e.g. "session_Guitar_3tap",
+    ///     "session_Plate_LCF").
     func dumpCaptureWAV(samples: [Float], sampleRate: Double, label: String) {
         guard TapDisplaySettings.dumpCaptureAudio else { return }
         do {

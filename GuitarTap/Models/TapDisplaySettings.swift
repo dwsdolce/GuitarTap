@@ -578,8 +578,9 @@ struct TapDisplaySettings {
         }
     }
     
-    /// Whether to dump captured audio buffers to WAV files in Documents/GuitarTap.
-    /// Useful for offline debugging / comparison between Swift and Python pipelines.
+    /// Whether to dump each measurement's captured audio to a WAV file in the app's Documents/GuitarTap
+    /// (the container's Documents under the sandbox; a settable folder per FILE-PATHS-AND-NAMES-SPEC §4b).
+    /// One session recording per measurement. Useful for offline debugging / cross-platform comparison.
     /// Defaults to false.
     static var dumpCaptureAudio: Bool {
         get { defaults.bool(forKey: dumpCaptureAudioKey) }

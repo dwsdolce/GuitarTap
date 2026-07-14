@@ -487,7 +487,11 @@ extension TapSettingsView {
             Toggle(isOn: $dumpCaptureAudio) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Dump Capture Audio")
-                    Text("Save each captured tap as a WAV file in Documents/GuitarTap")
+                    // Names no folder: under the sandbox this is the app's own Documents, not the
+                    // user's — and the folder becomes a visible, settable field in its own right
+                    // (FILE-PATHS-AND-NAMES-SPEC §4b). One WAV per measurement, not one per tap:
+                    // the per-tap dumps were dropped in favour of a single session recording.
+                    Text("Save the captured audio of each measurement as a WAV file")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

@@ -10,8 +10,10 @@ import OSLog
 //
 // TAP_DEBUG — tap-detection specific logging, controlled by _tapDebugEnabled.
 //
-// Both write to:
-//   macOS : ~/Documents/GuitarTap/GuitarTap-debug.log  (alongside saved measurements)
+// Both write to the APP'S Documents/GuitarTap — which under the sandbox is the CONTAINER's
+// Documents, not the user's ~/Documents (nothing may be written there without the user
+// selecting the folder):
+//   macOS : ~/Library/Containers/<bundle-id>/Data/Documents/GuitarTap/GuitarTap-debug.log
 //   iOS   : Files app → On My iPhone → GuitarTap → GuitarTap-debug.log
 // and to the unified log (Console.app, subsystem: com.dolcesfogato.guitar-tap)
 // during development.
@@ -29,12 +31,23 @@ private final class FileLogger: @unchecked Sendable {
     private let fileHandle: FileHandle?
     private let queue = DispatchQueue(label: "com.dolcesfogato.guitar-tap.filelog")
 
-    /// macOS: ~/Documents/GuitarTap/GuitarTap-debug.log (same folder as saved measurements)
-    /// iOS:   Documents/GuitarTap-debug.log (visible in Files app → GuitarTap)
+    /// The app's `Documents/GuitarTap/GuitarTap-debug.log`.
+    ///
+    /// Under App Sandbox that is the **container's** Documents
+    /// (`~/Library/Containers/<bundle-id>/Data/Documents/GuitarTap/`) — which is what "the app's
+    /// Documents" means on a sandboxed platform. It is NOT the user's `~/Documents`, and it cannot
+    /// be: nothing may be written there without the user selecting the folder.
+    ///
+    /// iOS: the container's `Documents/` — reachable in Files → On My iPhone → GuitarTap
+    /// (`UIFileSharingEnabled`).
+    ///
+    /// The log deliberately does **not** follow the user-settable WAV folder
+    /// (FILE-PATHS-AND-NAMES-SPEC §4c): it is plumbing, not a user artifact.
     static var logFileURL: URL? {
         #if os(macOS)
-        // Use homeDirectoryForCurrentUser to bypass the sandbox container redirect
-        // and write to the real ~/Documents/GuitarTap alongside saved measurements.
+        // homeDirectoryForCurrentUser returns the CONTAINER home under the sandbox — as does
+        // NSHomeDirectory(). (An earlier comment here claimed this "bypasses the sandbox container
+        // redirect" and wrote to the real ~/Documents. It does not, and never did.)
         let dir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Documents/GuitarTap")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

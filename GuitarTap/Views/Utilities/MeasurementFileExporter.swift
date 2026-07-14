@@ -36,7 +36,13 @@ struct MeasurementFileExporter {
     // MARK: - Default Save Directory
 
     #if os(macOS)
-    /// Returns `~/Documents/GuitarTap`, creating the directory if needed.
+    /// Starting directory for the export Save panel.
+    ///
+    /// ⚠️ Under App Sandbox `homeDirectoryForCurrentUser` returns the **container** home, so this is
+    /// the container's `Documents/GuitarTap`, **not** the user's `~/Documents/GuitarTap`. The panel
+    /// still opens there and the user can navigate out (a powerbox panel may display directories the
+    /// app cannot read), but the first-run default is the wrong place. FILE-PATHS-AND-NAMES-SPEC §1b
+    /// / Step 5 replaces this with the real home via `getpwuid`.
     private static var defaultSaveDirectory: URL {
         let dir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Documents/GuitarTap")
