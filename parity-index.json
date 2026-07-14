@@ -265,6 +265,22 @@
       "equivalence": "tests"
     },
     {
+      "slug": "model/export-filename",
+      "swift": [
+        "GuitarTap/Models/ExportFilename.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/export_filename.py"
+      ],
+      "web": [
+        "src/measurement/exportFilename.ts"
+      ],
+      "tests": [
+        "test/export-filenames"
+      ],
+      "equivalence": "tests"
+    },
+    {
       "slug": "model/guitar-mode-classify",
       "swift": [
         "GuitarTap/Models/GuitarMode.swift"
@@ -464,6 +480,20 @@
         "tests/test_dsp.py"
       ],
       "web": [],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/export-filenames",
+      "swift": [
+        "GuitarTapTests/ExportFilenameTests.swift"
+      ],
+      "python": [
+        "tests/test_export_filenames.py"
+      ],
+      "web": [
+        "test/export-filenames.test.ts"
+      ],
       "tests": [],
       "equivalence": "test suite"
     },
@@ -935,6 +965,10 @@
     {
       "repo": "swift",
       "path": "GuitarTapTests/SpectrumViewGestureTests.swift"
+    },
+    {
+      "repo": "web",
+      "path": "src/components/ReleaseNotes.tsx"
     }
   ]
 }

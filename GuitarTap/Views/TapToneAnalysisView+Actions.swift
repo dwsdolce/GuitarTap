@@ -402,15 +402,9 @@ extension TapToneAnalysisView {
             }
             #endif
 
-            // Derive filename stem from measurement name, loaded measurement name, or "spectrum".
-            let label = self.measurementName.isEmpty
-                ? (self.tap.loadedMeasurementName ?? "spectrum")
-                : self.measurementName
-            let stem = label
-                .replacingOccurrences(of: " ", with: "-")
-                .replacingOccurrences(of: "/", with: "-")
-                .lowercased()
-            let filename = "\(stem)-\(Int(Date().timeIntervalSince1970)).png"
+            // Stem from the live name, else the loaded name, else "spectrum" (§2b).
+            let effectiveName = self.measurementName.isEmpty ? self.tap.loadedMeasurementName : self.measurementName
+            let filename = "\(ExportFilename.stem(name: effectiveName, timestamp: Date(), unnamed: "spectrum")).png"
             FileExportHelper.exportFile(data: pngData, filename: filename, contentType: .png) { success in
                 self.isExportingSpectrum = false
                 if !success {

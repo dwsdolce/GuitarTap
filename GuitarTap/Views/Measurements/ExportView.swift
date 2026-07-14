@@ -177,7 +177,9 @@ struct ExportView: View {
         // On macOS, use NSSavePanel
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [.json]
-        savePanel.nameFieldStringValue = "measurements-\(Date().timeIntervalSince1970).json"
+        // Int() — every other export uses integer seconds; a Double leaked fractional seconds
+        // into the filename (measurements-1784060789.123456.json). §7.1.
+        savePanel.nameFieldStringValue = "measurements-\(Int(Date().timeIntervalSince1970)).json"
         savePanel.canCreateDirectories = true
         savePanel.directoryURL = MeasurementFileExporter.lastUsedDirectory ?? {
             let dir = FileManager.default.homeDirectoryForCurrentUser

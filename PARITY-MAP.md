@@ -35,6 +35,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `dsp/pitch` | `GuitarTap/Models/Pitch.swift` | `src/guitar_tap/models/pitch.py` | `src/dsp/pitch.ts` | tests |
 | `dsp/spectrum-average` | `GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift` | `src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py` | `src/dsp/spectrumAverage.ts` | tests |
 | `dsp/wav` | `GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift` | `src/guitar_tap/models/realtime_fft_analyzer_engine_control.py` | `src/dsp/wav.ts` | tests |
+| `model/export-filename` | `GuitarTap/Models/ExportFilename.swift` | `src/guitar_tap/models/export_filename.py` | `src/measurement/exportFilename.ts` | tests |
 | `model/guitar-mode-classify` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/dsp/classify.ts` | tests |
 | `model/mode-colors` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/presentation/modeColors.ts` | review only |
 | `state/button-enablement` | `GuitarTap/Views/TapToneAnalysisView.swift` | `src/guitar_tap/views/tap_tone_analysis_view.py` | `src/state/buttonEnablement.ts` | tests |
@@ -49,6 +50,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `test/decay-tracking` | `GuitarTapTests/DecayTrackingTests.swift` | `tests/test_decay_tracking.py` | `test/decay-tracking.test.ts` | test suite |
 | `test/display-range` | `GuitarTapTests/DisplayRangeTests.swift` | — | `test/display-range.test.ts` | test suite |
 | `test/dsp` | `GuitarTapTests/DSPTests.swift` | `tests/test_dsp.py` | — | test suite |
+| `test/export-filenames` | `GuitarTapTests/ExportFilenameTests.swift` | `tests/test_export_filenames.py` | `test/export-filenames.test.ts` | test suite |
 | `test/file-playback` | `GuitarTapTests/FilePlaybackRegressionTests.swift` | `tests/test_file_playback_regression.py` | `test/file-playback.test.ts` | test suite |
 | `test/frozen-peak-recalc` | `GuitarTapTests/FrozenPeakRecalculationTests.swift` | `tests/test_frozen_peak_recalculation.py` | `test/frozen-peak-recalc.test.ts` | test suite |
 | `test/gated-fft` | `GuitarTapTests/GatedFFTParityTests.swift` | `tests/test_gated_fft_parity.py` | `test/gated-fft.test.ts` | test suite |
@@ -94,3 +96,4 @@ A `—` is a legitimate group with no member in that platform (e.g. a Swift↔Py
 | `tests/test_update_checker.py` | python |
 | `tests/test_wi10_qtimer_slots.py` | python |
 | `GuitarTapTests/SpectrumViewGestureTests.swift` | swift |
+| `src/components/ReleaseNotes.tsx` | web |

@@ -458,11 +458,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// lowercased, producing a filesystem-safe component such as `"ramirez-1975"`.
     /// Falls back to `"measurement"` when ``measurementName`` is `nil`.
     var baseFilename: String {
-        let measurementNamePart = measurementName?.replacingOccurrences(of: " ", with: "-")
-            .replacingOccurrences(of: "/", with: "-")
-            .lowercased() ?? "measurement"
-        let timestampPart = Int(timestamp.timeIntervalSince1970)
-        return "\(measurementNamePart)-\(timestampPart)"
+        ExportFilename.stem(name: measurementName, timestamp: timestamp, unnamed: "measurement")
     }
 
     // MARK: - Decoding

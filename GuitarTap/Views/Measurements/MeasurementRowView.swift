@@ -78,7 +78,9 @@ struct MeasurementRowView<MenuItems: View>: View {
         let count = measurement.comparisonEntries?.count ?? 0
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(measurement.measurementName ?? "Comparison")
+                // A nameless measurement is not a comparison — only fall back to "Comparison"
+                // for an actual comparison record (§6b).
+                Text(measurement.measurementName ?? (measurement.isComparison ? "Comparison" : "Measurement"))
                     .font(.headline)
 
                 Spacer()

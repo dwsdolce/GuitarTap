@@ -228,11 +228,9 @@ extension TapToneAnalysisView {
             modeFrequencies: modeFrequencies
         )
 
-        let label = tap.loadedMeasurementName ?? measurementName
-        let basename = label.isEmpty
-            ? "report-\(Int(Date().timeIntervalSince1970))"
-            : label.replacingOccurrences(of: " ", with: "-").lowercased()
-                + "-\(Int(Date().timeIntervalSince1970))"
+        // A comparison report is just a report (§2b). Effective name: live name, else loaded name.
+        let effectiveName = measurementName.isEmpty ? tap.loadedMeasurementName : measurementName
+        let basename = ExportFilename.stem(name: effectiveName, timestamp: Date(), unnamed: "report")
 
         guard let pdfData = PDFReportGenerator.generateComparison(data: reportData) else {
             gtLog("❌ Failed to generate comparison PDF report")

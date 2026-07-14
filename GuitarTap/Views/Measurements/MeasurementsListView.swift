@@ -426,7 +426,9 @@ struct MeasurementsListView: View {
             ? renderSpectrumImageForComparison(measurement)
             : renderSpectrumImageForMeasurement(measurement)
 
-        MeasurementFileExporter.exportSpectrumImage(imageData: imageData, basename: measurement.baseFilename) {
+        // PNG uses the "spectrum" default word, not baseFilename's "measurement" (§2b).
+        let stem = ExportFilename.stem(name: measurement.measurementName, timestamp: measurement.timestamp, unnamed: "spectrum")
+        MeasurementFileExporter.exportSpectrumImage(imageData: imageData, basename: stem) {
             self.isExporting = false
         }
     }
@@ -549,9 +551,8 @@ struct MeasurementsListView: View {
             modeFrequencies: modeFrequencies
         )
 
-        let label = measurement.measurementName ?? "measurement"
-        let basename = label.replacingOccurrences(of: " ", with: "-").lowercased()
-            + "-\(Int(measurement.timestamp.timeIntervalSince1970))"
+        // A comparison report is just a report (§2b): "report" default, not "measurement".
+        let basename = ExportFilename.stem(name: measurement.measurementName, timestamp: measurement.timestamp, unnamed: "report")
 
         guard let pdfData = PDFReportGenerator.generateComparison(data: reportData) else {
             gtLog("❌ Failed to generate comparison PDF report")

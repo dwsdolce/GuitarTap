@@ -246,12 +246,7 @@ struct PDFReportData {
     /// Derived from `measurementName` (spaces and slashes replaced with dashes,
     /// lowercased) and a Unix timestamp, e.g. `"bridge-plate-1740000000"`.
     var baseFilename: String {
-        let measurementNamePart = measurementName?
-            .replacingOccurrences(of: " ", with: "-")
-            .replacingOccurrences(of: "/", with: "-")
-            .lowercased() ?? "report"
-        let timestampPart = Int(timestamp.timeIntervalSince1970)
-        return "\(measurementNamePart)-\(timestampPart)"
+        ExportFilename.stem(name: measurementName, timestamp: timestamp, unnamed: "report")
     }
 }
 
