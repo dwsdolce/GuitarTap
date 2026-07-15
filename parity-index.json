@@ -297,6 +297,22 @@
       "equivalence": "tests"
     },
     {
+      "slug": "model/measurement-name",
+      "swift": [
+        "GuitarTap/Models/TapToneMeasurement.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/tap_tone_measurement.py"
+      ],
+      "web": [
+        "src/measurement/measurementName.ts"
+      ],
+      "tests": [
+        "test/measurement-name"
+      ],
+      "equivalence": "tests"
+    },
+    {
       "slug": "model/mode-colors",
       "swift": [
         "GuitarTap/Models/GuitarMode.swift"
@@ -577,6 +593,20 @@
       ],
       "web": [
         "test/measurement-complete.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/measurement-name",
+      "swift": [
+        "GuitarTapTests/MeasurementNameTests.swift"
+      ],
+      "python": [
+        "tests/test_measurement_name.py"
+      ],
+      "web": [
+        "test/measurement-name.test.ts"
       ],
       "tests": [],
       "equivalence": "test suite"

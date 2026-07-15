@@ -142,6 +142,24 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// Free-form notes entered by the user at save time.
     let notes: String?
 
+    // MARK: - Name Validation (FILE-PATHS-AND-NAMES-SPEC §3)
+    // @parity model/measurement-name tests=test/measurement-name
+
+    /// Whether `name` is acceptable to save: non-empty after trimming whitespace and newlines.
+    /// The Save action is disabled until this holds. Single source of truth so all three platforms
+    /// — and their tests — agree; a view must bind its Save button to this, never re-implement it.
+    static func isValidName(_ name: String) -> Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// The name to store: trimmed, or `nil` if blank. Blank is prevented at the UI by
+    /// ``isValidName(_:)``, but the model stays tolerant so nameless files from older builds still
+    /// read (the format keeps `measurementName` optional — this is a UI rule, not a format change).
+    static func normalizedName(_ name: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     // MARK: - Guitar Spectrum
 
     /// The averaged frequency spectrum for guitar-mode measurements.

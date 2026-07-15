@@ -220,7 +220,7 @@ extension TapToneAnalysisView {
     func saveMeasurement() {
         if tap.isSavedMeasurementComparison {
             tap.saveComparison(
-                measurementName: measurementName.isEmpty ? nil : measurementName,
+                measurementName: TapToneMeasurement.normalizedName(measurementName),
                 notes: notes.isEmpty ? nil : notes
             )
             measurementName = ""
@@ -236,7 +236,7 @@ extension TapToneAnalysisView {
         // internally from its own state (frozen/live FFT, longitudinalSpectrum etc.)
         // using makePhaseSnapshot. Mirrors Python TapToneAnalysisView.save_measurement().
         tapToneAnalyzer.saveMeasurement(
-            measurementName: measurementName.isEmpty ? nil : measurementName,
+            measurementName: TapToneMeasurement.normalizedName(measurementName),
             notes: notes.isEmpty ? nil : notes,
             includeSpectrum: true,
             annotationOffsets: tap.peakAnnotationOffsets,
