@@ -1115,6 +1115,23 @@ final class TapToneAnalyzer: ObservableObject {
     /// Sample rate captured at recording start, used for session WAV export.
     var sessionRecordingSampleRate: Double = 48000
 
+    /// Bounded pre-roll for the session WAV (FILE-PATHS-AND-NAMES-SPEC §6).
+    ///
+    /// While armed and **before the first tap**, the session buffer keeps only the last
+    /// ``sessionPreRollDuration`` of audio (trimmed on every chunk), so an app left armed for
+    /// minutes does not accumulate minutes of silence — in RAM or in the saved WAV. This latch is
+    /// `true` from `startTapSequence` until the first gated capture begins, then stays `false`:
+    /// once real recording starts, the buffer grows straight through so every tap, phase and redo
+    /// checkpoint is preserved. Guarantees ≥ 0.5 s before the first tap (detection is suppressed
+    /// during the warm-up), so every dumped WAV is a valid playback fixture. Access under `mpmLock`.
+    var sessionPreRollActive = false
+
+    /// Seconds of audio retained before the first tap. ≥ the 0.5 s warm-up, with margin.
+    static let sessionPreRollDuration: Double = 2.0
+
+    /// ``sessionPreRollDuration`` in samples at the current session rate.
+    var sessionPreRollSamples: Int { Int(sessionRecordingSampleRate * TapToneAnalyzer.sessionPreRollDuration) }
+
     // MARK: - Pre-Roll Ring Buffer
 
     // The tap detection subscriber runs on the main thread, while raw audio buffers

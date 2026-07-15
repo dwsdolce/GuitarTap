@@ -82,6 +82,32 @@ import Accelerate
 
 extension TapToneAnalyzer {
 
+    // MARK: - Session Recording
+
+    /// Appends one audio chunk to the session WAV buffer and maintains the **bounded pre-roll**
+    /// (FILE-PATHS-AND-NAMES-SPEC §6). Caller must hold `mpmLock`.
+    ///
+    /// The rule, extracted so it is unit-testable independently of the gated-capture pipeline:
+    /// - **Before the first tap** (`sessionPreRollActive`): keep only the last
+    ///   ``sessionPreRollSamples`` (~2 s). The tap is always in the tail, so trimming the head
+    ///   never eats it; this just discards accumulated idle so an armed-but-idle app doesn't build
+    ///   minutes of silence in RAM or the WAV.
+    /// - **The first tap** (`gatedCaptureActive` true): freeze — the latch drops to `false` for the
+    ///   rest of the session.
+    /// - **Everything after** (subsequent taps, plate phases C/FLC, and the gaps between them):
+    ///   completely live — the trim block is skipped, so every tap, phase and redo checkpoint is
+    ///   preserved. Only ``redoCurrentPhase`` of the *first* phase re-arms the latch.
+    func maintainSessionRecording(appending samples: [Float]) {
+        guard isSessionRecording else { return }
+        sessionRecordingBuffer.append(contentsOf: samples)
+        guard sessionPreRollActive else { return }   // frozen after the first tap → fully live
+        if gatedCaptureActive {
+            sessionPreRollActive = false              // first tap started — freeze the pre-roll
+        } else if sessionRecordingBuffer.count > sessionPreRollSamples {
+            sessionRecordingBuffer.removeFirst(sessionRecordingBuffer.count - sessionPreRollSamples)
+        }
+    }
+
     // MARK: - Session Recording Completion
 
     /// Stops session recording and saves the accumulated buffer as a single
@@ -236,9 +262,7 @@ extension TapToneAnalyzer {
         // pipeline while recording is active.  This produces a continuous WAV
         // of the measurement session (minus paused segments and rejected phases)
         // that can be replayed to reproduce the original results.
-        if isSessionRecording {
-            sessionRecordingBuffer.append(contentsOf: samples)
-        }
+        maintainSessionRecording(appending: samples)
 
         guard gatedCaptureActive else {
             // Deferred level-crossing path: a level crossing fired during

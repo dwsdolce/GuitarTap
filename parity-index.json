@@ -276,7 +276,7 @@
         "src/measurement/exportFilename.ts"
       ],
       "tests": [
-        "test/export-filenames"
+        "test/export-filename"
       ],
       "equivalence": "tests"
     },
@@ -500,15 +500,15 @@
       "equivalence": "test suite"
     },
     {
-      "slug": "test/export-filenames",
+      "slug": "test/export-filename",
       "swift": [
         "GuitarTapTests/ExportFilenameTests.swift"
       ],
       "python": [
-        "tests/test_export_filenames.py"
+        "tests/test_export_filename.py"
       ],
       "web": [
-        "test/export-filenames.test.ts"
+        "test/export-filename.test.ts"
       ],
       "tests": [],
       "equivalence": "test suite"
@@ -663,6 +663,20 @@
       ],
       "web": [
         "test/scenario-trace.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/session-pre-roll",
+      "swift": [
+        "GuitarTapTests/SessionPreRollTests.swift"
+      ],
+      "python": [
+        "tests/test_session_pre_roll.py"
+      ],
+      "web": [
+        "test/session-pre-roll.test.ts"
       ],
       "tests": [],
       "equivalence": "test suite"

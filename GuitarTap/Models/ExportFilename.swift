@@ -5,7 +5,7 @@
 //  Single source of truth for exported-artifact filenames.
 //  See FILE-PATHS-AND-NAMES-SPEC.md §2b.
 //
-// @parity model/export-filename tests=test/export-filenames
+// @parity model/export-filename tests=test/export-filename
 
 import Foundation
 

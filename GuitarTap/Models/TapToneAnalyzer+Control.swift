@@ -186,6 +186,7 @@ extension TapToneAnalyzer {
         sessionRecordingBuffer = []
         sessionCheckpoints = [0]
         isSessionRecording = true
+        sessionPreRollActive = true   // bound the pre-first-tap audio to ~2 s (§6)
         sessionRecordingSampleRate = mpmSampleRate > 0 ? mpmSampleRate : 48000
         mpmLock.unlock()
 
@@ -453,6 +454,10 @@ extension TapToneAnalyzer {
         if let phaseStart = sessionCheckpoints.last,
            sessionRecordingBuffer.count > phaseStart {
             sessionRecordingBuffer.removeSubrange(phaseStart...)
+            // Redoing the FIRST phase empties the buffer back to the pre-first-tap state, so
+            // re-arm the bounded pre-roll (§6) — the redone tap gets its ~2 s lead-in again.
+            // Later phases (phaseStart > 0) keep earlier taps, so the latch stays frozen.
+            if phaseStart == 0 { sessionPreRollActive = true }
         }
         mpmLock.unlock()
 
