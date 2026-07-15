@@ -36,18 +36,28 @@ struct MeasurementFileExporter {
     // MARK: - Default Save Directory
 
     #if os(macOS)
-    /// Starting directory for the export Save panel.
+    /// First-run starting directory for the export Save panel: the user's real
+    /// `~/Documents/GuitarTap` (FILE-PATHS-AND-NAMES-SPEC §1b).
     ///
-    /// ⚠️ Under App Sandbox `homeDirectoryForCurrentUser` returns the **container** home, so this is
-    /// the container's `Documents/GuitarTap`, **not** the user's `~/Documents/GuitarTap`. The panel
-    /// still opens there and the user can navigate out (a powerbox panel may display directories the
-    /// app cannot read), but the first-run default is the wrong place. FILE-PATHS-AND-NAMES-SPEC §1b
-    /// / Step 5 replaces this with the real home via `getpwuid`.
-    private static var defaultSaveDirectory: URL {
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/GuitarTap")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+    /// Resolved via `getpwuid(getuid())`, **not** `FileManager.homeDirectoryForCurrentUser` /
+    /// `NSHomeDirectory()`, which under App Sandbox return the *container* home
+    /// (`~/Library/Containers/…/Data`). The Save panel is a **powerbox** panel, so it may display and
+    /// navigate a directory the app itself cannot read — the user's selection is what grants access.
+    ///
+    /// Does **not** create the directory: the app has no write access there until the user picks it,
+    /// so a `createDirectory` would just fail silently. If the folder does not exist yet, the panel
+    /// opens at the nearest existing ancestor.
+    ///
+    /// Not `private` so the live-view export path (`PlatformAdapters`) shares this one definition
+    /// rather than keeping its own copy.
+    static var defaultSaveDirectory: URL {
+        let home: String
+        if let pw = getpwuid(getuid()) {
+            home = String(cString: pw.pointee.pw_dir)
+        } else {
+            home = NSHomeDirectory()   // fallback (container) — getpwuid should never fail
+        }
+        return URL(fileURLWithPath: home, isDirectory: true).appendingPathComponent("Documents/GuitarTap")
     }
 
     /// UserDefaults key for the bookmark data of the last-used export/import directory.

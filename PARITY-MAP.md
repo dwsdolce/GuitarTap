@@ -98,5 +98,6 @@ A `—` is a legitimate group with no member in that platform (e.g. a Swift↔Py
 | `src/guitar_tap/models/update_checker.py` | python |
 | `tests/test_update_checker.py` | python |
 | `tests/test_wi10_qtimer_slots.py` | python |
+| `GuitarTapTests/ExportDirectoryTests.swift` | swift |
 | `GuitarTapTests/SpectrumViewGestureTests.swift` | swift |
 | `src/components/ReleaseNotes.tsx` | web |

@@ -1008,6 +1008,10 @@
     },
     {
       "repo": "swift",
+      "path": "GuitarTapTests/ExportDirectoryTests.swift"
+    },
+    {
+      "repo": "swift",
       "path": "GuitarTapTests/SpectrumViewGestureTests.swift"
     },
     {
