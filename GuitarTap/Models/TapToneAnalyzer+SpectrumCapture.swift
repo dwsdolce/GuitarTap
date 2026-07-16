@@ -149,9 +149,15 @@ extension TapToneAnalyzer {
     ///     "session_Plate_LCF").
     func dumpCaptureWAV(samples: [Float], sampleRate: Double, label: String) {
         guard TapDisplaySettings.dumpCaptureAudio else { return }
+        // The user-settable dump folder (§4b): the custom folder (security scope held) or the
+        // default container. Reachability was checked at arm time, so this normally succeeds; if the
+        // custom folder vanished mid-measurement, skip rather than silently write elsewhere.
+        guard let (dumpDir, releaseFolder) = WavDumpFolder.acquireDumpFolder() else {
+            gtLog("⚠️ WAV dump skipped — the chosen folder is no longer reachable")
+            return
+        }
+        defer { releaseFolder() }
         do {
-            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let dumpDir = docs.appendingPathComponent("GuitarTap")
             try FileManager.default.createDirectory(at: dumpDir, withIntermediateDirectories: true)
             let ts = ISO8601DateFormatter().string(from: Date())
                 .replacingOccurrences(of: ":", with: "-")

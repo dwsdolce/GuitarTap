@@ -481,6 +481,11 @@ final class TapToneAnalyzer: ObservableObject {
     // @parity state/status-message
     @Published var statusMessage: String = "Tap the guitar to begin"
 
+    /// Set true when the user tries to start a tap sequence (New Tap) while Dump Capture Audio is on
+    /// but its folder can't be reached (§4b decision 1b). The view shows a prompt — Change Location /
+    /// Turn Off Saving / Cancel — and the sequence does not arm until it is resolved. macOS only.
+    @Published var dumpFolderUnreachable: Bool = false
+
     /// The most recent analyzer-set status message, preserved while the
     /// clipping override is active so it can be restored when clipping clears.
     /// Updated by a Combine sink on `$statusMessage` (see setupSubscriptions).
@@ -1199,8 +1204,19 @@ final class TapToneAnalyzer: ObservableObject {
     /// Combine cancellable storage for FFT and input-level subscriptions.
     var cancellables = Set<AnyCancellable>()
 
-    /// History of (timestamp, inputLevelDB) samples used by the decay tracker.
-    var peakMagnitudeHistory: [(time: Date, magnitude: Float)] = []
+    /// History of (audioTime, inputLevelDB) samples used by the decay tracker.
+    ///
+    /// `time` is the **audio clock** (seconds since engine start), carried with each sample
+    /// from the audio thread — NOT wall-clock. The ring-out is therefore measured in audio
+    /// time and is invariant to main-thread scheduling jitter under load; stamping with
+    /// `Date()` at the consumer made the decay number drift on a busy machine. (OUT-4 lesson:
+    /// the timestamp must travel with the sample.)
+    var peakMagnitudeHistory: [(time: Double, magnitude: Float)] = []
+
+    /// Audio-clock time (seconds since engine start) of the tap that started the current
+    /// decay-tracking window — the time-zero reference for ``measureDecayTime(tapTime:)``.
+    /// Separate from ``lastTapTime`` (wall-clock, used for the cooldown gate).
+    var decayTapAudioTime: Double?
 
     /// Wall-clock time of the most recent detected tap.
     var lastTapTime: Date?
@@ -1331,15 +1347,16 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Wires up Combine subscriptions to ``fftAnalyzer``'s published properties.
     ///
-    /// Four subscriptions are created:
+    /// The wiring is:
     /// 1. **FFT magnitudes + peakMagnitude** — drives ``analyzeMagnitudes(_:frequencies:peakMagnitude:)``
     ///    for peak *analysis* (~0.7 Hz). This is the only place a genuine FFT peak-bin magnitude is used.
-    /// 2. **inputLevelDB (fast)** — drives ``trackDecayFast(inputLevel:)`` for ring-out tracking (~43 Hz).
-    /// 3. **inputLevelDB (fast, ALL modes)** — drives `detectTap(level:magnitudes:frequencies:)`, the
-    ///    per-chunk RMS rising-edge detector (~43 Hz). Guitar compares it against the ABSOLUTE threshold;
-    ///    plate/brace against the noise-floor-RELATIVE threshold. The long-window FFT is unreliable for
-    ///    short transient taps, so no mode detects from the FFT-rate path any more.
-    /// 4. **routeChangeRestartCount** — triggers ``handleRouteChangeRestart()`` when the audio
+    /// 2. **rmsLevelHandler (fast, audio thread → main, ~43 Hz)** — the per-buffer RMS level *and its
+    ///    audio-clock timestamp*, hopped to the main queue. It drives BOTH `detectTap(...)` (the per-chunk
+    ///    rising-edge detector — guitar vs the ABSOLUTE threshold, plate/brace vs the noise-floor-RELATIVE
+    ///    threshold) and ``trackDecayFast(inputLevel:audioTime:)`` (ring-out tracking). Carrying the audio
+    ///    time with the sample keeps both invariant to main-queue scheduling under load. The long-window
+    ///    FFT is unreliable for short transient taps, so no mode detects from the FFT-rate path any more.
+    /// 3. **routeChangeRestartCount** — triggers ``handleRouteChangeRestart()`` when the audio
     ///    engine restarts after a device/route change.
     func setupSubscriptions() {
         // Wire the raw-sample handler for gated FFT capture (called on the audio queue).
@@ -1475,14 +1492,6 @@ final class TapToneAnalyzer: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Fast path: per-buffer input level → decay tracking (~43 Hz at 44.1 kHz).
-        fftAnalyzer.$inputLevelDB
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] levelDB in
-                self?.trackDecayFast(inputLevel: levelDB)
-            }
-            .store(in: &cancellables)
-
         // Direct RMS callback — mirrors Python's
         //   proc_thread.rmsLevelChanged.connect(self._on_rms_level_changed)
         //
@@ -1510,6 +1519,11 @@ final class TapToneAnalyzer: ObservableObject {
                 // carried across the hop — the audio thread races ahead of the main queue, so reading
                 // fftAnalyzer.audioElapsed here would give a LATER time and silently skip the warm-up.
                 self?.onRmsLevelChanged(levelDB, audioTime: audioTime)
+                // Ring-out decay tracking rides the SAME carried audioTime, so it is stamped in audio
+                // time (load-invariant) rather than with Date() at delivery. It self-gates on
+                // isTrackingDecay and runs OUTSIDE onRmsLevelChanged's isDetecting guard — the ring-out
+                // continues past measurement completion, which is exactly the window we measure.
+                self?.trackDecayFast(inputLevel: levelDB, audioTime: audioTime)
             }
         }
 

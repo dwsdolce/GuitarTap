@@ -691,7 +691,7 @@ extension TapToneAnalysisView {
             HStack(spacing: 8) {
                 // New Tap button — also available mid-sequence to start over
                 Button(action: {
-                    tap.startTapSequence()
+                    tap.requestStartTapSequence()
                 }) {
                     Label("New Tap", systemImage: "hand.tap")
                         .font(.subheadline)
@@ -861,7 +861,7 @@ extension TapToneAnalysisView {
 
             // Tap sequence buttons — also available mid-sequence (plate/brace) to start over
             Button(action: {
-                tap.startTapSequence()
+                tap.requestStartTapSequence()
             }) {
                 Label("New Tap", systemImage: "hand.tap")
             }
@@ -997,7 +997,7 @@ extension TapToneAnalysisView {
 
                 // Tap sequence buttons — also available mid-sequence (plate/brace) to start over
                 Button(action: {
-                    tap.startTapSequence()
+                    tap.requestStartTapSequence()
                 }) {
                     Label("New Tap", systemImage: "hand.tap")
                 }

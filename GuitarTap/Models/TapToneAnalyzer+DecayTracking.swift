@@ -15,10 +15,12 @@
 /// ## Architecture
 /// Because the continuous FFT operates on a long window (≈ 400 ms) it delivers
 /// only about 1 update per second — far too coarse for accurate decay timing.
-/// Instead, decay tracking uses `RealtimeFFTAnalyzer.inputLevelDB` (the
-/// per-buffer 20·log10(rms) level), which is published once per audio buffer
-/// (about 43 Hz at 44.1 kHz).  The main `TapToneAnalyzer` subscribes to
-/// `$inputLevelDB` and forwards each value to ``trackDecayFast(inputLevel:)``.
+/// Instead, decay tracking uses the per-buffer 20·log10(rms) level delivered once per audio
+/// buffer (about 43 Hz at 44.1 kHz) through `RealtimeFFTAnalyzer.rmsLevelHandler` — the SAME
+/// audio-thread callback that drives tap detection, which carries each buffer's audio-clock
+/// timestamp across the hop to the main queue. `TapToneAnalyzer` forwards each `(level, audioTime)`
+/// pair to ``trackDecayFast(inputLevel:audioTime:)``, so the ring-out is timed in audio seconds
+/// and does not drift when the main queue is starved under load.
 ///
 /// ## Ring-Out Definition
 /// Ring-out time is measured as the elapsed time from the post-tap peak level
@@ -44,23 +46,28 @@ extension TapToneAnalyzer {
     /// time-zero reference, and starts a 3-second timer that calls
     /// ``stopDecayTracking()`` when it fires.
     ///
+    /// - Parameter tapAudioTime: The audio-clock time (seconds since engine start) of the tap
+    ///   onset — the time-zero reference for the ring-out measurement, carried from the audio
+    ///   thread so the decay is measured in audio time (load-invariant).
     /// - Note: Call this from the main thread. The timer is scheduled on the
     ///   main run loop via `Timer.scheduledTimer`.
-    func startDecayTracking() {
-        // Clear previous decay history and seed with the tap peak level
-        let now = Date()
-        peakMagnitudeHistory = [(time: now, magnitude: tapPeakLevel)]
+    func startDecayTracking(tapAudioTime: Double) {
+        // Clear previous decay history and seed with the tap peak level at the tap's AUDIO time.
+        peakMagnitudeHistory = [(time: tapAudioTime, magnitude: tapPeakLevel)]
+        decayTapAudioTime = tapAudioTime
         currentDecayTime = nil
-        
+
         // Enable decay tracking
         isTrackingDecay = true
-        
-        // Stop decay tracking after 3 seconds (enough time to measure ring-out)
+
+        // Stop decay tracking after 3 seconds of WALL time (a safety bound on the window; it only
+        // stops appending samples — the measurement itself is audio-time based, so a late-firing
+        // timer under load cannot corrupt the result).
         decayTrackingTimer?.invalidate()
         decayTrackingTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
             self?.stopDecayTracking()
         }
-        
+
         // Debug output removed - decay tracking now works silently
     }
     
@@ -87,26 +94,27 @@ extension TapToneAnalyzer {
     /// entries older than 5 seconds. When enough history is present it calls
     /// ``measureDecayTime(tapTime:)`` to update `currentDecayTime`.
     ///
-    /// - Parameter inputLevel: The current instantaneous input level in dBFS,
-    ///   typically sourced from
-    ///   `RealtimeFFTAnalyzer.inputLevelDB` (one value per audio buffer).
+    /// - Parameters:
+    ///   - inputLevel: The current instantaneous input level in dBFS, one value per audio
+    ///     buffer (the `levelDB` passed to `rmsLevelHandler`).
+    ///   - audioTime: THIS buffer's audio-clock timestamp (seconds since engine start),
+    ///     carried from the audio thread. Stamping with this instead of `Date()` makes the
+    ///     ring-out measurement invariant to when the main queue actually runs.
     ///
     /// - Note: Returns immediately (no-op) when `isTrackingDecay` is `false`.
-    func trackDecayFast(inputLevel: Float) {
-        let now = Date()
-        
+    func trackDecayFast(inputLevel: Float, audioTime: Double) {
         // Only track decay history if we're actively tracking after a tap
         guard isTrackingDecay else { return }
-        
-        peakMagnitudeHistory.append((time: now, magnitude: inputLevel))
-        
-        // Keep only recent history
+
+        peakMagnitudeHistory.append((time: audioTime, magnitude: inputLevel))
+
+        // Keep only recent history (audio-time window)
         let decayHistoryWindowSeconds: Double = 5.0
-        peakMagnitudeHistory = peakMagnitudeHistory.filter { now.timeIntervalSince($0.time) < decayHistoryWindowSeconds }
-        
+        peakMagnitudeHistory = peakMagnitudeHistory.filter { audioTime - $0.time < decayHistoryWindowSeconds }
+
         // Calculate decay time if we have a tap and enough history
         let minimumDecayHistoryCount = 10
-        if let tapTime = lastTapTime, peakMagnitudeHistory.count > minimumDecayHistoryCount {
+        if let tapTime = decayTapAudioTime, peakMagnitudeHistory.count > minimumDecayHistoryCount {
             currentDecayTime = measureDecayTime(tapTime: tapTime)
         }
     }
@@ -122,27 +130,27 @@ extension TapToneAnalyzer {
     /// 4. Returns the elapsed time in seconds between the peak sample and the
     ///    crossing sample.
     ///
-    /// - Parameter tapTime: The `Date` of the tap onset (set at the moment
-    ///   ``startDecayTracking()`` is called).
+    /// - Parameter tapTime: The audio-clock time (seconds since engine start) of the tap
+    ///   onset (set by ``startDecayTracking(tapAudioTime:)``).
     /// - Returns: Elapsed ring-out time in seconds, or `nil` if the signal
     ///   did not decay by `decayThreshold` dB within the history window.
-    func measureDecayTime(tapTime: Date) -> Float? {
+    func measureDecayTime(tapTime: Double) -> Float? {
         // Find peak magnitude after tap
         let postTapHistory = peakMagnitudeHistory.filter { $0.time >= tapTime }
-        
+
         guard let peakEntry = postTapHistory.max(by: { $0.magnitude < $1.magnitude }) else {
             return nil
         }
-        
+
         let peakMag = peakEntry.magnitude
         let decayTarget = peakMag - decayThreshold
-        
+
         // Find when it crossed the threshold
         if let decayEntry = postTapHistory.first(where: { $0.magnitude < decayTarget && $0.time > peakEntry.time }) {
-            let decayTime = Float(decayEntry.time.timeIntervalSince(peakEntry.time))
+            let decayTime = Float(decayEntry.time - peakEntry.time)
             return decayTime
         }
-        
+
         return nil
     }
 }

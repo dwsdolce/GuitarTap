@@ -497,6 +497,44 @@ extension TapSettingsView {
                 }
             }
 
+            // WAV-dump folder (§4b): where the recordings go, with buttons to open / change it.
+            if dumpCaptureAudio {
+                #if os(macOS)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Saved to")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(dumpFolderDisplayPath)
+                        .font(.caption)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
+                    HStack(spacing: 8) {
+                        Button("Show in Finder") { WavDumpFolder.revealInFinder() }
+                        Button("Change…") {
+                            if WavDumpFolder.chooseFolder() {
+                                dumpFolderDisplayPath = WavDumpFolder.currentFolder.path
+                            }
+                        }
+                        // Shown always, disabled when already on the default — the button-visibility
+                        // principle (disable, don't remove, a control that does nothing right now).
+                        Button("Use Default") {
+                            WavDumpFolder.useDefaultFolder()
+                            dumpFolderDisplayPath = WavDumpFolder.currentFolder.path
+                        }
+                        .disabled(!WavDumpFolder.hasCustomFolder)
+                    }
+                    .controlSize(.small)
+                }
+                .padding(.leading, 4)
+                #else
+                Text("Saved in the app's Documents folder — reach it in Files → On My iPhone/iPad → Guitar Tap.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 4)
+                #endif
+            }
+
             Button {
                 resetAnalysisSettings()
             } label: {

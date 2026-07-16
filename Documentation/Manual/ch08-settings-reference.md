@@ -154,20 +154,38 @@ SCREENSHOT:
   must reach to be annotated and included in the analysis. Typical
   range: −60 to −40 dB. Disabled in plate / brace mode (the
   per-phase capture uses its own adaptive noise floor).
-- **Dump Capture Audio** — diagnostic. When on, each captured
-  tap is saved as a mono 32-bit-float WAV file. Useful for
-  debugging; leave off in normal use. The save location is:
-    - **macOS / Linux (native and Python builds):**
-      `~/Documents/GuitarTap/`
-    - **Windows (Python build):**
-      `%USERPROFILE%\Documents\GuitarTap\`
-    - **iOS / iPadOS:** the app's sandbox Documents directory,
-      reachable via **Files → On My iPad/iPhone → Guitar Tap**.
+- **Dump Capture Audio** — when on, each measurement's captured
+  audio is saved as one continuous mono 32-bit-float WAV file. Useful
+  as an archive of a measurement, or for debugging; leave off if you
+  don't need it.
 
-  File names are timestamped, prefixed by the originating build —
-  `swift_<label>_<timestamp>.wav` or `python_<label>_<timestamp>.wav`
-  — so dumps from cross-platform comparison runs are easy to tell
-  apart.
+  When enabled, a **folder row** appears beneath the setting showing
+  where the files are saved, with buttons to work with that folder:
+    - **macOS:** *Show in Finder* opens the folder; *Change…* lets you
+      pick any folder (the app remembers your choice across launches);
+      *Use Default* returns to the app's own storage. The default is
+      inside the app's container; use *Change…* to send dumps to, for
+      example, `~/Documents/GuitarTap`.
+    - **Desktop (Python build — macOS / Windows / Linux):** the same
+      *Open Folder* / *Change…* / *Use Default* controls. The default
+      is your **Documents** folder + `GuitarTap` (your real Documents
+      location, including a redirected or OneDrive Documents).
+    - **iPhone / iPad:** the app's Documents directory (not settable),
+      reachable via **Files → On My iPhone/iPad → Guitar Tap**.
+    - **Browser (web build):** files download to your browser's
+      **Downloads** folder (not settable — the browser controls where
+      downloads go).
+
+  If the folder you chose can't be reached when you press **New Tap**
+  (for example you deleted it, or it's on a drive that isn't mounted),
+  Guitar Tap asks you to **Change Location**, **Turn Off Saving**, or
+  **Cancel** before the measurement starts — so a recording is never
+  lost to a missing folder.
+
+  File names are timestamped and prefixed by the originating build —
+  `swift_<label>_<timestamp>.wav`, `python_<label>_<timestamp>.wav`, or
+  `web_<label>_<timestamp>.wav` — so dumps from cross-platform
+  comparison runs are easy to tell apart.
 - **Reset Analysis Settings** — restores the analysis defaults.
 
 ## 8.6 About & Help

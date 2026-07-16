@@ -100,7 +100,7 @@ extension TapToneAnalysisView {
                 fftAnalyzer: fft,
                 onApply: { measurementChanged in
                     if measurementChanged {
-                        tapToneAnalyzer.startTapSequence()
+                        tapToneAnalyzer.requestStartTapSequence()
                     } else {
                         tapToneAnalyzer.reclassifyPeaks()
                         tapToneAnalyzer.resetToAutoSelection()
@@ -127,6 +127,22 @@ extension TapToneAnalysisView {
             .frame(minWidth: 400, minHeight: 500)
         }
         .overlay { loadingOverlay }
+        // Arm-time guard (§4b decision 1b): New Tap was pressed with Dump Capture Audio on but its
+        // folder unreachable. Prompt before capturing rather than losing the write at completion.
+        .alert("Capture Audio Folder Unavailable", isPresented: $tapToneAnalyzer.dumpFolderUnreachable) {
+            Button("Change Location…") {
+                if WavDumpFolder.chooseFolder() {
+                    tapToneAnalyzer.requestStartTapSequence()   // retry — arms if now reachable
+                }
+            }
+            Button("Turn Off Saving") {
+                TapDisplaySettings.dumpCaptureAudio = false
+                tapToneAnalyzer.startTapSequence()              // dump now off → arm directly
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("The folder you chose for saving captured audio isn't there:\n\(WavDumpFolder.currentFolder.path)\n\nIt may have been renamed, moved, or removed. Choose the folder again, or turn off audio saving, before starting the measurement.")
+        }
     }
 
     /// Left pane of the macOS split view: spectrum chart and decay info.
@@ -234,7 +250,7 @@ extension TapToneAnalysisView {
                 fftAnalyzer: fft,
                 onApply: { measurementChanged in
                     if measurementChanged {
-                        tapToneAnalyzer.startTapSequence()
+                        tapToneAnalyzer.requestStartTapSequence()
                     } else {
                         tapToneAnalyzer.reclassifyPeaks()
                         tapToneAnalyzer.resetToAutoSelection()
@@ -613,7 +629,7 @@ extension TapToneAnalysisView {
 
             // Action buttons - vertical stack
             VStack(spacing: 6) {
-                Button(action: { tap.startTapSequence() }) {
+                Button(action: { tap.requestStartTapSequence() }) {
                     Label("New Tap", systemImage: "hand.tap")
                         .font(.caption)
                         .frame(maxWidth: .infinity)

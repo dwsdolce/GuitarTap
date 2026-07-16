@@ -28,15 +28,15 @@ private func makeSUT() -> TapToneAnalyzer {
     return sut
 }
 
-/// Builds a history array of (time, magnitude) tuples centred on `referenceDate`.
-/// Samples are spaced `intervalSeconds` apart, starting at `referenceDate`.
+/// Builds a history array of (audioTime, magnitude) tuples starting at `startTime` (audio-clock
+/// seconds). Samples are spaced `intervalSeconds` apart.
 private func makeHistory(
-    startingAt referenceDate: Date,
-    intervalSeconds: TimeInterval = 0.1,
+    startingAt startTime: Double,
+    intervalSeconds: Double = 0.1,
     magnitudes: [Float]
-) -> [(time: Date, magnitude: Float)] {
+) -> [(time: Double, magnitude: Float)] {
     magnitudes.enumerated().map { index, mag in
-        (time: referenceDate.addingTimeInterval(Double(index) * intervalSeconds), magnitude: mag)
+        (time: startTime + Double(index) * intervalSeconds, magnitude: mag)
     }
 }
 
@@ -52,7 +52,7 @@ struct DecayTrackingTests {
     @Test func measureDecayTime_emptyHistory_returnsNil() {
         let sut = makeSUT()
         sut.peakMagnitudeHistory = []
-        let tapTime = Date()
+        let tapTime = 100.0
         let result = sut.measureDecayTime(tapTime: tapTime)
         #expect(result == nil, "Expected nil for empty history")
     }
@@ -60,10 +60,10 @@ struct DecayTrackingTests {
     // DK2: All samples are before tapTime → postTapHistory is empty → nil.
     @Test func measureDecayTime_allSamplesBeforeTap_returnsNil() {
         let sut = makeSUT()
-        let tapTime = Date()
+        let tapTime = 100.0
         // Place all samples 1 s before the tap
         sut.peakMagnitudeHistory = makeHistory(
-            startingAt: tapTime.addingTimeInterval(-1.0),
+            startingAt: tapTime - 1.0,
             magnitudes: [-20, -25, -30, -35, -40, -50]
         )
         let result = sut.measureDecayTime(tapTime: tapTime)
@@ -74,7 +74,7 @@ struct DecayTrackingTests {
     @Test func measureDecayTime_signalNeverDecays_returnsNil() {
         let sut = makeSUT()
         sut.decayThreshold = 30  // require 30 dB drop
-        let tapTime = Date()
+        let tapTime = 100.0
         // Peak is −20 dB; subsequent samples only drop to −25 dB (5 dB, not 30)
         sut.peakMagnitudeHistory = makeHistory(
             startingAt: tapTime,
@@ -88,7 +88,7 @@ struct DecayTrackingTests {
     @Test func measureDecayTime_normalDecay_returnsPositiveTime() {
         let sut = makeSUT()
         sut.decayThreshold = 20  // require 20 dB drop
-        let tapTime = Date()
+        let tapTime = 100.0
         // Peak at index 0 = −10 dB; target = −30 dB; crossing at index 5 = −31 dB
         // Time between index 0 and index 5 = 5 × 0.1 s = 0.5 s
         sut.peakMagnitudeHistory = makeHistory(
@@ -108,7 +108,7 @@ struct DecayTrackingTests {
     @Test func measureDecayTime_immediateDecay_returnsShortPositiveTime() {
         let sut = makeSUT()
         sut.decayThreshold = 10
-        let tapTime = Date()
+        let tapTime = 100.0
         // Peak at −10 dB; second sample at −21 dB already crosses (target = −20 dB)
         sut.peakMagnitudeHistory = makeHistory(
             startingAt: tapTime,
@@ -132,24 +132,24 @@ struct DecayTrackingTests {
         let sut = makeSUT()
         sut.isTrackingDecay = false
         let initialHistory = sut.peakMagnitudeHistory
-        sut.trackDecayFast(inputLevel: -20)
+        sut.trackDecayFast(inputLevel: -20, audioTime: 100.0)
         #expect(sut.peakMagnitudeHistory.count == initialHistory.count,
                 "History must not grow when isTrackingDecay is false")
     }
 
-    // DK7: When isTrackingDecay is true but lastTapTime is nil,
+    // DK7: When isTrackingDecay is true but decayTapAudioTime is nil,
     //      samples accumulate but currentDecayTime stays nil
     //      (requires > minimumDecayHistoryCount samples before any measurement attempt).
     @Test func trackDecayFast_tracking_noTapTime_accumulates() {
         let sut = makeSUT()
         sut.isTrackingDecay = true
-        sut.lastTapTime = nil
+        sut.decayTapAudioTime = nil
         sut.currentDecayTime = nil
         let before = sut.peakMagnitudeHistory.count
-        sut.trackDecayFast(inputLevel: -30)
+        sut.trackDecayFast(inputLevel: -30, audioTime: 100.0)
         #expect(sut.peakMagnitudeHistory.count == before + 1,
                 "Sample should be appended when tracking is active")
         #expect(sut.currentDecayTime == nil,
-                "currentDecayTime stays nil when lastTapTime is not set")
+                "currentDecayTime stays nil when decayTapAudioTime is not set")
     }
 }

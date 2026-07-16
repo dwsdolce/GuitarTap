@@ -65,15 +65,18 @@ func buttonRule(_ s: ButtonState) -> ButtonOutput {
         }
     }()
 
-    // New Tap starts a fresh measurement, so it's enabled only once one is complete
-    // (every type-switch auto-arms into capturing — there's no disarmed idle state).
+    // A sequence is "in flight" when the analyzer is working toward a measurement: for
+    // guitar, detecting or paused; for material, past notStarted and not complete. New Tap
+    // is disabled while in flight and enabled otherwise (idle OR complete) — the honest
+    // predicate, replacing the old `!isMeasurementComplete` proxy that wrongly locked New
+    // Tap in the disarmed-idle state the Dump Capture Audio folder guard can produce (§4b).
     // Cancel restarts, offered during a review phase (as "Redo") or an active multi-step
     // sequence (multi-tap or multi-phase = plate).
-    let active: Bool = isGuitar
+    let sequenceActive: Bool = isGuitar
         ? (s.isDetecting || s.isDetectionPaused)
         : (s.materialTapPhase != .notStarted && !s.isMeasurementComplete)
     let multiStep = s.numberOfTaps > 1 || s.measurementType == .plate
-    let inActiveMultiStep = active && multiStep
+    let inActiveMultiStep = sequenceActive && multiStep
 
     let pauseEnabled: Bool
     if isInReviewPhase {
@@ -88,7 +91,7 @@ func buttonRule(_ s: ButtonState) -> ButtonOutput {
     } else if !(s.fftIsRunning && s.isReadyForDetection) {
         newTapDisabled = true
     } else {
-        newTapDisabled = !s.isMeasurementComplete
+        newTapDisabled = sequenceActive
     }
 
     let cancelEnabled = isInReviewPhase || inActiveMultiStep
@@ -106,15 +109,17 @@ func buttonRule(_ s: ButtonState) -> ButtonOutput {
 @MainActor
 struct ButtonEnablementTests {
 
-    // B1: Fresh / idle guitar — nothing complete, nothing active.  All disabled (New Tap
-    // only lights up once a measurement is complete).
-    @Test func guitar_idle_allDisabled() {
+    // B1: Disarmed-idle guitar — nothing complete, nothing in flight (the Dump Capture
+    // Audio folder guard declined to arm, §4b, or the sub-frame before launch auto-arm).
+    // New Tap is ENABLED so the user can re-arm — re-pressing re-runs the folder check.
+    // Pause and Cancel stay disabled (no sequence to pause or restart).
+    @Test func guitar_disarmedIdle_newTapEnabled() {
         let s = ButtonState(isDetecting: false,
                             isDetectionPaused: false,
                             isMeasurementComplete: false)
         #expect(buttonRule(s) == ButtonOutput(
             pauseEnabled: false,
-            newTapDisabled: true,    // not complete → New Tap disabled
+            newTapDisabled: false,   // idle (no sequence in flight) → New Tap enabled to re-arm
             cancelEnabled: false))
     }
 
@@ -146,14 +151,15 @@ struct ButtonEnablementTests {
     }
 
     // B4: The impossible (isDetecting && isMeasurementComplete) state — StateInvariantTests
-    // forbids it.  New Tap keys off "complete" and Pause off "detecting", so this
-    // contradictory state lights up BOTH — the witness that it must never occur.
-    @Test func guitar_impossibleState_lightsBothNewTapAndPause() {
+    // forbids it.  New Tap now keys off "sequence in flight" (detecting||paused) rather
+    // than "complete", so this contradictory state disables New Tap (detecting) while Pause
+    // is on — no longer lighting up both.  Still a witness that the state must never occur.
+    @Test func guitar_impossibleState_newTapDisabledPauseOn() {
         let s = ButtonState(isDetecting: true,
                             isDetectionPaused: false,
                             isMeasurementComplete: true)
         let out = buttonRule(s)
-        #expect(out.newTapDisabled == false)  // complete → New Tap enabled
+        #expect(out.newTapDisabled == true)   // in flight (detecting) → New Tap disabled
         #expect(out.pauseEnabled == true)     // detecting → Pause enabled
         #expect(out.cancelEnabled == false)
     }
@@ -261,5 +267,20 @@ struct ButtonEnablementTests {
             pauseEnabled: true,
             newTapDisabled: true,
             cancelEnabled: true))
+    }
+
+    // B13: Disarmed-idle material (plate at launch, folder guard declined to arm) — phase
+    // notStarted, nothing complete, nothing in flight.  New Tap ENABLED to re-arm;
+    // Pause/Cancel disabled.  The material counterpart of B1.
+    @Test func plate_disarmedIdle_newTapEnabled() {
+        let s = ButtonState(isDetecting: false,
+                            isDetectionPaused: false,
+                            isMeasurementComplete: false,
+                            measurementType: .plate,
+                            materialTapPhase: .notStarted)
+        #expect(buttonRule(s) == ButtonOutput(
+            pauseEnabled: false,
+            newTapDisabled: false,
+            cancelEnabled: false))
     }
 }

@@ -222,7 +222,7 @@ Feeds a WAV or audio file through the FFT pipeline instead of the microphone. Th
 
 ### <img src="Manual/images/symbols/square.and.arrow.down.png" width="19" height="19" alt="square.and.arrow.down"> Save
 
-Saves the current measurement — enabled only when the spectrum is frozen and peaks have been detected. Enter a measurement name and optional notes.
+Saves the current measurement — enabled when the spectrum is frozen, peaks have been detected, and you have entered a measurement name (the name is required; notes are optional).
 
 ### <img src="Manual/images/symbols/list.bullet.clipboard.png" width="19" height="19" alt="list.bullet.clipboard"> Measurements
 

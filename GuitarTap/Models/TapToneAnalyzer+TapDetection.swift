@@ -288,7 +288,7 @@ extension TapToneAnalyzer {
                     tapPeakLevel = fftAnalyzer.recentPeakLevelDB
 
                     // Handle tap in multi-tap sequence
-                    handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
+                    handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now, audioTime: audioTime)
                 } else {
                     // Pending — waiting for more above-threshold chunks.
                     if fftAnalyzer.isPlayingFile && detectTapConsecutiveAbove == 1 {
@@ -318,8 +318,10 @@ extension TapToneAnalyzer {
     /// - Parameters:
     ///   - magnitudes: Current FFT magnitude spectrum (dBFS).
     ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
-    ///   - time: Timestamp of the rising-edge tap detection event.
-    func handleTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
+    ///   - time: Wall-clock timestamp of the rising-edge tap detection event.
+    ///   - audioTime: Audio-clock time (seconds since engine start) of the same event, used to
+    ///     seed ring-out decay tracking so it is measured in audio time (load-invariant).
+    func handleTapDetection(magnitudes: [Float], frequencies: [Float], time: Date, audioTime: Double) {
         // Stop detection temporarily
         isDetecting = false
         
@@ -345,7 +347,7 @@ extension TapToneAnalyzer {
         TAP_DEBUG("handleTapDetection", "GUITAR — starting gated capture | capturedTaps=\(capturedTaps.count)/\(numberOfTaps)")
 
         // Start decay tracking immediately (uses RMS level, independent of FFT capture).
-        startDecayTracking()
+        startDecayTracking(tapAudioTime: audioTime)
 
         // Provisional status update — final status is emitted after the gated
         // capture completes and capturedTaps grows.  (currentTapCount == capturedTaps.count

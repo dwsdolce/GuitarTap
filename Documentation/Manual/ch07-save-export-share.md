@@ -13,15 +13,16 @@ brace multi-phase capture, or an active comparison overlay — and
 disabled when the spectrum is live or no peaks have been
 identified.
 
-The Save sheet has two fields, both optional:
+The Save sheet has two fields:
 
-- **Name** — a short label identifying what you measured. For a
+- **Name** *(required)* — a short label identifying what you measured. For a
   guitar measurement this is typically the luthier's name for the
   instrument (a serial number, a project name, a working title).
   For a plate or brace it is the identifier for that specific
-  piece (a board number, supplier code, billet label). If left
-  blank, the date and time serve as the name.
-- **Notes** — free text. Use it to record provenance, build-stage
+  piece (a board number, supplier code, billet label). Save stays
+  disabled until you enter a name; when you re-save a measurement you
+  loaded, the field starts filled with its existing name.
+- **Notes** *(optional)* — free text. Use it to record provenance, build-stage
   context, dimensions you measured by hand, or anything else you
   want to carry alongside the data.
 

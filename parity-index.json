@@ -327,6 +327,20 @@
       "equivalence": "review only"
     },
     {
+      "slug": "model/wav-dump-folder",
+      "swift": [
+        "GuitarTap/Models/WavDumpFolder.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/wav_dump_folder.py"
+      ],
+      "web": [],
+      "tests": [
+        "test/wav-dump-folder"
+      ],
+      "equivalence": "tests"
+    },
+    {
       "slug": "state/button-enablement",
       "swift": [
         "GuitarTap/Views/TapToneAnalysisView.swift"
@@ -762,6 +776,18 @@
       "web": [
         "test/tap-progress.test.ts"
       ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/wav-dump-folder",
+      "swift": [
+        "GuitarTapTests/WavDumpFolderTests.swift"
+      ],
+      "python": [
+        "tests/test_wav_dump_folder.py"
+      ],
+      "web": [],
       "tests": [],
       "equivalence": "test suite"
     },

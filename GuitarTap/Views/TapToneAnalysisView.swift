@@ -194,20 +194,31 @@ struct TapToneAnalysisView: View {
         }
     }
 
+    /// True while a tap sequence is **actively in flight** — for guitar, detecting or
+    /// paused; for material, past `notStarted` and before completion.
+    ///
+    /// This is the honest "is the analyzer working toward a measurement?" predicate.
+    /// New Tap is disabled while it holds and enabled otherwise (idle OR complete).
+    /// It replaces the old `!isMeasurementComplete` proxy, which assumed a disarmed-idle
+    /// state was impossible — no longer true once the Dump Capture Audio folder guard can
+    /// decline to arm (§4b), leaving the analyzer idle-but-not-complete.
+    var isSequenceActive: Bool {
+        let type = TapDisplaySettings.measurementType
+        return type.isGuitar
+            ? (tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused)
+            : (tapToneAnalyzer.materialTapPhase != .notStarted && !tapToneAnalyzer.isMeasurementComplete)
+    }
+
     /// True while an **active multi-step** sequence — multi-tap (`numberOfTaps > 1`) or
     /// multi-phase (plate; brace is single-phase) — is in progress.
     ///
-    /// Cancel (restart) is offered here.  "Active" means a sequence is underway (not
-    /// complete): for guitar, detecting or paused; for material, past `notStarted` and
-    /// before completion.  Single-tap / single-phase captures are not restartable via
-    /// Cancel — there's nothing collected to discard; just tap, or New Tap once complete.
+    /// Cancel (restart) is offered here.  Builds on ``isSequenceActive``: a sequence is
+    /// underway and it's multi-step.  Single-tap / single-phase captures are not
+    /// restartable via Cancel — there's nothing collected to discard; just tap, or New
+    /// Tap once complete.
     var isInActiveMultiStepSequence: Bool {
-        let type = TapDisplaySettings.measurementType
-        let active = type.isGuitar
-            ? (tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused)
-            : (tapToneAnalyzer.materialTapPhase != .notStarted && !tapToneAnalyzer.isMeasurementComplete)
-        guard active else { return false }
-        return tapToneAnalyzer.numberOfTaps > 1 || type == .plate
+        guard isSequenceActive else { return false }
+        return tapToneAnalyzer.numberOfTaps > 1 || TapDisplaySettings.measurementType == .plate
     }
 
     /// Cancel restarts the current sequence; it's offered during a review phase (where it
@@ -224,14 +235,15 @@ struct TapToneAnalysisView: View {
         return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
     }
 
-    /// New Tap starts a fresh measurement, so it only makes sense once one is **complete**
-    /// — every type-switch auto-arms into capturing, so there is no disarmed idle state.
-    /// Disabled while capturing/reviewing; always enabled in comparison mode; disabled when
-    /// the FFT isn't ready.
+    /// New Tap starts a fresh measurement, so it's disabled only while a sequence is
+    /// **in flight** (``isSequenceActive`` — capturing, paused, or reviewing) and enabled
+    /// otherwise: once a measurement is complete *and* in the disarmed-idle state the Dump
+    /// Capture Audio folder guard can produce (§4b), so the user can re-arm.  Always enabled
+    /// in comparison mode; disabled when the FFT isn't running/ready.
     var newTapButtonDisabled: Bool {
         guard tapToneAnalyzer.displayMode != .comparison else { return false }
         guard fft.isRunning && tapToneAnalyzer.isReadyForDetection else { return true }
-        return !tapToneAnalyzer.isMeasurementComplete
+        return isSequenceActive
     }
 
     /// Creates the view and its paired audio analyzers.

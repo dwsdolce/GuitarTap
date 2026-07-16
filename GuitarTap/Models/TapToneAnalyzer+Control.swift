@@ -47,12 +47,15 @@ extension TapToneAnalyzer {
         warmupStartAudioTime = fftAnalyzer.audioElapsed  // Begin the warm-up period for the new session.
         gtLog("🎬 Analyzer started - warm-up period: \(warmupPeriod)s")
 
-        // Evaluate the auto-start guard after pending state changes have settled.
+        // Evaluate the auto-start guard after pending state changes have settled. Launch auto-arm
+        // goes through requestStartTapSequence so it gets the same dump-folder reachability check as
+        // the New Tap button (§4b decision 1b) — launching the app is a user action, so it must
+        // prompt too rather than silently record to (or skip) an unreachable folder.
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if !self.isDetecting && !self.isMeasurementComplete && !self.isDetectionPaused
                 && self.currentTapCount == 0 {
-                self.startTapSequence()
+                self.requestStartTapSequence()
             }
         }
     }
@@ -91,6 +94,21 @@ extension TapToneAnalyzer {
     /// - Parameter initialPhase: For material (plate/brace) modes, the tap phase to begin
     ///   capturing in; when `nil`, the sequence starts at its first phase.
     // @parity state/tap-tone-analyzer
+    /// User-initiated arming (New Tap buttons, settings-apply re-arm). If Dump Capture Audio is on
+    /// and its folder can't be reached, sets ``dumpFolderUnreachable`` so the view prompts the user
+    /// (Change Location / Turn Off Saving / Cancel) and does **not** arm — the prompt's actions
+    /// retry. File-playback setup calls ``startTapSequence`` directly, bypassing this check.
+    /// (§4b decision 1b.) On iOS the check is a no-op — the container folder is always reachable.
+    func requestStartTapSequence() {
+        #if os(macOS)
+        if TapDisplaySettings.dumpCaptureAudio && !WavDumpFolder.isReachable {
+            dumpFolderUnreachable = true
+            return
+        }
+        #endif
+        startTapSequence()
+    }
+
     func startTapSequence(skipWarmup: Bool = false, initialPhase: MaterialTapPhase? = nil) {
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
