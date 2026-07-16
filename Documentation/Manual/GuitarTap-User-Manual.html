@@ -1061,7 +1061,7 @@ ol.steps li::before {
   <div class="title-text">
     <h1 class="title-main">Guitar Tap</h1>
     <p class="title-subtitle">User Manual</p>
-    <p class="title-version">Version 1.0.1</p>
+    <p class="title-version">Version 1.0.2</p>
     <p class="title-platforms">iOS/iPadOS &nbsp;·&nbsp; macOS &nbsp;·&nbsp; Windows &nbsp;·&nbsp; Linux</p>
   </div>
   <div class="title-footer">
@@ -2460,15 +2460,16 @@ measurement on screen — a frozen single tap, a complete plate or
 brace multi-phase capture, or an active comparison overlay — and
 disabled when the spectrum is live or no peaks have been
 identified.</p>
-<p>The Save sheet has two fields, both optional:</p>
+<p>The Save sheet has two fields:</p>
 <ul>
-<li><strong>Name</strong> — a short label identifying what you measured. For a
+<li><strong>Name</strong> <em>(required)</em> — a short label identifying what you measured. For a
   guitar measurement this is typically the luthier's name for the
   instrument (a serial number, a project name, a working title).
   For a plate or brace it is the identifier for that specific
-  piece (a board number, supplier code, billet label). If left
-  blank, the date and time serve as the name.</li>
-<li><strong>Notes</strong> — free text. Use it to record provenance, build-stage
+  piece (a board number, supplier code, billet label). Save stays
+  disabled until you enter a name; when you re-save a measurement you
+  loaded, the field starts filled with its existing name.</li>
+<li><strong>Notes</strong> <em>(optional)</em> — free text. Use it to record provenance, build-stage
   context, dimensions you measured by hand, or anything else you
   want to carry alongside the data.</li>
 </ul>
@@ -2918,22 +2919,39 @@ SCREENSHOT:
   must reach to be annotated and included in the analysis. Typical
   range: −60 to −40 dB. Disabled in plate / brace mode (the
   per-phase capture uses its own adaptive noise floor).</li>
-<li><strong>Dump Capture Audio</strong> — diagnostic. When on, each captured
-  tap is saved as a mono 32-bit-float WAV file. Useful for
-  debugging; leave off in normal use. The save location is:<ul>
-<li><strong>macOS / Linux (native and Python builds):</strong>
-  <code>~/Documents/GuitarTap/</code></li>
-<li><strong>Windows (Python build):</strong>
-  <code>%USERPROFILE%\Documents\GuitarTap\</code></li>
-<li><strong>iOS / iPadOS:</strong> the app's sandbox Documents directory,
-  reachable via <strong>Files → On My iPad/iPhone → Guitar Tap</strong>.</li>
+<li><strong>Dump Capture Audio</strong> — when on, each measurement's captured
+  audio is saved as one continuous mono 32-bit-float WAV file. Useful
+  as an archive of a measurement, or for debugging; leave off if you
+  don't need it.</li>
 </ul>
-</li>
-</ul>
-<p>File names are timestamped, prefixed by the originating build —
-  <code>swift_&lt;label&gt;_&lt;timestamp&gt;.wav</code> or <code>python_&lt;label&gt;_&lt;timestamp&gt;.wav</code>
-  — so dumps from cross-platform comparison runs are easy to tell
-  apart.
+<p>When enabled, a <strong>folder row</strong> appears beneath the setting showing
+  where the files are saved, with buttons to work with that folder:
+    - <strong>macOS:</strong> <em>Show in Finder</em> opens the folder; <em>Change…</em> lets you
+      pick any folder (the app remembers your choice across launches);
+      <em>Use Default</em> returns to the app's own storage. The default is
+      inside the app's container; use <em>Change…</em> to send dumps to, for
+      example, <code>~/Documents/GuitarTap</code>.
+    - <strong>Desktop (Python build — macOS / Windows / Linux):</strong> the same
+      <em>Open Folder</em> / <em>Change…</em> / <em>Use Default</em> controls. The default
+      is your <strong>Documents</strong> folder + <code>GuitarTap</code> (your real Documents
+      location, including a redirected or OneDrive Documents).
+    - <strong>iPhone / iPad:</strong> the app's Documents directory (not settable),
+      reachable via <strong>Files → On My iPhone/iPad → Guitar Tap</strong>.
+    - <strong>Browser (web build):</strong> files download to your browser's
+      <strong>Downloads</strong> folder (not settable — the browser controls where
+      downloads go).</p>
+<p>The folder is expected to stay where you put it: if you <strong>rename,
+  move, delete, or trash</strong> it (or it's on a drive that isn't mounted),
+  Guitar Tap can no longer reach it. When that happens — on <strong>New Tap</strong>,
+  and also at launch, since Guitar Tap arms for a tap automatically when
+  it opens — it asks you to <strong>Change Location</strong>, <strong>Turn Off Saving</strong>, or
+  <strong>Cancel</strong> before the measurement starts, so a recording is never lost
+  to a missing folder. <strong>Cancel</strong> leaves the detector idle; press <strong>New
+  Tap</strong> again when you're ready.</p>
+<p>File names are timestamped and prefixed by the originating build —
+  <code>swift_&lt;label&gt;_&lt;timestamp&gt;.wav</code>, <code>python_&lt;label&gt;_&lt;timestamp&gt;.wav</code>, or
+  <code>web_&lt;label&gt;_&lt;timestamp&gt;.wav</code> — so dumps from cross-platform
+  comparison runs are easy to tell apart.
 - <strong>Reset Analysis Settings</strong> — restores the analysis defaults.</p>
 <h2 id="86-about-help">8.6 About &amp; Help</h2>
 
@@ -3222,8 +3240,9 @@ Keyboard shortcuts are given in macOS form first followed by
 Windows / Linux where they differ.</p>
 <p><strong>New Tap</strong> <img src="images/symbols/hand.tap.png" width="18" height="18" class="inline-icon" alt="hand.tap"> — Arms the tap detector, clears the
 frozen spectrum, and returns to the live view. Also exits
-comparison mode when a comparison is active. Always enabled
-unless detection is unavailable.</p>
+comparison mode when a comparison is active. Enabled except
+while a measurement is actively being captured (and when
+detection is unavailable).</p>
 <p><strong>Play File</strong> <img src="images/symbols/waveform.badge.plus.png" width="18" height="18" class="inline-icon" alt="waveform.badge.plus"> — Opens a
 file picker; the selected audio file is fed through the analysis
 pipeline as if it were live microphone input. Useful for analyzing

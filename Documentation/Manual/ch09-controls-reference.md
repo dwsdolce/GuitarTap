@@ -191,8 +191,9 @@ Windows / Linux where they differ.
 
 **New Tap** <img src="images/symbols/hand.tap.png" width="18" height="18" class="inline-icon" alt="hand.tap"> — Arms the tap detector, clears the
 frozen spectrum, and returns to the live view. Also exits
-comparison mode when a comparison is active. Always enabled
-unless detection is unavailable.
+comparison mode when a comparison is active. Enabled except
+while a measurement is actively being captured (and when
+detection is unavailable).
 
 **Play File** <img src="images/symbols/waveform.badge.plus.png" width="18" height="18" class="inline-icon" alt="waveform.badge.plus"> — Opens a
 file picker; the selected audio file is fed through the analysis

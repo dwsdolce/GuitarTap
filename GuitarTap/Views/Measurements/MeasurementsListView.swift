@@ -55,8 +55,6 @@ extension UTType {
 struct MeasurementsListView: View {
     @ObservedObject var analyzer: TapToneAnalyzer
     @Environment(\.dismiss) var dismiss
-    @State private var showingExport = false
-    @State private var exportText = ""
     @State private var isExporting = false  // Track export progress
     @State private var isGeneratingReport = false
     @State private var showingImportPicker = false
@@ -88,9 +86,6 @@ struct MeasurementsListView: View {
                         .padding(.vertical, 10)
                     Divider()
                 }
-            }
-            .sheet(isPresented: $showingExport) {
-                ExportView(text: exportText)
             }
             .fileImporter(
                 isPresented: $showingImportPicker,
@@ -139,9 +134,6 @@ struct MeasurementsListView: View {
         // iOS layout with NavigationView
         NavigationView {
             contentView
-                .sheet(isPresented: $showingExport) {
-                    ExportView(text: exportText)
-                }
                 .sheet(isPresented: Binding(
                     get: { selectedDetailTarget != nil },
                     set: { if !$0 { selectedDetailTarget = nil } }

@@ -415,7 +415,9 @@
       "python": [
         "tests/test_annotation_state.py"
       ],
-      "web": [],
+      "web": [
+        "test/annotation-state.test.ts"
+      ],
       "tests": [],
       "equivalence": "test suite"
     },

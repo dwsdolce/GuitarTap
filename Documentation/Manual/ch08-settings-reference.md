@@ -176,11 +176,14 @@ SCREENSHOT:
       **Downloads** folder (not settable — the browser controls where
       downloads go).
 
-  If the folder you chose can't be reached when you press **New Tap**
-  (for example you deleted it, or it's on a drive that isn't mounted),
-  Guitar Tap asks you to **Change Location**, **Turn Off Saving**, or
-  **Cancel** before the measurement starts — so a recording is never
-  lost to a missing folder.
+  The folder is expected to stay where you put it: if you **rename,
+  move, delete, or trash** it (or it's on a drive that isn't mounted),
+  Guitar Tap can no longer reach it. When that happens — on **New Tap**,
+  and also at launch, since Guitar Tap arms for a tap automatically when
+  it opens — it asks you to **Change Location**, **Turn Off Saving**, or
+  **Cancel** before the measurement starts, so a recording is never lost
+  to a missing folder. **Cancel** leaves the detector idle; press **New
+  Tap** again when you're ready.
 
   File names are timestamped and prefixed by the originating build —
   `swift_<label>_<timestamp>.wav`, `python_<label>_<timestamp>.wav`, or

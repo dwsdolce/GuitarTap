@@ -24,12 +24,10 @@
 ///
 /// ## Export Flow
 ///
-/// The JSON export encodes the measurement to pretty-printed JSON text and
-/// presents it in `ExportView`. The PDF report flow uses
-/// `PDFReportGenerator` with an off-screen `ExportableSpectrumChart`
-/// rendered by `ImageRenderer`.
+/// The PDF report flow uses `PDFReportGenerator` with an off-screen
+/// `ExportableSpectrumChart` rendered by `ImageRenderer`.
 ///
-/// - SeeAlso: `MeasurementsListView`, `ExportView`, `PDFReportGenerator`
+/// - SeeAlso: `MeasurementsListView`, `PDFReportGenerator`
 
 import SwiftUI
 
@@ -38,8 +36,6 @@ struct MeasurementDetailView: View {
     @State var measurement: TapToneMeasurement
     @ObservedObject var analyzer: TapToneAnalyzer
     @Environment(\.dismiss) var dismiss
-    @State private var showingExport = false
-    @State private var exportText = ""
     @State private var isExporting = false
     @State private var isGeneratingReport = false
     @State private var chartImage: Image?

@@ -144,7 +144,7 @@ E_L, c_L, specific modulus, and a spruce quality rating are reported. No cross-g
 
 ### <img src="Manual/images/symbols/hand.tap.png" width="19" height="19" alt="hand.tap"> New Tap
 
-Starts a fresh measurement — arms the detector (or begins a plate/brace sequence). Enabled only once the current measurement is complete; during a measurement it is disabled (use Cancel to start over). A green indicator shows when a tap has been registered.
+Starts a fresh measurement — arms the detector (or begins a plate/brace sequence). Disabled only while a measurement is being captured; enabled at all other times, including after a measurement completes (use Cancel to abandon one in progress). A green indicator shows when a tap has been registered.
 
 ### <img src="Manual/images/symbols/pause.circle.png" width="19" height="19" alt="pause.circle"> <img src="Manual/images/symbols/play.circle.png" width="19" height="19" alt="play.circle"> <img src="Manual/images/symbols/checkmark.circle.png" width="19" height="19" alt="checkmark.circle"> Pause / Resume  •  Accept (plate/brace review)
 
