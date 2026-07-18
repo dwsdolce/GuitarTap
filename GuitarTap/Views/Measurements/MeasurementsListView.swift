@@ -478,7 +478,7 @@ struct MeasurementsListView: View {
             if let c = avgCGColor.components, c.count >= 3 {
                 avgComps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
             } else { avgComps = [1.0, 0.85, 0.0, 1.0] }
-            let selectedIDs = Set(measurement.selectedPeakIDs ?? measurement.peaks.map { $0.id })
+            let selectedIDs = measurement.effectiveSelectedPeakIDs
             cmpEntries.append(ComparisonEntry(id: UUID(), label: "Averaged",
                 colorComponents: avgComps, snapshot: avgSnap,
                 peaks: measurement.peaks.filter { selectedIDs.contains($0.id) },

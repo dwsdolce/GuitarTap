@@ -39,6 +39,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `model/guitar-mode-classify` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/dsp/classify.ts` | tests |
 | `model/measurement-name` | `GuitarTap/Models/TapToneMeasurement.swift` | `src/guitar_tap/models/tap_tone_measurement.py` | `src/measurement/measurementName.ts` | tests |
 | `model/mode-colors` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/presentation/modeColors.ts` | review only |
+| `model/quality-colors` | `GuitarTap/Models/MaterialProperties.swift` | `src/guitar_tap/models/material_properties.py` | `src/presentation/qualityColors.ts` | review only |
 | `model/wav-dump-folder` | `GuitarTap/Models/WavDumpFolder.swift` | `src/guitar_tap/models/wav_dump_folder.py` | — | tests |
 | `state/button-enablement` | `GuitarTap/Views/TapToneAnalysisView.swift` | `src/guitar_tap/views/tap_tone_analysis_view.py` | `src/state/buttonEnablement.ts` | tests |
 | `state/settings-store` | `GuitarTap/Models/TapDisplaySettings.swift` | `src/guitar_tap/models/tap_display_settings.py` | `src/settings.ts` | tests |
@@ -60,6 +61,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `test/measurement-codable` | `GuitarTapTests/MeasurementCodableTests.swift` | `tests/test_measurement_codable.py` | `test/measurement-codable.test.ts` | test suite |
 | `test/measurement-complete` | `GuitarTapTests/MeasurementCompleteTransitionTests.swift` | `tests/test_measurement_complete_transitions.py` | `test/measurement-complete.test.ts` | test suite |
 | `test/measurement-name` | `GuitarTapTests/MeasurementNameTests.swift` | `tests/test_measurement_name.py` | `test/measurement-name.test.ts` | test suite |
+| `test/measurement-type-name` | — | `tests/test_measurement_type_name.py` | `test/measurement-type-name.test.ts` | test suite |
 | `test/peaks` | `GuitarTapTests/PeakFindingTests.swift` | `tests/test_peak_finding.py` | `test/peaks.test.ts` | test suite |
 | `test/pitch` | `GuitarTapTests/PitchTests.swift` | `tests/test_pitch.py` | `test/pitch.test.ts` | test suite |
 | `test/plate` | `GuitarTapTests/PlatePropertiesTests.swift` | `tests/test_plate.py` | `test/plate.test.ts` | test suite |
@@ -103,3 +105,4 @@ A `—` is a legitimate group with no member in that platform (e.g. a Swift↔Py
 | `GuitarTapTests/ExportDirectoryTests.swift` | swift |
 | `GuitarTapTests/SpectrumViewGestureTests.swift` | swift |
 | `src/components/ReleaseNotes.tsx` | web |
+| `test/menu-placement.test.ts` | web |

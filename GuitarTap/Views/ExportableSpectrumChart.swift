@@ -166,7 +166,9 @@ struct ExportableSpectrumChart: View {
     /// Falls back to computing a local classification from ``visiblePeaks`` when
     /// ``peakModes`` is empty (e.g. when called from the PDF generator without an analyzer).
     private var peakModeMap: [UUID: GuitarMode] {
-        peakModes.isEmpty ? GuitarMode.classifyAll(visiblePeaks) : peakModes
+        // Material has no guitar modes — never run the classifier on material peaks. (RESPIN-1.0.2, fix M.)
+        guard measurementType.isGuitar else { return [:] }
+        return peakModes.isEmpty ? GuitarMode.classifyAll(visiblePeaks) : peakModes
     }
 
     /// Returns the appropriate color for a peak based on measurement type and selection.
@@ -511,6 +513,22 @@ func makeExportableSpectrumView(
         freq >= 1000 ? String(format: "%.1fk Hz", freq / 1000) : String(format: "%.0f Hz", freq)
     }
 
+    // Material (plate/brace) has no guitar modes — the Detected-Peaks-Summary chips must use the
+    // L/C/FLC role label + role color, never the guitar classifier. Mirrors ExportableSpectrumChart
+    // .peakModeLabel / .peakColor (and Python/web, which are already correct). (RESPIN-1.0.2, fix M.)
+    let roleLabel: (ResonantPeak) -> String = { peak in
+        if peak.id == selectedLongitudinalPeakID { return "Longitudinal" }
+        if peak.id == selectedCrossPeakID { return "Cross-grain" }
+        if peak.id == selectedFlcPeakID { return "FLC" }
+        return "Peak"
+    }
+    let roleColor: (ResonantPeak) -> Color = { peak in
+        if peak.id == selectedLongitudinalPeakID { return .blue }
+        if peak.id == selectedCrossPeakID { return .orange }
+        if peak.id == selectedFlcPeakID { return .purple }
+        return .secondary
+    }
+
     return VStack(alignment: .leading, spacing: 16) {
         // Header
         VStack(alignment: .leading, spacing: 8) {
@@ -623,22 +641,27 @@ func makeExportableSpectrumView(
                     .padding(.horizontal)
 
                 HStack(spacing: 20) {
-                    let summaryModeMap = peakModes.isEmpty ? GuitarMode.classifyAll(peaks) : peakModes
+                    // Guitar: classify by GuitarMode. Material: no classifier — use the L/C/FLC role. (fix M)
+                    let summaryModeMap: [UUID: GuitarMode] = measurementType.isGuitar
+                        ? (peakModes.isEmpty ? GuitarMode.classifyAll(peaks) : peakModes)
+                        : [:]
                     ForEach(peaks.prefix(8).sorted(by: { $0.frequency < $1.frequency })) { peak in
                         let mode = summaryModeMap[peak.id] ?? .unknown
+                        let chipLabel = measurementType.isGuitar ? mode.displayName : roleLabel(peak)
+                        let chipColor = measurementType.isGuitar ? mode.color : roleColor(peak)
                         VStack(spacing: 4) {
                             Text("\(peak.frequency, specifier: "%.1f") Hz")
                                 .font(.caption)
                                 .fontWeight(.bold)
-                            Text(mode.displayName)
+                            Text(chipLabel)
                                 .font(.caption2)
-                                .foregroundColor(mode.color)
+                                .foregroundColor(chipColor)
                             Text("\(peak.magnitude, specifier: "%.1f") dB")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                         .padding(8)
-                        .background(mode.color.opacity(0.1))
+                        .background(chipColor.opacity(0.1))
                         .cornerRadius(6)
                     }
                 }
@@ -707,10 +730,10 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
 
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
     if let longSnap = measurement.longitudinalSnapshot {
-        materialSpectra.append((longSnap.magnitudes, longSnap.frequencies, .blue, "Longitudinal"))
+        materialSpectra.append((longSnap.magnitudes, longSnap.frequencies, .blue, "Longitudinal (L)"))
     }
     if let crossSnap = measurement.crossSnapshot {
-        materialSpectra.append((crossSnap.magnitudes, crossSnap.frequencies, .orange, "Cross-grain"))
+        materialSpectra.append((crossSnap.magnitudes, crossSnap.frequencies, .orange, "Cross-grain (C)"))
     }
     if let flcSnap = measurement.flcSnapshot {
         materialSpectra.append((flcSnap.magnitudes, flcSnap.frequencies, .purple, "FLC"))
@@ -721,7 +744,7 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
     // Mirror TapToneAnalyzer.visiblePeaks: filter by annotationVisibilityMode and selectedPeakIDs
     let allPeaks = measurement.peaks
     let visibilityMode = measurement.annotationVisibilityMode ?? .all
-    let selectedIDs = Set(measurement.selectedPeakIDs ?? allPeaks.map { $0.id })
+    let selectedIDs = measurement.effectiveSelectedPeakIDs
     let visiblePeaks: [ResonantPeak]
     switch visibilityMode {
     case .all:      visiblePeaks = allPeaks

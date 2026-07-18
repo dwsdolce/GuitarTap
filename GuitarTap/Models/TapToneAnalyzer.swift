@@ -666,6 +666,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// Advances ``annotationVisibilityMode`` to the next state in the cycle:
     /// `all → selected → none → all`, and persists the new value to UserDefaults.
     func cycleAnnotationVisibility() {
+        // All → Selected → None → All, on every measurement type. For material (plate/brace) there is
+        // no per-peak selection, so `.selected` and `.all` render the same set (all identified peaks);
+        // the mode is a shared setting and is never coerced on type change. (RESPIN-1.0.2.)
         annotationVisibilityMode = annotationVisibilityMode.next
         TapDisplaySettings.annotationVisibilityMode = annotationVisibilityMode
     }
@@ -677,6 +680,12 @@ final class TapToneAnalyzer: ObservableObject {
     /// ``TapDisplaySettings/showUnknownModes`` is `false`, keeping the chart
     /// consistent with the Analysis Results panel.
     var visiblePeaks: [ResonantPeak] {
+        // Material (plate/brace): annotate the accumulated identified L/C/FLC (stable, persistent),
+        // matching the web — NOT `currentPeaks`, which churns through 87→126→3 raw peaks during
+        // capture. There is no per-peak selection, so `.all`/`.selected` are equivalent. (RESPIN-1.0.2, fix R.)
+        if !TapDisplaySettings.measurementType.isGuitar {
+            return annotationVisibilityMode == .none ? [] : materialIdentifiedPeaks
+        }
         let candidates: [ResonantPeak]
         switch annotationVisibilityMode {
         case .all:      candidates = currentPeaks
@@ -684,11 +693,20 @@ final class TapToneAnalyzer: ObservableObject {
         case .none:     return []
         }
         // Filter unknown-mode peaks in guitar mode when the setting is off
-        guard TapDisplaySettings.measurementType.isGuitar,
-              !TapDisplaySettings.showUnknownModes else {
+        guard !TapDisplaySettings.showUnknownModes else {
             return candidates
         }
         return candidates.filter { GuitarMode.isKnown(frequency: $0.frequency) }
+    }
+
+    /// The identified per-phase peaks (L, then C, then FLC) found so far in a material measurement,
+    /// in phase order. Stable and PERSISTENT across phases — the material analog of the guitar
+    /// "selected" set, mirroring the web's `matPeaks` that drives material annotations. Empty for
+    /// guitar. Used as the live-chart annotation source so annotations grow 1→2→3 cleanly instead of
+    /// following `currentPeaks` (which churns through all raw peaks during capture). (RESPIN-1.0.2, fix R.)
+    var materialIdentifiedPeaks: [ResonantPeak] {
+        guard !TapDisplaySettings.measurementType.isGuitar else { return [] }
+        return [selectedLongitudinalPeak, selectedCrossPeak, selectedFlcPeak].compactMap { $0 }
     }
 
     // MARK: - Plate / Brace Measurement State

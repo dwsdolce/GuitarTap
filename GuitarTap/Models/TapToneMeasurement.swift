@@ -638,3 +638,36 @@ struct TapToneMeasurement: Identifiable, Codable {
         }
     }
 }
+
+// MARK: - Material selection
+
+extension TapToneMeasurement {
+
+    /// The measurement type resolved from the stored snapshots (mirrors the resolution in
+    /// ``encode(to:)``); `nil` for legacy files that predate the top-level type.
+    var resolvedMeasurementType: MeasurementType? {
+        spectrumSnapshot?.measurementType ?? longitudinalSnapshot?.measurementType
+    }
+
+    /// `true` for a plate/brace (material) measurement.
+    ///
+    /// Material measurements have **no per-peak selection** — the identified L/C/FLC in ``peaks``
+    /// *are* the peaks. Falls back to the presence of material-only fields for legacy files whose
+    /// snapshot type cannot be resolved.
+    var isMaterial: Bool {
+        if let mt = resolvedMeasurementType { return !mt.isGuitar }
+        return longitudinalSnapshot != nil || selectedLongitudinalPeakID != nil
+    }
+
+    /// The set of peak IDs to render, annotate, and export for this measurement.
+    ///
+    /// - Guitar: the user's saved selection (``selectedPeakIDs``), or all ``peaks`` when none was saved.
+    /// - Material: **always all of ``peaks``.** Plate/brace have no per-peak selection, and the saved
+    ///   `selectedPeakIDs` aggregate can be corrupted by an intermittent phase-transition write
+    ///   (an iPad-only Release glitch), so it is ignored on read. This heals existing corrupt files
+    ///   at render time — the same rule the web and Python ports apply.
+    var effectiveSelectedPeakIDs: Set<UUID> {
+        if isMaterial { return Set(peaks.map { $0.id }) }
+        return Set(selectedPeakIDs ?? peaks.map { $0.id })
+    }
+}

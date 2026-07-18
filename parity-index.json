@@ -327,6 +327,20 @@
       "equivalence": "review only"
     },
     {
+      "slug": "model/quality-colors",
+      "swift": [
+        "GuitarTap/Models/MaterialProperties.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/material_properties.py"
+      ],
+      "web": [
+        "src/presentation/qualityColors.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
       "slug": "model/wav-dump-folder",
       "swift": [
         "GuitarTap/Models/WavDumpFolder.swift"
@@ -623,6 +637,18 @@
       ],
       "web": [
         "test/measurement-name.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/measurement-type-name",
+      "swift": [],
+      "python": [
+        "tests/test_measurement_type_name.py"
+      ],
+      "web": [
+        "test/measurement-type-name.test.ts"
       ],
       "tests": [],
       "equivalence": "test suite"
@@ -1045,6 +1071,10 @@
     {
       "repo": "web",
       "path": "src/components/ReleaseNotes.tsx"
+    },
+    {
+      "repo": "web",
+      "path": "test/menu-placement.test.ts"
     }
   ]
 }

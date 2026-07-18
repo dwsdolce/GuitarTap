@@ -308,6 +308,15 @@ extension TapToneAnalyzer {
                                      minDB: phaseArgs.minDB, maxDB: phaseArgs.maxDB)
         }()
 
+        // Material (plate/brace) has no per-peak selection: persist the FULL identified peak set
+        // (all of `currentPeaks`), never the live `selectedPeakIDs` aggregate — that aggregate can
+        // be corrupted by an intermittent phase-transition write, and material always shows all
+        // peaks anyway. Guitar persists the user's actual selection. (RESPIN-1.0.2 selection design;
+        // matches the web/Python save path.)
+        let persistedSelectedIDs: Set<UUID> = measurementType.isGuitar
+            ? selectedPeakIDs
+            : Set(currentPeaks.map { $0.id })
+
         let measurement = TapToneMeasurement(
             peaks: currentPeaks,
             decayTime: currentDecayTime,
@@ -325,9 +334,9 @@ extension TapToneAnalyzer {
             longitudinalSnapshot: !measurementType.isGuitar ? longitudinalSnapshot : nil,
             crossSnapshot: measurementType == .plate ? crossSnapshot : nil,
             flcSnapshot: measurementType == .plate ? flcSnapshot : nil,
-            selectedPeakIDs: selectedPeakIDs.isEmpty ? nil : Array(selectedPeakIDs),
-            selectedPeakFrequencies: selectedPeakIDs.isEmpty ? nil : currentPeaks
-                .filter { selectedPeakIDs.contains($0.id) }
+            selectedPeakIDs: persistedSelectedIDs.isEmpty ? nil : Array(persistedSelectedIDs),
+            selectedPeakFrequencies: persistedSelectedIDs.isEmpty ? nil : currentPeaks
+                .filter { persistedSelectedIDs.contains($0.id) }
                 .map { $0.frequency },
             annotationVisibilityMode: annotationVisibilityMode,
             peakModeOverrides: peakModeOverrides.isEmpty ? nil : peakModeOverrides,
@@ -682,7 +691,13 @@ extension TapToneAnalyzer {
         loadedMeasurementPeaks = measurement.peaks
 
         // Restore selected peak IDs; if none saved, default to selecting all peaks.
-        if let saved = measurement.selectedPeakIDs {
+        // Material (plate/brace) has no per-peak selection: always restore ALL peaks, ignoring the
+        // saved `selectedPeakIDs` aggregate (which can be corrupted by the phase-transition glitch).
+        // This HEALS existing corrupt files on load. Guitar restores the user's saved selection.
+        // (RESPIN-1.0.2; matches the web/Python read path.)
+        if measurement.isMaterial {
+            selectedPeakIDs = Set(measurement.peaks.map { $0.id })
+        } else if let saved = measurement.selectedPeakIDs {
             selectedPeakIDs = Set(saved)
         } else {
             selectedPeakIDs = Set(measurement.peaks.map { $0.id })
@@ -910,7 +925,7 @@ extension TapToneAnalyzer {
         let spectraAndSnapshots: [(entry: (magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?), snapshot: SpectrumSnapshot)] = withSnapshots.enumerated().map { index, measurement in
             let snap = measurement.spectrumSnapshot!
             let color = Self.multiTapPalette[index % Self.multiTapPalette.count]
-            let selectedIDs = Set(measurement.selectedPeakIDs ?? measurement.peaks.map(\.id))
+            let selectedIDs = measurement.effectiveSelectedPeakIDs
             let selectedPeaks = measurement.peaks.filter { selectedIDs.contains($0.id) }
             let entry = (magnitudes: snap.magnitudes, frequencies: snap.frequencies,
                          color: color, label: uniqueLabels[index],

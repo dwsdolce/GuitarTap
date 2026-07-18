@@ -213,7 +213,7 @@ struct PDFReportData {
             measurementType: measurementType,
             guitarType: guitarType,
             peaks: rangeFilteredPeaks,
-            selectedPeakIDs: Set(measurement.selectedPeakIDs ?? measurement.peaks.map { $0.id }),
+            selectedPeakIDs: measurement.effectiveSelectedPeakIDs,
             decayTime: measurement.decayTime,
             tapToneRatio: measurement.tapToneRatio,
             spectrumImageData: spectrumImageData,
