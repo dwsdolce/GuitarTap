@@ -174,6 +174,13 @@ control which peaks are labelled on the chart:
 - **None** — no labels. Useful for clean export images or for
   reading the bare spectrum shape without distractions.
 
+In **plate** and **brace** mode there is no per-peak selection —
+the identified Longitudinal, Cross, and (when measured) FLC peaks
+*are* the measurement, not a subset you choose (see §4.9). So
+**All** and **Selected** label the same set — all of them — and
+only **None** clears the labels. Guitar mode is the only place
+Selected differs from All (§3.6).
+
 Cycle via the Annotations button, or with the keyboard shortcut
 **⌘`** on macOS / **Ctrl+`** on Windows and Linux.
 

@@ -667,6 +667,7 @@ extension TapToneMeasurement {
         return longitudinalSnapshot != nil || selectedLongitudinalPeakID != nil
     }
 
+    // @parity model/material-selection tests=test/material-selection
     /// The set of peak IDs to render, annotate, and export for this measurement.
     ///
     /// - Guitar: the user's saved selection (``selectedPeakIDs``), or all ``peaks`` when none was saved.

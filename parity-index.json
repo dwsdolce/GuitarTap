@@ -300,6 +300,22 @@
       "equivalence": "tests"
     },
     {
+      "slug": "model/material-selection",
+      "swift": [
+        "GuitarTap/Models/TapToneMeasurement.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/tap_tone_measurement.py"
+      ],
+      "web": [
+        "src/measurement/types.ts"
+      ],
+      "tests": [
+        "test/material-selection"
+      ],
+      "equivalence": "tests"
+    },
+    {
       "slug": "model/measurement-name",
       "swift": [
         "GuitarTap/Models/TapToneMeasurement.swift"
@@ -616,6 +632,20 @@
       ],
       "web": [
         "test/import-persistence.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/material-selection",
+      "swift": [
+        "GuitarTapTests/MaterialSelectionTests.swift"
+      ],
+      "python": [
+        "tests/test_material_selection.py"
+      ],
+      "web": [
+        "test/material-selection.test.ts"
       ],
       "tests": [],
       "equivalence": "test suite"
