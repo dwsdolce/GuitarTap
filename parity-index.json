@@ -41,13 +41,15 @@
         "GuitarTap/Views/Utilities/Extensions.swift"
       ],
       "python": [
-        "src/guitar_tap/models/guitar_type.py"
+        "src/guitar_tap/views/utilities/extensions.py"
       ],
       "web": [
         "src/dsp/analysisQuality.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/analysis-quality"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "dsp/calibration",
@@ -324,8 +326,10 @@
       "web": [
         "src/presentation/modeColors.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/mode-colors"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "model/quality-colors",
@@ -421,6 +425,20 @@
         "test/state-invariants"
       ],
       "equivalence": "tests"
+    },
+    {
+      "slug": "test/analysis-quality",
+      "swift": [
+        "GuitarTapTests/AnalysisQualityTests.swift"
+      ],
+      "python": [
+        "tests/test_analysis_quality.py"
+      ],
+      "web": [
+        "test/analysis-quality.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
     },
     {
       "slug": "test/annotation-state",
@@ -652,6 +670,20 @@
       ],
       "web": [
         "test/measurement-type-name.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/mode-colors",
+      "swift": [
+        "GuitarTapTests/ModeColorsTests.swift"
+      ],
+      "python": [
+        "tests/test_mode_colors.py"
+      ],
+      "web": [
+        "test/mode-colors.test.ts"
       ],
       "tests": [],
       "equivalence": "test suite"

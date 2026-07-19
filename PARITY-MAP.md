@@ -21,7 +21,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 |---|---|---|---|---|
 | `audio/realtime-analyzer` | `GuitarTap/Models/RealtimeFFTAnalyzer.swift` | `src/guitar_tap/models/realtime_fft_analyzer.py` | `src/audio/realtimeFFTAnalyzer.ts` | tests |
 | `audio/tap-analyzer` | `GuitarTap/Models/TapToneAnalyzer.swift` | `src/guitar_tap/models/tap_tone_analyzer.py` | `src/dsp/guitarFFT.ts`<br>`src/state/tapToneAnalyzer.ts` | tests |
-| `dsp/analysis-quality` | `GuitarTap/Views/Utilities/Extensions.swift` | `src/guitar_tap/models/guitar_type.py` | `src/dsp/analysisQuality.ts` | review only |
+| `dsp/analysis-quality` | `GuitarTap/Views/Utilities/Extensions.swift` | `src/guitar_tap/views/utilities/extensions.py` | `src/dsp/analysisQuality.ts` | tests |
 | `dsp/calibration` | `GuitarTap/Models/MicrophoneCalibration.swift` | `src/guitar_tap/models/microphone_calibration.py` | `src/dsp/calibration.ts` | tests |
 | `dsp/decay` | `GuitarTap/Models/TapToneAnalyzer+DecayTracking.swift` | `src/guitar_tap/models/tap_tone_analyzer_decay_tracking.py` | `src/dsp/decay.ts` | tests |
 | `dsp/fft` | `GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift` | `src/guitar_tap/models/realtime_fft_analyzer_fft_processing.py` | `src/dsp/fft.ts` | tests |
@@ -38,13 +38,14 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `model/export-filename` | `GuitarTap/Models/ExportFilename.swift` | `src/guitar_tap/models/export_filename.py` | `src/measurement/exportFilename.ts` | tests |
 | `model/guitar-mode-classify` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/dsp/classify.ts` | tests |
 | `model/measurement-name` | `GuitarTap/Models/TapToneMeasurement.swift` | `src/guitar_tap/models/tap_tone_measurement.py` | `src/measurement/measurementName.ts` | tests |
-| `model/mode-colors` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/presentation/modeColors.ts` | review only |
+| `model/mode-colors` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/presentation/modeColors.ts` | tests |
 | `model/quality-colors` | `GuitarTap/Models/MaterialProperties.swift` | `src/guitar_tap/models/material_properties.py` | `src/presentation/qualityColors.ts` | review only |
 | `model/wav-dump-folder` | `GuitarTap/Models/WavDumpFolder.swift` | `src/guitar_tap/models/wav_dump_folder.py` | — | tests |
 | `state/button-enablement` | `GuitarTap/Views/TapToneAnalysisView.swift` | `src/guitar_tap/views/tap_tone_analysis_view.py` | `src/state/buttonEnablement.ts` | tests |
 | `state/settings-store` | `GuitarTap/Models/TapDisplaySettings.swift` | `src/guitar_tap/models/tap_display_settings.py` | `src/settings.ts` | tests |
 | `state/status-message` | `GuitarTap/Models/TapToneAnalyzer.swift` | `src/guitar_tap/models/tap_tone_analyzer.py` | `src/state/tapToneAnalyzer.ts` | tests |
 | `state/tap-tone-analyzer` | `GuitarTap/Models/TapToneAnalyzer+Control.swift` | `src/guitar_tap/models/tap_tone_analyzer_control.py` | `src/state/tapToneAnalyzer.ts` | tests |
+| `test/analysis-quality` | `GuitarTapTests/AnalysisQualityTests.swift` | `tests/test_analysis_quality.py` | `test/analysis-quality.test.ts` | test suite |
 | `test/annotation-state` | `GuitarTapTests/AnnotationStateTests.swift` | `tests/test_annotation_state.py` | `test/annotation-state.test.ts` | test suite |
 | `test/brace` | `GuitarTapTests/BracePropertiesTests.swift` | `tests/test_brace.py` | `test/brace.test.ts` | test suite |
 | `test/button-enablement` | `GuitarTapTests/ButtonEnablementTests.swift` | `tests/test_button_enablement.py` | `test/button-enablement.test.ts` | test suite |
@@ -62,6 +63,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `test/measurement-complete` | `GuitarTapTests/MeasurementCompleteTransitionTests.swift` | `tests/test_measurement_complete_transitions.py` | `test/measurement-complete.test.ts` | test suite |
 | `test/measurement-name` | `GuitarTapTests/MeasurementNameTests.swift` | `tests/test_measurement_name.py` | `test/measurement-name.test.ts` | test suite |
 | `test/measurement-type-name` | `GuitarTapTests/MeasurementTypeNameTests.swift` | `tests/test_measurement_type_name.py` | `test/measurement-type-name.test.ts` | test suite |
+| `test/mode-colors` | `GuitarTapTests/ModeColorsTests.swift` | `tests/test_mode_colors.py` | `test/mode-colors.test.ts` | test suite |
 | `test/peaks` | `GuitarTapTests/PeakFindingTests.swift` | `tests/test_peak_finding.py` | `test/peaks.test.ts` | test suite |
 | `test/pitch` | `GuitarTapTests/PitchTests.swift` | `tests/test_pitch.py` | `test/pitch.test.ts` | test suite |
 | `test/plate` | `GuitarTapTests/PlatePropertiesTests.swift` | `tests/test_plate.py` | `test/plate.test.ts` | test suite |

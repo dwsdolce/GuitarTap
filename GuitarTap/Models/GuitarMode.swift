@@ -6,7 +6,7 @@
 //
 // @parity dsp/guitar-modes tests=test/classify
 // @parity model/guitar-mode-classify tests=test/classify
-// @parity model/mode-colors
+// @parity model/mode-colors tests=test/mode-colors
 
 /// # GuitarMode
 ///

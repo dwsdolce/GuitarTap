@@ -215,17 +215,8 @@ struct DraggablePeakAnnotation: View {
                 return GuitarMode.userDefinedColor
             }
             // Use context-aware classification if provided; fall back to per-frequency lookup.
-            let mode = (classifiedMode ?? .unknown).normalized
-            switch mode {
-            case .air: return .cyan
-            case .top: return .green
-            case .back: return .orange
-            case .dipole: return .red
-            case .ringMode: return .purple
-            case .upperModes: return .gray
-            case .unknown: return .secondary
-            default: return .secondary
-            }
+            // Color resolves from the single canonical map (GuitarMode.color), not a local copy.
+            return (classifiedMode ?? .unknown).color
         } else {
             // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {
