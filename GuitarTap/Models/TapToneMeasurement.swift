@@ -649,6 +649,14 @@ extension TapToneMeasurement {
         spectrumSnapshot?.measurementType ?? longitudinalSnapshot?.measurementType
     }
 
+    /// The measurement's type as the single word shown in the Details pane:
+    /// Acoustic / Classical / Flamenco / Generic / Plate / Brace / Comparison — or "—" when no
+    /// snapshot carries a type. The type lives ONLY in the snapshot (never a top-level field), so this
+    /// resolves from the snapshot. Mirrors Python `_type_name` / web `measurementTypeName`.
+    var measurementTypeShortName: String {
+        isComparison ? "Comparison" : (resolvedMeasurementType?.shortName ?? "—")
+    }
+
     /// `true` for a plate/brace (material) measurement.
     ///
     /// Material measurements have **no per-peak selection** — the identified L/C/FLC in ``peaks``

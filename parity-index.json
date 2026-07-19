@@ -134,7 +134,8 @@
     {
       "slug": "dsp/gated-fft",
       "swift": [
-        "GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift"
+        "GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift",
+        "Tooling/parity/gen_parity_map.py"
       ],
       "python": [
         "src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py"
@@ -643,7 +644,9 @@
     },
     {
       "slug": "test/measurement-type-name",
-      "swift": [],
+      "swift": [
+        "GuitarTapTests/MeasurementTypeNameTests.swift"
+      ],
       "python": [
         "tests/test_measurement_type_name.py"
       ],
@@ -1067,6 +1070,30 @@
     {
       "repo": "swift",
       "path": "GuitarTapTests/SpectrumViewGestureTests.swift"
+    },
+    {
+      "repo": "swift",
+      "path": "Tooling/parity/gen_parity_map.py"
+    },
+    {
+      "repo": "swift",
+      "path": "Tooling/parity/gen_parity_map.py"
+    },
+    {
+      "repo": "swift",
+      "path": "Tooling/parity/gen_parity_map.py"
+    },
+    {
+      "repo": "swift",
+      "path": "Tooling/parity/gen_parity_map.py"
+    },
+    {
+      "repo": "swift",
+      "path": "Tooling/parity/gen_parity_map.py"
+    },
+    {
+      "repo": "swift",
+      "path": "Tooling/parity/gen_parity_map.py"
     },
     {
       "repo": "web",

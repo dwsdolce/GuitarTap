@@ -14,8 +14,16 @@ import Foundation
 
 enum DateDisplay {
     /// Medium date + short time, locale-aware (local timezone). For lists, detail, PDF, etc.
+    ///
+    /// Formats date and time in SEPARATE calls joined with ", " — modern ICU applies the CLDR
+    /// `atTime` glue ("… at …") whenever ONE formatter combines a date and a time (both the
+    /// `date:time:` style AND field-based combos), so the only way to guarantee the comma form is to
+    /// never combine them in one call. Result: en-US "Jul 16, 2026, 3:56 PM", matching Python (Babel's
+    /// standard combine) and the web.
     static func string(_ date: Date) -> String {
-        date.formatted(date: .abbreviated, time: .shortened)
+        let d = date.formatted(.dateTime.year().month(.abbreviated).day())
+        let t = date.formatted(.dateTime.hour().minute())
+        return "\(d), \(t)"
     }
 
     /// Compact variant (no year) for tight spots like chart titles / comparison legends:

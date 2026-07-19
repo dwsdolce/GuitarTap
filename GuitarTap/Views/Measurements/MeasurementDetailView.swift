@@ -68,13 +68,6 @@ struct MeasurementDetailView: View {
     
     /// Single Settings-vocabulary type word for the Details pane:
     /// Acoustic / Classical / Flamenco / Generic / Plate / Brace / Comparison.
-    private var measurementTypeName: String {
-        if measurement.isComparison { return "Comparison" }
-        let mt = measurement.spectrumSnapshot?.measurementType
-            ?? measurement.longitudinalSnapshot?.measurementType
-        return mt?.shortName ?? "—"
-    }
-
     @ViewBuilder
     private var contentView: some View {
         ScrollView {
@@ -105,7 +98,7 @@ struct MeasurementDetailView: View {
                                 Text("Measurement Type:")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text(measurementTypeName)
+                                Text(measurement.measurementTypeShortName)
                                     .font(.body)
                             }
 

@@ -27,7 +27,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `dsp/fft` | `GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift` | `src/guitar_tap/models/realtime_fft_analyzer_fft_processing.py` | `src/dsp/fft.ts` | tests |
 | `dsp/find-peaks` | `GuitarTap/Models/ResonantPeak.swift` | `src/guitar_tap/models/resonant_peak.py` | `src/dsp/peaks.ts` | tests |
 | `dsp/gated-capture` | `GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift` | `src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py` | `src/dsp/gatedCapture.ts` | tests |
-| `dsp/gated-fft` | `GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift` | `src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py` | `src/dsp/gatedCapture.ts`<br>`src/dsp/gatedFFT.ts` | tests |
+| `dsp/gated-fft` | `GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift`<br>`Tooling/parity/gen_parity_map.py` | `src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py` | `src/dsp/gatedCapture.ts`<br>`src/dsp/gatedFFT.ts` | tests |
 | `dsp/guitar-fft` | `GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift` | `src/guitar_tap/models/realtime_fft_analyzer_fft_processing.py` | `src/dsp/guitarFFT.ts` | tests |
 | `dsp/guitar-modes` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/dsp/guitarModes.ts` | tests |
 | `dsp/material-properties` | `GuitarTap/Models/MaterialProperties.swift` | `src/guitar_tap/models/material_properties.py` | `src/dsp/material.ts` | tests |
@@ -61,7 +61,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `test/measurement-codable` | `GuitarTapTests/MeasurementCodableTests.swift` | `tests/test_measurement_codable.py` | `test/measurement-codable.test.ts` | test suite |
 | `test/measurement-complete` | `GuitarTapTests/MeasurementCompleteTransitionTests.swift` | `tests/test_measurement_complete_transitions.py` | `test/measurement-complete.test.ts` | test suite |
 | `test/measurement-name` | `GuitarTapTests/MeasurementNameTests.swift` | `tests/test_measurement_name.py` | `test/measurement-name.test.ts` | test suite |
-| `test/measurement-type-name` | — | `tests/test_measurement_type_name.py` | `test/measurement-type-name.test.ts` | test suite |
+| `test/measurement-type-name` | `GuitarTapTests/MeasurementTypeNameTests.swift` | `tests/test_measurement_type_name.py` | `test/measurement-type-name.test.ts` | test suite |
 | `test/peaks` | `GuitarTapTests/PeakFindingTests.swift` | `tests/test_peak_finding.py` | `test/peaks.test.ts` | test suite |
 | `test/pitch` | `GuitarTapTests/PitchTests.swift` | `tests/test_pitch.py` | `test/pitch.test.ts` | test suite |
 | `test/plate` | `GuitarTapTests/PlatePropertiesTests.swift` | `tests/test_plate.py` | `test/plate.test.ts` | test suite |
@@ -104,5 +104,11 @@ A `—` is a legitimate group with no member in that platform (e.g. a Swift↔Py
 | `tests/test_wi10_qtimer_slots.py` | python |
 | `GuitarTapTests/ExportDirectoryTests.swift` | swift |
 | `GuitarTapTests/SpectrumViewGestureTests.swift` | swift |
+| `Tooling/parity/gen_parity_map.py` | swift |
+| `Tooling/parity/gen_parity_map.py` | swift |
+| `Tooling/parity/gen_parity_map.py` | swift |
+| `Tooling/parity/gen_parity_map.py` | swift |
+| `Tooling/parity/gen_parity_map.py` | swift |
+| `Tooling/parity/gen_parity_map.py` | swift |
 | `src/components/ReleaseNotes.tsx` | web |
 | `test/menu-placement.test.ts` | web |
