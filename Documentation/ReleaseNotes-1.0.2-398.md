@@ -2,7 +2,7 @@
 
 ---
 
-## Version 1.0.2 · Build 398
+## Version 1.0.2 · Build 402
 ### What's New Since Build 332
 
 ---
@@ -76,6 +76,8 @@
 - **Playing a measurement from a file** did not detect taps the same way a live measurement does. It used a fixed threshold rather than tracking the noise floor, and its warm-up was timed on the clock rather than on the audio, so the warm-up expired before any audio had arrived. File playback now behaves exactly like a live measurement — which also means a recording needs a short lead-in before its first tap (see Help).
 - **New Tap could get stuck disabled.** If you cancelled the capture-folder prompt — or launched with a chosen folder that was no longer reachable — the app could end up with every tap control disabled and no way to start. New Tap is now available whenever the detector is idle, so you can always begin again.
 - **Ring-out (decay time) could be misreported.** It was sampled on too coarse a cadence and timed with the wall clock, so a busy computer could skew the number. It is now sampled once per audio chunk and timed on the audio clock, so it stays accurate even under heavy load.
+- **iPad / iPhone:** an intermittent, hard-to-reproduce glitch when saving a plate or brace measurement could corrupt its stored peak selection, so the exported spectrum chart and PDF report later showed only one of the three measured frequencies. The live graph and the Analysis Results table were unaffected. Material measurements now always show all three (Longitudinal, Cross, and FLC where present), and any affected file is repaired when it is loaded.
+- During a plate capture, the identified peaks were not annotated on the chart until the whole measurement finished. They now appear at the completion of each phase (Longitudinal, then Cross, then FLC).
 
 ---
 
