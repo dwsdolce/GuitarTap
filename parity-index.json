@@ -342,8 +342,10 @@
       "web": [
         "src/presentation/qualityColors.ts"
       ],
-      "tests": [],
-      "equivalence": "review only"
+      "tests": [
+        "test/quality-colors"
+      ],
+      "equivalence": "tests"
     },
     {
       "slug": "model/wav-dump-folder",
@@ -726,6 +728,20 @@
       ],
       "web": [
         "test/plate.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/quality-colors",
+      "swift": [
+        "GuitarTapTests/QualityColorsTests.swift"
+      ],
+      "python": [
+        "tests/test_quality_colors.py"
+      ],
+      "web": [
+        "test/quality-colors.test.ts"
       ],
       "tests": [],
       "equivalence": "test suite"

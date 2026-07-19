@@ -28,7 +28,13 @@ enum DateDisplay {
 
     /// Compact variant (no year) for tight spots like chart titles / comparison legends:
     /// e.g. "Jun 25, 2:34 PM".
+    ///
+    /// Same rule as `string(_:)` above: format date and time in SEPARATE calls joined with ", "
+    /// so modern ICU never applies the `atTime` glue ("… at …") that a single combined formatter
+    /// would. Result matches Python's compact combine.
     static func compact(_ date: Date) -> String {
-        date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        let d = date.formatted(.dateTime.month(.abbreviated).day())
+        let t = date.formatted(.dateTime.hour().minute())
+        return "\(d), \(t)"
     }
 }
