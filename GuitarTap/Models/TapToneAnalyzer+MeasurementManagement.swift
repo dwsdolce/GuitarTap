@@ -429,7 +429,12 @@ extension TapToneAnalyzer {
         }
         if !missingNames.isEmpty {
             let list = missingNames.joined(separator: ", ")
-            microphoneWarning = "Recorded with \(list), which is not currently connected. Attach it and select it in the microphone settings for accurate analysis."
+            // Report UNKNOWN, not "unplugged": a no-match can equally mean the device is attached
+            // under a different name on this platform (the same UMIK-1 is "Umik-1  Gain: 18dB" here
+            // and "Microphone (Umik-1  Gain: 18dB)" on Windows). Impact stated so the reader can
+            // judge — frequencies are essentially mic-independent; levels, trigger and faint peaks
+            // are not. Mirrors the Python + web wording.
+            microphoneWarning = "Recorded with \(list). No connected microphone matches that name — it may be unplugged, or attached under a different name on this platform. Peak frequencies should still be comparable; input levels, the tap threshold, and faint peaks (such as FLC) may differ."
         }
 
         gtLog("📥 Imported \(measurements.count) measurements")
@@ -788,7 +793,9 @@ extension TapToneAnalyzer {
                     ? nil
                     : "This measurement was recorded with a different \(diffs.joined(separator: " and ")). A newly captured tap may not match the saved result."
             } else {
-                microphoneWarning = "This measurement was recorded with '\(name)', which is not currently connected. Attach it and select it in the microphone settings for accurate analysis."
+                // See the note at the missingNames warning above: a no-match cannot distinguish
+                // "unplugged" from "attached under a different name on this platform".
+                microphoneWarning = "Recorded with '\(name)'. No connected microphone matches that name — it may be unplugged, or attached under a different name on this platform. Peak frequencies should still be comparable; input levels, the tap threshold, and faint peaks (such as FLC) may differ."
             }
         }
 
