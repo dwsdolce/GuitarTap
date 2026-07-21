@@ -114,6 +114,17 @@ extension TapToneAnalyzer {
             let measurements = try TapToneAnalyzer.decodeMeasurements(data)
             savedMeasurements = measurements
             gtLog("📂 Loaded \(measurements.count) persisted measurements")
+
+            // Files written before the findPeaks duplicate fix carry one bit-identical twin
+            // per capture; decoding repairs them in memory. The library is ours, so write the
+            // corrected form back immediately — one save, once, and the corruption is gone.
+            // A `.guitartap` opened from disk is NOT rewritten this way; it is healed on every
+            // read until the user chooses to save it.
+            let healedCount = measurements.filter(\.wasHealed).count
+            if healedCount > 0 {
+                gtLog("🩹 Healed duplicate peaks in \(healedCount) saved measurement(s) — forcing a save")
+                persistMeasurements()
+            }
         } catch {
             gtLog("❌ Failed to load persisted measurements: \(error)")
         }

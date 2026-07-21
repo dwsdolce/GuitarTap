@@ -256,3 +256,169 @@ struct SpectrumAveragingTests {
     }
 
 }
+
+// ---------------------------------------------------------------------------
+// MARK: - Duplicate-peak regression  (D1, D2, D4)
+//
+// Development/PEAK-FINDING-DUPLICATE-PEAKS.md (GuitarTapWeb).
+//
+// findPeaks must never return two peaks for one spectral feature. It did: the
+// per-mode scan visited a bin once per overlapping mode range, minting a fresh
+// UUID each time, and the final assembly reconciled two independently
+// deduplicated lists **by UUID** — so the twin survived.
+//
+// These are authored against the UNFIXED code and are expected to fail until
+// detection stops being interleaved with classification.
+// ---------------------------------------------------------------------------
+
+/// D1 — the uniqueness invariant. No two returned peaks may describe the same
+/// spectral feature, i.e. sit closer together than the dedup proximity window.
+private func expectNoDuplicatePeaks(
+    _ peaks: [ResonantPeak],
+    _ label: String,
+    sourceLocation: SourceLocation = #_sourceLocation
+) {
+    for i in peaks.indices {
+        for j in peaks.indices where j > i {
+            let delta = abs(peaks[i].frequency - peaks[j].frequency)
+            #expect(
+                delta >= TapToneAnalyzer.peakProximityHz,
+                """
+                \(label): duplicate peaks \(delta) Hz apart \
+                (\(peaks[i].frequency) Hz @ \(peaks[i].magnitude) dB and \
+                \(peaks[j].frequency) Hz @ \(peaks[j].magnitude) dB). \
+                findPeaks must return one peak per spectral feature.
+                """,
+                sourceLocation: sourceLocation
+            )
+        }
+    }
+}
+
+@Suite("FindPeaks — duplicate regression")
+struct FindPeaksDuplicateTests {
+
+    /// Builds the minimal reproduction: a Generic-type spectrum with a strong
+    /// Top peak and two weaker maxima inside the Top/Back overlap band.
+    ///
+    /// Generic ranges: Top 140–260 Hz, Back 180–300 Hz — overlapping at 180–260.
+    /// Every duplicate observed in the field sits in that band.
+    ///
+    /// Resolution matters here. The suite's default 2048-bin spectrum has a
+    /// ~11.7 Hz bin width, so the ±5-bin local-max window spans ±58 Hz and two
+    /// peaks 7 Hz apart can never both be detected. Real captures use 32768 bins
+    /// (±3.7 Hz), which is why the field data shows adjacent overlap peaks the
+    /// synthetic suite could not produce — and why this defect went unseen.
+    ///
+    /// The weak peak must be far enough from the Back winner to survive as its own local
+    /// maximum. An earlier version placed it at 232 Hz with halfWidthHz 8, where the
+    /// 240 Hz peak's tail reaches −52.8 dB and buries a −56 dB peak entirely — so the
+    /// spectrum only ever held TWO features, and `count == 3` passed only because the
+    /// duplicate made up the number. That assertion would have masked the fix.
+    private func overlapSpectrum() -> ([Float], [Float]) {
+        let bins = 32768
+        let top = makeSpectrum(binCount: bins, peakHz: 195, peakDB: -40, halfWidthHz: 4)   // Top winner
+        let weak = makeSpectrum(binCount: bins, peakHz: 210, peakDB: -56, halfWidthHz: 4)  // overlap, loser
+        let back = makeSpectrum(binCount: bins, peakHz: 240, peakDB: -50, halfWidthHz: 4)  // overlap, Back winner
+        return combineSpectra(combineSpectra(top, weak), back)
+    }
+
+    private func overlapSUT() -> TapToneAnalyzer {
+        TapDisplaySettings.guitarType = .generic
+        let sut = makeSUT()
+        sut.peakMinThreshold = -60
+        sut.minFrequency = 30
+        sut.maxFrequency = 2000
+        return sut
+    }
+
+    // D2 — the minimal reproduction. Three spectral features must yield three
+    // peaks. Under the unfixed code the Top scan and the Back scan both mint the
+    // 240 Hz maximum, and step 3 reconciles by UUID, so four are returned.
+    @Test func overlapZone_returnsOnePeakPerFeature() {
+        let sut = overlapSUT()
+        let (mags, freqs) = overlapSpectrum()
+
+        let peaks = sut.findPeaks(magnitudes: mags, frequencies: freqs)
+
+        expectNoDuplicatePeaks(peaks, "Top/Back overlap")
+        #expect(peaks.count == 3,
+                "Expected 3 peaks for 3 spectral features, got \(peaks.count): \(peaks.map(\.frequency))")
+    }
+
+    // D2b — the overlap peaks must still classify correctly once deduplicated:
+    // the strongest in the overlap above the claimed Top becomes Back.
+    @Test func overlapZone_classifiesTopAndBack() {
+        let sut = overlapSUT()
+        let (mags, freqs) = overlapSpectrum()
+
+        let peaks = sut.findPeaks(magnitudes: mags, frequencies: freqs)
+        let modeMap = GuitarMode.classifyAll(peaks)
+
+        let topPeak = peaks.first { modeMap[$0.id]?.normalized == .top }
+        let backPeak = peaks.first { modeMap[$0.id]?.normalized == .back }
+
+        #expect(topPeak != nil, "no Top peak identified")
+        #expect(backPeak != nil, "no Back peak identified")
+        if let t = topPeak { #expect(abs(t.frequency - 195) < 5, "Top at \(t.frequency), expected ≈195") }
+        if let b = backPeak { #expect(abs(b.frequency - 240) < 5, "Back at \(b.frequency), expected ≈240") }
+    }
+
+    // D1 applied to the existing multi-tone case — a spectrum with no overlap
+    // involvement must also be duplicate-free (guards against a fix that only
+    // special-cases Top/Back).
+    @Test func multipleTones_containNoDuplicates() {
+        let sut = makeSUT()
+        sut.peakMinThreshold = -60
+        sut.minFrequency = 50
+        sut.maxFrequency = 2000
+
+        let p1 = makeSpectrum(peakHz: 400, peakDB: -20, halfWidthHz: 15)
+        let p2 = makeSpectrum(peakHz: 700, peakDB: -22, halfWidthHz: 15)
+        let p3 = makeSpectrum(peakHz: 1000, peakDB: -25, halfWidthHz: 15)
+        let (mags, freqs) = combineSpectra(combineSpectra(p1, p2), p3)
+
+        expectNoDuplicatePeaks(sut.findPeaks(magnitudes: mags, frequencies: freqs), "three distinct tones")
+    }
+
+    // D4 — winner invariants. These pin the algorithm the user specified:
+    // strongest peak per mode, Back constrained above Top, and every selected
+    // peak present in the returned set.
+    @Test func winnerInvariants_holdOnOverlapSpectrum() {
+        let sut = overlapSUT()
+        let (mags, freqs) = overlapSpectrum()
+
+        let peaks = sut.findPeaks(magnitudes: mags, frequencies: freqs)
+        let modeMap = GuitarMode.classifyAll(peaks)
+        let selected = sut.guitarModeSelectedPeakIDs(from: peaks)
+
+        // At most one peak per named mode is SELECTED.
+        //
+        // Note this counts *selected* peaks, not *labelled* ones. classifyAll deliberately
+        // labels additional peaks: an unclaimed peak above the claimed Top and inside the
+        // Back range resolves to `.back` too, so several peaks can carry the same label
+        // while only one is claimed as that mode's winner. An earlier version of this test
+        // asserted at most one *labelled* peak per mode, which is not an invariant of the
+        // algorithm — it only appeared to hold because the overlap spectrum had a swamped
+        // third peak that was never detected.
+        var selectedPerMode: [GuitarMode: Int] = [:]
+        for p in peaks where selected.contains(p.id) {
+            guard let m = modeMap[p.id]?.normalized, m != .unknown else { continue }
+            selectedPerMode[m, default: 0] += 1
+        }
+        for (mode, count) in selectedPerMode {
+            #expect(count <= 1, "\(mode.rawValue) selected \(count) peaks; at most 1 expected")
+        }
+
+        // Back must be strictly above Top.
+        let topFreq = peaks.first { modeMap[$0.id]?.normalized == .top }?.frequency
+        let backFreq = peaks.first { modeMap[$0.id]?.normalized == .back }?.frequency
+        if let t = topFreq, let b = backFreq {
+            #expect(b > t, "Back (\(b) Hz) must be above Top (\(t) Hz)")
+        }
+
+        // Selection must be a subset of the returned peaks.
+        let ids = Set(peaks.map(\.id))
+        #expect(selected.isSubset(of: ids), "selectedPeakIDs contains ids absent from the peak list")
+    }
+}

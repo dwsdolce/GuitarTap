@@ -370,27 +370,29 @@ extension TapToneAnalyzer {
         gtLog("🔬 Re-analyzed peaks from frozen spectrum: \(currentPeaks.count) peaks found")
     }
 
-    /// Finds all significant spectral peaks within the configured frequency range.
+    /// Finds every significant spectral peak within the configured frequency range.
     ///
-    /// The algorithm uses a two-pass strategy with mode-priority selection:
+    /// **Detection only — this function knows nothing about guitar modes.**
     ///
-    /// **Pass 1 — Known modes:**
-    /// Scans each mode's band from ``GuitarType/modeRanges`` for local maxima
-    /// that exceed ``TapToneAnalyzer/peakMinThreshold``. Tracks the strongest peak
-    /// per canonical mode name so each guitar mode always gets a guaranteed slot
-    /// in the output.
+    /// A single sweep over the spectrum in ascending frequency order. Each bin is
+    /// visited exactly once and mints at most one ``ResonantPeak``, so two peaks can
+    /// never describe the same spectral feature.
     ///
-    /// **Pass 2 — Unknown/inter-mode peaks:**
-    /// Scans the entire configured frequency window for local maxima that fall
-    /// outside all known mode ranges.
+    /// This is deliberate and load-bearing. The previous implementation iterated the
+    /// mode ranges as its outer loop and the bins as its inner loop; because Top and
+    /// Back overlap on every guitar type, a bin inside the overlap was scanned by two
+    /// mode passes and `makePeak` was called on it twice, minting two peaks with two
+    /// UUIDs and otherwise identical values. The assembly step then reconciled two
+    /// independently deduplicated lists **by UUID** and let the twin survive, so every
+    /// guitar capture on every platform saved one duplicated peak.
+    /// See Development/PEAK-FINDING-DUPLICATE-PEAKS.md in the GuitarTapWeb repo.
     ///
-    /// **Step 3 — Assembly:**
-    /// The strongest peak from each mode occupies a guaranteed slot. All
-    /// remaining peaks are then appended in descending magnitude order.
+    /// Classification and mode claiming belong to ``GuitarMode/classifyAll(_:guitarType:)``,
+    /// which operates on the returned peak *list* — where each peak has one identity and
+    /// can be claimed exactly once. Do not reintroduce mode-range awareness here.
     ///
-    /// Each accepted peak has its frequency and magnitude refined with
-    /// parabolic interpolation and its Q factor calculated using the −3 dB
-    /// bandwidth method.
+    /// Each accepted peak has its frequency and magnitude refined with parabolic
+    /// interpolation and its Q factor calculated using the −3 dB bandwidth method.
     ///
     /// - Parameters:
     ///   - magnitudes: dBFS magnitude spectrum array.
@@ -401,185 +403,49 @@ extension TapToneAnalyzer {
     ///     ``TapToneAnalyzer/maxFrequency``.
     ///   - peakMinOverride: Adaptive magnitude floor (dBFS) supplied for plate/brace
     ///     captures; when `nil`, the guitar-mode `peakMinThreshold` is used.
-    /// - Returns: Array of ``ResonantPeak`` values sorted by magnitude
-    ///   (descending).
+    /// - Returns: Array of ``ResonantPeak`` values sorted by magnitude (descending).
     func findPeaks(magnitudes: [Float], frequencies: [Float], minHz: Float? = nil, maxHz: Float? = nil, peakMinOverride: Float? = nil) -> [ResonantPeak] {
         guard magnitudes.count == frequencies.count else { return [] }
-        
-        var allPeaks: [ResonantPeak] = []
+
         let windowSize = 5  // Look at ±5 bins around each point
-        
+
         // Find frequency range indices — caller can override the analysis window
         let loFreq = minHz ?? minFrequency
         let hiFreq = maxHz ?? maxFrequency
         let startIdx = frequencies.firstIndex(where: { $0 >= loFreq }) ?? 0
         let endIdx = frequencies.firstIndex(where: { $0 > hiFreq }) ?? frequencies.count - 1
-        
+
         // For plate/brace, the caller may supply an adaptive noise-floor threshold
         // (median of the search-range magnitudes) instead of the guitar-mode peakMinThreshold.
         let effectiveThreshold = peakMinOverride ?? peakMinThreshold
-        
-        // Define all known modes to search for (excluding unknown), sorted by
-        // ascending range lower bound so we scan the spectrum low-to-high.
-        let guitarType = TapDisplaySettings.guitarType
-        let knownModes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
-            .sorted { $0.modeRange(for: guitarType).lowerBound < $1.modeRange(for: guitarType).lowerBound }
 
-        // Track the strongest peak found in each mode range.
-        var strongestPeakPerMode: [GuitarMode: ResonantPeak] = [:]
+        // The ±windowSize local-maximum test needs that many neighbours on each side.
+        let scanStart = startIdx + windowSize
+        let scanEnd = endIdx - windowSize
+        guard scanStart < scanEnd else { return [] }
 
-        // Step 1: Search known mode ranges for peaks sequentially, low-to-high.
-        //
-        // Each mode's scan window starts at:
-        //   max(mode range lower bound, frequency just above the last claimed peak)
-        //
-        // This prevents the same physical peak from being claimed by two overlapping
-        // mode ranges (e.g. the Top/Back overlap zone at 190–230 Hz for classical
-        // guitar). Whichever mode's range starts lower gets first claim; the next
-        // mode's scan begins above the claimed peak's raw bin so it cannot re-find
-        // the same local maximum even when parabolic interpolation pulls the
-        // reported frequency below the bin's own center frequency.
-        var lastClaimedBinIdx: Int = -1                    // raw bin index of the last claimed peak
-        var strongestBinPerMode: [GuitarMode: Int] = [:]  // normalised mode → raw bin of winner
+        var peaks: [ResonantPeak] = []
 
-        for mode in knownModes {
-            let modeRange = mode.modeRange(for: guitarType)
+        for i in scanStart..<scanEnd {
+            let magnitude = magnitudes[i]
+            guard magnitude > effectiveThreshold else { continue }
 
-            // Find the raw index boundaries for this mode's range, clamped to the
-            // analysis window. upperModes extends to 20 kHz but the display window
-            // may end at 2 kHz — still scan within the window.
-            let modeStartIdx = max(frequencies.firstIndex(where: { $0 >= modeRange.lowerBound }) ?? startIdx, startIdx)
-            let modeEndIdx   = min(frequencies.firstIndex(where: { $0 > modeRange.upperBound  }) ?? endIdx,   endIdx)
-            guard modeStartIdx < modeEndIdx else { continue }
-
-            // Advance the scan start to one bin past the last claimed peak's raw bin.
-            // Using the raw bin index (not the interpolated frequency) prevents
-            // parabolic interpolation from pulling the cursor back onto the
-            // claimed peak's own bin, which would allow the next mode to re-claim it.
-            let claimedIdx = lastClaimedBinIdx >= 0 ? lastClaimedBinIdx + 1 : startIdx
-            let effectiveStartIdx = max(modeStartIdx, claimedIdx)
-
-            let scanStart = max(effectiveStartIdx, startIdx + windowSize)
-            let scanEnd   = min(modeEndIdx, endIdx - windowSize)
-            guard scanStart < scanEnd else { continue }
-
-            for i in scanStart..<scanEnd {
-                let magnitude = magnitudes[i]
-                guard magnitude > effectiveThreshold else { continue }
-
-                // Local maximum check
-                var isLocalMax = true
-                for offset in -windowSize...windowSize where offset != 0 {
-                    if magnitudes[i + offset] >= magnitude {
-                        isLocalMax = false
-                        break
-                    }
-                }
-                guard isLocalMax else { continue }
-
-                let peak = makePeak(at: i, magnitudes: magnitudes, frequencies: frequencies)
-                // Add every above-threshold local maximum to the candidate pool
-                // so that non-strongest peaks within a mode range are still visible
-                // and selectable by the user.  The strongest peak per mode gets a
-                // guaranteed slot in step 3; the rest compete for remaining slots
-                // by magnitude alongside unknown (inter-mode) peaks.
-                allPeaks.append(peak)
-                let normalizedMode = mode.normalized
-                if let existing = strongestPeakPerMode[normalizedMode] {
-                    if magnitude > existing.magnitude {
-                        strongestPeakPerMode[normalizedMode] = peak
-                        strongestBinPerMode[normalizedMode] = i
-                    }
-                } else {
-                    strongestPeakPerMode[normalizedMode] = peak
-                    strongestBinPerMode[normalizedMode] = i
+            // Local maximum check
+            var isLocalMax = true
+            for offset in -windowSize...windowSize where offset != 0 {
+                if magnitudes[i + offset] >= magnitude {
+                    isLocalMax = false
+                    break
                 }
             }
+            guard isLocalMax else { continue }
 
-            // Advance the claimed-bin cursor to the raw bin of the strongest peak
-            // found in this mode (if any), so the next mode's scan starts above it.
-            // If the interpolated frequency of the newly claimed peak is within 2 Hz of
-            // an already-claimed peak (can happen at mode-range boundaries when parabolic
-            // interpolation pulls a bin frequency back across the cursor), discard it so
-            // the same physical peak is not double-counted under two mode labels.
-            let normalizedForCursor = mode.normalized
-            if let claimed = strongestPeakPerMode[normalizedForCursor] {
-                let isDuplicate = strongestPeakPerMode
-                    .filter { $0.key != normalizedForCursor }
-                    .values
-                    .contains { abs($0.frequency - claimed.frequency) < TapToneAnalyzer.peakProximityHz }
-                if isDuplicate {
-                    strongestPeakPerMode.removeValue(forKey: normalizedForCursor)
-                    strongestBinPerMode.removeValue(forKey: normalizedForCursor)
-                } else if let claimedBin = strongestBinPerMode[normalizedForCursor] {
-                    lastClaimedBinIdx = max(lastClaimedBinIdx, claimedBin)
-                }
-            }
+            peaks.append(makePeak(at: i, magnitudes: magnitudes, frequencies: frequencies))
         }
-        
-        // Step 2: Search entire spectrum for peaks outside known mode ranges (unknown peaks)
-        let outerScanStart = startIdx + windowSize
-        let outerScanEnd = endIdx - windowSize
-        if outerScanStart < outerScanEnd {
-            for i in outerScanStart..<outerScanEnd {
-                let magnitude = magnitudes[i]
-                let frequency = frequencies[i]
-                
-                // Skip if below threshold
-                guard magnitude > effectiveThreshold else { continue }
-                
-                // Check if this frequency is already covered by a known mode
-                let isInKnownMode = knownModes.contains { mode in
-                    mode.modeRange(for: guitarType).contains(frequency)
-                }
-                
-                // Only process if outside known mode ranges
-                guard !isInKnownMode else { continue }
-                
-                // Check if local maximum
-                var isLocalMax = true
-                for offset in -windowSize...windowSize where offset != 0 {
-                    if magnitudes[i + offset] >= magnitude {
-                        isLocalMax = false
-                        break
-                    }
-                }
-                
-                guard isLocalMax else { continue }
-                
-                let peak = makePeak(at: i, magnitudes: magnitudes, frequencies: frequencies)
-                allPeaks.append(peak)
-            }
-        }
-        
-        // Remove duplicate peaks (in case of overlap)
-        allPeaks = removeDuplicatePeaks(allPeaks)
-        
-        // Step 3: Build final peak list with mode priority.
-        // First, include the strongest peak from each known mode (guaranteed slots).
-        // Deduplicate the guaranteed-slot peaks by frequency before inserting them:
-        // a peak in the Top/Back overlap zone is found independently by both mode
-        // range scans and ends up in strongestPeakPerMode under two different keys
-        // (with two different UUIDs). removeDuplicatePeaks collapses them to one.
-        var finalPeaks: [ResonantPeak] = []
-        var includedPeakIDs = Set<UUID>()
 
-        // The sequential scan above ensures no physical peak appears in two mode
-        // slots, so removeDuplicatePeaks here is just a safety net for edge cases.
-        let guaranteedPeaks = removeDuplicatePeaks(Array(strongestPeakPerMode.values))
-        for peak in guaranteedPeaks {
-            finalPeaks.append(peak)
-            includedPeakIDs.insert(peak.id)
-        }
-        
-        // Then append all remaining peaks by magnitude (no limit).
-        let otherPeaks = allPeaks
-            .filter { !includedPeakIDs.contains($0.id) }
-            .sorted { $0.magnitude > $1.magnitude }
-        finalPeaks.append(contentsOf: otherPeaks)
-        
-        // Sort final result by magnitude descending
-        return finalPeaks.sorted(by: { $0.magnitude > $1.magnitude })
+        // Two adjacent bins can still resolve to interpolated vertices within
+        // peakProximityHz of one another; collapse those, keeping the louder.
+        return removeDuplicatePeaks(peaks).sorted(by: { $0.magnitude > $1.magnitude })
     }
     
     /// Applies the shared post-analysis state mutations common to both the

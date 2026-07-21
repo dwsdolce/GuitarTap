@@ -485,6 +485,64 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///
     /// All stored properties are decoded from their standard keys.  The encode-only convenience
     /// keys (`measurementType`, `guitarType`, `modeLabel`) are ignored during decode.
+    // MARK: - Duplicate-Peak Heal
+
+    /// `true` when decoding repaired duplicate peaks in this measurement.
+    ///
+    /// Transient and deliberately **not** encoded: it describes what happened during one
+    /// decode, not a property of the file. The saved-measurements store reads it to force a
+    /// save so the library repairs itself; a `.guitartap` file opened from disk is healed in
+    /// memory and written in corrected form only if the user saves it.
+    var wasHealed: Bool = false
+
+    /// Collapses peaks that describe the same spectral feature.
+    ///
+    /// Files written before the `findPeaks` duplicate fix contain one bit-identical twin per
+    /// capture (and one per tap entry in multi-tap files): the detector visited overlap bins
+    /// once per overlapping mode range and minted a peak each time. Loaded peaks are
+    /// authoritative and are never re-derived, so without this every existing file would show
+    /// a phantom Analysis Results row forever.
+    /// See Development/PEAK-FINDING-DUPLICATE-PEAKS.md in the GuitarTapWeb repo.
+    ///
+    /// Keeps, in order of preference: the peak in `selectedIDs` (the claimed mode winner),
+    /// then the louder, then the first seen. `findPeaks` guarantees legitimately saved peaks
+    /// are at least `peakProximityHz` apart, so any closer pair is corruption by definition.
+    ///
+    /// - Returns: the healed peaks and the ids that were dropped (empty when nothing changed).
+    static func healDuplicatePeaks(
+        _ peaks: [ResonantPeak],
+        selectedIDs: Set<UUID>
+    ) -> (peaks: [ResonantPeak], removed: Set<UUID>) {
+        var kept: [ResonantPeak] = []
+        var removed = Set<UUID>()
+
+        for peak in peaks {
+            guard let idx = kept.firstIndex(where: {
+                abs($0.frequency - peak.frequency) < TapToneAnalyzer.peakProximityHz
+            }) else {
+                kept.append(peak)
+                continue
+            }
+
+            let incumbent = kept[idx]
+            let preferIncoming: Bool
+            if selectedIDs.contains(peak.id) != selectedIDs.contains(incumbent.id) {
+                preferIncoming = selectedIDs.contains(peak.id)
+            } else {
+                preferIncoming = peak.magnitude > incumbent.magnitude
+            }
+
+            if preferIncoming {
+                removed.insert(incumbent.id)
+                kept[idx] = peak
+            } else {
+                removed.insert(peak.id)
+            }
+        }
+
+        return (kept, removed)
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id               = try container.decode(UUID.self,   forKey: .id)
@@ -499,12 +557,13 @@ struct TapToneMeasurement: Identifiable, Codable {
         // Also accepts legacy CGPoint encoding ({x:, y:}) from files written before this change.
         // Try the new named format (absFreqHz/absDB) first; fall back to legacy formats.
         let namedOffsets = (try? container.decodeIfPresent([UUID: PeakAnnotationOffset].self, forKey: .peakAnnotationOffsets)) ?? nil
+        var decodedOffsets: [UUID: CGPoint]?
         if let named = namedOffsets {
-            peakAnnotationOffsets = named.mapValues { CGPoint(x: $0.absFreqHz, y: $0.absDB) }
+            decodedOffsets = named.mapValues { CGPoint(x: $0.absFreqHz, y: $0.absDB) }
         } else {
             // Legacy: raw CGPoint or old hzOffset/dbOffset fields — treat as no position saved.
             // Annotation labels will fall back to their default (70pt above peak) positions.
-            peakAnnotationOffsets = nil
+            decodedOffsets = nil
         }
         tapDetectionThreshold = try container.decodeIfPresent(Float.self, forKey: .tapDetectionThreshold)
         numberOfTaps     = try container.decodeIfPresent(Int.self,   forKey: .numberOfTaps)
@@ -517,31 +576,74 @@ struct TapToneMeasurement: Identifiable, Codable {
         longitudinalSnapshot = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .longitudinalSnapshot)
         crossSnapshot        = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .crossSnapshot)
         flcSnapshot          = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .flcSnapshot)
-        selectedPeakIDs          = try container.decodeIfPresent([UUID].self,  forKey: .selectedPeakIDs)
+        var decodedSelectedPeakIDs = try container.decodeIfPresent([UUID].self,  forKey: .selectedPeakIDs)
         selectedPeakFrequencies  = try container.decodeIfPresent([Float].self, forKey: .selectedPeakFrequencies)
         annotationVisibilityMode = try container.decodeIfPresent(AnnotationVisibilityMode.self, forKey: .annotationVisibilityMode)
         // Canonical encoding is a flat [uuid, mode, uuid, mode, …] array — how
         // JSONEncoder serialises [UUID: UserAssignedMode] (UUID is not a string key).
         // GuitarTap Python 1.0.x instead wrote a {uuidString: mode} JSON object;
         // accept that legacy shape on import so those files remain loadable.
+        var decodedOverrides: [UUID: UserAssignedMode]?
         if let native = try? container.decodeIfPresent([UUID: UserAssignedMode].self, forKey: .peakModeOverrides) {
-            peakModeOverrides = native
+            decodedOverrides = native
         } else if let legacy = try? container.decodeIfPresent([String: UserAssignedMode].self, forKey: .peakModeOverrides) {
-            peakModeOverrides = Dictionary(uniqueKeysWithValues: legacy.compactMap { key, value in
+            decodedOverrides = Dictionary(uniqueKeysWithValues: legacy.compactMap { key, value in
                 UUID(uuidString: key).map { ($0, value) }
             })
         } else {
-            peakModeOverrides = nil
+            decodedOverrides = nil
         }
         microphoneName       = try container.decodeIfPresent(String.self, forKey: .microphoneName)
         microphoneUID        = try container.decodeIfPresent(String.self, forKey: .microphoneUID)
         calibrationName      = try container.decodeIfPresent(String.self, forKey: .calibrationName)
         sampleRate           = try container.decodeIfPresent(Double.self, forKey: .sampleRate)
         comparisonEntries    = try container.decodeIfPresent([ComparisonEntry].self, forKey: .comparisonEntries)
-        tapEntries           = try container.decodeIfPresent([TapEntry].self, forKey: .tapEntries)
+        var decodedTapEntries = try container.decodeIfPresent([TapEntry].self, forKey: .tapEntries)
         // Decode peaks as [ResonantPeak]; the extra modeLabel key in each entry is
         // silently ignored by ResonantPeak's synthesized Decodable conformance.
-        peaks = try container.decode([ResonantPeak].self, forKey: .peaks)
+        var decodedPeaks = try container.decode([ResonantPeak].self, forKey: .peaks)
+
+        // --- Heal duplicate peaks written by the pre-fix findPeaks ---
+        // Every read path reaches this initialiser: `.guitartap` import and the
+        // saved-measurements store both go through decodeMeasurements(_:).
+        var healed = false
+        let (healedPeaks, removedIDs) = Self.healDuplicatePeaks(
+            decodedPeaks, selectedIDs: Set(decodedSelectedPeakIDs ?? [])
+        )
+        if !removedIDs.isEmpty {
+            decodedPeaks = healedPeaks
+            // Drop dangling references so nothing points at a peak that no longer exists.
+            decodedSelectedPeakIDs = decodedSelectedPeakIDs?.filter { !removedIDs.contains($0) }
+            decodedOffsets = decodedOffsets?.filter { !removedIDs.contains($0.key) }
+            decodedOverrides = decodedOverrides?.filter { !removedIDs.contains($0.key) }
+            healed = true
+        }
+
+        // Multi-tap files carry a duplicate inside every tap entry as well; the Taps view and
+        // the multi-tap PDF read those, so they need the same repair.
+        if var entries = decodedTapEntries {
+            var entryHealed = false
+            for i in entries.indices {
+                let (p, removed) = Self.healDuplicatePeaks(
+                    entries[i].peaks, selectedIDs: Set(entries[i].selectedPeakIDs)
+                )
+                guard !removed.isEmpty else { continue }
+                entries[i].peaks = p
+                entries[i].selectedPeakIDs = entries[i].selectedPeakIDs.filter { !removed.contains($0) }
+                entryHealed = true
+            }
+            if entryHealed {
+                decodedTapEntries = entries
+                healed = true
+            }
+        }
+
+        peaks                 = decodedPeaks
+        selectedPeakIDs       = decodedSelectedPeakIDs
+        peakAnnotationOffsets = decodedOffsets
+        peakModeOverrides     = decodedOverrides
+        tapEntries            = decodedTapEntries
+        wasHealed             = healed
     }
 
     // MARK: - Custom Encoding

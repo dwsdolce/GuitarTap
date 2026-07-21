@@ -721,14 +721,32 @@
       "equivalence": "test suite"
     },
     {
-      "slug": "test/peaks",
+      "slug": "test/peak-heal",
       "swift": [
-        "GuitarTapTests/PeakFindingTests.swift"
+        "GuitarTapTests/PeakDuplicateHealTests.swift"
       ],
       "python": [
-        "tests/test_peak_finding.py"
+        "tests/test_peak_duplicate_heal.py"
       ],
       "web": [
+        "test/peak-duplicate-heal.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/peaks",
+      "swift": [
+        "GuitarTapTests/PeakFindingTests.swift",
+        "GuitarTapTests/PeakFixtureRegressionTests.swift"
+      ],
+      "python": [
+        "tests/test_fft_peak_detection.py",
+        "tests/test_peak_finding.py",
+        "tests/test_peak_fixture_regression.py"
+      ],
+      "web": [
+        "test/peak-fixture-regression.test.ts",
         "test/peaks.test.ts"
       ],
       "tests": [],
@@ -1135,6 +1153,14 @@
     },
     {
       "repo": "python",
+      "path": "tests/test_fft_peak_detection.py"
+    },
+    {
+      "repo": "python",
+      "path": "tests/test_peak_card_identity.py"
+    },
+    {
+      "repo": "python",
       "path": "tests/test_update_checker.py"
     },
     {
@@ -1144,6 +1170,10 @@
     {
       "repo": "swift",
       "path": "GuitarTapTests/ExportDirectoryTests.swift"
+    },
+    {
+      "repo": "swift",
+      "path": "GuitarTapTests/PeakBaselineCaptureTests.swift"
     },
     {
       "repo": "swift",

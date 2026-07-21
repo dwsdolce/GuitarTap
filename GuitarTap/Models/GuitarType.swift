@@ -44,8 +44,21 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
     /// Frequency classification bands for each guitar body mode, in Hz.
     ///
     /// Used by `GuitarMode.classify(frequency:guitarType:)` to assign a mode label to each
-    /// detected peak.  Bands are non-overlapping and cover the full audible spectrum via
-    /// `upperModes`.
+    /// detected peak.  The bands cover the full audible spectrum via `upperModes`.
+    ///
+    /// **Bands overlap, by design.** Top and Back overlap on every guitar type — 40 Hz on
+    /// classical, 50 on flamenco, 80 on generic — because a real instrument's top and back
+    /// resonances are not separable by frequency alone. A single frequency can therefore fall
+    /// in more than one band, and no code may assume otherwise.
+    ///
+    /// Resolving that ambiguity is `GuitarMode.classifyAll`'s job: it claims the strongest
+    /// peak per mode in ascending range order and constrains Back to sit above the claimed
+    /// Top. Detection must not consult these bands at all — a detector that iterates them
+    /// visits overlap bins more than once, which is what produced the duplicate-peak defect
+    /// (Development/PEAK-FINDING-DUPLICATE-PEAKS.md in GuitarTapWeb).
+    ///
+    /// The values are approximations; `generic` deliberately spans them all and is the more
+    /// useful setting in practice.
     struct ModeRanges {
         /// Helmholtz air resonance band, in Hz.
         let air: ClosedRange<Float>
@@ -76,8 +89,8 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
         case .flamenco:
             return ModeRanges(
                 air: 85...115,        // Slightly higher due to shallower body
-                top: 190...250,       // Higher due to thinner, lighter top
-                back: 180...240,      // Cypress back, lighter construction
+                top: 180...220,       // Modern flamenco tops are built closer to classical
+                back: 200...250,      // Cypress back sits above the top, as on every guitar type
                 dipole: 350...450,    // Dipole mode
                 ringMode: 600...850,  // Ring mode
                 upperModes: 850...20000

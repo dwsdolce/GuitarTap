@@ -138,11 +138,35 @@ struct GuitarModeClassificationTests {
         #expect(result[peak.id] == .air)
     }
 
-    @Test func flamenco_backRange_classifiesAsBack() {
-        // Flamenco back: 180–240 Hz; top: 190–250 Hz.  185 Hz is in back only → unambiguously Back.
+    @Test func flamenco_topRange_classifiesAsTop() {
+        // Flamenco top: 180–220 Hz; back: 200–250 Hz.  185 Hz is in top only → unambiguously Top.
+        //
+        // Corrected 2026-07-19: the old bands were top 190–250 / back 180–240 — the back range
+        // sitting BELOW the top range, which inverted Top/Back for flamenco alone (Back was
+        // claimed first, so classifyAll's "Back above Top" guard never fired). This case
+        // asserted `.back` at 185 Hz under those bands. See section 7c of
+        // Development/PEAK-FINDING-DUPLICATE-PEAKS.md in GuitarTapWeb.
         let peak = ResonantPeak(frequency: 185, magnitude: -20)
         let result = GuitarMode.classifyAll([peak], guitarType: .flamenco)
+        #expect(result[peak.id] == .top)
+    }
+
+    @Test func flamenco_backRange_classifiesAsBack() {
+        // 240 Hz is in back (200–250) only — 200–220 is the Top/Back overlap.
+        let peak = ResonantPeak(frequency: 240, magnitude: -20)
+        let result = GuitarMode.classifyAll([peak], guitarType: .flamenco)
         #expect(result[peak.id] == .back)
+    }
+
+    @Test func flamenco_topIsClaimedBelowBack() {
+        // The regression guard: two peaks straddling the 200 Hz boundary must resolve
+        // Top-below-Back, as on every other guitar type. Under the old inverted bands the
+        // strongest peak was labelled Back and the weaker, higher one Top.
+        let low = ResonantPeak(frequency: 190, magnitude: -40)   // strongest
+        let high = ResonantPeak(frequency: 230, magnitude: -50)
+        let result = GuitarMode.classifyAll([low, high], guitarType: .flamenco)
+        #expect(result[low.id] == .top)
+        #expect(result[high.id] == .back)
     }
 
     // MARK: - Mode normalization (legacy cases)
