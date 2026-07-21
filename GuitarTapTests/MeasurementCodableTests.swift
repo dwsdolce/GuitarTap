@@ -81,6 +81,50 @@ struct SpectrumSnapshotCodableTests {
         #expect(abs(decoded.magnitudes[2] - (-40.0)) < 0.001)
     }
 
+    /// Old files that name the measurement with the pre-rename `"tapLocation"` key still decode
+    /// into `measurementName`.
+    ///
+    /// This was covered only by accident until 2026-07-21: the Python copy of the
+    /// `contreras-classical` fixture still carried `tapLocation` while the Swift and web copies had
+    /// been updated to `measurementName`, so the three platforms' "same" parity test silently
+    /// exercised different branches. The fixture is now byte-identical everywhere and the fallback
+    /// is pinned deliberately, here and in the Python/web twins.
+    @Test func measurement_legacyTapLocationKey_decodesAsMeasurementName() throws {
+        let legacyJSON = """
+        {
+          "id": "6B29FC40-CA47-1067-B31D-00DD010662DA",
+          "timestamp": 1774731564,
+          "peaks": [],
+          "tapLocation": "Contreras Classical"
+        }
+        """
+        let data = try #require(legacyJSON.data(using: .utf8))
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+
+        #expect(decoded.measurementName == "Contreras Classical",
+                "Legacy tapLocation must populate measurementName")
+    }
+
+    /// The writer is minimal-canonical: it never emits the legacy key, even for a file that
+    /// arrived carrying it. (Reader is tolerant, writer is strict.)
+    @Test func measurement_legacyTapLocationKey_isNeverWrittenBack() throws {
+        let legacyJSON = """
+        {
+          "id": "6B29FC40-CA47-1067-B31D-00DD010662DA",
+          "timestamp": 1774731564,
+          "peaks": [],
+          "tapLocation": "Contreras Classical"
+        }
+        """
+        let data = try #require(legacyJSON.data(using: .utf8))
+        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
+        let reencoded = try JSONEncoder().encode(decoded)
+        let json = try #require(String(data: reencoded, encoding: .utf8))
+
+        #expect(!json.contains("tapLocation"), "Writer must not emit the legacy key")
+        #expect(json.contains("measurementName"), "Writer must emit the canonical key")
+    }
+
     /// Compact binary encoding is significantly smaller than pretty-printed legacy encoding.
     @Test func snapshot_binaryEncoding_isSmallerThanPrettyPrintedLegacy() throws {
         // Use a realistic FFT bin count: 65536 / 2 = 32768
