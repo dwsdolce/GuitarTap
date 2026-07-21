@@ -1440,7 +1440,15 @@ the calculation.</p>
 </ol>
 <p>If you adjust Peak Min on a frozen spectrum after a measurement,
 press the <strong>wand</strong> button to re-run automatic mode selection
-against the new threshold.</p>
+against the new value.</p>
+<p>The same works on a <strong>loaded</strong> measurement: a saved measurement
+keeps its full peak set, so lowering Peak Min reveals the quieter
+peaks exactly as on a live spectrum, and the wand then re-selects
+among them. (Measurements saved by versions before 1.0.2 stored
+only the peaks above the Peak Min in force when they were captured;
+on those, lowering Peak Min reveals nothing new — press
+<strong>Re-analyze</strong> first (§9) to rebuild the peak set from the stored
+spectrum, then adjust Peak Min and press the wand.)</p>
 <p>Peak Min persists across launches.</p>
 <h2 id="28-your-first-tap-guitar-mode-walkthrough">2.8 Your First Tap — Guitar Mode Walkthrough</h2>
 
@@ -1589,9 +1597,13 @@ Results panel.</p>
   is <em>Selected</em>, which matches what most luthiers want to see.</li>
 <li><strong>Re-run automatic selection</strong> by pressing the <strong>wand</strong> button
   in the Analysis Results header. This is useful after raising or
-  lowering Peak Min on a frozen spectrum: the wand re-classifies
-  the visible peaks against the current Peak Min and re-selects
-  one per mode window.</li>
+  lowering Peak Min on a frozen or loaded spectrum: the wand
+  re-selects one peak per mode window from the peaks currently
+  visible at the chosen Peak Min. It works on the peaks that are
+  already there — it does <em>not</em> re-detect. To rebuild the peak set
+  itself from a saved measurement's stored spectrum — for an older
+  file, or after changing the analysis range or guitar type — use
+  the separate <strong>Re-analyze</strong> button instead (§9).</li>
 <li><strong>Select All / Select None</strong> are available in the Results header
   for the cases where you want everything on or off in one step.</li>
 </ul>
@@ -2922,9 +2934,11 @@ SCREENSHOT:
 <li><strong>Peak Detection Minimum</strong> (guitar only) — the same Peak Min
   value as the toolbar slider (§2.7); the Settings field accepts
   a precise numeric value. Sets the minimum magnitude (dB) a peak
-  must reach to be annotated and included in the analysis. Typical
-  range: −60 to −40 dB. Disabled in plate / brace mode (the
-  per-phase capture uses its own adaptive noise floor).</li>
+  must reach to be annotated and included in the analysis. A saved
+  guitar measurement retains its full peak set, so Peak Min can be
+  lowered later on a loaded measurement to reveal quieter peaks
+  (§2.7). Typical range: −60 to −40 dB. Disabled in plate / brace
+  mode (the per-phase capture uses its own adaptive noise floor).</li>
 <li><strong>Dump Capture Audio</strong> — when on, each measurement's captured
   audio is saved as one continuous mono 32-bit-float WAV file. Useful
   as an archive of a measurement, or for debugging; leave off if you

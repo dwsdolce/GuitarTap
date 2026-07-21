@@ -387,11 +387,17 @@ struct SpectrumView: View {
     ///
     /// Used for the always-visible dot layer so every detected peak has a dot even when
     /// annotations are hidden. Applies the same unknown-mode filter as ``visiblePeaks``.
+    ///
+    /// The rule itself lives in ``GuitarMode/peaksInDisplayRange(_:minFreq:maxFreq:isGuitar:showUnknownModes:guitarType:)``
+    /// so Python and the web share one testable definition (`@parity view/dot-layer`).
     var allPeaksInRange: [ResonantPeak] {
-        let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
-        if !measurementType.isGuitar { return filtered }
-        if TapDisplaySettings.showUnknownModes { return filtered }
-        return filtered.filter { GuitarMode.isKnown(frequency: $0.frequency) }
+        GuitarMode.peaksInDisplayRange(
+            peaks ?? [],
+            minFreq: minFreq,
+            maxFreq: maxFreq,
+            isGuitar: measurementType.isGuitar,
+            showUnknownModes: TapDisplaySettings.showUnknownModes
+        )
     }
 
     /// Returns the peaks that should show annotation labels.

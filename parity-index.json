@@ -136,8 +136,7 @@
     {
       "slug": "dsp/gated-fft",
       "swift": [
-        "GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift",
-        "Tooling/parity/gen_parity_map.py"
+        "GuitarTap/Models/TapToneAnalyzer+SpectrumCapture.swift"
       ],
       "python": [
         "src/guitar_tap/models/tap_tone_analyzer_spectrum_capture.py"
@@ -962,6 +961,24 @@
       "equivalence": "review only"
     },
     {
+      "slug": "view/dot-layer",
+      "swift": [
+        "GuitarTap/Views/SpectrumView.swift",
+        "GuitarTapTests/DotLayerTests.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/fft_canvas.py",
+        "tests/test_dot_layer.py"
+      ],
+      "web": [
+        "src/App.tsx",
+        "src/dsp/guitarModes.ts",
+        "test/dot-layer.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
       "slug": "view/guitar-summary",
       "swift": [
         "GuitarTap/Views/TapAnalysisResultsView.swift"
@@ -1189,30 +1206,6 @@
     {
       "repo": "swift",
       "path": "GuitarTapTests/SpectrumViewGestureTests.swift"
-    },
-    {
-      "repo": "swift",
-      "path": "Tooling/parity/gen_parity_map.py"
-    },
-    {
-      "repo": "swift",
-      "path": "Tooling/parity/gen_parity_map.py"
-    },
-    {
-      "repo": "swift",
-      "path": "Tooling/parity/gen_parity_map.py"
-    },
-    {
-      "repo": "swift",
-      "path": "Tooling/parity/gen_parity_map.py"
-    },
-    {
-      "repo": "swift",
-      "path": "Tooling/parity/gen_parity_map.py"
-    },
-    {
-      "repo": "swift",
-      "path": "Tooling/parity/gen_parity_map.py"
     },
     {
       "repo": "web",

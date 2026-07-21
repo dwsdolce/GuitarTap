@@ -190,8 +190,21 @@ extension TapToneAnalyzer {
         // analysis record and may not be reproducible by re-running findPeaks on the
         // frozen spectrum (spectrum averaging, FFT windowing, and analysis settings can
         // all differ between sessions). Filter the saved peaks by threshold instead.
+        //
+        // **Guitar only.** Peak Min is a guitar-mode control: plate/brace capture uses its own
+        // adaptive per-phase noise floor, and the identified L / C / FLC peaks ARE the material
+        // result — they must never be filtered out from under it. A loaded plate whose fL sits
+        // below the saved Peak Min (e.g. fL at -62.4 dB with Peak Min -60) would otherwise lose
+        // that peak from both the peak table and the chart annotations.
+        //
+        // We are immune here today only by ACCIDENT: the guard above requires a non-empty frozen
+        // spectrum, and loading a material measurement leaves it empty (MeasurementManagement
+        // `setFrozenSpectrum([], [])`), so this branch is never reached for material. Anything
+        // that later gives a loaded material measurement a frozen spectrum would re-arm the bug.
+        // State the intent instead of relying on that. Python mirrors this guard in
+        // `_emit_loaded_peaks_at_threshold`, where the same defect DID reach the user.
         if let savedPeaks = loadedMeasurementPeaks {
-            let peaks = savedPeaks.filter { $0.magnitude >= peakMinThreshold }
+            let peaks = isGuitar ? savedPeaks.filter { $0.magnitude >= peakMinThreshold } : savedPeaks
 
             guard !peaks.isEmpty else {
                 currentPeaks = []

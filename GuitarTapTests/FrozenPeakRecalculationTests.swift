@@ -96,6 +96,12 @@ struct FrozenPeakRecalculation_LoadingGuardTests {
 struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
     // PR2a: Peaks in loadedMeasurementPeaks that are above peakMinThreshold are kept.
     @Test func loadedPeaks_aboveThreshold_areKept() {
+        // Peak Min filtering is GUITAR-only, so pin the type instead of inheriting whatever a
+        // previous suite left in the global (see the material counterpart below).
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let sut = makeSUT()
         let strongPeak = makePeak(frequency: 200, magnitude: -20)
         let weakPeak   = makePeak(frequency: 400, magnitude: -60)
@@ -113,6 +119,11 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
     // PR2b: When all loadedMeasurementPeaks fall below threshold, currentPeaks
     // and identifiedModes are both cleared.
     @Test func loadedPeaks_allBelowThreshold_clearsBothCollections() {
+        // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let sut = makeSUT()
         let peak = makePeak(frequency: 200, magnitude: -60)
         freeze(sut, peaks: [peak])
@@ -125,6 +136,37 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
 
         #expect(sut.currentPeaks.isEmpty,     "currentPeaks should be cleared when all peaks are below threshold")
         #expect(sut.identifiedModes.isEmpty,  "identifiedModes should be cleared when all peaks are below threshold")
+    }
+
+    // PR2d: Peak Min is a GUITAR-only control. A loaded MATERIAL measurement's identified
+    // L / C / FLC peaks ARE the result and must never be filtered out from under it.
+    //
+    // Regression, found 2026-07-21: a loaded plate whose fL sat at -62.41 dB with Peak Min -60
+    // lost that peak from the peak table AND the chart annotations. Python shipped the defect;
+    // Swift was immune only BY ACCIDENT, because a loaded material measurement leaves the frozen
+    // spectrum empty and the guard returns early. This test calls freeze() deliberately, so the
+    // frozen spectrum is NON-empty and the guard is bypassed — it pins the intent, not the accident.
+    @Test func loadedPeaks_material_areNeverFilteredByPeakMin() {
+        let savedType = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        for type in [MeasurementType.plate, .brace] {
+            TapDisplaySettings.measurementType = type
+
+            let sut = makeSUT()
+            let fL = makePeak(frequency: 66.88,  magnitude: -62.41)  // BELOW Peak Min — the victim
+            let fC = makePeak(frequency: 116.75, magnitude: -57.62)
+            freeze(sut, peaks: [fL, fC])
+            sut.loadedMeasurementPeaks = [fL, fC]
+            sut.peakMinThreshold = -60   // would drop fL if the guitar filter applied
+
+            sut.recalculateFrozenPeaksIfNeeded()
+
+            let freqs = sut.currentPeaks.map(\.frequency)
+            #expect(freqs.contains(66.88),
+                    "\(type.shortName): fL below Peak Min must survive — Peak Min is guitar-only")
+            #expect(freqs.contains(116.75), "\(type.shortName): fC must survive")
+        }
     }
 
     // PR2c: The loaded path uses the saved peaks — it does NOT re-run findPeaks()
@@ -176,6 +218,11 @@ struct FrozenPeakRecalculation_OffsetRemappingTests {
 
     // PR3b: An offset for a peak that disappears below the threshold is dropped.
     @Test func loadedPath_offsetForFilteredOutPeak_isDropped() {
+        // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let sut = makeSUT()
         let strongPeak = makePeak(frequency: 200, magnitude: -20)
         let weakPeak   = makePeak(frequency: 400, magnitude: -60)
@@ -226,6 +273,11 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
 
     // PR4b: Override for a peak that drops below threshold is removed.
     @Test func loadedPath_overrideForFilteredOutPeak_isDropped() {
+        // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let sut = makeSUT()
         let strongPeak = makePeak(frequency: 200, magnitude: -20)
         let weakPeak   = makePeak(frequency: 400, magnitude: -60)
@@ -441,6 +493,11 @@ struct RecalculateFrozenPeaksIntegrationTests {
 
     // PR-A3: Loaded-measurement path filters by threshold.
     @Test func loadedMeasurement_filtersAboveThresholdOnly() {
+        // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let sut = makeSUT()
         let above = makePeak(frequency: 200, magnitude: -25)
         let below = makePeak(frequency: 400, magnitude: -65)
@@ -458,6 +515,11 @@ struct RecalculateFrozenPeaksIntegrationTests {
 
     // PR-A4: All loaded peaks below threshold → currentPeaks is empty.
     @Test func loadedMeasurement_allBelowThreshold_yieldsEmpty() {
+        // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let sut = makeSUT()
         let p1 = makePeak(frequency: 200, magnitude: -70)
         let p2 = makePeak(frequency: 400, magnitude: -65)

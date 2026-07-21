@@ -239,6 +239,44 @@ enum GuitarMode: String, Codable {
             || r.dipole.contains(frequency) || r.ringMode.contains(frequency) || r.upperModes.contains(frequency)
     }
 
+    /// The peaks the chart draws a **dot** for: every peak inside the visible frequency range,
+    /// **independent of annotation-visibility mode and of peak selection**.
+    ///
+    /// This is the "dot list" (the always-visible layer), deliberately NOT the annotation list:
+    /// ``TapToneAnalyzer/visiblePeaks`` narrows by `AnnotationVisibilityMode` (all / selected /
+    /// none) and drives the badges, while every peak in range keeps its dot regardless. Gating dots
+    /// on the annotation mode is a bug — it shipped on the web once, where dots followed the
+    /// selection — which is why this rule now carries a paired 3-platform test.
+    ///
+    /// The unknown-mode filter uses ``isKnown(frequency:guitarType:)`` (*frequency falls in a band*)
+    /// rather than the mode assigned by ``classifyAll(_:guitarType:)``. The two agree for
+    /// auto-classified peaks — `classifyAll` gives every in-band peak a band mode — and differ only
+    /// under a user override; the positional test is the one that belongs on a chart layer.
+    ///
+    /// Callers pass the **display/viewport** range, which follows pan and zoom — not the analysis
+    /// range used by peak detection.
+    ///
+    /// - Parameters:
+    ///   - peaks: Candidate peaks (typically the current/frozen peak set).
+    ///   - minFreq: Low edge of the visible frequency range, in Hz (inclusive).
+    ///   - maxFreq: High edge of the visible frequency range, in Hz (inclusive).
+    ///   - isGuitar: Whether this is a guitar measurement; material types skip the unknown filter.
+    ///   - showUnknownModes: When `true`, in-range peaks outside every band are kept.
+    ///   - guitarType: The guitar type whose mode-range bands are used.
+    /// - Returns: The in-range peaks, input order preserved.
+    static func peaksInDisplayRange(
+        _ peaks: [ResonantPeak],
+        minFreq: Float,
+        maxFreq: Float,
+        isGuitar: Bool,
+        showUnknownModes: Bool,
+        guitarType: GuitarType = TapDisplaySettings.guitarType
+    ) -> [ResonantPeak] {
+        let inRange = peaks.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq }
+        guard isGuitar, !showUnknownModes else { return inRange }
+        return inRange.filter { isKnown(frequency: $0.frequency, guitarType: guitarType) }
+    }
+
     // MARK: - Frequency Ranges
 
     /// The classification frequency range for this mode using the current guitar type setting.
