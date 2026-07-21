@@ -171,7 +171,16 @@ Tune it from the same paused state used for Threshold:
 
 If you adjust Peak Min on a frozen spectrum after a measurement,
 press the **wand** button to re-run automatic mode selection
-against the new threshold.
+against the new value.
+
+The same works on a **loaded** measurement: a saved measurement
+keeps its full peak set, so lowering Peak Min reveals the quieter
+peaks exactly as on a live spectrum, and the wand then re-selects
+among them. (Measurements saved by versions before 1.0.2 stored
+only the peaks above the Peak Min in force when they were captured;
+on those, lowering Peak Min reveals nothing new — press
+**Re-analyze** first (§9) to rebuild the peak set from the stored
+spectrum, then adjust Peak Min and press the wand.)
 
 Peak Min persists across launches.
 

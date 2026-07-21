@@ -67,7 +67,8 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `test/measurement-type-name` | `GuitarTapTests/MeasurementTypeNameTests.swift` | `tests/test_measurement_type_name.py` | `test/measurement-type-name.test.ts` | test suite |
 | `test/mode-colors` | `GuitarTapTests/ModeColorsTests.swift` | `tests/test_mode_colors.py` | `test/mode-colors.test.ts` | test suite |
 | `test/peak-heal` | `GuitarTapTests/PeakDuplicateHealTests.swift` | `tests/test_peak_duplicate_heal.py` | `test/peak-duplicate-heal.test.ts` | test suite |
-| `test/peaks` | `GuitarTapTests/PeakFindingTests.swift`<br>`GuitarTapTests/PeakFixtureRegressionTests.swift` | `tests/test_fft_peak_detection.py`<br>`tests/test_peak_finding.py`<br>`tests/test_peak_fixture_regression.py` | `test/peak-fixture-regression.test.ts`<br>`test/peaks.test.ts` | test suite |
+| `test/peak-selection-persistence` | `GuitarTapTests/PeakSelectionPersistenceTests.swift` | `tests/test_peak_selection_persistence.py` | `test/peak-selection-persistence.test.ts` | test suite |
+| `test/peaks` | `GuitarTapTests/PeakFindingTests.swift`<br>`GuitarTapTests/PeakFixtureRegressionTests.swift` | `tests/test_fft_peak_detection.py`<br>`tests/test_peak_finding.py`<br>`tests/test_peak_fixture_regression.py` | `test/peak-fixture-regression.test.ts`<br>`test/peak-fullset-save.test.ts`<br>`test/peaks.test.ts` | test suite |
 | `test/pitch` | `GuitarTapTests/PitchTests.swift` | `tests/test_pitch.py` | `test/pitch.test.ts` | test suite |
 | `test/plate` | `GuitarTapTests/PlatePropertiesTests.swift` | `tests/test_plate.py` | `test/plate.test.ts` | test suite |
 | `test/quality-colors` | `GuitarTapTests/QualityColorsTests.swift` | `tests/test_quality_colors.py` | `test/quality-colors.test.ts` | test suite |
@@ -111,7 +112,6 @@ A `—` is a legitimate group with no member in that platform (e.g. a Swift↔Py
 | `tests/test_update_checker.py` | python |
 | `tests/test_wi10_qtimer_slots.py` | python |
 | `GuitarTapTests/ExportDirectoryTests.swift` | swift |
-| `GuitarTapTests/PeakBaselineCaptureTests.swift` | swift |
 | `GuitarTapTests/SpectrumViewGestureTests.swift` | swift |
 | `Tooling/parity/gen_parity_map.py` | swift |
 | `Tooling/parity/gen_parity_map.py` | swift |
@@ -119,5 +119,7 @@ A `—` is a legitimate group with no member in that platform (e.g. a Swift↔Py
 | `Tooling/parity/gen_parity_map.py` | swift |
 | `Tooling/parity/gen_parity_map.py` | swift |
 | `Tooling/parity/gen_parity_map.py` | swift |
+| `Development/playback-validation/swift/PeakPlaybackReportTests.swift` | web |
+| `Development/playback-validation/swift/PeakSpectrumFingerprintTests.swift` | web |
 | `src/components/ReleaseNotes.tsx` | web |
 | `test/menu-placement.test.ts` | web |

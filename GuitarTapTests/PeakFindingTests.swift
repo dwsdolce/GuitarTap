@@ -422,3 +422,70 @@ struct FindPeaksDuplicateTests {
         #expect(selected.isSubset(of: ids), "selectedPeakIDs contains ids absent from the peak list")
     }
 }
+
+// ---------------------------------------------------------------------------
+// MARK: - Full-set save (Option 4 — PEAK-MIN-SEMANTICS.md, GuitarTapWeb)
+//
+// A freshly captured guitar measurement persists every peak down to the −100 dB
+// floor, not just those above the current Peak Min, so a reloaded measurement can
+// reveal peaks below the capture-time Peak Min exactly as the live one can.
+// ---------------------------------------------------------------------------
+
+@Suite("Full-set save")
+struct GuitarFullSavePeaksTests {
+
+    // The real swift-mac capture: its Air resonance is at 97.26 Hz / −64.21 dB, so a Peak Min of
+    // −60 reproduces the exact original defect (Air excluded from what was saved). The full set
+    // must recover it. Fixture lives in the test bundle (shared with the fixture-regression tests).
+    private static let stem = "dws-2024-umik-1-swift-mac-1784225155"
+
+    private func fixtureSpectrum() throws -> (mags: [Float], freqs: [Float]) {
+        let url = try #require(Bundle(for: FSAnchor.self).url(forResource: Self.stem, withExtension: "guitartap"))
+        let arr = try #require(try JSONSerialization.jsonObject(with: try Data(contentsOf: url)) as? [[String: Any]])
+        let sn = try #require(arr.first?["spectrumSnapshot"] as? [String: Any])
+        func floats(_ b64: String) -> [Float] {
+            Data(base64Encoded: b64)!.withUnsafeBytes { Array($0.bindMemory(to: Float32.self)) }
+        }
+        return (floats(sn["magnitudesData"] as! String), floats(sn["frequenciesData"] as! String))
+    }
+
+    private func prep() throws -> (sut: TapToneAnalyzer, displayed: [ResonantPeak]) {
+        TapDisplaySettings.measurementType = .generic
+        let sut = makeSUT()
+        let (mags, freqs) = try fixtureSpectrum()
+        sut.setFrozenSpectrum(frequencies: freqs, magnitudes: mags)
+        sut.isMeasurementComplete = true
+        sut.minFrequency = 30
+        sut.maxFrequency = 2000
+        sut.peakMinThreshold = -60   // above the real Air peak (−64.21 dB)
+        let displayed = sut.findPeaks(magnitudes: mags, frequencies: freqs)
+        sut.currentPeaks = displayed
+        return (sut, displayed)
+    }
+
+    private func isAir(_ p: ResonantPeak) -> Bool { abs(p.frequency - 97.26) < 1 }
+
+    @Test func freshCaptureSavesFullSet_recoveringSubPeakMinAir() throws {
+        let (sut, displayed) = try prep()
+        sut.loadedMeasurementPeaks = nil
+        #expect(!displayed.contains(where: isAir),
+                "the real Air peak (−64.21 dB) should be excluded from the displayed set at Peak Min −60")
+
+        let saved = sut.guitarFullSavePeaks()
+        #expect(saved.contains(where: isAir), "saved full set must recover the sub-Peak-Min Air peak")
+        #expect(saved.count > displayed.count, "saved full set has more peaks than the displayed set")
+        #expect(displayed.allSatisfy { d in saved.contains { $0.id == d.id } },
+                "displayed peaks are kept verbatim (same UUIDs)")
+    }
+
+    @Test func loadedMeasurementIsNotUpgraded() throws {
+        let (sut, displayed) = try prep()
+        sut.loadedMeasurementPeaks = displayed   // simulate a still-loaded measurement
+        let saved = sut.guitarFullSavePeaks()
+        #expect(saved.count == displayed.count, "a loaded measurement is saved as-is (Re-analyze regenerates)")
+        #expect(!saved.contains(where: isAir), "no full-set upgrade for a loaded measurement")
+    }
+}
+
+private final class FSAnchor {}
+

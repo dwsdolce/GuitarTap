@@ -245,6 +245,30 @@ extension TapToneAnalyzer {
     ///   - maxFreq: Upper bound of the saved display frequency range (Hz); `nil` uses `TapDisplaySettings.maxFrequency`.
     ///   - minDB: Lower bound of the saved display magnitude range (dBFS); `nil` uses `TapDisplaySettings.minMagnitude`.
     ///   - maxDB: Upper bound of the saved display magnitude range (dBFS); `nil` uses `0.0`.
+    /// The guitar peak set to persist: the full set detected down to the −100 dB display floor,
+    /// not just those above the current Peak Min (Option 4; see PEAK-MIN-SEMANTICS.md in the
+    /// GuitarTapWeb repo). Filtering the saved full set by Peak Min gives the same result as the
+    /// live path re-detecting at that Peak Min — the local-maximum test is threshold-independent —
+    /// so a reloaded measurement reveals peaks below its capture-time Peak Min exactly as the live
+    /// one does.
+    ///
+    /// `currentPeaks` (≥ Peak Min, carrying their UUIDs / selection / modes / annotations) are kept
+    /// as-is; only the sub-Peak-Min peaks are appended, so nothing that is displayed or selected is
+    /// disturbed. Applies to freshly captured guitar measurements only — a **loaded** measurement
+    /// keeps its authoritative saved peaks (Re-analyze regenerates them from the spectrum), and
+    /// material (plate/brace) has no full-set concept.
+    func guitarFullSavePeaks() -> [ResonantPeak] {
+        guard TapDisplaySettings.measurementType.isGuitar,
+              loadedMeasurementPeaks == nil,
+              isMeasurementComplete,
+              !frozenMagnitudes.isEmpty,
+              frozenMagnitudes.count == frozenFrequencies.count else { return currentPeaks }
+        let full = findPeaks(magnitudes: frozenMagnitudes, frequencies: frozenFrequencies,
+                             peakMinOverride: TapToneAnalyzer.peakDetectionFloor)
+        let below = full.filter { $0.magnitude < peakMinThreshold }
+        return currentPeaks + below
+    }
+
     func saveMeasurement(
         measurementName: String? = nil,
         notes: String? = nil,
@@ -329,7 +353,7 @@ extension TapToneAnalyzer {
             : Set(currentPeaks.map { $0.id })
 
         let measurement = TapToneMeasurement(
-            peaks: currentPeaks,
+            peaks: guitarFullSavePeaks(),
             decayTime: currentDecayTime,
             measurementName: measurementName,
             notes: notes,
@@ -349,6 +373,10 @@ extension TapToneAnalyzer {
             selectedPeakFrequencies: persistedSelectedIDs.isEmpty ? nil : currentPeaks
                 .filter { persistedSelectedIDs.contains($0.id) }
                 .map { $0.frequency },
+            // Persist whether the guitar selection was hand-modified, so a reloaded measurement
+            // re-runs auto-selection on Peak Min change (like live) when it was automatic, or
+            // carries the selection forward when it was manual. Guitar only.
+            userModifiedSelection: measurementType.isGuitar ? userHasModifiedPeakSelection : nil,
             annotationVisibilityMode: annotationVisibilityMode,
             peakModeOverrides: peakModeOverrides.isEmpty ? nil : peakModeOverrides,
             microphoneName: microphoneName,
@@ -718,9 +746,12 @@ extension TapToneAnalyzer {
         } else {
             selectedPeakIDs = Set(measurement.peaks.map { $0.id })
         }
-        // Mark as user-modified so recalculateFrozenPeaksIfNeeded uses frequency-proximity
-        // carry-forward (referencing loadedMeasurementPeaks) rather than auto-selection.
-        userHasModifiedPeakSelection = true
+        // Restore whether the selection was user-modified. A manual selection uses
+        // frequency-proximity carry-forward on Peak Min change; an automatic one re-runs
+        // auto-selection (so a peak revealed by lowering Peak Min is selected as its mode winner,
+        // matching a live measurement). Files saved before this field default to `true` (manual),
+        // preserving prior behaviour exactly.
+        userHasModifiedPeakSelection = measurement.userModifiedSelection ?? true
         // Seed the stable frequency cache from the loaded selection so that
         // recalculateFrozenPeaksIfNeeded() can carry forward selections even
         // after Peak Min is raised above all peaks (at which point selectedPeakIDs

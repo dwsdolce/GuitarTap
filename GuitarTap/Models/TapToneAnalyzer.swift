@@ -1219,6 +1219,15 @@ final class TapToneAnalyzer: ObservableObject {
     /// ``buildAllPeaks(magnitudes:frequencies:dominantPeak:)`` in `+SpectrumCapture`.
     static let peakProximityHz: Float = 2.0
 
+    /// The absolute magnitude floor (dBFS) for the peak set persisted with a guitar measurement.
+    ///
+    /// A saved measurement records every peak down to this floor, not just those above the current
+    /// Peak Min, so a reloaded measurement can reveal peaks below the capture-time Peak Min exactly
+    /// as the live measurement can. −100 dB is the chart's `defaultMinMagnitude` and the Peak Min
+    /// slider's lower bound, so a peak below it can neither be drawn nor admitted by Peak Min — there
+    /// is nothing to gain by storing it. See PEAK-MIN-SEMANTICS.md in the GuitarTapWeb repo.
+    static let peakDetectionFloor: Float = -100.0
+
     /// Combine cancellable storage for FFT and input-level subscriptions.
     var cancellables = Set<AnyCancellable>()
 

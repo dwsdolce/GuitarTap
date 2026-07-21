@@ -128,9 +128,13 @@ Results panel.
   is *Selected*, which matches what most luthiers want to see.
 - **Re-run automatic selection** by pressing the **wand** button
   in the Analysis Results header. This is useful after raising or
-  lowering Peak Min on a frozen spectrum: the wand re-classifies
-  the visible peaks against the current Peak Min and re-selects
-  one per mode window.
+  lowering Peak Min on a frozen or loaded spectrum: the wand
+  re-selects one peak per mode window from the peaks currently
+  visible at the chosen Peak Min. It works on the peaks that are
+  already there — it does *not* re-detect. To rebuild the peak set
+  itself from a saved measurement's stored spectrum — for an older
+  file, or after changing the analysis range or guitar type — use
+  the separate **Re-analyze** button instead (§9).
 - **Select All / Select None** are available in the Results header
   for the cases where you want everything on or off in one step.
 

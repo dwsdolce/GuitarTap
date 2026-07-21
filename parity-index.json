@@ -735,6 +735,20 @@
       "equivalence": "test suite"
     },
     {
+      "slug": "test/peak-selection-persistence",
+      "swift": [
+        "GuitarTapTests/PeakSelectionPersistenceTests.swift"
+      ],
+      "python": [
+        "tests/test_peak_selection_persistence.py"
+      ],
+      "web": [
+        "test/peak-selection-persistence.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
       "slug": "test/peaks",
       "swift": [
         "GuitarTapTests/PeakFindingTests.swift",
@@ -747,6 +761,7 @@
       ],
       "web": [
         "test/peak-fixture-regression.test.ts",
+        "test/peak-fullset-save.test.ts",
         "test/peaks.test.ts"
       ],
       "tests": [],
@@ -1173,10 +1188,6 @@
     },
     {
       "repo": "swift",
-      "path": "GuitarTapTests/PeakBaselineCaptureTests.swift"
-    },
-    {
-      "repo": "swift",
       "path": "GuitarTapTests/SpectrumViewGestureTests.swift"
     },
     {
@@ -1202,6 +1213,14 @@
     {
       "repo": "swift",
       "path": "Tooling/parity/gen_parity_map.py"
+    },
+    {
+      "repo": "web",
+      "path": "Development/playback-validation/swift/PeakPlaybackReportTests.swift"
+    },
+    {
+      "repo": "web",
+      "path": "Development/playback-validation/swift/PeakSpectrumFingerprintTests.swift"
     },
     {
       "repo": "web",

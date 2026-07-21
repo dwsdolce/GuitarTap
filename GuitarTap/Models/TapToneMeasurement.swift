@@ -188,6 +188,15 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// UUIDs are not.
     let selectedPeakFrequencies: [Float]?
 
+    /// Whether the saved peak selection was hand-modified by the user (vs the automatic
+    /// mode-priority selection). Restored on load so a loaded measurement behaves like a live one:
+    /// an **automatic** selection re-runs auto-selection when Peak Min changes (so a peak revealed
+    /// by lowering Peak Min is selected as its mode's winner), while a **manual** selection is
+    /// carried forward. `nil` in files saved before this field — those default to `true` (manual),
+    /// preserving prior behaviour exactly. Never touches `peakModeOverrides` (user-assigned mode
+    /// labels), which are persisted and restored independently.
+    let userModifiedSelection: Bool?
+
     /// The annotation visibility mode (show all / show selected / hide all) that was active
     /// when the measurement was saved.
     let annotationVisibilityMode: AnnotationVisibilityMode?
@@ -293,7 +302,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case legacyPeakThreshold = "peakThreshold"
         case selectedLongitudinalPeakID, selectedCrossPeakID, selectedFlcPeakID
         case longitudinalSnapshot, crossSnapshot, flcSnapshot
-        case selectedPeakIDs, selectedPeakFrequencies, annotationVisibilityMode
+        case selectedPeakIDs, selectedPeakFrequencies, userModifiedSelection, annotationVisibilityMode
         case peakModeOverrides
         case microphoneName, microphoneUID, calibrationName, sampleRate
         case comparisonEntries
@@ -377,6 +386,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          flcSnapshot: SpectrumSnapshot? = nil,
          selectedPeakIDs: [UUID]? = nil,
          selectedPeakFrequencies: [Float]? = nil,
+         userModifiedSelection: Bool? = nil,
          annotationVisibilityMode: AnnotationVisibilityMode? = nil,
          peakModeOverrides: [UUID: UserAssignedMode]? = nil,
          microphoneName: String? = nil,
@@ -404,6 +414,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.flcSnapshot = flcSnapshot
         self.selectedPeakIDs = selectedPeakIDs
         self.selectedPeakFrequencies = selectedPeakFrequencies
+        self.userModifiedSelection = userModifiedSelection
         self.annotationVisibilityMode = annotationVisibilityMode
         self.peakModeOverrides = peakModeOverrides
         self.microphoneName = microphoneName
@@ -438,6 +449,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             flcSnapshot: flcSnapshot,
             selectedPeakIDs: selectedPeakIDs,
             selectedPeakFrequencies: selectedPeakFrequencies,
+            userModifiedSelection: userModifiedSelection,
             annotationVisibilityMode: annotationVisibilityMode,
             peakModeOverrides: peakModeOverrides,
             microphoneName: microphoneName,
@@ -578,6 +590,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         flcSnapshot          = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .flcSnapshot)
         var decodedSelectedPeakIDs = try container.decodeIfPresent([UUID].self,  forKey: .selectedPeakIDs)
         selectedPeakFrequencies  = try container.decodeIfPresent([Float].self, forKey: .selectedPeakFrequencies)
+        userModifiedSelection    = try container.decodeIfPresent(Bool.self, forKey: .userModifiedSelection)
         annotationVisibilityMode = try container.decodeIfPresent(AnnotationVisibilityMode.self, forKey: .annotationVisibilityMode)
         // Canonical encoding is a flat [uuid, mode, uuid, mode, …] array — how
         // JSONEncoder serialises [UUID: UserAssignedMode] (UUID is not a string key).
@@ -686,6 +699,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(flcSnapshot,      forKey: .flcSnapshot)
         try container.encodeIfPresent(selectedPeakIDs,         forKey: .selectedPeakIDs)
         try container.encodeIfPresent(selectedPeakFrequencies, forKey: .selectedPeakFrequencies)
+        try container.encodeIfPresent(userModifiedSelection,    forKey: .userModifiedSelection)
         try container.encodeIfPresent(annotationVisibilityMode, forKey: .annotationVisibilityMode)
         try container.encodeIfPresent(peakModeOverrides, forKey: .peakModeOverrides)
         try container.encodeIfPresent(microphoneName,    forKey: .microphoneName)
