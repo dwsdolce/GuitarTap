@@ -721,8 +721,8 @@ extension TapToneAnalyzer {
         // the UI shows peak annotations and the Analysis Results table after each
         // tap — matching the Python behaviour where analyze_magnitudes() runs on
         // every live FFT frame during capture.
-        let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
-        currentPeaks = peaks
+        let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies, peakMinOverride: TapToneAnalyzer.peakDetectionFloor)
+        allPeaks = peaks
         selectedPeakIDs = Set(peaks.map { $0.id })
         let modeMap = GuitarMode.classifyAll(peaks)
         identifiedModes = peaks.map { (peak: $0, mode: modeMap[$0.id] ?? .unknown) }
@@ -1232,7 +1232,7 @@ extension TapToneAnalyzer {
         selectedLongitudinalPeak = longitudinalPeaks.first(where: { $0.id == avgPeak.id }) ?? avgPeak
         gtLog("🔵 Auto-selected longitudinal peak: \(avgPeak.frequency) Hz")
 
-        currentPeaks      = longitudinalPeaks
+        allPeaks      = longitudinalPeaks
         // Only the identified (auto-selected) peak is selected — others are informational.
         selectedPeakIDs   = Set([avgPeak.id])
         materialCapturedTaps = []
@@ -1240,9 +1240,9 @@ extension TapToneAnalyzer {
         let isBrace = TapDisplaySettings.measurementType == .brace
         if isBrace {
             if let selPeak = longitudinalPeaks.first(where: { $0.id == avgPeak.id }) {
-                currentPeaks = [selPeak]
+                allPeaks = [selPeak]
             } else {
-                currentPeaks = [avgPeak]
+                allPeaks = [avgPeak]
             }
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             materialTapPhase = .complete
@@ -1367,7 +1367,7 @@ extension TapToneAnalyzer {
         gtLog("🟠 Auto-selected cross-grain peak: \(avgPeak.frequency) Hz")
         materialCapturedTaps = []
 
-        currentPeaks = combinePlatePeaks()
+        allPeaks = combinePlatePeaks()
         // Only the identified (auto-selected) peaks are selected — others are informational.
         selectedPeakIDs = Set([autoSelectedLongitudinalPeakID, autoSelectedCrossPeakID].compactMap { $0 })
 
@@ -1457,7 +1457,7 @@ extension TapToneAnalyzer {
         // the same values for the file-playback branch.  Mirrors the
         // structure of Python `_handle_flc_gated_progress`.
         let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? avgPeak)
-        currentPeaks = sel
+        allPeaks = sel
         selectedPeakIDs = Set(sel.map { $0.id })
 
         if fftAnalyzer.isPlayingFile {
@@ -1620,14 +1620,20 @@ extension TapToneAnalyzer {
         
         // Find peaks in the AVERAGED spectrum so they align with what's displayed.
         // This ensures peak markers sit on actual peaks in the averaged waveform.
-        let peaksFromAveragedSpectrum = findPeaks(magnitudes: avgMagnitudes, frequencies: avgFrequencies)
+        let peaksFromAveragedSpectrum = findPeaks(magnitudes: avgMagnitudes, frequencies: avgFrequencies, peakMinOverride: TapToneAnalyzer.peakDetectionFloor)
         
-        // Update current peaks with peaks from averaged spectrum.
-        // Auto-select one best peak per guitar mode (lowest range first) so that
-        // overlapping ranges resolve in favour of the lower-frequency mode.
-        // Clear the manual-modification flag so subsequent Peak Min changes re-run
-        // auto-selection rather than carrying forward a now-stale manual state.
-        currentPeaks = peaksFromAveragedSpectrum
+        // Store the FULL peak set (detected to -100 dB) as the durable result, and auto-select one
+        // best peak per guitar mode (lowest range first) so overlapping ranges resolve in favour of
+        // the lower-frequency mode.
+        //
+        // Auto-selection deliberately runs over the FULL set, not the Peak-Min-filtered view: a
+        // quiet Air below the current Peak Min is therefore selected at freeze even though it is not
+        // displayed, and that selection is durable and saved. Lowering Peak Min later simply reveals
+        // an already-selected peak. (PEAK-LIFECYCLE-SPEC.md §2.)
+        //
+        // A new capture is one of the two things that legitimately resets per-peak state, so the
+        // manual-selection flag is cleared here.
+        allPeaks = peaksFromAveragedSpectrum
         selectedPeakIDs = guitarModeSelectedPeakIDs(from: peaksFromAveragedSpectrum)
         userHasModifiedPeakSelection = false
         loadedMeasurementPeaks = nil      // New live result — no longer remapping from a loaded measurement
@@ -1655,7 +1661,7 @@ extension TapToneAnalyzer {
             let showUnknown = TapDisplaySettings.showUnknownModes
 
             tapEntries = capturedTaps.enumerated().map { index, tap in
-                let tapPeaks = findPeaks(magnitudes: tap.magnitudes, frequencies: tap.frequencies)
+                let tapPeaks = findPeaks(magnitudes: tap.magnitudes, frequencies: tap.frequencies, peakMinOverride: TapToneAnalyzer.peakDetectionFloor)
                 let modeSelected = guitarModeSelectedPeakIDs(from: tapPeaks)
                 let snap = SpectrumSnapshot(
                     frequencies: tap.frequencies,

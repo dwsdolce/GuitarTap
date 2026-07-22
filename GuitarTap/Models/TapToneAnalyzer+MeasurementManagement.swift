@@ -257,16 +257,14 @@ extension TapToneAnalyzer {
     /// disturbed. Applies to freshly captured guitar measurements only — a **loaded** measurement
     /// keeps its authoritative saved peaks (Re-analyze regenerates them from the spectrum), and
     /// material (plate/brace) has no full-set concept.
+    /// **Now simply the stored set.** `allPeaks` IS the full −100 dB set (captured that way since the
+    /// peak-lifecycle work), so the old "re-detect at −100 and append the sub-Peak-Min remainder"
+    /// dance is redundant — and re-detecting minted throwaway UUIDs for the appended peaks, which is
+    /// exactly the identity churn the lifecycle spec removes. Kept as a named function because the
+    /// save path reads it and the intent ("save the whole set, not just what is displayed") is worth
+    /// stating.
     func guitarFullSavePeaks() -> [ResonantPeak] {
-        guard TapDisplaySettings.measurementType.isGuitar,
-              loadedMeasurementPeaks == nil,
-              isMeasurementComplete,
-              !frozenMagnitudes.isEmpty,
-              frozenMagnitudes.count == frozenFrequencies.count else { return currentPeaks }
-        let full = findPeaks(magnitudes: frozenMagnitudes, frequencies: frozenFrequencies,
-                             peakMinOverride: TapToneAnalyzer.peakDetectionFloor)
-        let below = full.filter { $0.magnitude < peakMinThreshold }
-        return currentPeaks + below
+        allPeaks
     }
 
     func saveMeasurement(
@@ -552,7 +550,7 @@ extension TapToneAnalyzer {
         loadedMeasurementName = name
 
         // Restore peaks
-        currentPeaks = measurement.peaks
+        allPeaks = measurement.peaks
         
         // Restore decay time
         currentDecayTime = measurement.decayTime

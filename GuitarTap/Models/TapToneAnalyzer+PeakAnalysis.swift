@@ -108,7 +108,7 @@ extension TapToneAnalyzer {
             }
             // Find peaks in spectrum
             let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies, peakMinOverride: liveThreshold)
-            currentPeaks = peaks
+            allPeaks = peaks
             // Auto-select all newly detected peaks so visibility mode "selected" shows everything by default.
             // In plate/brace mode, selection is managed exclusively by the phase-completion handlers
             // so that only the identified peak(s) appear selected — don't clobber it here.
@@ -204,15 +204,20 @@ extension TapToneAnalyzer {
         // State the intent instead of relying on that. Python mirrors this guard in
         // `_emit_loaded_peaks_at_threshold`, where the same defect DID reach the user.
         if let savedPeaks = loadedMeasurementPeaks {
-            let peaks = isGuitar ? savedPeaks.filter { $0.magnitude >= peakMinThreshold } : savedPeaks
+            // `allPeaks` is the DURABLE set and must never be assigned a filtered view — doing so
+            // would shrink it as Peak Min rises, and the save path would then write the shrunken
+            // set (silent data loss). Store the saved peaks whole; `currentPeaks` is the Peak Min
+            // projection of them. The legacy remapping below still operates on the *displayed*
+            // set, exactly as it did before, so behaviour here is unchanged.
+            allPeaks = savedPeaks
+            // Classification and selection work on the DURABLE set — never the displayed one, or
+            // raising Peak Min above every peak would leave nothing to select or classify.
+            let peaks = allPeaks
 
             guard !peaks.isEmpty else {
-                currentPeaks = []
                 identifiedModes = []
                 return
             }
-
-            currentPeaks = peaks
 
             // Restore mode assignments from identifiedModes cache, or reclassify.
             var modesByFrequency: [(frequency: Float, mode: GuitarMode)] = identifiedModes.map {
@@ -244,18 +249,19 @@ extension TapToneAnalyzer {
             ($0.peak.frequency, $0.mode)
         }
 
-        let peaks = findPeaks(magnitudes: frozenMagnitudes, frequencies: frozenFrequencies)
+        // Detect the FULL set (floor -100) and store it as the durable `allPeaks`; `currentPeaks`
+        // is its Peak Min projection. The legacy remapping below still operates on the *displayed*
+        // set, exactly as it did before, so behaviour here is unchanged. (Phase 2 removes this
+        // re-detection entirely — a display change must not re-analyse.)
+        allPeaks = findPeaks(magnitudes: frozenMagnitudes, frequencies: frozenFrequencies,
+                             peakMinOverride: TapToneAnalyzer.peakDetectionFloor)
+        let peaks = allPeaks
 
-        // If no peaks are found at the current threshold, clear the display but
-        // do NOT update selectedPeakIDs — preserving them means the selection can
-        // be remapped correctly when the threshold is lowered again.
+        // Nothing detected at all (not merely nothing above Peak Min — that is a display matter).
         guard !peaks.isEmpty else {
-            currentPeaks = []
             identifiedModes = []
             return
         }
-
-        currentPeaks = peaks
 
         applyFrozenPeakState(
             peaks: peaks,
@@ -311,7 +317,11 @@ extension TapToneAnalyzer {
         // to use the saved peaks as the source of truth rather than re-running
         // findPeaks on the frozen spectrum (which may not reproduce every saved peak).
         selectedPeakFrequencies = []
-        let peaks = currentPeaks
+        // Auto-selection runs over the DURABLE set, never the displayed one. Selection identifies
+        // which peak IS each mode — a fact about the measurement, not about the current Peak Min.
+        // Using `currentPeaks` here meant that with one peak visible the wand picked winners from
+        // that single peak, and lowering Peak Min afterwards left the revealed peaks unselected.
+        let peaks = allPeaks
         guard !peaks.isEmpty else { return }
         gtLog("🎯 resetToAutoSelection: guitarType=\(TapDisplaySettings.guitarType.rawValue), \(peaks.count) candidate peaks")
         selectedPeakIDs = guitarModeSelectedPeakIDs(from: peaks)
@@ -616,9 +626,17 @@ extension TapToneAnalyzer {
     /// Call this after the user changes the guitar type (acoustic ↔ classical)
     /// so that `identifiedModes` stays consistent with the updated
     /// ``GuitarMode/modeRange`` boundaries without requiring a new tap.
+    /// Classification runs over the DURABLE set, never the displayed one.
+    ///
+    /// `classifyAll` claims one peak per mode in ascending frequency order, and the Top and Back
+    /// bands overlap. Classifying only the Peak-Min-filtered set therefore mis-assigns: if the true
+    /// Top sits below Peak Min it is absent, so Top's claim falls through to a peak in the overlap
+    /// that should have been Back — a Back peak silently becomes a Top on reload.
+    ///
+    /// Which mode a peak is, is a fact about the measurement, not about what is currently on screen.
     func reclassifyPeaks() {
-        let modeMap = GuitarMode.classifyAll(currentPeaks)
-        identifiedModes = currentPeaks.map { (peak: $0, mode: modeMap[$0.id] ?? .unknown) }
+        let modeMap = GuitarMode.classifyAll(allPeaks)
+        identifiedModes = allPeaks.map { (peak: $0, mode: modeMap[$0.id] ?? .unknown) }
     }
 
     /// Returns a map from `GuitarMode` to the strongest `ResonantPeak` for each mode,

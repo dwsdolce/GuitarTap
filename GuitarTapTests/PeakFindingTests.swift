@@ -449,6 +449,12 @@ struct GuitarFullSavePeaksTests {
         return (floats(sn["magnitudesData"] as! String), floats(sn["frequenciesData"] as! String))
     }
 
+    /// Simulates what a real capture now does: detect the FULL set at the −100 dB detection floor
+    /// and store it as `allPeaks`. The displayed set is then simply the Peak Min projection of it.
+    ///
+    /// (Before the peak-lifecycle work this seeded `allPeaks` with a Peak-Min-*filtered* detection
+    /// and relied on the save path re-detecting at −100 to back-fill the remainder. Capture now
+    /// always detects the full set, so that back-fill — and the throwaway UUIDs it minted — is gone.)
     private func prep() throws -> (sut: TapToneAnalyzer, displayed: [ResonantPeak]) {
         TapDisplaySettings.measurementType = .generic
         let sut = makeSUT()
@@ -458,9 +464,9 @@ struct GuitarFullSavePeaksTests {
         sut.minFrequency = 30
         sut.maxFrequency = 2000
         sut.peakMinThreshold = -60   // above the real Air peak (−64.21 dB)
-        let displayed = sut.findPeaks(magnitudes: mags, frequencies: freqs)
-        sut.currentPeaks = displayed
-        return (sut, displayed)
+        sut.allPeaks = sut.findPeaks(magnitudes: mags, frequencies: freqs,
+                                     peakMinOverride: TapToneAnalyzer.peakDetectionFloor)
+        return (sut, sut.currentPeaks)
     }
 
     private func isAir(_ p: ResonantPeak) -> Bool { abs(p.frequency - 97.26) < 1 }
@@ -479,11 +485,20 @@ struct GuitarFullSavePeaksTests {
     }
 
     @Test func loadedMeasurementIsNotUpgraded() throws {
-        let (sut, displayed) = try prep()
-        sut.loadedMeasurementPeaks = displayed   // simulate a still-loaded measurement
+        let (sut, _) = try prep()
+
+        // Simulate a LOADED measurement properly: loading sets the durable set to the file's peaks,
+        // so `allPeaks` IS the loaded set — there is no richer set lurking behind it to "upgrade"
+        // from. (Previously this only had to set `loadedMeasurementPeaks`, because the upgrade was
+        // done at save time by re-detecting; capture now stores the full set up front instead.)
+        let loaded = Array(sut.allPeaks.prefix(5))
+        sut.allPeaks = loaded
+        sut.loadedMeasurementPeaks = loaded
+
         let saved = sut.guitarFullSavePeaks()
-        #expect(saved.count == displayed.count, "a loaded measurement is saved as-is (Re-analyze regenerates)")
-        #expect(!saved.contains(where: isAir), "no full-set upgrade for a loaded measurement")
+        #expect(saved.count == loaded.count, "a loaded measurement is saved as-is (Re-analyze regenerates)")
+        #expect(saved.allSatisfy { s in loaded.contains { $0.id == s.id } },
+                "saved peaks are the loaded peaks verbatim — no re-detection, no new UUIDs")
     }
 }
 

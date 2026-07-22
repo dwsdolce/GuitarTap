@@ -150,8 +150,10 @@ struct PeakAnnotationsOverlay: View {
 ///
 /// Label and peak positions are pure computed properties derived from the current
 /// axis ranges and plot frame, so they stay correct automatically on every render.
-/// During a drag they are frozen (`frozenChartPosition`/`frozenPeakPosition`) so
-/// that axis-range changes mid-gesture don't shift the label under the finger/cursor.
+/// During a drag the LABEL anchor is frozen (`frozenChartPosition`) so axis-range changes
+/// mid-gesture don't shift the label under the finger/cursor. The PEAK position is deliberately
+/// NOT frozen — the dot doesn't move while you drag its label, so the connecting line must keep
+/// tracking it live or it visibly detaches and snaps back on release.
 struct DraggablePeakAnnotation: View {
     /// The peak this annotation describes.
     let peak: ResonantPeak
@@ -204,8 +206,6 @@ struct DraggablePeakAnnotation: View {
 
     /// Label origin frozen at drag-start so positions don't jump mid-gesture. `nil` when not dragging.
     @State private var frozenChartPosition: CGPoint? = nil
-    /// Peak marker position frozen at drag-start. `nil` when not dragging.
-    @State private var frozenPeakPosition: CGPoint? = nil
 
     private var modeColor: Color {
         if measurementType.isGuitar {
@@ -246,7 +246,11 @@ struct DraggablePeakAnnotation: View {
     /// Current peak marker position in view coordinates.
     /// Returns the drag-frozen value while a drag is active; otherwise computes fresh.
     private var peakPosition: CGPoint {
-        frozenPeakPosition ?? calculatePeakPosition()
+        // NOT frozen during a drag: the dot does not move while you drag its label, so the
+        // connecting line's start must keep tracking it live. Freezing it pinned the line to a
+        // stale point for the duration of the gesture, so the line visibly detached from the dot
+        // and snapped back on release.
+        calculatePeakPosition()
     }
 
     /// Calculate position in chart coordinates
@@ -364,7 +368,6 @@ struct DraggablePeakAnnotation: View {
                             isAnnotationDragging = true
                             // Freeze positions at drag start so they don't shift mid-gesture
                             frozenChartPosition = calculateChartPosition()
-                            frozenPeakPosition = calculatePeakPosition()
                             #if os(macOS)
                             NSCursor.closedHand.set()
                             #endif
@@ -406,7 +409,6 @@ struct DraggablePeakAnnotation: View {
                         dragOffset = .zero
                         // Release frozen positions — computed properties take over again
                         frozenChartPosition = nil
-                        frozenPeakPosition = nil
                     }
             )
             #if os(iOS)

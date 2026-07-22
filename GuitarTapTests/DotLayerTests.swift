@@ -135,7 +135,7 @@ struct DotLayerVsAnnotationListTests {
 
         let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
         let p1 = peak(100), p2 = peak(200), p3 = peak(250)
-        sut.currentPeaks = [p1, p2, p3]
+        sut.allPeaks = [p1, p2, p3]
         sut.selectedPeakIDs = [p2.id]          // only ONE peak selected
 
         let expectedDots: [Float] = [100, 200, 250]
@@ -168,7 +168,7 @@ struct DotLayerVsAnnotationListTests {
 
         let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
         let p = peak(200)                       // squarely inside top/back
-        sut.currentPeaks = [p]
+        sut.allPeaks = [p]
         sut.setModeOverride(.assigned("My Custom Label"), for: p.id)
 
         // The assigned mode is now .unknown (freeform labels have no GuitarMode)…

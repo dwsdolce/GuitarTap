@@ -45,7 +45,7 @@ private func freeze(_ sut: TapToneAnalyzer, peaks: [ResonantPeak]) {
     // Provide non-empty frozen arrays so the guard passes.
     sut.frozenFrequencies = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
     sut.frozenMagnitudes  = [Float](repeating: -100, count: 11)
-    sut.currentPeaks = peaks
+    sut.allPeaks = peaks
 }
 
 // ---------------------------------------------------------------------------
@@ -116,9 +116,16 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
         #expect(!freqs.contains(400),  "Weak peak should be removed by the threshold filter")
     }
 
-    // PR2b: When all loadedMeasurementPeaks fall below threshold, currentPeaks
-    // and identifiedModes are both cleared.
-    @Test func loadedPeaks_allBelowThreshold_clearsBothCollections() {
+    // PR2b: When all loadedMeasurementPeaks fall below threshold the DISPLAY set empties, but the
+    // measurement's own facts do not. Peak Min is a display filter: it may hide a peak, it may not
+    // un-detect or un-classify one.
+    //
+    // Before the peak-lifecycle rework this test asserted the opposite — that identifiedModes cleared
+    // too. That WAS the defect: classification followed the visible set, so sliding Peak Min above
+    // every peak wiped the modes, and sliding back down reclassified from scratch. Because the Top and
+    // Back bands overlap, classifyAll would then hand a Back peak the Top slot (found on reload,
+    // 2026-07-21).
+    @Test func loadedPeaks_allBelowThreshold_clearsDisplayButKeepsClassification() {
         // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -128,14 +135,17 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
         let peak = makePeak(frequency: 200, magnitude: -60)
         freeze(sut, peaks: [peak])
         sut.loadedMeasurementPeaks = [peak]
-        // Pre-populate identifiedModes so we can verify it gets cleared.
         sut.identifiedModes = [(peak: peak, mode: .air)]
         sut.peakMinThreshold = -10   // threshold above every peak
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        #expect(sut.currentPeaks.isEmpty,     "currentPeaks should be cleared when all peaks are below threshold")
-        #expect(sut.identifiedModes.isEmpty,  "identifiedModes should be cleared when all peaks are below threshold")
+        #expect(sut.currentPeaks.isEmpty,
+                "currentPeaks is the Peak Min projection — nothing here is above the threshold")
+        #expect(sut.allPeaks.map(\.frequency) == [200],
+                "allPeaks is the durable set — a display filter must never shrink it")
+        #expect(sut.identifiedModes.map(\.mode) == [.air],
+                "Classification is a fact about the measurement, not about what is on screen")
     }
 
     // PR2d: Peak Min is a GUITAR-only control. A loaded MATERIAL measurement's identified
@@ -186,6 +196,60 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
         #expect(freqs.contains(300),
                 "Loaded path must return the saved peak, not re-analyse the flat frozen spectrum")
     }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - PR9: Peak Min is a DISPLAY control — per-peak state is durable
+// ---------------------------------------------------------------------------
+
+@Suite("PeakMinDurability", .serialized)
+@MainActor
+struct PeakMinDurabilityTests {
+
+    /// THE point of the peak-lifecycle work. Drive the REAL user path — assigning
+    /// `peakMinThreshold`, as the slider does — and sweep a peak out of view and back.
+    /// Its identity, selection, mode override and dragged annotation position must all be
+    /// exactly as they were.
+    ///
+    /// Note this deliberately does NOT call `recalculateFrozenPeaksIfNeeded()` directly: the
+    /// existing PR1–PR7 tests do, which is why they kept passing while the user-visible bugs
+    /// (a deselected peak re-selecting on any slider move, dragged labels snapping back) were
+    /// real. Going through the property is the whole point.
+    @Test func peakMinSweep_preservesIdentitySelectionOverrideAndOffset() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        let loud  = makePeak(frequency: 200, magnitude: -20)
+        let quiet = makePeak(frequency: 300, magnitude: -50)   // the one we will hide
+        freeze(sut, peaks: [loud, quiet])
+        sut.peakMinThreshold = -60                             // both displayed
+
+        // User state, all on the peak that is about to be hidden.
+        sut.selectedPeakIDs = [quiet.id]
+        sut.setModeOverride(.assigned("Wolf note"), for: quiet.id)
+        sut.updateAnnotationOffset(for: quiet.id, offset: CGPoint(x: 12, y: 34))
+
+        // Raise Peak Min above the quiet peak — it should vanish from the DISPLAY only.
+        sut.peakMinThreshold = -40
+        #expect(!sut.currentPeaks.contains { $0.id == quiet.id }, "quiet peak should be hidden")
+        #expect(sut.allPeaks.contains { $0.id == quiet.id },
+                "…but it must remain in the durable set — hidden, not destroyed")
+
+        // Lower it again.
+        sut.peakMinThreshold = -60
+
+        #expect(sut.currentPeaks.contains { $0.id == quiet.id },
+                "the SAME peak identity must come back, not a new one")
+        #expect(sut.selectedPeakIDs.contains(quiet.id),
+                "selection must survive a Peak Min sweep")
+        #expect(sut.hasManualOverride(for: quiet.id),
+                "custom mode label must survive a Peak Min sweep")
+        #expect(sut.peakAnnotationOffsets[quiet.id] == CGPoint(x: 12, y: 34),
+                "dragged annotation position must survive a Peak Min sweep")
+    }
+
 }
 
 // ---------------------------------------------------------------------------
@@ -443,6 +507,12 @@ private func makeGaussianSpectrum(
 struct RecalculateFrozenPeaksIntegrationTests {
     // PR-A1: The frozen-spectrum path detects a known peak.
     @Test func frozenSpectrum_detectsKnownPeak() {
+        // Peak Min filtering is GUITAR-only — pin the type rather than inheriting whatever a
+        // previous suite left in the global.
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let sut = makeSUT()
         sut.loadedMeasurementPeaks = nil
         sut.minFrequency = 80
@@ -466,6 +536,12 @@ struct RecalculateFrozenPeaksIntegrationTests {
 
     // PR-A2: Raising peak_threshold removes sub-threshold peaks on recalculate.
     @Test func frozenSpectrum_raisedThreshold_removesWeakPeak() {
+        // Peak Min filtering is GUITAR-only — pin the type rather than inheriting whatever a
+        // previous suite left in the global.
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let sut = makeSUT()
         sut.loadedMeasurementPeaks = nil
         sut.minFrequency = 80
@@ -535,6 +611,12 @@ struct RecalculateFrozenPeaksIntegrationTests {
 
     // PR-A5: Empty frozenMagnitudes yields no peaks and does not crash.
     @Test func emptyFrozenMagnitudes_yieldsNoPeaks() {
+        // Peak Min filtering is GUITAR-only — pin the type rather than inheriting whatever a
+        // previous suite left in the global.
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
         let sut = makeSUT()
         sut.loadedMeasurementPeaks = nil
         sut.isMeasurementComplete = true
@@ -589,7 +671,7 @@ struct FrozenPeakRecalculation_LiveTapPathTests {
 
         // Seed currentPeaks with a placeholder and store an offset against it.
         let placeholder = makePeak(frequency: peakHz, magnitude: -20)
-        sut.currentPeaks = [placeholder]
+        sut.allPeaks = [placeholder]
         let testOffset = CGPoint(x: 7, y: 13)
         sut.peakAnnotationOffsets = [placeholder.id: testOffset]
 

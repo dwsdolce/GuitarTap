@@ -270,7 +270,7 @@ extension TapToneAnalyzer {
         }
 
         // Clear previous results so the chart shows a clean slate while waiting.
-        currentPeaks    = []
+        allPeaks        = []
         identifiedModes = []
     }
 
@@ -425,7 +425,7 @@ extension TapToneAnalyzer {
     /// is `false`).  Mirrors Python `_finalise_plate_no_flc()`.
     func finalisePlateNoFLC() {
         let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? crossPeaks.first)
-        currentPeaks = sel
+        allPeaks = sel
         selectedPeakIDs = Set(sel.map { $0.id })
         setFrozenSpectrum(frequencies: [], magnitudes: [])
         materialTapPhase = .complete
@@ -447,7 +447,7 @@ extension TapToneAnalyzer {
     /// `_finalise_plate_with_flc()`.
     func finalisePlateWithFLC() {
         let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? flcPeaks.first)
-        currentPeaks = sel
+        allPeaks = sel
         selectedPeakIDs = Set(sel.map { $0.id })
         setFrozenSpectrum(frequencies: [], magnitudes: [])
         materialTapPhase = .complete

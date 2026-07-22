@@ -231,7 +231,12 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var peakMinThreshold: Float = TapDisplaySettings.peakMinThreshold {
         didSet {
             TapDisplaySettings.peakMinThreshold = peakMinThreshold
-            recalculateFrozenPeaksIfNeeded()
+            // Peak Min is a DISPLAY control, and re-projecting is ALL it does. It does not detect,
+            // does not classify, and does not touch per-peak state — so selection, mode overrides
+            // and dragged annotation positions survive a slider sweep untouched, and a peak hidden
+            // then revealed returns exactly as it was.
+            // See Development/PEAK-LIFECYCLE-SPEC.md in the GuitarTapWeb repo.
+            refreshDisplayedPeaks()
         }
     }
 
@@ -350,8 +355,38 @@ final class TapToneAnalyzer: ObservableObject {
 
     // MARK: - Published Results
 
-    /// The most recently detected resonant peaks, updated after each completed tap sequence.
-    @Published var currentPeaks: [ResonantPeak] = []
+    /// **The peaks.** The durable, complete peak set for the current measurement — everything found
+    /// down to ``peakDetectionFloor`` (−100 dB), regardless of Peak Min.
+    ///
+    /// This is the source of truth. Peak identity lives here and changes ONLY when the spectrum
+    /// changes (a new tap, freeze, or an explicit Re-analyze) — never because the display changed.
+    /// Per-peak state (selection, mode overrides, annotation offsets) is keyed to these identities,
+    /// which is what makes that state durable across a Peak Min move.
+    ///
+    /// See Development/PEAK-LIFECYCLE-SPEC.md in the GuitarTapWeb repo.
+    @Published var allPeaks: [ResonantPeak] = [] {
+        didSet { refreshDisplayedPeaks() }
+    }
+
+    /// The peaks currently **displayed** — ``allPeaks`` filtered by Peak Min.
+    ///
+    /// Derived, never assigned directly: it hands back the *same* `ResonantPeak` objects as
+    /// ``allPeaks``, so filtering can never disturb identity or the per-peak state keyed to it.
+    ///
+    /// Peak Min is a guitar-only control, so for plate/brace this is simply ``allPeaks`` — the
+    /// identified L / C / FLC peaks are the material result and are never filtered.
+    ///
+    /// Views narrow this further by display range and the unknown-mode filter. (Phase 4a of the
+    /// lifecycle plan retires this property in favour of a single shared display projection.)
+    @Published private(set) var currentPeaks: [ResonantPeak] = []
+
+    /// Recomputes ``currentPeaks`` from ``allPeaks``. Called when either the peak set or Peak Min
+    /// changes. Cheap — a filter over an existing array, no detection.
+    func refreshDisplayedPeaks() {
+        currentPeaks = TapDisplaySettings.measurementType.isGuitar
+            ? allPeaks.filter { $0.magnitude >= peakMinThreshold }
+            : allPeaks
+    }
 
     /// Peak–mode pairs produced by classifying each entry in ``currentPeaks``.
     ///
@@ -1642,7 +1677,7 @@ final class TapToneAnalyzer: ObservableObject {
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             displayMode = .frozen
             // Clear peak annotations so they don't float on a blank chart during settle.
-            currentPeaks = []
+            allPeaks = []
             identifiedModes = []
         }
 

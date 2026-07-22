@@ -101,7 +101,7 @@ struct PeakSelectionTests {
     @Test func selectAllPeaks_selectsAllCurrentPeaks() {
         let sut = makeSUT()
         let peaks = [makePeak(frequency: 100), makePeak(frequency: 200), makePeak(frequency: 300)]
-        sut.currentPeaks = peaks
+        sut.allPeaks = peaks
 
         sut.selectAllPeaks()
 
@@ -115,7 +115,7 @@ struct PeakSelectionTests {
     @Test func selectNoPeaks_clearsAll() {
         let sut = makeSUT()
         let peaks = [makePeak(frequency: 100), makePeak(frequency: 200)]
-        sut.currentPeaks = peaks
+        sut.allPeaks = peaks
         sut.selectAllPeaks()
 
         sut.selectNoPeaks()
@@ -144,7 +144,7 @@ struct UserModifiedPeakSelectionFlagTests {
     // selectAllPeaks sets the flag.
     @Test func selectAllPeaks_setsModifiedFlag() {
         let sut = makeSUT()
-        sut.currentPeaks = [makePeak()]
+        sut.allPeaks = [makePeak()]
 
         sut.selectAllPeaks()
 
@@ -170,7 +170,7 @@ struct UserModifiedPeakSelectionFlagTests {
         // Two peaks in the acoustic Air range (90–120 Hz); the louder one should win.
         let quietAir = ResonantPeak(frequency: 98, magnitude: -50)
         let loudAir  = ResonantPeak(frequency: 105, magnitude: -30)
-        sut.currentPeaks = [quietAir, loudAir]
+        sut.allPeaks = [quietAir, loudAir]
 
         // Simulate user having made a manual change
         sut.userHasModifiedPeakSelection = true
@@ -207,7 +207,7 @@ struct VisiblePeaksTests {
         let sut = makeSUT()
         sut.annotationVisibilityMode = .all
         let peaks = [makePeak(frequency: 100), makePeak(frequency: 200), makePeak(frequency: 300)]
-        sut.currentPeaks = peaks
+        sut.allPeaks = peaks
 
         #expect(sut.visiblePeaks.count == 3)
     }
@@ -219,7 +219,7 @@ struct VisiblePeaksTests {
         let p1 = makePeak(frequency: 100)
         let p2 = makePeak(frequency: 200)
         let p3 = makePeak(frequency: 300)
-        sut.currentPeaks = [p1, p2, p3]
+        sut.allPeaks = [p1, p2, p3]
         sut.selectedPeakIDs = [p1.id, p3.id]
 
         let visible = sut.visiblePeaks
@@ -233,7 +233,7 @@ struct VisiblePeaksTests {
     @Test func noneMode_returnsEmpty() {
         let sut = makeSUT()
         sut.annotationVisibilityMode = .none
-        sut.currentPeaks = [makePeak(), makePeak(frequency: 300)]
+        sut.allPeaks = [makePeak(), makePeak(frequency: 300)]
         sut.selectAllPeaks()
 
         #expect(sut.visiblePeaks.isEmpty, "None mode should suppress all annotations")
