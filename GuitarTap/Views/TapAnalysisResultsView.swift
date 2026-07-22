@@ -403,9 +403,12 @@ struct TapAnalysisResultsView: View {
                 (peak: peak, mode: analyzer.peakMode(for: peak))
             }
             .filter { item in
-                // For plate/brace mode, show all peaks (don't filter by guitar mode)
-                // For guitar mode, optionally filter out unknown modes
-                !measurementType.isGuitar || TapDisplaySettings.showUnknownModes || item.mode.normalized != .unknown
+                // Plate/brace show every peak. Guitar hides unknown-mode peaks unless the setting is
+                // on — using the one shared predicate, so a peak the user has NAMED keeps its row
+                // here exactly as it keeps its dot and its badge.
+                !measurementType.isGuitar
+                    || TapDisplaySettings.showUnknownModes
+                    || !analyzer.isUnknown(item.peak)
             }
             .sorted { $0.peak.frequency < $1.peak.frequency }
     }

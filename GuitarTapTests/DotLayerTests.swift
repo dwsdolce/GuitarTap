@@ -48,7 +48,8 @@ private func peak(_ f: Float, _ mag: Float = -30) -> ResonantPeak {
 private func dots(
     _ peaks: [ResonantPeak],
     isGuitar: Bool = true,
-    showUnknownModes: Bool = false
+    showUnknownModes: Bool = false,
+    overriddenPeakIDs: Set<UUID> = []
 ) -> [Float] {
     GuitarMode.peaksInDisplayRange(
         peaks,
@@ -56,8 +57,18 @@ private func dots(
         maxFreq: kMaxFreq,
         isGuitar: isGuitar,
         showUnknownModes: showUnknownModes,
+        overriddenPeakIDs: overriddenPeakIDs,
         guitarType: .generic
     ).map(\.frequency)
+}
+
+/// The dot list as the chart actually computes it — the analyzer's peaks plus the analyzer's
+/// user-assigned labels, which is what `SpectrumView` passes through.
+@MainActor
+private func dotsWithOverrides(_ sut: TapToneAnalyzer, showUnknownModes: Bool = false) -> [Float] {
+    dots(sut.currentPeaks,
+         showUnknownModes: showUnknownModes,
+         overriddenPeakIDs: sut.overriddenPeakIDs)
 }
 
 // ---------------------------------------------------------------------------
@@ -157,10 +168,10 @@ struct DotLayerVsAnnotationListTests {
         #expect(sut.visiblePeaks.isEmpty, "none → no annotations")
     }
 
-    // DL7: the dot list is POSITIONAL — it asks "is this frequency in a band?", not "what mode
-    // did the classifier assign?". A freeform mode override makes peakMode(for:) report
-    // .unknown, but the peak keeps its dot because its frequency is still in a band.
-    // This is the distinction the web got wrong (it filtered dots by assigned mode).
+    // DL7: a freeform mode override makes peakMode(for:) report .unknown, but the peak keeps its
+    // dot. The assertion predates Phase 4 and still holds — the REASON changed. It used to hold
+    // because the dot layer was purely positional and 200 Hz is in a band; it now holds because a
+    // user-named peak is known by definition. DL8 is the case that separates the two rules.
     @Test func dotListIgnoresModeOverrides() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -175,8 +186,95 @@ struct DotLayerVsAnnotationListTests {
         #expect(sut.peakMode(for: p).normalized == .unknown,
                 "A freeform override should report .unknown as the assigned mode")
 
-        // …but the dot layer still dots it, because 200 Hz is in a band.
-        #expect(dots(sut.currentPeaks) == [200],
+        // …but the peak keeps its dot.
+        #expect(dotsWithOverrides(sut) == [200],
                 "A freeform override must not remove the peak's dot")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Naming a peak makes it known  (DL8–DL10) — Phase 4
+// ---------------------------------------------------------------------------
+//
+// One predicate now governs all three display surfaces: the results table row, the chart dot,
+// and the annotation badge. A peak is unknown only when auto-classification placed it in no
+// band AND the user has not named it. Before Phase 4 the three surfaces disagreed — the table
+// used the assigned mode while the dot layer and the badges used the positional test — so a
+// peak the user had explicitly labelled could lose its row while keeping its dot, or lose
+// everything if it happened to sit outside every band.
+
+@Suite("DotLayerUserNamedPeaks", .serialized)
+@MainActor
+struct DotLayerUserNamedPeakTests {
+
+    /// Generic bands leave 305 Hz in NO band (back ends at 300, dipole starts at 310).
+    private static let outOfBand: Float = 305
+
+    // DL8: THE Phase 4 change. An out-of-band peak is hidden — until the user names it, at
+    // which point it is known and appears. Pre-Phase-4 this peak stayed hidden no matter what
+    // the user called it.
+    @Test func freeformLabelMakesAnOutOfBandPeakKnown() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let named = peak(Self.outOfBand)
+        sut.allPeaks = [peak(100), named]
+
+        #expect(dotsWithOverrides(sut) == [100],
+                "precondition: an unnamed out-of-band peak is hidden")
+        #expect(sut.isUnknown(named), "precondition: it is unknown before being named")
+
+        sut.setModeOverride(.assigned("Wolf note"), for: named.id)
+
+        #expect(!sut.isUnknown(named), "naming a peak makes it known")
+        #expect(dotsWithOverrides(sut) == [100, 305],
+                "a user-named peak must be dotted even outside every band")
+    }
+
+    // DL9: relabelling an out-of-band peak to a REAL mode name is the same story by the other
+    // route — peakMode(for:) resolves the label to that mode, so it is not unknown.
+    @Test func knownModeRelabelMakesAnOutOfBandPeakKnown() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let named = peak(Self.outOfBand)
+        sut.allPeaks = [named]
+        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: named.id)
+
+        #expect(!sut.isUnknown(named),
+                "a peak relabelled to a real mode is known regardless of its frequency")
+        #expect(dotsWithOverrides(sut) == [305])
+    }
+
+    // DL10: all three surfaces agree. This is the whole point of the phase — before it, the
+    // table and the dot layer applied different criteria to the same peak.
+    @Test func tableDotAndAnnotationAgreeOnAUserNamedPeak() {
+        let savedType = TapDisplaySettings.measurementType
+        let savedUnknown = TapDisplaySettings.showUnknownModes
+        TapDisplaySettings.measurementType = .generic
+        TapDisplaySettings.showUnknownModes = false
+        defer {
+            TapDisplaySettings.measurementType = savedType
+            TapDisplaySettings.showUnknownModes = savedUnknown
+        }
+
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let named = peak(Self.outOfBand)
+        sut.allPeaks = [named]
+        sut.selectedPeakIDs = [named.id]
+        sut.annotationVisibilityMode = .all
+        sut.setModeOverride(.assigned("Wolf note"), for: named.id)
+
+        // Dot layer.
+        #expect(dotsWithOverrides(sut) == [305], "dot: user-named peak is shown")
+        // Annotation badges — `.all` admits every identified peak.
+        #expect(sut.visiblePeaks.map(\.frequency) == [305], "badge: user-named peak is annotated")
+        // The table's criterion is `!analyzer.isUnknown(peak)`; assert the predicate directly
+        // rather than reconstructing the SwiftUI view's filter.
+        #expect(!sut.isUnknown(named), "table: user-named peak is not filtered out as unknown")
     }
 }

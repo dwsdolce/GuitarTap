@@ -248,10 +248,21 @@ enum GuitarMode: String, Codable {
     /// on the annotation mode is a bug — it shipped on the web once, where dots followed the
     /// selection — which is why this rule now carries a paired 3-platform test.
     ///
-    /// The unknown-mode filter uses ``isKnown(frequency:guitarType:)`` (*frequency falls in a band*)
-    /// rather than the mode assigned by ``classifyAll(_:guitarType:)``. The two agree for
-    /// auto-classified peaks — `classifyAll` gives every in-band peak a band mode — and differ only
-    /// under a user override; the positional test is the one that belongs on a chart layer.
+    /// **A peak the user has named is known.** The unknown-mode filter is positional —
+    /// ``isKnown(frequency:guitarType:)``, *does the frequency fall in a band* — **except** for peaks
+    /// carrying a manual mode label, which are always kept. Pass those in `overriddenPeakIDs`.
+    ///
+    /// The positional test alone is equivalent to the analyzer's assigned-mode test for every peak
+    /// *without* an override, because ``classifyAll(_:guitarType:)`` falls back to a per-frequency
+    /// lookup for peaks its one-per-mode claiming pass did not take. The two differ only under a
+    /// user override.
+    ///
+    /// - Note: This function previously applied the positional test unconditionally, on the argument
+    ///   that a chart layer should be positional. That was wrong: it discarded the user's own
+    ///   identification, so a peak labelled "Wolf note" lost its table row while keeping its dot (or
+    ///   lost both, if it sat outside every band). One predicate now governs the results table, this
+    ///   dot layer and the annotation badges — see ``TapToneAnalyzer/isUnknown(_:)``, of which this
+    ///   is the static, analyzer-free form.
     ///
     /// Callers pass the **display/viewport** range, which follows pan and zoom — not the analysis
     /// range used by peak detection.
@@ -262,6 +273,9 @@ enum GuitarMode: String, Codable {
     ///   - maxFreq: High edge of the visible frequency range, in Hz (inclusive).
     ///   - isGuitar: Whether this is a guitar measurement; material types skip the unknown filter.
     ///   - showUnknownModes: When `true`, in-range peaks outside every band are kept.
+    ///   - overriddenPeakIDs: Peaks the user has given a manual mode label. Kept regardless of
+    ///     position. A `Set` rather than a closure or an analyzer reference so this stays static and
+    ///     pure, and ports to Python and TypeScript unchanged.
     ///   - guitarType: The guitar type whose mode-range bands are used.
     /// - Returns: The in-range peaks, input order preserved.
     static func peaksInDisplayRange(
@@ -270,11 +284,15 @@ enum GuitarMode: String, Codable {
         maxFreq: Float,
         isGuitar: Bool,
         showUnknownModes: Bool,
+        overriddenPeakIDs: Set<UUID> = [],
         guitarType: GuitarType = TapDisplaySettings.guitarType
     ) -> [ResonantPeak] {
         let inRange = peaks.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq }
         guard isGuitar, !showUnknownModes else { return inRange }
-        return inRange.filter { isKnown(frequency: $0.frequency, guitarType: guitarType) }
+        return inRange.filter {
+            overriddenPeakIDs.contains($0.id)
+                || isKnown(frequency: $0.frequency, guitarType: guitarType)
+        }
     }
 
     // MARK: - Frequency Ranges

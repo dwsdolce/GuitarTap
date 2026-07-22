@@ -680,6 +680,35 @@ final class TapToneAnalyzer: ObservableObject {
         return false
     }
 
+    /// The UUIDs of every peak the user has given a manual mode label.
+    ///
+    /// Passed to ``GuitarMode/peaksInDisplayRange(_:minFreq:maxFreq:isGuitar:showUnknownModes:overriddenPeakIDs:guitarType:)``
+    /// so a static, pure function can apply the same unknown-mode rule the analyzer uses, without
+    /// needing an analyzer reference at the call site.
+    var overriddenPeakIDs: Set<UUID> {
+        Set(peakModeOverrides.compactMap { id, mode in
+            if case .assigned = mode { return id }
+            return nil
+        })
+    }
+
+    /// Whether a peak counts as **unknown** for the Show Unknown Modes filter.
+    ///
+    /// The single rule behind all three display surfaces — the results table, the chart dot layer
+    /// and the annotation badges. A peak is unknown only when auto-classification failed to place it
+    /// in any mode band **and** the user has not named it. **Naming a peak makes it known**: a user
+    /// who labels a peak "Wolf note" has identified it, and hiding it would discard their own work.
+    ///
+    /// Note this is equivalent to the old positional test ``GuitarMode/isKnown(frequency:guitarType:)``
+    /// for every peak *without* an override, because ``GuitarMode/classifyAll(_:guitarType:)`` falls
+    /// back to a per-frequency lookup for peaks its one-per-mode claiming pass did not take. The two
+    /// differ only under a user override — which is exactly the case this predicate exists to fix.
+    ///
+    /// See Development/PEAK-LIFECYCLE-SPEC.md in the GuitarTapWeb repo.
+    func isUnknown(_ peak: ResonantPeak) -> Bool {
+        peakMode(for: peak).normalized == .unknown && !hasManualOverride(for: peak.id)
+    }
+
     // MARK: - Peak Selection Helpers
 
     /// Toggles the selection state of a single peak.
@@ -738,11 +767,14 @@ final class TapToneAnalyzer: ObservableObject {
         case .selected: candidates = currentPeaks.filter { selectedPeakIDs.contains($0.id) }
         case .none:     return []
         }
-        // Filter unknown-mode peaks in guitar mode when the setting is off
+        // Filter unknown-mode peaks in guitar mode when the setting is off. One rule for all three
+        // display surfaces — see `isUnknown(_:)`. Note the annotation layer carries an extra gate the
+        // table and the dot layer do not: the visibility mode above. `All` means all *identified*
+        // peaks, selected or not.
         guard !TapDisplaySettings.showUnknownModes else {
             return candidates
         }
-        return candidates.filter { GuitarMode.isKnown(frequency: $0.frequency) }
+        return candidates.filter { !isUnknown($0) }
     }
 
     /// The identified per-phase peaks (L, then C, then FLC) found so far in a material measurement,

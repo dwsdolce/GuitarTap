@@ -396,8 +396,22 @@ struct SpectrumView: View {
             minFreq: minFreq,
             maxFreq: maxFreq,
             isGuitar: measurementType.isGuitar,
-            showUnknownModes: TapDisplaySettings.showUnknownModes
+            showUnknownModes: TapDisplaySettings.showUnknownModes,
+            overriddenPeakIDs: overriddenPeakIDs
         )
+    }
+
+    /// The peaks carrying a manual mode label, derived from the ``modeOverrides`` this view was
+    /// handed. A user-named peak is never filtered out as unknown — see
+    /// ``TapToneAnalyzer/isUnknown(_:)`` for the rule and ``GuitarMode/peaksInDisplayRange(_:minFreq:maxFreq:isGuitar:showUnknownModes:overriddenPeakIDs:guitarType:)``
+    /// for its static form. Empty for call sites that pass no overrides (comparison overlays), which
+    /// leaves the filter purely positional there — correct, since those peaks belong to other
+    /// measurements and carry no overrides of their own.
+    private var overriddenPeakIDs: Set<UUID> {
+        Set(modeOverrides.compactMap { id, mode in
+            if case .assigned = mode { return id }
+            return nil
+        })
     }
 
     /// Returns the peaks that should show annotation labels.
@@ -415,11 +429,16 @@ struct SpectrumView: View {
             return explicit.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq }
         }
 
-        // Legacy fallback: filter all peaks by frequency range
-        let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
-        if !measurementType.isGuitar { return filtered }
-        if TapDisplaySettings.showUnknownModes { return filtered }
-        return filtered.filter { GuitarMode.isKnown(frequency: $0.frequency) }
+        // Legacy fallback: same range + unknown-mode rule as the dot layer, so a call site that
+        // supplies no explicit annotation list still honours user-assigned mode labels.
+        return GuitarMode.peaksInDisplayRange(
+            peaks ?? [],
+            minFreq: minFreq,
+            maxFreq: maxFreq,
+            isGuitar: measurementType.isGuitar,
+            showUnknownModes: TapDisplaySettings.showUnknownModes,
+            overriddenPeakIDs: overriddenPeakIDs
+        )
     }
 
     /// Calculates appropriate frequency values for axis labels based on the current zoom level.
