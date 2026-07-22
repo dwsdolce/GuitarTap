@@ -97,26 +97,17 @@ struct PeakSelectionTests {
         #expect(!sut.selectedPeakIDs.contains(id), "After second toggle, peak should be deselected")
     }
 
-    // selectAllPeaks populates selectedPeakIDs with all peaksAbovePeakMin IDs.
-    @Test func selectAllPeaks_selectsAllCurrentPeaks() {
-        let sut = makeSUT()
-        let peaks = [makePeak(frequency: 100), makePeak(frequency: 200), makePeak(frequency: 300)]
-        sut.allPeaks = peaks
-
-        sut.selectAllPeaks()
-
-        for peak in peaks {
-            #expect(sut.selectedPeakIDs.contains(peak.id),
-                    "Peak \(peak.frequency) Hz should be selected after selectAllPeaks")
-        }
-    }
+    // Select All was removed in Phase 5: Air, Top and Back can each have only ONE definitive
+    // (selected) peak, so "everything selected" is not a state the model can hold. The tests that
+    // pinned it (selectAllPeaks_selectsAllCurrentPeaks, selectAllPeaks_setsModifiedFlag) went with
+    // the feature rather than being rewritten.
 
     // selectNoPeaks clears all selections.
     @Test func selectNoPeaks_clearsAll() {
         let sut = makeSUT()
         let peaks = [makePeak(frequency: 100), makePeak(frequency: 200)]
         sut.allPeaks = peaks
-        sut.selectAllPeaks()
+        sut.selectedPeakIDs = Set(peaks.map(\.id))
 
         sut.selectNoPeaks()
 
@@ -139,16 +130,6 @@ struct UserModifiedPeakSelectionFlagTests {
         sut.togglePeakSelection(UUID())
 
         #expect(sut.userHasModifiedPeakSelection, "Flag should be true after toggle")
-    }
-
-    // selectAllPeaks sets the flag.
-    @Test func selectAllPeaks_setsModifiedFlag() {
-        let sut = makeSUT()
-        sut.allPeaks = [makePeak()]
-
-        sut.selectAllPeaks()
-
-        #expect(sut.userHasModifiedPeakSelection)
     }
 
     // selectNoPeaks sets the flag.
@@ -233,8 +214,9 @@ struct VisiblePeaksTests {
     @Test func noneMode_returnsEmpty() {
         let sut = makeSUT()
         sut.annotationVisibilityMode = .none
-        sut.allPeaks = [makePeak(), makePeak(frequency: 300)]
-        sut.selectAllPeaks()
+        let peaks = [makePeak(), makePeak(frequency: 300)]
+        sut.allPeaks = peaks
+        sut.selectedPeakIDs = Set(peaks.map(\.id))   // selection is incidental here; .none wins
 
         #expect(sut.visiblePeaks.isEmpty, "None mode should suppress all annotations")
     }
@@ -261,6 +243,29 @@ struct ModeOverrideTests {
 
         // GuitarMode.classify(frequency: 100, guitarType: .acoustic) == .air
         #expect(label == "Air (Helmholtz)", "Expected 'Air (Helmholtz)' for 100 Hz in acoustic mode, got '\(label)'")
+    }
+
+    // D8b: autoDetectedMode is override-blind — it names what "Reset to Auto-Detected" restores to,
+    // NOT the current label. Overriding a peak to another mode must not change the value the reset
+    // menu item advertises. (Regression guard: the desktop menu and iOS sheet used to show the
+    // current mode here, so after a rename the reset item named the override rather than its target.)
+    @Test func autoDetectedMode_ignoresOverride() {
+        let sut = makeSUT()
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .acoustic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let air = makePeak(frequency: 100)     // classifies Air for acoustic
+        sut.allPeaks = [air]
+        sut.reclassifyPeaks()
+        #expect(sut.autoDetectedMode(for: air).normalized == .air, "precondition: auto-detects Air")
+
+        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: air.id)
+
+        #expect(sut.effectiveModeLabel(for: air) == GuitarMode.top.displayName,
+                "the visible label follows the override")
+        #expect(sut.autoDetectedMode(for: air).normalized == .air,
+                "…but the reset target is still the auto-detected Air, not the override")
     }
 
     // D8: .assigned("Custom") override returns the custom string.
@@ -505,5 +510,153 @@ struct PlatePeakSelectionTests {
         #expect(sut.userSelectedFlcPeakID == sharedID)
         #expect(sut.userSelectedCrossPeakID == nil,
                 "Cross selection should be cleared when the same peak is selected as Flc")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Definitive Air/Top/Back uniqueness  (D11–D16) — Phase 5
+// ---------------------------------------------------------------------------
+//
+// Classification and selection are independent. Classification is band membership: five peaks in
+// the Air band are five Air peaks. Selection picks which one is DEFINITIVE, and Air/Top/Back may
+// have at most one each — they are single physical resonances. Dipole/Ring/Upper are clusters and
+// stay unconstrained.
+//
+// Deselecting never relabels: a displaced peak remains classified Air/Top/Back, it just stops being
+// the definitive one.
+//
+// Generic bands: air 70–135, top 140–260, back 180–300, dipole 310–460. The Top fixtures below sit
+// under 180 so they cannot also be Back.
+
+@Suite("DefinitiveModeUniqueness", .serialized)
+@MainActor
+struct DefinitiveModeUniquenessTests {
+
+    private func makeGuitarSUT() -> TapToneAnalyzer {
+        TapDisplaySettings.measurementType = .generic
+        return makeSUT()
+    }
+
+    // D11: selecting a second Top displaces the first — and the displaced peak is STILL a Top peak.
+    @Test func selectingASecondTop_displacesTheFirst_withoutReclassifying() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let topA = makePeak(frequency: 150, magnitude: -30)
+        let topB = makePeak(frequency: 170, magnitude: -25)
+        sut.allPeaks = [topA, topB]
+        sut.reclassifyPeaks()
+
+        sut.togglePeakSelection(topA.id)
+        #expect(sut.selectedPeakIDs == [topA.id])
+
+        sut.togglePeakSelection(topB.id)
+
+        #expect(sut.selectedPeakIDs == [topB.id],
+                "only one definitive Top — selecting B must displace A")
+        #expect(sut.peakMode(for: topA).normalized == .top,
+                "the displaced peak is STILL a Top peak; deselecting does not relabel it")
+    }
+
+    // D12: Dipole is a cluster — several selected peaks are legitimate there.
+    @Test func dipoleAllowsSeveralSelectedPeaks() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let d1 = makePeak(frequency: 320, magnitude: -30)
+        let d2 = makePeak(frequency: 400, magnitude: -25)
+        sut.allPeaks = [d1, d2]
+        sut.reclassifyPeaks()
+        #expect(sut.peakMode(for: d1).normalized == .dipole, "fixture precondition")
+
+        sut.togglePeakSelection(d1.id)
+        sut.togglePeakSelection(d2.id)
+
+        #expect(sut.selectedPeakIDs == [d1.id, d2.id],
+                "Dipole is not a single-holder mode — both stay selected")
+    }
+
+    // D13: relabelling an ALREADY-SELECTED peak into Top displaces the current definitive Top.
+    @Test func overridingASelectedPeakIntoTop_displacesTheDefinitiveTop() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let top = makePeak(frequency: 150, magnitude: -30)
+        let air = makePeak(frequency: 90, magnitude: -25)
+        sut.allPeaks = [top, air]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(top.id)
+        sut.togglePeakSelection(air.id)
+        #expect(sut.selectedPeakIDs == [top.id, air.id], "one Air and one Top, both definitive")
+
+        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: air.id)
+
+        #expect(sut.selectedPeakIDs == [air.id],
+                "the relabelled peak becomes the definitive Top; the previous holder is displaced")
+        #expect(sut.peakMode(for: top).normalized == .top,
+                "the displaced peak keeps its Top classification")
+    }
+
+    // D14: relabelling an UNSELECTED peak changes no selection — it just becomes another candidate.
+    @Test func overridingAnUnselectedPeakIntoTop_changesNoSelection() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let top = makePeak(frequency: 150, magnitude: -30)
+        let air = makePeak(frequency: 90, magnitude: -25)
+        sut.allPeaks = [top, air]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(top.id)
+
+        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: air.id)
+
+        #expect(sut.selectedPeakIDs == [top.id],
+                "overriding an unselected peak must not touch selection")
+        #expect(sut.peakMode(for: air).normalized == .top, "…though it IS now a Top candidate")
+    }
+
+    // D15: overriding the definitive Top AWAY from Top leaves Top with no definitive peak.
+    // Nothing is auto-promoted — there is no promotion rule, deliberately.
+    @Test func overridingTheDefinitiveTopAway_leavesTopWithNoHolder() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let topA = makePeak(frequency: 150, magnitude: -30)
+        let topB = makePeak(frequency: 170, magnitude: -25)
+        sut.allPeaks = [topA, topB]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(topA.id)
+
+        sut.setModeOverride(.assigned("Wolf note"), for: topA.id)
+
+        #expect(sut.peakMode(for: topA).normalized == .unknown, "freeform label, so no longer Top")
+        #expect(!sut.selectedPeakIDs.contains(topB.id),
+                "topB must NOT be auto-promoted to definitive Top")
+        #expect(sut.selectedPeakIDs == [topA.id],
+                "the relabelled peak stays selected — it is simply no longer a Top")
+    }
+
+    // D16: Select None is a legitimate state — no definitive peaks, classification untouched.
+    @Test func selectNone_leavesClassificationIntact() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let top = makePeak(frequency: 150, magnitude: -30)
+        let air = makePeak(frequency: 90, magnitude: -25)
+        sut.allPeaks = [top, air]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(top.id)
+
+        sut.selectNoPeaks()
+
+        #expect(sut.selectedPeakIDs.isEmpty, "no definitive peaks is a legitimate state")
+        #expect(sut.peakMode(for: top).normalized == .top)
+        #expect(sut.peakMode(for: air).normalized == .air)
     }
 }

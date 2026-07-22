@@ -670,6 +670,19 @@ final class TapToneAnalyzer: ObservableObject {
         }
     }
 
+    /// The mode this peak would carry with **no** override — i.e. the mode a "Reset to Auto-Detected"
+    /// would restore it to.
+    ///
+    /// Deliberately override-blind: it reads the auto-classification (``identifiedModes``, falling
+    /// back to ``GuitarMode/classifyAll(_:guitarType:)``) and never consults ``peakModeOverrides``.
+    /// This is exactly the value the reset menu item should name — the target of the reset, not the
+    /// current label. `.unknown` is a legitimate result (a peak in no band) and is shown as such.
+    func autoDetectedMode(for peak: ResonantPeak) -> GuitarMode {
+        identifiedModes.first(where: { $0.peak.id == peak.id })?.mode
+            ?? GuitarMode.classifyAll([peak])[peak.id]
+            ?? .unknown
+    }
+
     /// Sets or clears a mode override for a specific peak, thread-safely.
     ///
     /// If called from a background thread, the update is dispatched to the main queue.
@@ -680,9 +693,14 @@ final class TapToneAnalyzer: ObservableObject {
     func setModeOverride(_ override: UserAssignedMode, for peakID: UUID) {
         if Thread.isMainThread {
             peakModeOverrides[peakID] = override
+            // A mode change on an ALREADY-SELECTED peak can leave two definitive peaks in one mode;
+            // that is the only way an override touches selection. Relabelling an unselected peak
+            // just adds a candidate. See `enforceDefinitiveModeUniqueness(preferring:)`.
+            enforceDefinitiveModeUniqueness(preferring: peakID)
         } else {
             DispatchQueue.main.async { [weak self] in
                 self?.peakModeOverrides[peakID] = override
+                self?.enforceDefinitiveModeUniqueness(preferring: peakID)
             }
         }
     }
@@ -738,17 +756,54 @@ final class TapToneAnalyzer: ObservableObject {
             selectedPeakIDs.remove(peakID)
         } else {
             selectedPeakIDs.insert(peakID)
+            enforceDefinitiveModeUniqueness(preferring: peakID)
         }
         userHasModifiedPeakSelection = true
     }
 
-    /// Marks every peak in the measurement as selected.
+    /// The modes that can have at most one **definitive** (selected) peak.
     ///
-    /// Resolves over ``allPeaks``: "all" means all, not "all that Peak Min happens to be showing".
-    /// (Phase 5 of the lifecycle plan removes this feature entirely.)
-    func selectAllPeaks() {
-        selectedPeakIDs = Set(allPeaks.map { $0.id })
-        userHasModifiedPeakSelection = true
+    /// Air, Top and Back are single physical resonances, so exactly one peak can be *the* Air, Top
+    /// or Back. Dipole, Ring and Upper Modes are clusters — several selected peaks are meaningful
+    /// there, so they are deliberately unconstrained.
+    static let singleHolderModes: Set<GuitarMode> = [.air, .top, .back]
+
+    /// Keeps the selection invariant: **at most one selected peak per Air / Top / Back**.
+    ///
+    /// The selected peak *is* the definitive Air/Top/Back; every other peak of that mode remains a
+    /// candidate. Deselecting a peak does **not** relabel it — classification is band membership and
+    /// is untouched by selection. This function only ever removes other peaks from the selection; it
+    /// never reclassifies anything and never promotes a replacement.
+    ///
+    /// Only two things can break the invariant, and both call this:
+    /// 1. selecting a peak whose mode already has a definitive holder (``togglePeakSelection(_:)``);
+    /// 2. changing the mode of an **already-selected** peak (``setModeOverride(_:for:)``).
+    ///
+    /// Overriding an *unselected* peak changes no selection — it simply becomes another candidate.
+    /// Overriding the definitive Top away from Top leaves Top with no definitive peak, deliberately:
+    /// nothing is auto-promoted.
+    ///
+    /// Guitar only — material has no per-peak selection.
+    ///
+    /// - Parameter peakID: The peak that should remain selected; any other selected peak sharing its
+    ///   mode is deselected.
+    func enforceDefinitiveModeUniqueness(preferring peakID: UUID) {
+        guard TapDisplaySettings.measurementType.isGuitar,
+              selectedPeakIDs.contains(peakID),
+              let winner = allPeaks.first(where: { $0.id == peakID }) else { return }
+
+        // Resolve through `peakMode(for:)` — the OVERRIDE-AWARE path. `identifiedModes` is built from
+        // classifyAll alone and never consults overrides, so using it here would silently ignore a
+        // mode the user assigned by hand. (See Phase 6 in the lifecycle plan.)
+        let mode = peakMode(for: winner).normalized
+        guard Self.singleHolderModes.contains(mode) else { return }
+
+        for other in allPeaks
+        where other.id != peakID
+            && selectedPeakIDs.contains(other.id)
+            && peakMode(for: other).normalized == mode {
+            selectedPeakIDs.remove(other.id)
+        }
     }
 
     /// Clears the selection set so no peaks are marked as significant.

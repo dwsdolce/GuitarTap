@@ -41,6 +41,11 @@ struct CombinedPeakModeRowView: View {
     let peak: ResonantPeak
     /// Auto-classified guitar mode for the peak (drives the in-range badge).
     let mode: GuitarMode
+    /// The mode a "Reset to Auto-Detected" would restore this peak to — the auto-classification with
+    /// no override applied. Names the reset menu item's target, NOT the peak's current label (which,
+    /// after an override, would be the name the user just assigned). Defaults to ``mode`` for the
+    /// read-only call sites that never show the reset item.
+    var autoDetectedMode: GuitarMode? = nil
     /// Effective label to display (auto-detected or user override)
     var effectiveModeLabel: String
     /// Whether the label has been manually overridden by the user
@@ -188,7 +193,7 @@ struct CombinedPeakModeRowView: View {
                     ModePickerSheet(
                         currentLabel: effectiveModeLabel,
                         isManualOverride: isManualOverride,
-                        autoLabel: mode.displayName,
+                        autoLabel: (autoDetectedMode ?? mode).displayName,
                         onSelect: { label in onSetModeOverride?(label) },
                         onReset: onResetModeOverride,
                         onCustom: {
@@ -232,7 +237,7 @@ struct CombinedPeakModeRowView: View {
                 Button {
                     onResetModeOverride?()
                 } label: {
-                    Label("Reset to Auto-Detected (\(mode.displayName))", systemImage: "arrow.counterclockwise")
+                    Label("Reset to Auto-Detected (\((autoDetectedMode ?? mode).displayName))", systemImage: "arrow.counterclockwise")
                 }
                 Divider()
             }

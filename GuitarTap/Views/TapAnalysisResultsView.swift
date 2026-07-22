@@ -28,9 +28,9 @@
 /// `peaksAndModesSection` lists all `peaksAbovePeakMin` sorted by frequency.
 /// Each row shows the guitar mode color chip, frequency, magnitude, Q-factor,
 /// pitch note and cents deviation, and a mode-override picker. Unknown modes
-/// can be hidden via `TapDisplaySettings.showUnknownModes`. Rows can be
-/// hidden/shown individually; Select All / Select None batch controls
-/// are available in the section header.
+/// can be hidden via `TapDisplaySettings.showUnknownModes`. Peaks are selected
+/// individually — at most one may be the definitive Air, Top or Back — with
+/// Select None and Reset to Auto in the section header.
 ///
 /// ## Plate / Brace Properties
 ///
@@ -223,22 +223,15 @@ struct TapAnalysisResultsView: View {
 
                         Spacer()
 
-                        // Select All / Select None / Reset to Auto buttons
+                        // Select None / Reset to Auto buttons.
                         // Hidden during multi-tap comparison (the table shows per-tap data, not
                         // the averaged peak list, so individual peak selection is not applicable).
+                        //
+                        // There is deliberately no "Select All": Air, Top and Back can each have only
+                        // ONE definitive (selected) peak, so selecting everything is not a state the
+                        // model can hold. Select None remains — no definitive peaks is legitimate.
                         if !sortedPeaksWithModes.isEmpty && !analyzer.showingMultiTapComparison {
                             HStack(spacing: 8) {
-                                Button {
-                                    analyzer.selectAllPeaks()
-                                } label: {
-                                    Image(systemName: "checkmark.circle")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.mini)
-                                .disabled(!measurementType.isGuitar || analyzer.selectedPeakIDs.count == analyzer.allPeaks.count)
-                                .help(measurementType.isGuitar ? "Select all peaks" : "Peak selection is fixed during plate/brace measurements")
-
                                 Button {
                                     analyzer.selectNoPeaks()
                                 } label: {
@@ -572,6 +565,7 @@ struct TapAnalysisResultsView: View {
                             CombinedPeakModeRowView(
                                 peak: item.peak,
                                 mode: item.mode,
+                                autoDetectedMode: analyzer.autoDetectedMode(for: item.peak),
                                 effectiveModeLabel: analyzer.effectiveModeLabel(for: item.peak),
                                 isManualOverride: analyzer.hasManualOverride(for: item.peak.id),
                                 isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
