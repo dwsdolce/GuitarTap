@@ -55,8 +55,52 @@ private func makeTapEntry(
                     peaks: peaks, selectedPeakIDs: selected)
 }
 
+/// A synthetic spectrum with a Gaussian bump at each requested frequency, on a −100 dB floor.
+///
+/// The flat spectrum installed by ``freeze(_:peaks:)`` makes `findPeaks` detect nothing, so any test
+/// that drives the live/frozen recalc through it passes vacuously — a trap this suite has fallen into
+/// before. This fixture gives real detection something to work on.
+private func gaussianSpectrum(
+    _ bumps: [(freq: Float, mag: Float)],
+    from lo: Float = 50,
+    to hi: Float = 500,
+    floor: Float = -100
+) -> (frequencies: [Float], magnitudes: [Float]) {
+    let sigma: Float = 3.0
+    var freqs: [Float] = []
+    var mags: [Float] = []
+    var f = lo
+    while f <= hi {
+        var m = floor
+        for bump in bumps {
+            let d = f - bump.freq
+            m = max(m, floor + (bump.mag - floor) * exp(-(d * d) / (2 * sigma * sigma)))
+        }
+        freqs.append(f)
+        mags.append(m)
+        f += 1.0
+    }
+    return (freqs, mags)
+}
+
+/// Freeze the SUT on a real (Gaussian) spectrum so the live/frozen recalc branch actually detects.
+@MainActor
+private func freezeOnRealSpectrum(_ sut: TapToneAnalyzer, bumps: [(freq: Float, mag: Float)]) {
+    let spectrum = gaussianSpectrum(bumps)
+    sut.minFrequency = 50
+    sut.maxFrequency = 500
+    sut.isMeasurementComplete = true
+    sut.frozenFrequencies = spectrum.frequencies
+    sut.frozenMagnitudes = spectrum.magnitudes
+    sut.allPeaks = sut.findPeaks(
+        magnitudes: spectrum.magnitudes,
+        frequencies: spectrum.frequencies,
+        peakMinOverride: TapToneAnalyzer.peakDetectionFloor
+    )
+}
+
 /// Freeze the SUT with an already-computed peak set (bypasses live audio).
-/// Sets isMeasurementComplete, minimal frozen data, and currentPeaks.
+/// Sets isMeasurementComplete, minimal frozen data, and peaksAbovePeakMin.
 private func freeze(_ sut: TapToneAnalyzer, peaks: [ResonantPeak]) {
     sut.isMeasurementComplete = true
     // Provide non-empty frozen arrays so the guard passes.
@@ -72,7 +116,7 @@ private func freeze(_ sut: TapToneAnalyzer, peaks: [ResonantPeak]) {
 @Suite("FrozenPeakRecalculation_LoadingGuard", .serialized)
 struct FrozenPeakRecalculation_LoadingGuardTests {
     // PR1: While isLoadingMeasurement is true, changing peakMinThreshold must NOT
-    // overwrite currentPeaks with a fresh findPeaks() pass.
+    // overwrite peaksAbovePeakMin with a fresh findPeaks() pass.
     @Test func isLoadingMeasurement_suppressesRecalculation() {
         let sut = makeSUT()
         let original = [makePeak(frequency: 200, magnitude: -20)]
@@ -83,8 +127,8 @@ struct FrozenPeakRecalculation_LoadingGuardTests {
         // Directly call the method (simulating what peakMinThreshold.didSet does).
         sut.recalculateFrozenPeaksIfNeeded()
 
-        // currentPeaks must be unchanged — the guard returned early.
-        #expect(sut.currentPeaks.map(\.frequency) == [200],
+        // peaksAbovePeakMin must be unchanged — the guard returned early.
+        #expect(sut.peaksAbovePeakMin.map(\.frequency) == [200],
                 "Loading guard should have prevented recalculation")
     }
 
@@ -99,8 +143,8 @@ struct FrozenPeakRecalculation_LoadingGuardTests {
         sut.isLoadingMeasurement = false
         sut.recalculateFrozenPeaksIfNeeded()
 
-        // With threshold well below -20 dB the peak survives — currentPeaks non-empty.
-        #expect(!sut.currentPeaks.isEmpty,
+        // With threshold well below -20 dB the peak survives — peaksAbovePeakMin non-empty.
+        #expect(!sut.peaksAbovePeakMin.isEmpty,
                 "Recalculation should run and keep the peak above threshold")
     }
 }
@@ -128,7 +172,7 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        let freqs = sut.currentPeaks.map(\.frequency)
+        let freqs = sut.peaksAbovePeakMin.map(\.frequency)
         #expect(freqs.contains(200),   "Strong peak should survive the threshold filter")
         #expect(!freqs.contains(400),  "Weak peak should be removed by the threshold filter")
     }
@@ -157,8 +201,8 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        #expect(sut.currentPeaks.isEmpty,
-                "currentPeaks is the Peak Min projection — nothing here is above the threshold")
+        #expect(sut.peaksAbovePeakMin.isEmpty,
+                "peaksAbovePeakMin is the Peak Min projection — nothing here is above the threshold")
         #expect(sut.allPeaks.map(\.frequency) == [200],
                 "allPeaks is the durable set — a display filter must never shrink it")
         #expect(sut.identifiedModes.map(\.mode) == [.air],
@@ -189,7 +233,7 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
 
             sut.recalculateFrozenPeaksIfNeeded()
 
-            let freqs = sut.currentPeaks.map(\.frequency)
+            let freqs = sut.peaksAbovePeakMin.map(\.frequency)
             #expect(freqs.contains(66.88),
                     "\(type.shortName): fL below Peak Min must survive — Peak Min is guitar-only")
             #expect(freqs.contains(116.75), "\(type.shortName): fC must survive")
@@ -198,7 +242,7 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
 
     // PR2c: The loaded path uses the saved peaks — it does NOT re-run findPeaks()
     // on the frozen spectrum.  Verify by using a flat frozen spectrum (no detectable
-    // peaks) while loadedMeasurementPeaks has a strong peak: currentPeaks should
+    // peaks) while loadedMeasurementPeaks has a strong peak: peaksAbovePeakMin should
     // still show that peak.
     @Test func loadedPath_usesSavedPeaks_notFrozenSpectrum() {
         let sut = makeSUT()
@@ -209,7 +253,7 @@ struct FrozenPeakRecalculation_LoadedMeasurementPathTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        let freqs = sut.currentPeaks.map(\.frequency)
+        let freqs = sut.peaksAbovePeakMin.map(\.frequency)
         #expect(freqs.contains(300),
                 "Loaded path must return the saved peak, not re-analyse the flat frozen spectrum")
     }
@@ -250,14 +294,14 @@ struct PeakMinDurabilityTests {
 
         // Raise Peak Min above the quiet peak — it should vanish from the DISPLAY only.
         sut.peakMinThreshold = -40
-        #expect(!sut.currentPeaks.contains { $0.id == quiet.id }, "quiet peak should be hidden")
+        #expect(!sut.peaksAbovePeakMin.contains { $0.id == quiet.id }, "quiet peak should be hidden")
         #expect(sut.allPeaks.contains { $0.id == quiet.id },
                 "…but it must remain in the durable set — hidden, not destroyed")
 
         // Lower it again.
         sut.peakMinThreshold = -60
 
-        #expect(sut.currentPeaks.contains { $0.id == quiet.id },
+        #expect(sut.peaksAbovePeakMin.contains { $0.id == quiet.id },
                 "the SAME peak identity must come back, not a new one")
         #expect(sut.selectedPeakIDs.contains(quiet.id),
                 "selection must survive a Peak Min sweep")
@@ -328,8 +372,49 @@ struct PeakMinDurabilityTests {
         }
     }
 
+    /// Phase 4a. Re-analyze snapshots the dragged label positions and custom mode names, keyed by
+    /// frequency, so it can carry them across the re-detection. That snapshot resolved its UUIDs
+    /// against the Peak Min projection — so a peak hidden by the slider was simply absent, and its
+    /// label position and custom name were dropped and never restored.
+    ///
+    /// Phase 2 removed the *slider* as a trigger for this code; Re-analyze still reaches it, which
+    /// is where the loss actually happened. Driven on a real spectrum: the flat fixture used
+    /// elsewhere makes the recalc early-return, which would make this pass without testing anything.
+    @Test func reanalyzePreservesStateOfPeaksHiddenByPeakMin() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        // 200 Hz loud, 300 Hz quiet — the quiet one is what Peak Min will hide.
+        freezeOnRealSpectrum(sut, bumps: [(200, -20), (300, -55)])
+
+        let quiet = sut.allPeaks.min(by: { abs($0.frequency - 300) < abs($1.frequency - 300) })
+        #expect(quiet != nil, "fixture must detect a peak near 300 Hz")
+        #expect(sut.allPeaks.count >= 2, "fixture must detect both bumps, got \(sut.allPeaks.count)")
+        guard let quiet else { return }
+
+        sut.updateAnnotationOffset(for: quiet.id, offset: CGPoint(x: 21, y: 42))
+        sut.setModeOverride(.assigned("Wolf note"), for: quiet.id)
+
+        sut.peakMinThreshold = -40          // hides the quiet peak from the DISPLAY
+        #expect(!sut.peaksAbovePeakMin.contains { $0.id == quiet.id },
+                "precondition: the quiet peak is hidden")
+
+        sut.reanalyzePeaks()                // re-detects; every UUID is new
+
+        let requiz = sut.allPeaks.min(by: { abs($0.frequency - 300) < abs($1.frequency - 300) })
+        #expect(requiz != nil, "the 300 Hz peak is still in the spectrum after re-analysis")
+        guard let requiz else { return }
+
+        #expect(sut.peakAnnotationOffsets[requiz.id] == CGPoint(x: 21, y: 42),
+                "a dragged label on a hidden peak must survive Re-analyze")
+        #expect(sut.hasManualOverride(for: requiz.id),
+                "a custom mode name on a hidden peak must survive Re-analyze")
+    }
+
     /// Selection is a fact about the measurement, so `selectedPeaks` resolves over `allPeaks`.
-    /// Resolving it over `currentPeaks` — as the multi-tap averaged row did on screen and in the
+    /// Resolving it over `peaksAbovePeakMin` — as the multi-tap averaged row did on screen and in the
     /// PDF before Phase 3 — silently drops a selected peak once Peak Min rises above it.
     @Test func selectedPeaks_resolveOverDurableSet_notTheDisplayProjection() {
         let savedType = TapDisplaySettings.measurementType
@@ -345,7 +430,7 @@ struct PeakMinDurabilityTests {
 
         sut.peakMinThreshold = -40   // hides `quiet` from the display
 
-        #expect(!sut.currentPeaks.contains { $0.id == quiet.id },
+        #expect(!sut.peaksAbovePeakMin.contains { $0.id == quiet.id },
                 "precondition: the quiet peak is hidden from the display")
         let resolved: Set<UUID> = Set(sut.selectedPeaks.map(\.id))
         #expect(resolved == Set([loud.id, quiet.id]),
@@ -361,7 +446,7 @@ struct PeakMinDurabilityTests {
 struct FrozenPeakRecalculation_OffsetRemappingTests {
     // PR3a: When loadedMeasurementPeaks has a peak at 200 Hz with a stored
     // annotation offset, and the threshold is lowered to reveal it, the offset
-    // is remapped to the new UUID of that peak in currentPeaks.
+    // is remapped to the new UUID of that peak in peaksAbovePeakMin.
     @Test func loadedPath_annotationOffset_remappedByFrequency() {
         let sut = makeSUT()
         let savedPeak = makePeak(frequency: 200, magnitude: -30)
@@ -373,16 +458,23 @@ struct FrozenPeakRecalculation_OffsetRemappingTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        // The saved peak IS currentPeaks (same UUID), so the offset must still be there.
-        let newPeak = sut.currentPeaks.first
+        // The saved peak IS peaksAbovePeakMin (same UUID), so the offset must still be there.
+        let newPeak = sut.peaksAbovePeakMin.first
         #expect(newPeak != nil)
         let remapped = sut.peakAnnotationOffsets[newPeak!.id]
         #expect(remapped == CGPoint(x: 5, y: 10),
                 "Annotation offset should be remapped to the peak at ~200 Hz, got \(String(describing: remapped))")
     }
 
-    // PR3b: An offset for a peak that disappears below the threshold is dropped.
-    @Test func loadedPath_offsetForFilteredOutPeak_isDropped() {
+    // PR3b: An offset for a peak hidden by Peak Min SURVIVES.
+    //
+    // This test asserted the opposite until Phase 4a — that the offset was dropped — and that was
+    // the defect, not the spec. Peak Min is a display filter: hiding a peak must not destroy the
+    // label the user dragged onto it, or lowering the slider again returns a peak whose label has
+    // silently snapped back to the default. Listed in the Phase 2 plan as "asserts destruction, must
+    // assert survival"; it outlived Phase 2 because that phase removed the slider as a *trigger* for
+    // this code without changing the code, and Re-analyze still reaches it.
+    @Test func loadedPath_offsetForFilteredOutPeak_survives() {
         // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -401,9 +493,10 @@ struct FrozenPeakRecalculation_OffsetRemappingTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        // Only the strong peak remains; the weak peak's offset should be gone.
-        #expect(sut.peakAnnotationOffsets.count == 1,
-                "Only offsets for visible peaks should survive; got \(sut.peakAnnotationOffsets.count)")
+        #expect(sut.peakAnnotationOffsets.count == 2,
+                "Both offsets survive — hiding a peak must not destroy its dragged label; got \(sut.peakAnnotationOffsets.count)")
+        #expect(sut.peakAnnotationOffsets[weakPeak.id] == CGPoint(x: 9, y: 9),
+                "the hidden peak keeps its exact offset")
     }
 }
 
@@ -414,7 +507,7 @@ struct FrozenPeakRecalculation_OffsetRemappingTests {
 @Suite("FrozenPeakRecalculation_OverrideRemapping", .serialized)
 struct FrozenPeakRecalculation_OverrideRemappingTests {
     // PR4: A user-assigned mode override stored against a saved peak UUID is
-    // remapped to the corresponding peak in currentPeaks after a threshold change.
+    // remapped to the corresponding peak in peaksAbovePeakMin after a threshold change.
     @Test func loadedPath_modeOverride_remappedByFrequency() {
         let sut = makeSUT()
         let savedPeak = makePeak(frequency: 200, magnitude: -30)
@@ -425,7 +518,7 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        let newPeak = sut.currentPeaks.first
+        let newPeak = sut.peaksAbovePeakMin.first
         #expect(newPeak != nil)
         let override = sut.peakModeOverrides[newPeak!.id]
         if case .assigned(let label) = override {
@@ -436,8 +529,12 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
         }
     }
 
-    // PR4b: Override for a peak that drops below threshold is removed.
-    @Test func loadedPath_overrideForFilteredOutPeak_isDropped() {
+    // PR4b: The custom mode name on a peak hidden by Peak Min SURVIVES.
+    //
+    // The counterpart of PR3b, and inverted for the same reason. Naming a peak is user work; a
+    // display filter must not throw it away. Doubly so after Phase 4, where a custom name is what
+    // makes a peak *known* — destroying it here would silently reclassify the peak as unknown.
+    @Test func loadedPath_overrideForFilteredOutPeak_survives() {
         // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -456,8 +553,13 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        #expect(sut.peakModeOverrides.count == 1,
-                "Override for the filtered-out peak should be removed; got \(sut.peakModeOverrides.count) overrides")
+        #expect(sut.peakModeOverrides.count == 2,
+                "Both overrides survive — hiding a peak must not erase its name; got \(sut.peakModeOverrides.count)")
+        if case .assigned(let label) = sut.peakModeOverrides[weakPeak.id] {
+            #expect(label == "Drop", "the hidden peak keeps its exact custom name")
+        } else {
+            Issue.record("Expected the hidden peak to keep its .assigned override")
+        }
     }
 }
 
@@ -491,7 +593,7 @@ struct FrozenPeakRecalculation_SelectionCarryForwardTests {
         sut.recalculateFrozenPeaksIfNeeded()
 
         // The 200 Hz peak should still be selected; 500 Hz should not.
-        let selectedFreqs = sut.currentPeaks
+        let selectedFreqs = sut.peaksAbovePeakMin
             .filter { sut.selectedPeakIDs.contains($0.id) }
             .map(\.frequency)
         #expect(selectedFreqs.contains(200),
@@ -562,11 +664,11 @@ struct FrozenPeakRecalculation_EmptyPeaksGuardTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        // currentPeaks and identifiedModes should be empty…
-        #expect(sut.currentPeaks.isEmpty,
+        // peaksAbovePeakMin and identifiedModes should be empty…
+        #expect(sut.peaksAbovePeakMin.isEmpty,
                 "No peaks should be visible above the threshold")
         #expect(sut.identifiedModes.isEmpty,
-                "identifiedModes should be cleared alongside currentPeaks")
+                "identifiedModes should be cleared alongside peaksAbovePeakMin")
         // …but selectedPeakIDs must be preserved for future carry-forward.
         #expect(sut.selectedPeakIDs.contains(phantomID),
                 "selectedPeakIDs should be preserved so the selection can be re-applied when the threshold is lowered")
@@ -578,7 +680,7 @@ struct FrozenPeakRecalculation_EmptyPeaksGuardTests {
 //
 // Mirrors Python TestRecalculateFrozenPeaksIfNeeded (PR-A1-A5).
 // Constructs real spectra with a known peak via a Gaussian magnitude profile,
-// calls recalculateFrozenPeaksIfNeeded(), and asserts on currentPeaks.
+// calls recalculateFrozenPeaksIfNeeded(), and asserts on peaksAbovePeakMin.
 // ---------------------------------------------------------------------------
 
 /// Build a synthetic frozen spectrum with a single Gaussian peak at `peakHz`.
@@ -628,9 +730,9 @@ struct RecalculateFrozenPeaksIntegrationTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        #expect(!sut.currentPeaks.isEmpty,
+        #expect(!sut.peaksAbovePeakMin.isEmpty,
                 "Frozen-spectrum path should detect the \(targetHz) Hz peak")
-        let detected = sut.currentPeaks.map(\.frequency)
+        let detected = sut.peaksAbovePeakMin.map(\.frequency)
         #expect(detected.contains(where: { abs($0 - targetHz) < 20 }),
                 "Expected a peak near \(targetHz) Hz; got \(detected)")
     }
@@ -656,14 +758,14 @@ struct RecalculateFrozenPeaksIntegrationTests {
         // Low threshold: peak should be detected.
         sut.peakMinThreshold = -60
         sut.recalculateFrozenPeaksIfNeeded()
-        let detectedLow = sut.currentPeaks.map(\.frequency)
+        let detectedLow = sut.peaksAbovePeakMin.map(\.frequency)
         #expect(detectedLow.contains(where: { abs($0 - 200) < 20 }),
                 "Peak should be detected at low threshold")
 
         // Raise threshold: weak peak should be removed.
         sut.peakMinThreshold = -40
         sut.recalculateFrozenPeaksIfNeeded()
-        let detectedHigh = sut.currentPeaks.map(\.frequency)
+        let detectedHigh = sut.peaksAbovePeakMin.map(\.frequency)
         #expect(!detectedHigh.contains(where: { abs($0 - 200) < 20 }),
                 "Weak peak should be absent after raising threshold")
     }
@@ -684,13 +786,13 @@ struct RecalculateFrozenPeaksIntegrationTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        let freqs = sut.currentPeaks.map(\.frequency)
+        let freqs = sut.peaksAbovePeakMin.map(\.frequency)
         #expect(freqs.count == 1, "Only the above-threshold peak should remain; got \(freqs)")
         #expect(freqs.contains(where: { abs($0 - 200) < 1 }),
                 "Surviving peak should be at 200 Hz; got \(freqs)")
     }
 
-    // PR-A4: All loaded peaks below threshold → currentPeaks is empty.
+    // PR-A4: All loaded peaks below threshold → peaksAbovePeakMin is empty.
     @Test func loadedMeasurement_allBelowThreshold_yieldsEmpty() {
         // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
         let savedType = TapDisplaySettings.measurementType
@@ -706,7 +808,7 @@ struct RecalculateFrozenPeaksIntegrationTests {
 
         sut.recalculateFrozenPeaksIfNeeded()
 
-        #expect(sut.currentPeaks.isEmpty,
+        #expect(sut.peaksAbovePeakMin.isEmpty,
                 "No peaks should remain when all are below threshold")
     }
 
@@ -728,7 +830,7 @@ struct RecalculateFrozenPeaksIntegrationTests {
         // Must not crash:
         sut.recalculateFrozenPeaksIfNeeded()
 
-        #expect(sut.currentPeaks.isEmpty)
+        #expect(sut.peaksAbovePeakMin.isEmpty)
     }
 }
 
@@ -770,7 +872,7 @@ struct FrozenPeakRecalculation_LiveTapPathTests {
         sut.frozenFrequencies = freqs
         sut.frozenMagnitudes  = mags
 
-        // Seed currentPeaks with a placeholder and store an offset against it.
+        // Seed peaksAbovePeakMin with a placeholder and store an offset against it.
         let placeholder = makePeak(frequency: peakHz, magnitude: -20)
         sut.allPeaks = [placeholder]
         let testOffset = CGPoint(x: 7, y: 13)
@@ -779,8 +881,8 @@ struct FrozenPeakRecalculation_LiveTapPathTests {
         sut.recalculateFrozenPeaksIfNeeded()
 
         // After recalculation, there should be a peak near 1000 Hz.
-        guard let newPeak = sut.currentPeaks.first(where: { abs($0.frequency - peakHz) < 30 }) else {
-            Issue.record("Expected a peak near \(peakHz) Hz; currentPeaks = \(sut.currentPeaks.map(\.frequency))")
+        guard let newPeak = sut.peaksAbovePeakMin.first(where: { abs($0.frequency - peakHz) < 30 }) else {
+            Issue.record("Expected a peak near \(peakHz) Hz; peaksAbovePeakMin = \(sut.peaksAbovePeakMin.map(\.frequency))")
             return
         }
         // The offset should have been transferred from the old UUID to the new one.

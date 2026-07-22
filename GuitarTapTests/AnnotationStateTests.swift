@@ -97,7 +97,7 @@ struct PeakSelectionTests {
         #expect(!sut.selectedPeakIDs.contains(id), "After second toggle, peak should be deselected")
     }
 
-    // selectAllPeaks populates selectedPeakIDs with all currentPeaks IDs.
+    // selectAllPeaks populates selectedPeakIDs with all peaksAbovePeakMin IDs.
     @Test func selectAllPeaks_selectsAllCurrentPeaks() {
         let sut = makeSUT()
         let peaks = [makePeak(frequency: 100), makePeak(frequency: 200), makePeak(frequency: 300)]
@@ -183,7 +183,7 @@ struct UserModifiedPeakSelectionFlagTests {
         #expect(!sut.selectedPeakIDs.contains(quietAir.id), "Quieter Air peak should not be selected")
     }
 
-    // resetToAutoSelection on empty currentPeaks is a no-op (no crash).
+    // resetToAutoSelection on empty peaksAbovePeakMin is a no-op (no crash).
     @Test func resetToAutoSelection_emptyPeaks_isNoop() {
         let sut = makeSUT()
         sut.userHasModifiedPeakSelection = true
@@ -202,7 +202,7 @@ struct UserModifiedPeakSelectionFlagTests {
 @Suite("VisiblePeaks")
 struct VisiblePeaksTests {
 
-    // D4: .all mode returns all currentPeaks.
+    // D4: .all mode returns all peaksAbovePeakMin.
     @Test func allMode_returnsAllCurrentPeaks() {
         let sut = makeSUT()
         sut.annotationVisibilityMode = .all
@@ -229,7 +229,7 @@ struct VisiblePeaksTests {
         #expect(!visible.map(\.frequency).contains(200))
     }
 
-    // D6: .none mode returns empty array regardless of currentPeaks.
+    // D6: .none mode returns empty array regardless of peaksAbovePeakMin.
     @Test func noneMode_returnsEmpty() {
         let sut = makeSUT()
         sut.annotationVisibilityMode = .none

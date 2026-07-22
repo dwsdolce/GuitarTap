@@ -252,7 +252,7 @@ extension TapToneAnalyzer {
     /// so a reloaded measurement reveals peaks below its capture-time Peak Min exactly as the live
     /// one does.
     ///
-    /// `currentPeaks` (≥ Peak Min, carrying their UUIDs / selection / modes / annotations) are kept
+    /// `peaksAbovePeakMin` (≥ Peak Min, carrying their UUIDs / selection / modes / annotations) are kept
     /// as-is; only the sub-Peak-Min peaks are appended, so nothing that is displayed or selected is
     /// disturbed. Applies to freshly captured guitar measurements only — a **loaded** measurement
     /// keeps its authoritative saved peaks (Re-analyze regenerates them from the spectrum), and
@@ -342,13 +342,17 @@ extension TapToneAnalyzer {
         }()
 
         // Material (plate/brace) has no per-peak selection: persist the FULL identified peak set
-        // (all of `currentPeaks`), never the live `selectedPeakIDs` aggregate — that aggregate can
+        // (all of `allPeaks`), never the live `selectedPeakIDs` aggregate — that aggregate can
         // be corrupted by an intermittent phase-transition write, and material always shows all
         // peaks anyway. Guitar persists the user's actual selection. (RESPIN-1.0.2 selection design;
         // matches the web/Python save path.)
+        //
+        // `allPeaks` and not `peaksAbovePeakMin`: the two are equal for material (Peak Min is a
+        // guitar-only control), but this is a question about the MEASUREMENT, so it reads the
+        // durable set rather than relying on that equality holding forever.
         let persistedSelectedIDs: Set<UUID> = measurementType.isGuitar
             ? selectedPeakIDs
-            : Set(currentPeaks.map { $0.id })
+            : Set(allPeaks.map { $0.id })
 
         let measurement = TapToneMeasurement(
             peaks: guitarFullSavePeaks(),
@@ -368,7 +372,9 @@ extension TapToneAnalyzer {
             crossSnapshot: measurementType == .plate ? crossSnapshot : nil,
             flcSnapshot: measurementType == .plate ? flcSnapshot : nil,
             selectedPeakIDs: persistedSelectedIDs.isEmpty ? nil : Array(persistedSelectedIDs),
-            selectedPeakFrequencies: persistedSelectedIDs.isEmpty ? nil : currentPeaks
+            // Resolved over `allPeaks`: a selected peak sitting below Peak Min is still selected, and
+            // its frequency must reach the file or the carry-forward cache is short on reload.
+            selectedPeakFrequencies: persistedSelectedIDs.isEmpty ? nil : allPeaks
                 .filter { persistedSelectedIDs.contains($0.id) }
                 .map { $0.frequency },
             // Persist whether the guitar selection was hand-modified, so a reloaded measurement
@@ -385,7 +391,7 @@ extension TapToneAnalyzer {
         )
 
         savedMeasurements.append(measurement)
-        gtLog("💾 Saved measurement with \(currentPeaks.count) peaks, type: \(measurementType.shortName)")
+        gtLog("💾 Saved measurement with \(peaksAbovePeakMin.count) peaks, type: \(measurementType.shortName)")
 
         // Persist to disk
         persistMeasurements()
@@ -561,7 +567,7 @@ extension TapToneAnalyzer {
         // Restore per-phase spectra for plate/brace measurements
         if let longSnap = measurement.longitudinalSnapshot {
             longitudinalSpectrum = (magnitudes: longSnap.magnitudes, frequencies: longSnap.frequencies)
-            longitudinalPeaks = [] // peaks come from currentPeaks
+            longitudinalPeaks = [] // peaks come from peaksAbovePeakMin
         } else {
             longitudinalSpectrum = nil
             longitudinalPeaks = []
@@ -695,13 +701,14 @@ extension TapToneAnalyzer {
         }
         
         // Restore plate/brace peak selections directly into the model properties
-        // that effectiveLongitudinalPeakID etc. read from.
+        // that effectiveLongitudinalPeakID etc. read from. Resolved against the durable set: which
+        // peak is L / C / FLC is a fact about the measurement, not a display question.
         selectedLongitudinalPeak = measurement.selectedLongitudinalPeakID
-            .flatMap { id in currentPeaks.first(where: { $0.id == id }) }
+            .flatMap { id in allPeaks.first(where: { $0.id == id }) }
         selectedCrossPeak = measurement.selectedCrossPeakID
-            .flatMap { id in currentPeaks.first(where: { $0.id == id }) }
+            .flatMap { id in allPeaks.first(where: { $0.id == id }) }
         selectedFlcPeak = measurement.selectedFlcPeakID
-            .flatMap { id in currentPeaks.first(where: { $0.id == id }) }
+            .flatMap { id in allPeaks.first(where: { $0.id == id }) }
         userSelectedLongitudinalPeakID = nil
         userSelectedCrossPeakID = nil
         userSelectedFlcPeakID = nil
@@ -711,7 +718,7 @@ extension TapToneAnalyzer {
         
         // Stop tap detection when loading a measurement (frozen state).
         // Clear isDetectionPaused too — if a tap sequence was paused before loading,
-        // the analyzeMagnitudes loop would otherwise keep overwriting currentPeaks
+        // the analyzeMagnitudes loop would otherwise keep overwriting peaksAbovePeakMin
         // with fresh live-audio peaks on every FFT frame.
         isDetecting = false
         isDetectionPaused = false
@@ -1096,7 +1103,9 @@ extension TapToneAnalyzer {
         // Append the averaged result as the final overlay so it renders on top.
         // Use a bold yellow so it stands out against the per-tap palette (blue/orange/green/purple/teal).
         let avgColor = Self.multiTapAvgColor
-        let avgSelectedPeaks = currentPeaks.filter { selectedPeakIDs.contains($0.id) }
+        // The same rule the on-screen table and the PDF use — selection resolves over the durable
+        // set, so the averaged overlay does not lose a selected peak when Peak Min rises above it.
+        let avgSelectedPeaks = selectedPeaks
         let avgSnap = SpectrumSnapshot(
             frequencies: frozenFrequencies,
             magnitudes: frozenMagnitudes,

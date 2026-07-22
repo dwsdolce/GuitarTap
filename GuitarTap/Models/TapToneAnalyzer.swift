@@ -368,22 +368,38 @@ final class TapToneAnalyzer: ObservableObject {
         didSet { refreshDisplayedPeaks() }
     }
 
-    /// The peaks currently **displayed** — ``allPeaks`` filtered by Peak Min.
+    /// ``allPeaks`` with the **Peak Min** filter applied — and *only* that filter.
+    ///
+    /// **It is not "the peaks".** Peak display is narrowed in three stages, each with a different
+    /// scope, and this property is the middle one:
+    ///
+    /// | Stage | Scope | Changes when |
+    /// |---|---|---|
+    /// | ``allPeaks`` | the measurement | a new capture, or an explicit Re-analyze |
+    /// | **this property** | a *setting*, global to the measurement | the user moves Peak Min |
+    /// | ``GuitarMode/peaksInDisplayRange(_:minFreq:maxFreq:isGuitar:showUnknownModes:overriddenPeakIDs:guitarType:)`` | the *viewport* | pan, zoom, or a different chart |
+    ///
+    /// The stage exists on its own because the model needs it without the viewport: ``visiblePeaks``
+    /// picks annotation candidates after Peak Min but *before* any range, since the view applies
+    /// range afterwards. Folding it away would mean inlining the same filter at each such site,
+    /// which is how display rules drift apart.
+    ///
+    /// **Read this only to decide what to SHOW.** Anything asking a question *about the measurement*
+    /// — what to save, what is selected, what to classify, whether a measurement exists — must read
+    /// ``allPeaks`` (or ``selectedPeaks``). Reading this property for such a question is the single
+    /// most repeated defect in this codebase's history: it silently makes the answer depend on where
+    /// a slider happens to sit. See Development/PEAK-LIFECYCLE-SPEC.md in the GuitarTapWeb repo.
     ///
     /// Derived, never assigned directly: it hands back the *same* `ResonantPeak` objects as
     /// ``allPeaks``, so filtering can never disturb identity or the per-peak state keyed to it.
-    ///
     /// Peak Min is a guitar-only control, so for plate/brace this is simply ``allPeaks`` — the
     /// identified L / C / FLC peaks are the material result and are never filtered.
-    ///
-    /// Views narrow this further by display range and the unknown-mode filter. (Phase 4a of the
-    /// lifecycle plan retires this property in favour of a single shared display projection.)
-    @Published private(set) var currentPeaks: [ResonantPeak] = []
+    @Published private(set) var peaksAbovePeakMin: [ResonantPeak] = []
 
-    /// Recomputes ``currentPeaks`` from ``allPeaks``. Called when either the peak set or Peak Min
-    /// changes. Cheap — a filter over an existing array, no detection.
+    /// Recomputes ``peaksAbovePeakMin`` from ``allPeaks``. Called when either the peak set or Peak
+    /// Min changes. Cheap — a filter over an existing array, no detection.
     func refreshDisplayedPeaks() {
-        currentPeaks = TapDisplaySettings.measurementType.isGuitar
+        peaksAbovePeakMin = TapDisplaySettings.measurementType.isGuitar
             ? allPeaks.filter { $0.magnitude >= peakMinThreshold }
             : allPeaks
     }
@@ -392,14 +408,14 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Selection is a fact about the measurement, not about what is currently on screen: auto-
     /// selection runs over the full set, so a selected peak may legitimately sit below Peak Min.
-    /// Resolving it against ``currentPeaks`` would silently drop such a peak from every derived
+    /// Resolving it against ``peaksAbovePeakMin`` would silently drop such a peak from every derived
     /// value as the slider moves — the defect this property exists to prevent. One rule, so the
     /// on-screen multi-tap table and the exported PDF cannot drift apart.
     var selectedPeaks: [ResonantPeak] {
         allPeaks.filter { selectedPeakIDs.contains($0.id) }
     }
 
-    /// Peak–mode pairs produced by classifying each entry in ``currentPeaks``.
+    /// Peak–mode pairs produced by classifying each entry in ``peaksAbovePeakMin``.
     ///
     /// Each element pairs a ``ResonantPeak`` with the ``GuitarMode`` whose frequency band
     /// contains the peak.  Legacy mode names are normalised before comparison.
@@ -726,9 +742,12 @@ final class TapToneAnalyzer: ObservableObject {
         userHasModifiedPeakSelection = true
     }
 
-    /// Marks all current peaks as selected.
+    /// Marks every peak in the measurement as selected.
+    ///
+    /// Resolves over ``allPeaks``: "all" means all, not "all that Peak Min happens to be showing".
+    /// (Phase 5 of the lifecycle plan removes this feature entirely.)
     func selectAllPeaks() {
-        selectedPeakIDs = Set(currentPeaks.map { $0.id })
+        selectedPeakIDs = Set(allPeaks.map { $0.id })
         userHasModifiedPeakSelection = true
     }
 
@@ -748,7 +767,7 @@ final class TapToneAnalyzer: ObservableObject {
         TapDisplaySettings.annotationVisibilityMode = annotationVisibilityMode
     }
 
-    /// The subset of ``currentPeaks`` that should be rendered as annotations given
+    /// The subset of ``peaksAbovePeakMin`` that should be rendered as annotations given
     /// the current ``annotationVisibilityMode``.
     ///
     /// In guitar mode, peaks classified as Unknown are excluded when
@@ -756,15 +775,15 @@ final class TapToneAnalyzer: ObservableObject {
     /// consistent with the Analysis Results panel.
     var visiblePeaks: [ResonantPeak] {
         // Material (plate/brace): annotate the accumulated identified L/C/FLC (stable, persistent),
-        // matching the web — NOT `currentPeaks`, which churns through 87→126→3 raw peaks during
+        // matching the web — NOT `peaksAbovePeakMin`, which churns through 87→126→3 raw peaks during
         // capture. There is no per-peak selection, so `.all`/`.selected` are equivalent. (RESPIN-1.0.2, fix R.)
         if !TapDisplaySettings.measurementType.isGuitar {
             return annotationVisibilityMode == .none ? [] : materialIdentifiedPeaks
         }
         let candidates: [ResonantPeak]
         switch annotationVisibilityMode {
-        case .all:      candidates = currentPeaks
-        case .selected: candidates = currentPeaks.filter { selectedPeakIDs.contains($0.id) }
+        case .all:      candidates = peaksAbovePeakMin
+        case .selected: candidates = peaksAbovePeakMin.filter { selectedPeakIDs.contains($0.id) }
         case .none:     return []
         }
         // Filter unknown-mode peaks in guitar mode when the setting is off. One rule for all three
@@ -781,7 +800,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// in phase order. Stable and PERSISTENT across phases — the material analog of the guitar
     /// "selected" set, mirroring the web's `matPeaks` that drives material annotations. Empty for
     /// guitar. Used as the live-chart annotation source so annotations grow 1→2→3 cleanly instead of
-    /// following `currentPeaks` (which churns through all raw peaks during capture). (RESPIN-1.0.2, fix R.)
+    /// following `peaksAbovePeakMin` (which churns through all raw peaks during capture). (RESPIN-1.0.2, fix R.)
     var materialIdentifiedPeaks: [ResonantPeak] {
         guard !TapDisplaySettings.measurementType.isGuitar else { return [] }
         return [selectedLongitudinalPeak, selectedCrossPeak, selectedFlcPeak].compactMap { $0 }

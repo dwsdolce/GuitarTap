@@ -717,7 +717,7 @@ extension TapToneAnalyzer {
         let diagSampleHash: Float = samples.count >= 16 ? samples[0..<16].reduce(0, +) : 0
         TAP_DEBUG("guitarGatedCapture", "FINISHED | newCount=\(capturedTaps.count)/\(numberOfTaps) capturedPeakMag=\(String(format: "%.2f", peakDb))dB samples=\(samples.count) specHash=\(String(format: "%.4f", diagSpecHash)) sampleHash=\(String(format: "%.6f", diagSampleHash))")
 
-        // Update currentPeaks and identifiedModes from the captured spectrum so
+        // Update peaksAbovePeakMin and identifiedModes from the captured spectrum so
         // the UI shows peak annotations and the Analysis Results table after each
         // tap — matching the Python behaviour where analyze_magnitudes() runs on
         // every live FFT frame during capture.
@@ -1452,7 +1452,7 @@ extension TapToneAnalyzer {
         materialCapturedTaps = []
 
         // Pre-compute the displayed peak selection.  The review-state branch
-        // below needs `currentPeaks` / `selectedPeakIDs` set so the chart
+        // below needs `peaksAbovePeakMin` / `selectedPeakIDs` set so the chart
         // shows all three plate peaks; `finalisePlateWithFLC` recomputes
         // the same values for the file-playback branch.  Mirrors the
         // structure of Python `_handle_flc_gated_progress`.

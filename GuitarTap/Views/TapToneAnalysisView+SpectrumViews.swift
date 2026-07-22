@@ -219,7 +219,7 @@ extension TapToneAnalysisView {
             maxFreq: $maxFreq,
             minDB: $minDB,
             maxDB: $maxDB,
-            peaks: isComparing ? nil : (TapDisplaySettings.measurementType.isGuitar ? tap.currentPeaks : tap.materialIdentifiedPeaks),
+            peaks: isComparing ? nil : (TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks),
             annotationPeaks: isComparing ? nil : tap.visiblePeaks,
             showModeBoundaries: true,
             onFrequencyRangeChanged: updateFrequencyInputFields,
@@ -237,7 +237,7 @@ extension TapToneAnalysisView {
             selectedCrossPeakID: tap.effectiveCrossPeakID,
             selectedFlcPeakID: tap.effectiveFlcPeakID,
             modeOverrides: tap.peakModeOverrides,
-            peakModes: Dictionary(uniqueKeysWithValues: tap.currentPeaks.map { ($0.id, tap.peakMode(for: $0)) }),
+            peakModes: Dictionary(uniqueKeysWithValues: tap.peaksAbovePeakMin.map { ($0.id, tap.peakMode(for: $0)) }),
             highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
             chartTitle: "FFT Peaks — \(chartTitle)",
             crosshairMode: $crosshairMode
@@ -250,7 +250,7 @@ extension TapToneAnalysisView {
             maxFreq: $maxFreq,
             minDB: $minDB,
             maxDB: $maxDB,
-            peaks: isComparing ? nil : (TapDisplaySettings.measurementType.isGuitar ? tap.currentPeaks : tap.materialIdentifiedPeaks),
+            peaks: isComparing ? nil : (TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks),
             annotationPeaks: isComparing ? nil : tap.visiblePeaks,
             showModeBoundaries: true,
             onFrequencyRangeChanged: updateFrequencyInputFields,
@@ -268,7 +268,7 @@ extension TapToneAnalysisView {
             selectedCrossPeakID: tap.effectiveCrossPeakID,
             selectedFlcPeakID: tap.effectiveFlcPeakID,
             modeOverrides: tap.peakModeOverrides,
-            peakModes: Dictionary(uniqueKeysWithValues: tap.currentPeaks.map { ($0.id, tap.peakMode(for: $0)) }),
+            peakModes: Dictionary(uniqueKeysWithValues: tap.peaksAbovePeakMin.map { ($0.id, tap.peakMode(for: $0)) }),
             highlightedPeakID: $tapToneAnalyzer.highlightedPeakID,
             chartTitle: "FFT Peaks — \(chartTitle)"
         )

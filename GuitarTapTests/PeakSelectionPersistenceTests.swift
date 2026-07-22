@@ -68,7 +68,7 @@ struct PeakSelectionPersistenceTests {
         sut.loadMeasurement(m)
         sut.peakMinThreshold = -70          // reveal Air (−64.21 dB)
         sut.recalculateFrozenPeaksIfNeeded()
-        let air = sut.currentPeaks.first { abs($0.frequency - 97.26) < 1 }
+        let air = sut.peaksAbovePeakMin.first { abs($0.frequency - 97.26) < 1 }
         let revealed = air != nil
         let selected = air.map { sut.selectedPeakIDs.contains($0.id) } ?? false
         return (revealed, selected)

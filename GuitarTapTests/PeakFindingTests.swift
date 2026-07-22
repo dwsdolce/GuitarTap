@@ -466,7 +466,7 @@ struct GuitarFullSavePeaksTests {
         sut.peakMinThreshold = -60   // above the real Air peak (−64.21 dB)
         sut.allPeaks = sut.findPeaks(magnitudes: mags, frequencies: freqs,
                                      peakMinOverride: TapToneAnalyzer.peakDetectionFloor)
-        return (sut, sut.currentPeaks)
+        return (sut, sut.peaksAbovePeakMin)
     }
 
     private func isAir(_ p: ResonantPeak) -> Bool { abs(p.frequency - 97.26) < 1 }

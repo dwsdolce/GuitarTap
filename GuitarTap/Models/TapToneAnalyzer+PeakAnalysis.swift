@@ -85,7 +85,7 @@ extension TapToneAnalyzer {
         let usesFastTapDetection = (mType == .plate || mType == .brace)
         
         // Analyze peaks if detection is enabled, paused (spectrum stays live), or in capture window.
-        // Do not overwrite currentPeaks once a measurement is complete — for guitar that means the
+        // Do not overwrite peaksAbovePeakMin once a measurement is complete — for guitar that means the
         // frozen averaged spectrum peaks; for plate/brace the final L/C/FLC peaks.
         if (isDetecting || isDetectionPaused || captureTimer != nil) && !isMeasurementComplete {
             // For plate/brace, use an adaptive noise-floor threshold (median of the analysis
@@ -167,21 +167,25 @@ extension TapToneAnalyzer {
             } else if let ref = loadedMeasurementPeaks {
                 previouslySelectedFrequencies = ref.filter { selectedPeakIDs.contains($0.id) }.map { $0.frequency }
             } else {
-                previouslySelectedFrequencies = currentPeaks.filter { selectedPeakIDs.contains($0.id) }.map { $0.frequency }
+                previouslySelectedFrequencies = selectedPeaks.map { $0.frequency }
             }
         } else {
             previouslySelectedFrequencies = []
         }
 
-        // Annotation offsets keyed by frequency (currentPeaks is always in sync with peakAnnotationOffsets).
+        // Annotation offsets and mode overrides are keyed by frequency so they can be carried across
+        // a re-detection. Resolve the UUIDs against `allPeaks`, NOT the Peak Min projection: a peak
+        // hidden by the slider still owns its dragged label and its custom name, and looking it up in
+        // the displayed set would silently drop both — permanently, since this snapshot is what the
+        // carry-forward restores from. Peak Min no longer triggers this code (Phase 2), but
+        // Re-analyze still does, which is where the loss actually happened.
         let offsetsByFrequency: [(frequency: Float, offset: CGPoint)] = peakAnnotationOffsets.compactMap { uuid, offset in
-            guard let peak = currentPeaks.first(where: { $0.id == uuid }) else { return nil }
+            guard let peak = allPeaks.first(where: { $0.id == uuid }) else { return nil }
             return (peak.frequency, offset)
         }
 
-        // Mode overrides keyed by frequency (currentPeaks is always in sync with peakModeOverrides).
         let overridesByFrequency: [(frequency: Float, override: UserAssignedMode)] = peakModeOverrides.compactMap { uuid, mode in
-            guard let peak = currentPeaks.first(where: { $0.id == uuid }) else { return nil }
+            guard let peak = allPeaks.first(where: { $0.id == uuid }) else { return nil }
             return (peak.frequency, mode)
         }
 
@@ -206,7 +210,7 @@ extension TapToneAnalyzer {
         if let savedPeaks = loadedMeasurementPeaks {
             // `allPeaks` is the DURABLE set and must never be assigned a filtered view — doing so
             // would shrink it as Peak Min rises, and the save path would then write the shrunken
-            // set (silent data loss). Store the saved peaks whole; `currentPeaks` is the Peak Min
+            // set (silent data loss). Store the saved peaks whole; `peaksAbovePeakMin` is the Peak Min
             // projection of them. The legacy remapping below still operates on the *displayed*
             // set, exactly as it did before, so behaviour here is unchanged.
             allPeaks = savedPeaks
@@ -246,7 +250,7 @@ extension TapToneAnalyzer {
             ($0.peak.frequency, $0.mode)
         }
 
-        // Detect the FULL set (floor -100) and store it as the durable `allPeaks`; `currentPeaks`
+        // Detect the FULL set (floor -100) and store it as the durable `allPeaks`; `peaksAbovePeakMin`
         // is its Peak Min projection. The legacy remapping below still operates on the *displayed*
         // set, exactly as it did before, so behaviour here is unchanged. (Phase 2 removes this
         // re-detection entirely — a display change must not re-analyse.)
@@ -285,7 +289,7 @@ extension TapToneAnalyzer {
     ///
     /// Call this when the user explicitly requests auto-selection (e.g. via a
     /// "Reset to Auto" button). If the spectrum is frozen the selection is
-    /// applied immediately to `currentPeaks`; otherwise it will take effect on
+    /// applied immediately to `peaksAbovePeakMin`; otherwise it will take effect on
     /// the next freeze.
     func resetToAutoSelection() {
         userHasModifiedPeakSelection = false
@@ -295,7 +299,7 @@ extension TapToneAnalyzer {
         selectedPeakFrequencies = []
         // Auto-selection runs over the DURABLE set, never the displayed one. Selection identifies
         // which peak IS each mode — a fact about the measurement, not about the current Peak Min.
-        // Using `currentPeaks` here meant that with one peak visible the wand picked winners from
+        // Using `peaksAbovePeakMin` here meant that with one peak visible the wand picked winners from
         // that single peak, and lowering Peak Min afterwards left the revealed peaks unselected.
         let peaks = allPeaks
         guard !peaks.isEmpty else { return }
@@ -366,7 +370,7 @@ extension TapToneAnalyzer {
 
         // Now re-run the full peak analysis pipeline.
         recalculateFrozenPeaksIfNeeded()
-        gtLog("🔬 Re-analyzed peaks from frozen spectrum: \(currentPeaks.count) peaks found")
+        gtLog("🔬 Re-analyzed peaks from frozen spectrum: \(peaksAbovePeakMin.count) peaks found")
     }
 
     /// Finds every significant spectral peak within the configured frequency range.
@@ -459,7 +463,7 @@ extension TapToneAnalyzer {
     ///    guitar auto-selection).
     ///
     /// - Parameters:
-    ///   - peaks: The new peak array (already stored in `currentPeaks`).
+    ///   - peaks: The new peak array (already stored in `peaksAbovePeakMin`).
     ///   - modesByFrequency: Previously-saved `(frequency, mode)` pairs used to
     ///     remap mode labels across UUID changes.
     ///   - offsetsByFrequency: Previously-saved annotation offsets keyed by frequency.
@@ -571,10 +575,12 @@ extension TapToneAnalyzer {
     /// individually in the results panel.
     ///
     /// - Parameter peaks: The candidate peak array to classify. Defaults to
-    ///   `currentPeaks`.
+    ///   ``allPeaks`` — the DURABLE set. Auto-selection is a fact about the measurement, so it must
+    ///   never run over the Peak Min projection: raising the slider would otherwise leave nothing to
+    ///   select, and lowering it would re-pick different winners.
     /// - Returns: A `Set<UUID>` containing at most one peak ID per named mode.
     func guitarModeSelectedPeakIDs(from peaks: [ResonantPeak]? = nil) -> Set<UUID> {
-        let candidates = peaks ?? currentPeaks
+        let candidates = peaks ?? allPeaks
         let modeMap = GuitarMode.classifyAll(candidates)
         let claimedModes: Set<GuitarMode> = [.air, .top, .back, .dipole, .ringMode, .upperModes]
 
@@ -596,7 +602,7 @@ extension TapToneAnalyzer {
         return Set(bestPerMode.values.map { $0.id })
     }
 
-    /// Re-runs mode classification on `currentPeaks` using the active guitar
+    /// Re-runs mode classification on `peaksAbovePeakMin` using the active guitar
     /// type's frequency ranges.
     ///
     /// Call this after the user changes the guitar type (acoustic ↔ classical)

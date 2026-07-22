@@ -8,7 +8,7 @@
 /// # TapToneAnalyzer+AnalysisHelpers
 ///
 /// Convenience query methods that operate on the analyser's current peak data.
-/// These helpers are thin wrappers around `currentPeaks` and `identifiedModes`
+/// These helpers are thin wrappers around `peaksAbovePeakMin` and `identifiedModes`
 /// and do not mutate any state.
 ///
 /// ## Usage

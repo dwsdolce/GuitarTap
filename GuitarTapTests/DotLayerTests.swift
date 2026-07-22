@@ -66,7 +66,7 @@ private func dots(
 /// user-assigned labels, which is what `SpectrumView` passes through.
 @MainActor
 private func dotsWithOverrides(_ sut: TapToneAnalyzer, showUnknownModes: Bool = false) -> [Float] {
-    dots(sut.currentPeaks,
+    dots(sut.peaksAbovePeakMin,
          showUnknownModes: showUnknownModes,
          overriddenPeakIDs: sut.overriddenPeakIDs)
 }
@@ -154,8 +154,8 @@ struct DotLayerVsAnnotationListTests {
         for mode in [AnnotationVisibilityMode.all, .selected, .none] {
             sut.annotationVisibilityMode = mode
 
-            #expect(dots(sut.currentPeaks) == expectedDots,
-                    "Dot list must not change with annotation mode \(mode), got \(dots(sut.currentPeaks))")
+            #expect(dots(sut.peaksAbovePeakMin) == expectedDots,
+                    "Dot list must not change with annotation mode \(mode), got \(dots(sut.peaksAbovePeakMin))")
         }
 
         // …while the annotation list genuinely does vary. If this half ever stops varying,

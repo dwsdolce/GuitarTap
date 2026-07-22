@@ -25,7 +25,7 @@
 ///
 /// ## Guitar Peak Table
 ///
-/// `peaksAndModesSection` lists all `currentPeaks` sorted by frequency.
+/// `peaksAndModesSection` lists all `peaksAbovePeakMin` sorted by frequency.
 /// Each row shows the guitar mode color chip, frequency, magnitude, Q-factor,
 /// pitch note and cents deviation, and a mode-override picker. Unknown modes
 /// can be hidden via `TapDisplaySettings.showUnknownModes`. Rows can be
@@ -236,7 +236,7 @@ struct TapAnalysisResultsView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.mini)
-                                .disabled(!measurementType.isGuitar || analyzer.selectedPeakIDs.count == analyzer.currentPeaks.count)
+                                .disabled(!measurementType.isGuitar || analyzer.selectedPeakIDs.count == analyzer.allPeaks.count)
                                 .help(measurementType.isGuitar ? "Select all peaks" : "Peak selection is fixed during plate/brace measurements")
 
                                 Button {
@@ -388,7 +388,7 @@ struct TapAnalysisResultsView: View {
         // Return empty during saved-measurement comparison, but NOT during multi-tap comparison
         // (where displayMode is also .comparison but the averaged peaks are still relevant).
         guard analyzer.displayMode != .comparison || analyzer.showingMultiTapComparison else { return [] }
-        return analyzer.currentPeaks
+        return analyzer.peaksAbovePeakMin
             .filter { peak in
                 // For plate/brace mode, don't filter by display range — the selected peaks
                 // must always appear in results regardless of the current zoom level.
@@ -699,7 +699,7 @@ struct TapAnalysisResultsView: View {
         }
 
         // Search phase-specific arrays first (live measurement), then fall back to
-        // currentPeaks (loaded/saved measurements where phase arrays are not populated).
+        // peaksAbovePeakMin (loaded/saved measurements where phase arrays are not populated).
         let longPeak: ResonantPeak? =
             analyzer.longitudinalPeaks.first(where: { $0.id == longPeakID })
             ?? sortedPeaksWithModes.first(where: { $0.peak.id == longPeakID })?.peak
@@ -711,7 +711,7 @@ struct TapAnalysisResultsView: View {
         guard let longPeak, let crossPeak else { return nil }
 
         // Resolve FLC peak frequency: check flcPeaks first (from its own tap),
-        // then fall back to combined currentPeaks for saved measurements
+        // then fall back to combined peaksAbovePeakMin for saved measurements
         let flcFreq: Float? = {
             guard let flcPeakID = effectiveFlcPeakID else { return nil }
             return analyzer.flcPeaks.first(where: { $0.id == flcPeakID })?.frequency

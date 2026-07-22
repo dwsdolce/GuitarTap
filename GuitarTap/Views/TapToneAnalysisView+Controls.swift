@@ -58,14 +58,14 @@ extension TapToneAnalysisView {
                     }
                     .buttonStyle(.bordered)
                     .tint(.blue)
-                    .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                    .disabled(tap.peaksAbovePeakMin.isEmpty || tap.displayMode == .comparison)
                     .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                     Button(action: { showingSaveSheet = true }) {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .buttonStyle(.bordered)
-                    .disabled(tap.currentPeaks.isEmpty && tap.displayMode != .comparison)
+                    .disabled(!tap.isMeasurementComplete && tap.displayMode != .comparison)
                     .accessibilityLabel("Save")
                     .hint(HintText.save)
 
@@ -143,7 +143,7 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+                .disabled(tap.peaksAbovePeakMin.isEmpty || tap.displayMode == .comparison)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 // Save button
@@ -152,7 +152,7 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(tap.currentPeaks.isEmpty && tap.displayMode != .comparison)
+                .disabled(!tap.isMeasurementComplete && tap.displayMode != .comparison)
                 .hint(HintText.save)
             }
 
@@ -268,7 +268,7 @@ extension TapToneAnalysisView {
         }
         .buttonStyle(.bordered)
         .tint(.blue)
-        .disabled(tap.currentPeaks.isEmpty || tap.displayMode == .comparison)
+        .disabled(tap.peaksAbovePeakMin.isEmpty || tap.displayMode == .comparison)
         .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
     }
 
@@ -279,7 +279,7 @@ extension TapToneAnalysisView {
         }
         .buttonStyle(.bordered)
         .tint(.blue)
-        .disabled(tap.currentPeaks.isEmpty && tap.displayMode != .comparison)
+        .disabled(!tap.isMeasurementComplete && tap.displayMode != .comparison)
         .hint(HintText.save)
     }
 
