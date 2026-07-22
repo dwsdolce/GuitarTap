@@ -447,7 +447,7 @@ struct TapAnalysisResultsView: View {
             if analyzer.showingMultiTapComparison && !analyzer.tapEntries.isEmpty {
                 MultiTapComparisonResultsView(
                     tapEntries: analyzer.tapEntries,
-                    averagedPeaks: analyzer.currentPeaks.filter { analyzer.selectedPeakIDs.contains($0.id) },
+                    averagedPeaks: analyzer.selectedPeaks,
                     guitarType: TapDisplaySettings.guitarType
                 )
                 .padding(.vertical, 4)

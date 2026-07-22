@@ -388,6 +388,17 @@ final class TapToneAnalyzer: ObservableObject {
             : allPeaks
     }
 
+    /// The user's selected peaks, resolved over the **durable** set.
+    ///
+    /// Selection is a fact about the measurement, not about what is currently on screen: auto-
+    /// selection runs over the full set, so a selected peak may legitimately sit below Peak Min.
+    /// Resolving it against ``currentPeaks`` would silently drop such a peak from every derived
+    /// value as the slider moves — the defect this property exists to prevent. One rule, so the
+    /// on-screen multi-tap table and the exported PDF cannot drift apart.
+    var selectedPeaks: [ResonantPeak] {
+        allPeaks.filter { selectedPeakIDs.contains($0.id) }
+    }
+
     /// Peak–mode pairs produced by classifying each entry in ``currentPeaks``.
     ///
     /// Each element pairs a ``ResonantPeak`` with the ``GuitarMode`` whose frequency band

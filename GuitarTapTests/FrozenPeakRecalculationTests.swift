@@ -38,6 +38,23 @@ private func makePeak(frequency: Float, magnitude: Float = -20) -> ResonantPeak 
     ResonantPeak(frequency: frequency, magnitude: magnitude)
 }
 
+/// A per-tap entry carrying an explicit peak set and selection, for the Phase 3 durability tests.
+private func makeTapEntry(
+    tapIndex: Int,
+    peaks: [ResonantPeak],
+    selected: [UUID]
+) -> TapEntry {
+    let snap = SpectrumSnapshot(
+        frequencies: [100, 200, 300, 400],
+        magnitudes:  [-40, -20, -50, -60],
+        minFreq: 80, maxFreq: 1200,
+        minDB: -90, maxDB: 0,
+        isLogarithmic: false
+    )
+    return TapEntry(id: UUID(), tapIndex: tapIndex, snapshot: snap,
+                    peaks: peaks, selectedPeakIDs: selected)
+}
+
 /// Freeze the SUT with an already-computed peak set (bypasses live audio).
 /// Sets isMeasurementComplete, minimal frozen data, and currentPeaks.
 private func freeze(_ sut: TapToneAnalyzer, peaks: [ResonantPeak]) {
@@ -250,6 +267,90 @@ struct PeakMinDurabilityTests {
                 "dragged annotation position must survive a Peak Min sweep")
     }
 
+    // ── Phase 3: per-tap entries are computed once, at capture ──────────────────────────────
+    //
+    // `recalculateTapEntryPeaks()` used to re-run findPeaks over every TapEntry snapshot at the
+    // CURRENT Peak Min, from both recalc branches and from loadMeasurement. That overwrote each
+    // entry's durable −100 dB set with a filtered one, minted fresh UUIDs and rebuilt
+    // selectedPeakIDs — and since `tapEntries` is persisted, saving afterwards truncated the
+    // saved set. It was deleted in Phase 3; these two tests are the guard against it returning.
+
+    /// The real user path: move the slider and assert the per-tap record does not budge.
+    @Test func peakMinSweep_leavesTapEntriesUntouched() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        let loud  = makePeak(frequency: 200, magnitude: -20)
+        let quiet = makePeak(frequency: 300, magnitude: -50)
+        freeze(sut, peaks: [loud, quiet])
+        sut.peakMinThreshold = -60
+
+        sut.tapEntries = [makeTapEntry(tapIndex: 1, peaks: [loud, quiet], selected: [quiet.id])]
+        let before = sut.tapEntries
+
+        sut.peakMinThreshold = -40   // hides `quiet` from the DISPLAY
+        sut.peakMinThreshold = -60   // and back
+
+        #expect(sut.tapEntries.map { $0.peaks.map(\.id) } == before.map { $0.peaks.map(\.id) },
+                "per-tap peak identities must not change when Peak Min moves")
+        #expect(sut.tapEntries.map(\.selectedPeakIDs) == before.map(\.selectedPeakIDs),
+                "per-tap selection must not be rebuilt when Peak Min moves")
+        #expect(sut.tapEntries.first?.peaks.count == 2,
+                "the sub-Peak-Min peak stays in the durable per-tap set — hidden, not destroyed")
+    }
+
+    /// Direct guard: the recalc itself must not touch `tapEntries`, on either branch. Peak Min
+    /// no longer calls it (Phase 2), but load and Re-analyze still do.
+    @Test func recalculateFrozenPeaks_leavesTapEntriesUntouched() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let loud  = makePeak(frequency: 200, magnitude: -20)
+        let quiet = makePeak(frequency: 300, magnitude: -50)
+
+        for loaded in [true, false] {   // loaded branch, then live/frozen branch
+            let sut = makeSUT()
+            freeze(sut, peaks: [loud, quiet])
+            if loaded { sut.loadedMeasurementPeaks = [loud, quiet] }
+            sut.peakMinThreshold = -40   // above `quiet`, so a re-detect would drop it
+            sut.tapEntries = [makeTapEntry(tapIndex: 1, peaks: [loud, quiet], selected: [quiet.id])]
+            let before = sut.tapEntries
+
+            sut.recalculateFrozenPeaksIfNeeded()
+
+            #expect(sut.tapEntries.map { $0.peaks.map(\.id) } == before.map { $0.peaks.map(\.id) },
+                    "recalc must not re-detect per-tap peaks (loaded: \(loaded))")
+            #expect(sut.tapEntries.map(\.selectedPeakIDs) == before.map(\.selectedPeakIDs),
+                    "recalc must not rebuild per-tap selection (loaded: \(loaded))")
+        }
+    }
+
+    /// Selection is a fact about the measurement, so `selectedPeaks` resolves over `allPeaks`.
+    /// Resolving it over `currentPeaks` — as the multi-tap averaged row did on screen and in the
+    /// PDF before Phase 3 — silently drops a selected peak once Peak Min rises above it.
+    @Test func selectedPeaks_resolveOverDurableSet_notTheDisplayProjection() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        let loud  = makePeak(frequency: 200, magnitude: -20)
+        let quiet = makePeak(frequency: 300, magnitude: -50)
+        freeze(sut, peaks: [loud, quiet])
+        sut.peakMinThreshold = -60
+        sut.selectedPeakIDs = [loud.id, quiet.id]
+
+        sut.peakMinThreshold = -40   // hides `quiet` from the display
+
+        #expect(!sut.currentPeaks.contains { $0.id == quiet.id },
+                "precondition: the quiet peak is hidden from the display")
+        let resolved: Set<UUID> = Set(sut.selectedPeaks.map(\.id))
+        #expect(resolved == Set([loud.id, quiet.id]),
+                "a selected peak below Peak Min is still selected — derived values must include it")
+    }
 }
 
 // ---------------------------------------------------------------------------

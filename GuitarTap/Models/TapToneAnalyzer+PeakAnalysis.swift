@@ -236,9 +236,6 @@ extension TapToneAnalyzer {
                 isGuitar: isGuitar,
                 tolerance: tolerance
             )
-            if !tapEntries.isEmpty {
-                recalculateTapEntryPeaks()
-            }
             return
         }
 
@@ -273,35 +270,14 @@ extension TapToneAnalyzer {
             tolerance: tolerance
         )
 
-        // Recompute per-tap peaks so the multi-tap comparison table reflects the
-        // current Peak Min setting. Each TapEntry stores its full spectrum snapshot,
-        // so we can re-run findPeaks with the updated threshold.
-        if !tapEntries.isEmpty {
-            recalculateTapEntryPeaks()
-        }
-    }
-
-    /// Re-runs peak detection on every stored `TapEntry` snapshot using the
-    /// current `peakMinThreshold`, then updates `tapEntries` so the multi-tap
-    /// comparison table shows peaks consistent with the Peak Min slider.
-    /// Re-runs peak detection on every stored `TapEntry` snapshot using the
-    /// current `peakMinThreshold`, then updates `tapEntries` so the multi-tap
-    /// comparison table shows peaks consistent with the Peak Min slider.
-    ///
-    /// Called from `recalculateFrozenPeaksIfNeeded()` (slider changes) and
-    /// from `loadMeasurement(_:)` (recompute with saved threshold on load).
-    func recalculateTapEntryPeaks() {
-        tapEntries = tapEntries.map { entry in
-            let tapPeaks = findPeaks(
-                magnitudes: entry.snapshot.magnitudes,
-                frequencies: entry.snapshot.frequencies
-            )
-            let modeSelected = guitarModeSelectedPeakIDs(from: tapPeaks)
-            var updated = entry
-            updated.peaks = tapPeaks
-            updated.selectedPeakIDs = Array(modeSelected)
-            return updated
-        }
+        // Per-tap entries are deliberately NOT recomputed here. Each `TapEntry` is detected once,
+        // at capture, over the full −100 dB set (`+SpectrumCapture.swift` processMultipleTaps) and is
+        // then durable: Peak Min is a display control and must not re-detect, re-identify or
+        // re-select a tap's peaks. `recalculateTapEntryPeaks()` used to run at this point and was
+        // removed in Phase 3 — it re-ran findPeaks at the *current* threshold, overwriting each
+        // entry's full set with a filtered one, minting fresh UUIDs and rebuilding selectedPeakIDs.
+        // Because `tapEntries` is persisted, that was silent save-path data loss.
+        // See Development/PEAK-LIFECYCLE-SPEC.md §5 in the GuitarTapWeb repo.
     }
 
     /// Resets peak selections back to the automatic mode-priority algorithm and

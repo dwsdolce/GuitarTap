@@ -847,16 +847,12 @@ extension TapToneAnalyzer {
         // Always start with the averaged view — the user can toggle to per-tap if desired.
         showingMultiTapComparison = false
 
-        // Recompute per-tap peaks using the measurement's saved peakMinThreshold
-        // (already restored above).  The saved tapEntries may contain peaks that
-        // were detected at a different threshold than the one stored in the
-        // measurement (e.g. threshold was changed after capture but before save).
-        // Re-running findPeaks on each tap's snapshot with the saved threshold
-        // ensures the multi-tap comparison table is consistent with the averaged
-        // peaks display.
-        if !tapEntries.isEmpty {
-            recalculateTapEntryPeaks()
-        }
+        // The saved per-tap peaks are restored as-is and never re-detected. They are the
+        // measurement's own record, exactly like `measurement.peaks` — see
+        // Development/PEAK-LIFECYCLE-SPEC.md §5. This previously called
+        // `recalculateTapEntryPeaks()` to "re-run findPeaks with the saved threshold", which
+        // re-analysed a loaded measurement and then wrote the filtered result back into
+        // `tapEntries` — truncating the saved full set on the next save.
 
         gtLog("✅ Loaded measurement with \(measurement.peaks.count) peaks (frozen)")
         if !tapEntries.isEmpty {

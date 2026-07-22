@@ -375,7 +375,9 @@ extension TapToneAnalysisView {
             showUnknownModes: TapDisplaySettings.showUnknownModes,
             guitarType: TapDisplaySettings.guitarType,
             measurementType: TapDisplaySettings.measurementType)
-        let avgSelectedPeaks = tap.currentPeaks.filter { tap.selectedPeakIDs.contains($0.id) }
+        // Same rule and the same property the on-screen table uses, so the PDF cannot disagree
+        // with it and neither changes with the Peak Min slider.
+        let avgSelectedPeaks = tap.selectedPeaks
         cmpEntries.append(ComparisonEntry(id: UUID(), label: "Averaged",
             colorComponents: avgComps, snapshot: avgSnap,
             peaks: avgSelectedPeaks,
