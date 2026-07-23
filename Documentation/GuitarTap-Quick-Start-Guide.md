@@ -25,7 +25,7 @@ In Settings, the Measurement Type section is directly below Audio Input. Pick Ge
 
 ### Advanced Settings
 
-Display range, analysis range, and FFT processing options are grouped under the Advanced section at the bottom of Settings. These rarely need changing after initial setup — expand the section by tapping the Advanced row.
+Display range and FFT processing options are grouped under the Advanced section at the bottom of Settings. These rarely need changing after initial setup — expand the section by tapping the Advanced row.
 
 ### Quiet Environment
 
@@ -293,10 +293,6 @@ Advanced → Display Settings. Sets the horizontal zoom of the spectrum chart. N
 ### Display Magnitude Range
 
 Advanced → Display Settings. Sets the vertical scale (dB). Use Auto dB in the main view for a quick fit, or set explicit Min/Max here.
-
-### Analysis Frequency Range
-
-Advanced → Analysis Settings. Peaks outside this window are ignored during detection. Narrow it to exclude spurious low-frequency rumble or high-frequency noise.
 
 ### Peak Min
 

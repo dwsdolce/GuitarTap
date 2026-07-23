@@ -94,17 +94,16 @@ extension TapToneAnalysisView {
                 maxFreq: $maxFreq,
                 minDB: $minDB,
                 maxDB: $maxDB,
-                analysisMinFreq: $tapToneAnalyzer.minFrequency,
-                analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakMinThreshold: $tapToneAnalyzer.peakMinThreshold,
                 fftAnalyzer: fft,
-                onApply: { measurementChanged in
+                onApply: { measurementChanged, guitarTypeChanged in
                     if measurementChanged {
                         tapToneAnalyzer.requestStartTapSequence()
-                    } else {
-                        tapToneAnalyzer.reclassifyPeaks()
-                        tapToneAnalyzer.resetToAutoSelection()
+                    } else if guitarTypeChanged {
+                        // Guitar type changed: clean-slate re-derivation for the new type (Phase 7, Option 1).
+                        tapToneAnalyzer.reclassifyForGuitarTypeChange()
                     }
+                    // else: display-only Apply (Peak Min/dB/range) — leave peaks, modes and selection alone.
                 }
             )
             .interactiveDismissDisabled()
@@ -244,17 +243,16 @@ extension TapToneAnalysisView {
                 maxFreq: $maxFreq,
                 minDB: $minDB,
                 maxDB: $maxDB,
-                analysisMinFreq: $tapToneAnalyzer.minFrequency,
-                analysisMaxFreq: $tapToneAnalyzer.maxFrequency,
                 peakMinThreshold: $tapToneAnalyzer.peakMinThreshold,
                 fftAnalyzer: fft,
-                onApply: { measurementChanged in
+                onApply: { measurementChanged, guitarTypeChanged in
                     if measurementChanged {
                         tapToneAnalyzer.requestStartTapSequence()
-                    } else {
-                        tapToneAnalyzer.reclassifyPeaks()
-                        tapToneAnalyzer.resetToAutoSelection()
+                    } else if guitarTypeChanged {
+                        // Guitar type changed: clean-slate re-derivation for the new type (Phase 7, Option 1).
+                        tapToneAnalyzer.reclassifyForGuitarTypeChange()
                     }
+                    // else: display-only Apply (Peak Min/dB/range) — leave peaks, modes and selection alone.
                 }
             )
             .interactiveDismissDisabled()

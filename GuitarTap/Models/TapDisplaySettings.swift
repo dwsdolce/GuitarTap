@@ -500,27 +500,16 @@ struct TapDisplaySettings {
     /// Corresponds to the "Peak Min" slider in the UI.
     static let defaultPeakMinThreshold: Float = -60
 
-    /// Persisted minimum frequency for analysis (Hz)
-    static var analysisMinFrequency: Float {
-        get {
-            let value = defaults.float(forKey: analysisMinFreqKey)
-            return value != 0 ? value : defaultAnalysisMinFrequency
-        }
-        set {
-            defaults.set(newValue, forKey: analysisMinFreqKey)
-        }
-    }
-    
-    /// Persisted maximum frequency for analysis (Hz)
-    static var analysisMaxFrequency: Float {
-        get {
-            let value = defaults.float(forKey: analysisMaxFreqKey)
-            return value != 0 ? value : defaultAnalysisMaxFrequency
-        }
-        set {
-            defaults.set(newValue, forKey: analysisMaxFreqKey)
-        }
-    }
+    /// The analysis frequency range for peak detection (Hz) — a **fixed** 30…2000 Hz.
+    ///
+    /// A real bound on where useful modes live: 30 Hz reaches the material fLC, and nothing useful
+    /// sits above 2000 Hz. It was once user-editable in the Settings sheet, but the range never needs
+    /// changing, so the control was removed and the value is a constant (Phase 7). The concept stays —
+    /// `findPeaks` still restricts detection to this range — only the knob is gone. Distinct from the
+    /// display/pan-zoom range, which remains user-controllable. (Any pre-existing UserDefaults values
+    /// under the old keys are now simply ignored.)
+    static var analysisMinFrequency: Float { defaultAnalysisMinFrequency }
+    static var analysisMaxFrequency: Float { defaultAnalysisMaxFrequency }
     
     /// Persisted peak minimum magnitude threshold (dB).
     /// Corresponds to the "Peak Min" slider in the UI.

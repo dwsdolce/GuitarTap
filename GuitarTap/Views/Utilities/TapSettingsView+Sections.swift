@@ -434,24 +434,9 @@ extension TapSettingsView {
             }
         }
 
-        // Analysis Frequency Range
-            if isCompact {
-                compactFrequencyRangeView(
-                    title: "Analysis Frequency Range",
-                    minBinding: $analysisMinFreqInput,
-                    maxBinding: $analysisMaxFreqInput,
-                    unit: "Hz",
-                    description: "Frequency range used for peak detection"
-                )
-            } else {
-                regularFrequencyRangeView(
-                    title: "Analysis Frequency Range",
-                    minBinding: $analysisMinFreqInput,
-                    maxBinding: $analysisMaxFreqInput,
-                    unit: "Hz",
-                    description: "Frequency range used for peak detection"
-                )
-            }
+            // The analysis frequency range (30–2000 Hz) is a fixed constant, not a user setting —
+            // it bounds the useful modal region and never needs changing. See
+            // TapDisplaySettings.analysisMinFrequency. The control was removed in Phase 7.
 
             // Peak Threshold (guitar only — not used for plate/brace)
             VStack(alignment: .leading, spacing: 12) {

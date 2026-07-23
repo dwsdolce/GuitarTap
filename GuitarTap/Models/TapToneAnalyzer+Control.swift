@@ -272,6 +272,16 @@ extension TapToneAnalyzer {
         // Clear previous results so the chart shows a clean slate while waiting.
         allPeaks        = []
         identifiedModes = []
+
+        // Clear all per-peak state from the PREVIOUS measurement. These are keyed by the old peaks'
+        // UUIDs, so once `allPeaks` is emptied they are invisible on screen — but they would still be
+        // written verbatim into the NEXT measurement's saved file (Phase 7). A new sequence starts
+        // with no selection, no labels and no dragged offsets.
+        selectedPeakIDs              = []
+        selectedPeakFrequencies      = []
+        userHasModifiedPeakSelection = false
+        peakModeOverrides            = [:]
+        peakAnnotationOffsets        = [:]
     }
 
     // MARK: - Pause / Resume

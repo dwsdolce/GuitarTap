@@ -291,6 +291,23 @@ extension TapToneAnalyzer {
     /// "Reset to Auto" button). If the spectrum is frozen the selection is
     /// applied immediately to `peaksAbovePeakMin`; otherwise it will take effect on
     /// the next freeze.
+    /// Applies a guitar-subtype change (e.g. Classical → Flamenco) as a **clean slate** for the new
+    /// type (Phase 7, Option 1, decided with the user).
+    ///
+    /// The guitar type changes what "Top" *means* (the mode bands), so classification and selection
+    /// are re-derived for the new type, and manual mode labels — made against the OLD bands' meaning —
+    /// are cleared. Peak identities and dragged-label positions are untouched (this does not
+    /// re-detect; `reclassifyPeaks` only recomputes modes). Contract: *"Changing the guitar type
+    /// re-analyses every peak for the new type; manual labels and selections are cleared."*
+    ///
+    /// This is deliberately NOT the wand (`resetToAutoSelection`), which preserves the labels — the
+    /// wand is the user's "clear my selection, give me pure auto" action and must stay reachable.
+    func reclassifyForGuitarTypeChange() {
+        peakModeOverrides = [:]
+        reclassifyPeaks()
+        resetToAutoSelection()
+    }
+
     func resetToAutoSelection() {
         userHasModifiedPeakSelection = false
         // Do not nil loadedMeasurementPeaks: the threshold slider must continue

@@ -51,6 +51,10 @@ extension TapSettingsView {
         let typeChanged = selectedMeasurementType != previousMeasurementType
         let bothGuitar = previousMeasurementType.isGuitar && selectedMeasurementType.isGuitar
         let measurementChanged = (typeChanged && !bothGuitar) || measureFlc != previousMeasureFlc
+        // A guitar-subtype change (e.g. Classical → Flamenco) keeps the captured data but changes the
+        // mode bands, so it re-derives classification and selection without re-capturing. guitarType
+        // is derived from measurementType, so this is exactly a guitar↔guitar type change.
+        let guitarTypeChanged = typeChanged && bothGuitar
 
         // Save plate dimensions
         if selectedMeasurementType == .plate {
@@ -121,18 +125,6 @@ extension TapSettingsView {
             maxDB: newMaxDB
         )
 
-        // Parse and validate analysis frequency range
-        guard let newAnalysisMinFreq = Float(analysisMinFreqInput),
-              let newAnalysisMaxFreq = Float(analysisMaxFreqInput) else {
-            showError("Invalid analysis frequency values. Please enter valid numbers.")
-            return
-        }
-
-        let validatedAnalysisFreq = TapDisplaySettings.validateFrequencyRange(
-            minFreq: newAnalysisMinFreq,
-            maxFreq: newAnalysisMaxFreq
-        )
-
         // Parse and validate peak threshold
         guard let newPeakThreshold = Float(peakMinThresholdInput) else {
             showError("Invalid peak threshold value. Please enter a valid number.")
@@ -147,8 +139,6 @@ extension TapSettingsView {
         maxFreq = validatedFreq.max
         minDB = validatedDB.min
         maxDB = validatedDB.max
-        analysisMinFreq = validatedAnalysisFreq.min
-        analysisMaxFreq = validatedAnalysisFreq.max
         peakMinThreshold = clampedThreshold
 
         // Persist all settings to UserDefaults (frequency range is stored per measurement type)
@@ -156,8 +146,6 @@ extension TapSettingsView {
         TapDisplaySettings.setMaxFrequency(validatedFreq.max, for: selectedMeasurementType)
         TapDisplaySettings.minMagnitude = validatedDB.min
         TapDisplaySettings.maxMagnitude = validatedDB.max
-        TapDisplaySettings.analysisMinFrequency = validatedAnalysisFreq.min
-        TapDisplaySettings.analysisMaxFrequency = validatedAnalysisFreq.max
         TapDisplaySettings.peakMinThreshold = clampedThreshold
 
         // Update input fields with validated values (in case they were clamped)
@@ -165,11 +153,9 @@ extension TapSettingsView {
         maxFreqInput = String(format: "%.0f", validatedFreq.max)
         minDBInput = String(format: "%.0f", validatedDB.min)
         maxDBInput = String(format: "%.0f", validatedDB.max)
-        analysisMinFreqInput = String(format: "%.0f", validatedAnalysisFreq.min)
-        analysisMaxFreqInput = String(format: "%.0f", validatedAnalysisFreq.max)
         peakMinThresholdInput = String(format: "%.0f", clampedThreshold)
 
-        onApply?(measurementChanged)
+        onApply?(measurementChanged, guitarTypeChanged)
         dismiss()
     }
 
@@ -195,9 +181,8 @@ extension TapSettingsView {
     }
 
     func resetAnalysisSettings() {
-        // Reset analysis settings to defaults
-        analysisMinFreqInput = String(format: "%.0f", TapDisplaySettings.defaultAnalysisMinFrequency)
-        analysisMaxFreqInput = String(format: "%.0f", TapDisplaySettings.defaultAnalysisMaxFrequency)
+        // Reset analysis settings to defaults. (The analysis frequency range is a fixed 30–2000 Hz
+        // constant, no longer a user setting — nothing to reset there.)
         peakMinThresholdInput = String(format: "%.0f", TapDisplaySettings.defaultPeakMinThreshold)
     }
 

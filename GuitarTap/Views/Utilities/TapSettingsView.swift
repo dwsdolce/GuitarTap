@@ -57,8 +57,6 @@ struct TapSettingsView: View {
     @Binding var maxDB: Float
 
     // Analysis settings
-    @Binding var analysisMinFreq: Float
-    @Binding var analysisMaxFreq: Float
     @Binding var peakMinThreshold: Float
 
     // FFT Analyzer for audio device selection
@@ -76,8 +74,6 @@ struct TapSettingsView: View {
     @State var maxFreqInput: String
     @State var minDBInput: String
     @State var maxDBInput: String
-    @State var analysisMinFreqInput: String
-    @State var analysisMaxFreqInput: String
     @State var peakMinThresholdInput: String
 
     // Measurement type setting
@@ -143,9 +139,12 @@ struct TapSettingsView: View {
     }
 
     /// Called when the user presses Apply (not Cancel).
-    /// The `Bool` parameter is `true` when the measurement type or FLC toggle changed,
-    /// indicating that the current measurement should be cancelled and restarted.
-    var onApply: ((_ measurementChanged: Bool) -> Void)?
+    /// `measurementChanged` is `true` when the measurement type or FLC toggle changed, indicating the
+    /// current measurement should be cancelled and restarted. `guitarTypeChanged` is `true` for a
+    /// guitar-subtype change (e.g. Classical → Flamenco) that keeps the capture but re-derives
+    /// classification and selection for the new type. Both false = a display-only Apply (Peak Min,
+    /// dB, range) that must NOT disturb peaks, classification or selection.
+    var onApply: ((_ measurementChanged: Bool, _ guitarTypeChanged: Bool) -> Void)?
 
     /// Binds the display/analysis values and seeds the companion text-input `@State`
     /// strings from persisted settings (not the current pan/zoomed session state).
@@ -153,18 +152,14 @@ struct TapSettingsView: View {
          maxFreq: Binding<Float>,
          minDB: Binding<Float>,
          maxDB: Binding<Float>,
-         analysisMinFreq: Binding<Float>,
-         analysisMaxFreq: Binding<Float>,
          peakMinThreshold: Binding<Float>,
          fftAnalyzer: RealtimeFFTAnalyzer,
-         onApply: ((_ measurementChanged: Bool) -> Void)? = nil) {
+         onApply: ((_ measurementChanged: Bool, _ guitarTypeChanged: Bool) -> Void)? = nil) {
 
         self._minFreq = minFreq
         self._maxFreq = maxFreq
         self._minDB = minDB
         self._maxDB = maxDB
-        self._analysisMinFreq = analysisMinFreq
-        self._analysisMaxFreq = analysisMaxFreq
         self._peakMinThreshold = peakMinThreshold
         self.fftAnalyzer = fftAnalyzer
         self.onApply = onApply
@@ -174,8 +169,6 @@ struct TapSettingsView: View {
         self._maxFreqInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.maxFrequency))
         self._minDBInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.minMagnitude))
         self._maxDBInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.maxMagnitude))
-        self._analysisMinFreqInput = State(initialValue: String(format: "%.0f", analysisMinFreq.wrappedValue))
-        self._analysisMaxFreqInput = State(initialValue: String(format: "%.0f", analysisMaxFreq.wrappedValue))
         self._peakMinThresholdInput = State(initialValue: String(format: "%.0f", peakMinThreshold.wrappedValue))
     }
 
@@ -273,8 +266,6 @@ struct TapSettingsView: View {
         maxFreq: .constant(350),
         minDB: .constant(-100),
         maxDB: .constant(0),
-        analysisMinFreq: .constant(50),
-        analysisMaxFreq: .constant(2000),
         peakMinThreshold: .constant(-60),
         fftAnalyzer: RealtimeFFTAnalyzer()
     )

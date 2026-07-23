@@ -1388,6 +1388,22 @@ final class TapToneAnalyzer: ObservableObject {
     /// Combine cancellable storage for FFT and input-level subscriptions.
     var cancellables = Set<AnyCancellable>()
 
+    /// Tears down the `fftAnalyzer` subscriptions deterministically, while `fftAnalyzer` is still
+    /// alive, so their teardown cannot race its deallocation.
+    ///
+    /// These subscriptions are `fftAnalyzer.$magnitudes` / `$frequencies` / … `.receive(on:).sink`.
+    /// On dealloc, the *synthesized* deinit releases stored properties in an unspecified order: if
+    /// `fftAnalyzer` (and its `@Published` subjects) released before `cancellables`, cancelling a
+    /// `.receive(on:)` subscription called `PublishedSubject.Conduit.cancel()` on a **freed** subject
+    /// — locking a dangling `os_unfair_lock` → EXC_BAD_ACCESS at 0x0. A crash report showed exactly
+    /// this stack (`TapToneAnalyzer.deinit` → `Set<AnyCancellable>` teardown → `PublishedSubject`).
+    /// The deinit body runs *before* stored-property release, so cancelling here happens while the
+    /// subjects are still valid; the later ivar release then just drops already-cancelled (idempotent)
+    /// cancellables. Latent since the subscriptions were added — surfaced intermittently under test.
+    deinit {
+        cancellables.forEach { $0.cancel() }
+    }
+
     /// History of (audioTime, inputLevelDB) samples used by the decay tracker.
     ///
     /// `time` is the **audio clock** (seconds since engine start), carried with each sample
