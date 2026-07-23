@@ -485,12 +485,19 @@ struct MeasurementsListView: View {
                 guitarType: measurement.spectrumSnapshot?.guitarType, sourceMeasurementID: nil))
         }
 
-        let modeFrequencies = cmpEntries.map { entry in
+        // Per-tap rows = each tap's own auto; Averaged row = the definitive (override-aware) modes,
+        // tagged where overridden.
+        let avgInfo = measurement.definitiveModeInfo()
+        let modeFrequencies = cmpEntries.map { entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
             let c = entry.colorComponents
             let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
+            if entry.label == "Averaged" {
+                return (entry.label, color, avgInfo[.air]?.frequency, avgInfo[.top]?.frequency,
+                        avgInfo[.back]?.frequency, Set(avgInfo.filter { $0.value.isOverride }.keys))
+            }
             let modePeaks = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
-            return (label: entry.label, color: color,
-                    air: modePeaks[.air]?.frequency, top: modePeaks[.top]?.frequency, back: modePeaks[.back]?.frequency)
+            return (entry.label, color, modePeaks[.air]?.frequency, modePeaks[.top]?.frequency,
+                    modePeaks[.back]?.frequency, [])
         }
 
         let cmpReportData = ComparisonPDFReportData(
@@ -520,17 +527,18 @@ struct MeasurementsListView: View {
 
         let spectrumImageData = renderSpectrumImageForComparison(measurement)
 
-        // Build per-entry mode frequency rows
-        let modeFrequencies = entries.map { entry in
+        // Build per-entry mode frequency rows from the stored definitive modes (override-correct);
+        // `modeFrequency` falls back to a positional re-derive for a pre-6b entry.
+        let modeFrequencies = entries.map { entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
             let c = entry.colorComponents
             let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
-            let modePeaks = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
             return (
-                label: entry.label,
-                color: color,
-                air:  modePeaks[.air]?.frequency,
-                top:  modePeaks[.top]?.frequency,
-                back: modePeaks[.back]?.frequency
+                entry.label,
+                color,
+                entry.modeFrequency(.air),
+                entry.modeFrequency(.top),
+                entry.modeFrequency(.back),
+                []
             )
         }
 

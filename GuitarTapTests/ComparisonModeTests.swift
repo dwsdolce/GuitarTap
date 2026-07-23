@@ -285,3 +285,103 @@ struct MultiTapToSavedComparisonTransitionTests {
         #expect(sut.comparisonSpectra.count == 1)
     }
 }
+
+// ---------------------------------------------------------------------------
+// MARK: - Definitive modes persisted in a comparison  (Phase 6b)
+// ---------------------------------------------------------------------------
+//
+// A comparison MEASUREMENT aggregates other measurements, so their override context is not otherwise
+// in this file. Each ComparisonEntry stores the resolved definitive Air/Top/Back as mode→peakID,
+// computed from the source's selection AND overrides, so the saved file is self-describing: a reader
+// reproduces the table by peak-ID lookup, without re-running classifyAll and without the source's
+// overrides (which are absent from the file).
+
+@Suite("ComparisonModePersistence", .serialized)
+@MainActor
+struct ComparisonModePersistenceTests {
+
+    private func classicalSnapshotWith(_ peaks: [ResonantPeak]) -> SpectrumSnapshot {
+        SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+    }
+
+    // The user's requirement end-to-end: a source measurement whose Top is user-overridden onto a
+    // peak that is NOT the auto Top must have the comparison show THAT peak as Top.
+    @Test func comparison_reflectsSourceOverride() {
+        let saved = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .classical
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeSUT()
+
+        let air = ResonantPeak(frequency: 95,  magnitude: -28)
+        let autoTop = ResonantPeak(frequency: 210, magnitude: -20) // classical Top by position
+        let far     = ResonantPeak(frequency: 400, magnitude: -22) // not Top by position
+        let source = TapToneMeasurement(
+            peaks: [air, autoTop, far],
+            spectrum: classicalSnapshotWith([air, autoTop, far]),
+            selectedPeakIDs: [air.id, far.id],                       // far is selected, autoTop is not
+            peakModeOverrides: [far.id: .assigned(GuitarMode.top.displayName)]  // far renamed to Top
+        )
+
+        sut.loadComparison(measurements: [source])
+
+        let modeIDs = sut.comparisonSpectra.first?.modeIDs ?? [:]
+        #expect(modeIDs[GuitarMode.top.rawValue] == far.id,
+                "the comparison's Top must be the user's overridden+selected peak, not the auto Top")
+        #expect(modeIDs[GuitarMode.air.rawValue] == air.id)
+    }
+
+    // The stored map is authoritative: modeFrequency reads it, and does NOT re-derive via classifyAll.
+    @Test func modeFrequency_readsStoredMap_notClassification() {
+        let air = ResonantPeak(frequency: 95,  magnitude: -28)
+        let realTop = ResonantPeak(frequency: 210, magnitude: -20) // classifyAll would pick THIS as Top
+        let entry = ComparisonEntry(
+            id: UUID(), label: "x", colorComponents: [0, 0, 1, 1],
+            snapshot: classicalSnapshotWith([air, realTop]),
+            peaks: [air, realTop], guitarType: .classical, sourceMeasurementID: nil,
+            modePeakIDs: [GuitarMode.top.rawValue: air.id]   // deliberately points Top at the AIR peak
+        )
+        #expect(entry.modeFrequency(.top) == 95,
+                "the stored map wins — the file is authoritative, not re-classified at render")
+    }
+
+    @Test func comparisonEntry_modePeakIDs_roundTrip() throws {
+        let air = ResonantPeak(frequency: 95, magnitude: -28)
+        let top = ResonantPeak(frequency: 210, magnitude: -20)
+        let entry = ComparisonEntry(
+            id: UUID(), label: "e", colorComponents: [0, 0, 1, 1],
+            snapshot: classicalSnapshotWith([air, top]),
+            peaks: [air, top], guitarType: .classical, sourceMeasurementID: nil,
+            modePeakIDs: [GuitarMode.air.rawValue: air.id, GuitarMode.top.rawValue: top.id]
+        )
+        let record = TapToneMeasurement(peaks: [], comparisonEntries: [entry])
+        let data = try TapToneAnalyzer.encodeMeasurements([record])
+        let decoded = try TapToneAnalyzer.decodeMeasurements(data)[0]
+        let e = try #require(decoded.comparisonEntries?.first)
+        #expect(e.modePeakIDs?[GuitarMode.air.rawValue] == air.id)
+        #expect(e.modePeakIDs?[GuitarMode.top.rawValue] == top.id)
+    }
+
+    // A pre-6b saved comparison (no modePeakIDs) is healed on decode and flagged for re-save.
+    @Test func legacyComparisonEntry_isHealedOnDecode() throws {
+        let air = ResonantPeak(frequency: 95,  magnitude: -28)
+        let top = ResonantPeak(frequency: 210, magnitude: -20)
+        let legacy = ComparisonEntry(
+            id: UUID(), label: "legacy", colorComponents: [0, 0, 1, 1],
+            snapshot: classicalSnapshotWith([air, top]),
+            peaks: [air, top], guitarType: .classical, sourceMeasurementID: nil
+            // modePeakIDs omitted → nil, as an old file has it
+        )
+        let record = TapToneMeasurement(peaks: [], comparisonEntries: [legacy])
+        let data = try TapToneAnalyzer.encodeMeasurements([record])
+        let decoded = try TapToneAnalyzer.decodeMeasurements(data)[0]
+
+        #expect(decoded.wasHealed, "a legacy comparison entry must flag for re-save")
+        let e = try #require(decoded.comparisonEntries?.first)
+        #expect(e.modePeakIDs?[GuitarMode.air.rawValue] == air.id, "healed Air (positional)")
+        #expect(e.modePeakIDs?[GuitarMode.top.rawValue] == top.id, "healed Top (positional)")
+    }
+}

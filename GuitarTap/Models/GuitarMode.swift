@@ -458,5 +458,23 @@ extension GuitarMode {
         ]
         return additionalMap[name]
     }
+
+    /// The **effective** mode of a peak: a user override wins over auto-classification.
+    ///
+    /// The single definition of "what mode is this peak, really." A resolvable override label
+    /// (one that ``fromDisplayName(_:)`` recognises) yields that mode; a freeform label yields
+    /// ``unknown`` (the user named it something that is not a mode); with no override the
+    /// auto-classified `auto` value stands.
+    ///
+    /// Every surface that answers "which peak is the Air / Top / Back" routes through this so they
+    /// cannot disagree: the analyzer's ``TapToneAnalyzer/peakMode(for:)``, the saved
+    /// ``TapToneMeasurement``'s ratio and per-tap resolution, and the static
+    /// ``TapToneAnalyzer/resolvedModePeaks(peaks:overrides:guitarType:)``.
+    static func effectiveMode(override: UserAssignedMode?, auto: GuitarMode) -> GuitarMode {
+        if case .assigned(let label) = override {
+            return GuitarMode.fromDisplayName(label) ?? .unknown
+        }
+        return auto
+    }
 }
 

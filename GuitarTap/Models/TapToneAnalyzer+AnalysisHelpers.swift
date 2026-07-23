@@ -47,36 +47,45 @@ extension TapToneAnalyzer {
     /// - Parameter peak: The peak to classify.
     /// - Returns: The ``GuitarMode`` assigned to this peak.
     func peakMode(for peak: ResonantPeak) -> GuitarMode {
-        // If the user has overridden this peak's mode to a predefined GuitarMode,
-        // return that mode so color/icon update everywhere.
-        if case .assigned(let label) = peakModeOverrides[peak.id] {
-            if let overriddenMode = GuitarMode.fromDisplayName(label) {
-                return overriddenMode
-            }
-            // Freeform label — return .unknown; views detect the freeform case
-            // separately via hasManualOverride + fromDisplayName == nil.
-            return .unknown
-        }
-        return identifiedModes.first(where: { $0.peak.id == peak.id })?.mode
+        // Override-aware, via the one shared resolver so every "which mode is this peak" surface
+        // agrees. A freeform override resolves to .unknown; views detect that case separately via
+        // hasManualOverride + fromDisplayName == nil.
+        let auto = identifiedModes.first(where: { $0.peak.id == peak.id })?.mode
             ?? GuitarMode.classifyAll([peak])[peak.id] ?? .unknown
+        return GuitarMode.effectiveMode(override: peakModeOverrides[peak.id], auto: auto)
     }
 
-    /// Returns the highest-magnitude peak that has been auto-classified or
-    /// user-assigned to the given ``GuitarMode``.
+    /// The **definitive** peak for a mode: the user's *selected* peak whose *effective* mode is that
+    /// mode — i.e. the one the app treats as *the* Air / Top / Back.
     ///
-    /// Mode comparison uses ``GuitarMode/normalized`` so that legacy case names
-    /// (e.g. `.helmholtz`) resolve to their canonical equivalents (e.g. `.air`)
-    /// before matching.
+    /// Two facts, one rule (Phase 5 + 6):
+    /// - **Selected.** Deselecting a peak makes it a mere candidate, so a deselected Top is not the
+    ///   Top. If the mode has no selected peak, this is `nil` — and any derived value (the ratio)
+    ///   is correctly absent.
+    /// - **Effective mode.** Resolved via ``peakMode(for:)``, so a user override wins. Rename the
+    ///   Top peak to something else and it stops being the Top *here* exactly as it does on the chart.
     ///
-    /// - Parameter mode: The guitar resonance mode to look up (e.g. `.air`,
-    ///   `.top`, `.back`).
-    /// - Returns: The strongest-magnitude ``ResonantPeak`` classified as
-    ///   `mode`, or `nil` if no such peak exists in `identifiedModes`.
+    /// By the Phase 5 invariant there is at most one selected Air/Top/Back, so `max` only guards
+    /// against a transient double-selection; normally it returns that single holder.
+    ///
+    /// Mode comparison uses ``GuitarMode/normalized`` so legacy case names resolve first.
     func getPeak(for mode: GuitarMode) -> ResonantPeak? {
-        identifiedModes
-            .filter { $0.mode.normalized == mode.normalized }
-            .max(by: { $0.peak.magnitude < $1.peak.magnitude })?
-            .peak
+        allPeaks
+            .filter { selectedPeakIDs.contains($0.id) && peakMode(for: $0).normalized == mode.normalized }
+            .max(by: { $0.magnitude < $1.magnitude })
+    }
+
+    /// The definitive Air / Top / Back, each flagged if it is the user's manual override — the source
+    /// for the multi-tap Averaged row. Uses the same definitive rule as ``getPeak(for:)`` and the
+    /// ratio, so the Averaged row agrees with the main panel; the flag lets the view mark an
+    /// overridden value so it is not confused with the averaged spectrum's auto-detected peak.
+    func definitiveModeInfo() -> [GuitarMode: (frequency: Float, isOverride: Bool)] {
+        var out: [GuitarMode: (frequency: Float, isOverride: Bool)] = [:]
+        for mode in [GuitarMode.air, .top, .back] {
+            guard let p = getPeak(for: mode) else { continue }
+            out[mode] = (p.frequency, hasManualOverride(for: p.id))
+        }
+        return out
     }
 
     /// Computes the tap-tone ratio (`f_Top / f_Air`) from the current

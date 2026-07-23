@@ -188,16 +188,20 @@ extension TapToneAnalysisView {
         }
         #endif
 
-        // Build per-entry mode frequency rows
-        let modeFrequencies = tap.comparisonSpectra.map { entry in
-            let modePeaks = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
-            return (
-                label: entry.label,
-                color: entry.color,
-                air:  modePeaks[.air]?.frequency,
-                top:  modePeaks[.top]?.frequency,
-                back: modePeaks[.back]?.frequency
-            )
+        // Build per-entry mode frequency rows from the stored definitive modes (override-correct,
+        // self-describing); fall back to a positional re-derive only for an entry without a map.
+        func freq(_ mode: GuitarMode, _ entry: (peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID])) -> Float? {
+            if let id = entry.modeIDs[mode.rawValue], let p = entry.peaks.first(where: { $0.id == id }) {
+                return p.frequency
+            }
+            guard entry.modeIDs.isEmpty else { return nil }
+            return TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)[mode]?.frequency
+        }
+        let modeFrequencies = tap.comparisonSpectra.map { entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
+            let e = (peaks: entry.peaks, guitarType: entry.guitarType, modeIDs: entry.modeIDs)
+            // Comparison rows: values come from the stored per-source definitive modes; no override
+            // tag here (that marking is the multi-tap Averaged row's concern).
+            return (entry.label, entry.color, freq(.air, e), freq(.top, e), freq(.back, e), [])
         }
 
         let reportData = ComparisonPDFReportData(
@@ -383,12 +387,19 @@ extension TapToneAnalysisView {
             peaks: avgSelectedPeaks,
             guitarType: TapDisplaySettings.guitarType, sourceMeasurementID: nil))
 
-        let modeFrequencies = cmpEntries.map { entry in
+        // Per-tap rows show each tap's OWN auto-classification; the Averaged row uses the DEFINITIVE
+        // (override-aware) modes and tags any overridden value — the multi-tap taps table's rule.
+        let avgInfo = tap.definitiveModeInfo()
+        let modeFrequencies = cmpEntries.map { entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
             let c = entry.colorComponents
             let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
+            if entry.label == "Averaged" {
+                return (entry.label, color, avgInfo[.air]?.frequency, avgInfo[.top]?.frequency,
+                        avgInfo[.back]?.frequency, Set(avgInfo.filter { $0.value.isOverride }.keys))
+            }
             let modePeaks = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
-            return (label: entry.label, color: color,
-                    air: modePeaks[.air]?.frequency, top: modePeaks[.top]?.frequency, back: modePeaks[.back]?.frequency)
+            return (entry.label, color, modePeaks[.air]?.frequency, modePeaks[.top]?.frequency,
+                    modePeaks[.back]?.frequency, [])
         }
 
         let cmpReportData = ComparisonPDFReportData(

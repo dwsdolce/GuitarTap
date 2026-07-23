@@ -17,7 +17,7 @@ import SwiftUI
 struct ComparisonResultsView: View {
 
     /// The comparison spectra from `TapToneAnalyzer.comparisonSpectra`.
-    let spectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?)]
+    let spectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID])]
 
     /// Columns shown in the table (Air, Top, Back).
     private let columns: [GuitarMode] = [.air, .top, .back]
@@ -27,11 +27,7 @@ struct ComparisonResultsView: View {
             headerRow
             Divider()
             ForEach(Array(spectra.enumerated()), id: \.offset) { index, entry in
-                let modeFreqs = TapToneAnalyzer.resolvedModePeaks(
-                    peaks: entry.peaks,
-                    guitarType: entry.guitarType
-                ).mapValues { $0.frequency }
-                dataRow(entry: entry, modeFreqs: modeFreqs)
+                dataRow(entry: entry, modeFreqs: modeFreqs(for: entry))
                 if index < spectra.count - 1 {
                     Divider()
                         .padding(.leading, 8)
@@ -39,6 +35,23 @@ struct ComparisonResultsView: View {
             }
         }
         .font(.caption)
+    }
+
+    /// Read the stored definitive mode→peak (self-describing, override-correct); fall back to a
+    /// positional re-derive only for an in-memory entry that carries no map.
+    private func modeFreqs(
+        for entry: (magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID])
+    ) -> [GuitarMode: Float] {
+        if entry.modeIDs.isEmpty {
+            return TapToneAnalyzer.resolvedModePeaks(
+                peaks: entry.peaks, guitarType: entry.guitarType).mapValues { $0.frequency }
+        }
+        return columns.reduce(into: [:]) { dict, mode in
+            if let id = entry.modeIDs[mode.rawValue],
+               let p = entry.peaks.first(where: { $0.id == id }) {
+                dict[mode] = p.frequency
+            }
+        }
     }
 
     // MARK: - Private Views
@@ -64,7 +77,7 @@ struct ComparisonResultsView: View {
     }
 
     private func dataRow(
-        entry: (magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?),
+        entry: (magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID]),
         modeFreqs: [GuitarMode: Float]
     ) -> some View {
         HStack(spacing: 0) {

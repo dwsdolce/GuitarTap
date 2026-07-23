@@ -516,7 +516,8 @@ extension TapToneAnalyzer {
                 return (magnitudes: entry.snapshot.magnitudes,
                         frequencies: entry.snapshot.frequencies,
                         color: color, label: entry.label,
-                        peaks: entry.peaks, guitarType: entry.guitarType)
+                        peaks: entry.peaks, guitarType: entry.guitarType,
+                        modeIDs: entry.modePeakIDs ?? [:])   // healed on decode; [:] only if truly absent
             }
             comparisonSnapshots = entries.map(\.snapshot)
             let snaps = entries.map(\.snapshot)
@@ -972,14 +973,21 @@ extension TapToneAnalyzer {
             return "\(label) (\(labelOccurrence[label]!))"
         }
 
-        let spectraAndSnapshots: [(entry: (magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?), snapshot: SpectrumSnapshot)] = withSnapshots.enumerated().map { index, measurement in
+        let spectraAndSnapshots: [(entry: (magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID]), snapshot: SpectrumSnapshot)] = withSnapshots.enumerated().map { index, measurement in
             let snap = measurement.spectrumSnapshot!
             let color = Self.multiTapPalette[index % Self.multiTapPalette.count]
             let selectedIDs = measurement.effectiveSelectedPeakIDs
             let selectedPeaks = measurement.peaks.filter { selectedIDs.contains($0.id) }
+            // Resolve the definitive Air/Top/Back from the SOURCE measurement — its selection AND its
+            // overrides — so the comparison shows what that measurement shows, and store it as
+            // mode→peakID (self-describing; survives save/load without re-running classifyAll).
+            var modeIDs: [String: UUID] = [:]
+            for mode in [GuitarMode.air, .top, .back] where measurement.definitivePeak(for: mode) != nil {
+                modeIDs[mode.rawValue] = measurement.definitivePeak(for: mode)!.id
+            }
             let entry = (magnitudes: snap.magnitudes, frequencies: snap.frequencies,
                          color: color, label: uniqueLabels[index],
-                         peaks: selectedPeaks, guitarType: snap.guitarType)
+                         peaks: selectedPeaks, guitarType: snap.guitarType, modeIDs: modeIDs)
             return (entry: entry, snapshot: snap)
         }
         comparisonSpectra = spectraAndSnapshots.map(\.entry)
@@ -1032,7 +1040,8 @@ extension TapToneAnalyzer {
                 snapshot: comparisonSnapshots[index],
                 peaks: entry.peaks,
                 guitarType: entry.guitarType,
-                sourceMeasurementID: nil
+                sourceMeasurementID: nil,
+                modePeakIDs: entry.modeIDs   // persist the definitive modes — self-describing file
             )
         }
 
@@ -1082,7 +1091,10 @@ extension TapToneAnalyzer {
         }
         guard !tapEntries.isEmpty else { return }
 
-        var entries: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?)] = []
+        // This populates `comparisonSpectra` only to feed the CHART overlay (magnitudes/colour/label).
+        // The multi-tap Air/Top/Back table is MultiTapComparisonResultsView, not ComparisonResultsView,
+        // so the `modeIDs` element is unused here — `[:]` is correct.
+        var entries: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID])] = []
         var snapshots: [SpectrumSnapshot] = []
 
         for (index, entry) in tapEntries.enumerated() {
@@ -1095,7 +1107,8 @@ extension TapToneAnalyzer {
                 color: color,
                 label: "Tap \(entry.tapIndex)",
                 peaks: selectedPeaks,
-                guitarType: entry.snapshot.guitarType
+                guitarType: entry.snapshot.guitarType,
+                modeIDs: [:]
             ))
             snapshots.append(entry.snapshot)
         }
@@ -1124,7 +1137,8 @@ extension TapToneAnalyzer {
             color: avgColor,
             label: "Averaged",
             peaks: avgSelectedPeaks,
-            guitarType: TapDisplaySettings.guitarType
+            guitarType: TapDisplaySettings.guitarType,
+            modeIDs: [:]
         ))
         snapshots.append(avgSnap)
 

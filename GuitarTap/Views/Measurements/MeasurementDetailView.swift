@@ -161,7 +161,8 @@ struct MeasurementDetailView: View {
                                         color: color,
                                         label: entry.label,
                                         peaks: entry.peaks,
-                                        guitarType: entry.guitarType)
+                                        guitarType: entry.guitarType,
+                                        modeIDs: entry.modePeakIDs ?? [:])
                             })
                             .padding(.vertical, 4)
                         }
@@ -294,12 +295,19 @@ struct MeasurementDetailView: View {
                 guitarType: measurement.spectrumSnapshot?.guitarType, sourceMeasurementID: nil))
         }
 
-        let modeFrequencies = cmpEntries.map { entry in
+        // Per-tap rows = each tap's own auto; Averaged row = the definitive (override-aware) modes,
+        // tagged where overridden.
+        let avgInfo = measurement.definitiveModeInfo()
+        let modeFrequencies = cmpEntries.map { entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
             let c = entry.colorComponents
             let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
+            if entry.label == "Averaged" {
+                return (entry.label, color, avgInfo[.air]?.frequency, avgInfo[.top]?.frequency,
+                        avgInfo[.back]?.frequency, Set(avgInfo.filter { $0.value.isOverride }.keys))
+            }
             let modePeaks = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
-            return (label: entry.label, color: color,
-                    air: modePeaks[.air]?.frequency, top: modePeaks[.top]?.frequency, back: modePeaks[.back]?.frequency)
+            return (entry.label, color, modePeaks[.air]?.frequency, modePeaks[.top]?.frequency,
+                    modePeaks[.back]?.frequency, [])
         }
 
         let cmpReportData = ComparisonPDFReportData(

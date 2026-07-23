@@ -21,8 +21,15 @@ struct MultiTapComparisonResultsView: View {
     /// Individual tap entries from the most recent (or loaded) multi-tap sequence.
     let tapEntries: [TapEntry]
 
-    /// Current averaged peaks from the analyzer (used for the Averaged row).
-    let averagedPeaks: [ResonantPeak]
+    /// The definitive Air/Top/Back for the Averaged row, each flagged if it is a user override.
+    ///
+    /// This is `analyzer.definitiveModeInfo()` — the same definitive rule the main panel and the
+    /// ratio use, so the Averaged row agrees with them. It is NOT the per-tap classification: a tap's
+    /// spectrum is separate from the averaged one and its peaks carry different UUIDs, so an override
+    /// made on the averaged spectrum has no peak to attach to in a tap. Per-tap rows therefore show
+    /// each tap's own auto-detected modes; only the Averaged row reflects the override, and an
+    /// overridden value is tagged so it is not read as the averaged spectrum's auto peak.
+    let averagedModes: [GuitarMode: (frequency: Float, isOverride: Bool)]
 
     /// Guitar type active for mode classification.
     let guitarType: GuitarType?
@@ -39,7 +46,7 @@ struct MultiTapComparisonResultsView: View {
             headerRow
             Divider()
 
-            // Per-tap rows
+            // Per-tap rows — each tap's OWN auto-classification (its own spectrum, its own peaks).
             ForEach(Array(tapEntries.enumerated()), id: \.offset) { index, entry in
                 let color = palette[index % palette.count]
                 let modeFreqs = entry.resolvedModePeaks(guitarType: guitarType)
@@ -48,22 +55,20 @@ struct MultiTapComparisonResultsView: View {
                     color: color,
                     label: "Tap \(entry.tapIndex)",
                     modeFreqs: modeFreqs,
+                    overrideModes: [],
                     bold: false
                 )
                 Divider()
                     .padding(.leading, 8)
             }
 
-            // Averaged row — uses the same bold yellow as the chart overlay for visual consistency.
+            // Averaged row — the DEFINITIVE Air/Top/Back (override-aware), tagged where overridden.
             let avgColor = TapToneAnalyzer.multiTapAvgColor
-            let avgModeFreqs = TapToneAnalyzer.resolvedModePeaks(
-                peaks: averagedPeaks,
-                guitarType: guitarType
-            ).mapValues { $0.frequency }
             dataRow(
                 color: avgColor,
                 label: "Averaged",
-                modeFreqs: avgModeFreqs,
+                modeFreqs: averagedModes.mapValues { $0.frequency },
+                overrideModes: Set(averagedModes.filter { $0.value.isOverride }.keys),
                 bold: true
             )
         }
@@ -95,6 +100,7 @@ struct MultiTapComparisonResultsView: View {
         color: Color,
         label: String,
         modeFreqs: [GuitarMode: Float],
+        overrideModes: Set<GuitarMode>,
         bold: Bool
     ) -> some View {
         HStack(spacing: 0) {
@@ -120,8 +126,12 @@ struct MultiTapComparisonResultsView: View {
             .padding(.vertical, 5)
 
             ForEach(columns, id: \.self) { mode in
-                Text(frequencyText(modeFreqs[mode]))
+                // A user-overridden value is shown italic with a " *" suffix — the same convention
+                // the PDF peak table uses — so it is not read as an auto-detected peak.
+                let isOverride = overrideModes.contains(mode)
+                Text(frequencyText(modeFreqs[mode]) + (isOverride ? " *" : ""))
                     .fontWeight(bold ? .semibold : .regular)
+                    .italic(isOverride)
                     .foregroundColor(modeFreqs[mode] != nil ? .primary : .secondary)
                     .frame(width: columnWidth, alignment: .center)
                     .padding(.trailing, 8)

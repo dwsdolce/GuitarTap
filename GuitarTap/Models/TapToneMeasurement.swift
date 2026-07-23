@@ -100,6 +100,35 @@ struct ComparisonEntry: Codable, Identifiable {
     let guitarType: GuitarType?
     /// UUID of the source `TapToneMeasurement` this entry was created from, if available.
     let sourceMeasurementID: UUID?
+
+    /// The **definitive** Air / Top / Back for this overlaid spectrum, resolved once from the source
+    /// measurement's own selection AND overrides, and stored as `{canonical mode name: peak UUID}`
+    /// (the UUID references one of this entry's own ``peaks``).
+    ///
+    /// This makes a saved comparison **self-describing**: a reader reproduces the displayed table by
+    /// looking each ID up in `peaks` — no need to re-run `classifyAll`, and no need for the source's
+    /// override data (which is not in this file). Absent (`nil`) on files written before Phase 6b;
+    /// those are healed on decode and re-saved. See Development/PEAK-LIFECYCLE-SPEC.md.
+    var modePeakIDs: [String: UUID]? = nil
+
+    /// Builds the `{mode name: peak id}` map for the three ratio-bearing modes from a resolved
+    /// mode→peak dictionary. Keyed by ``GuitarMode`` raw value so Python/web read it directly.
+    static func modeIDMap(from resolved: [GuitarMode: ResonantPeak]) -> [String: UUID] {
+        var map: [String: UUID] = [:]
+        for mode in [GuitarMode.air, .top, .back] where resolved[mode] != nil {
+            map[mode.rawValue] = resolved[mode]!.id
+        }
+        return map
+    }
+
+    /// The frequency of this entry's definitive peak for `mode`, from ``modePeakIDs`` when present
+    /// (self-describing), else re-derived positionally from ``peaks`` (legacy / in-memory fallback).
+    func modeFrequency(_ mode: GuitarMode) -> Float? {
+        if let id = modePeakIDs?[mode.rawValue], let p = peaks.first(where: { $0.id == id }) {
+            return p.frequency
+        }
+        return TapToneAnalyzer.resolvedModePeaks(peaks: peaks, guitarType: guitarType)[mode]?.frequency
+    }
 }
 
 // MARK: - TapToneMeasurement
@@ -474,12 +503,46 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///
     /// Returns `nil` when either an Air or a Top peak cannot be found in ``peaks``.
     var tapToneRatio: Float? {
-        let modeMap = GuitarMode.classifyAll(peaks)
-        guard let airPeak = peaks.first(where: { (modeMap[$0.id] ?? .unknown).normalized == .air }),
-              let topPeak = peaks.first(where: { (modeMap[$0.id] ?? .unknown).normalized == .top }) else {
+        guard let air = definitivePeak(for: .air),
+              let top = definitivePeak(for: .top) else {
             return nil
         }
-        return topPeak.frequency / airPeak.frequency
+        return top.frequency / air.frequency
+    }
+
+    /// The **definitive** peak for a mode — the same rule the live analyzer applies
+    /// (``TapToneAnalyzer/getPeak(for:)``): the *selected* peak whose *effective* (override-aware)
+    /// mode is that mode. Deselecting a peak, or relabelling it, removes it from consideration here
+    /// exactly as it does on screen, so the saved-list ratio and the on-screen ratio cannot disagree.
+    ///
+    /// Selection uses ``effectiveSelectedPeakIDs`` (guitar: the saved selection, or all peaks when a
+    /// legacy file saved none; material: all — but material has no Air/Top so the ratio is moot).
+    /// By the Phase 5 invariant there is at most one definitive Air/Top/Back; `max` guards the legacy
+    /// case where a pre-invariant file selected several.
+    func definitivePeak(for mode: GuitarMode) -> ResonantPeak? {
+        let autoMap = GuitarMode.classifyAll(peaks, guitarType: spectrumSnapshot?.guitarType ?? .acoustic)
+        let selected = effectiveSelectedPeakIDs
+        return peaks
+            .filter {
+                selected.contains($0.id)
+                    && GuitarMode.effectiveMode(override: peakModeOverrides?[$0.id],
+                                                auto: autoMap[$0.id] ?? .unknown).normalized == mode.normalized
+            }
+            .max(by: { $0.magnitude < $1.magnitude })
+    }
+
+    /// The definitive Air / Top / Back for this measurement, each with a flag for whether it is the
+    /// user's manual override — for the multi-tap Averaged row, on screen and in the PDF, where an
+    /// overridden value must be marked so it is not read as the averaged spectrum's auto peak.
+    func definitiveModeInfo() -> [GuitarMode: (frequency: Float, isOverride: Bool)] {
+        var out: [GuitarMode: (frequency: Float, isOverride: Bool)] = [:]
+        for mode in [GuitarMode.air, .top, .back] {
+            guard let p = definitivePeak(for: mode) else { continue }
+            let isOverride: Bool
+            if case .assigned = peakModeOverrides?[p.id] { isOverride = true } else { isOverride = false }
+            out[mode] = (p.frequency, isOverride)
+        }
+        return out
     }
 
     /// Base filename (without extension) derived from the measurementName and Unix timestamp.
@@ -610,7 +673,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         microphoneUID        = try container.decodeIfPresent(String.self, forKey: .microphoneUID)
         calibrationName      = try container.decodeIfPresent(String.self, forKey: .calibrationName)
         sampleRate           = try container.decodeIfPresent(Double.self, forKey: .sampleRate)
-        comparisonEntries    = try container.decodeIfPresent([ComparisonEntry].self, forKey: .comparisonEntries)
+        var decodedComparisonEntries = try container.decodeIfPresent([ComparisonEntry].self, forKey: .comparisonEntries)
         var decodedTapEntries = try container.decodeIfPresent([TapEntry].self, forKey: .tapEntries)
         // Decode peaks as [ResonantPeak]; the extra modeLabel key in each entry is
         // silently ignored by ResonantPeak's synthesized Decodable conformance.
@@ -651,11 +714,90 @@ struct TapToneMeasurement: Identifiable, Codable {
             }
         }
 
+        // --- Heal peak selection so a guitar measurement has a DEFINITIVE Air / Top / Back ---
+        //
+        // Phase 5 made selection unique per Air/Top/Back; Phase 6 makes every derived value read that
+        // definitive peak. Legacy files predate both:
+        //   • no selection saved  → nil, which older load code treated as "all selected" — every
+        //     Air/Top/Back at once, which is exactly what the invariant forbids;
+        //   • a pre-Phase-5 selection → could hold two selected Tops.
+        // Repair both here, at the one initialiser every read path reaches, so the on-screen state,
+        // the saved-list ratio and the file itself all agree. Guitar only — material has no per-peak
+        // selection (`effectiveSelectedPeakIDs` already returns all peaks for it). This sets the same
+        // `healed` flag as the duplicate-peak repair, so the library re-saves identically (and a
+        // `.guitartap` opened from disk is healed in memory until the user saves).
+        let isMaterialAtDecode = (spectrumSnapshot?.measurementType ?? longitudinalSnapshot?.measurementType)
+            .map { !$0.isGuitar } ?? (longitudinalSnapshot != nil || selectedLongitudinalPeakID != nil)
+        if !isMaterialAtDecode {
+            let gt = spectrumSnapshot?.guitarType
+            let autoMap = gt.map { GuitarMode.classifyAll(decodedPeaks, guitarType: $0) }
+                ?? GuitarMode.classifyAll(decodedPeaks)
+            func effMode(_ p: ResonantPeak) -> GuitarMode {
+                GuitarMode.effectiveMode(override: decodedOverrides?[p.id], auto: autoMap[p.id] ?? .unknown)
+            }
+            let singleHolder: Set<GuitarMode> = [.air, .top, .back]
+
+            if decodedSelectedPeakIDs == nil {
+                // No saved selection: establish the auto set — the strongest peak per effective mode.
+                var chosen: [GuitarMode: ResonantPeak] = [:]
+                for p in decodedPeaks {
+                    let m = effMode(p).normalized
+                    guard m != .unknown else { continue }
+                    if let cur = chosen[m], p.magnitude <= cur.magnitude { continue }
+                    chosen[m] = p
+                }
+                decodedSelectedPeakIDs = chosen.values.map { $0.id }
+                healed = true
+            } else {
+                // A saved selection may pre-date the uniqueness rule: keep at most the strongest
+                // selected peak per single-holder mode; leave cluster modes and unknowns untouched.
+                let selectedSet = Set(decodedSelectedPeakIDs!)
+                var strongestByMode: [GuitarMode: ResonantPeak] = [:]
+                for p in decodedPeaks where selectedSet.contains(p.id) {
+                    let m = effMode(p).normalized
+                    guard singleHolder.contains(m) else { continue }
+                    if let cur = strongestByMode[m], p.magnitude <= cur.magnitude { continue }
+                    strongestByMode[m] = p
+                }
+                let winners = Set(strongestByMode.values.map { $0.id })
+                let pruned = decodedSelectedPeakIDs!.filter { id in
+                    guard let p = decodedPeaks.first(where: { $0.id == id }) else { return false }
+                    let m = effMode(p).normalized
+                    return !singleHolder.contains(m) || winners.contains(id)
+                }
+                if pruned.count != decodedSelectedPeakIDs!.count {
+                    decodedSelectedPeakIDs = pruned
+                    healed = true
+                }
+            }
+        }
+
+        // --- Heal legacy comparison entries: fill the definitive mode→peak map (Phase 6b) ---
+        // Pre-6b saved comparisons stored no `modePeakIDs`, so their Air/Top/Back was re-derived
+        // positionally at render — and could not reflect a source measurement's override. Compute it
+        // once now from each entry's own selected peaks. Override-BLIND (an old file never wrote the
+        // source's overrides, so nothing better is recoverable), but it freezes what the old app
+        // showed and makes the file self-describing from here on. Flagged for re-save.
+        if var entries = decodedComparisonEntries {
+            var changed = false
+            for i in entries.indices where entries[i].modePeakIDs == nil {
+                let resolved = TapToneAnalyzer.resolvedModePeaks(
+                    peaks: entries[i].peaks, guitarType: entries[i].guitarType)
+                entries[i].modePeakIDs = ComparisonEntry.modeIDMap(from: resolved)
+                changed = true
+            }
+            if changed {
+                decodedComparisonEntries = entries
+                healed = true
+            }
+        }
+
         peaks                 = decodedPeaks
         selectedPeakIDs       = decodedSelectedPeakIDs
         peakAnnotationOffsets = decodedOffsets
         peakModeOverrides     = decodedOverrides
         tapEntries            = decodedTapEntries
+        comparisonEntries     = decodedComparisonEntries
         wasHealed             = healed
     }
 

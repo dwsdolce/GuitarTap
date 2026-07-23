@@ -1113,7 +1113,12 @@ final class TapToneAnalyzer: ObservableObject {
     /// When non-empty, these are merged into `materialSpectra` in guitar mode so the
     /// main `SpectrumView` displays them as colored overlays using its existing
     /// `materialSpectra` path. Cleared by `clearComparison()` or a new tap sequence.
-    @Published var comparisonSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?)] = []
+    /// The `modeIDs` element is the definitive `{mode name: peak id}` map for this overlay (see
+    /// ``ComparisonEntry/modePeakIDs``), computed override-aware from the source at build time and
+    /// carried so the on-screen comparison table shows the same Air/Top/Back the source measurement
+    /// does — including a user's override. Empty only for the in-memory fallback; render then
+    /// re-derives positionally.
+    @Published var comparisonSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID])] = []
 
     /// Full `SpectrumSnapshot` for each entry in `comparisonSpectra`, in the same order.
     ///

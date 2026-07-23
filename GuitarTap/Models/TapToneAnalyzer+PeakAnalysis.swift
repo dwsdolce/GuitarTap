@@ -634,6 +634,7 @@ extension TapToneAnalyzer {
     /// - Returns: A dictionary mapping each identified `GuitarMode` to its strongest `ResonantPeak`.
     static func resolvedModePeaks(
         peaks: [ResonantPeak],
+        overrides: [UUID: UserAssignedMode] = [:],
         guitarType: GuitarType?
     ) -> [GuitarMode: ResonantPeak] {
         let modeMap: [UUID: GuitarMode]
@@ -644,7 +645,11 @@ extension TapToneAnalyzer {
         }
         var result: [GuitarMode: ResonantPeak] = [:]
         for peak in peaks {
-            guard let mode = modeMap[peak.id], mode != .unknown else { continue }
+            // Override-aware, so a relabelled peak resolves to the mode the user assigned — the same
+            // rule the analyzer and the ratio use. Callers that already work on a pre-selected set
+            // still get one strongest peak per *effective* mode.
+            let mode = GuitarMode.effectiveMode(override: overrides[peak.id], auto: modeMap[peak.id] ?? .unknown)
+            guard mode != .unknown else { continue }
             if let existing = result[mode], peak.magnitude <= existing.magnitude { continue }
             result[mode] = peak
         }

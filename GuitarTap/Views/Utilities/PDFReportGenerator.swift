@@ -1066,7 +1066,7 @@ struct ComparisonPDFReportData {
     /// The comparison entries — one per overlaid spectrum.
     let entries: [ComparisonEntry]
     /// Resolved Air/Top/Back frequencies per entry, keyed by entry index.
-    let modeFrequencies: [(label: String, color: Color, air: Float?, top: Float?, back: Float?)]
+    let modeFrequencies: [(label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>)]
 }
 
 // MARK: - Comparison PDF Generator (extension on PDFReportGenerator)
@@ -1286,10 +1286,10 @@ private struct ComparisonPDFReportContentView: View {
 
     // MARK: Peak Mode Table
 
-    private let modeColumns: [(label: String, keyPath: KeyPath<(label: String, color: Color, air: Float?, top: Float?, back: Float?), Float?>)] = [
-        ("Air", \.air),
-        ("Top", \.top),
-        ("Back", \.back)
+    private let modeColumns: [(label: String, mode: GuitarMode, keyPath: KeyPath<(label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>), Float?>)] = [
+        ("Air", .air, \.air),
+        ("Top", .top, \.top),
+        ("Back", .back, \.back)
     ]
 
     private var peakModeTableSection: some View {
@@ -1335,7 +1335,12 @@ private struct ComparisonPDFReportContentView: View {
 
                     ForEach(modeColumns, id: \.label) { col in
                         let freq = row[keyPath: col.keyPath]
-                        Text(freq.map { String(format: "%.1f Hz", $0) } ?? "—")
+                        // A user-overridden value is shown italic with a " *" suffix — the SAME
+                        // convention page 1's peak table uses for an overridden mode label — so it is
+                        // not read as the averaged spectrum's auto-detected peak.
+                        let isOverride = row.overrideModes.contains(col.mode)
+                        Text((freq.map { String(format: "%.1f Hz", $0) } ?? "—") + (isOverride ? " *" : ""))
+                            .font(isOverride ? .system(size: 10).italic() : .system(size: 10))
                             .foregroundColor(freq != nil ? .primary : .secondary)
                             .frame(width: 90, alignment: .trailing)
                             .padding(.trailing, 6)

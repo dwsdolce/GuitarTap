@@ -398,6 +398,61 @@ struct TapToneRatioTests {
                 "Ratio should use selected air (95 Hz) and top (200 Hz) only")
     }
 
+    // Phase 6: renaming the Top peak to a freeform label removes it as the definitive Top, so the
+    // ratio disappears - the on-screen and saved values agree that there is no Top. (Before Phase 6
+    // tapToneRatio classified override-blind and still divided by the renamed peak.)
+    @Test func tapToneRatio_freeformOverrideOnTop_returnsNil() {
+        let air = ResonantPeak(frequency: 95,  magnitude: -28)
+        let top = ResonantPeak(frequency: 210, magnitude: -20)
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let m = TapToneMeasurement(
+            peaks: [air, top], spectrum: snapshot,
+            selectedPeakIDs: [air.id, top.id],
+            peakModeOverrides: [top.id: .assigned("Wolf note")]
+        )
+        #expect(m.tapToneRatio == nil,
+                "a Top peak renamed to a freeform label is no longer the definitive Top")
+    }
+
+    // Phase 6: an override that RE-TARGETS a peak to Top makes it the definitive Top.
+    @Test func tapToneRatio_overrideRetargetsTop() {
+        let air   = ResonantPeak(frequency: 95,  magnitude: -28)
+        let far   = ResonantPeak(frequency: 400, magnitude: -20) // classical: not Top by position
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let m = TapToneMeasurement(
+            peaks: [air, far], spectrum: snapshot,
+            selectedPeakIDs: [air.id, far.id],
+            peakModeOverrides: [far.id: .assigned(GuitarMode.top.displayName)]
+        )
+        let ratio = m.tapToneRatio
+        #expect(ratio != nil, "the relabelled peak is now the definitive Top")
+        #expect(abs((ratio ?? 0) - 400.0 / 95.0) < 0.01)
+    }
+
+    // Phase 6: a Top peak that is DESELECTED is not the definitive Top, so no ratio.
+    @Test func tapToneRatio_deselectedTop_returnsNil() {
+        let air = ResonantPeak(frequency: 95,  magnitude: -28)
+        let top = ResonantPeak(frequency: 210, magnitude: -20)
+        let snapshot = SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+        let m = TapToneMeasurement(
+            peaks: [air, top], spectrum: snapshot,
+            selectedPeakIDs: [air.id]   // Top present but not selected
+        )
+        #expect(m.tapToneRatio == nil, "a deselected Top is a candidate, not the definitive Top")
+    }
+
     // When two peaks are in the overlap zone, only one should be claimed as Top.
     // The ratio must use the stronger one (Top), not both.
     @Test func tapToneRatio_twoOverlapPeaks_usesSingleTopPeak() {
@@ -936,5 +991,84 @@ struct FixtureLoadingTests {
         #expect(again.spectrumSnapshot?.frequencies == m.spectrumSnapshot?.frequencies)
         #expect(again.spectrumSnapshot?.magnitudes == m.spectrumSnapshot?.magnitudes)
         #expect(again.peaks.map(\.frequency) == m.peaks.map(\.frequency))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Selection heal on decode  (Phase 6)
+//
+// Legacy files predate the definitive-selection rule: some saved no selection at all, some saved a
+// selection with several Air/Top/Back peaks. The decoder repairs both so the loaded state, the
+// saved-list ratio and the file agree, setting the same `wasHealed` flag as the duplicate-peak heal
+// (so the library re-saves identically). Guitar only.
+// ---------------------------------------------------------------------------
+
+@Suite("SelectionHealOnDecode")
+@MainActor
+struct SelectionHealOnDecodeTests {
+
+    private func classicalSnapshot() -> SpectrumSnapshot {
+        SpectrumSnapshot(
+            frequencies: [], magnitudes: [],
+            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
+            guitarType: .classical, measurementType: .classical
+        )
+    }
+
+    private func roundTrip(_ m: TapToneMeasurement) throws -> TapToneMeasurement {
+        let data = try TapToneAnalyzer.encodeMeasurements([m])
+        return try TapToneAnalyzer.decodeMeasurements(data)[0]
+    }
+
+    // A guitar file with NO saved selection is healed to the definitive set (strongest per mode),
+    // and flagged so the library re-saves.
+    @Test func nilSelection_isHealedToDefinitiveSet() throws {
+        let air = ResonantPeak(frequency: 95,  magnitude: -28)
+        let top = ResonantPeak(frequency: 210, magnitude: -20)
+        let m = TapToneMeasurement(peaks: [air, top], spectrum: classicalSnapshot())  // nil selection
+
+        let decoded = try roundTrip(m)
+
+        #expect(decoded.wasHealed, "a healed selection must set wasHealed so the library re-saves")
+        #expect(decoded.selectedPeakIDs != nil, "nil selection is populated on read")
+        #expect(Set(decoded.selectedPeakIDs ?? []) == [air.id, top.id],
+                "the definitive Air and Top are selected")
+        #expect(decoded.tapToneRatio != nil, "and the ratio is now available")
+    }
+
+    // A guitar file whose selection holds TWO Tops is pruned to the stronger one; the invariant is
+    // restored and the untouched Air survives.
+    @Test func twoSelectedTops_prunedToTheStronger() throws {
+        let air     = ResonantPeak(frequency: 95,  magnitude: -28)
+        // Classical Top is 170–230, Back 190–280; 175 and 185 are both Top-only (below Back).
+        let weakTop = ResonantPeak(frequency: 175, magnitude: -30)
+        let loudTop = ResonantPeak(frequency: 185, magnitude: -18)   // stronger Top
+        let m = TapToneMeasurement(
+            peaks: [air, weakTop, loudTop], spectrum: classicalSnapshot(),
+            selectedPeakIDs: [air.id, weakTop.id, loudTop.id]
+        )
+
+        let decoded = try roundTrip(m)
+
+        #expect(decoded.wasHealed, "pruning a duplicate holder counts as a heal")
+        let sel = Set(decoded.selectedPeakIDs ?? [])
+        #expect(sel.contains(loudTop.id), "the stronger Top survives")
+        #expect(!sel.contains(weakTop.id), "the weaker Top is dropped from the selection")
+        #expect(sel.contains(air.id), "the Air selection is untouched")
+    }
+
+    // A guitar file that already satisfies the invariant is NOT reflagged as healed.
+    @Test func validSelection_isNotHealed() throws {
+        let air = ResonantPeak(frequency: 95,  magnitude: -28)
+        let top = ResonantPeak(frequency: 210, magnitude: -20)
+        let m = TapToneMeasurement(
+            peaks: [air, top], spectrum: classicalSnapshot(),
+            selectedPeakIDs: [air.id, top.id]
+        )
+
+        let decoded = try roundTrip(m)
+
+        #expect(!decoded.wasHealed, "a valid selection must not trigger a needless re-save")
+        #expect(Set(decoded.selectedPeakIDs ?? []) == [air.id, top.id])
     }
 }

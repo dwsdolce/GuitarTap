@@ -660,3 +660,141 @@ struct DefinitiveModeUniquenessTests {
         #expect(sut.peakMode(for: air).normalized == .air)
     }
 }
+
+// ---------------------------------------------------------------------------
+// MARK: - Definitive peak & tap-tone ratio  (D17–D20) — Phase 6
+// ---------------------------------------------------------------------------
+//
+// getPeak(for:) and calculateTapToneRatio resolve the DEFINITIVE peak: the selected peak whose
+// override-aware mode is that mode. Deselecting it, or relabelling it, removes it here exactly as it
+// does on the chart - so the on-screen ratio and the saved-list ratio cannot disagree.
+
+@Suite("DefinitivePeakAndRatio", .serialized)
+@MainActor
+struct DefinitivePeakAndRatioTests {
+
+    private func makeGuitarSUT() -> TapToneAnalyzer {
+        TapDisplaySettings.measurementType = .generic
+        return makeSUT()
+    }
+
+    // D17: getPeak returns the SELECTED holder, not merely the strongest in the band.
+    @Test func getPeak_returnsSelectedHolder_notStrongest() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let loudTop = makePeak(frequency: 150, magnitude: -18)
+        let weakTop = makePeak(frequency: 165, magnitude: -30)
+        sut.allPeaks = [loudTop, weakTop]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(weakTop.id)   // select the WEAKER one
+
+        #expect(sut.getPeak(for: .top)?.id == weakTop.id,
+                "the definitive Top is the selected peak, not the loudest candidate")
+    }
+
+    // D18: THE user-reported bug. Renaming the Top peak to a freeform label drops the ratio.
+    @Test func renamingTheTopPeak_dropsTheRatio() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let air = makePeak(frequency: 100, magnitude: -25)
+        let top = makePeak(frequency: 150, magnitude: -20)
+        sut.allPeaks = [air, top]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(air.id)
+        sut.togglePeakSelection(top.id)
+        #expect(sut.calculateTapToneRatio() != nil, "precondition: a ratio is shown")
+
+        sut.setModeOverride(.assigned("Wolf note"), for: top.id)
+
+        #expect(sut.getPeak(for: .top) == nil, "a renamed Top is no longer the definitive Top")
+        #expect(sut.calculateTapToneRatio() == nil,
+                "…so there is no ratio, matching the chart and the table")
+    }
+
+    // D19: deselecting the Top peak drops the ratio too.
+    @Test func deselectingTheTopPeak_dropsTheRatio() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let air = makePeak(frequency: 100, magnitude: -25)
+        let top = makePeak(frequency: 150, magnitude: -20)
+        sut.allPeaks = [air, top]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(air.id)
+        sut.togglePeakSelection(top.id)
+        #expect(sut.calculateTapToneRatio() != nil, "precondition")
+
+        sut.togglePeakSelection(top.id)   // deselect Top
+
+        #expect(sut.calculateTapToneRatio() == nil, "a deselected Top yields no ratio")
+    }
+
+    // D20: retargeting a peak TO Top via override makes it the definitive Top and restores the ratio.
+    @Test func overridingAPeakToTop_makesItDefinitive() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let air = makePeak(frequency: 100, magnitude: -25)
+        let far = makePeak(frequency: 400, magnitude: -20)   // generic: dipole, not Top
+        sut.allPeaks = [air, far]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(air.id)
+        sut.togglePeakSelection(far.id)
+        #expect(sut.getPeak(for: .top) == nil, "precondition: no Top yet")
+
+        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: far.id)
+
+        #expect(sut.getPeak(for: .top)?.id == far.id, "the relabelled peak is now the definitive Top")
+        #expect(sut.calculateTapToneRatio() != nil, "and the ratio returns")
+    }
+
+    // D21: the multi-tap Averaged row source. definitiveModeInfo is getPeak per mode plus an override
+    // flag — the DEFINITIVE selected peak, NOT a strongest-per-mode re-classification (the old
+    // resolvedModePeaks path that produced the 233-as-Top / empty-Back bug). Here: an out-of-band
+    // peak overridden to Top is the Top, tagged; the louder in-band 233 does not usurp it.
+    @Test func definitiveModeInfo_usesOverriddenDefinitiveTop_andFlagsIt() {
+        let saved = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let air      = makePeak(frequency: 100, magnitude: -25)
+        let belowTop = makePeak(frequency: 138, magnitude: -30)  // below the Top band → unknown by position
+        let louder   = makePeak(frequency: 233, magnitude: -18)  // louder, in the top band by position
+        sut.allPeaks = [air, belowTop, louder]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(air.id)
+        sut.togglePeakSelection(belowTop.id)
+        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: belowTop.id)  // 138 → Top
+
+        let info = sut.definitiveModeInfo()
+        #expect(info[.top]?.frequency == 138,
+                "Top is the overridden+selected peak — not the louder 233, which is not selected")
+        #expect(info[.top]?.isOverride == true, "flagged as an override so the Averaged row can tag it")
+        #expect(info[.air]?.isOverride == false, "Air here is auto — not tagged")
+    }
+
+    // D22: definitiveModeInfo follows SELECTION — a deselected Top yields no Top entry (and no tag).
+    @Test func definitiveModeInfo_omitsDeselectedMode() {
+        let saved = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let air = makePeak(frequency: 100, magnitude: -25)
+        let top = makePeak(frequency: 150, magnitude: -20)
+        sut.allPeaks = [air, top]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(air.id)   // Top left unselected
+
+        let info = sut.definitiveModeInfo()
+        #expect(info[.top] == nil, "an unselected Top is not the definitive Top")
+        #expect(info[.air]?.frequency == 100)
+    }
+}

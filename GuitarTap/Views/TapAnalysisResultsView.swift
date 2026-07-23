@@ -443,7 +443,7 @@ struct TapAnalysisResultsView: View {
             if analyzer.showingMultiTapComparison && !analyzer.tapEntries.isEmpty {
                 MultiTapComparisonResultsView(
                     tapEntries: analyzer.tapEntries,
-                    averagedPeaks: analyzer.selectedPeaks,
+                    averagedModes: analyzer.definitiveModeInfo(),
                     guitarType: TapDisplaySettings.guitarType
                 )
                 .padding(.vertical, 4)
