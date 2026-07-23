@@ -181,7 +181,7 @@ detector for the next tap.
 | Plate / brace: playing an audio file recorded elsewhere detects nothing | The file has less than half a second of room tone before the first tap, so the tap falls inside the noise-floor settling period | Re-record with a moment of silence before the first tap (§10.3). Files recorded by Guitar Tap always contain it. |
 | False detections | Threshold too low, or noisy room | Raise Threshold; verify the noise floor with Pause (§10.3). |
 | Peaks missing on the chart | Peak Min too high | Lower the Peak Min slider (§2.7). |
-| Unknown peaks everywhere | Analysis range too wide for the measurement | Narrow **Analysis Frequency Range** in Settings → Advanced → Analysis Settings (§8.5). |
+| Unknown peaks everywhere | Modes fall outside the standard windows, or Show Unknown Modes is on | Pick the guitar type whose windows fit your instrument (§3.1); turn off **Show Unknown Modes** (§8.5) to hide the rest, or assign modes manually (§3.7). |
 | Spectrum doesn't update | Microphone permission not granted | iOS / iPadOS: Settings → Guitar Tap → Microphone. macOS: System Settings → Privacy & Security → Microphone. Windows: Settings → Privacy & Security → Microphone. Linux: check `pavucontrol` (§2.2). |
 | Plate calculation missing | Dimensions not entered | Settings → Measurement Type → Plate; fill in Length / Width / Thickness / Mass (§4.3, §8.3). |
 | Gore thickness shows "G_LC assumed 0" | FLC tap not captured | Enable **Measure FLC** in Settings and re-run the plate sequence (§4.8). |

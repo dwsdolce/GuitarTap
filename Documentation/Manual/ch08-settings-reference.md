@@ -144,18 +144,16 @@ SCREENSHOT:
   not fall within any classified mode window are still annotated
   on the chart. On by default; turn off to declutter a chart
   intended for sharing. (Cross-ref §3.1.)
-- **Analysis Frequency Range** — min and max Hz used for peak
-  detection. Distinct from the *display* frequency range above:
-  this controls which peaks the analyzer considers, not what is
-  shown on the chart.
 - **Peak Detection Minimum** (guitar only) — the same Peak Min
   value as the toolbar slider (§2.7); the Settings field accepts
   a precise numeric value. Sets the minimum magnitude (dB) a peak
-  must reach to be annotated and included in the analysis. A saved
-  guitar measurement retains its full peak set, so Peak Min can be
-  lowered later on a loaded measurement to reveal quieter peaks
-  (§2.7). Typical range: −60 to −40 dB. Disabled in plate / brace
-  mode (the per-phase capture uses its own adaptive noise floor).
+  must reach to be *shown* — annotated on the chart and listed in
+  the results. It is a display filter only: it does not re-detect
+  peaks, or change which are selected or classified. A saved guitar
+  measurement retains its full peak set, so Peak Min can be lowered
+  later on a loaded measurement to reveal quieter peaks (§2.7).
+  Typical range: −60 to −40 dB. Disabled in plate / brace mode (the
+  per-phase capture uses its own adaptive noise floor).
 - **Dump Capture Audio** — when on, each measurement's captured
   audio is saved as one continuous mono 32-bit-float WAV file. Useful
   as an archive of a measurement, or for debugging; leave off if you

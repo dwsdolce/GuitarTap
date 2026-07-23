@@ -29,6 +29,17 @@
 ### Peak Min
 
 - A saved guitar measurement now keeps **every detected peak down to −100 dB** (the lowest Peak Min can be set), not only those above the Peak Min in effect when it was saved. Lowering Peak Min on a loaded measurement now reveals fainter peaks — including a low Air resonance — exactly as it does during a live measurement. Measurements saved before this update keep only the peaks that were above their Peak Min at the time; use **Re-analyze** to re-derive the full set from the spectrum, then Save.
+- Peak Min is now purely a **display** control: raising or lowering it only shows or hides peaks — it never changes which peaks are selected, how they are classified, or the identified modes. Those are properties of the measurement itself.
+
+### Peaks & Modes
+
+- **Naming a peak identifies it.** Giving a peak a mode name now marks it as a known, identified mode — it is no longer treated as an unknown peak once you have named it.
+- **One definitive Air, Top, and Back.** Each of these modes now resolves to a single definitive peak — the selected peak whose (possibly overridden) mode matches. The **Select All Peaks** control has been removed; selection is per-peak, and the identified modes follow from it.
+- **Derived values follow your selection and overrides.** The tap-tone ratio and other derived figures are now computed from the definitive peaks, so they reflect your peak selection and any mode overrides you have applied rather than the raw strongest peak.
+- **Multi-tap Taps table honours overrides.** When you override a mode in a multi-tap measurement, the averaged **Taps** table row now shows the peak you chose (marked in *italics with an asterisk*), matching page 1 of the PDF report, instead of the algorithm's automatic pick.
+- **Comparisons are self-describing.** Saved comparison measurements now record which peak carries each mode, so a reloaded comparison — its table and PDF — reflects the mode overrides that were in effect when it was saved.
+- **Changing guitar type is a clean slate.** Changing the guitar type on a measurement re-runs classification and peak selection and clears any manual mode overrides, so the identified modes match the new type. (A display-only settings change — Peak Min or the display ranges — leaves peaks, modes, and selection untouched.)
+- **A new tap sequence starts clean.** Starting a fresh measurement now clears any peak selection, mode overrides, and moved annotations from the previous one.
 
 ### Re-analyze
 
@@ -52,6 +63,7 @@
 - The **Measurement Details** pane now shows the same information in the same order across every edition of Guitar Tap.
 - Dates and times are displayed consistently throughout the app.
 - The display frequency range is now remembered **per measurement type**, so guitar, plate and brace each keep their own view.
+- The **Analysis Frequency Range** setting has been removed from Settings; the analysis range is now a fixed 30–2000 Hz. The separate *display* range you pan and zoom on the chart is unaffected.
 
 ### Saving
 
@@ -85,6 +97,7 @@
 - **Ring-out (decay time) could be misreported.** It was sampled on too coarse a cadence and timed with the wall clock, so a busy computer could skew the number. It is now sampled once per audio chunk and timed on the audio clock, so it stays accurate even under heavy load.
 - **iPad / iPhone:** an intermittent, hard-to-reproduce glitch when saving a plate or brace measurement could corrupt its stored peak selection, so the exported spectrum chart and PDF report later showed only one of the three measured frequencies. The live graph and the Analysis Results table were unaffected. Material measurements now always show all three (Longitudinal, Cross, and FLC where present), and any affected file is repaired when it is loaded.
 - During a plate capture, the identified peaks were not annotated on the chart until the whole measurement finished. They now appear at the completion of each phase (Longitudinal, then Cross, then FLC).
+- **Saving could be blocked when every peak was hidden.** With Peak Min raised high enough to hide all peaks, or peak visibility set to None, Save is now still available — hiding peaks is a display choice and never prevents saving the measurement.
 
 ---
 

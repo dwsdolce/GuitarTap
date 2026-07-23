@@ -155,11 +155,13 @@ false captures, raise it.
 ## 2.7 Setting Peak Min — Filtering the Peak List (Guitar Mode)
 
 Peak Min sets the minimum spectrum magnitude at which a peak is
-annotated on the chart and considered for guitar-mode analysis. It
-is a guitar-mode control: in Plate and Brace modes the per-phase
-capture uses its own adaptive noise floor, and Peak Min only
-affects which peaks are *drawn* — never which are *selected* for
-the calculation.
+*shown* — annotated on the chart and listed in the Analysis
+Results. It is a pure display filter: moving it shows or hides
+peaks but never changes which peaks are selected, how they are
+classified, or the identified modes. It is a guitar-mode control:
+in Plate and Brace modes the per-phase capture uses its own
+adaptive noise floor, and there too Peak Min only affects which
+peaks are *drawn*.
 
 Tune it from the same paused state used for Threshold:
 
@@ -169,18 +171,17 @@ Tune it from the same paused state used for Threshold:
    structural resonances you care about are visible.
 3. Press **Resume** and take the real measurement.
 
-If you adjust Peak Min on a frozen spectrum after a measurement,
-press the **wand** button to re-run automatic mode selection
-against the new value.
+Because Peak Min only hides and reveals peaks, a peak hidden then
+shown again returns exactly as it was — same selection, custom
+label, and annotation position.
 
 The same works on a **loaded** measurement: a saved measurement
-keeps its full peak set, so lowering Peak Min reveals the quieter
-peaks exactly as on a live spectrum, and the wand then re-selects
-among them. (Measurements saved by versions before 1.0.2 stored
-only the peaks above the Peak Min in force when they were captured;
-on those, lowering Peak Min reveals nothing new — press
-**Re-analyze** first (§9) to rebuild the peak set from the stored
-spectrum, then adjust Peak Min and press the wand.)
+keeps its full peak set (every detected peak, down to −100 dB), so
+lowering Peak Min reveals the quieter peaks exactly as on a live
+spectrum. (Measurements saved by versions before 1.0.2 stored only
+the peaks above the Peak Min in force when they were captured; on
+those, lowering Peak Min reveals nothing new — press **Re-analyze**
+(§9) to rebuild the peak set from the stored spectrum.)
 
 Peak Min persists across launches.
 

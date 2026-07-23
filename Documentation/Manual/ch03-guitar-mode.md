@@ -101,7 +101,18 @@ For tighter results, average several taps in one sequence.
    re-freezes only after the final tap.
 4. When all taps are captured, the averaged spectrum is displayed
    with annotated peaks. Individual tap spectra are retained for
-   comparison (see §6.x for the multi-tap comparison view).
+   comparison.
+
+**The Taps table.** After a multi-tap sequence the Analysis Results
+header shows a **Taps** button that switches to a per-tap table: one
+row per tap plus an **Averaged** row, with Air / Top / Back columns.
+Each per-tap row reports that tap's own detected peak for the mode;
+the Averaged row reports the *definitive* peak — the one your
+selection and any mode overrides resolve to (§3.6) — so it matches
+the peak list and the PDF report. When you have overridden a mode,
+the Averaged value is shown in *italics with a trailing asterisk*
+(`*`) to flag that it came from your override rather than the
+automatic pick. Press Taps again to return to the averaged spectrum.
 
 **Pause between taps.** Press Pause if you need to pause mid-sequence
 (to reset the instrument's position, for example). The captured
@@ -111,6 +122,10 @@ taps so far are preserved; Resume continues from where you left off.
 discards the captured taps and immediately re-arms for a fresh attempt,
 so you can tap again straight away (no need to press New Tap). **New Tap**
 itself is only available once a measurement is complete.
+
+Starting a fresh measurement — New Tap, or Cancel-to-restart — begins
+from a clean slate: any peak selection, mode overrides, and moved
+annotation labels from the previous measurement are cleared.
 
 ## 3.6 Inspecting and Adjusting Peak Selections
 
@@ -127,16 +142,24 @@ Results panel.
   selected peaks), or *None* (no labels on the chart). The default
   is *Selected*, which matches what most luthiers want to see.
 - **Re-run automatic selection** by pressing the **wand** button
-  in the Analysis Results header. This is useful after raising or
-  lowering Peak Min on a frozen or loaded spectrum: the wand
-  re-selects one peak per mode window from the peaks currently
-  visible at the chosen Peak Min. It works on the peaks that are
-  already there — it does *not* re-detect. To rebuild the peak set
-  itself from a saved measurement's stored spectrum — for an older
-  file, or after changing the analysis range or guitar type — use
-  the separate **Re-analyze** button instead (§9).
-- **Select All / Select None** are available in the Results header
-  for the cases where you want everything on or off in one step.
+  in the Analysis Results header. It resets peak *selection* to the
+  automatic choice — one peak per single-holder mode, chosen from
+  the full peak set — replacing any manual selection you made. Your
+  mode-name overrides are kept. The wand does not re-detect or
+  re-classify; to rebuild the peak set from a saved measurement's
+  stored spectrum, or to re-classify after changing the guitar type,
+  use the separate **Re-analyze** button (§9).
+- **Select None** clears the selection in one step. There is no
+  "Select All": Air, Top, and Back are single-holder modes (below),
+  so selecting everything is not a meaningful operation.
+
+**One peak per structural mode.** Air, Top, and Back each resolve to
+exactly one *definitive* peak — the selected peak whose mode, after
+any override, is that mode. Selecting a second candidate as Top
+displaces the first, so the identity is never ambiguous. Dipole,
+Ring, and Upper Modes are clusters and may hold several peaks at
+once. The definitive peaks are what every derived value (§3.8) and
+export is computed from.
 
 Selection changes are preserved when the measurement is saved.
 
@@ -154,8 +177,15 @@ one falls inside the configured window. To correct it:
 3. Pick the correct mode. The chart label updates immediately.
 
 Overrides are saved with the measurement and reapplied when the
-measurement is loaded later. The wand button respects manual
-overrides — a re-classify will not silently undo your choice.
+measurement is loaded later. The wand (§3.6) resets selection but
+keeps your mode-name overrides.
+
+**Changing the guitar type clears overrides.** If you change the
+guitar type in Settings, Guitar Tap re-classifies the peaks for the
+new type, clears your manual mode overrides, and returns selection
+to automatic — the identified modes always match the current type.
+(A display-only settings change — Peak Min or the display ranges —
+leaves peaks, modes, and selection untouched.)
 
 ## 3.8 Reading the Results Panel
 
@@ -188,8 +218,10 @@ Below the peak list:
 
 - **Ring-out** — decay time in seconds, computed from the magnitude
   envelope after the tap impulse. A structural-damping indicator.
-- **Tap Tone Ratio** — f_Top ÷ f_Air. Typical values for a
-  well-voiced guitar fall in the 1.8–2.4 range; the value is shown
+- **Tap Tone Ratio** — f_Top ÷ f_Air, computed from the definitive
+  (selected, override-aware) Air and Top peaks (§3.6), so the panel,
+  the peak list, and the PDF report always agree. Typical values for
+  a well-voiced guitar fall in the 1.8–2.4 range; the value is shown
   with a colour cue indicating whether it is in, near, or outside
   that band.
 
@@ -247,7 +279,11 @@ measurement:
   label and notes. The saved comparison appears with a distinct
   badge and can be reloaded later to restore the overlay — every
   spectrum, its colour, and the Comparison Results table — exactly
-  as it was.
+  as it was. The comparison records which peak carries each mode
+  (Air / Top / Back) for every spectrum, including any overrides in
+  effect, so the reloaded table and its PDF match the originals;
+  comparisons saved by earlier builds gain this information
+  automatically when they are opened.
 - **Export Spectrum** (⌘E on macOS; Ctrl+E on Windows / Linux)
   writes an overlay PNG with all curves, their colours, and the
   legend.

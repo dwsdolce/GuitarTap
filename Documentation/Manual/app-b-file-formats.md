@@ -73,7 +73,8 @@ what the user did at save time:
 | `longitudinalSnapshot`, `crossSnapshot`, `flcSnapshot` | SpectrumSnapshot | Plate / brace per-phase spectra. |
 | `selectedLongitudinalPeakID`, `selectedCrossPeakID`, `selectedFlcPeakID` | UUID | The peak chosen as L / C / FLC. |
 | `selectedPeakIDs` | array of UUID | Currently-selected peaks (guitar). |
-| `selectedPeakFrequencies` | array of float | Frequencies (Hz) parallel to the IDs, used to re-match after a Peak Min change generates new UUIDs. |
+| `selectedPeakFrequencies` | array of float | Frequencies (Hz) parallel to the IDs; a stable fallback for re-matching selection to peaks when a re-analysis regenerates UUIDs. (Peak Min itself never re-detects or regenerates peaks.) |
+| `userModifiedSelection` | bool | Guitar only. `true` once the user has changed peak selection away from the automatic default, so a loaded measurement keeps that selection instead of re-deriving it. Omitted on material measurements and on files saved before 1.0.2; a missing value is read as `true`. |
 | `peakAnnotationOffsets` | array | UUID-keyed map of custom label positions, encoded as a flat array (see "UUID-keyed maps"). Each value is `{ "absFreqHz": <freq Hz>, "absDB": <magnitude dB> }`. |
 | `annotationVisibilityMode` | string | Enum: `all` / `selected` / `none`. |
 | `tapDetectionThreshold` | float | Threshold (dB) at save time. |
@@ -199,6 +200,7 @@ peaks nested inside `tapEntries` or `comparisonEntries`.
 | `snapshot` | SpectrumSnapshot | Full spectrum data for this overlay curve. |
 | `peaks` | array of Peak | Peaks for this overlay's source measurement. |
 | `guitarType` | string | For mode classification. |
+| `modePeakIDs` | object | Maps each identified mode name (`air`, `top`, `back`, …) to the UUID of the peak that carries it in this overlay — computed override-aware when the comparison was saved, so the entry is self-describing and a reader need not re-classify. A plain JSON object with string keys (not a flat UUID-map). Omitted by builds before this field existed; such files are upgraded on open by re-deriving the map. |
 | `sourceMeasurementID` | UUID | The measurement this entry was created from, if known. |
 
 When `comparisonEntries` is non-null the measurement is a saved

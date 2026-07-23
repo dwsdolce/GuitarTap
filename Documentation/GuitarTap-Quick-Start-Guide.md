@@ -164,7 +164,7 @@ The Analysis Results panel shows the peak list, decay time, plate properties, qu
 
 ### <img src="Manual/images/symbols/arrow.trianglehead.2.counterclockwise.png" width="19" height="19" alt="arrow.trianglehead.2.counterclockwise"> Re-analyze Peaks
 
-Shown in the results panel header next to the microphone name. Re-runs peak detection on a loaded measurement's stored spectrum using the current analysis settings — useful for trying a different Peak Min, analysis range, or guitar type on a saved measurement without re-tapping. The button is enabled only when viewing a loaded measurement.
+Shown in the results panel header next to the microphone name. Re-runs peak detection on the frozen spectrum of any completed guitar measurement — live or loaded — re-classifies the modes from scratch, and returns peak selection to automatic. Custom mode names you have assigned are kept, though the peak carrying one may end up deselected. Useful for trying a different guitar type without re-tapping, or for a clean classification after manual changes. It no longer disables itself after one press, and does not apply to Plate or Brace measurements.
 
 ### Toolbar Layout (iPhone) *(iOS only)*
 
@@ -262,7 +262,7 @@ The signal level that triggers tap detection. If taps are being missed, move the
 
 ### Peak Min (slider)
 
-Minimum magnitude a spectral peak must reach to be annotated on the spectrum chart. In guitar mode, a peak must also clear this threshold to be reported; adjusting it on a frozen spectrum re-runs peak finding and updates auto—selections (or carries forward manual selections if you have changed them). In brace/plate mode, the tap capture uses its own adaptive noise floor — Peak Min only affects what is visible on the chart, not which peaks are selected. Move the slider left to show quieter peaks; right to suppress noise. Displayed in dB.
+Minimum magnitude a peak must reach to be shown — in the results list and annotated on the chart. Peak Min is a display filter over the measurement's stored peaks: moving it shows or hides peaks but never re-detects them, changes which are selected, or how they are classified — so a peak hidden then revealed returns exactly as it was. (Every detected peak is kept with the saved measurement regardless of Peak Min.) In brace/plate mode the tap capture uses its own adaptive noise floor, and Peak Min affects only what is visible on the chart. Move the slider left to show quieter peaks; right to suppress noise. Displayed in dB.
 
 ### Reset arrows
 
@@ -296,7 +296,7 @@ Advanced → Display Settings. Sets the vertical scale (dB). Use Auto dB in the 
 
 ### Peak Min
 
-Advanced → Analysis Settings. Sets the minimum magnitude (dB) for a peak to be annotated on the spectrum chart. In guitar mode this also gates which peaks are reported; adjusting it on a frozen spectrum re-runs peak finding and updates selections. In brace/plate mode it only affects what is annotated on the live chart. Typical useful range: −60 to −40 dB.
+Advanced → Analysis Settings. Sets the minimum magnitude (dB) for a peak to be shown in the results and annotated on the chart. It is a display filter over the measurement's stored peaks — it does not re-detect peaks or change which are selected or classified. In brace/plate mode it affects only what is annotated on the live chart. Typical useful range: −60 to −40 dB.
 
 ## <img src="Manual/images/symbols/lightbulb.png" width="24" height="24" alt="lightbulb"> Tips & Technique
 

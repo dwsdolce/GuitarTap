@@ -226,10 +226,14 @@ Analysis Results sheet.
 
 **Re-analyze** <img src="images/symbols/arrow.trianglehead.2.counterclockwise.png" width="18" height="18" class="inline-icon" alt="arrow.trianglehead.2.counterclockwise"> —
 In the Analysis Results header, next to the microphone name. Re-runs
-peak detection on a loaded measurement's stored spectrum using the
-current analysis settings — useful for trying a different Peak Min,
-analysis range, or guitar type on a saved measurement without
-re-tapping. Enabled only when a loaded measurement is shown.
+peak detection on the frozen spectrum of any completed guitar
+measurement — live or loaded — re-classifies the modes from scratch,
+and returns peak selection to automatic. Custom mode names you have
+assigned are kept, though the peak carrying one may end up
+deselected. Useful for trying a different guitar type without
+re-tapping, or for a clean classification after manual changes. It
+does not disable itself after one press, and does not apply to
+plate / brace measurements.
 
 **Auto dB** <img src="images/symbols/arrow.up.arrow.down.circle.png" width="18" height="18" class="inline-icon" alt="arrow.up.arrow.down.circle"> — Scales
 the magnitude axis to fit the current signal (§6.4). Shortcut:
@@ -305,8 +309,10 @@ themselves are the same everywhere:
   Range: −80 dB to −20 dB. Disabled during comparison mode.
 
 - **Peak Min slider** — minimum spectrum magnitude (dB) at which
-  a peak is annotated on the chart and included in guitar-mode
-  analysis (§2.7, §8.5). The current value is shown next to the
+  a peak is *shown* — annotated on the chart and listed in the
+  results (§2.7, §8.5). A display filter only: it never re-detects
+  peaks or changes which are selected or classified. The current
+  value is shown next to the
   slider; the **reset arrow** restores the factory default.
   Range: −100 dB to −20 dB. In plate / brace mode the slider
   affects only what is drawn on the chart — the selected peak

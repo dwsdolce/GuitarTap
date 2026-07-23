@@ -1425,11 +1425,13 @@ false captures, raise it.</p>
 <h2 id="27-setting-peak-min-filtering-the-peak-list-guitar-mode">2.7 Setting Peak Min — Filtering the Peak List (Guitar Mode)</h2>
 
 <p>Peak Min sets the minimum spectrum magnitude at which a peak is
-annotated on the chart and considered for guitar-mode analysis. It
-is a guitar-mode control: in Plate and Brace modes the per-phase
-capture uses its own adaptive noise floor, and Peak Min only
-affects which peaks are <em>drawn</em> — never which are <em>selected</em> for
-the calculation.</p>
+<em>shown</em> — annotated on the chart and listed in the Analysis
+Results. It is a pure display filter: moving it shows or hides
+peaks but never changes which peaks are selected, how they are
+classified, or the identified modes. It is a guitar-mode control:
+in Plate and Brace modes the per-phase capture uses its own
+adaptive noise floor, and there too Peak Min only affects which
+peaks are <em>drawn</em>.</p>
 <p>Tune it from the same paused state used for Threshold:</p>
 <ol>
 <li>Still paused (continuing from §2.6), make a few representative
@@ -1438,17 +1440,16 @@ the calculation.</p>
    structural resonances you care about are visible.</li>
 <li>Press <strong>Resume</strong> and take the real measurement.</li>
 </ol>
-<p>If you adjust Peak Min on a frozen spectrum after a measurement,
-press the <strong>wand</strong> button to re-run automatic mode selection
-against the new value.</p>
+<p>Because Peak Min only hides and reveals peaks, a peak hidden then
+shown again returns exactly as it was — same selection, custom
+label, and annotation position.</p>
 <p>The same works on a <strong>loaded</strong> measurement: a saved measurement
-keeps its full peak set, so lowering Peak Min reveals the quieter
-peaks exactly as on a live spectrum, and the wand then re-selects
-among them. (Measurements saved by versions before 1.0.2 stored
-only the peaks above the Peak Min in force when they were captured;
-on those, lowering Peak Min reveals nothing new — press
-<strong>Re-analyze</strong> first (§9) to rebuild the peak set from the stored
-spectrum, then adjust Peak Min and press the wand.)</p>
+keeps its full peak set (every detected peak, down to −100 dB), so
+lowering Peak Min reveals the quieter peaks exactly as on a live
+spectrum. (Measurements saved by versions before 1.0.2 stored only
+the peaks above the Peak Min in force when they were captured; on
+those, lowering Peak Min reveals nothing new — press <strong>Re-analyze</strong>
+(§9) to rebuild the peak set from the stored spectrum.)</p>
 <p>Peak Min persists across launches.</p>
 <h2 id="28-your-first-tap-guitar-mode-walkthrough">2.8 Your First Tap — Guitar Mode Walkthrough</h2>
 
@@ -1572,8 +1573,18 @@ press <strong>Resume</strong> when ready.</p>
    re-freezes only after the final tap.</li>
 <li>When all taps are captured, the averaged spectrum is displayed
    with annotated peaks. Individual tap spectra are retained for
-   comparison (see §6.x for the multi-tap comparison view).</li>
+   comparison.</li>
 </ol>
+<p><strong>The Taps table.</strong> After a multi-tap sequence the Analysis Results
+header shows a <strong>Taps</strong> button that switches to a per-tap table: one
+row per tap plus an <strong>Averaged</strong> row, with Air / Top / Back columns.
+Each per-tap row reports that tap's own detected peak for the mode;
+the Averaged row reports the <em>definitive</em> peak — the one your
+selection and any mode overrides resolve to (§3.6) — so it matches
+the peak list and the PDF report. When you have overridden a mode,
+the Averaged value is shown in <em>italics with a trailing asterisk</em>
+(<code>*</code>) to flag that it came from your override rather than the
+automatic pick. Press Taps again to return to the averaged spectrum.</p>
 <p><strong>Pause between taps.</strong> Press Pause if you need to pause mid-sequence
 (to reset the instrument's position, for example). The captured
 taps so far are preserved; Resume continues from where you left off.</p>
@@ -1581,6 +1592,9 @@ taps so far are preserved; Resume continues from where you left off.</p>
 discards the captured taps and immediately re-arms for a fresh attempt,
 so you can tap again straight away (no need to press New Tap). <strong>New Tap</strong>
 itself is only available once a measurement is complete.</p>
+<p>Starting a fresh measurement — New Tap, or Cancel-to-restart — begins
+from a clean slate: any peak selection, mode overrides, and moved
+annotation labels from the previous measurement are cleared.</p>
 <h2 id="36-inspecting-and-adjusting-peak-selections">3.6 Inspecting and Adjusting Peak Selections</h2>
 
 <p>Each peak in the frozen spectrum is shown with a label (mode name)
@@ -1596,17 +1610,24 @@ Results panel.</p>
   selected peaks), or <em>None</em> (no labels on the chart). The default
   is <em>Selected</em>, which matches what most luthiers want to see.</li>
 <li><strong>Re-run automatic selection</strong> by pressing the <strong>wand</strong> button
-  in the Analysis Results header. This is useful after raising or
-  lowering Peak Min on a frozen or loaded spectrum: the wand
-  re-selects one peak per mode window from the peaks currently
-  visible at the chosen Peak Min. It works on the peaks that are
-  already there — it does <em>not</em> re-detect. To rebuild the peak set
-  itself from a saved measurement's stored spectrum — for an older
-  file, or after changing the analysis range or guitar type — use
-  the separate <strong>Re-analyze</strong> button instead (§9).</li>
-<li><strong>Select All / Select None</strong> are available in the Results header
-  for the cases where you want everything on or off in one step.</li>
+  in the Analysis Results header. It resets peak <em>selection</em> to the
+  automatic choice — one peak per single-holder mode, chosen from
+  the full peak set — replacing any manual selection you made. Your
+  mode-name overrides are kept. The wand does not re-detect or
+  re-classify; to rebuild the peak set from a saved measurement's
+  stored spectrum, or to re-classify after changing the guitar type,
+  use the separate <strong>Re-analyze</strong> button (§9).</li>
+<li><strong>Select None</strong> clears the selection in one step. There is no
+  "Select All": Air, Top, and Back are single-holder modes (below),
+  so selecting everything is not a meaningful operation.</li>
 </ul>
+<p><strong>One peak per structural mode.</strong> Air, Top, and Back each resolve to
+exactly one <em>definitive</em> peak — the selected peak whose mode, after
+any override, is that mode. Selecting a second candidate as Top
+displaces the first, so the identity is never ambiguous. Dipole,
+Ring, and Upper Modes are clusters and may hold several peaks at
+once. The definitive peaks are what every derived value (§3.8) and
+export is computed from.</p>
 <p>Selection changes are preserved when the measurement is saved.</p>
 <h2 id="37-overriding-mode-classification">3.7 Overriding Mode Classification</h2>
 
@@ -1622,8 +1643,14 @@ one falls inside the configured window. To correct it:</p>
 <li>Pick the correct mode. The chart label updates immediately.</li>
 </ol>
 <p>Overrides are saved with the measurement and reapplied when the
-measurement is loaded later. The wand button respects manual
-overrides — a re-classify will not silently undo your choice.</p>
+measurement is loaded later. The wand (§3.6) resets selection but
+keeps your mode-name overrides.</p>
+<p><strong>Changing the guitar type clears overrides.</strong> If you change the
+guitar type in Settings, Guitar Tap re-classifies the peaks for the
+new type, clears your manual mode overrides, and returns selection
+to automatic — the identified modes always match the current type.
+(A display-only settings change — Peak Min or the display ranges —
+leaves peaks, modes, and selection untouched.)</p>
 <h2 id="38-reading-the-results-panel">3.8 Reading the Results Panel</h2>
 
 <!--
@@ -1654,8 +1681,10 @@ SCREENSHOT:
 <ul>
 <li><strong>Ring-out</strong> — decay time in seconds, computed from the magnitude
   envelope after the tap impulse. A structural-damping indicator.</li>
-<li><strong>Tap Tone Ratio</strong> — f_Top ÷ f_Air. Typical values for a
-  well-voiced guitar fall in the 1.8–2.4 range; the value is shown
+<li><strong>Tap Tone Ratio</strong> — f_Top ÷ f_Air, computed from the definitive
+  (selected, override-aware) Air and Top peaks (§3.6), so the panel,
+  the peak list, and the PDF report always agree. Typical values for
+  a well-voiced guitar fall in the 1.8–2.4 range; the value is shown
   with a colour cue indicating whether it is in, near, or outside
   that band.</li>
 </ul>
@@ -1708,7 +1737,11 @@ measurement:</p>
   label and notes. The saved comparison appears with a distinct
   badge and can be reloaded later to restore the overlay — every
   spectrum, its colour, and the Comparison Results table — exactly
-  as it was.</li>
+  as it was. The comparison records which peak carries each mode
+  (Air / Top / Back) for every spectrum, including any overrides in
+  effect, so the reloaded table and its PDF match the originals;
+  comparisons saved by earlier builds gain this information
+  automatically when they are opened.</li>
 <li><strong>Export Spectrum</strong> (⌘E on macOS; Ctrl+E on Windows / Linux)
   writes an overlay PNG with all curves, their colours, and the
   legend.</li>
@@ -2477,7 +2510,9 @@ current measurement. Save is enabled whenever there is a finished
 measurement on screen — a frozen single tap, a complete plate or
 brace multi-phase capture, or an active comparison overlay — and
 disabled when the spectrum is live or no peaks have been
-identified.</p>
+identified. Hiding peaks with Peak Min (or the None annotation
+mode) is only a display choice and never disables Save — the full
+peak set is stored regardless of what is currently shown.</p>
 <p>The Save sheet has two fields:</p>
 <ul>
 <li><strong>Name</strong> <em>(required)</em> — a short label identifying what you measured. For a
@@ -2927,18 +2962,16 @@ SCREENSHOT:
   not fall within any classified mode window are still annotated
   on the chart. On by default; turn off to declutter a chart
   intended for sharing. (Cross-ref §3.1.)</li>
-<li><strong>Analysis Frequency Range</strong> — min and max Hz used for peak
-  detection. Distinct from the <em>display</em> frequency range above:
-  this controls which peaks the analyzer considers, not what is
-  shown on the chart.</li>
 <li><strong>Peak Detection Minimum</strong> (guitar only) — the same Peak Min
   value as the toolbar slider (§2.7); the Settings field accepts
   a precise numeric value. Sets the minimum magnitude (dB) a peak
-  must reach to be annotated and included in the analysis. A saved
-  guitar measurement retains its full peak set, so Peak Min can be
-  lowered later on a loaded measurement to reveal quieter peaks
-  (§2.7). Typical range: −60 to −40 dB. Disabled in plate / brace
-  mode (the per-phase capture uses its own adaptive noise floor).</li>
+  must reach to be <em>shown</em> — annotated on the chart and listed in
+  the results. It is a display filter only: it does not re-detect
+  peaks, or change which are selected or classified. A saved guitar
+  measurement retains its full peak set, so Peak Min can be lowered
+  later on a loaded measurement to reveal quieter peaks (§2.7).
+  Typical range: −60 to −40 dB. Disabled in plate / brace mode (the
+  per-phase capture uses its own adaptive noise floor).</li>
 <li><strong>Dump Capture Audio</strong> — when on, each measurement's captured
   audio is saved as one continuous mono 32-bit-float WAV file. Useful
   as an archive of a measurement, or for debugging; leave off if you
@@ -3290,10 +3323,14 @@ that phase only (§4.5).</p>
 Analysis Results sheet.</p>
 <p><strong>Re-analyze</strong> <img src="images/symbols/arrow.trianglehead.2.counterclockwise.png" width="18" height="18" class="inline-icon" alt="arrow.trianglehead.2.counterclockwise"> —
 In the Analysis Results header, next to the microphone name. Re-runs
-peak detection on a loaded measurement's stored spectrum using the
-current analysis settings — useful for trying a different Peak Min,
-analysis range, or guitar type on a saved measurement without
-re-tapping. Enabled only when a loaded measurement is shown.</p>
+peak detection on the frozen spectrum of any completed guitar
+measurement — live or loaded — re-classifies the modes from scratch,
+and returns peak selection to automatic. Custom mode names you have
+assigned are kept, though the peak carrying one may end up
+deselected. Useful for trying a different guitar type without
+re-tapping, or for a clean classification after manual changes. It
+does not disable itself after one press, and does not apply to
+plate / brace measurements.</p>
 <p><strong>Auto dB</strong> <img src="images/symbols/arrow.up.arrow.down.circle.png" width="18" height="18" class="inline-icon" alt="arrow.up.arrow.down.circle"> — Scales
 the magnitude axis to fit the current signal (§6.4). Shortcut:
 <strong>⌘0</strong> / <strong>Ctrl+0</strong>.</p>
@@ -3361,8 +3398,10 @@ themselves are the same everywhere:</p>
 </li>
 <li>
 <p><strong>Peak Min slider</strong> — minimum spectrum magnitude (dB) at which
-  a peak is annotated on the chart and included in guitar-mode
-  analysis (§2.7, §8.5). The current value is shown next to the
+  a peak is <em>shown</em> — annotated on the chart and listed in the
+  results (§2.7, §8.5). A display filter only: it never re-detects
+  peaks or changes which are selected or classified. The current
+  value is shown next to the
   slider; the <strong>reset arrow</strong> restores the factory default.
   Range: −100 dB to −20 dB. In plate / brace mode the slider
   affects only what is drawn on the chart — the selected peak
@@ -3597,8 +3636,8 @@ detector for the next tap.</p>
 </tr>
 <tr>
 <td>Unknown peaks everywhere</td>
-<td>Analysis range too wide for the measurement</td>
-<td>Narrow <strong>Analysis Frequency Range</strong> in Settings → Advanced → Analysis Settings (§8.5).</td>
+<td>Modes fall outside the standard windows, or Show Unknown Modes is on</td>
+<td>Pick the guitar type whose windows fit your instrument (§3.1); turn off <strong>Show Unknown Modes</strong> (§8.5) to hide the rest, or assign modes manually (§3.7).</td>
 </tr>
 <tr>
 <td>Spectrum doesn't update</td>
@@ -3930,7 +3969,12 @@ what the user did at save time:</p>
 <tr>
 <td><code>selectedPeakFrequencies</code></td>
 <td>array of float</td>
-<td>Frequencies (Hz) parallel to the IDs, used to re-match after a Peak Min change generates new UUIDs.</td>
+<td>Frequencies (Hz) parallel to the IDs; a stable fallback for re-matching selection to peaks when a re-analysis regenerates UUIDs. (Peak Min itself never re-detects or regenerates peaks.)</td>
+</tr>
+<tr>
+<td><code>userModifiedSelection</code></td>
+<td>bool</td>
+<td>Guitar only. <code>true</code> once the user has changed peak selection away from the automatic default, so a loaded measurement keeps that selection instead of re-deriving it. Omitted on material measurements and on files saved before 1.0.2; a missing value is read as <code>true</code>.</td>
 </tr>
 <tr>
 <td><code>peakAnnotationOffsets</code></td>
@@ -4245,6 +4289,11 @@ peaks nested inside <code>tapEntries</code> or <code>comparisonEntries</code>.</
 <td><code>guitarType</code></td>
 <td>string</td>
 <td>For mode classification.</td>
+</tr>
+<tr>
+<td><code>modePeakIDs</code></td>
+<td>object</td>
+<td>Maps each identified mode name (<code>air</code>, <code>top</code>, <code>back</code>, …) to the UUID of the peak that carries it in this overlay — computed override-aware when the comparison was saved, so the entry is self-describing and a reader need not re-classify. A plain JSON object with string keys (not a flat UUID-map). Omitted by builds before this field existed; such files are upgraded on open by re-deriving the map.</td>
 </tr>
 <tr>
 <td><code>sourceMeasurementID</code></td>

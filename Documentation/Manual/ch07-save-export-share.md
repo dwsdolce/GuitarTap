@@ -11,7 +11,9 @@ current measurement. Save is enabled whenever there is a finished
 measurement on screen — a frozen single tap, a complete plate or
 brace multi-phase capture, or an active comparison overlay — and
 disabled when the spectrum is live or no peaks have been
-identified.
+identified. Hiding peaks with Peak Min (or the None annotation
+mode) is only a display choice and never disables Save — the full
+peak set is stored regardless of what is currently shown.
 
 The Save sheet has two fields:
 
