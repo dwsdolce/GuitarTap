@@ -176,6 +176,11 @@ one falls inside the configured window. To correct it:
    **Custom label** field for free-text annotations.
 3. Pick the correct mode. The chart label updates immediately.
 
+An overridden mode is shown *in italics with a trailing asterisk*
+(`*`) everywhere it appears — the Analysis Results list, the chart
+label, and the PDF report — so a manual choice is never mistaken for
+the classifier's automatic pick.
+
 Overrides are saved with the measurement and reapplied when the
 measurement is loaded later. The wand (§3.6) resets selection but
 keeps your mode-name overrides.

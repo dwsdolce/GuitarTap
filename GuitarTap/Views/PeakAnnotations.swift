@@ -44,7 +44,7 @@
 /// - Guitar measurements: Air=cyan, Top=green, Back=orange, Dipole=red, etc.
 /// - Plate/brace measurements: L=blue, C=orange, FLC=purple, unselected=secondary.
 ///
-/// User-assigned mode overrides are shown in italic with a pencil badge.
+/// User-assigned mode overrides are shown in italic with a trailing " *".
 ///
 /// - SeeAlso: `SpectrumView`, `TapToneAnalyzer.peakAnnotationOffsets`
 
@@ -469,7 +469,7 @@ private struct ConnectionLine: View {
 /// The badge border thickens during hover (`1.5 pt` → `2 pt`) and drag
 /// (`2.5 pt`), providing clear visual feedback. When the label has a
 /// user-assigned mode override the mode name is shown in italic with a
-/// pencil-circle badge icon.
+/// trailing " *".
 private struct PeakAnnotationLabel: View {
     /// The peak whose data this label displays.
     let peak: ResonantPeak
@@ -530,18 +530,13 @@ private struct PeakAnnotationLabel: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            // Mode label (guitar mode or plate L/C), italic when manually overridden
-            HStack(spacing: 3) {
-                Text(modeLabel)
-                    .font(isManualOverride ? .caption2.italic() : .caption2)
-                    .fontWeight(.bold)
-                    .foregroundColor(modeColor)
-                if isManualOverride {
-                    Image(systemName: "pencil.circle.fill")
-                        .font(.system(size: 7))
-                        .foregroundColor(modeColor.opacity(0.8))
-                }
-            }
+            // Mode label (guitar mode or plate L/C). A manual override is shown italic with a
+            // trailing " *" — the one convention used everywhere (list, annotation, PDF, tables).
+            // No glyph: at annotation size a small icon was unreadable.
+            Text(modeLabel + (isManualOverride ? " *" : ""))
+                .font(isManualOverride ? .caption2.italic() : .caption2)
+                .fontWeight(.bold)
+                .foregroundColor(modeColor)
 
             // Pitch information if available (only show for guitar mode)
             if measurementType.isGuitar, let pitchNote = peak.pitchNote, let pitchCents = peak.pitchCents {

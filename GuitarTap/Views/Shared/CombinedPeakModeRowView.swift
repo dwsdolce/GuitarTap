@@ -274,6 +274,9 @@ struct CombinedPeakModeRowView: View {
     }
 
     private var modeLabelContent: some View {
+        // A manually overridden mode is shown italic with a trailing " *" — the ONE convention used
+        // everywhere (peak list, annotation, PDF, multi-tap/comparison tables). No glyph: at label
+        // size a small icon was unreadable. The separate in-range check/triangle badge is unrelated.
         HStack(spacing: 4) {
             #if os(macOS)
             // Fixed-width label column: capped at the width of the longest predefined
@@ -285,24 +288,19 @@ struct CombinedPeakModeRowView: View {
                 .hidden()
                 .help(effectiveModeLabel)
                 .overlay(alignment: .leading) {
-                    Text(effectiveModeLabel)
+                    Text(effectiveModeLabel + (isManualOverride ? " *" : ""))
                         .font(isManualOverride ? .headline.italic() : .headline)
                         .foregroundColor(displayColor)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
             #else
-            Text(effectiveModeLabel)
+            Text(effectiveModeLabel + (isManualOverride ? " *" : ""))
                 .font(isManualOverride ? .headline.italic() : .headline)
                 .foregroundColor(displayColor)
                 .lineLimit(1)
                 .truncationMode(.tail)
             #endif
-            if isManualOverride {
-                Image(systemName: "pencil.circle.fill")
-                    .font(.caption)
-                    .foregroundColor(displayColor.opacity(0.8))
-            }
         }
     }
 

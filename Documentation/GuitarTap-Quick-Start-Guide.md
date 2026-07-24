@@ -67,7 +67,7 @@ After a multi-tap guitar sequence (2–10 taps), the Results panel header shows 
 
 ### Overriding Mode Classification
 
-If a peak is labelled Unknown, or misclassified, tap it in the Results list and assign the correct mode manually. Your override is saved with the measurement.
+If a peak is labelled Unknown, or misclassified, tap it in the Results list and assign the correct mode manually. An overridden mode is shown in italics with a trailing asterisk (*) so it stands out from the automatic classification. Your override is saved with the measurement.
 
 ### Step 6 — Save
 

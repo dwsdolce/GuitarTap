@@ -121,7 +121,7 @@ Three main workflows are supported:
                 )
                 helpRow(
                     title: "Overriding Mode Classification",
-                    body: "If a peak is labelled Unknown, or misclassified, tap it in the Results list and assign the correct mode manually. Your override is saved with the measurement."
+                    body: "If a peak is labelled Unknown, or misclassified, tap it in the Results list and assign the correct mode manually. An overridden mode is shown in italics with a trailing asterisk (*) so it stands out from the automatic classification. Your override is saved with the measurement."
                 )
                 helpRow(
                     title: "Step 6 — Save",

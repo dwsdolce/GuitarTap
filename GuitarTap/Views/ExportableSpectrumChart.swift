@@ -171,13 +171,19 @@ struct ExportableSpectrumChart: View {
         return peakModes.isEmpty ? GuitarMode.classifyAll(visiblePeaks) : peakModes
     }
 
+    /// Whether the peak carries a manual (user-assigned) mode override.
+    private func isManualOverride(_ peak: ResonantPeak) -> Bool {
+        if case .assigned = modeOverrides[peak.id] { return true }
+        return false
+    }
+
     /// Returns the appropriate color for a peak based on measurement type and selection.
     private func peakColor(for peak: ResonantPeak) -> Color {
         if measurementType.isGuitar {
-            // Freeform user-defined label → teal.
-            if case .assigned(let label) = modeOverrides[peak.id],
-               GuitarMode.fromDisplayName(label) == nil {
-                return GuitarMode.userDefinedColor
+            // Override wins (like the label): a predefined label uses that mode's color; a freeform
+            // label is user-defined teal. Otherwise the auto-classified mode's color.
+            if case .assigned(let label) = modeOverrides[peak.id] {
+                return GuitarMode.fromDisplayName(label)?.color ?? GuitarMode.userDefinedColor
             }
             return (peakModeMap[peak.id] ?? .unknown).color
         } else {
@@ -395,8 +401,11 @@ struct ExportableSpectrumChart: View {
                                     let annotationY = annPos.y
 
                                     VStack(spacing: 6) {
-                                        Text(peakModeLabel(for: peak))
+                                        // A manual override is italic with a trailing " *" — the one
+                                        // convention used everywhere (list, live annotation, PDF, tables).
+                                        Text(peakModeLabel(for: peak) + (isManualOverride(peak) ? " *" : ""))
                                             .font(.system(size: 16, weight: .bold))
+                                            .italic(isManualOverride(peak))
                                             .foregroundColor(peakColor(for: peak))
 
                                         // Only show pitch info for guitar mode
@@ -641,20 +650,33 @@ func makeExportableSpectrumView(
                     .padding(.horizontal)
 
                 HStack(spacing: 20) {
-                    // Guitar: classify by GuitarMode. Material: no classifier — use the L/C/FLC role. (fix M)
+                    // Override-aware, matching the on-graph annotation and the results list: an
+                    // override wins for BOTH label and color — a predefined label uses that mode, a
+                    // freeform label is user-defined — italic + " *". Material uses the L/C/FLC role.
+                    // (fix M) Inlined because this free function can't call the struct's private helpers.
                     let summaryModeMap: [UUID: GuitarMode] = measurementType.isGuitar
                         ? (peakModes.isEmpty ? GuitarMode.classifyAll(peaks) : peakModes)
                         : [:]
                     ForEach(peaks.prefix(8).sorted(by: { $0.frequency < $1.frequency })) { peak in
-                        let mode = summaryModeMap[peak.id] ?? .unknown
-                        let chipLabel = measurementType.isGuitar ? mode.displayName : roleLabel(peak)
-                        let chipColor = measurementType.isGuitar ? mode.color : roleColor(peak)
+                        let assigned: String? = {
+                            if case .assigned(let l) = modeOverrides[peak.id] { return l }
+                            return nil
+                        }()
+                        let ovr = measurementType.isGuitar && assigned != nil
+                        let autoMode = summaryModeMap[peak.id] ?? .unknown
+                        let baseLabel = measurementType.isGuitar ? (assigned ?? autoMode.displayName) : roleLabel(peak)
+                        let chipLabel = baseLabel + (ovr ? " *" : "")
+                        let chipColor: Color = measurementType.isGuitar
+                            ? (assigned.flatMap { GuitarMode.fromDisplayName($0)?.color }
+                               ?? (assigned != nil ? GuitarMode.userDefinedColor : autoMode.color))
+                            : roleColor(peak)
                         VStack(spacing: 4) {
                             Text("\(peak.frequency, specifier: "%.1f") Hz")
                                 .font(.caption)
                                 .fontWeight(.bold)
                             Text(chipLabel)
                                 .font(.caption2)
+                                .italic(ovr)
                                 .foregroundColor(chipColor)
                             Text("\(peak.magnitude, specifier: "%.1f") dB")
                                 .font(.caption2)
