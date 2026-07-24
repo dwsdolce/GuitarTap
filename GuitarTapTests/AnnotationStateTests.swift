@@ -798,3 +798,64 @@ struct DefinitivePeakAndRatioTests {
         #expect(info[.air]?.frequency == 100)
     }
 }
+
+// MARK: - Phase 7 triggers  (paired with Python TestPhase7Triggers)
+//
+// Clean-slate guitar-type change + a new tap sequence clears ALL per-peak state. Added to BOTH
+// platforms so the behaviour is pinned identically (Swift shipped Phase 7 test-free at e3a7303).
+
+@Suite("Phase7Triggers", .serialized)
+@MainActor
+struct Phase7TriggersTests {
+
+    private func makeGuitarSUT() -> TapToneAnalyzer {
+        TapDisplaySettings.measurementType = .generic
+        return makeSUT()
+    }
+
+    // A guitar-type change re-derives for the new type: manual overrides cleared, selection reset to
+    // auto, peaks reclassified. NOT the wand (which keeps labels).
+    @Test func reclassifyForGuitarTypeChange_isACleanSlate() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let air = makePeak(frequency: 100, magnitude: -25)
+        let top = makePeak(frequency: 150, magnitude: -20)
+        sut.allPeaks = [air, top]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(air.id)
+        sut.setModeOverride(.assigned("Wolf note"), for: top.id)   // a label made under the OLD type
+        #expect(sut.hasManualOverride(for: top.id), "precondition: override in effect")
+
+        sut.reclassifyForGuitarTypeChange()
+
+        #expect(sut.peakModeOverrides.isEmpty, "clean slate clears manual overrides")
+        #expect(sut.userHasModifiedPeakSelection == false, "selection reset to auto")
+        #expect(sut.selectedPeakIDs == sut.guitarModeSelectedPeakIDs(from: sut.allPeaks),
+                "selection is the fresh auto-selection for the new type")
+    }
+
+    // A new sequence must leave nothing from the previous measurement to leak into the next file.
+    @Test func startTapSequence_clearsAllPerPeakState() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        let sut = makeGuitarSUT()
+
+        let air = makePeak(frequency: 100, magnitude: -25)
+        let top = makePeak(frequency: 150, magnitude: -20)
+        sut.allPeaks = [air, top]
+        sut.reclassifyPeaks()
+        sut.togglePeakSelection(air.id)
+        sut.setModeOverride(.assigned("Wolf note"), for: top.id)
+        sut.selectedPeakFrequencies = [100]
+        #expect(!sut.selectedPeakIDs.isEmpty && !sut.peakModeOverrides.isEmpty, "precondition")
+
+        sut.startTapSequence()
+
+        #expect(sut.selectedPeakIDs.isEmpty)
+        #expect(sut.selectedPeakFrequencies.isEmpty)
+        #expect(sut.userHasModifiedPeakSelection == false)
+        #expect(sut.peakModeOverrides.isEmpty)
+    }
+}
