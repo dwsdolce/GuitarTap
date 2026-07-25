@@ -67,7 +67,7 @@ After a multi-tap guitar sequence (2–10 taps), the Results panel header shows 
 
 ### Overriding Mode Classification
 
-If a peak is labelled Unknown, or misclassified, tap it in the Results list and assign the correct mode manually. An overridden mode is shown in italics with a trailing asterisk (*) so it stands out from the automatic classification. Your override is saved with the measurement.
+If a peak is labelled Unknown, or misclassified, tap it in the Results list and assign the correct mode manually. An overridden mode is shown in italics with a trailing asterisk (*) so it stands out from the automatic classification. Your override is saved with the measurement. Reclassifying a peak from unknown to another mode — an existing mode or a user-defined one — means the Show Unknown Modes setting no longer hides it.
 
 ### Step 6 — Save
 
@@ -284,7 +284,7 @@ Tap the Advanced row to expand Display Settings, Analysis Settings, and FFT Proc
 
 ### Show Unknown Modes
 
-Guitar mode only — found in Advanced → Analysis Settings. When off, peaks outside the known mode frequency windows are hidden, reducing clutter.
+Guitar mode only — found in Advanced → Analysis Settings. When off, peaks outside the known mode frequency windows are hidden, reducing clutter. A peak you have manually reclassified from unknown to another mode — an existing mode or a user-defined one — is no longer unknown and stays visible.
 
 ### Display Frequency Range
 

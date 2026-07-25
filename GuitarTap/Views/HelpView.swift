@@ -121,7 +121,7 @@ Three main workflows are supported:
                 )
                 helpRow(
                     title: "Overriding Mode Classification",
-                    body: "If a peak is labelled Unknown, or misclassified, tap it in the Results list and assign the correct mode manually. An overridden mode is shown in italics with a trailing asterisk (*) so it stands out from the automatic classification. Your override is saved with the measurement."
+                    body: "If a peak is labelled Unknown, or misclassified, tap it in the Results list and assign the correct mode manually. An overridden mode is shown in italics with a trailing asterisk (*) so it stands out from the automatic classification. Your override is saved with the measurement. Reclassifying a peak from unknown to another mode — an existing mode or a user-defined one — means the Show Unknown Modes setting no longer hides it."
                 )
                 helpRow(
                     title: "Step 6 — Save",
@@ -375,7 +375,7 @@ Help menu:
                 )
                 helpRow(
                     title: "Show Unknown Modes",
-                    body: "Guitar mode only — found in Advanced → Analysis Settings. When off, peaks outside the known mode frequency windows are hidden, reducing clutter."
+                    body: "Guitar mode only — found in Advanced → Analysis Settings. When off, peaks outside the known mode frequency windows are hidden, reducing clutter. A peak you have manually reclassified from unknown to another mode — an existing mode or a user-defined one — is no longer unknown and stays visible."
                 )
                 helpRow(
                     title: "Display Frequency Range",
