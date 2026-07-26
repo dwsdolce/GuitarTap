@@ -12,6 +12,20 @@ long-term parallel ports kept at numeric/behavioural parity with this app:
 - **Python desktop** (Windows / macOS / Linux) — [guitar_tap](https://github.com/dwsdolce/guitar_tap)
 - **Browser (PWA)** — [GuitarTapWeb](https://github.com/dwsdolce/GuitarTapWeb)
 
+## Soak / stress testing
+
+`Tooling/deinit-soak.sh` is an on-demand **dev tool** (not CI). It builds the test
+bundle once, then loops the fast suite many times, scanning for new crash reports —
+surfacing the intermittent `TapToneAnalyzer.deinit` teardown race (and its kind)
+that a single run hides:
+
+```bash
+./Tooling/deinit-soak.sh 300   # 300 runs
+```
+
+A green soak is **confidence, not proof**. The Python and web editions carry a
+matching `Tooling/soak.sh`.
+
 ## Links
 
 - App Store: <https://apps.apple.com/app/guitar-tap/id6759410596>
