@@ -28,7 +28,7 @@
 
 ### Peak Min
 
-- A saved guitar measurement now keeps **every detected peak down to −100 dB** (the lowest Peak Min can be set), not only those above the Peak Min in effect when it was saved. Lowering Peak Min on a loaded measurement now reveals fainter peaks — including a low Air resonance — exactly as it does during a live measurement. Measurements saved before this update keep only the peaks that were above their Peak Min at the time; use **Re-analyze** to re-derive the full set from the spectrum, then Save.
+- A saved guitar measurement now keeps **every detected peak down to -100 dB** (the lowest Peak Min can be set), not only those above the Peak Min in effect when it was saved. Lowering Peak Min on a loaded measurement now reveals fainter peaks — including a low Air resonance — exactly as it does during a live measurement. Measurements saved before this update keep only the peaks that were above their Peak Min at the time; use **Re-analyze** to re-derive the full set from the spectrum, then Save.
 - Peak Min is now purely a **display** control: raising or lowering it only shows or hides peaks — it never changes which peaks are selected, how they are classified, or the identified modes. Those are properties of the measurement itself.
 
 ### Peaks & Modes

@@ -137,6 +137,12 @@ Results panel.
   Selected peaks contribute to derived values such as the tap-tone
   ratio; deselected peaks remain visible but are excluded from the
   calculation.
+- **Highlight a peak to find it in the list** (desktop) — click a
+  peak's dot on the chart and it is marked with a star while its row
+  in the Analysis Results panel scrolls into view and is outlined;
+  click a Results row to highlight its dot in reverse. Click either
+  again to clear. The highlight is only a locator — it does not
+  change the selection.
 - **Cycle the annotation set** using the Annotations button:
   *All* (every detected peak labelled), *Selected* (only currently
   selected peaks), or *None* (no labels on the chart). The default
