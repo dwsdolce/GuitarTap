@@ -25,7 +25,7 @@ N="${1:-300}"
 
 MARKER="$(mktemp)"          # mtime = loop start; `find -newer` flags reports created after it
 echo "marker: $MARKER  (crash reports newer than this are ours)"
-echo "pre-existing GuitarTap crash reports: $(ls -1 "$DR"/GuitarTap*.ips 2>/dev/null | wc -l | tr -d ' ')"
+echo "pre-existing GuitarTap crash reports: $(find "$DR" -name 'GuitarTap*.ips' 2>/dev/null | wc -l | tr -d ' ')"
 
 echo "building for testing (once)..."
 xcodebuild build-for-testing -scheme guitar_tap -destination 'platform=macOS' 2>&1 | grep -E "TEST BUILD|error:" | head -3

@@ -1393,15 +1393,19 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// These subscriptions are `fftAnalyzer.$magnitudes` / `$frequencies` / … `.receive(on:).sink`.
     /// On dealloc, the *synthesized* deinit releases stored properties in an unspecified order: if
-    /// `fftAnalyzer` (and its `@Published` subjects) released before `cancellables`, cancelling a
-    /// `.receive(on:)` subscription called `PublishedSubject.Conduit.cancel()` on a **freed** subject
-    /// — locking a dangling `os_unfair_lock` → EXC_BAD_ACCESS at 0x0. A crash report showed exactly
-    /// this stack (`TapToneAnalyzer.deinit` → `Set<AnyCancellable>` teardown → `PublishedSubject`).
-    /// The deinit body runs *before* stored-property release, so cancelling here happens while the
-    /// subjects are still valid; the later ivar release then just drops already-cancelled (idempotent)
-    /// cancellables. Latent since the subscriptions were added — surfaced intermittently under test.
+    /// `fftAnalyzer` (and its `@Published` subjects) released before `cancellables`, tearing down a
+    /// `.receive(on:)` subscription touches a **freed** subject → EXC_BAD_ACCESS (seen as a refcount
+    /// release on a garbage pointer in `swift_cvw_destroyImpl` during the deinit epilogue).
+    ///
+    /// `cancel()` ALONE is not enough: it stops delivery but leaves the `Set<AnyCancellable>`
+    /// populated, so the conduit graph is still released in the unspecified-order epilogue — and the
+    /// crash reproduced with only-cancel present (build 418, `PeakFixtureRegressionTests`, ~1/300).
+    /// `removeAll()` releases the conduit graph HERE, in the deinit body, while `fftAnalyzer`'s
+    /// subjects are guaranteed still alive; the later `fftAnalyzer` release then has no conduits left
+    /// pointing at it. The invariant is cancel-then-release, both before any stored property drops.
     deinit {
         cancellables.forEach { $0.cancel() }
+        cancellables.removeAll()
     }
 
     /// History of (audioTime, inputLevelDB) samples used by the decay tracker.
