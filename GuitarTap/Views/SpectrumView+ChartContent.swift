@@ -94,7 +94,7 @@ extension SpectrumView {
     /// `PointMark` dots for every peak in the visible frequency range.
     ///
     /// All peaks always show a dot regardless of annotation visibility mode.
-    /// The highlighted peak (``highlightedPeakID``) renders larger with a white ring.
+    /// The highlighted peak (``highlightedPeakID``) renders larger as a red `star.fill` (macOS only).
     /// A second invisible `PointMark` with a `Color.clear` annotation is placed at
     /// each *annotation-visible* peak position to serve as a size placeholder for the
     /// draggable overlay labels rendered in `PeakAnnotations`.
