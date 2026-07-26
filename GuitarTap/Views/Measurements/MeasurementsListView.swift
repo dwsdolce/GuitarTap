@@ -57,6 +57,10 @@ struct MeasurementsListView: View {
     @Environment(\.dismiss) var dismiss
     @State private var isExporting = false  // Track export progress
     @State private var isGeneratingReport = false
+
+    /// True while any export/save panel is in flight — the actions guard on this so a repeated
+    /// (or cross-type) click can't stack a second async, non-modal `NSSavePanel`.
+    private var isExportPanelInFlight: Bool { isExporting || isGeneratingReport }
     @State private var showingImportPicker = false
     @State private var importError: String?
     @State private var importSuccess: String?
@@ -366,6 +370,7 @@ struct MeasurementsListView: View {
     }
     
     private func exportSingleMeasurement(_ measurement: TapToneMeasurement) {
+        guard !isExportPanelInFlight else { return }   // re-entrancy: async NSSavePanel, cleared on every completion
         isExporting = true
         analyzer.exportMeasurement(measurement) { json, measurement in
             MeasurementFileExporter.exportJSON(json: json, measurement: measurement) {
@@ -378,6 +383,7 @@ struct MeasurementsListView: View {
     /// platform or browser). Reuses the JSON form persisted to saved_measurements.json.
     private func exportAllMeasurements() {
         guard !analyzer.savedMeasurements.isEmpty else { return }
+        guard !isExportPanelInFlight else { return }
         isExporting = true
         analyzer.exportAllMeasurements { json in
             let name = "guitartap-library-\(Int(Date().timeIntervalSince1970))"
@@ -389,6 +395,7 @@ struct MeasurementsListView: View {
 
     #if os(macOS)
     private func saveMeasurementToDisk(_ measurement: TapToneMeasurement) {
+        guard !isExportPanelInFlight else { return }
         isExporting = true
         analyzer.exportMeasurement(measurement) { json, measurement in
             MeasurementFileExporter.saveMeasurementToDisk(json: json, measurement: measurement) {
@@ -400,6 +407,7 @@ struct MeasurementsListView: View {
     /// Save the whole library to a chosen file via NSSavePanel (macOS "Save All to Disk…").
     private func saveAllMeasurementsToDisk() {
         guard !analyzer.savedMeasurements.isEmpty else { return }
+        guard !isExportPanelInFlight else { return }
         isExporting = true
         analyzer.exportAllMeasurements { json in
             let name = "guitartap-library-\(Int(Date().timeIntervalSince1970))"
@@ -412,6 +420,7 @@ struct MeasurementsListView: View {
 
     @MainActor
     private func exportSpectrumMeasurement(_ measurement: TapToneMeasurement) {
+        guard !isExportPanelInFlight else { return }
         isExporting = true
 
         let imageData: Data? = measurement.isComparison
@@ -427,6 +436,7 @@ struct MeasurementsListView: View {
 
     @MainActor
     private func exportPDFReport(for measurement: TapToneMeasurement) {
+        guard !isExportPanelInFlight else { return }
         isGeneratingReport = true
         let spectrumImageData = renderSpectrumImageForMeasurement(measurement)
         let reportData = PDFReportData.from(measurement: measurement, spectrumImageData: spectrumImageData)

@@ -105,6 +105,11 @@ struct TapToneAnalysisView: View {
     @State var isExportingSpectrum = false
     @State var isSavingMeasurement = false
     @State var isGeneratingReport = false
+
+    /// True while any file-export panel (spectrum PNG or PDF report) is in flight. The export
+    /// actions guard on this so a repeated — or cross-type — click can't stack a second async,
+    /// non-modal `NSSavePanel`. Cleared on every completion path, so it can't wedge.
+    var isExportPanelInFlight: Bool { isExportingSpectrum || isGeneratingReport }
     @State var showingMicrophonePermissionAlert = false
     @State var engineStartError: String? = nil
     @State var showingPlayFileSheet = false

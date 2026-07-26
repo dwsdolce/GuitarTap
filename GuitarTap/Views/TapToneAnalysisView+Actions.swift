@@ -376,6 +376,9 @@ extension TapToneAnalysisView {
     // MARK: - Spectrum Export
 
     func exportCurrentSpectrum() {
+        // Re-entrancy guard: NSSavePanel.begin is async and non-modal, so a second click
+        // while a panel is open would stack another panel (see isExportPanelInFlight).
+        guard !isExportPanelInFlight else { return }
         isExportingSpectrum = true
 
         DispatchQueue.main.async {

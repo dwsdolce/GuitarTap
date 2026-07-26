@@ -46,6 +46,11 @@ extension TapToneAnalysisView {
     /// - All other cases produce a single averaged-result page.
     @MainActor
     func exportPDFReport() {
+        // Re-entrancy guard: the PDF path presents an async, non-modal NSSavePanel, so a
+        // repeated (or cross-type) click would stack panels. Covers the multi-tap and
+        // comparison variants too — they are only reached through here (see
+        // isExportPanelInFlight, cleared on every export completion path).
+        guard !isExportPanelInFlight else { return }
         if !tap.tapEntries.isEmpty {
             exportMultiTapPDFReport()
             return
