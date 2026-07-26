@@ -34,14 +34,16 @@ PASS=0; NOPASS=0; CRASH=0
 for i in $(seq 1 "$N"); do
   OUT=$(xcodebuild test-without-building -scheme guitar_tap -destination 'platform=macOS' \
         -skip-testing:GuitarTapTests/FilePlaybackRegressionTests 2>&1)
-  if print -r -- "$OUT" | grep -q "passed after"; then PASS=$((PASS+1)); else NOPASS=$((NOPASS+1)); echo "!!! RUN $i: no pass line"; fi
+  if print -r -- "$OUT" | grep -q "passed after"; then PASS=$((PASS+1)); else NOPASS=$((NOPASS+1)); echo; echo "!!! RUN $i: no pass line"; fi
   NEW=$(find "$DR" -name 'GuitarTap*.ips' -newer "$MARKER" 2>/dev/null | wc -l | tr -d ' ')
   if [ "$NEW" -gt "$CRASH" ]; then
     CRASH="$NEW"
-    echo "!!! RUN $i: NEW CRASH REPORT (total $CRASH) ->"
+    echo; echo "!!! RUN $i: NEW CRASH REPORT (total $CRASH) ->"
     find "$DR" -name 'GuitarTap*.ips' -newer "$MARKER" 2>/dev/null | tail -1
   fi
-  if [ $((i % 25)) -eq 0 ]; then echo "... $i/$N: $PASS pass-lines, $CRASH crashes, $NOPASS no-pass"; fi
+  # Live per-run tally (matches the Python/web soak scripts). Updates BETWEEN runs — a single
+  # xcodebuild run is ~3.5 s of silence because its output is captured, not streamed.
+  printf "\r%d/%d  pass=%d crash=%d nopass=%d " "$i" "$N" "$PASS" "$CRASH" "$NOPASS"
 done
 
 echo "=== DONE: $N runs | $PASS pass-lines | $CRASH CRASH REPORTS | $NOPASS no-pass ==="
