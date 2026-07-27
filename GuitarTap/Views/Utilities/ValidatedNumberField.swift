@@ -15,7 +15,8 @@
 ///
 /// This is the Swift edition's mechanism for the same restrict-on-entry behaviour the Python edition
 /// gets from a `QRegularExpressionValidator` and the web edition from a synchronous `onChange`
-/// revert. The shared precision policy lives in `FieldPrecision` (@parity util/field-precision).
+/// revert. The shared precision policy lives in `FieldPrecision` (the `util/field-precision` parity
+/// group); this view is a Swift-only consumer of it, not a cross-platform mirror.
 
 import SwiftUI
 

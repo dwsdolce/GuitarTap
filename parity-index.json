@@ -580,6 +580,20 @@
       "equivalence": "test suite"
     },
     {
+      "slug": "test/field-precision",
+      "swift": [
+        "GuitarTapTests/FieldPrecisionTests.swift"
+      ],
+      "python": [
+        "tests/test_field_precision.py"
+      ],
+      "web": [
+        "test/field-precision.test.ts"
+      ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
       "slug": "test/file-playback",
       "swift": [
         "GuitarTapTests/FilePlaybackRegressionTests.swift"
@@ -931,6 +945,20 @@
       "web": [],
       "tests": [],
       "equivalence": "test suite"
+    },
+    {
+      "slug": "util/field-precision",
+      "swift": [
+        "GuitarTap/Models/FieldPrecision.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/field_precision.py"
+      ],
+      "web": [
+        "src/precision.ts"
+      ],
+      "tests": [],
+      "equivalence": "review only"
     },
     {
       "slug": "view/analysis-metrics",
