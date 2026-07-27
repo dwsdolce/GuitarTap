@@ -172,14 +172,6 @@ struct TapSettingsView: View {
         self._peakMinThresholdInput = State(initialValue: FieldPrecision.string(peakMinThreshold.wrappedValue, FieldPrecision.magnitudeDB))
     }
 
-    /// Wraps a text binding so a keystroke that would exceed `decimals` fractional digits is
-    /// rejected — the over-precise character never appears (a 2-dp field takes "29.35" but not
-    /// "29.356"). See `FieldPrecision.decimalsWithin`.
-    func limitedInput(_ source: Binding<String>, _ decimals: Int) -> Binding<String> {
-        Binding(get: { source.wrappedValue },
-                set: { if FieldPrecision.decimalsWithin($0, decimals) { source.wrappedValue = $0 } })
-    }
-
     var body: some View {
         NavigationStack {
             Form {

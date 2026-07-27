@@ -33,6 +33,7 @@ extension TapSettingsView {
         title: String,
         minBinding: Binding<String>,
         maxBinding: Binding<String>,
+        decimals: Int,
         unit: String,
         description: String
     ) -> some View {
@@ -46,11 +47,8 @@ extension TapSettingsView {
                     Text("Minimum:")
                         .frame(width: 80, alignment: .leading)
                         .foregroundColor(.secondary)
-                    TextField("Min", text: minBinding)
-                        .textFieldStyle(.roundedBorder)
-                        #if os(iOS)
-                        .keyboardType(unit == "dB" ? .numbersAndPunctuation : .decimalPad)
-                        #endif
+                    ValidatedNumberField(text: minBinding, decimals: decimals,
+                                         placeholder: "Min", allowsNegative: unit == "dB")
                     Text(unit)
                         .foregroundColor(.secondary)
                         .frame(width: 30, alignment: .leading)
@@ -60,11 +58,8 @@ extension TapSettingsView {
                     Text("Maximum:")
                         .frame(width: 80, alignment: .leading)
                         .foregroundColor(.secondary)
-                    TextField("Max", text: maxBinding)
-                        .textFieldStyle(.roundedBorder)
-                        #if os(iOS)
-                        .keyboardType(unit == "dB" ? .numbersAndPunctuation : .decimalPad)
-                        #endif
+                    ValidatedNumberField(text: maxBinding, decimals: decimals,
+                                         placeholder: "Max", allowsNegative: unit == "dB")
                     Text(unit)
                         .foregroundColor(.secondary)
                         .frame(width: 30, alignment: .leading)
@@ -85,6 +80,7 @@ extension TapSettingsView {
         title: String,
         minBinding: Binding<String>,
         maxBinding: Binding<String>,
+        decimals: Int,
         unit: String,
         description: String
     ) -> some View {
@@ -94,21 +90,15 @@ extension TapSettingsView {
                 .fontWeight(.medium)
 
             HStack(spacing: 12) {
-                TextField("Min", text: minBinding)
-                    .textFieldStyle(.roundedBorder)
-                    #if os(iOS)
-                    .keyboardType(unit == "dB" ? .numbersAndPunctuation : .decimalPad)
-                    #endif
+                ValidatedNumberField(text: minBinding, decimals: decimals,
+                                     placeholder: "Min", allowsNegative: unit == "dB")
                     .frame(maxWidth: 100)
 
                 Text("to")
                     .foregroundColor(.secondary)
 
-                TextField("Max", text: maxBinding)
-                    .textFieldStyle(.roundedBorder)
-                    #if os(iOS)
-                    .keyboardType(unit == "dB" ? .numbersAndPunctuation : .decimalPad)
-                    #endif
+                ValidatedNumberField(text: maxBinding, decimals: decimals,
+                                     placeholder: "Max", allowsNegative: unit == "dB")
                     .frame(maxWidth: 100)
 
                 Text(unit)

@@ -93,12 +93,8 @@ extension TapSettingsView {
                     Text("Length (along grain):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: limitedInput($plateLengthInput, FieldPrecision.linearDimensionMM))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $plateLengthInput, decimals: FieldPrecision.linearDimensionMM)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("mm")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -108,12 +104,8 @@ extension TapSettingsView {
                     Text("Width (cross grain):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: limitedInput($plateWidthInput, FieldPrecision.linearDimensionMM))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $plateWidthInput, decimals: FieldPrecision.linearDimensionMM)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("mm")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -123,12 +115,8 @@ extension TapSettingsView {
                     Text("Thickness:")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: limitedInput($plateThicknessInput, FieldPrecision.linearDimensionMM))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $plateThicknessInput, decimals: FieldPrecision.linearDimensionMM)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("mm")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -138,12 +126,8 @@ extension TapSettingsView {
                     Text("Mass:")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: limitedInput($plateMassInput, FieldPrecision.massG))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $plateMassInput, decimals: FieldPrecision.massG)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("g")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -191,12 +175,8 @@ extension TapSettingsView {
                     Text("Body Length (a):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: limitedInput($guitarBodyLengthInput, FieldPrecision.bodyDimensionMM))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $guitarBodyLengthInput, decimals: FieldPrecision.bodyDimensionMM)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("mm")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -206,12 +186,8 @@ extension TapSettingsView {
                     Text("Lower Bout Width (b):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: limitedInput($guitarBodyWidthInput, FieldPrecision.bodyDimensionMM))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $guitarBodyWidthInput, decimals: FieldPrecision.bodyDimensionMM)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("mm")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -237,12 +213,8 @@ extension TapSettingsView {
                         Text("Custom f_vs value:")
                             .font(.subheadline)
                         Spacer()
-                        TextField("value", text: limitedInput($customPlateStiffnessInput, FieldPrecision.stiffness))
-                            .textFieldStyle(.roundedBorder)
+                        ValidatedNumberField(text: $customPlateStiffnessInput, decimals: FieldPrecision.stiffness, placeholder: "value")
                             .frame(width: 80)
-                            #if os(iOS)
-                            .keyboardType(.decimalPad)
-                            #endif
                     }
                 }
             }
@@ -259,12 +231,8 @@ extension TapSettingsView {
                     Text("Length (along grain):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: limitedInput($braceLengthInput, FieldPrecision.linearDimensionMM))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $braceLengthInput, decimals: FieldPrecision.linearDimensionMM)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("mm")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -274,12 +242,8 @@ extension TapSettingsView {
                     Text("Width (breadth):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: limitedInput($braceWidthInput, FieldPrecision.linearDimensionMM))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $braceWidthInput, decimals: FieldPrecision.linearDimensionMM)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("mm")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -294,12 +258,8 @@ extension TapSettingsView {
                             .foregroundColor(.secondary)
                     }
                     Spacer()
-                    TextField("", text: limitedInput($braceThicknessInput, FieldPrecision.linearDimensionMM))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $braceThicknessInput, decimals: FieldPrecision.linearDimensionMM)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("mm")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -309,12 +269,8 @@ extension TapSettingsView {
                     Text("Mass:")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: limitedInput($braceMassInput, FieldPrecision.massG))
-                        .textFieldStyle(.roundedBorder)
+                    ValidatedNumberField(text: $braceMassInput, decimals: FieldPrecision.massG)
                         .frame(width: 80)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
                     Text("g")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -359,16 +315,18 @@ extension TapSettingsView {
         if isCompact {
             compactFrequencyRangeView(
                 title: "Frequency Range",
-                minBinding: limitedInput($minFreqInput, FieldPrecision.frequencyHz),
-                maxBinding: limitedInput($maxFreqInput, FieldPrecision.frequencyHz),
+                minBinding: $minFreqInput,
+                maxBinding: $maxFreqInput,
+                decimals: FieldPrecision.frequencyHz,
                 unit: "Hz",
                 description: "Frequency range shown in the spectrum chart"
             )
         } else {
             regularFrequencyRangeView(
                 title: "Frequency Range",
-                minBinding: limitedInput($minFreqInput, FieldPrecision.frequencyHz),
-                maxBinding: limitedInput($maxFreqInput, FieldPrecision.frequencyHz),
+                minBinding: $minFreqInput,
+                maxBinding: $maxFreqInput,
+                decimals: FieldPrecision.frequencyHz,
                 unit: "Hz",
                 description: "Frequency range shown in the spectrum chart"
             )
@@ -378,16 +336,18 @@ extension TapSettingsView {
         if isCompact {
             compactFrequencyRangeView(
                 title: "Magnitude Range",
-                minBinding: limitedInput($minDBInput, FieldPrecision.magnitudeDB),
-                maxBinding: limitedInput($maxDBInput, FieldPrecision.magnitudeDB),
+                minBinding: $minDBInput,
+                maxBinding: $maxDBInput,
+                decimals: FieldPrecision.magnitudeDB,
                 unit: "dB",
                 description: "Magnitude range shown in the spectrum chart"
             )
         } else {
             regularFrequencyRangeView(
                 title: "Magnitude Range",
-                minBinding: limitedInput($minDBInput, FieldPrecision.magnitudeDB),
-                maxBinding: limitedInput($maxDBInput, FieldPrecision.magnitudeDB),
+                minBinding: $minDBInput,
+                maxBinding: $maxDBInput,
+                decimals: FieldPrecision.magnitudeDB,
                 unit: "dB",
                 description: "Magnitude range shown in the spectrum chart"
             )
@@ -445,11 +405,8 @@ extension TapSettingsView {
                     .fontWeight(.medium)
 
                 HStack(spacing: 12) {
-                    TextField("Min", text: limitedInput($peakMinThresholdInput, FieldPrecision.magnitudeDB))
-                        .textFieldStyle(.roundedBorder)
-                        #if os(iOS)
-                        .keyboardType(.numbersAndPunctuation)
-                        #endif
+                    ValidatedNumberField(text: $peakMinThresholdInput, decimals: FieldPrecision.magnitudeDB,
+                                         placeholder: "Min", allowsNegative: true)
                         .frame(maxWidth: isCompact ? .infinity : 120)
 
                     Text("dB")
