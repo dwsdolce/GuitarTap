@@ -44,8 +44,8 @@ extension TapSettingsView {
             #endif
             .onChange(of: selectedMeasurementType) { _, newType in
                 // Load the stored frequency range for the new type (falls back to type defaults)
-                minFreqInput = String(format: "%.0f", TapDisplaySettings.minFrequency(for: newType))
-                maxFreqInput = String(format: "%.0f", TapDisplaySettings.maxFrequency(for: newType))
+                minFreqInput = FieldPrecision.string(TapDisplaySettings.minFrequency(for: newType), FieldPrecision.frequencyHz)
+                maxFreqInput = FieldPrecision.string(TapDisplaySettings.maxFrequency(for: newType), FieldPrecision.frequencyHz)
             }
 
             // Show description for selected type
@@ -93,7 +93,7 @@ extension TapSettingsView {
                     Text("Length (along grain):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: $plateLengthInput)
+                    TextField("", text: limitedInput($plateLengthInput, FieldPrecision.linearDimensionMM))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -108,7 +108,7 @@ extension TapSettingsView {
                     Text("Width (cross grain):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: $plateWidthInput)
+                    TextField("", text: limitedInput($plateWidthInput, FieldPrecision.linearDimensionMM))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -123,7 +123,7 @@ extension TapSettingsView {
                     Text("Thickness:")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: $plateThicknessInput)
+                    TextField("", text: limitedInput($plateThicknessInput, FieldPrecision.linearDimensionMM))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -138,7 +138,7 @@ extension TapSettingsView {
                     Text("Mass:")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: $plateMassInput)
+                    TextField("", text: limitedInput($plateMassInput, FieldPrecision.massG))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -191,7 +191,7 @@ extension TapSettingsView {
                     Text("Body Length (a):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: $guitarBodyLengthInput)
+                    TextField("", text: limitedInput($guitarBodyLengthInput, FieldPrecision.bodyDimensionMM))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -206,7 +206,7 @@ extension TapSettingsView {
                     Text("Lower Bout Width (b):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: $guitarBodyWidthInput)
+                    TextField("", text: limitedInput($guitarBodyWidthInput, FieldPrecision.bodyDimensionMM))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -237,7 +237,7 @@ extension TapSettingsView {
                         Text("Custom f_vs value:")
                             .font(.subheadline)
                         Spacer()
-                        TextField("value", text: $customPlateStiffnessInput)
+                        TextField("value", text: limitedInput($customPlateStiffnessInput, FieldPrecision.stiffness))
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             #if os(iOS)
@@ -259,7 +259,7 @@ extension TapSettingsView {
                     Text("Length (along grain):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: $braceLengthInput)
+                    TextField("", text: limitedInput($braceLengthInput, FieldPrecision.linearDimensionMM))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -274,7 +274,7 @@ extension TapSettingsView {
                     Text("Width (breadth):")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: $braceWidthInput)
+                    TextField("", text: limitedInput($braceWidthInput, FieldPrecision.linearDimensionMM))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -294,7 +294,7 @@ extension TapSettingsView {
                             .foregroundColor(.secondary)
                     }
                     Spacer()
-                    TextField("", text: $braceThicknessInput)
+                    TextField("", text: limitedInput($braceThicknessInput, FieldPrecision.linearDimensionMM))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -309,7 +309,7 @@ extension TapSettingsView {
                     Text("Mass:")
                         .font(.subheadline)
                     Spacer()
-                    TextField("", text: $braceMassInput)
+                    TextField("", text: limitedInput($braceMassInput, FieldPrecision.massG))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         #if os(iOS)
@@ -359,16 +359,16 @@ extension TapSettingsView {
         if isCompact {
             compactFrequencyRangeView(
                 title: "Frequency Range",
-                minBinding: $minFreqInput,
-                maxBinding: $maxFreqInput,
+                minBinding: limitedInput($minFreqInput, FieldPrecision.frequencyHz),
+                maxBinding: limitedInput($maxFreqInput, FieldPrecision.frequencyHz),
                 unit: "Hz",
                 description: "Frequency range shown in the spectrum chart"
             )
         } else {
             regularFrequencyRangeView(
                 title: "Frequency Range",
-                minBinding: $minFreqInput,
-                maxBinding: $maxFreqInput,
+                minBinding: limitedInput($minFreqInput, FieldPrecision.frequencyHz),
+                maxBinding: limitedInput($maxFreqInput, FieldPrecision.frequencyHz),
                 unit: "Hz",
                 description: "Frequency range shown in the spectrum chart"
             )
@@ -378,16 +378,16 @@ extension TapSettingsView {
         if isCompact {
             compactFrequencyRangeView(
                 title: "Magnitude Range",
-                minBinding: $minDBInput,
-                maxBinding: $maxDBInput,
+                minBinding: limitedInput($minDBInput, FieldPrecision.magnitudeDB),
+                maxBinding: limitedInput($maxDBInput, FieldPrecision.magnitudeDB),
                 unit: "dB",
                 description: "Magnitude range shown in the spectrum chart"
             )
         } else {
             regularFrequencyRangeView(
                 title: "Magnitude Range",
-                minBinding: $minDBInput,
-                maxBinding: $maxDBInput,
+                minBinding: limitedInput($minDBInput, FieldPrecision.magnitudeDB),
+                maxBinding: limitedInput($maxDBInput, FieldPrecision.magnitudeDB),
                 unit: "dB",
                 description: "Magnitude range shown in the spectrum chart"
             )
@@ -445,7 +445,7 @@ extension TapSettingsView {
                     .fontWeight(.medium)
 
                 HStack(spacing: 12) {
-                    TextField("Min", text: $peakMinThresholdInput)
+                    TextField("Min", text: limitedInput($peakMinThresholdInput, FieldPrecision.magnitudeDB))
                         .textFieldStyle(.roundedBorder)
                         #if os(iOS)
                         .keyboardType(.numbersAndPunctuation)

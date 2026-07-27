@@ -933,16 +933,16 @@ private struct PDFReportContentView: View {
                 .foregroundColor(.secondary)
             // Geometry on first line
             HStack(spacing: 0) {
-                platePropRow("Length", String(format: "%.1f mm", dims.length * 1000))
+                platePropRow("Length", FieldPrecision.string(dims.length * 1000, FieldPrecision.linearDimensionMM) + " mm")
                     .frame(maxWidth: .infinity, alignment: .leading)
-                platePropRow("Width", String(format: "%.1f mm", dims.width * 1000))
+                platePropRow("Width", FieldPrecision.string(dims.width * 1000, FieldPrecision.linearDimensionMM) + " mm")
                     .frame(maxWidth: .infinity, alignment: .leading)
-                platePropRow("Thickness", String(format: "%.2f mm", dims.thickness * 1000))
+                platePropRow("Thickness", FieldPrecision.string(dims.thickness * 1000, FieldPrecision.linearDimensionMM) + " mm")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             // Mass and density on second line
             HStack(spacing: 0) {
-                platePropRow("Mass", String(format: "%.1f g", dims.mass * 1000))
+                platePropRow("Mass", FieldPrecision.string(dims.mass * 1000, FieldPrecision.massG) + " g")
                     .frame(maxWidth: .infinity, alignment: .leading)
                 platePropRow("Density", String(format: "%.3f g/cm³", dims.densityGPerCm3))
                     .frame(maxWidth: .infinity, alignment: .leading)

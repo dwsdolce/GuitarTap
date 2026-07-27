@@ -59,45 +59,45 @@ extension TapSettingsView {
         // Save plate dimensions
         if selectedMeasurementType == .plate {
             if let length = Float(plateLengthInput), length > 0 {
-                TapDisplaySettings.plateLength = length
+                TapDisplaySettings.plateLength = FieldPrecision.rounded(length, FieldPrecision.linearDimensionMM)
             }
             if let width = Float(plateWidthInput), width > 0 {
-                TapDisplaySettings.plateWidth = width
+                TapDisplaySettings.plateWidth = FieldPrecision.rounded(width, FieldPrecision.linearDimensionMM)
             }
             if let thickness = Float(plateThicknessInput), thickness > 0 {
-                TapDisplaySettings.plateThickness = thickness
+                TapDisplaySettings.plateThickness = FieldPrecision.rounded(thickness, FieldPrecision.linearDimensionMM)
             }
             if let mass = Float(plateMassInput), mass > 0 {
-                TapDisplaySettings.plateMass = mass
+                TapDisplaySettings.plateMass = FieldPrecision.rounded(mass, FieldPrecision.massG)
             }
 
             // Save Gore thicknessing settings (always save regardless of FLC state)
             if let bodyLength = Float(guitarBodyLengthInput), bodyLength > 0 {
-                TapDisplaySettings.guitarBodyLength = bodyLength
+                TapDisplaySettings.guitarBodyLength = FieldPrecision.rounded(bodyLength, FieldPrecision.bodyDimensionMM)
             }
             if let bodyWidth = Float(guitarBodyWidthInput), bodyWidth > 0 {
-                TapDisplaySettings.guitarBodyWidth = bodyWidth
+                TapDisplaySettings.guitarBodyWidth = FieldPrecision.rounded(bodyWidth, FieldPrecision.bodyDimensionMM)
             }
             TapDisplaySettings.plateStiffnessPreset = plateStiffnessPreset
             if plateStiffnessPreset == .custom,
                let customVal = Float(customPlateStiffnessInput), customVal > 0 {
-                TapDisplaySettings.customPlateStiffness = customVal
+                TapDisplaySettings.customPlateStiffness = FieldPrecision.rounded(customVal, FieldPrecision.stiffness)
             }
         }
 
         // Save brace dimensions (separate keys from plate)
         if selectedMeasurementType == .brace {
             if let length = Float(braceLengthInput), length > 0 {
-                TapDisplaySettings.braceLength = length
+                TapDisplaySettings.braceLength = FieldPrecision.rounded(length, FieldPrecision.linearDimensionMM)
             }
             if let width = Float(braceWidthInput), width > 0 {
-                TapDisplaySettings.braceWidth = width
+                TapDisplaySettings.braceWidth = FieldPrecision.rounded(width, FieldPrecision.linearDimensionMM)
             }
             if let thickness = Float(braceThicknessInput), thickness > 0 {
-                TapDisplaySettings.braceThickness = thickness
+                TapDisplaySettings.braceThickness = FieldPrecision.rounded(thickness, FieldPrecision.linearDimensionMM)
             }
             if let mass = Float(braceMassInput), mass > 0 {
-                TapDisplaySettings.braceMass = mass
+                TapDisplaySettings.braceMass = FieldPrecision.rounded(mass, FieldPrecision.massG)
             }
         }
 
@@ -149,11 +149,11 @@ extension TapSettingsView {
         TapDisplaySettings.peakMinThreshold = clampedThreshold
 
         // Update input fields with validated values (in case they were clamped)
-        minFreqInput = String(format: "%.0f", validatedFreq.min)
-        maxFreqInput = String(format: "%.0f", validatedFreq.max)
-        minDBInput = String(format: "%.0f", validatedDB.min)
-        maxDBInput = String(format: "%.0f", validatedDB.max)
-        peakMinThresholdInput = String(format: "%.0f", clampedThreshold)
+        minFreqInput = FieldPrecision.string(validatedFreq.min, FieldPrecision.frequencyHz)
+        maxFreqInput = FieldPrecision.string(validatedFreq.max, FieldPrecision.frequencyHz)
+        minDBInput = FieldPrecision.string(validatedDB.min, FieldPrecision.magnitudeDB)
+        maxDBInput = FieldPrecision.string(validatedDB.max, FieldPrecision.magnitudeDB)
+        peakMinThresholdInput = FieldPrecision.string(clampedThreshold, FieldPrecision.magnitudeDB)
 
         onApply?(measurementChanged, guitarTypeChanged)
         dismiss()
@@ -166,24 +166,24 @@ extension TapSettingsView {
         TapDisplaySettings.minMagnitude = minDB
         TapDisplaySettings.maxMagnitude = maxDB
         // Reflect the saved values in the input fields
-        minFreqInput = String(format: "%.0f", minFreq)
-        maxFreqInput = String(format: "%.0f", maxFreq)
-        minDBInput = String(format: "%.0f", minDB)
-        maxDBInput = String(format: "%.0f", maxDB)
+        minFreqInput = FieldPrecision.string(minFreq, FieldPrecision.frequencyHz)
+        maxFreqInput = FieldPrecision.string(maxFreq, FieldPrecision.frequencyHz)
+        minDBInput = FieldPrecision.string(minDB, FieldPrecision.magnitudeDB)
+        maxDBInput = FieldPrecision.string(maxDB, FieldPrecision.magnitudeDB)
     }
 
     func resetDisplaySettingsToDefaults() {
         // Reset display settings to factory defaults (frequency defaults vary by measurement type)
-        minFreqInput = String(format: "%.0f", TapDisplaySettings.defaultMinFrequency(for: selectedMeasurementType))
-        maxFreqInput = String(format: "%.0f", TapDisplaySettings.defaultMaxFrequency(for: selectedMeasurementType))
-        minDBInput = String(format: "%.0f", TapDisplaySettings.defaultMinMagnitude)
-        maxDBInput = String(format: "%.0f", TapDisplaySettings.defaultMaxMagnitude)
+        minFreqInput = FieldPrecision.string(TapDisplaySettings.defaultMinFrequency(for: selectedMeasurementType), FieldPrecision.frequencyHz)
+        maxFreqInput = FieldPrecision.string(TapDisplaySettings.defaultMaxFrequency(for: selectedMeasurementType), FieldPrecision.frequencyHz)
+        minDBInput = FieldPrecision.string(TapDisplaySettings.defaultMinMagnitude, FieldPrecision.magnitudeDB)
+        maxDBInput = FieldPrecision.string(TapDisplaySettings.defaultMaxMagnitude, FieldPrecision.magnitudeDB)
     }
 
     func resetAnalysisSettings() {
         // Reset analysis settings to defaults. (The analysis frequency range is a fixed 30–2000 Hz
         // constant, no longer a user setting — nothing to reset there.)
-        peakMinThresholdInput = String(format: "%.0f", TapDisplaySettings.defaultPeakMinThreshold)
+        peakMinThresholdInput = FieldPrecision.string(TapDisplaySettings.defaultPeakMinThreshold, FieldPrecision.magnitudeDB)
     }
 
     // MARK: - Calibration Helpers

@@ -86,23 +86,23 @@ struct TapSettingsView: View {
     @State var dumpCaptureAudio: Bool = TapDisplaySettings.dumpCaptureAudio
 
     // Plate dimensions (for plate measurement type)
-    @State var plateLengthInput: String = String(format: "%.1f", TapDisplaySettings.plateLength)
-    @State var plateWidthInput: String = String(format: "%.1f", TapDisplaySettings.plateWidth)
-    @State var plateThicknessInput: String = String(format: "%.2f", TapDisplaySettings.plateThickness)
-    @State var plateMassInput: String = String(format: "%.1f", TapDisplaySettings.plateMass)
+    @State var plateLengthInput: String = FieldPrecision.string(TapDisplaySettings.plateLength, FieldPrecision.linearDimensionMM)
+    @State var plateWidthInput: String = FieldPrecision.string(TapDisplaySettings.plateWidth, FieldPrecision.linearDimensionMM)
+    @State var plateThicknessInput: String = FieldPrecision.string(TapDisplaySettings.plateThickness, FieldPrecision.linearDimensionMM)
+    @State var plateMassInput: String = FieldPrecision.string(TapDisplaySettings.plateMass, FieldPrecision.massG)
     @State var measureFlc: Bool = TapDisplaySettings.measureFlc
 
     // Gore thicknessing settings
-    @State var guitarBodyLengthInput: String = String(format: "%.0f", TapDisplaySettings.guitarBodyLength)
-    @State var guitarBodyWidthInput: String = String(format: "%.0f", TapDisplaySettings.guitarBodyWidth)
+    @State var guitarBodyLengthInput: String = FieldPrecision.string(TapDisplaySettings.guitarBodyLength, FieldPrecision.bodyDimensionMM)
+    @State var guitarBodyWidthInput: String = FieldPrecision.string(TapDisplaySettings.guitarBodyWidth, FieldPrecision.bodyDimensionMM)
     @State var plateStiffnessPreset: PlateStiffnessPreset = TapDisplaySettings.plateStiffnessPreset
-    @State var customPlateStiffnessInput: String = String(format: "%.0f", TapDisplaySettings.customPlateStiffness)
+    @State var customPlateStiffnessInput: String = FieldPrecision.string(TapDisplaySettings.customPlateStiffness, FieldPrecision.stiffness)
 
     // Brace dimensions (for Brace measurement type)
-    @State var braceLengthInput: String = String(format: "%.1f", TapDisplaySettings.braceLength)
-    @State var braceWidthInput: String = String(format: "%.1f", TapDisplaySettings.braceWidth)
-    @State var braceThicknessInput: String = String(format: "%.1f", TapDisplaySettings.braceThickness)
-    @State var braceMassInput: String = String(format: "%.1f", TapDisplaySettings.braceMass)
+    @State var braceLengthInput: String = FieldPrecision.string(TapDisplaySettings.braceLength, FieldPrecision.linearDimensionMM)
+    @State var braceWidthInput: String = FieldPrecision.string(TapDisplaySettings.braceWidth, FieldPrecision.linearDimensionMM)
+    @State var braceThicknessInput: String = FieldPrecision.string(TapDisplaySettings.braceThickness, FieldPrecision.linearDimensionMM)
+    @State var braceMassInput: String = FieldPrecision.string(TapDisplaySettings.braceMass, FieldPrecision.massG)
 
     // Validation states
     @State var showValidationError = false
@@ -165,11 +165,19 @@ struct TapSettingsView: View {
         self.onApply = onApply
 
         // Initialize display range inputs from persisted settings, not the current pan/zoomed session state
-        self._minFreqInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.minFrequency))
-        self._maxFreqInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.maxFrequency))
-        self._minDBInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.minMagnitude))
-        self._maxDBInput = State(initialValue: String(format: "%.0f", TapDisplaySettings.maxMagnitude))
-        self._peakMinThresholdInput = State(initialValue: String(format: "%.0f", peakMinThreshold.wrappedValue))
+        self._minFreqInput = State(initialValue: FieldPrecision.string(TapDisplaySettings.minFrequency, FieldPrecision.frequencyHz))
+        self._maxFreqInput = State(initialValue: FieldPrecision.string(TapDisplaySettings.maxFrequency, FieldPrecision.frequencyHz))
+        self._minDBInput = State(initialValue: FieldPrecision.string(TapDisplaySettings.minMagnitude, FieldPrecision.magnitudeDB))
+        self._maxDBInput = State(initialValue: FieldPrecision.string(TapDisplaySettings.maxMagnitude, FieldPrecision.magnitudeDB))
+        self._peakMinThresholdInput = State(initialValue: FieldPrecision.string(peakMinThreshold.wrappedValue, FieldPrecision.magnitudeDB))
+    }
+
+    /// Wraps a text binding so a keystroke that would exceed `decimals` fractional digits is
+    /// rejected — the over-precise character never appears (a 2-dp field takes "29.35" but not
+    /// "29.356"). See `FieldPrecision.decimalsWithin`.
+    func limitedInput(_ source: Binding<String>, _ decimals: Int) -> Binding<String> {
+        Binding(get: { source.wrappedValue },
+                set: { if FieldPrecision.decimalsWithin($0, decimals) { source.wrappedValue = $0 } })
     }
 
     var body: some View {
