@@ -204,7 +204,7 @@ struct FilePlaybackRegressionTests {
     //   3. The dominant peak frequency matches the .guitartap reference ± 1 Hz
     //   4. The dominant peak magnitude matches the reference ± 1 dB
     //   5. The dominant peak Q factor matches the reference ± 1
-    @Test func REG_B1_braceSingleTap_producesExpectedPeak() throws {
+    @Test func REG_B1_braceSingleTap_producesExpectedPeak() async throws {
         let stem = "brace-umik-1-swift-mac-1778816093"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
             Issue.record("\(stem).wav not found in test bundle")
@@ -214,7 +214,7 @@ struct FilePlaybackRegressionTests {
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = braceTapThreshold
-        try sut.playFileForTesting(url: url, measurementType: .brace, calibrationURL: calURL)
+        try await sut.playFileForTesting(url: url, measurementType: .brace, calibrationURL: calURL)
 
         // 1. Pipeline should reach .complete for brace (single-tap mode).
         #expect(sut.materialTapPhase == .complete,
@@ -264,7 +264,7 @@ struct FilePlaybackRegressionTests {
     /// full pipeline.  Verifies that:
     ///   1. The pipeline completes with 1 tap entry
     ///   2. Air, Top, Back frequencies and magnitudes match reference ± 1
-    @Test func REG_G1_genericGuitarSingleTap_producesExpectedPeaks() throws {
+    @Test func REG_G1_genericGuitarSingleTap_producesExpectedPeaks() async throws {
         let stem = "Recording 5"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
             Issue.record("\(stem).wav not found in test bundle")
@@ -274,7 +274,7 @@ struct FilePlaybackRegressionTests {
         let sut = TapToneAnalyzer.forTesting()
         sut.peakMinThreshold = -76
         sut.tapDetectionThreshold = -40
-        try sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 1)
+        try await sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 1)
 
         // 1. Pipeline should complete with 1 captured tap.
         //    (tapEntries is only populated for multi-tap sessions; single-tap
@@ -320,7 +320,7 @@ struct FilePlaybackRegressionTests {
     /// decay reaches the same crossing because file playback runs at real-time pace (wall-clock ≈
     /// audio time). The loose tolerance covers per-platform chunk-granularity + clock jitter
     /// (web 0.0853, Python ~0.091).
-    @Test func REG_G_genericGuitarRingOut_matchesGolden() throws {
+    @Test func REG_G_genericGuitarRingOut_matchesGolden() async throws {
         let stem = "Recording 5"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
             Issue.record("\(stem).wav not found in test bundle")
@@ -330,7 +330,7 @@ struct FilePlaybackRegressionTests {
         let sut = TapToneAnalyzer.forTesting()
         sut.peakMinThreshold = -76
         sut.tapDetectionThreshold = -40
-        try sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 1)
+        try await sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 1)
 
         guard let decay = sut.currentDecayTime else {
             Issue.record("No ring-out measured")
@@ -377,7 +377,7 @@ struct FilePlaybackRegressionTests {
     ///   1. The pipeline completes with 8 tap entries
     ///   2. Averaged Air, Top, Back frequencies and magnitudes match reference ± 1
     ///   3. All 8 individual taps' Air, Top, Back frequencies and magnitudes match
-    @Test func REG_G2_genericGuitar8Tap_producesExpectedPeaks() throws {
+    @Test func REG_G2_genericGuitar8Tap_producesExpectedPeaks() async throws {
         let stem = "Recording"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
             Issue.record("\(stem).wav not found in test bundle")
@@ -387,7 +387,7 @@ struct FilePlaybackRegressionTests {
         let sut = TapToneAnalyzer.forTesting()
         sut.peakMinThreshold = -76
         sut.tapDetectionThreshold = -40
-        try sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 8)
+        try await sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 8)
 
         // 1. Pipeline should complete with 8 tap entries.
         #expect(sut.isMeasurementComplete, "isMeasurementComplete should be true")
@@ -477,7 +477,7 @@ struct FilePlaybackRegressionTests {
     ///   2. fL / fC / fLC peaks are each populated
     ///   3. Each auto-selected peak's frequency, magnitude, and Q factor
     ///      matches the .guitartap reference within tolerance
-    @Test func REG_P1_plateFullSession_producesExpectedPeaks() throws {
+    @Test func REG_P1_plateFullSession_producesExpectedPeaks() async throws {
         let stem = "plate-umik-1-swift-mac-1778816330"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
             Issue.record("\(stem).wav not found in test bundle")
@@ -495,7 +495,7 @@ struct FilePlaybackRegressionTests {
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = plateTapThreshold
-        try sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL)
+        try await sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL)
 
         printPlateDiagnostics(sut, phase: "P1 — Full session", wavFile: stem)
 
@@ -582,7 +582,7 @@ struct FilePlaybackRegressionTests {
     //
     // Regenerate: python3 GuitarTapWeb/tooling/make-noisy-fixture.py (deterministic, seeded).
     // Analysis:   GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md
-    @Test func OUT4_noisyPlate_relativeNoiseFloor_stillCapturesAllPhases() throws {
+    @Test func OUT4_noisyPlate_relativeNoiseFloor_stillCapturesAllPhases() async throws {
         let stem = "plate-umik-1-noisy-52"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
             Issue.record("\(stem).wav not found in test bundle")
@@ -596,7 +596,7 @@ struct FilePlaybackRegressionTests {
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = plateTapThreshold
-        try sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL)
+        try await sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL)
 
         let captured = [
             ("L", sut.longitudinalSpectrum != nil),
@@ -629,7 +629,7 @@ struct FilePlaybackRegressionTests {
     /// averageSpectra). Expected values are the WEB capture's, so a pass means
     /// Swift agrees with the web. printPlateDiagnostics prints Swift's actual
     /// fL/fC/fLC regardless of pass/fail.
-    @Test func REG_P2_plateThreeTapsPerPhase_averagesEachPhase() throws {
+    @Test func REG_P2_plateThreeTapsPerPhase_averagesEachPhase() async throws {
         let stem = "plate-umik-1-web-mac-3-taps"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
             Issue.record("\(stem).wav not found in test bundle")
@@ -643,7 +643,7 @@ struct FilePlaybackRegressionTests {
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = plate3TapThreshold
-        try sut.playFileForTesting(url: url, measurementType: .plate, numberOfTaps: 3, calibrationURL: calURL)
+        try await sut.playFileForTesting(url: url, measurementType: .plate, numberOfTaps: 3, calibrationURL: calURL)
 
         printPlateDiagnostics(sut, phase: "P2 - 3 taps/phase", wavFile: stem)
 

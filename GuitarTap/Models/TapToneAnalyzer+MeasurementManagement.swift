@@ -183,6 +183,9 @@ extension TapToneAnalyzer {
         maxDB: Float
     ) -> SpectrumSnapshot {
         let measurementType = TapDisplaySettings.measurementType
+        // Store B — the measurement's own material values drive the saved snapshot (measureFlc, a
+        // capture setting, stays sourced from settings). Falls back to settings if unset (guitar).
+        let mi = materialInputs
         return SpectrumSnapshot(
             frequencies: frequencies,
             magnitudes: magnitudes,
@@ -194,19 +197,19 @@ extension TapToneAnalyzer {
             showUnknownModes: TapDisplaySettings.showUnknownModes,
             guitarType: TapDisplaySettings.guitarType,
             measurementType: measurementType,
-            plateLength: measurementType == .plate ? TapDisplaySettings.plateLength : nil,
-            plateWidth: measurementType == .plate ? TapDisplaySettings.plateWidth : nil,
-            plateThickness: measurementType == .plate ? TapDisplaySettings.plateThickness : nil,
-            plateMass: measurementType == .plate ? TapDisplaySettings.plateMass : nil,
-            guitarBodyLength: measurementType == .plate ? TapDisplaySettings.guitarBodyLength : nil,
-            guitarBodyWidth: measurementType == .plate ? TapDisplaySettings.guitarBodyWidth : nil,
-            plateStiffnessPreset: measurementType == .plate ? TapDisplaySettings.plateStiffnessPreset : nil,
-            customPlateStiffness: measurementType == .plate ? TapDisplaySettings.customPlateStiffness : nil,
+            plateLength: measurementType == .plate ? (mi?.lengthMM ?? TapDisplaySettings.plateLength) : nil,
+            plateWidth: measurementType == .plate ? (mi?.widthMM ?? TapDisplaySettings.plateWidth) : nil,
+            plateThickness: measurementType == .plate ? (mi?.thicknessMM ?? TapDisplaySettings.plateThickness) : nil,
+            plateMass: measurementType == .plate ? (mi?.massG ?? TapDisplaySettings.plateMass) : nil,
+            guitarBodyLength: measurementType == .plate ? (mi?.bodyLengthMM ?? TapDisplaySettings.guitarBodyLength) : nil,
+            guitarBodyWidth: measurementType == .plate ? (mi?.bodyWidthMM ?? TapDisplaySettings.guitarBodyWidth) : nil,
+            plateStiffnessPreset: measurementType == .plate ? (mi?.stiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset) : nil,
+            customPlateStiffness: measurementType == .plate ? (mi?.customStiffness ?? TapDisplaySettings.customPlateStiffness) : nil,
             measureFlc: measurementType == .plate ? TapDisplaySettings.measureFlc : nil,
-            braceLength: measurementType == .brace ? TapDisplaySettings.braceLength : nil,
-            braceWidth: measurementType == .brace ? TapDisplaySettings.braceWidth : nil,
-            braceThickness: measurementType == .brace ? TapDisplaySettings.braceThickness : nil,
-            braceMass: measurementType == .brace ? TapDisplaySettings.braceMass : nil
+            braceLength: measurementType == .brace ? (mi?.lengthMM ?? TapDisplaySettings.braceLength) : nil,
+            braceWidth: measurementType == .brace ? (mi?.widthMM ?? TapDisplaySettings.braceWidth) : nil,
+            braceThickness: measurementType == .brace ? (mi?.thicknessMM ?? TapDisplaySettings.braceThickness) : nil,
+            braceMass: measurementType == .brace ? (mi?.massG ?? TapDisplaySettings.braceMass) : nil
         )
     }
 
@@ -641,51 +644,23 @@ extension TapToneAnalyzer {
                 loadedMeasurementType = measurementType
             }
             
-            // Restore plate dimensions if available (for plate measurements)
-            if let plateLength = snapshot.plateLength {
-                gtLog("  📏 Publishing plate dimensions: L=\(plateLength)mm")
-                loadedPlateLength = plateLength
-            }
-            if let plateWidth = snapshot.plateWidth {
-                loadedPlateWidth = plateWidth
-            }
-            if let plateThickness = snapshot.plateThickness {
-                loadedPlateThickness = plateThickness
-            }
-            if let plateMass = snapshot.plateMass {
-                loadedPlateMass = plateMass
-            }
-
-            // Restore Gore thicknessing / panel type settings (plate mode)
-            if let bodyLength = snapshot.guitarBodyLength {
-                loadedGuitarBodyLength = bodyLength
-            }
-            if let bodyWidth = snapshot.guitarBodyWidth {
-                loadedGuitarBodyWidth = bodyWidth
-            }
-            if let preset = snapshot.plateStiffnessPreset {
-                gtLog("  🪵 Publishing plateStiffnessPreset: \(preset.shortName)")
-                loadedPlateStiffnessPreset = preset
-            }
-            if let customStiffness = snapshot.customPlateStiffness {
-                loadedCustomPlateStiffness = customStiffness
-            }
-            if let flc = snapshot.measureFlc {
-                loadedMeasureFlc = flc
-            }
-
-            // Restore brace dimensions (brace mode)
-            if let braceLength = snapshot.braceLength {
-                loadedBraceLength = braceLength
-            }
-            if let braceWidth = snapshot.braceWidth {
-                loadedBraceWidth = braceWidth
-            }
-            if let braceThickness = snapshot.braceThickness {
-                loadedBraceThickness = braceThickness
-            }
-            if let braceMass = snapshot.braceMass {
-                loadedBraceMass = braceMass
+            // Store B ← the file's own material inputs (never the live Settings defaults). The calc,
+            // Results panel, and Save all read this, so a loaded measurement's numbers come from the
+            // file and loading never disturbs the Settings defaults (Store A). Replaces the old
+            // loaded*-dimension → TapDisplaySettings writes that used to clobber the user's defaults.
+            // See GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
+            if let mt = snapshot.measurementType, !mt.isGuitar {
+                let brace = mt.isBrace
+                materialInputs = MaterialMeasurementInputs(
+                    lengthMM:    (brace ? snapshot.braceLength    : snapshot.plateLength)    ?? 0,
+                    widthMM:     (brace ? snapshot.braceWidth     : snapshot.plateWidth)     ?? 0,
+                    thicknessMM: (brace ? snapshot.braceThickness : snapshot.plateThickness) ?? 0,
+                    massG:       (brace ? snapshot.braceMass      : snapshot.plateMass)      ?? 0,
+                    bodyLengthMM: snapshot.guitarBodyLength ?? TapDisplaySettings.guitarBodyLength,
+                    bodyWidthMM:  snapshot.guitarBodyWidth  ?? TapDisplaySettings.guitarBodyWidth,
+                    stiffnessPreset: snapshot.plateStiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset,
+                    customStiffness: snapshot.customPlateStiffness ?? TapDisplaySettings.customPlateStiffness
+                )
             }
         } else {
             // Old-format measurement: no snapshot, so no axis range to restore.

@@ -120,7 +120,7 @@ final class TapToneAnalyzer: ObservableObject {
     ///     Pass `.capturingLongitudinal` for an L-only test, `.capturingCross` for C,
     ///     or `.capturingFlc` for FLC.  Ignored for non-plate measurement types.
     /// - Throws: If the audio file cannot be read.
-    func playFileForTesting(url: URL, measurementType: MeasurementType, numberOfTaps: Int = 1, calibrationURL: URL? = nil, plateTapPhase: MaterialTapPhase? = nil) throws {
+    func playFileForTesting(url: URL, measurementType: MeasurementType, numberOfTaps: Int = 1, calibrationURL: URL? = nil, plateTapPhase: MaterialTapPhase? = nil) async throws {
         // 1. Configure measurement type and tap count.
         TapDisplaySettings.measurementType = measurementType
         self.numberOfTaps = numberOfTaps
@@ -191,8 +191,14 @@ final class TapToneAnalyzer: ObservableObject {
         // Spin the main run loop until processFileData finishes, so
         // DispatchQueue.main.async blocks (Combine sinks, finishGatedFFTCapture)
         // are drained during processing — matching the real app's threading.
+        // Poll for processFileData to finish, YIELDING the main actor between checks rather than
+        // blocking it in RunLoop.main.run. The worker calls DispatchQueue.main.sync (the gated-capture
+        // flush, RealtimeFFTAnalyzer+EngineControl.swift:622); under the test target's MainActor
+        // isolation the test runs ON the main actor, so a blocking wait here deadlocks that sync.
+        // `Task.sleep` suspends the main actor, freeing the main thread to run the worker's main-queue
+        // work and deliver the Combine `.receive(on: .main)` FFT frames.
         while done.wait(timeout: .now()) == .timedOut {
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+            try? await Task.sleep(nanoseconds: 5_000_000)  // 5 ms
         }
         // Continue draining the main run loop until the measurement completes.
         // processMultipleTaps() is scheduled via DispatchQueue.main.asyncAfter
@@ -205,11 +211,11 @@ final class TapToneAnalyzer: ObservableObject {
         let deadline = Date(timeIntervalSinceNow: 5.0)
         if let targetPhase = plateTapPhase, measurementType == .plate {
             while materialTapPhase == targetPhase && Date() < deadline {
-                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+                try? await Task.sleep(nanoseconds: 5_000_000)  // 5 ms — yields the main actor
             }
         } else {
             while !isMeasurementComplete && Date() < deadline {
-                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+                try? await Task.sleep(nanoseconds: 5_000_000)  // 5 ms — yields the main actor
             }
         }
     }
@@ -875,6 +881,13 @@ final class TapToneAnalyzer: ObservableObject {
     /// Used as a unified guard to prevent auto-starting a new tap sequence when the analyzer
     /// engine restarts (e.g. after an AirDrop or returning from background).  Cleared by
     /// `startTapSequence()` and `newMeasurement()`.
+    /// Store B — the CURRENT measurement's material inputs (see ``MaterialMeasurementInputs``): the
+    /// sole source for its derived properties, its Results-panel display/edit, and Save. Distinct from
+    /// ``TapDisplaySettings`` (the defaults for a NEW measurement). Seeded from settings when a
+    /// material measurement completes; set from the file snapshot on load; `nil` for guitar and before
+    /// completion. See GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
+    @Published var materialInputs: MaterialMeasurementInputs?
+
     @Published var isMeasurementComplete: Bool = false {
         didSet {
             if oldValue != isMeasurementComplete {
@@ -888,6 +901,15 @@ final class TapToneAnalyzer: ObservableObject {
             // has now captured a measurement with the current (loaded) settings and
             // knows what they are.
             if isMeasurementComplete { showLoadedSettingsWarning = false }
+
+            // Store B: on a material *capture* completion (not a load — loadMeasurement sets
+            // materialInputs from the file), snapshot the current Settings defaults as this
+            // measurement's own material inputs. Nothing reads them before completion.
+            if isMeasurementComplete, !oldValue,
+               !TapDisplaySettings.measurementType.isGuitar,
+               !isLoadingMeasurement {
+                materialInputs = .fromSettings(for: TapDisplaySettings.measurementType)
+            }
         }
     }
 

@@ -712,15 +712,10 @@ struct TapAnalysisResultsView: View {
                 ?? sortedPeaksWithModes.first(where: { $0.peak.id == flcPeakID })?.peak.frequency
         }()
 
-        let dimensions = MaterialDimensions(
-            lengthMM: TapDisplaySettings.plateLength,
-            widthMM: TapDisplaySettings.plateWidth,
-            thicknessMM: TapDisplaySettings.plateThickness,
-            massGrams: TapDisplaySettings.plateMass
-        )
-
+        // Store B — the measurement's own dimensions, never the live Settings defaults.
+        guard let inputs = analyzer.materialInputs else { return nil }
         return PlateProperties(
-            dimensions: dimensions,
+            dimensions: inputs.dimensions,
             fundamentalFrequencyLong: longPeak.frequency,
             fundamentalFrequencyCross: crossPeak.frequency,
             fundamentalFrequencyFlc: flcFreq
@@ -926,15 +921,10 @@ struct TapAnalysisResultsView: View {
             return nil
         }
         
-        let dimensions = MaterialDimensions(
-            lengthMM: TapDisplaySettings.braceLength,
-            widthMM: TapDisplaySettings.braceWidth,
-            thicknessMM: TapDisplaySettings.braceThickness,
-            massGrams: TapDisplaySettings.braceMass
-        )
-        
+        // Store B — the measurement's own dimensions, never the live Settings defaults.
+        guard let inputs = analyzer.materialInputs else { return nil }
         return BraceProperties(
-            dimensions: dimensions,
+            dimensions: inputs.dimensions,
             fundamentalFrequencyLong: longPeak.frequency
         )
     }
@@ -1027,10 +1017,12 @@ struct TapAnalysisResultsView: View {
     /// Displays the Gore target thickness result
     @ViewBuilder
     private func goreThicknessView(for props: PlateProperties) -> some View {
-        let bodyLength = TapDisplaySettings.guitarBodyLength
-        let bodyWidth  = TapDisplaySettings.guitarBodyWidth
-        let fvs        = TapDisplaySettings.plateStiffness
-        let preset     = TapDisplaySettings.plateStiffnessPreset
+        // Store B — the measurement's own Gore inputs (body dims + f_vs), never the live Settings.
+        let inputs     = analyzer.materialInputs
+        let bodyLength = inputs?.bodyLengthMM ?? TapDisplaySettings.guitarBodyLength
+        let bodyWidth  = inputs?.bodyWidthMM ?? TapDisplaySettings.guitarBodyWidth
+        let fvs        = inputs?.stiffness ?? TapDisplaySettings.plateStiffness
+        let preset     = inputs?.stiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset
 
         VStack(alignment: .leading, spacing: 10) {
             if let hd = props.goreTargetThickness(
