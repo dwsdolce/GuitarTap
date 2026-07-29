@@ -274,11 +274,21 @@ struct TapAnalysisResultsView: View {
                         // Plate/brace properties scroll with the peaks since they can be tall
                         if analyzer.displayMode != .comparison {
                             if measurementType == .plate && analyzer.isMeasurementComplete {
-                                // Gore Target Thickness immediately after peaks — it's the key result
+                                // Sample dimensions first — the measurement's own L/W/T/M, editable
+                                // above the derived results; all plate calculations recompute from these.
+                                Divider()
+                                sampleDimensionsSection
+
+                                // Body dimensions + panel stiffness (f_vs) — the Gore-only inputs, kept
+                                // separate from the sample and shown just before the target they feed.
+                                Divider()
+                                plateBodyDimensionsSection
+
+                                // Gore Target Thickness — the end result of the body inputs above
                                 Divider()
                                 goreThicknessSectionView
 
-                                // Plate Properties and other calculations
+                                // Plate Properties and other calculations (GLC lives here, among the moduli)
                                 Divider()
                                 platePropertiesSection
 
@@ -286,6 +296,10 @@ struct TapAnalysisResultsView: View {
                                 Divider()
                                 plateProcessInstructionsSection
                             } else if measurementType == .brace && analyzer.isMeasurementComplete {
+                                // Sample dimensions first — editable inputs above the derived results.
+                                Divider()
+                                sampleDimensionsSection
+
                                 Divider()
                                 bracePropertiesSection
 
@@ -471,7 +485,7 @@ struct TapAnalysisResultsView: View {
                                     .frame(width: 8, height: 8)
                                     .padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("**1. Longitudinal (L) Tap**")
+                                    Text("**1. Longitudinal (fL) Tap**")
                                         .font(.caption2)
                                     Text("Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
                                         .font(.caption2)
@@ -486,7 +500,7 @@ struct TapAnalysisResultsView: View {
                                     .frame(width: 8, height: 8)
                                     .padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("**2. Cross-grain (C) Tap**")
+                                    Text("**2. Cross-grain (fC) Tap**")
                                         .font(.caption2)
                                     Text("Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
                                         .font(.caption2)
@@ -502,7 +516,7 @@ struct TapAnalysisResultsView: View {
                                         .frame(width: 8, height: 8)
                                         .padding(.top, 2)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("**3. FLC (Diagonal) Tap**")
+                                        Text("**3. Diagonal (fLC) Tap**")
                                             .font(.caption2)
                                         Text("Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
                                             .font(.caption2)
@@ -727,25 +741,8 @@ struct TapAnalysisResultsView: View {
         GroupBox("Plate Properties") {
             if let props = calculatedPlateProperties {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Frequencies used
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("fL (Longitudinal): \(props.fundamentalFrequencyLong, specifier: "%.1f") Hz")
-                                .font(.caption)
-                            Text("fC (Cross-grain): \(props.fundamentalFrequencyCross, specifier: "%.1f") Hz")
-                                .font(.caption)
-                            if let fLC = props.fundamentalFrequencyFlc {
-                                Text("fLC (Diagonal): \(fLC, specifier: "%.1f") Hz")
-                                    .font(.caption)
-                            }
-                        }
-                        .foregroundColor(.secondary)
-                        Spacer()
-                    }
-                    
-                    Divider()
-                    
                     // Speed of Sound
+                    // (fL / fC / fLC are inputs, shown in the peak list above — not repeated here.)
                     propertyRow(
                         title: "Speed of Sound",
                         longValue: String(format: "%.0f m/s", props.speedOfSoundLong),
@@ -912,6 +909,44 @@ struct TapAnalysisResultsView: View {
         }
     }
 
+    /// Binding to the completed measurement's own inputs (Store B). Falls back to the Settings
+    /// defaults only if `materialInputs` is somehow nil (the sections gate on non-nil before use).
+    private var materialInputsBinding: Binding<MaterialMeasurementInputs> {
+        Binding(
+            get: { analyzer.materialInputs ?? .fromSettings(for: TapDisplaySettings.measurementType) },
+            set: { analyzer.materialInputs = $0 }
+        )
+    }
+
+    /// Editable sample dimensions (Store B) — the measurement's own L/W/T/M, shown as its own section
+    /// BEFORE the derived-property sections for both plate and brace (inputs above results). Editing
+    /// writes `materialInputs` live so every calculation recomputes; it never touches the Settings
+    /// defaults. See GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
+    @ViewBuilder
+    private var sampleDimensionsSection: some View {
+        if analyzer.materialInputs != nil {
+            GroupBox("Sample Dimensions") {
+                MaterialDimensionsEditor(inputs: materialInputsBinding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+            }
+        }
+    }
+
+    /// Editable Gore body settings (Store B) for a completed plate — the finished-guitar body
+    /// dimensions (a, b) and panel stiffness (f_vs). Kept separate from the sample dimensions and
+    /// shown just before the Gore Target Thickness they feed. Editing recomputes only the Gore target.
+    @ViewBuilder
+    private var plateBodyDimensionsSection: some View {
+        if analyzer.materialInputs != nil {
+            GroupBox("Body Dimensions") {
+                PlateBodyDimensionsEditor(inputs: materialInputsBinding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+            }
+        }
+    }
+
     // MARK: - Brace Properties Section
     
     /// Computed brace properties based on the selected fL peak and dimensions
@@ -933,17 +968,8 @@ struct TapAnalysisResultsView: View {
         GroupBox("Brace Properties") {
             if let props = calculatedBraceProperties {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Frequency used
-                    HStack {
-                        Text("Longitudinal (fL): \(props.fundamentalFrequencyLong, specifier: "%.1f") Hz")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                    }
-                    
-                    Divider()
-                    
                     // Speed of Sound
+                    // (fL is an input, shown in the peak list above — not repeated here.)
                     HStack {
                         Text("Speed of Sound:")
                             .font(.subheadline)
@@ -1014,7 +1040,9 @@ struct TapAnalysisResultsView: View {
     
     // MARK: - Gore Thickness View
 
-    /// Displays the Gore target thickness result
+    /// Displays the Gore target thickness result — just the number. The inputs that feed it (body
+    /// dimensions + f_vs) live in the Body Dimensions section above, and GLC is shown among the plate
+    /// moduli in Plate Properties, so this box is deliberately compact: it's only the end result.
     @ViewBuilder
     private func goreThicknessView(for props: PlateProperties) -> some View {
         // Store B — the measurement's own Gore inputs (body dims + f_vs), never the live Settings.
@@ -1022,69 +1050,27 @@ struct TapAnalysisResultsView: View {
         let bodyLength = inputs?.bodyLengthMM ?? TapDisplaySettings.guitarBodyLength
         let bodyWidth  = inputs?.bodyWidthMM ?? TapDisplaySettings.guitarBodyWidth
         let fvs        = inputs?.stiffness ?? TapDisplaySettings.plateStiffness
-        let preset     = inputs?.stiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset
 
-        VStack(alignment: .leading, spacing: 10) {
-            if let hd = props.goreTargetThickness(
-                bodyLengthMm: bodyLength,
-                bodyWidthMm: bodyWidth,
-                vibrationalStiffness: fvs) {
+        if let hd = props.goreTargetThickness(
+            bodyLengthMm: bodyLength,
+            bodyWidthMm: bodyWidth,
+            vibrationalStiffness: fvs) {
 
-                // Prominent thickness display
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(String(format: "%.2f", hd))
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundColor(.accentColor)
-                    Text("mm")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-
-                // GLC shear modulus (or note that it was assumed zero)
-                if let glc = props.goreShearModulus {
-                    HStack {
-                        Text("Shear Modulus (GLC):")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text(String(format: "%.3f GPa", glc / 1.0e9))
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
-                } else {
-                    Label {
-                        Text("GLC assumed 0 — enable FLC tap for a more accurate result")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    } icon: {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.secondary)
-                            .font(.caption2)
-                    }
-                }
-
-                // Parameters used
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Body: \(String(format: "%.0f", bodyLength)) × \(String(format: "%.0f", bodyWidth)) mm")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        let presetLabel = preset == .custom
-                            ? String(format: "f_vs = %.0f (custom)", fvs)
-                            : "f_vs = \(Int(fvs)) (\(preset.rawValue))"
-                        Text(presetLabel)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                }
+            // Prominent thickness result — the sole content of this box.
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(String(format: "%.2f", hd))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundColor(.accentColor)
+                Text("mm")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                Spacer()
             }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(Color.accentColor.opacity(0.08))
+            .cornerRadius(8)
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .background(Color.accentColor.opacity(0.08))
-        .cornerRadius(8)
     }
 
     // MARK: - Measurement Process Instructions
@@ -1108,7 +1094,7 @@ struct TapAnalysisResultsView: View {
                         .frame(width: 8, height: 8)
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("**1. Longitudinal (L) Tap**")
+                        Text("**1. Longitudinal (fL) Tap**")
                             .font(.caption2)
                         Text("Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
                             .font(.caption2)
@@ -1123,7 +1109,7 @@ struct TapAnalysisResultsView: View {
                         .frame(width: 8, height: 8)
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("**2. Cross-grain (C) Tap**")
+                        Text("**2. Cross-grain (fC) Tap**")
                             .font(.caption2)
                         Text("Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
                             .font(.caption2)
@@ -1139,7 +1125,7 @@ struct TapAnalysisResultsView: View {
                             .frame(width: 8, height: 8)
                             .padding(.top, 2)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("**3. FLC (Diagonal) Tap**")
+                            Text("**3. Diagonal (fLC) Tap**")
                                 .font(.caption2)
                             Text("Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
                                 .font(.caption2)
@@ -1290,14 +1276,14 @@ struct MaterialPeakRowView: View {
             // Phase identification badges — display only, not interactive.
             // Colored when this peak was auto-identified for that phase.
             HStack(spacing: 8) {
-                phaseBadge("L", active: isLongitudinal, color: .blue, width: 36)
+                phaseBadge("fL", active: isLongitudinal, color: .blue, width: 36)
 
                 if showCrossButton {
-                    phaseBadge("C", active: isCross, color: .orange, width: 36)
+                    phaseBadge("fC", active: isCross, color: .orange, width: 36)
                 }
 
                 if showFlcButton {
-                    phaseBadge("FLC", active: isFlc, color: .purple, width: 42)
+                    phaseBadge("fLC", active: isFlc, color: .purple, width: 42)
                 }
             }
         }

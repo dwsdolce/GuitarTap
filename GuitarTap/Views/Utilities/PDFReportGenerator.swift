@@ -563,13 +563,13 @@ private struct PDFReportContentView: View {
             let isFlc = peak.id == data.selectedFlcPeakID
             Group {
                 if isLong {
-                    Text("Longitudinal (L)")
+                    Text("Longitudinal (fL)")
                         .foregroundColor(.blue)
                 } else if isCross {
-                    Text("Cross-grain (C)")
+                    Text("Cross-grain (fC)")
                         .foregroundColor(.orange)
                 } else if isFlc {
-                    Text("FLC (Diagonal)")
+                    Text("Diagonal (fLC)")
                         .foregroundColor(.purple)
                 } else {
                     Text("–")
@@ -581,7 +581,7 @@ private struct PDFReportContentView: View {
             let isLong = peak.id == data.selectedLongitudinalPeakID
             Group {
                 if isLong {
-                    Text("fL (Longitudinal)")
+                    Text("Longitudinal (fL)")
                         .foregroundColor(.blue)
                 } else {
                     Text("–")
@@ -616,14 +616,14 @@ private struct PDFReportContentView: View {
                     .font(.system(size: 10, weight: .semibold))
 
                 tapInstructionRow(color: .blue,
-                                  title: "1. Longitudinal (L) Tap",
+                                  title: "1. Longitudinal (fL) Tap",
                                   detail: "Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
                 tapInstructionRow(color: .orange,
-                                  title: "2. Cross-grain (C) Tap",
+                                  title: "2. Cross-grain (fC) Tap",
                                   detail: "Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
                 if hasFlc {
                     tapInstructionRow(color: .purple,
-                                      title: "3. FLC (Diagonal) Tap",
+                                      title: "3. Diagonal (fLC) Tap",
                                       detail: "Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
                 }
                 Text("The strongest peak from each tap is auto-selected.")
@@ -674,7 +674,16 @@ private struct PDFReportContentView: View {
         switch data.measurementType {
         case .plate:
             if let props = data.plateProperties {
-                // Gore Target Thickness is the key result — show it first, immediately after peaks.
+                // Same order as the Results panel: Sample Dimensions → Body Dimensions → Gore target
+                // (just the number) → Plate Properties (GLC lives among the moduli there).
+                dimensionsSubsection(dims: props.dimensions)
+                Spacer().frame(height: 14)
+                sectionDivider
+                Spacer().frame(height: 14)
+                plateBodyDimensionsPDFSection(props)
+                Spacer().frame(height: 14)
+                sectionDivider
+                Spacer().frame(height: 14)
                 goreThicknessPDFSection(props)
                 Spacer().frame(height: 14)
                 sectionDivider
@@ -683,6 +692,11 @@ private struct PDFReportContentView: View {
             }
         case .brace:
             if let props = data.braceProperties {
+                // Sample Dimensions first, then the derived Brace Properties.
+                dimensionsSubsection(dims: props.dimensions)
+                Spacer().frame(height: 14)
+                sectionDivider
+                Spacer().frame(height: 14)
                 braceSection(props)
             }
         default:
@@ -773,25 +787,7 @@ private struct PDFReportContentView: View {
             Text("Plate Properties")
                 .font(.system(size: 13, weight: .semibold))
 
-            dimensionsSubsection(dims: props.dimensions)
-
-            // Frequencies used in calculation
-            HStack(spacing: 0) {
-                platePropRow("fL", String(format: "%.1f Hz", props.fundamentalFrequencyLong))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                platePropRow("fC", String(format: "%.1f Hz", props.fundamentalFrequencyCross))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if let fLC = props.fundamentalFrequencyFlc {
-                    platePropRow("fLC", String(format: "%.1f Hz", fLC))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Spacer()
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .padding(6)
-            .background(Color.gray.opacity(0.06))
-            .cornerRadius(4)
+            // (fL / fC / fLC are inputs, shown in the Detected Peaks table — not repeated here.)
 
             HStack(alignment: .top, spacing: 0) {
                 // Left column
@@ -823,12 +819,12 @@ private struct PDFReportContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // GLC shear modulus (if FLC tap was performed)
+            // GLC shear modulus (if the Diagonal fLC tap was performed)
             if let glc = props.goreShearModulus {
                 platePropRow("GLC (Shear Modulus)",
                                String(format: "%.3f GPa", glc / 1.0e9))
             } else {
-                Text("GLC assumed 0 — FLC tap not performed")
+                Text("GLC assumed 0 — fLC tap not performed")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                     .italic()
@@ -877,18 +873,7 @@ private struct PDFReportContentView: View {
             Text("Brace Properties")
                 .font(.system(size: 13, weight: .semibold))
 
-            dimensionsSubsection(dims: props.dimensions)
-
-            // Frequency used in calculation
-            HStack(spacing: 0) {
-                platePropRow("fL", String(format: "%.1f Hz", props.fundamentalFrequencyLong))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Spacer().frame(maxWidth: .infinity)
-                Spacer().frame(maxWidth: .infinity)
-            }
-            .padding(6)
-            .background(Color.gray.opacity(0.06))
-            .cornerRadius(4)
+            // (fL is an input, shown in the Detected Peaks table — not repeated here.)
 
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -955,7 +940,37 @@ private struct PDFReportContentView: View {
         .cornerRadius(4)
     }
 
-    /// Renders the Gore target thickness result (plate measurements only).
+    /// Renders the plate Gore body inputs — finished-guitar body dimensions (a, b) and panel
+    /// stiffness (f_vs). Mirrors the Results panel's Body Dimensions section; feeds only the Gore target.
+    private func plateBodyDimensionsPDFSection(_ props: PlateProperties) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Body Dimensions")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            let presetLabel = data.plateStiffnessPreset == .custom
+                ? String(format: "f_vs = %.0f (custom)", data.plateStiffness)
+                : "f_vs = \(Int(data.plateStiffness)) (\(data.plateStiffnessPreset.rawValue))"
+            // Body dims on the first line; panel stiffness on its own line — the preset label is long
+            // and wraps awkwardly if squeezed into a third column.
+            HStack(spacing: 0) {
+                platePropRow("Body Length (a)",
+                             FieldPrecision.string(data.guitarBodyLength, FieldPrecision.bodyDimensionMM) + " mm")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                platePropRow("Lower Bout Width (b)",
+                             FieldPrecision.string(data.guitarBodyWidth, FieldPrecision.bodyDimensionMM) + " mm")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            platePropRow("Panel Stiffness", presetLabel)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(6)
+        .background(Color.gray.opacity(0.06))
+        .cornerRadius(4)
+    }
+
+    /// Renders the Gore target thickness result (plate measurements only) — just the number. The
+    /// inputs live in the Body Dimensions section above, and GLC among the Plate Properties moduli.
     @ViewBuilder
     private func goreThicknessPDFSection(_ props: PlateProperties) -> some View {
         if let hd = props.goreTargetThickness(
@@ -973,24 +988,6 @@ private struct PDFReportContentView: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(Color(red: 0.15, green: 0.35, blue: 0.75))
                     Spacer()
-                }
-
-                let presetLabel = data.plateStiffnessPreset == .custom
-                    ? String(format: "f_vs = %.0f (custom)", data.plateStiffness)
-                    : "f_vs = \(Int(data.plateStiffness)) (\(data.plateStiffnessPreset.rawValue))"
-                Text("Body: \(String(format: "%.0f", data.guitarBodyLength)) × \(String(format: "%.0f", data.guitarBodyWidth)) mm · \(presetLabel)")
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-
-                if let glc = props.goreShearModulus {
-                    Text("GLC (Shear Modulus): \(String(format: "%.3f GPa", glc / 1.0e9))")
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary)
-                } else {
-                    Text("GLC assumed 0 — FLC tap not performed")
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary)
-                        .italic()
                 }
             }
             .padding(6)

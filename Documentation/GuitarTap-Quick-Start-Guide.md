@@ -208,7 +208,7 @@ Scales the magnitude axis to fit the current signal. Tap it after each measureme
 
 ### <img src="Manual/images/symbols/eye.png" width="19" height="19" alt="eye"> <img src="Manual/images/symbols/star.fill.png" width="19" height="19" alt="star.fill"> <img src="Manual/images/symbols/eye.slash.png" width="19" height="19" alt="eye.slash"> Annotations
 
-Cycles through three label modes: All peaks annotated, Selected peaks only, or None. For plate and brace there is no per-peak selection, so All and Selected show the same thing — all three identified frequencies (Longitudinal, Cross, and FLC) — while None hides them.
+Cycles through three label modes: All peaks annotated, Selected peaks only, or None. For plate and brace there is no per-peak selection, so All and Selected show the same thing — all three identified frequencies (Longitudinal, Cross-grain, and Diagonal) — while None hides them.
 
 ### Peak Labels
 

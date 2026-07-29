@@ -108,13 +108,13 @@ extension TapToneAnalysisView {
         }
         var result: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
         if let spec = tap.longitudinalSpectrum {
-            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .blue, label: "Longitudinal (L)"))
+            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .blue, label: "Longitudinal (fL)"))
         }
         if measurementType == .plate, let spec = tap.crossSpectrum {
-            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .orange, label: "Cross-grain (C)"))
+            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .orange, label: "Cross-grain (fC)"))
         }
         if measurementType == .plate, let spec = tap.flcSpectrum {
-            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .purple, label: "FLC"))
+            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .purple, label: "Diagonal (fLC)"))
         }
         return result
     }
@@ -372,24 +372,23 @@ extension TapToneAnalysisView {
 
     /// Title for current plate/brace measurement phase
     var materialPhaseTitle: String {
-        let isBrace = TapDisplaySettings.measurementType == .brace
         switch tap.materialTapPhase {
         case .notStarted:
             return "Press \u{2018}New Tap\u{2019} to Begin"
         case .capturingLongitudinal:
-            return isBrace ? "Step 1: Longitudinal (fL) Mode" : "Step 1: Longitudinal (L) Mode"
+            return "Step 1: Longitudinal (fL) Mode"
         case .reviewingLongitudinal:
-            return "Review L Tap — Accept or Redo"
+            return "Review fL Tap — Accept or Redo"
         case .capturingCross:
-            return "Step 2: Cross-grain (C) Mode"
+            return "Step 2: Cross-grain (fC) Mode"
         case .reviewingCross:
-            return "Review C Tap — Accept or Redo"
+            return "Review fC Tap — Accept or Redo"
         case .waitingForFlcTap:
-            return "C Captured \u{2014} Prepare for Step 3"
+            return "fC Captured \u{2014} Prepare for Step 3"
         case .capturingFlc:
-            return "Step 3: FLC (Diagonal) Mode"
+            return "Step 3: Diagonal (fLC) Mode"
         case .reviewingFlc:
-            return "Review FLC Tap — Accept or Redo"
+            return "Review fLC Tap — Accept or Redo"
         case .complete:
             return "Measurement Complete"
         }
@@ -411,23 +410,23 @@ extension TapToneAnalysisView {
             }
             return "Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center."
         case .reviewingLongitudinal:
-            return "L tap captured. Review the spectrum — press Accept to continue to the C tap, or Redo to re-capture."
+            return "fL tap captured. Review the spectrum — press Accept to continue to the fC tap, or Redo to re-capture."
         case .capturingCross:
             return "Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center."
         case .reviewingCross:
-            return "C tap captured. Review the spectrum — press Accept to continue, or Redo to re-capture."
+            return "fC tap captured. Review the spectrum — press Accept to continue, or Redo to re-capture."
         case .waitingForFlcTap:
-            return "Cross-grain mode captured! Now hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both sides) for FLC."
+            return "Cross-grain mode captured! Now hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both sides) for the fLC (Diagonal) tap."
         case .capturingFlc:
             return "Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness."
         case .reviewingFlc:
-            return "FLC tap captured. Review the spectrum — press Accept to complete the measurement, or Redo to re-capture."
+            return "fLC tap captured. Review the spectrum — press Accept to complete the measurement, or Redo to re-capture."
         case .complete:
             if isBrace {
                 return "fL captured! Review the fL (blue) peak selection in the Results panel. Redo if the auto-selection isn\u{2019}t correct."
             }
-            let flcPart = TapDisplaySettings.measureFlc ? ", and FLC (purple)" : ""
-            return "All modes captured! Review the L (blue), C (orange)\(flcPart) peak selections in the Results panel. Redo if the auto-selection isn\u{2019}t correct."
+            let flcPart = TapDisplaySettings.measureFlc ? ", and fLC (purple)" : ""
+            return "All modes captured! Review the fL (blue), fC (orange)\(flcPart) peak selections in the Results panel. Redo if the auto-selection isn\u{2019}t correct."
         }
     }
 

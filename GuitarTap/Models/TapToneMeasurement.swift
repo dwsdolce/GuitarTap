@@ -889,7 +889,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             } else {
                 if peak.id == selectedLongitudinalPeakID      { label = "Longitudinal" }
                 else if peak.id == selectedCrossPeakID        { label = "Cross-grain" }
-                else if peak.id == selectedFlcPeakID          { label = "FLC" }
+                else if peak.id == selectedFlcPeakID          { label = "Diagonal" }
                 else                                          { label = "Peak" }
             }
             try peakContainer.encode(label, forKey: .modeLabel)

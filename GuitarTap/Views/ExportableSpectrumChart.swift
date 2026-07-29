@@ -215,7 +215,7 @@ struct ExportableSpectrumChart: View {
             } else if peak.id == selectedCrossPeakID {
                 return "Cross-grain"
             } else if peak.id == selectedFlcPeakID {
-                return "FLC"
+                return "Diagonal"
             } else {
                 return "Peak"
             }
@@ -528,7 +528,7 @@ func makeExportableSpectrumView(
     let roleLabel: (ResonantPeak) -> String = { peak in
         if peak.id == selectedLongitudinalPeakID { return "Longitudinal" }
         if peak.id == selectedCrossPeakID { return "Cross-grain" }
-        if peak.id == selectedFlcPeakID { return "FLC" }
+        if peak.id == selectedFlcPeakID { return "Diagonal" }
         return "Peak"
     }
     let roleColor: (ResonantPeak) -> Color = { peak in
@@ -752,13 +752,13 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
 
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
     if let longSnap = measurement.longitudinalSnapshot {
-        materialSpectra.append((longSnap.magnitudes, longSnap.frequencies, .blue, "Longitudinal (L)"))
+        materialSpectra.append((longSnap.magnitudes, longSnap.frequencies, .blue, "Longitudinal (fL)"))
     }
     if let crossSnap = measurement.crossSnapshot {
-        materialSpectra.append((crossSnap.magnitudes, crossSnap.frequencies, .orange, "Cross-grain (C)"))
+        materialSpectra.append((crossSnap.magnitudes, crossSnap.frequencies, .orange, "Cross-grain (fC)"))
     }
     if let flcSnap = measurement.flcSnapshot {
-        materialSpectra.append((flcSnap.magnitudes, flcSnap.frequencies, .purple, "FLC"))
+        materialSpectra.append((flcSnap.magnitudes, flcSnap.frequencies, .purple, "Diagonal (fLC)"))
     }
 
     let measurementType = snap.measurementType ?? .classical
