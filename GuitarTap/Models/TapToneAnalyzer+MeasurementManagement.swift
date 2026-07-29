@@ -529,6 +529,7 @@ extension TapToneAnalyzer {
                 setLoadedAxisRange(minFreq: minF, maxFreq: maxF, minDB: minD, maxDB: maxD)
             }
             loadedMeasurementName = measurement.measurementName.flatMap { $0.isEmpty ? nil : $0 }
+            loadedNotes = measurement.notes.flatMap { $0.isEmpty ? nil : $0 }
             // Clear any per-tap entries from a previously loaded multi-tap measurement so
             // the PDF export routing doesn't misidentify this as a multi-tap measurement.
             tapEntries = []
@@ -558,6 +559,9 @@ extension TapToneAnalyzer {
         // Expose the measurement name so the chart title can reflect it
         let name = measurement.measurementName.flatMap { $0.isEmpty ? nil : $0 }
         loadedMeasurementName = name
+
+        // Expose the notes so re-saving the loaded measurement keeps them (R10).
+        loadedNotes = measurement.notes.flatMap { $0.isEmpty ? nil : $0 }
 
         // Restore peaks
         allPeaks = measurement.peaks
@@ -968,6 +972,7 @@ extension TapToneAnalyzer {
         comparisonSpectra = spectraAndSnapshots.map(\.entry)
         comparisonSnapshots = spectraAndSnapshots.map(\.snapshot)
         loadedMeasurementName = nil
+        loadedNotes = nil
 
         // Broadcast the union axis ranges — use setLoadedAxisRange so all four bounds
         // are published atomically, preventing transient axis mismatches.

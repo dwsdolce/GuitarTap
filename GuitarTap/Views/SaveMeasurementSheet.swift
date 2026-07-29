@@ -31,6 +31,9 @@ struct SaveMeasurementSheet: View {
     /// Seeds the name field on first appear when it is empty — the loaded measurement's name when
     /// re-saving one, else "" (FILE-PATHS-AND-NAMES-SPEC §3). Mirrors the web SaveSheet's defaultName.
     var defaultName: String = ""
+    /// Seeds the notes field on first appear when it is empty — the loaded measurement's notes when
+    /// re-saving one, else "". Mirrors `defaultName` so a re-saved measurement keeps its notes (R10).
+    var defaultNotes: String = ""
     let onSave: () -> Void
 
     /// A name must be entered before Save is allowed (§3). Owned by the model so all three agree.
@@ -42,7 +45,10 @@ struct SaveMeasurementSheet: View {
         formContent
             .frame(minWidth: 450, idealWidth: 500, minHeight: 250, idealHeight: 350)
             .navigationTitle("Save Measurement")
-            .onAppear { if measurementName.isEmpty { measurementName = defaultName } }
+            .onAppear {
+                if measurementName.isEmpty { measurementName = defaultName }
+                if notes.isEmpty { notes = defaultNotes }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -60,7 +66,10 @@ struct SaveMeasurementSheet: View {
         NavigationView {
             formContent
                 .navigationTitle("Save Measurement")
-                .onAppear { if measurementName.isEmpty { measurementName = defaultName } }
+                .onAppear {
+                    if measurementName.isEmpty { measurementName = defaultName }
+                    if notes.isEmpty { notes = defaultNotes }
+                }
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { dismiss() }

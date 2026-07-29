@@ -84,6 +84,7 @@ extension TapToneAnalysisView {
                 measurementName: $measurementName,
                 notes: $notes,
                 defaultName: tap.loadedMeasurementName ?? "",
+                defaultNotes: tap.loadedNotes ?? "",
                 onSave: saveMeasurement
             )
             .interactiveDismissDisabled()
@@ -189,6 +190,7 @@ extension TapToneAnalysisView {
                 measurementName: $measurementName,
                 notes: $notes,
                 defaultName: tap.loadedMeasurementName ?? "",
+                defaultNotes: tap.loadedNotes ?? "",
                 onSave: saveMeasurement
             )
             .interactiveDismissDisabled()

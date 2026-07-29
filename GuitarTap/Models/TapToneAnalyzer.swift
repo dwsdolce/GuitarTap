@@ -1103,6 +1103,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// analyzer is reset, so the UI can show "New" instead.
     @Published var loadedMeasurementName: String? = nil
 
+    /// The notes of the most recently loaded measurement (or `nil` if blank). Seeds the Save sheet's
+    /// notes field so re-saving a loaded measurement keeps its notes (R10). Mirrors
+    /// `loadedMeasurementName`: set on load, cleared to `nil` on a new tap sequence / reset.
+    @Published var loadedNotes: String? = nil
+
     /// The authoritative display mode for the main spectrum view.
     ///
     /// All UI sections that differ between live, frozen, and comparison modes should

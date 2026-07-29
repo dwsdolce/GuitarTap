@@ -133,6 +133,7 @@ extension TapToneAnalyzer {
         comparisonSpectra = []
         displayMode = .live
         loadedMeasurementName = nil
+        loadedNotes = nil
         sourceMeasurementTimestamp = nil
         // Clear the played-file name so the chart title reverts to "New" when
         // the user starts a fresh tap sequence (e.g. by changing measurement
