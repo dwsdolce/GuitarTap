@@ -261,9 +261,9 @@ extension TapToneAnalyzer {
             let measureFlc = TapDisplaySettings.measureFlc
             if numberOfTaps > 1 {
                 let phases = measureFlc ? "L, C, FLC" : "L, C"
-                statusMessage = "Ready for L tap (×\(numberOfTaps) each for \(phases))"
+                statusMessage = "Ready for fL tap (×\(numberOfTaps) each for \(phases))"
             } else {
-                statusMessage = "Ready for L tap"
+                statusMessage = "Ready for fL tap"
             }
         } else {
             statusMessage = tapPrompt()
@@ -327,9 +327,9 @@ extension TapToneAnalyzer {
             case .capturingLongitudinal:
                 statusMessage = isBraceMode ? "Ready for fL tap" : "Ready for L tap"
             case .capturingFlc, .waitingForFlcTap:
-                statusMessage = "Ready for FLC tap"
+                statusMessage = "Ready for fLC tap"
             default:
-                statusMessage = "Ready for C tap"
+                statusMessage = "Ready for fC tap"
             }
         } else {
             statusMessage = guitarLoopStatus(capturing: false)
@@ -392,13 +392,13 @@ extension TapToneAnalyzer {
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             isDetecting = true
             tapDetected = false
-            statusMessage = "Rotate 90° and tap for C"
+            statusMessage = "Rotate 90° and tap for fC"
 
         case .reviewingCross:
             if measureFlc {
                 gtLog("✅ Accepted C tap — advancing to FLC")
                 materialTapPhase = .waitingForFlcTap
-                statusMessage = "Set up for FLC tap, then tap"
+                statusMessage = "Set up for fLC tap, then tap"
                 // Re-enable detection for the FLC phase after the cooldown.
                 DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
                     guard let self = self else { return }
@@ -506,7 +506,7 @@ extension TapToneAnalyzer {
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             isDetecting = true
             tapDetected = false
-            statusMessage = "Ready for L tap — tap again"
+            statusMessage = "Ready for fL tap — tap again"
 
         case .reviewingCross:
             gtLog("🔄 Redo C phase — clearing cross-grain data")
@@ -525,7 +525,7 @@ extension TapToneAnalyzer {
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             isDetecting = true
             tapDetected = false
-            statusMessage = "Ready for C tap — tap again"
+            statusMessage = "Ready for fC tap — tap again"
 
         case .reviewingFlc:
             gtLog("🔄 Redo FLC phase — clearing FLC data")
@@ -544,7 +544,7 @@ extension TapToneAnalyzer {
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             isDetecting = true
             tapDetected = false
-            statusMessage = "Ready for FLC tap — tap again"
+            statusMessage = "Ready for fLC tap — tap again"
 
         default:
             gtLog("⚠️ redoCurrentPhase called in unexpected phase: \(materialTapPhase)")

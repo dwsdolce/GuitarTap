@@ -104,19 +104,19 @@ enum MaterialTapPhase: String {
         case .capturingLongitudinal:
             return "Processing longitudinal tap..."
         case .reviewingLongitudinal:
-            return "L tap captured — Accept to continue or Redo to re-tap"
+            return "fL tap captured — Accept to continue or Redo to re-tap"
         case .capturingCross:
             return "Processing cross-grain tap..."
         case .reviewingCross:
-            return "C tap captured — Accept to continue or Redo to re-tap"
+            return "fC tap captured — Accept to continue or Redo to re-tap"
         case .waitingForFlcTap:
-            // FLC technique: hold at the midpoint of one long edge, tap near the opposite corner
-            // at approximately 22% from both the end and the side (node of the shear mode).
+            // Diagonal (fLC) technique: hold at the midpoint of one long edge, tap near the opposite
+            // corner at approximately 22% from both the end and the side (node of the shear mode).
             return "Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side)"
         case .capturingFlc:
-            return "Processing FLC tap..."
+            return "Processing diagonal tap..."
         case .reviewingFlc:
-            return "FLC tap captured — Accept to complete or Redo to re-tap"
+            return "fLC tap captured — Accept to complete or Redo to re-tap"
         case .complete:
             return "Measurement complete"
         }
@@ -142,13 +142,13 @@ enum MaterialTapPhase: String {
     var shortStatus: String {
         switch self {
         case .notStarted:              return "Ready"
-        case .capturingLongitudinal:   return "L tap..."
-        case .reviewingLongitudinal:   return "Review L"
-        case .capturingCross:          return "C tap..."
-        case .reviewingCross:          return "Review C"
-        case .waitingForFlcTap:        return "Tap for FLC"
-        case .capturingFlc:            return "FLC tap..."
-        case .reviewingFlc:            return "Review FLC"
+        case .capturingLongitudinal:   return "fL tap..."
+        case .reviewingLongitudinal:   return "Review fL"
+        case .capturingCross:          return "fC tap..."
+        case .reviewingCross:          return "Review fC"
+        case .waitingForFlcTap:        return "Tap for fLC"
+        case .capturingFlc:            return "fLC tap..."
+        case .reviewingFlc:            return "Review fLC"
         case .complete:                return "Done"
         }
     }

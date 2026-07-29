@@ -13,7 +13,7 @@
 //  paused/resume, completion (frozen across recalc), loaded, plate completion.
 //  Two families are intentionally NOT pinned here:
 //
-//  1. Material phase-guidance — "Ready for L tap", "Rotate 90° and tap for C" — is now
+//  1. Material phase-guidance — "Ready for fL tap", "Rotate 90° and tap for fC" — is now
 //     VISIBLE (OUT-1 fixed by the status state-machine alignment: the warm-up is silent).
 //     Pinned below by the "survives the warm-up" cases, which feed a warm-up frame and
 //     assert the guidance persists (these FAILED before the alignment — the warm-up
@@ -22,7 +22,7 @@
 //
 //  2. Per-tap capture PROGRESS transients — "Tap n/N capturing...",
 //     "Tap n/N captured. Tap again...", "All taps captured. Processing...", the
-//     material "L/C/FLC tap n/N captured..." / review / "No resonance detected"
+//     material "fL/fC/fLC tap n/N captured..." / review / "No resonance detected"
 //     strings — are written deep in the gated-capture pipeline (finishGuitarGatedCapture,
 //     handle*GatedProgress) and are produced by the file-playback + gated-capture
 //     regression tests running the real capture.  The web pins them directly because
@@ -202,17 +202,17 @@ struct StatusMessageTests {
     @Test func materialArm_readyForLTap_survivesWarmup() {
         let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
         sut.startTapSequence(initialPhase: .capturingLongitudinal)
-        #expect(sut.statusMessage == "Ready for L tap")
+        #expect(sut.statusMessage == "Ready for fL tap")
         sut.onRmsLevelChanged(-80, audioTime: 0) // a warm-up frame (warm-up clock just armed at the current audio time)
-        #expect(sut.statusMessage == "Ready for L tap")
+        #expect(sut.statusMessage == "Ready for fL tap")
     }
 
     @Test func acceptL_rotate90_survivesWarmup() {
         let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
         sut.materialTapPhase = .reviewingLongitudinal
-        sut.acceptCurrentPhase() // → "Rotate 90° and tap for C" + warm-up restart
-        #expect(sut.statusMessage == "Rotate 90° and tap for C")
+        sut.acceptCurrentPhase() // → "Rotate 90° and tap for fC" + warm-up restart
+        #expect(sut.statusMessage == "Rotate 90° and tap for fC")
         sut.onRmsLevelChanged(-80, audioTime: 0) // a warm-up frame
-        #expect(sut.statusMessage == "Rotate 90° and tap for C")
+        #expect(sut.statusMessage == "Rotate 90° and tap for fC")
     }
 }

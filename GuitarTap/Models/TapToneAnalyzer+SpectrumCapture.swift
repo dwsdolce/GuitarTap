@@ -1205,7 +1205,7 @@ extension TapToneAnalyzer {
         gtLog("📊 Gated LONGITUDINAL tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
 
         if captured < total {
-            statusMessage = "L tap \(captured)/\(total) captured. Tap again..."
+            statusMessage = "fL tap \(captured)/\(total) captured. Tap again..."
             reEnableDetectionForNextPlateTap()
             return
         }
@@ -1273,7 +1273,7 @@ extension TapToneAnalyzer {
             mpmLock.lock()
             lastLevelCrossingCaptureID = -1
             mpmLock.unlock()
-            statusMessage = "File: L complete, capturing C..."
+            statusMessage = "File: fL complete, capturing fC..."
             gtLog("📂 File playback: auto-advancing L → C")
         } else {
             // Freeze the L spectrum for display and pause at the review state.
@@ -1347,7 +1347,7 @@ extension TapToneAnalyzer {
         gtLog("📊 Gated CROSS-GRAIN tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
 
         if captured < total {
-            statusMessage = "C tap \(captured)/\(total) captured. Tap again..."
+            statusMessage = "fC tap \(captured)/\(total) captured. Tap again..."
             reEnableDetectionForNextPlateTap()
             return
         }
@@ -1389,7 +1389,7 @@ extension TapToneAnalyzer {
                 mpmLock.lock()
                 lastLevelCrossingCaptureID = -1
                 mpmLock.unlock()
-                statusMessage = "File: C complete, capturing FLC..."
+                statusMessage = "File: fC complete, capturing fLC..."
                 gtLog("📂 File playback: auto-advancing C → FLC")
             } else {
                 // No FLC: measurement complete.
@@ -1431,7 +1431,7 @@ extension TapToneAnalyzer {
         gtLog("📊 Gated FLC tap \(captured)/\(total): \(String(format: "%.1f", dominantPeak.frequency)) Hz")
 
         if captured < total {
-            statusMessage = "FLC tap \(captured)/\(total) captured. Tap again..."
+            statusMessage = "fLC tap \(captured)/\(total) captured. Tap again..."
             reEnableDetectionForNextPlateTap()
             return
         }
