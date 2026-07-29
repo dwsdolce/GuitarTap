@@ -521,7 +521,7 @@ private struct PeakAnnotationLabel: View {
             } else if isCross {
                 return "Cross-grain"
             } else if isFlc {
-                return "FLC"
+                return "Diagonal"
             } else {
                 return "Peak"  // Unselected peak
             }

@@ -191,7 +191,7 @@ struct MeasurementDetailView: View {
                                             if isMaterialMeasurement {
                                                 if peak.id == measurement.selectedLongitudinalPeakID { return "Longitudinal" }
                                                 if peak.id == measurement.selectedCrossPeakID { return "Cross-grain" }
-                                                if peak.id == measurement.selectedFlcPeakID { return "FLC" }
+                                                if peak.id == measurement.selectedFlcPeakID { return "Diagonal" }
                                                 return "Peak"
                                             }
                                             switch measurement.peakModeOverrides?[peak.id] ?? .auto {

@@ -71,6 +71,17 @@
 import SwiftUI
 import Combine
 
+/// Test-only thread-safe completion flag for `playFileForTesting`: the background file-processing
+/// worker `signal()`s it; the main-actor poll loop reads `isDone`. Replaces a `DispatchSemaphore`
+/// whose non-blocking `.wait(timeout:)` is unavailable from async contexts under the Swift 6 language
+/// mode. The lock keeps the cross-thread flag access data-race-free.
+private final class FileProcessingDoneFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func signal() { lock.lock(); done = true; lock.unlock() }
+    var isDone: Bool { lock.lock(); defer { lock.unlock() }; return done }
+}
+
 // MARK: - TapToneAnalyzer
 
 /// The main `ObservableObject` that coordinates tap-tone measurements across all modes.
@@ -178,7 +189,7 @@ final class TapToneAnalyzer: ObservableObject {
         let fileName = url.deletingPathExtension().lastPathComponent
         fftAnalyzer.prepareForFilePlayback(sampleRate: fileSampleRate, fileName: fileName)
 
-        let done = DispatchSemaphore(value: 0)
+        let done = FileProcessingDoneFlag()
         DispatchQueue.global(qos: .userInitiated).async { [fftAnalyzer] in
             fftAnalyzer.processFileData(
                 samples: monoSamples,
@@ -197,7 +208,7 @@ final class TapToneAnalyzer: ObservableObject {
         // isolation the test runs ON the main actor, so a blocking wait here deadlocks that sync.
         // `Task.sleep` suspends the main actor, freeing the main thread to run the worker's main-queue
         // work and deliver the Combine `.receive(on: .main)` FFT frames.
-        while done.wait(timeout: .now()) == .timedOut {
+        while !done.isDone {
             try? await Task.sleep(nanoseconds: 5_000_000)  // 5 ms
         }
         // Continue draining the main run loop until the measurement completes.
