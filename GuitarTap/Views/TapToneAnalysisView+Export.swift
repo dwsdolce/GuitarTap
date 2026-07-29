@@ -92,7 +92,9 @@ extension TapToneAnalysisView {
             if let longPeak = allPlatePeaks.first(where: { $0.id == effLong }),
                let crossPeak = allPlatePeaks.first(where: { $0.id == effCross }) {
                 let flcFreq: Float? = allPlatePeaks.first(where: { $0.id == effFlc })?.frequency
-                let dims = MaterialDimensions(
+                // Store B — the measurement's own dimensions (edited in the Results panel, restored on
+                // load), never the live Settings template. Falls back to settings only when unset.
+                let dims = tap.materialInputs?.dimensions ?? MaterialDimensions(
                     lengthMM: TapDisplaySettings.plateLength,
                     widthMM: TapDisplaySettings.plateWidth,
                     thicknessMM: TapDisplaySettings.plateThickness,
@@ -111,7 +113,8 @@ extension TapToneAnalysisView {
             let effLong = tap.effectiveLongitudinalPeakID
             let allBracePeaks = tap.longitudinalPeaks + tap.allPeaks
             if let longPeak = allBracePeaks.first(where: { $0.id == effLong }) {
-                let dims = MaterialDimensions(
+                // Store B — the measurement's own dimensions, never the live Settings template.
+                let dims = tap.materialInputs?.dimensions ?? MaterialDimensions(
                     lengthMM: TapDisplaySettings.braceLength,
                     widthMM: TapDisplaySettings.braceWidth,
                     thicknessMM: TapDisplaySettings.braceThickness,
@@ -153,10 +156,10 @@ extension TapToneAnalysisView {
             peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
             microphoneName: fft.selectedInputDevice?.name,
             calibrationName: fft.activeCalibration?.name,
-            guitarBodyLength: TapDisplaySettings.guitarBodyLength,
-            guitarBodyWidth: TapDisplaySettings.guitarBodyWidth,
-            plateStiffness: TapDisplaySettings.plateStiffness,
-            plateStiffnessPreset: TapDisplaySettings.plateStiffnessPreset
+            guitarBodyLength: tap.materialInputs?.bodyLengthMM ?? TapDisplaySettings.guitarBodyLength,
+            guitarBodyWidth: tap.materialInputs?.bodyWidthMM ?? TapDisplaySettings.guitarBodyWidth,
+            plateStiffness: tap.materialInputs?.stiffness ?? TapDisplaySettings.plateStiffness,
+            plateStiffnessPreset: tap.materialInputs?.stiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset
         )
 
         guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
@@ -289,7 +292,8 @@ extension TapToneAnalysisView {
             if let longPeak = allPlatePeaks.first(where: { $0.id == effLong }),
                let crossPeak = allPlatePeaks.first(where: { $0.id == effCross }) {
                 let flcFreq: Float? = allPlatePeaks.first(where: { $0.id == effFlc })?.frequency
-                let dims = MaterialDimensions(
+                // Store B — the measurement's own dimensions, never the live Settings template.
+                let dims = tap.materialInputs?.dimensions ?? MaterialDimensions(
                     lengthMM: TapDisplaySettings.plateLength, widthMM: TapDisplaySettings.plateWidth,
                     thicknessMM: TapDisplaySettings.plateThickness, massGrams: TapDisplaySettings.plateMass)
                 if dims.length > 0 && dims.mass > 0 {
@@ -303,7 +307,8 @@ extension TapToneAnalysisView {
             let effLong = tap.effectiveLongitudinalPeakID
             let allBracePeaks = tap.longitudinalPeaks + tap.allPeaks
             if let longPeak = allBracePeaks.first(where: { $0.id == effLong }) {
-                let dims = MaterialDimensions(
+                // Store B — the measurement's own dimensions, never the live Settings template.
+                let dims = tap.materialInputs?.dimensions ?? MaterialDimensions(
                     lengthMM: TapDisplaySettings.braceLength, widthMM: TapDisplaySettings.braceWidth,
                     thicknessMM: TapDisplaySettings.braceThickness, massGrams: TapDisplaySettings.braceMass)
                 if dims.length > 0 && dims.mass > 0 {
@@ -332,10 +337,10 @@ extension TapToneAnalysisView {
             peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
             microphoneName: fft.selectedInputDevice?.name,
             calibrationName: fft.activeCalibration?.name,
-            guitarBodyLength: TapDisplaySettings.guitarBodyLength,
-            guitarBodyWidth: TapDisplaySettings.guitarBodyWidth,
-            plateStiffness: TapDisplaySettings.plateStiffness,
-            plateStiffnessPreset: TapDisplaySettings.plateStiffnessPreset
+            guitarBodyLength: tap.materialInputs?.bodyLengthMM ?? TapDisplaySettings.guitarBodyLength,
+            guitarBodyWidth: tap.materialInputs?.bodyWidthMM ?? TapDisplaySettings.guitarBodyWidth,
+            plateStiffness: tap.materialInputs?.stiffness ?? TapDisplaySettings.plateStiffness,
+            plateStiffnessPreset: tap.materialInputs?.stiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset
         )
 
         // ── Page 2: comparison overlay spectrum image ─────────────────────────

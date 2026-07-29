@@ -1085,32 +1085,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// FLC peak ID loaded from a saved plate measurement.
     @Published var loadedSelectedFlcPeakID: UUID?
 
-    /// Plate dimensions loaded from a saved measurement (length in mm).
-    @Published var loadedPlateLength: Float?
-    /// Plate width loaded from a saved measurement, in mm.
-    @Published var loadedPlateWidth: Float?
-    /// Plate thickness loaded from a saved measurement, in mm.
-    @Published var loadedPlateThickness: Float?
-    /// Plate mass loaded from a saved measurement, in grams.
-    @Published var loadedPlateMass: Float?
-    /// Guitar body length for Gore calculation loaded from a saved measurement, in mm.
-    @Published var loadedGuitarBodyLength: Float?
-    /// Guitar body width for Gore calculation loaded from a saved measurement, in mm.
-    @Published var loadedGuitarBodyWidth: Float?
-    /// Plate stiffness preset loaded from a saved measurement.
-    @Published var loadedPlateStiffnessPreset: PlateStiffnessPreset?
-    /// Custom plate stiffness loaded from a saved measurement.
-    @Published var loadedCustomPlateStiffness: Float?
-    /// FLC measurement flag loaded from a saved measurement.
-    @Published var loadedMeasureFlc: Bool?
-    /// Brace length loaded from a saved measurement, in mm.
-    @Published var loadedBraceLength: Float?
-    /// Brace width loaded from a saved measurement, in mm.
-    @Published var loadedBraceWidth: Float?
-    /// Brace height loaded from a saved measurement, in mm.
-    @Published var loadedBraceThickness: Float?
-    /// Brace mass loaded from a saved measurement, in grams.
-    @Published var loadedBraceMass: Float?
+    // NOTE: the former loaded*-dimension publishers (loadedPlateLength/…/loadedBraceMass +
+    // guitarBody*/plateStiffness*/measureFlc) were removed with the two-store material-dimensions
+    // work: loading now sets the measurement's own `materialInputs` (Store B) directly and never
+    // writes the Settings defaults, so those publishers and their view handlers were dead. See
+    // GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
 
     /// Timestamp of the measurement most recently loaded into the results panel.
     ///
