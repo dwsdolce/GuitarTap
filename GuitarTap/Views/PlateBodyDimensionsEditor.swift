@@ -2,6 +2,7 @@
 //  PlateBodyDimensionsEditor.swift
 //  GuitarTap
 //
+// @parity view/plate-body-dimensions-editor
 
 import SwiftUI
 

@@ -37,6 +37,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `dsp/wav` | `GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift` | `src/guitar_tap/models/realtime_fft_analyzer_engine_control.py` | `src/dsp/wav.ts` | tests |
 | `model/export-filename` | `GuitarTap/Models/ExportFilename.swift` | `src/guitar_tap/models/export_filename.py` | `src/measurement/exportFilename.ts` | tests |
 | `model/guitar-mode-classify` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/dsp/classify.ts` | tests |
+| `model/material-measurement-inputs` | `GuitarTap/Models/MaterialMeasurementInputs.swift` | `src/guitar_tap/models/material_measurement_inputs.py` | — | tests |
 | `model/material-selection` | `GuitarTap/Models/TapToneMeasurement.swift` | `src/guitar_tap/models/tap_tone_measurement.py` | `src/measurement/types.ts` | tests |
 | `model/measurement-name` | `GuitarTap/Models/TapToneMeasurement.swift` | `src/guitar_tap/models/tap_tone_measurement.py` | `src/measurement/measurementName.ts` | tests |
 | `model/mode-colors` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/presentation/modeColors.ts` | tests |
@@ -61,6 +62,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `test/frozen-peak-recalc` | `GuitarTapTests/FrozenPeakRecalculationTests.swift` | `tests/test_frozen_peak_recalculation.py` | `test/frozen-peak-recalc.test.ts` | test suite |
 | `test/gated-fft` | `GuitarTapTests/GatedFFTParityTests.swift` | `tests/test_gated_fft_parity.py` | `test/gated-fft.test.ts` | test suite |
 | `test/import-persistence` | `GuitarTapTests/ImportPersistenceTests.swift` | `tests/test_import_persistence.py` | `test/import-persistence.test.ts` | test suite |
+| `test/material-measurement-inputs` | `GuitarTapTests/MaterialMeasurementInputsTests.swift` | `tests/test_material_measurement_inputs.py` | — | test suite |
 | `test/material-selection` | `GuitarTapTests/MaterialSelectionTests.swift` | `tests/test_material_selection.py` | `test/material-selection.test.ts` | test suite |
 | `test/measurement-codable` | `GuitarTapTests/MeasurementCodableTests.swift` | `tests/test_measurement_codable.py` | `test/measurement-codable.test.ts` | test suite |
 | `test/measurement-complete` | `GuitarTapTests/MeasurementCompleteTransitionTests.swift` | `tests/test_measurement_complete_transitions.py` | `test/measurement-complete.test.ts` | test suite |
@@ -89,12 +91,14 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `view/guitar-summary` | `GuitarTap/Views/TapAnalysisResultsView.swift` | `src/guitar_tap/views/tap_tone_analysis_view.py` | `src/components/AnalysisResults.tsx` | review only |
 | `view/help` | `GuitarTap/Views/HelpView.swift` | `src/guitar_tap/views/help_view.py` | `src/components/QuickStartGuide.tsx` | review only |
 | `view/main` | `GuitarTap/Views/TapToneAnalysisView.swift` | `src/guitar_tap/views/tap_tone_analysis_view.py` | `src/App.tsx` | review only |
+| `view/material-dimensions-editor` | `GuitarTap/Views/MaterialDimensionsEditor.swift` | `src/guitar_tap/views/material_dimensions_editor.py` | — | review only |
 | `view/material-instructions` | `GuitarTap/Views/TapToneAnalysisView+SpectrumViews.swift` | `src/guitar_tap/views/tap_tone_analysis_view.py` | `src/components/MaterialInstructionPanel.tsx` | review only |
 | `view/material-results` | `GuitarTap/Views/TapAnalysisResultsView.swift` | `src/guitar_tap/views/tap_tone_analysis_view.py` | `src/components/MaterialResults.tsx` | review only |
 | `view/measurement-detail` | `GuitarTap/Views/Measurements/MeasurementDetailView.swift` | `src/guitar_tap/views/measurements/measurement_detail_view.py` | `src/components/MeasurementDetail.tsx` | review only |
 | `view/measurements-list` | `GuitarTap/Views/Measurements/MeasurementRowView.swift`<br>`GuitarTap/Views/Measurements/MeasurementsListView.swift` | `src/guitar_tap/views/measurements/measurement_row_view.py`<br>`src/guitar_tap/views/measurements/measurements_list_view.py` | `src/components/MeasurementsPanel.tsx` | review only |
 | `view/multi-tap-results` | `GuitarTap/Views/MultiTapComparisonResultsView.swift` | `src/guitar_tap/views/multi_tap_comparison_results_view.py` | `src/components/MultiTapComparisonResultsView.tsx` | review only |
 | `view/peak-card` | `GuitarTap/Views/Shared/CombinedPeakModeRowView.swift` | `src/guitar_tap/views/shared/combined_peak_mode_row_view.py`<br>`src/guitar_tap/views/shared/peak_card_widget.py` | `src/components/PeakCard.tsx` | review only |
+| `view/plate-body-dimensions-editor` | `GuitarTap/Views/PlateBodyDimensionsEditor.swift` | `src/guitar_tap/views/plate_body_dimensions_editor.py` | — | review only |
 | `view/save-sheet` | `GuitarTap/Views/SaveMeasurementSheet.swift` | `src/guitar_tap/views/save_measurement_sheet.py` | `src/components/SaveSheet.tsx` | review only |
 | `view/settings` | `GuitarTap/Views/Utilities/TapSettingsView.swift` | `src/guitar_tap/views/tap_tone_analysis_view.py` | `src/components/SettingsPanel.tsx` | review only |
 | `view/spectrum-chart` | `GuitarTap/Views/SpectrumView.swift` | `src/guitar_tap/views/fft_canvas.py` | `src/components/SpectrumChart.tsx` | review only |

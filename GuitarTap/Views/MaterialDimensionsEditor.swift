@@ -2,6 +2,7 @@
 //  MaterialDimensionsEditor.swift
 //  GuitarTap
 //
+// @parity view/material-dimensions-editor
 
 import SwiftUI
 

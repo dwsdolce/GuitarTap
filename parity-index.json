@@ -299,6 +299,20 @@
       "equivalence": "tests"
     },
     {
+      "slug": "model/material-measurement-inputs",
+      "swift": [
+        "GuitarTap/Models/MaterialMeasurementInputs.swift"
+      ],
+      "python": [
+        "src/guitar_tap/models/material_measurement_inputs.py"
+      ],
+      "web": [],
+      "tests": [
+        "test/material-measurement-inputs"
+      ],
+      "equivalence": "tests"
+    },
+    {
       "slug": "model/material-selection",
       "swift": [
         "GuitarTap/Models/TapToneMeasurement.swift"
@@ -646,6 +660,18 @@
       "web": [
         "test/import-persistence.test.ts"
       ],
+      "tests": [],
+      "equivalence": "test suite"
+    },
+    {
+      "slug": "test/material-measurement-inputs",
+      "swift": [
+        "GuitarTapTests/MaterialMeasurementInputsTests.swift"
+      ],
+      "python": [
+        "tests/test_material_measurement_inputs.py"
+      ],
+      "web": [],
       "tests": [],
       "equivalence": "test suite"
     },
@@ -1049,6 +1075,18 @@
       "equivalence": "review only"
     },
     {
+      "slug": "view/material-dimensions-editor",
+      "swift": [
+        "GuitarTap/Views/MaterialDimensionsEditor.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/material_dimensions_editor.py"
+      ],
+      "web": [],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
       "slug": "view/material-instructions",
       "swift": [
         "GuitarTap/Views/TapToneAnalysisView+SpectrumViews.swift"
@@ -1132,6 +1170,18 @@
       "web": [
         "src/components/PeakCard.tsx"
       ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/plate-body-dimensions-editor",
+      "swift": [
+        "GuitarTap/Views/PlateBodyDimensionsEditor.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/plate_body_dimensions_editor.py"
+      ],
+      "web": [],
       "tests": [],
       "equivalence": "review only"
     },
