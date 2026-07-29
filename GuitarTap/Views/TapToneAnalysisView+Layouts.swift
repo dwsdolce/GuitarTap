@@ -81,11 +81,9 @@ extension TapToneAnalysisView {
         }
         .sheet(isPresented: $showingSaveSheet) {
             SaveMeasurementSheet(
-                measurementName: $measurementName,
-                notes: $notes,
                 defaultName: tap.loadedMeasurementName ?? "",
                 defaultNotes: tap.loadedNotes ?? "",
-                onSave: saveMeasurement
+                onSave: { name, noteText in saveMeasurement(name: name, noteText: noteText) }
             )
             .interactiveDismissDisabled()
         }
@@ -187,11 +185,9 @@ extension TapToneAnalysisView {
         }
         .sheet(isPresented: $showingSaveSheet) {
             SaveMeasurementSheet(
-                measurementName: $measurementName,
-                notes: $notes,
                 defaultName: tap.loadedMeasurementName ?? "",
                 defaultNotes: tap.loadedNotes ?? "",
-                onSave: saveMeasurement
+                onSave: { name, noteText in saveMeasurement(name: name, noteText: noteText) }
             )
             .interactiveDismissDisabled()
         }

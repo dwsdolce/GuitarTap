@@ -26,15 +26,23 @@ import SwiftUI
 
 struct SaveMeasurementSheet: View {
     @Environment(\.dismiss) var dismiss
-    @Binding var measurementName: String
-    @Binding var notes: String
-    /// Seeds the name field on first appear when it is empty — the loaded measurement's name when
-    /// re-saving one, else "" (FILE-PATHS-AND-NAMES-SPEC §3). Mirrors the web SaveSheet's defaultName.
-    var defaultName: String = ""
-    /// Seeds the notes field on first appear when it is empty — the loaded measurement's notes when
-    /// re-saving one, else "". Mirrors `defaultName` so a re-saved measurement keeps its notes (R10).
-    var defaultNotes: String = ""
-    let onSave: () -> Void
+    /// Sheet-local edit state, seeded once at init from the loaded measurement's name/notes (or "").
+    /// The sheet never writes back into shared view state — it hands the values to `onSave` on Save —
+    /// so a re-armed measurement (New Tap) can't inherit a stale name/notes. Mirrors Python's ephemeral
+    /// SaveMeasurementDialog (its QLineEdit/QTextEdit hold the edit; the view field is set only on Save)
+    /// and the web SaveSheet (local `useState(defaultName)`, remounted per open).
+    @State private var measurementName: String
+    @State private var notes: String
+    /// Invoked with the entered (name, notes) when the user confirms Save.
+    let onSave: (String, String) -> Void
+
+    /// Seeds the sheet's local fields at init — the loaded measurement's name/notes when re-saving one,
+    /// else "" (FILE-PATHS-AND-NAMES-SPEC §3; R10 for notes). Mirrors the web SaveSheet's defaultName.
+    init(defaultName: String = "", defaultNotes: String = "", onSave: @escaping (String, String) -> Void) {
+        _measurementName = State(initialValue: defaultName)
+        _notes = State(initialValue: defaultNotes)
+        self.onSave = onSave
+    }
 
     /// A name must be entered before Save is allowed (§3). Owned by the model so all three agree.
     private var canSave: Bool { TapToneMeasurement.isValidName(measurementName) }
@@ -45,17 +53,13 @@ struct SaveMeasurementSheet: View {
         formContent
             .frame(minWidth: 450, idealWidth: 500, minHeight: 250, idealHeight: 350)
             .navigationTitle("Save Measurement")
-            .onAppear {
-                if measurementName.isEmpty { measurementName = defaultName }
-                if notes.isEmpty { notes = defaultNotes }
-            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave()
+                        onSave(measurementName, notes)
                         dismiss()
                     }
                     .disabled(!canSave)
@@ -66,17 +70,13 @@ struct SaveMeasurementSheet: View {
         NavigationView {
             formContent
                 .navigationTitle("Save Measurement")
-                .onAppear {
-                    if measurementName.isEmpty { measurementName = defaultName }
-                    if notes.isEmpty { notes = defaultNotes }
-                }
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { dismiss() }
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Save") {
-                            onSave()
+                            onSave(measurementName, notes)
                             dismiss()
                         }
                         .disabled(!canSave)

@@ -217,7 +217,13 @@ extension TapToneAnalysisView {
         }
     }
 
-    func saveMeasurement() {
+    func saveMeasurement(name: String, noteText: String) {
+        // The Save sheet owns the edit; it hands the values here on confirm. Mirror them into the
+        // transient view fields the save/export paths read (Python sets self._measurement_name /
+        // self._notes on dialog-accept the same way), then clear them below once the save is done —
+        // so nothing persists into the next measurement.
+        measurementName = name
+        notes = noteText
         if tap.isSavedMeasurementComparison {
             tap.saveComparison(
                 measurementName: TapToneMeasurement.normalizedName(measurementName),
