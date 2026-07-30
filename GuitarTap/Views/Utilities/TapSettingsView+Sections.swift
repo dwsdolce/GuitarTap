@@ -154,7 +154,7 @@ extension TapSettingsView {
 
                 Toggle(isOn: $measureFlc) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Measure FLC (Diagonal Tap)")
+                        Text("Measure Diagonal (fLC) Tap")
                         Text("Add a 3rd tap: hold plate at midpoint of one long edge, tap near opposite corner. Measures shear stiffness for Gore target thickness.")
                             .font(.caption)
                             .foregroundColor(.secondary)

@@ -99,9 +99,9 @@ With the grain running left–right, hold the plate at one point 22% from one en
 
 Rotate the plate 90° so the grain runs front–back. Hold at one point 22% from one end along the width, near one short edge (not at the length nodal line — this damps the longitudinal resonance). Tap center. The app prompts "Capturing Cross-Grain" automatically after the longitudinal tap is accepted.
 
-### Tap 3 — FLC (Optional)
+### Tap 3 — Diagonal (Optional)
 
-Enable Measure FLC in Settings. Hold the plate at the midpoint of one long edge and tap near the opposite corner (~22% from both the end and the side). This adds a shear modulus measurement used in the Gore target-thickness calculation. Omitting it over-estimates target thickness by roughly 5–7%.
+Enable Measure Diagonal (fLC) Tap in Settings. Hold the plate at the midpoint of one long edge and tap near the opposite corner (~22% from both the end and the side). This adds a shear modulus measurement used in the Gore target-thickness calculation. Omitting it over-estimates target thickness by roughly 5–7%.
 
 ### Reading the Results
 
