@@ -306,7 +306,9 @@
       "python": [
         "src/guitar_tap/models/material_measurement_inputs.py"
       ],
-      "web": [],
+      "web": [
+        "src/measurement/materialMeasurementInputs.ts"
+      ],
       "tests": [
         "test/material-measurement-inputs"
       ],
@@ -671,7 +673,9 @@
       "python": [
         "tests/test_material_measurement_inputs.py"
       ],
-      "web": [],
+      "web": [
+        "test/material-measurement-inputs.test.ts"
+      ],
       "tests": [],
       "equivalence": "test suite"
     },
@@ -1251,6 +1255,20 @@
       ],
       "web": [
         "src/components/ThresholdMeter.tsx"
+      ],
+      "tests": [],
+      "equivalence": "review only"
+    },
+    {
+      "slug": "view/validated-number-field",
+      "swift": [
+        "GuitarTap/Views/Utilities/ValidatedNumberField.swift"
+      ],
+      "python": [
+        "src/guitar_tap/views/shared/validated_number_field.py"
+      ],
+      "web": [
+        "src/components/NumberField.tsx"
       ],
       "tests": [],
       "equivalence": "review only"

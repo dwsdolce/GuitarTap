@@ -37,7 +37,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `dsp/wav` | `GuitarTap/Models/RealtimeFFTAnalyzer+FFTProcessing.swift` | `src/guitar_tap/models/realtime_fft_analyzer_engine_control.py` | `src/dsp/wav.ts` | tests |
 | `model/export-filename` | `GuitarTap/Models/ExportFilename.swift` | `src/guitar_tap/models/export_filename.py` | `src/measurement/exportFilename.ts` | tests |
 | `model/guitar-mode-classify` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/dsp/classify.ts` | tests |
-| `model/material-measurement-inputs` | `GuitarTap/Models/MaterialMeasurementInputs.swift` | `src/guitar_tap/models/material_measurement_inputs.py` | — | tests |
+| `model/material-measurement-inputs` | `GuitarTap/Models/MaterialMeasurementInputs.swift` | `src/guitar_tap/models/material_measurement_inputs.py` | `src/measurement/materialMeasurementInputs.ts` | tests |
 | `model/material-selection` | `GuitarTap/Models/TapToneMeasurement.swift` | `src/guitar_tap/models/tap_tone_measurement.py` | `src/measurement/types.ts` | tests |
 | `model/measurement-name` | `GuitarTap/Models/TapToneMeasurement.swift` | `src/guitar_tap/models/tap_tone_measurement.py` | `src/measurement/measurementName.ts` | tests |
 | `model/mode-colors` | `GuitarTap/Models/GuitarMode.swift` | `src/guitar_tap/models/guitar_mode.py` | `src/presentation/modeColors.ts` | tests |
@@ -62,7 +62,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `test/frozen-peak-recalc` | `GuitarTapTests/FrozenPeakRecalculationTests.swift` | `tests/test_frozen_peak_recalculation.py` | `test/frozen-peak-recalc.test.ts` | test suite |
 | `test/gated-fft` | `GuitarTapTests/GatedFFTParityTests.swift` | `tests/test_gated_fft_parity.py` | `test/gated-fft.test.ts` | test suite |
 | `test/import-persistence` | `GuitarTapTests/ImportPersistenceTests.swift` | `tests/test_import_persistence.py` | `test/import-persistence.test.ts` | test suite |
-| `test/material-measurement-inputs` | `GuitarTapTests/MaterialMeasurementInputsTests.swift` | `tests/test_material_measurement_inputs.py` | — | test suite |
+| `test/material-measurement-inputs` | `GuitarTapTests/MaterialMeasurementInputsTests.swift` | `tests/test_material_measurement_inputs.py` | `test/material-measurement-inputs.test.ts` | test suite |
 | `test/material-selection` | `GuitarTapTests/MaterialSelectionTests.swift` | `tests/test_material_selection.py` | `test/material-selection.test.ts` | test suite |
 | `test/measurement-codable` | `GuitarTapTests/MeasurementCodableTests.swift` | `tests/test_measurement_codable.py` | `test/measurement-codable.test.ts` | test suite |
 | `test/measurement-complete` | `GuitarTapTests/MeasurementCompleteTransitionTests.swift` | `tests/test_measurement_complete_transitions.py` | `test/measurement-complete.test.ts` | test suite |
@@ -104,6 +104,7 @@ two), or use `Tooling/parity/parity_lookup.py <substring>` for sorted/filtered b
 | `view/spectrum-chart` | `GuitarTap/Views/SpectrumView.swift` | `src/guitar_tap/views/fft_canvas.py` | `src/components/SpectrumChart.tsx` | review only |
 | `view/spectrum-gestures` | `GuitarTap/Views/SpectrumView+GestureHandlers.swift` | `src/guitar_tap/views/spectrum_view_gesture_handlers.py` | `src/components/SpectrumChart.tsx` | review only |
 | `view/threshold-slider` | `GuitarTap/Views/Shared/ThresholdSlider.swift` | `src/guitar_tap/views/shared/threshold_slider.py` | `src/components/ThresholdMeter.tsx` | review only |
+| `view/validated-number-field` | `GuitarTap/Views/Utilities/ValidatedNumberField.swift` | `src/guitar_tap/views/shared/validated_number_field.py` | `src/components/NumberField.tsx` | review only |
 
 **Equivalence** - where the contents are actually *verified* to match (this map only asserts co-location; behaviour is proven elsewhere). From each impl group's linked `test/*` group (tag attribute `tests=`): **oracle + tests** = numerically pinned by the oracle (a `g#` web test) AND covered by paired Swift/Python behavioural tests; **oracle** or **tests** = one of those; **test suite** = the row is itself a test; **review only** = no machine check (equivalence rests on change-all-three-together + code review).
 

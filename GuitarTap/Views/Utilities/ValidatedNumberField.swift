@@ -2,6 +2,7 @@
 //  ValidatedNumberField.swift
 //  GuitarTap
 //
+// @parity view/validated-number-field
 
 /// A numeric text field that rejects an over-precise keystroke *before* it is displayed, so the
 /// disallowed character never appears (a 2-dp field accepts "29.35" but not "29.356"; a 0-dp field
@@ -13,10 +14,11 @@
 ///   - iOS: `UITextField` + `textField(_:shouldChangeCharactersIn:replacementString:)`.
 ///   - macOS: `NSTextField` + a `Formatter` whose `isPartialStringValid` gates each edit.
 ///
-/// This is the Swift edition's mechanism for the same restrict-on-entry behaviour the Python edition
-/// gets from a `QRegularExpressionValidator` and the web edition from a synchronous `onChange`
-/// revert. The shared precision policy lives in `FieldPrecision` (the `util/field-precision` parity
-/// group); this view is a Swift-only consumer of it, not a cross-platform mirror.
+/// The three editions share this validated numeric field as the `view/validated-number-field` parity
+/// group, each using its framework's pre-display veto: this UITextField/NSTextField delegate on Swift,
+/// a `QRegularExpressionValidator` on Python (`ValidatedNumberField`), and a synchronous `onChange`
+/// revert on web (`NumberField`). The shared *precision policy* is a separate group, `FieldPrecision`
+/// (`util/field-precision`); these widgets are its per-platform input adapters.
 
 import SwiftUI
 
