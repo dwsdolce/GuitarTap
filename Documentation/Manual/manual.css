@@ -300,6 +300,21 @@ img.screenshot-desktop     { max-width: 160mm; }   /* macOS / Python window */
 img.screenshot-panel       { max-width: 120mm; }   /* Settings sheet, Results panel close-up */
 img.screenshot-strip       { max-width: 150mm; }   /* Horizontal toolbar / chart-strip crops */
 
+/* Height cap so a tall (portrait) screenshot can never exceed the printable page and
+   orphan its heading. Budget: A4 is 297mm; @page margins take 25mm (top) + 22mm (bottom),
+   leaving a 250mm content area (the running header/footer sit inside the margins, so they
+   don't reduce it). A section h2 heading plus its spacing is ~20-25mm, and `break-inside:
+   avoid` forces the whole image onto one page — so an image must be comfortably under
+   ~225mm to stay on the page WITH its heading. 200mm leaves a clear ~50mm for the heading
+   and a few lines of following text. The renderer scales to satisfy BOTH max-width and
+   max-height (aspect preserved), so this only bites on tall shots (a 1:2 panel becomes
+   ~98mm wide instead of overflowing) — and resizing the PNG never mattered, since height
+   was always aspect × the width cap. */
+img.screenshot-mobile, img.screenshot-mobile-wide, img.screenshot-tablet,
+img.screenshot-desktop, img.screenshot-panel, img.screenshot-strip {
+    max-height: 200mm;
+}
+
 /* Full-width screenshot */
 .screenshot {
     width: 100%;

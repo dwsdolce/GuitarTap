@@ -9,6 +9,10 @@
 
 ## New Features
 
+### Set a Plate or Brace's Dimensions in the Results
+
+- You now enter a sample's dimensions where you read its results. After tapping, the Analysis Results panel has editable **Sample Dimensions** (length, width, thickness, mass) and — for a plate — **Body Dimensions** (body length, lower bout width, and panel stiffness); every property and the Gore target thickness recompute as you type. You no longer have to fill the numbers into Settings before you start: the Settings dimension fields are now just the defaults for a new measurement, and each measurement keeps its own values. Tap first, then enter or correct the exact dimensions afterward.
+
 ### Export All / Import
 
 - **Export All** writes every saved measurement to a single file, and **Import** brings a set back in — on the same machine or another one. Useful for backing up a session's work, or moving your measurements to a different device.
@@ -23,8 +27,16 @@
 
 ### Material (Plate & Brace) Results
 
-- The Analysis Results panel now fills in **as you tap**. The Long / Cross / (FLC) rows appear straight away as dashed placeholders and are completed as each phase finishes; the calculated properties appear only once the whole measurement is done. Previously the panel stayed empty until the very end, which gave no sense of progress.
+- The Analysis Results panel now fills in **as you tap**. The Longitudinal (fL), Cross-grain (fC), and Diagonal (fLC) rows appear straight away as dashed placeholders and are completed as each phase finishes; the calculated properties appear only once the whole measurement is done. Previously the panel stayed empty until the very end, which gave no sense of progress.
 - Peak selection for each material phase now uses the **averaged** spectrum of that phase's taps rather than the last tap alone.
+
+### Clearer Tap-Mode Names
+
+- The three material taps are now labelled consistently everywhere — **Longitudinal (fL)**, **Cross-grain (fC)**, and **Diagonal (fLC)** — on the chart, in the results, and on the report. The Settings option for the third tap is now **Measure Diagonal (fLC) Tap**.
+
+### More Panel-Stiffness Presets
+
+- The Gore target-thickness calculation adds **Classical Top** and **Classical Back** to the existing Steel String Top, Steel String Back, and Custom presets.
 
 ### Peak Min
 
@@ -99,7 +111,7 @@
 - **Playing a measurement from a file** did not detect taps the same way a live measurement does. It used a fixed threshold rather than tracking the noise floor, and its warm-up was timed on the clock rather than on the audio, so the warm-up expired before any audio had arrived. File playback now behaves exactly like a live measurement — which also means a recording needs a short lead-in before its first tap (see Help).
 - **New Tap could get stuck disabled.** If you cancelled the capture-folder prompt — or launched with a chosen folder that was no longer reachable — the app could end up with every tap control disabled and no way to start. New Tap is now available whenever the detector is idle, so you can always begin again.
 - **Ring-out (decay time) could be misreported.** It was sampled on too coarse a cadence and timed with the wall clock, so a busy computer could skew the number. It is now sampled once per audio chunk and timed on the audio clock, so it stays accurate even under heavy load.
-- **iPad / iPhone:** an intermittent, hard-to-reproduce glitch when saving a plate or brace measurement could corrupt its stored peak selection, so the exported spectrum chart and PDF report later showed only one of the three measured frequencies. The live graph and the Analysis Results table were unaffected. Material measurements now always show all three (Longitudinal, Cross, and FLC where present), and any affected file is repaired when it is loaded.
+- **iPad / iPhone:** an intermittent, hard-to-reproduce glitch when saving a plate or brace measurement could corrupt its stored peak selection, so the exported spectrum chart and PDF report later showed only one of the three measured frequencies. The live graph and the Analysis Results table were unaffected. Material measurements now always show all three (Longitudinal, Cross-grain, and Diagonal where present), and any affected file is repaired when it is loaded.
 - During a plate capture, the identified peaks were not annotated on the chart until the whole measurement finished. They now appear at the completion of each phase (Longitudinal, then Cross, then FLC).
 - **Saving could be blocked when every peak was hidden.** With Peak Min raised high enough to hide all peaks, or peak visibility set to None, Save is now still available — hiding peaks is a display choice and never prevents saving the measurement.
 
