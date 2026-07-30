@@ -13,7 +13,7 @@ Brace mode runs a single longitudinal tap on a brace strip and
 returns the wood's stiffness and quality. Compared to Plate mode:
 
 - **No cross-grain tap.** E_C is not measured.
-- **No FLC tap.** G_LC is not measured.
+- **No Diagonal (fLC) tap.** G_LC is not measured.
 - **No Cross/Long ratio.**
 - **No Gore target thickness.** Brace mode is for stock evaluation,
   not for thicknessing.
@@ -25,40 +25,31 @@ Brace mode is intended for batch-evaluating brace strips before
 selecting stock for a build. For a free plate, use Plate mode
 (Chapter 4); for a complete instrument, use Guitar mode (Chapter 3).
 
-## 5.2 Setting Up Brace Dimensions
+## 5.2 Selecting Brace Mode
 
 <!--
 SCREENSHOT:
 
   File:    images/ch05-settings-brace.png
-  Subject: Settings sheet on macOS, Measurement Type set to Brace,
-           scrolled to the "Brace Dimensions" section. All four
-           input fields visible: Length (along grain), Width
-           (breadth), Height (tap direction) with its helper text,
-           and Mass. Calculated Density preview line below them.
-  Notes:   Use plausible spruce-brace numbers (e.g. 480 x 18 x 15
-           mm, 18 g) so the density preview reads in the spruce
-           range. Crop to the settings sheet.
+  Subject: Settings sheet on macOS, Measurement Type set to Brace.
+           The brace dimension fields (Length, Width, Height, Mass)
+           are visible as the defaults for a new measurement.
+  Notes:   Crop to the settings sheet.
 -->
 
-![Settings sheet with Measurement Type set to Brace — Length, Width, Height, and Mass fields with calculated density preview.](images/ch05-settings-brace.png){: .screenshot-panel }
+![Settings sheet with Measurement Type set to Brace — the default Length, Width, Height, and Mass fields.](images/ch05-settings-brace.png){: .screenshot-panel }
 
-Open **Settings → Measurement Type → Brace**. The Brace
-Dimensions section has four fields:
-
-- **Length (along grain)** (mm) — the long axis of the strip.
-- **Width (breadth)** (mm) — the brace's breadth lying flat.
-- **Height (tap direction)** (mm) — the dimension perpendicular
-  to the face you tap. This is the `t` in the Euler–Bernoulli
-  stiffness formula, so it's the one that drives E_L most
-  strongly. The Settings panel itself flags this with a helper
-  line under the field; double-check it before tapping.
-- **Mass** (g).
-
-A **Calculated Density** line appears below the fields once all
-four are populated. Use it the same way as the plate-mode density
-preview — spruce should land in the 0.35–0.45 g/cm³ range, and a
-value well outside that is almost always a digit transposition.
+Open **Settings → Measurement Type → Brace**. That is all Settings
+needs before you tap. As in plate mode, the Settings sheet holds
+the brace dimension fields, but in the current workflow those act
+only as the **defaults** for a new measurement. The suggested route
+is to capture the tap first and then enter this strip's actual
+dimensions in the Analysis Results (§5.4), where they are editable
+and drive the numbers immediately. Filling them in ahead of time in
+Settings is optional — it just means a new measurement starts
+pre-filled; the per-measurement dimensions you enter in the results
+are what's saved with that measurement, and the Settings defaults
+are left untouched.
 
 ## 5.3 Technique
 
@@ -81,18 +72,19 @@ The **Accept** / **Redo** review flow is the same as in Plate mode
 re-arms the detector. There is no phase counter — Brace mode runs
 in a single phase, so the status bar shows just the current state.
 
-## 5.4 Reading Brace Results
+## 5.4 Analyzing Brace Results
 
 <!--
 SCREENSHOT:
 
   File:    images/ch05-results-panel.png
-  Subject: Brace measurement Results panel scrolled to show all
-           three sections: Detected Peaks (the single L row with
-           star + frequency + magnitude + L phase badge), Brace
-           Properties (Frequency used, Speed of Sound, Young's
-           Modulus, Specific Modulus in large type with quality
-           rating colour, Radiation Ratio), and Brace Process
+  Subject: Brace measurement Results panel scrolled to show its
+           sections: Detected Peaks (the single fL row with star +
+           frequency + magnitude + fL phase badge), the editable
+           Sample Dimensions block (Length, Width, Height, Mass +
+           calculated density), Brace Properties (Speed of Sound,
+           Young's Modulus, Specific Modulus in large type with
+           quality colour, Radiation Ratio), and Brace Process
            Instructions.
   Notes:   Use a real measurement so the numbers are plausible;
            pick a strip whose specific modulus lands in one of
@@ -100,20 +92,41 @@ SCREENSHOT:
            Crop to the panel only.
 -->
 
-![Brace Results panel showing the three sections — Detected Peaks (single L row), Brace Properties, and Brace Process Instructions.](images/ch05-results-panel.png){: .screenshot-panel }
+![Brace Results panel showing Detected Peaks (single fL row), the editable Sample Dimensions, Brace Properties, and Brace Process Instructions.](images/ch05-results-panel.png){: .screenshot-panel }
 
-A completed brace measurement displays three sections in the
-Results panel.
+Once the tap is captured, the Results panel is where you turn the
+frequency into material properties: you enter this strip's
+dimensions and the properties recompute live as you type. The
+dimension fields seed from the Settings defaults at the moment the
+measurement completes. The panel shows the sections below.
 
 ### Detected Peaks
 
 A single row for the longitudinal peak. It shows a
 selection-indicator star, the peak frequency, the peak magnitude
-in dB, and a blue **L** phase badge.
+in dB, and a blue **fL** phase badge.
+
+### Sample Dimensions
+
+The strip's dimensions, each **editable in place**:
+
+- **Length** (mm) — the long axis of the strip, along the grain.
+- **Width** (mm) — the brace's breadth lying flat.
+- **Thickness** (mm) — for a brace this is the dimension
+  perpendicular to the face you tap (the same value Settings labels
+  **Height (tap direction)**). It is the `t` in the Euler–Bernoulli
+  stiffness formula, so it drives E_L most strongly; double-check it
+  before trusting the result.
+- **Mass** (g).
+
+A live **Calculated Density** is shown with them. Use it the same
+way as in plate mode — spruce should land in the 0.35–0.45 g/cm³
+range, and a value well outside that is almost always a digit
+transposition. Editing any field recomputes every property below
+immediately.
 
 ### Brace Properties
 
-- **Frequency used** — fL in Hz.
 - **Speed of Sound** — c_L in m/s.
 - **Young's Modulus (E)** — in GPa.
 - **Specific Modulus (E/ρ)** — the headline number, in
@@ -122,6 +135,7 @@ in dB, and a blue **L** phase badge.
   scale) accompanies the value with a matching colour cue.
 - **Radiation Ratio (R)** — in the same column.
 
+The frequency (fL) is an input, shown in Detected Peaks above.
 There is no Cross/Long ratio or Overall Quality row — both are
 plate-only since they need cross-grain data.
 
@@ -138,15 +152,16 @@ A practical workflow for evaluating a batch of brace strips:
 1. Label each strip (a pencil mark on the end grain or a small
    sticky label works) so you can match measurements to physical
    pieces later.
-2. Enter the strip's Length, Width, Height, and Mass in Settings.
-   For a batch of strips with consistent stock dimensions you
-   only have to change Mass between measurements; for variable
-   stock all four fields need updating.
-3. Tap the strip.
-4. Record the result. The **Notes** field on the Save sheet is the
+2. Tap the strip, then enter its Length, Width, Height, and Mass in
+   the Analysis Results. For a batch of strips with consistent stock
+   dimensions, set those common values once as the Settings defaults
+   so each new measurement starts pre-filled, and you only adjust
+   Mass in the results between strips; for variable stock, enter all
+   four in the results each time.
+3. Record the result. The **Notes** field on the Save sheet is the
    right place for the strip's identifier — once saved, the
    saved measurement carries its provenance.
-5. Move on to the next strip.
+4. Move on to the next strip.
 
 For sorting by stiffness alone, the longitudinal frequency at the
 same dimensions is a sufficient proxy — higher fL means stiffer

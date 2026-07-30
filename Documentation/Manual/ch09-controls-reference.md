@@ -217,8 +217,8 @@ current phase result before advancing.
 **Redo** <img src="images/symbols/arrow.counterclockwise.circle.png" width="18" height="18" class="inline-icon" alt="arrow.counterclockwise.circle"> —
 A single button whose label and icon change with state.
 **Cancel** discards the active sequence and returns to the live
-view. During a plate / brace review phase it becomes **Redo L**,
-**Redo C**, or **Redo FLC** (orange) and re-arms detection for
+view. During a plate / brace review phase it becomes **Redo fL**,
+**Redo fC**, or **Redo fLC** (orange) and re-arms detection for
 that phase only (§4.5).
 
 **Results** <img src="images/symbols/doc.text.png" width="18" height="18" class="inline-icon" alt="doc.text"> (iPhone only) — Opens the
@@ -300,7 +300,8 @@ themselves are the same everywhere:
 - **Taps stepper (1 – 10)** — number of taps to capture in each
   guitar-mode sequence, or per phase in plate / brace mode (e.g.
   3 means three taps for Longitudinal, three for Cross-grain, and
-  three for FLC if enabled). Disabled while a sequence is in
+  three for the Diagonal (fLC) tap if enabled). Disabled while a
+  sequence is in
   progress and during comparison mode.
 
 - **Threshold slider** — signal level (dB) that triggers tap

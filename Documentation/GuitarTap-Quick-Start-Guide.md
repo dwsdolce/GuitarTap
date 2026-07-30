@@ -77,15 +77,15 @@ Tap Save. Enter a measurement name (e.g. "Martin D-28" or "Ramirez 1075") and an
 
 ### Overview
 
-Plate material mode measures the stiffness of a rectangular tonewood sample using three free-free beam bending taps: Longitudinal (along grain), Cross-grain, and optionally FLC (diagonal/torsional). From the tap frequencies it derives Young's modulus, speed of sound, specific modulus, radiation ratio, and a quality rating.
+Plate material mode measures the stiffness of a rectangular tonewood sample using three free-free beam bending taps: Longitudinal (fL, along grain), Cross-grain (fC), and optionally Diagonal (fLC, torsional). From the tap frequencies and the sample dimensions it derives Young's modulus, speed of sound, specific modulus, radiation ratio, and a quality rating.
 
 ### Prepare the Sample
 
 Cut or plane a rectangular blank. Measure length (along grain), width (cross grain), thickness, and mass precisely — accuracy here directly affects the calculated moduli. A kitchen scale accurate to 0.1 g is adequate for most samples.
 
-### Enter Dimensions in Settings
+### Select Plate Mode
 
-Open Settings → Measurement Type → Material. Enter Length (along grain), Width (cross grain), Thickness, and Mass. The app instantly shows the calculated density so you can catch data-entry errors before tapping.
+Open Settings → Measurement Type → Plate, and enable Measure Diagonal (fLC) Tap if you'll capture the third tap. That is all Settings needs before you tap: you enter this sample's dimensions in the Analysis Results after capturing (see Reading the Results), where they drive the numbers live. The dimension fields in Settings are just the defaults for a new measurement.
 
 ### Suspension Technique
 
@@ -93,11 +93,11 @@ Hold the plate at one point 22% from one end along the dimension being measured,
 
 ### Tap 1 — Longitudinal
 
-With the grain running left–right, hold the plate at one point 22% from one end along the length, near one long edge (not at the width nodal line — this damps the cross-grain resonance). Tap center. Tap New Tap and follow the on-screen prompt "Capturing Longitudinal". The app selects the strongest peak as the longitudinal frequency.
+With the grain running left–right, hold the plate at one point 22% from one end along the length, near one long edge (not at the width nodal line — this damps the cross-grain resonance). Tap center. Tap New Tap and follow the on-screen prompt "Step 1: Longitudinal (fL) Mode". The app selects the strongest peak as the longitudinal frequency.
 
 ### Tap 2 — Cross-Grain
 
-Rotate the plate 90° so the grain runs front–back. Hold at one point 22% from one end along the width, near one short edge (not at the length nodal line — this damps the longitudinal resonance). Tap center. The app prompts "Capturing Cross-Grain" automatically after the longitudinal tap is accepted.
+Rotate the plate 90° so the grain runs front–back. Hold at one point 22% from one end along the width, near one short edge (not at the length nodal line — this damps the longitudinal resonance). Tap center. The app advances to "Step 2: Cross-grain (fC) Mode" automatically after the longitudinal tap is accepted.
 
 ### Tap 3 — Diagonal (Optional)
 
@@ -105,14 +105,14 @@ Enable Measure Diagonal (fLC) Tap in Settings. Hold the plate at the midpoint of
 
 ### Reading the Results
 
-After all taps, tap Results to see:
-- E_L / E_C — Young's modulus along and across grain (GPa)
+The Results panel is where you turn the captured frequencies into properties. Enter this sample's Sample Dimensions (Length, Width, Thickness, Mass) and Body Dimensions (Body Length, Lower Bout Width, Panel Stiffness); every number recomputes live. The panel shows:
+- E_L / E_C — Young's modulus along and across grain (GPa); GLC (Shear) appears here when the Diagonal tap was measured
 - c_L / c_C — Speed of sound in each direction (m/s)
 - Specific modulus E/ρ — The primary quality metric (GPa per g/cm³)
 - Radiation ratio — Sound radiation efficiency
 - Cross/Long ratio — Anisotropy (spruce: typically 0.04–0.08)
 - Quality rating — Excellent / Very Good / Good / Fair / Poor (spruce scale)
-- Gore target thickness — Recommended finished plate thickness for a guitar of your specified body dimensions (requires FLC or uses an approximation)
+- Gore target thickness — Recommended finished plate thickness for a guitar of your specified body dimensions (requires the Diagonal (fLC) tap or uses an approximation)
 
 ### Spruce Quality Scale
 
@@ -120,17 +120,17 @@ Specific modulus (longitudinal): ≥ 25 → Excellent (Master grade); ≥ 22 →
 
 ### Gore Target Thickness
 
-Enter the finished guitar body length and lower bout width in Settings (Material section). Choose the plate stiffness preset: Steel String Top (f_vs 75), Steel String Back (55), Classical (50), or Custom. The result is the plate thickness that hits the preset vibrational stiffness after bracing is factored in — a direct implementation of Gore Equation 4.5-7.
+In the Analysis Results, enter the finished guitar body length and lower bout width and choose the Panel Stiffness preset: Steel String Top (f_vs 75), Steel String Back (55), Classical Top (60), Classical Back (50), or Custom. The result is the plate thickness that hits the preset vibrational stiffness after bracing is factored in — a direct implementation of Gore Equation 4.5-7.
 
 ## <img src="Manual/images/symbols/align.horizontal.center.png" width="24" height="24" alt="align.horizontal.center"> Brace Mode
 
 ### Overview
 
-Brace mode is a fast single-tap variant of Plate mode designed for brace strips. Only a longitudinal tap is needed; cross-grain and FLC are skipped.
+Brace mode is a fast single-tap variant of Plate mode designed for brace strips. Only a longitudinal (fL) tap is needed; cross-grain and the Diagonal (fLC) tap are skipped.
 
 ### Brace Orientation
 
-In Settings → Brace Dimensions, Height is the dimension in the tap direction (the brace standing upright on the bench). This is the t value in the stiffness formula. Length is along the grain.
+The dimension in the tap direction (the brace standing upright on the bench) is the t value in the stiffness formula. Length is along the grain. Settings labels this dimension Height (tap direction); the Analysis Results field is labelled Thickness — they are the same value.
 
 ### Technique
 
@@ -138,7 +138,7 @@ Hold the brace at one point 22% from one end along the length, near one edge in 
 
 ### Results
 
-E_L, c_L, specific modulus, and a spruce quality rating are reported. No cross-grain or Gore thickness calculation is available in Brace mode.
+Enter the strip's dimensions in the Analysis Results to compute E_L, c_L, specific modulus, and a spruce quality rating. No cross-grain or Gore thickness calculation is available in Brace mode.
 
 ## <img src="Manual/images/symbols/hand.tap.png" width="24" height="24" alt="hand.tap"> Controls Reference
 
@@ -374,7 +374,7 @@ Top mode frequency ÷ Air mode frequency. A rough structural quality indicator f
 
 A plate thickness prediction based on Gore Equation 4.5-7, derived from E_L, E_C, shear modulus G_LC, the wood density, and the guitar body dimensions. It targets a specified vibrational stiffness (f_vs) preset.
 
-### FLC Tap
+### Diagonal (fLC) Tap
 
 A diagonal-mode tap that excites the torsional resonance of the plate. Used to calculate the shear modulus G_LC for the Gore thickness formula. Hold the plate at the midpoint of one long edge and tap near the opposite corner (~22% from both the end and the side).
 

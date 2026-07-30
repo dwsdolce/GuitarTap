@@ -79,8 +79,16 @@ ring, and upper modes for the chosen subtype. The display is
 read-only — the windows are a property of the subtype, not a
 user-tunable value.
 
-**Plate** — the section reveals the plate inputs (described in
-detail in §4.3):
+For a **material** type (Plate or Brace), Settings selects the type
+and — for plate — whether the Diagonal tap is captured. The
+dimension fields below are the **defaults** for a new measurement:
+they seed each measurement's values at capture, but you enter and
+edit the actual per-measurement dimensions in the **Analysis
+Results** (plate §4.9, brace §5.4), and those are what drive the
+numbers and are saved with the measurement. Editing a value here
+changes only the default for the next new measurement.
+
+**Plate** — the section reveals the plate defaults:
 
 - **Length** (mm) — along the grain.
 - **Width** (mm) — across the grain.
@@ -92,13 +100,12 @@ detail in §4.3):
 - **Body Length** (mm) and **Lower Bout Width** (mm) — used by
   the Gore target thickness calculation.
 - **Plate Stiffness Preset** — Steel String Top (75), Steel
-  String Back (55), Classical (50), or Custom. See §4.3 for the
-  Custom calibration workflow.
-- **Measure FLC** — when on, the sequence runs in three phases
-  (L, C, FLC) instead of two (L, C).
+  String Back (55), Classical Top (60), Classical Back (50), or
+  Custom. See §4.9 for the Custom calibration workflow.
+- **Measure Diagonal (fLC) Tap** — when on, the sequence runs in
+  three phases (fL, fC, fLC) instead of two (fL, fC).
 
-**Brace** — the section reveals the brace inputs (described in
-detail in §5.2):
+**Brace** — the section reveals the brace defaults:
 
 - **Length (along grain)** (mm).
 - **Width (breadth)** (mm).

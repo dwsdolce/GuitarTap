@@ -1,11 +1,10 @@
 # Chapter 4 — Plate Mode
 
 Plate mode captures the longitudinal, cross-grain, and (optionally)
-free-length-cross resonances of a rectangular tonewood blank and
-returns the moduli, specific modulus, radiation ratio, and Gore
-target thickness for the piece. This chapter assumes the
-microphone, calibration, threshold, and peak-min are already tuned
-as described in Chapter 2.
+diagonal resonances of a rectangular tonewood blank and returns the
+moduli, specific modulus, radiation ratio, and Gore target thickness
+for the piece. This chapter assumes the microphone, calibration,
+threshold, and peak-min are already tuned as described in Chapter 2.
 
 ## 4.1 Overview of Plate Material Measurements
 
@@ -13,13 +12,13 @@ Plate mode runs a guided sequence of two or three taps on a
 rectangular blank suspended at its nodal points and computes the
 material properties used to evaluate a piece of tonewood:
 
-- **Longitudinal (L)** — bending mode with grain. Yields E_L and
+- **Longitudinal (fL)** — bending mode with grain. Yields E_L and
   c_L.
-- **Cross-grain (C)** — bending mode across the grain. Yields E_C
+- **Cross-grain (fC)** — bending mode across the grain. Yields E_C
   and c_C.
-- **Free-length-cross (FLC)** — torsional mode, optional. Yields
-  the shear modulus G_LC, which feeds the Gore target thickness
-  calculation and tightens its result by roughly 5 to 7%.
+- **Diagonal (fLC)** — torsional mode, optional. Yields the shear
+  modulus G_LC, which feeds the Gore target thickness calculation
+  and tightens its result by roughly 5 to 7%.
 
 From these the app derives ρ (from your dimensions and mass),
 specific modulus E_L/ρ, radiation ratio R, the E_C/E_L
@@ -54,84 +53,38 @@ Mass error dominates. Length and width errors scale linearly into
 the moduli; thickness scales as the cube. A 1% mass error and a
 0.3% thickness error produce comparable changes in E.
 
-## 4.3 Entering Dimensions in Settings
+## 4.3 Selecting Plate Mode
 
 <!--
 SCREENSHOT:
 
   File:    images/ch04-settings-plate.png
   Subject: Settings sheet on macOS, Measurement Type set to Plate.
-           All input fields visible: Length, Width, Thickness, Mass
-           with their entered values; live density preview line
-           below them; Body Length and Lower Bout Width fields for
-           the Gore thickness calculation; Plate Stiffness preset
-           selector with the four options; Measure FLC toggle.
-  Notes:   Use plausible spruce-top numbers (e.g. 540 x 220 x 4 mm,
-           50 g) so the density preview reads ~0.42 g/cm³. Crop to
-           the settings sheet only.
+           The sample and body dimension fields are visible (they
+           act as the defaults for a new measurement); Plate
+           Stiffness preset selector; Measure Diagonal (fLC) Tap
+           toggle.
+  Notes:   Crop to the settings sheet only.
 -->
 
-![Settings sheet with the Plate measurement type selected — dimensions, density preview, body inputs, stiffness preset, and Measure FLC toggle.](images/ch04-settings-plate.png){: .screenshot-panel }
+![Settings sheet with the Plate measurement type selected — the default dimension fields, stiffness preset, and Measure Diagonal (fLC) Tap toggle.](images/ch04-settings-plate.png){: .screenshot-panel }
 
-Open **Settings → Measurement Type → Plate**. Fill in:
+Open **Settings → Measurement Type → Plate**, and turn on **Measure
+Diagonal (fLC) Tap** if you intend to capture the third, diagonal
+tap (§4.8) — the sequence then runs in three phases instead of two.
 
-- **Length** (mm) — along the grain.
-- **Width** (mm) — across the grain.
-- **Thickness** (mm).
-- **Mass** (g).
-
-A live **density preview** appears below the dimension fields. Use
-it as a sanity check on data entry. Spruce typically lands in the
-0.35–0.45 g/cm³ band; a value below 0.30 or above 0.70 is almost
-always a transposed digit or a unit error somewhere in the four
-fields.
-
-For the Gore target thickness, also enter:
-
-- **Body Length** (mm) and **Lower Bout Width** (mm) — the
-  dimensions of the instrument the plate is destined for.
-- **Plate Stiffness Preset** — the target stiffness number the Gore
-  thickness calculation solves for. The named presets are starting
-  points calibrated to typical instrument styles:
-    - **Steel String Top** (75)
-    - **Steel String Back** (55)
-    - **Classical** (50)
-    - **Custom** — accepts any numeric target.
-
-  **Custom** is where you encode a successful build back into the
-  calculation. The workflow has four steps:
-
-  1. Fully measure a plate — E_L, E_C, density, body dimensions
-     — *before* you build it, and keep the measurements. Note
-     the final plate thickness you settled on for the build
-     (which may be the number from the Gore formula).
-  2. Build the instrument and live with it long enough to decide
-     whether the result is what you want. If it is, you have a
-     calibration point. If not, you need to adjust the plate
-     stiffness preset on your next build to either stiffen the
-     board or loosen it to adjust the sound.
-  3. The Gore formula run on that plate's measurements with a
-     named preset would have predicted some recommended
-     thickness. Your finished thickness is the thickness that
-     actually produced the sound you liked. Scale the preset's
-     stiffness number linearly so the formula, applied to that
-     same plate's measurements, would output your finished
-     thickness. Save the scaled number as your **Custom** value.
-  4. From this point on, run new plates with **Custom** selected.
-     Each new board, with its own E_L, E_C, and ρ, yields a
-     *different* recommended thickness — each one calculated to
-     reproduce the calibration build's tonal outcome on that
-     specific piece of wood.
-
-  The Custom number carries "this is the kind of plate that makes
-  the instrument I want." The Gore procedure does not predict an
-  objectively ideal thickness; it gives you a reproducible way to
-  translate a tonal target across pieces of wood that differ in
-  stiffness and density.
-
-**Measure FLC** is a toggle in the same section. Turn it on if you
-intend to capture the FLC tap (§4.8). The sequence then runs in
-three phases instead of two.
+That is all Settings needs before you tap. The Settings sheet also
+holds the sample and body dimension fields, but in the current
+workflow those act only as the **defaults** for a new measurement.
+Filling them in here is optional — it just means a new measurement
+starts pre-filled — because the **suggested route is to capture the
+taps first and then enter this plate's actual dimensions in the
+Analysis Results** (§4.9), where they are editable and drive the
+numbers immediately. Entering the dimensions is part of turning the
+captured frequencies into results, not a prerequisite for tapping.
+The per-measurement dimensions you enter (or edit) in the results
+are saved with that measurement; the Settings defaults are left
+untouched.
 
 ## 4.4 The 22% Suspension Technique
 
@@ -166,19 +119,19 @@ plate face**.
     - Hold **22% in from one long edge, close to one short end but
       not at 22% in from it.** Other end hangs free.
 
-- **FLC.** One hand only. Hold at the **midpoint of one long
-  edge**. Tap near the **opposite corner**, approximately 22% in
-  from both the end and the side. The torsional mode FLC excites
-  has its node along the centreline of the plate, so a single
-  midpoint hold is enough.
+- **Diagonal (fLC).** One hand only. Hold at the **midpoint of one
+  long edge**. Tap near the **opposite corner**, approximately 22%
+  in from both the end and the side. The torsional mode this tap
+  excites has its node along the centreline of the plate, so a
+  single midpoint hold is enough.
 
 Common errors: putting the hold on both modes' node lines at once
 (contamination — a longitudinal reading that looks like
 cross-grain or vice versa); holding too far in along the target
 axis (the support falls inside the mode shape and damps it);
 holding too firmly (adds damping regardless of position); and
-forgetting to rotate the plate between L and C — easy to do, easy
-to spot when C reads close to L.
+forgetting to rotate the plate between fL and fC — easy to do,
+easy to spot when fC reads close to fL.
 
 <!--
 Diagrams of the three hold positions appear in the outline but
@@ -201,36 +154,37 @@ state:
   to the next phase. The next phase arms detection on its own — you
   do not need to press New Tap between phases.
 - The **Cancel** button becomes **Redo** (orange, labelled
-  **Redo L**, **Redo C**, or **Redo FLC** depending on which phase
-  is being reviewed). Pressing it discards the current phase
+  **Redo fL**, **Redo fC**, or **Redo fLC** depending on which
+  phase is being reviewed). Pressing it discards the current phase
   result and re-arms detection for the same phase.
 
 During review the live spectrum is suppressed so the captured
-spectrum stays on screen for inspection. The status bar shows the
-current phase and tap count: **Phase 2/3 · Tap 1/1**, for example.
+spectrum stays on screen for inspection. The instruction card below
+the chart names the current phase — for example **Step 2:
+Cross-grain (fC) Mode** — with a **Phase 2/3** indicator.
 
 After every phase is accepted the Results panel updates with the
 complete plate calculations (§4.9).
 
 Individual phase redo is only available **before** that phase is
 accepted. To restart the entire sequence — for example, you realise
-mid-FLC that the longitudinal tap was made before you'd entered
-the right dimensions — press **New Tap**; the captured phases are
-discarded and the sequence starts again from Longitudinal.
+mid-sequence that the longitudinal tap was contaminated — press
+**New Tap**; the captured phases are discarded and the sequence
+starts again from the Longitudinal (fL) tap.
 
 ## 4.6 Tap 1 — Longitudinal
 
 1. Orient the plate with the **grain running horizontally**.
 2. Hold at 22% from each end along the length, near one long edge.
-3. Press **New Tap**. The status bar shows
-   **Capturing Longitudinal · Phase 1/2** (or **Phase 1/3** if
-   Measure FLC is on).
+3. Press **New Tap**. The instruction card below the chart shows
+   **Step 1: Longitudinal (fL) Mode** with a **Phase 1/2** indicator
+   (or **Phase 1/3** if Measure Diagonal (fLC) Tap is on).
 4. Tap the centre of the plate face.
 5. The spectrum freezes. Inspect the lowest peak — it should be
    the longitudinal bending mode for a free-free beam of your
    dimensions, typically in the low hundreds of Hz for a guitar
    top.
-6. Press **Accept** to lock the phase in, or **Redo L** to
+6. Press **Accept** to lock the phase in, or **Redo fL** to
    re-capture if the tap was contaminated.
 
 After Accept the sequence advances to Cross-grain automatically.
@@ -239,92 +193,157 @@ After Accept the sequence advances to Cross-grain automatically.
 
 1. **Rotate the plate 90°** so the grain now runs vertically.
 2. Hold at 22% from each end along the width, near one short edge.
-3. The status bar now reads **Capturing Cross-grain · Phase 2/2**
-   (or **Phase 2/3**). Detection is already armed — do not press
-   New Tap.
+3. The card now shows **Step 2: Cross-grain (fC) Mode**,
+   **Phase 2/2** (or **Phase 2/3**). Detection is already armed —
+   do not press New Tap.
 4. Tap the centre of the plate face.
-5. Inspect the frozen spectrum, then **Accept** or **Redo C**.
+5. Inspect the frozen spectrum, then **Accept** or **Redo fC**.
 
-After Accept, the sequence either advances to FLC (if Measure FLC
-is on) or marks the measurement complete.
+After Accept, the sequence either advances to the Diagonal (fLC)
+tap (if Measure Diagonal (fLC) Tap is on) or marks the measurement
+complete.
 
-## 4.8 Tap 3 — FLC (Optional)
+## 4.8 Tap 3 — Diagonal (Optional)
 
-FLC measures the flat long/cross torsional mode and yields the
-shear modulus G_LC. The Gore target thickness calculation uses
-G_LC for its shear correction; without it, the calculation
-substitutes a default that over-estimates target thickness by
-roughly 5 to 7%. For final plate thicknessing, capturing FLC is
-worth the extra tap.
+The Diagonal (fLC) tap measures the flat long/cross torsional mode
+and yields the shear modulus G_LC. The Gore target thickness
+calculation uses G_LC for its shear correction; without it, the
+calculation substitutes a default that over-estimates target
+thickness by roughly 5 to 7%. For final plate thicknessing,
+capturing the Diagonal tap is worth the extra tap.
 
-1. Enable Measure FLC in Settings before starting the sequence
-   if you have not already.
+1. Enable Measure Diagonal (fLC) Tap in Settings before starting
+   the sequence if you have not already.
 2. Hold one long edge at its **midpoint**, with one hand only.
-3. The status bar reads **Capturing FLC · Phase 3/3**.
+3. The card shows **Step 3: Diagonal (fLC) Mode**, **Phase 3/3**.
 4. Tap near the **opposite corner**, approximately 22% in from
    the end and 22% in from the side.
-5. **Accept** or **Redo FLC**.
+5. **Accept** or **Redo fLC**.
 
 After Accept the measurement is complete and the Results panel
 updates with Gore target thickness including the shear correction.
 
-## 4.9 Reading Plate Results
+## 4.9 Analyzing Plate Results
 
 <!--
 SCREENSHOT:
 
   File:    images/ch04-results-panel.png
-  Subject: Plate measurement Results panel scrolled to show all
-           four sections: Detected Peaks, Gore Target Thickness,
-           Plate Properties, Plate Process Instructions. Captured
-           from a completed three-phase sequence (FLC enabled) so
-           shear-modulus rows are populated and the Gore Target
-           Thickness section does not show the GLC-assumed-0 note.
+  Subject: Plate measurement Results panel scrolled to show its
+           sections: Detected Peaks, the editable Sample Dimensions
+           and Body Dimensions blocks, Gore Target Thickness, Plate
+           Properties, and Plate Process Instructions. Captured from
+           a completed three-phase sequence (Diagonal tap enabled)
+           so the shear-modulus row is populated and the Gore
+           Target Thickness does not show the assumed-0 note.
   Notes:   Use a real measurement so the numbers are plausible.
            Crop to the panel only.
 -->
 
-![Plate Results panel showing the four sections — Detected Peaks, Gore Target Thickness, Plate Properties, and Plate Process Instructions.](images/ch04-results-panel.png){: .screenshot-panel }
+![Plate Results panel showing Detected Peaks, the editable Sample and Body Dimensions, Gore Target Thickness, Plate Properties, and Plate Process Instructions.](images/ch04-results-panel.png){: .screenshot-panel }
 
-For a completed plate measurement the Results panel scrolls
-through four sections, top to bottom.
+Once the taps are captured, the Results panel is where you turn
+those frequencies into material properties. The captured
+frequencies are fixed; you enter this plate's **sample and body
+dimensions** here, and every derived number recomputes live as you
+type. The dimension fields seed from the Settings defaults at the
+moment the measurement completes, so a plate you set up ahead of
+time already reads correctly — but the panel is the place to enter
+or correct the actual measured values for this piece. The panel
+scrolls through the sections below, top to bottom.
 
 ### Detected Peaks
 
-One row per captured phase — two rows (L, C) for a two-tap
-sequence, three rows (L, C, FLC) when FLC is enabled. Each row
-shows a selection-indicator star, the peak frequency, the peak
-magnitude in dB, and a coloured phase badge identifying which
-mode the peak belongs to (blue L, orange C, purple FLC). The full
-detected-peak list and the Peak Min filter from guitar mode do
-not apply here; what you see is the auto-selected best peak from
-each phase capture.
+One row per captured phase — two rows (fL, fC) for a two-tap
+sequence, three rows (fL, fC, fLC) when the Diagonal tap is
+enabled. Each row shows a selection-indicator star, the peak
+frequency, the peak magnitude in dB, and a coloured phase badge
+identifying which mode the peak belongs to (blue fL, orange fC,
+purple fLC). The full detected-peak list and the Peak Min filter
+from guitar mode do not apply here; what you see is the
+auto-selected best peak from each phase capture.
+
+### Sample Dimensions
+
+The four measured dimensions of the blank, each **editable in
+place**:
+
+- **Length** (mm) — along the grain.
+- **Width** (mm) — across the grain.
+- **Thickness** (mm).
+- **Mass** (g).
+
+A live **Calculated Density** is shown with them — use it as a
+sanity check on data entry. Spruce typically lands in the
+0.35–0.45 g/cm³ band; a value below 0.30 or above 0.70 is almost
+always a transposed digit or a unit error somewhere in the four
+fields. Editing any field recomputes the density and every
+property below immediately.
+
+### Body Dimensions
+
+The finished-instrument parameters that feed the Gore target
+thickness (plate only), also editable in place:
+
+- **Body Length (a)** (mm) and **Lower Bout Width (b)** (mm) — the
+  dimensions of the instrument the plate is destined for.
+- **Panel Stiffness** — the target stiffness number (f_vs) the Gore
+  thickness calculation solves for. The named presets are starting
+  points calibrated to typical instrument styles:
+    - **Steel String Top** (75)
+    - **Steel String Back** (55)
+    - **Classical Top** (60)
+    - **Classical Back** (50)
+    - **Custom** — accepts any numeric target.
+
+  **Custom** is where you encode a successful build back into the
+  calculation. The workflow has four steps:
+
+  1. Fully measure a plate — E_L, E_C, density, body dimensions
+     — *before* you build it, and keep the measurements. Note
+     the final plate thickness you settled on for the build
+     (which may be the number from the Gore formula).
+  2. Build the instrument and live with it long enough to decide
+     whether the result is what you want. If it is, you have a
+     calibration point. If not, you need to adjust the panel
+     stiffness on your next build to either stiffen the board or
+     loosen it to adjust the sound.
+  3. The Gore formula run on that plate's measurements with a
+     named preset would have predicted some recommended
+     thickness. Your finished thickness is the thickness that
+     actually produced the sound you liked. Scale the preset's
+     stiffness number linearly so the formula, applied to that
+     same plate's measurements, would output your finished
+     thickness. Save the scaled number as your **Custom** value.
+  4. From this point on, run new plates with **Custom** selected.
+     Each new board, with its own E_L, E_C, and ρ, yields a
+     *different* recommended thickness — each one calculated to
+     reproduce the calibration build's tonal outcome on that
+     specific piece of wood.
+
+  The Custom number carries "this is the kind of plate that makes
+  the instrument I want." The Gore procedure does not predict an
+  objectively ideal thickness; it gives you a reproducible way to
+  translate a tonal target across pieces of wood that differ in
+  stiffness and density.
 
 ### Gore Target Thickness
 
-The headline thickness for the body dimensions and stiffness
-preset entered in Settings, displayed prominently in mm. Below the
-number:
-
-- **Shear Modulus (G_LC)** — the value used in the thickness
-  calculation, shown when FLC was measured.
-- **"G_LC assumed 0 — enable FLC tap for a more accurate result"**
-  — shown when FLC was skipped. The thickness above is then
-  approximate (roughly 5 to 7% over-estimate; see §4.8).
-- **Body dimensions** and the **f_vs** value (with preset name, or
-  a literal "custom" annotation when Custom is active) — the
-  parameters that fed the calculation, exposed so you can
-  cross-check Settings against the body the plate is destined for.
+The headline recommended thickness in mm, computed from the sample
+and body dimensions above and the captured frequencies. When the
+**Diagonal (fLC)** tap was skipped, the shear modulus G_LC is
+assumed 0 and the thickness is approximate (roughly 5 to 7%
+over-estimate; see §4.8) — enable **Measure Diagonal (fLC) Tap**
+for a more accurate result.
 
 ### Plate Properties
 
 Material characterisation of the wood:
 
-- **Frequencies used** — fL, fC, and (if measured) fLC.
 - **Speed of Sound** — c_L and c_C in m/s.
-- **Young's Modulus (E)** — E_L and E_C in GPa. **G_LC** is
-  appended to this block when FLC was measured; the row is absent
-  when FLC was skipped.
+- **Young's Modulus (E)** — E_L and E_C in GPa. **GLC (Shear)** is
+  reported among these moduli when the Diagonal tap was measured;
+  the row is absent when it was skipped.
 - **Specific Modulus (E/ρ)** — the headline material number, in
   GPa/(g/cm³). Shown in large type for both Longitudinal and
   Cross-grain, each with a per-direction quality rating
@@ -340,16 +359,19 @@ Material characterisation of the wood:
   (Excellent / Very Good / Good / Fair / Poor) with the matching
   colour cue.
 
-The quality scales are calibrated for spruce; readings on cedar,
-redwood, or other top woods read as a point of comparison rather
-than an absolute grade.
+The frequencies themselves (fL, fC, fLC) are inputs and are shown
+in the Detected Peaks table above, not repeated here. The quality
+scales are calibrated for spruce; readings on cedar, redwood, or
+other top woods read as a point of comparison rather than an
+absolute grade.
 
 ### Plate Process Instructions
 
-A reference card describing the two-tap (or three-tap, if FLC is
-enabled) measurement procedure. Useful as an in-place refresher
-when you come back to plate mode after a break and want the hold
-and tap positions without leaving the results panel.
+A reference card describing the two-tap (or three-tap, if the
+Diagonal tap is enabled) measurement procedure. Useful as an
+in-place refresher when you come back to plate mode after a break
+and want the hold and tap positions without leaving the results
+panel.
 
 ## 4.10 Interpreting Plate Results
 

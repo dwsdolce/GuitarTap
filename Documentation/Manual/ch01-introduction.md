@@ -28,7 +28,7 @@ around the three measurements a luthier following the Gore methodology
   other significant body resonances above the detection threshold.
 
 - **Plate mode** — for a free plate. Walks you through a longitudinal
-  tap, a cross-grain tap, and optionally a free-length-cross tap, with
+  tap, a cross-grain tap, and optionally a diagonal (fLC) tap, with
   a review step between phases so you can accept or redo each one
   before continuing.
 

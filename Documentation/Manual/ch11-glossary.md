@@ -10,6 +10,8 @@
 
 **Decay time** — The time (in seconds) for a tap response to decay to 1/e of its peak amplitude. A measure of structural damping; higher values indicate lower damping.
 
+**Diagonal (fLC) tap** — A third, optional tap measurement in Plate mode (the free-length-cross torsional mode) used to estimate the shear modulus G_LC, which feeds the Gore target thickness calculation. Enabled with **Measure Diagonal (fLC) Tap** in Settings; when omitted the Gore thickness is reported with the message "G_LC assumed 0" and carries an over-estimate of roughly 5–7% (§4.8).
+
 **Dipole mode** — A bending mode of the guitar top plate where the upper and lower bouts move in opposite phase.
 
 **E_C (Young's modulus, cross-grain)** — Stiffness of the wood measured perpendicular to the grain direction (radial or tangential). Expressed in GPa.
@@ -18,13 +20,13 @@
 
 **FFT (Fast Fourier Transform)** — The algorithm used to convert the time-domain microphone signal into the frequency-domain spectrum displayed by the app.
 
-**FLC tap** — A third tap measurement (Free-Length-Cross) used in Plate mode to estimate the shear modulus G_LC, which feeds the Gore target thickness calculation. Optional — when omitted the Gore thickness is reported with the message "G_LC assumed 0" and carries an over-estimate of roughly 5–7% (§4.8).
+**FLC** — see **Diagonal (fLC) tap**.
 
 **Free-free beam** — A beam suspended at its bending-mode nodal points (22% from each end), leaving it free to vibrate without damping at the supports. The standard suspension assumption for Plate and Brace material measurements. In practice a single hold at one of the two nodal points is sufficient — see §4.4.
 
-**Free-Length-Cross (FLC) mode** — The torsional mode excited by the FLC tap; its frequency feeds the shear-modulus calculation. See FLC tap.
+**Free-Length-Cross (fLC) mode** — The torsional mode excited by the Diagonal (fLC) tap; its frequency feeds the shear-modulus calculation. See Diagonal (fLC) tap.
 
-**G_LC (shear modulus)** — The shear modulus of the plate, derived from the FLC tap frequency. Required by the full Gore target thickness formula; substituted with zero when FLC is not measured.
+**G_LC (shear modulus)** — The shear modulus of the plate, derived from the Diagonal (fLC) tap frequency. Required by the full Gore target thickness formula; substituted with zero when the diagonal tap is not measured.
 
 **Gore target thickness** — The recommended final thickness for a guitar top or back plate, calculated from the plate dimensions, Young's moduli, and a stiffness target, following the method described by Trevor Gore.
 

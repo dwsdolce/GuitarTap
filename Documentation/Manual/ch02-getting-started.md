@@ -110,7 +110,7 @@ analyzer is looking for:
   modes; pick the one closest to the instrument you are measuring.
   Generic uses the broadest windows.
 - **Plate.** Free-plate measurement with the longitudinal,
-  cross-grain, and optional free-length-cross phases.
+  cross-grain, and optional diagonal (fLC) phases.
 - **Brace.** Single-tap longitudinal measurement on an individual
   brace.
 

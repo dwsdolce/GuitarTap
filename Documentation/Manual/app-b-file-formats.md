@@ -71,7 +71,7 @@ what the user did at save time:
 | `decayTime` | float | Seconds; guitar only. |
 | `spectrumSnapshot` | SpectrumSnapshot | Averaged guitar spectrum. |
 | `longitudinalSnapshot`, `crossSnapshot`, `flcSnapshot` | SpectrumSnapshot | Plate / brace per-phase spectra. |
-| `selectedLongitudinalPeakID`, `selectedCrossPeakID`, `selectedFlcPeakID` | UUID | The peak chosen as L / C / FLC. |
+| `selectedLongitudinalPeakID`, `selectedCrossPeakID`, `selectedFlcPeakID` | UUID | The peak chosen as fL / fC / fLC. |
 | `selectedPeakIDs` | array of UUID | Currently-selected peaks (guitar). |
 | `selectedPeakFrequencies` | array of float | Frequencies (Hz) parallel to the IDs; a stable fallback for re-matching selection to peaks when a re-analysis regenerates UUIDs. (Peak Min itself never re-detects or regenerates peaks.) |
 | `userModifiedSelection` | bool | Guitar only. `true` once the user has changed peak selection away from the automatic default, so a loaded measurement keeps that selection instead of re-deriving it. Omitted on material measurements and on files saved before 1.0.2; a missing value is read as `true`. |
@@ -141,7 +141,7 @@ Optional measurement-type fields:
 | `guitarBodyLength`, `guitarBodyWidth` | float | Body inputs for Gore thickness (mm). |
 | `plateStiffnessPreset` | string | One of `Steel String Top`, `Steel String Back`, `Classical Top`, `Classical Back`, `Custom`. |
 | `customPlateStiffness` | float | Value when `plateStiffnessPreset` is `Custom`. |
-| `measureFlc` | bool | Whether the FLC phase was captured. |
+| `measureFlc` | bool | Whether the Diagonal (fLC) phase was captured. |
 | `braceLength`, `braceWidth`, `braceThickness`, `braceMass` | float | Brace dimensions in mm / g. |
 
 ### Spectrum data encoding
@@ -185,7 +185,7 @@ omitted together.
 **top-level** `peaks` array: the resolved guitar mode name (e.g.
 `"Air (Helmholtz)"`, `"Top"`), the user's assigned override if
 any, or — for plate / brace — the peak's role (`"Longitudinal"`,
-`"Cross-grain"`, `"FLC"`, or `"Peak"`). It is derived from the
+`"Cross-grain"`, `"Diagonal"`, or `"Peak"`). It is derived from the
 other fields and the measurement settings, so a reader can use it
 directly or ignore it and reclassify. It is **not** written on
 peaks nested inside `tapEntries` or `comparisonEntries`.

@@ -175,7 +175,7 @@ control which peaks are labelled on the chart:
   reading the bare spectrum shape without distractions.
 
 In **plate** and **brace** mode there is no per-peak selection —
-the identified Longitudinal, Cross, and (when measured) FLC peaks
+the identified Longitudinal, Cross-grain, and (when measured) Diagonal peaks
 *are* the measurement, not a subset you choose (see §4.9). So
 **All** and **Selected** label the same set — all of them — and
 only **None** clears the labels. Guitar mode is the only place

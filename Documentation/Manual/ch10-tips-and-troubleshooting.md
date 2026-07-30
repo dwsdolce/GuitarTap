@@ -155,9 +155,9 @@ The right tap count depends on what you are measuring:
 - **Plate or brace material measurement** — 3–5 taps. Averaging
   reduces variance from finger noise and small position
   differences, which matters for the absolute E_L value.
-- **FLC tap (plate mode)** — 1–3 taps. The FLC resonance is
-  weaker, so position consistency matters more than averaging.
-  Tapping the FLC repeatedly with imperfect positioning can
+- **Diagonal (fLC) tap (plate mode)** — 1–3 taps. The diagonal
+  resonance is weaker, so position consistency matters more than
+  averaging. Tapping it repeatedly with imperfect positioning can
   *increase* variance rather than reduce it.
 
 **When averaging helps least.** Very quiet room, experienced
@@ -184,7 +184,7 @@ detector for the next tap.
 | Unknown peaks everywhere | Modes fall outside the standard windows, or Show Unknown Modes is on | Pick the guitar type whose windows fit your instrument (§3.1); turn off **Show Unknown Modes** (§8.5) to hide the rest, or assign modes manually (§3.7). |
 | Spectrum doesn't update | Microphone permission not granted | iOS / iPadOS: Settings → Guitar Tap → Microphone. macOS: System Settings → Privacy & Security → Microphone. Windows: Settings → Privacy & Security → Microphone. Linux: check `pavucontrol` (§2.2). |
 | Plate calculation missing | Dimensions not entered | Settings → Measurement Type → Plate; fill in Length / Width / Thickness / Mass (§4.3, §8.3). |
-| Gore thickness shows "G_LC assumed 0" | FLC tap not captured | Enable **Measure FLC** in Settings and re-run the plate sequence (§4.8). |
+| Gore thickness shows "G_LC assumed 0" | Diagonal (fLC) tap not captured | Enable **Measure Diagonal (fLC) Tap** in Settings and re-run the plate sequence (§4.8). |
 | Analysis Results panel not visible (desktop) | Window too narrow | Widen the window. |
 | Plate / brace stuck waiting for next phase | Accept not pressed | Look for **Accept** (green checkmark) in the tap controls — it replaces Pause during the review phase (§4.5). |
 | Plate / brace: need to redo a phase already accepted | Phase locked in | Press **New Tap** to restart the whole sequence. Per-phase redo is only available before that phase is accepted. |
