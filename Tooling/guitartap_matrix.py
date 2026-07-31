@@ -2,10 +2,11 @@
 """guitartap_matrix.py — cross-platform / cross-device comparison matrix from .guitartap files.
 
 Scans a directory of ``.guitartap`` files (each is a JSON array; the FIRST element is used),
-groups them by *sample* (the filename stem before the platform/device tokens), and writes a
-Markdown file with one table per sample:
+groups them by *sample type* — the filename stem before the platform/device tokens, with the
+microphone token (``umik-1`` / ``default``) removed so every mic for a sample shares one table — and
+writes a Markdown file with one table per sample:
   * columns  = each capture, labelled ``<platform>/<device>`` (e.g. ``swift/mac``)
-  * rows     = key measured values + material inputs (material) or modes + decay/ratio (guitar)
+  * rows     = the microphone, then key measured values + material inputs (material) or modes + decay (guitar)
   * a trailing **range** column = max − min across the numeric cells (the cross-capture spread)
 
 Material inputs come straight from the snapshot; ``f_vs`` (panel stiffness) is *derived* — there is
@@ -18,7 +19,7 @@ Usage:
     python3 guitartap_matrix.py [DIR] [-o OUT.md]
 
 Defaults:
-    DIR = /Users/dws/src/GuitarTap/Tests/All Platforms
+    DIR = /Users/dws/src/GuitarTap/Tests/AllPlatforms
     OUT = <DIR>/comparison-matrix.md
 """
 from __future__ import annotations
@@ -29,10 +30,14 @@ import os
 import sys
 from pathlib import Path
 
-DEFAULT_DIR = "/Users/dws/src/GuitarTap/Tests/All Platforms"
+DEFAULT_DIR = "/Users/dws/src/GuitarTap/Tests/AllPlatforms"
 
 PLATFORMS = ["swift", "python", "web"]
-DEVICES = ["mac", "ipad", "iphone", "windows", "linux"]
+DEVICES = ["mac", "ipad", "iphone", "pc", "linux"]
+# Microphone token embedded in the sample name. Stripped from the grouping key so every mic for a
+# sample shares one table (shown instead as a "Microphone" row); listed longest-first so a multi-token
+# mic like "umik-1" is matched before any shorter token.
+MICS = ["umik-1", "default"]
 
 # Swift PlateStiffnessPreset.value (raw rawValue name -> f_vs). "Custom" defers to customPlateStiffness.
 STIFFNESS_VALUE = {
@@ -57,6 +62,23 @@ def parse_name(stem: str):
             device = toks[i + 1] if i + 1 < len(toks) and toks[i + 1] in DEVICES else "?"
             return sample, t, device
     return stem, "?", "?"
+
+
+def split_mic(sample: str):
+    """(group, mic) from a sample stem — the mic token removed so mics share a table.
+
+    'brace-umik-1-3-tap' -> ('brace-3-tap', 'umik-1'); 'plate-default' -> ('plate', 'default').
+    Matches the mic as a whole hyphen-delimited token sequence, anywhere in the sample. A sample with
+    no known mic token returns (sample, '?').
+    """
+    toks = sample.split("-")
+    for mic in MICS:
+        mt = mic.split("-")
+        for i in range(len(toks) - len(mt) + 1):
+            if toks[i:i + len(mt)] == mt:
+                group = "-".join(toks[:i] + toks[i + len(mt):])
+                return (group or sample), mic
+    return sample, "?"
 
 
 def col_sort_key(label: str):
@@ -114,18 +136,20 @@ def extract(path: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
     m = data[0] if isinstance(data, list) else data
     sample, platform, device = parse_name(path.stem)
+    group, mic = split_mic(sample)
     mt = resolved_type(m)
     is_material = mt.startswith("Material")
     is_brace = mt == "Material (Brace)"
 
     rec = {
-        "sample": sample, "platform": platform, "device": device,
+        "sample": group, "mic": mic, "platform": platform, "device": device,
         "col": f"{platform}/{device}", "type": mt, "is_material": is_material,
         "name": m.get("measurementName") or "", "notes": m.get("notes") or "",
         "num_taps": m.get("numberOfTaps"),
         "fields": {},   # row label -> value (number or str)
     }
     f = rec["fields"]
+    f["Microphone"] = mic   # a metadata row so every mic for a sample can share one table
 
     if is_material:
         f["fL"] = peak_freq(m, m.get("selectedLongitudinalPeakID"))
@@ -149,7 +173,7 @@ def extract(path: Path) -> dict:
             f["f_vs (eff.)"] = effective_fvs(preset, custom)
     else:
         f["decayTime (s)"] = m.get("decayTime")
-        f["tapToneRatio"] = m.get("tapToneRatio")
+        # No tapToneRatio row: it isn't stored in the files (derived Top ÷ Air), and both already appear below.
         selected = set(m.get("selectedPeakIDs") or [])
         by_mode: dict[str, list[float]] = {}
         for p in m.get("peaks", []):
@@ -211,7 +235,7 @@ def render_sample(sample: str, recs_by_col: dict) -> str:
     # Row order, each as (label, kind).
     if is_material:
         is_brace = any_rec["type"] == "Material (Brace)"
-        rows = [("fL", "freq")]
+        rows = [("Microphone", "text"), ("fL", "freq")]
         if not is_brace:
             rows += [("fC", "freq"), ("fLC", "freq")]
         rows += [("Length (mm)", "dim"), ("Width (mm)", "dim"), ("Thickness (mm)", "dim"),
@@ -225,7 +249,7 @@ def render_sample(sample: str, recs_by_col: dict) -> str:
         seen = set()
         for r in recs_by_col.values():
             seen.update(k for k in r["fields"] if k not in
-                        ("decayTime (s)", "tapToneRatio", "peaks det/sel"))
+                        ("decayTime (s)", "tapToneRatio", "peaks det/sel", "Microphone"))
 
         def mode_freq(lbl):
             nums = [r["fields"].get(lbl) for r in recs_by_col.values()]
@@ -233,7 +257,7 @@ def render_sample(sample: str, recs_by_col: dict) -> str:
             return min(nums) if nums else float("inf")
 
         ordered_modes = sorted(seen, key=mode_freq)
-        rows = [("decayTime (s)", "decay"), ("tapToneRatio", "ratio")]
+        rows = [("Microphone", "text"), ("decayTime (s)", "decay")]
         rows += [(m, "freq") for m in ordered_modes]
         rows += [("peaks det/sel", "text")]
 
@@ -278,7 +302,11 @@ def main(argv=None):
         except Exception as exc:  # keep going; report at the end
             problems.append(f"{p.name}: {exc}")
             continue
-        samples.setdefault(rec["sample"], {})[rec["col"]] = rec
+        grp = samples.setdefault(rec["sample"], {})
+        col = rec["col"]
+        if col in grp and grp[col].get("mic") != rec.get("mic"):
+            col = f"{col} ({rec['mic']})"  # same platform/device, different mic — keep both, don't clobber
+        grp[col] = rec
 
     body = [
         "# GuitarTap comparison matrix",
