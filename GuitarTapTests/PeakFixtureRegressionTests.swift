@@ -43,8 +43,15 @@ private func modeToken(_ mode: GuitarMode?) -> String {
     }
 }
 
-private func testsDir() -> URL {
-    URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+// Anchors Bundle(for:) to the GuitarTapTests bundle so fixtures load on every destination
+// (iPad/iPhone too), not just the macOS host: #filePath resolves to the build machine's source tree,
+// which does not exist on a device. The synchronized GuitarTapTests folder already bundles the fixtures.
+private final class FixtureAnchor {}
+
+private func fixtureURL(_ name: String) throws -> URL {
+    let stem = (name as NSString).deletingPathExtension
+    let ext = (name as NSString).pathExtension
+    return try #require(Bundle(for: FixtureAnchor.self).url(forResource: stem, withExtension: ext))
 }
 
 private func floats(fromBase64 b64: String) -> [Float] {
@@ -54,7 +61,7 @@ private func floats(fromBase64 b64: String) -> [Float] {
 
 /// Replays a fixture's own saved spectrum through the current findPeaks.
 private func replay(fixture name: String) throws -> (peaks: [ResonantPeak], modes: [UUID: GuitarMode], selected: Set<UUID>) {
-    let url = testsDir().appendingPathComponent(name)
+    let url = try fixtureURL(name)
     let data = try Data(contentsOf: url)
     let arr = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
     let m = try #require(arr.first)
@@ -90,14 +97,17 @@ private struct ExpectedFixture: Decodable {
 }
 
 private func loadExpected() throws -> [String: ExpectedFixture] {
-    let url = testsDir().appendingPathComponent("peak-baseline-expected.json")
+    let url = try fixtureURL("peak-baseline-expected.json")
     return try JSONDecoder().decode([String: ExpectedFixture].self, from: try Data(contentsOf: url))
 }
 
 @Suite("FindPeaks — fixture regression")
 struct PeakFixtureRegressionTests {
 
-    static let fixtures = [
+    // nonisolated so the @Test(arguments:) macro can read it from a nonisolated context — the test
+    // target defaults to @MainActor (SWIFT_DEFAULT_ACTOR_ISOLATION), which otherwise makes this an
+    // error under the Swift 6 language mode. It is an immutable Sendable [String], so this is safe.
+    nonisolated static let fixtures = [
         "dws-2024-umik-1-swift-mac-1784225155.guitartap",
         "dws-2024-umik-1-python-mac-1784225140.guitartap",
         "dws-2024-umik-1-web-mac-1784225174.guitartap",

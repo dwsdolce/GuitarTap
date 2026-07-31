@@ -15,13 +15,17 @@ import Testing
 import Foundation
 @testable import GuitarTap
 
+// Anchors Bundle(for:) to the GuitarTapTests bundle so the fixture loads on every destination
+// (iPad/iPhone too), not just the macOS host — #filePath points at the build machine's source tree,
+// which does not exist on a device. The synchronized GuitarTapTests folder already bundles the fixture.
+private final class FixtureAnchor {}
+
 @Suite("MaterialSelection")
 struct MaterialSelectionTests {
 
     @Test func corruptIpadPlate_effectiveSelectionHealsToAllThree() throws {
-        let url = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .appendingPathComponent("plate-umik-1-3-tap-swift-ipad-1784314709.guitartap")
+        let url = try #require(Bundle(for: FixtureAnchor.self)
+            .url(forResource: "plate-umik-1-3-tap-swift-ipad-1784314709", withExtension: "guitartap"))
         let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

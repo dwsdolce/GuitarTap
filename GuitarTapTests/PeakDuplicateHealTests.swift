@@ -37,12 +37,17 @@ import Foundation
 
 /// The Swift-captured fixture also used by the findPeaks regression: 50 saved peaks,
 /// one of which is a bit-identical twin at 240.10170 Hz.
-private let fixtureName = "dws-2024-umik-1-swift-mac-1784225155.guitartap"
+private let fixtureStem = "dws-2024-umik-1-swift-mac-1784225155"
+
+// Anchors Bundle(for:) to the GuitarTapTests bundle so the fixture loads on every destination
+// (iPad/iPhone too), not just the macOS host: #filePath resolves to the build machine's source tree,
+// which does not exist on a device. The synchronized GuitarTapTests folder already bundles the fixture
+// (the same file loads this way in PeakSelectionPersistenceTests / PeakFindingTests).
+private final class FixtureAnchor {}
 
 private func loadFixtureData() throws -> Data {
-    let url = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .appendingPathComponent(fixtureName)
+    let url = try #require(Bundle(for: FixtureAnchor.self)
+        .url(forResource: fixtureStem, withExtension: "guitartap"))
     return try Data(contentsOf: url)
 }
 
