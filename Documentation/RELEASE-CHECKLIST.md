@@ -7,7 +7,7 @@ The runbook for shipping a release. Four surfaces across three repos, all steps 
 | **Mac / iOS** | `GuitarTap` | App Store Connect |
 | **Python** | `guitar_tap` | GitHub `dwsdolce/guitar_tap` |
 | **Web app** | `GuitarTapWeb` | `dolcesfogato.com/guitar_tap/guitar_tap_web/` |
-| **Marketing site** | `GuitarTap/Website` | `dolcesfogato.com/guitar_tap/` |
+| **Marketing site** | `guitar_tap_website` | `dolcesfogato.com/guitar_tap/` |
 
 **The build-number rule (read once):** in every repo the build number is that repo's own
 `git rev-list --count HEAD`, baked at build/archive time. So finish committing first, then build from
@@ -78,7 +78,6 @@ numbers differ across repos — that is expected.
 - [ ] Refresh `GuitarTap-Quick-Start-Guide.pdf` if changed; screenshots only if the UI changed.
 - [ ] Commit + push the repo, then **upload the changed files** to `…/guitar_tap/` via **cPanel File Manager** (banner, the two release-notes PDFs, `manual/`).
 - [ ] *No edits needed:* App Store URL (`id6759410596`), GitHub-releases download link, web-app link — all stable.
-- [ ] *Until the frozen Swift `Website/` copy is removed (post-release): deploy from this repo only; don't touch the Swift copy.*
 
 ## 5. Post-release verification
 - [ ] **Web:** hard-reload / fresh session (defeat the stale service worker); footer + Settings show `X.Y.Z (build)`; manual link resolves.
