@@ -9,7 +9,7 @@
     <p class="title-platforms">iOS/iPadOS &nbsp;·&nbsp; macOS &nbsp;·&nbsp; Windows &nbsp;·&nbsp; Linux</p>
   </div>
   <div class="title-footer">
-    <p class="title-description">Acoustic resonance analysis for luthiers and tonewood researchers.</p>
+    <p class="title-description">Tap-tone analysis for luthiers</p>
     <p class="title-copyright">Copyright &copy; 2026 David W. Smith dba Dolce Sfogato.<br>All rights reserved.</p>
   </div>
 </div>

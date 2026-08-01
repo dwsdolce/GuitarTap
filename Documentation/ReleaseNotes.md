@@ -2,8 +2,8 @@
 
 ---
 
-## Version 1.0.2 · Build 455
-### What's New Since Build 332
+## Version {{version}} · Build {{build}}
+### What's New Since Build {{since}}
 
 ---
 

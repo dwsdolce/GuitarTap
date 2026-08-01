@@ -325,6 +325,14 @@ HTML(filename=html_path).write_pdf(pdf_path)
 print("  PDF written successfully.")
 PYEOF
 
+# Make the HTML self-contained: inline every images/ reference as a base64 data: URI. Done AFTER
+# the PDF step (which resolves the external images itself), so the PDF is unchanged and only the
+# HTML gains embedded images. The deployed HTML then needs no images/ folder, and each versioned
+# manual is a permanent, correct snapshot — a later release overwriting the shared source
+# screenshots can't change what an older HTML shows.
+echo "Embedding images into the HTML (self-contained)..."
+"$VENV_PYTHON" "$SCRIPT_DIR/embed-images.py" "$FULL_HTML"
+
 # Stable "latest" copies so published download links never go stale across
 # version bumps. The versioned files are kept alongside them for history; the
 # website links point at these neutral names.

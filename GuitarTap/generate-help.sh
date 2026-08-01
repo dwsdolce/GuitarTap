@@ -327,3 +327,11 @@ else
     echo "pandoc not found — skipping PDF generation."
     echo "Install with: brew install pandoc  (and brew install --cask basictex for xelatex)"
 fi
+
+# ---------------------------------------------------------------------------
+# Step 3: Release notes — generate the stamped PDF from Documentation/ReleaseNotes.md on the
+# same macOS build (cheap: plain pandoc, the notes carry no icons). That script is best-effort
+# and skips gracefully on its own; `|| true` also shields this script's `set -e`, so a
+# release-notes hiccup never fails the build.
+# ---------------------------------------------------------------------------
+bash "$SCRIPT_DIR/../Documentation/generate-release-notes.sh" || true
