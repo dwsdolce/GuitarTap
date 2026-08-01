@@ -65,11 +65,6 @@
 			path = GuitarTap;
 			sourceTree = "<group>";
 		};
-		892D51662FE886E00062470B /* Website */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Website;
-			sourceTree = "<group>";
-		};
 		8975FA652F8EB6E900561C35 /* Documentation */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Documentation;
@@ -102,7 +97,6 @@
 				8975FA652F8EB6E900561C35 /* Documentation */,
 				8902969A2F09D3F200B236AD /* GuitarTap */,
 				0CBE6B61B2B84CE89B019FE4 /* GuitarTapTests */,
-				892D51662FE886E00062470B /* Website */,
 				8965D5BD2F061CE300243E14 /* Products */,
 			);
 			sourceTree = "<group>";
