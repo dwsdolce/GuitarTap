@@ -161,7 +161,6 @@ final class TapToneAnalyzer: ObservableObject {
         //
         //    Playback must run the LIVE detection path — otherwise it cannot tell us whether live and
         //    playback agree, which is the whole point of the file-playback regression.
-        //    See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
         //
         //    When plateTapPhase is provided, pass it as initialPhase so both the
         //    synchronous setup and the async housekeeping block use the correct
@@ -252,7 +251,6 @@ final class TapToneAnalyzer: ObservableObject {
             // does not classify, and does not touch per-peak state — so selection, mode overrides
             // and dragged annotation positions survive a slider sweep untouched, and a peak hidden
             // then revealed returns exactly as it was.
-            // See Development/PEAK-LIFECYCLE-SPEC.md in the GuitarTapWeb repo.
             refreshDisplayedPeaks()
         }
     }
@@ -380,7 +378,6 @@ final class TapToneAnalyzer: ObservableObject {
     /// Per-peak state (selection, mode overrides, annotation offsets) is keyed to these identities,
     /// which is what makes that state durable across a Peak Min move.
     ///
-    /// See Development/PEAK-LIFECYCLE-SPEC.md in the GuitarTapWeb repo.
     @Published var allPeaks: [ResonantPeak] = [] {
         didSet { refreshDisplayedPeaks() }
     }
@@ -405,7 +402,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// — what to save, what is selected, what to classify, whether a measurement exists — must read
     /// ``allPeaks`` (or ``selectedPeaks``). Reading this property for such a question is the single
     /// most repeated defect in this codebase's history: it silently makes the answer depend on where
-    /// a slider happens to sit. See Development/PEAK-LIFECYCLE-SPEC.md in the GuitarTapWeb repo.
+    /// a slider happens to sit.
     ///
     /// Derived, never assigned directly: it hands back the *same* `ResonantPeak` objects as
     /// ``allPeaks``, so filtering can never disturb identity or the per-peak state keyed to it.
@@ -755,7 +752,6 @@ final class TapToneAnalyzer: ObservableObject {
     /// back to a per-frequency lookup for peaks its one-per-mode claiming pass did not take. The two
     /// differ only under a user override — which is exactly the case this predicate exists to fix.
     ///
-    /// See Development/PEAK-LIFECYCLE-SPEC.md in the GuitarTapWeb repo.
     func isUnknown(_ peak: ResonantPeak) -> Bool {
         peakMode(for: peak).normalized == .unknown && !hasManualOverride(for: peak.id)
     }
@@ -896,7 +892,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// sole source for its derived properties, its Results-panel display/edit, and Save. Distinct from
     /// ``TapDisplaySettings`` (the defaults for a NEW measurement). Seeded from settings when a
     /// material measurement completes; set from the file snapshot on load; `nil` for guitar and before
-    /// completion. See GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
+    /// completion.
     @Published var materialInputs: MaterialMeasurementInputs?
 
     @Published var isMeasurementComplete: Bool = false {
@@ -1099,8 +1095,7 @@ final class TapToneAnalyzer: ObservableObject {
     // NOTE: the former loaded*-dimension publishers (loadedPlateLength/…/loadedBraceMass +
     // guitarBody*/plateStiffness*/measureFlc) were removed with the two-store material-dimensions
     // work: loading now sets the measurement's own `materialInputs` (Store B) directly and never
-    // writes the Settings defaults, so those publishers and their view handlers were dead. See
-    // GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
+    // writes the Settings defaults, so those publishers and their view handlers were dead.
 
     /// Timestamp of the measurement most recently loaded into the results panel.
     ///

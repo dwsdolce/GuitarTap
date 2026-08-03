@@ -425,7 +425,6 @@ struct TapAnalysisResultsView: View {
     /// Fixed per-phase slot rows (L, C, [FLC] for plate; fL for brace) shown during a LIVE
     /// material capture: the row layout matches the final display, but freq/mag show a dash
     /// until each phase's peak is captured, and each row's bubble is selected only once found.
-    /// See Development/MATERIAL-RESULTS-PHASED-DISPLAY.md.
     @ViewBuilder
     private var materialSlotRows: some View {
         let lPeak = analyzer.longitudinalPeaks.first { $0.id == effectiveLongitudinalPeakID }
@@ -921,7 +920,7 @@ struct TapAnalysisResultsView: View {
     /// Editable sample dimensions (Store B) — the measurement's own L/W/T/M, shown as its own section
     /// BEFORE the derived-property sections for both plate and brace (inputs above results). Editing
     /// writes `materialInputs` live so every calculation recomputes; it never touches the Settings
-    /// defaults. See GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
+    /// defaults.
     @ViewBuilder
     private var sampleDimensionsSection: some View {
         if analyzer.materialInputs != nil {

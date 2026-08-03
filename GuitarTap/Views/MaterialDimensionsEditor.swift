@@ -10,7 +10,7 @@ import SwiftUI
 /// (``MaterialMeasurementInputs``) — shown in the Results panel's Plate/Brace Properties. Editing a
 /// field updates the measurement's `materialInputs` live, so every derived property recomputes; it
 /// never touches the Settings defaults (Store A). Shown only when the measurement is complete (its
-/// container gates on that). See GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
+/// container gates on that).
 struct MaterialDimensionsEditor: View {
     @Binding var inputs: MaterialMeasurementInputs
 

@@ -12,6 +12,9 @@ long-term parallel ports kept at numeric/behavioural parity with this app:
 - **Python desktop** (Windows / macOS / Linux) — [guitar_tap](https://github.com/dwsdolce/guitar_tap)
 - **Browser (PWA)** — [GuitarTapWeb](https://github.com/dwsdolce/GuitarTapWeb)
 
+Design and cross-platform project docs (specs, parity map, roadmap) are maintained in the
+project hub repo `guitar-tap-project`, not in this repo.
+
 ## Soak / stress testing
 
 `Tooling/deinit-soak.sh` is an on-demand **dev tool** (not CI). It builds the test

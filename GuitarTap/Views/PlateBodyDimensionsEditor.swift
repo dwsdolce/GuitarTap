@@ -11,7 +11,7 @@ import SwiftUI
 /// ``MaterialMeasurementInputs`` (Store B). These feed only the Gore target thickness; editing a field
 /// updates the measurement's `materialInputs` live so the target recomputes, and never touches the
 /// Settings defaults (Store A). Shown only when the plate measurement is complete (its container gates
-/// on that). See GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
+/// on that).
 struct PlateBodyDimensionsEditor: View {
     @Binding var inputs: MaterialMeasurementInputs
 

@@ -5,7 +5,7 @@
 // @parity model/material-measurement-inputs tests=test/material-measurement-inputs
 
 /// The material inputs of the **current measurement** — "Store B" in the measurement-dimensions
-/// design (`GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md`).
+/// design.
 ///
 /// This is the *sole* source for a material measurement's derived properties, its Results-panel
 /// display/edit, and Save. It is distinct from `TapDisplaySettings`, which holds only the **defaults

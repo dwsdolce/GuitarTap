@@ -512,8 +512,7 @@ extension TapToneAnalysisView {
                     // label beside it is a hard `.blue` — and neither Python (Qt `palette(highlight)`)
                     // nor the web (its own `--accent`) could ever agree with it. All three now pin
                     // systemBlue, which is itself light/dark adaptive (#007AFF / #0A84FF).
-                    // This is the colour token the Light/Dark/System theme work will own — see
-                    // GuitarTapWeb/Development/THEME-SPEC.md.
+                    // This is the colour token the Light/Dark/System theme work will own.
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
                         .tint(.blue)

@@ -652,7 +652,6 @@ extension TapToneAnalyzer {
             // Results panel, and Save all read this, so a loaded measurement's numbers come from the
             // file and loading never disturbs the Settings defaults (Store A). Replaces the old
             // loaded*-dimension → TapDisplaySettings writes that used to clobber the user's defaults.
-            // See GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
             if let mt = snapshot.measurementType, !mt.isGuitar {
                 let brace = mt.isBrace
                 materialInputs = MaterialMeasurementInputs(
@@ -835,8 +834,8 @@ extension TapToneAnalyzer {
         showingMultiTapComparison = false
 
         // The saved per-tap peaks are restored as-is and never re-detected. They are the
-        // measurement's own record, exactly like `measurement.peaks` — see
-        // Development/PEAK-LIFECYCLE-SPEC.md §5. This previously called
+        // measurement's own record, exactly like `measurement.peaks`.
+        // This previously called
         // `recalculateTapEntryPeaks()` to "re-run findPeaks with the saved threshold", which
         // re-analysed a loaded measurement and then wrote the filtered result back into
         // `tapEntries` — truncating the saved full set on the next save.

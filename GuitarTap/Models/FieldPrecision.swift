@@ -8,7 +8,6 @@
 //  input field, Settings, the saved measurement, and the PDF — and identically across the Swift,
 //  Python, and web editions. Replaces the scattered ad-hoc `String(format: "%.Nf", …)` literals.
 //
-//  Spec (with the validated value ranges): GuitarTapWeb/Development/NUMERIC-PRECISION-SPEC.md.
 //  This table MUST stay identical across the Swift, Python, and web mirrors.
 //
 //  Precision table — P = decimal places:

@@ -238,7 +238,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// warm-up never runs, the noise-floor re-anchor never fires, and the EMA latches at its seed value.
     /// That silently disabled relative detection in playback. An audio clock cannot be outrun by setup,
     /// and behaves identically whether playback is real-time paced or not.
-    /// See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
     var audioElapsed: Double = 0
 
     /// Hann window coefficients applied to audio samples before FFT to reduce spectral leakage

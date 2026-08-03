@@ -108,7 +108,7 @@ struct ComparisonEntry: Codable, Identifiable {
     /// This makes a saved comparison **self-describing**: a reader reproduces the displayed table by
     /// looking each ID up in `peaks` — no need to re-run `classifyAll`, and no need for the source's
     /// override data (which is not in this file). Absent (`nil`) on files written before Phase 6b;
-    /// those are healed on decode and re-saved. See Development/PEAK-LIFECYCLE-SPEC.md.
+    /// those are healed on decode and re-saved.
     var modePeakIDs: [String: UUID]? = nil
 
     /// Builds the `{mode name: peak id}` map for the three ratio-bearing modes from a resolved
@@ -577,7 +577,6 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// once per overlapping mode range and minted a peak each time. Loaded peaks are
     /// authoritative and are never re-derived, so without this every existing file would show
     /// a phantom Analysis Results row forever.
-    /// See Development/PEAK-FINDING-DUPLICATE-PEAKS.md in the GuitarTapWeb repo.
     ///
     /// Keeps, in order of preference: the peak in `selectedIDs` (the claimed mode winner),
     /// then the louder, then the first seen. `findPeaks` guarantees legitimately saved peaks

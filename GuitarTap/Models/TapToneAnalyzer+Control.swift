@@ -90,7 +90,7 @@ extension TapToneAnalyzer {
     ///
     ///   A saved session WAV always contains its warm-up by construction: `isSessionRecording` is set
     ///   before the warm-up clock, and live suppresses detection during the warm-up, so no accepted
-    ///   tap can land in the first 0.5 s. See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
+    /// tap can land in the first 0.5 s.
     /// - Parameter initialPhase: For material (plate/brace) modes, the tap phase to begin
     ///   capturing in; when `nil`, the sequence starts at its first phase.
     // @parity state/tap-tone-analyzer
@@ -221,7 +221,6 @@ extension TapToneAnalyzer {
         // i.e. the relative rule collapses onto the absolute one, silently disabling the very model
         // it is meant to implement.  That is what used to happen on EVERY file playback, which is why
         // the relative detector was never exercised by any regression test on any platform.
-        // See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
         noiseFloorEstimate = skipWarmup ? -100.0 : fftAnalyzer.inputLevelDB
 
         // For file playback (skipWarmup): start with isAboveThreshold = true

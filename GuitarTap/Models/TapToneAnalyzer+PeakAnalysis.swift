@@ -281,7 +281,6 @@ extension TapToneAnalyzer {
         // removed in Phase 3 — it re-ran findPeaks at the *current* threshold, overwriting each
         // entry's full set with a filtered one, minting fresh UUIDs and rebuilding selectedPeakIDs.
         // Because `tapEntries` is persisted, that was silent save-path data loss.
-        // See Development/PEAK-LIFECYCLE-SPEC.md §5 in the GuitarTapWeb repo.
     }
 
     /// Resets peak selections back to the automatic mode-priority algorithm and
@@ -405,7 +404,6 @@ extension TapToneAnalyzer {
     /// UUIDs and otherwise identical values. The assembly step then reconciled two
     /// independently deduplicated lists **by UUID** and let the twin survive, so every
     /// guitar capture on every platform saved one duplicated peak.
-    /// See Development/PEAK-FINDING-DUPLICATE-PEAKS.md in the GuitarTapWeb repo.
     ///
     /// Classification and mode claiming belong to ``GuitarMode/classifyAll(_:guitarType:)``,
     /// which operates on the returned peak *list* — where each peak has one identity and

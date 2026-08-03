@@ -54,8 +54,7 @@ enum GuitarType: String, Codable, CaseIterable, Identifiable {
     /// Resolving that ambiguity is `GuitarMode.classifyAll`'s job: it claims the strongest
     /// peak per mode in ascending range order and constrains Back to sit above the claimed
     /// Top. Detection must not consult these bands at all — a detector that iterates them
-    /// visits overlap bins more than once, which is what produced the duplicate-peak defect
-    /// (Development/PEAK-FINDING-DUPLICATE-PEAKS.md in GuitarTapWeb).
+    /// visits overlap bins more than once, which is what produced the duplicate-peak defect.
     ///
     /// The values are approximations; `generic` deliberately spans them all and is the more
     /// useful setting in practice.

@@ -190,7 +190,6 @@ extension TapToneAnalysisView {
         // `noiseFloorEstimate = -100`, which collapses `rising` onto `tapDetectionThreshold` — silently
         // degrading relative detection to absolute, so replaying a session did NOT reproduce what the
         // live session did.  A saved session WAV always contains its warm-up by construction.
-        // See GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md.
         let isMaterialPlayback = TapDisplaySettings.measurementType == .plate
             || TapDisplaySettings.measurementType == .brace
         tapToneAnalyzer.startTapSequence(skipWarmup: !isMaterialPlayback)
