@@ -23,6 +23,18 @@ fi
 VERSION="$1"
 
 #===============================================
+# Signing settings.
+#===============================================
+# The notary credential is held in the keychain under the profile named here -
+# never in this script. It used to carry an Apple ID and an app-specific
+# password inline, which put a live credential into the repository's history;
+# that password has since been revoked. The profile is created once with
+# xcrun notarytool store-credentials, and the settings file lives outside every
+# repository so no Developer ID is baked into the source.
+MACSIGN_ENV="${MACSIGN_ENV:-$HOME/.config/macsign.env}"
+[[ -f "$MACSIGN_ENV" ]] && source "$MACSIGN_ENV"
+
+#===============================================
 # Create the format.
 #===============================================
 installer_name="GuitarTap_${VERSION}.dmg"
@@ -56,8 +68,14 @@ echo "Done Creating ${installer_name}"
 #===============================================
 # Notarize the format.
 #===============================================
+if [[ -z "$NOTARY_PROFILE" ]]; then
+    echo "NOTARY_PROFILE is not set - skipping notarisation."
+    echo "Done creating ${installer_name}"
+    exit 0
+fi
+
 echo "Notarizing ${installer_name}"
-xcrun notarytool submit $installer_name --wait --apple-id dws@dolcesfogato.com --password ouio-uwqe-qzhz-ukmm --team-id 43QHHT3XK2
+xcrun notarytool submit $installer_name --wait --keychain-profile "$NOTARY_PROFILE"
 if [ $? -ne 0 ]; then
     echo "Notarizing ${installer_name} failed"
     exit 1
