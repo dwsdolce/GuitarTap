@@ -7,6 +7,15 @@
 
 ---
 
+<!-- TODO(1.0.3): add this release's user-facing changes here before shipping, then delete this comment. -->
+
+---
+
+## Version 1.0.2 · Build 455
+### What's New Since Build 332
+
+---
+
 ## New Features
 
 ### Set a Plate or Brace's Dimensions in the Results

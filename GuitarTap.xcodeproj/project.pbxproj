@@ -138,6 +138,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8965D5C72F061CE400243E14 /* Build configuration list for PBXNativeTarget "GuitarTap" */;
 			buildPhases = (
+				89C0FFEE2FA0000100A26408 /* Check Release Readiness */,
 				8965D5B82F061CE300243E14 /* Sources */,
 				8965D5B92F061CE300243E14 /* Frameworks */,
 				8965D5BA2F061CE300243E14 /* Resources */,
@@ -311,6 +312,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "BUILD_NUMBER=$(git -C \"${SRCROOT}\" rev-list --count HEAD 2>/dev/null || echo \"0\")\n   /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n";
+		};
+		89C0FFEE2FA0000100A26408 /* Check Release Readiness */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Check Release Readiness";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Refuse to build a tree with a stale release identity: a version number\n# that still names an already-shipped release, or release notes never rolled\n# over after it. FIRST phase, so it fails before anything compiles. Same rule\n# and same script the packaging build runs u2014 see Tooling/check-release-ready.sh.\nbash \"${SRCROOT}/Tooling/check-release-ready.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -568,7 +588,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dolcesfogato.GuitarTap;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -639,7 +659,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dolcesfogato.GuitarTap;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

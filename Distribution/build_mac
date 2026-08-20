@@ -23,6 +23,15 @@ fi
 VERSION="$1"
 
 #===============================================
+# Refuse to package a tree with a stale release identity: a version number that
+# still names an already-shipped release, or release notes never rolled over
+# after it. The Xcode build phase runs the same script, so a .app exported from
+# Xcode has already passed it — this catches the case where an OLD export is
+# packaged from a tree that has since moved on.
+#===============================================
+"$(dirname "$0")/../Tooling/check-release-ready.sh" || exit 1
+
+#===============================================
 # Signing settings.
 #===============================================
 # The notary credential is held in the keychain under the profile named here -
