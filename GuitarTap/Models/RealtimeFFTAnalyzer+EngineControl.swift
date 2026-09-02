@@ -512,8 +512,12 @@ extension RealtimeFFTAnalyzer {
                 //
                 // A recovery restart is EXPECTED to begin silent when the input is
                 // genuinely dead, so running the check there guarantees a false denial.
-                let silenceCouldBeDenial = !self.hasEverReceivedSignal && !startedByWatchdogRecovery
-                if perfectSilence && !silenceCouldBeDenial {
+                if perfectSilence && !shouldDeclarePermissionDenied(
+                    tccDenied: false,
+                    perfectSilence: true,
+                    hasEverReceivedSignal: self.hasEverReceivedSignal,
+                    startedByWatchdogRecovery: startedByWatchdogRecovery
+                ) {
                     gtLog("🔇 3s check: silent, but the input has produced audio this session (or a recovery is in flight) — a dead input, not a permission denial; leaving it to the dead-input watchdog")
                 }
 
@@ -523,7 +527,12 @@ extension RealtimeFFTAnalyzer {
                     // never show the alert. (Backstop; the deferred-binding fix should
                     // prevent silence entirely.)
                     self.permissionJustGranted = false
-                } else if tccDenied || (perfectSilence && silenceCouldBeDenial) {
+                } else if shouldDeclarePermissionDenied(
+                    tccDenied: tccDenied,
+                    perfectSilence: perfectSilence,
+                    hasEverReceivedSignal: self.hasEverReceivedSignal,
+                    startedByWatchdogRecovery: startedByWatchdogRecovery
+                ) {
                     gtLog("⚠️ Microphone permission confirmed DENIED after 3s — tccDenied=\(tccDenied), perfectSilence=\(perfectSilence)")
                     self.stop()
                     self.microphonePermissionDenied = true

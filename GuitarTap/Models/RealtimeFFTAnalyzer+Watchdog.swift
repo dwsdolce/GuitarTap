@@ -79,57 +79,56 @@ extension RealtimeFFTAnalyzer {
 
         let now = CACurrentMediaTime()
 
-        // Failure mode 1: buffers stopped arriving at all.
-        let starvedFor = now - lastBufferTime
-        if starvedFor > watchdogSilenceThreshold, !watchdogRecoveryExhausted {
-            gtLog("⏱️ Buffer watchdog: no audio for \(String(format: "%.1f", starvedFor))s while running — I/O appears wedged")
+        // The rule itself lives in DeadInput.swift as a pure function, so the whole
+        // truth table is unit-testable without a clock, a timer or audio hardware.
+        // This tick only carries out the decision.
+        switch watchdogDecision(
+            now: now,
+            lastBufferTime: lastBufferTime,
+            lastSignalTime: lastSignalTime,
+            recoveryExhausted: watchdogRecoveryExhausted,
+            silenceThreshold: watchdogSilenceThreshold,
+            deadInputThreshold: watchdogDeadInputThreshold
+        ) {
+        case .starved:
+            gtLog("⏱️ Buffer watchdog: no audio for \(String(format: "%.1f", now - lastBufferTime))s while running — I/O appears wedged")
             isRecoveringEngine = true
             attemptWatchdogRecovery()
-            return
-        }
 
-        // Failure mode 2: buffers still arriving on schedule, but carrying nothing.
-        // Delivery looks healthy and the spectrum keeps updating, so nothing else
-        // notices; every reading is silence until the app is restarted by hand.
-        let deadFor = now - lastSignalTime
-        if deadFor > watchdogDeadInputThreshold, !watchdogRecoveryExhausted {
-            gtLog("🔇 Dead-input watchdog: buffers arriving but no signal for \(String(format: "%.1f", deadFor))s — input appears dead")
+        case .deadInput:
+            gtLog("🔇 Dead-input watchdog: buffers arriving but no signal for \(String(format: "%.1f", now - lastSignalTime))s — input appears dead")
             logAudioRouteDiagnostics()
             // Tell the user, not just the log. A device-level failure cannot be fixed
             // by restarting the engine (the recorded incident needed a USB
             // re-enumeration), so recovery will exhaust its attempts and stop — and
             // the status line is then the only thing standing between the user and an
-            // app that looks alive while deaf. Stays set until signal returns.
+            // app that looks alive while deaf.
             if !inputAppearsDead { inputAppearsDead = true }
             isRecoveringEngine = true
             attemptWatchdogRecovery()
-            return
-        }
 
-        // Still dead, but out of restart attempts: keep the warning up and keep
-        // watching. No restart is attempted until signal returns.
-        if watchdogRecoveryExhausted && (now - lastSignalTime) > watchdogDeadInputThreshold {
+        case .deadInputExhausted:
+            // Out of restart attempts: keep the warning up and keep watching, so the
+            // app heals itself the moment audio returns instead of staying deaf.
             if !inputAppearsDead { inputAppearsDead = true }
-            return
-        }
 
-        // Healthy — signal is flowing again. Clear the warning, the recovery streak,
-        // and the exhausted latch, so a later failure gets a full set of attempts.
-        if inputAppearsDead { inputAppearsDead = false }
+        case .healthy:
+            if inputAppearsDead { inputAppearsDead = false }
 
-        // Real audio falsifies any earlier "permission denied" determination. Nothing
-        // else clears that flag — only dismissing the alert did — so a denial inferred
-        // wrongly, or one the user has since granted, would otherwise persist for the
-        // life of the session while audio was demonstrably working.
-        if microphonePermissionDenied {
-            gtLog("✅ Receiving audio — clearing the earlier permission-denied determination")
-            microphonePermissionDenied = false
+            // Real audio falsifies any earlier "permission denied" determination.
+            // Nothing else clears that flag — only dismissing the alert did — so a
+            // denial inferred wrongly, or one the user has since granted, would
+            // otherwise persist for the session while audio demonstrably worked.
+            if microphonePermissionDenied {
+                gtLog("✅ Receiving audio — clearing the earlier permission-denied determination")
+                microphonePermissionDenied = false
+            }
+            if watchdogRecoveryExhausted {
+                gtLog("✅ Audio input returned — dead-input warning cleared, recovery re-armed")
+                watchdogRecoveryExhausted = false
+            }
+            if watchdogRecoveryAttempts != 0 { watchdogRecoveryAttempts = 0 }
         }
-        if watchdogRecoveryExhausted {
-            gtLog("✅ Audio input returned — dead-input warning cleared, recovery re-armed")
-            watchdogRecoveryExhausted = false
-        }
-        if watchdogRecoveryAttempts != 0 { watchdogRecoveryAttempts = 0 }
     }
 
     /// Logs what the audio route actually looks like at the moment a wedge is

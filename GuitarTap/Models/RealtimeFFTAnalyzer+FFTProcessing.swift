@@ -138,7 +138,7 @@ extension RealtimeFFTAnalyzer {
         // buffer-DELIVERY watchdog cannot see (it stamps on arrival, not content).
         // A live room clears this floor by ~20 dB on its noise alone, so only a
         // genuinely dead stream fails to refresh the stamp.
-        if rms > deadInputRMSThreshold {
+        if chunkCarriesSignal(rms: rms) {
             lastSignalTime = CACurrentMediaTime()
             if !hasEverReceivedSignal { hasEverReceivedSignal = true }
         }

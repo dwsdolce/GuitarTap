@@ -641,7 +641,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     var watchdogRecoveryAttempts = 0
 
     /// Seconds with zero delivered buffers before the I/O is considered wedged.
-    let watchdogSilenceThreshold: CFTimeInterval = 2.5
+    /// Owned by DeadInput.swift so the rule and its constants can be unit-tested.
+    var watchdogSilenceThreshold: CFTimeInterval { bufferDeliveryTimeout }
 
     /// Give up (and surface an error) after this many consecutive failed restarts,
     /// so a genuinely-unavailable device can't cause a restart storm.
@@ -668,30 +669,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// thread by the watchdog (same relaxed access pattern as `lastBufferTime`).
     var lastSignalTime: CFTimeInterval = 0
 
-    /// RMS below which a buffer counts as carrying no signal: 1e-5 = **-100 dBFS**.
-    ///
-    /// Calibrated from the recorded incidents (hub `AUDIO-WATCHDOG-SILENT-STREAM.md`),
-    /// not from theory. A dead-but-present device was measured pinned at ≈ -100 dBFS
-    /// while a live room reads ≈ -70 dBFS and a UMIK-1's Air peak ≈ -63 dBFS.
-    ///
-    /// Deliberately set at the BOTTOM of that range rather than mid-way. The UMIK-1 is
-    /// an unusually quiet microphone and can sit near -90 dBFS in a silent room, so a
-    /// mid-range threshold would call a quiet workshop a dead input and restart the
-    /// engine during a measurement. The asymmetry is the point: a missed detection
-    /// costs one more watchdog cycle, a false positive interrupts real work. Anything a
-    /// live microphone produces — including a very quiet one in a silent room — stays
-    /// clear of -100 dBFS; only a stream that is not producing audio at all goes below.
-    ///
-    /// RMS rather than peak deliberately: the documented floor/peak figures above are
-    /// RMS-based, and all three editions must apply the identical criterion (peak is
-    /// always ≥ RMS, so mixing them would give the ports different sensitivities).
-    let deadInputRMSThreshold: Float = 1e-5
+    /// The dead-input level criterion lives in DeadInput.swift; see `chunkCarriesSignal`.
 
     /// Seconds of unbroken no-signal buffers before the input is considered dead.
-    /// Much longer than the delivery threshold: this one infers from content, and a
-    /// recorded incident persisted for minutes, so there is no value in being hasty
-    /// and real cost in fighting a user who has legitimately muted their input.
-    let watchdogDeadInputThreshold: CFTimeInterval = 15.0
+    /// Owned by DeadInput.swift so the rule and its constants can be unit-tested.
+    var watchdogDeadInputThreshold: CFTimeInterval { deadInputDwell }
 
     /// True once the input has produced real signal at any point since launch.
     ///

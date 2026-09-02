@@ -2,64 +2,204 @@
 //  DeadInputThresholdTests.swift
 //  GuitarTapTests
 //
-//  @parity dead-input-threshold — paired with web test/dead-input-threshold.test.ts and
-//  Python tests/test_dead_input_threshold.py. All three pin the SAME calibration table.
+//  Calibration of the dead-input watchdog's "this stream carries no signal"
+//  threshold.  Pure numeric checks against the analyzer's constants — no audio
+//  hardware, no engine.
 //
-//  Why this test exists: the dead-input watchdog decides "the stream is dead" from a
-//  level threshold, and that threshold is a field calibration, not a derivation. Set it
-//  too low and a genuinely dead stream (measured at ~-100 dBFS, NOT digital zero) is
-//  never detected; too high and a quiet room is mistaken for a dead input and the engine
-//  is restarted mid-measurement. The UMIK-1 is an unusually quiet microphone and can sit
-//  near -90 dBFS in a silent room, which is what makes the upper bound real.
+//  Why these exist: the threshold is a FIELD CALIBRATION, not a derivation.  Set
+//  it too low and a genuinely dead stream (measured at ~-100 dBFS, NOT digital
+//  zero) is never detected; too high and a quiet room is mistaken for a dead
+//  input and the engine restarts mid-measurement.  The UMIK-1 is an unusually
+//  quiet microphone and can sit near -90 dBFS in a silent room, which is what
+//  makes the upper bound real.
 //
-//  Source of the numbers: hub docs/AUDIO-WATCHDOG-SILENT-STREAM.md (incidents 2026-07-16).
+//  Source of the numbers: hub docs/AUDIO-WATCHDOG-SILENT-STREAM.md (incidents
+//  2026-07-16, recurrence 2026-08-21).
 //
+// @parity dead-input
 
-import XCTest
+import Foundation   // pow(_:_:) — previously came in transitively via XCTest
+import Testing
 @testable import GuitarTap
 
-final class DeadInputThresholdTests: XCTestCase {
+// ---------------------------------------------------------------------------
+// MARK: - Helpers
+// ---------------------------------------------------------------------------
 
-    /// Amplitude (linear RMS) for a level in dBFS.
-    private func amp(_ dbfs: Float) -> Float { pow(10, dbfs / 20) }
+/// Amplitude (linear RMS) for a level in dBFS.
+private func amp(_ dbfs: Float) -> Float { pow(10, dbfs / 20) }
 
-    private func carriesSignal(_ rms: Float, _ sut: RealtimeFFTAnalyzer) -> Bool {
-        rms > sut.deadInputRMSThreshold
+/// The criterion the audio path applies per buffer.
+private func carriesSignal(_ rms: Float) -> Bool { chunkCarriesSignal(rms: rms) }
+
+// ---------------------------------------------------------------------------
+// MARK: - Threshold calibration
+// ---------------------------------------------------------------------------
+
+@Suite("DeadInputThreshold")
+struct DeadInputThresholdTests {
+
+    @Test func digitalSilence_readsAsNoSignal() {
+        #expect(carriesSignal(0) == false)
     }
 
-    func testDeadStreamCarriesNoSignal() {
-        let sut = RealtimeFFTAnalyzer(forTesting: true)
-        XCTAssertFalse(carriesSignal(0, sut), "digital silence must read as no signal")
-        XCTAssertFalse(carriesSignal(amp(-120), sut), "far below anything real")
-        XCTAssertFalse(carriesSignal(amp(-100), sut), "the measured dead-device level")
+    @Test func farBelowAnythingReal_readsAsNoSignal() {
+        #expect(carriesSignal(amp(-120)) == false)
     }
 
-    func testQuietUMIK1InASilentRoomCarriesSignal() {
-        // The regression this test exists for: -90 dBFS is quiet, not dead.
-        let sut = RealtimeFFTAnalyzer(forTesting: true)
-        XCTAssertTrue(carriesSignal(amp(-90), sut), "a quiet UMIK-1 must not be called dead")
-        XCTAssertTrue(carriesSignal(amp(-95), sut))
+    @Test func measuredDeadDeviceLevel_readsAsNoSignal() {
+        // The level a dead-but-present device was actually measured at.
+        #expect(carriesSignal(amp(-100)) == false)
     }
 
-    func testRoomFloorAndTapCarrySignal() {
-        let sut = RealtimeFFTAnalyzer(forTesting: true)
-        XCTAssertTrue(carriesSignal(amp(-70), sut), "room noise floor")
-        XCTAssertTrue(carriesSignal(amp(-63), sut), "UMIK-1 Air peak")
-        XCTAssertTrue(carriesSignal(amp(-20), sut), "a tap")
+    @Test func quietUMIK1InASilentRoom_readsAsAlive() {
+        // The regression these tests exist for: -90 dBFS is quiet, not dead.
+        #expect(carriesSignal(amp(-90)))
+        #expect(carriesSignal(amp(-95)))
     }
 
-    func testKeepsAtLeast10dBMarginUnderTheQuietRoomLevel() {
-        // Guards against someone "tightening" the threshold back up toward -90 dBFS.
-        let sut = RealtimeFFTAnalyzer(forTesting: true)
-        XCTAssertLessThanOrEqual(sut.deadInputRMSThreshold, amp(-100))
-        XCTAssertGreaterThanOrEqual(amp(-90) / sut.deadInputRMSThreshold, 3.16)
+    @Test func roomFloorAndTap_readAsAlive() {
+        #expect(carriesSignal(amp(-70)))   // room noise floor
+        #expect(carriesSignal(amp(-63)))   // UMIK-1 Air peak
+        #expect(carriesSignal(amp(-20)))   // a tap
     }
 
-    func testDwellIsLongEnoughToOutlastAQuietPassage() {
+    @Test func keepsAtLeast10dBMarginUnderTheQuietRoomLevel() {
+        // Guards against anyone "tightening" the threshold back up toward -90 dBFS.
+        #expect(deadInputRMSThreshold <= amp(-100))
+        #expect(amp(-90) / deadInputRMSThreshold >= 3.16)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Dwell
+// ---------------------------------------------------------------------------
+
+@Suite("DeadInputDwell")
+struct DeadInputDwellTests {
+
+    @Test func dwellOutlastsAQuietPassage() {
         // A short dwell would let an ordinary silent moment between taps trip the
         // watchdog. The recorded incidents persisted for minutes, so patience is free.
-        let sut = RealtimeFFTAnalyzer(forTesting: true)
-        XCTAssertGreaterThanOrEqual(sut.watchdogDeadInputThreshold, 10.0)
-        XCTAssertGreaterThan(sut.watchdogDeadInputThreshold, sut.watchdogSilenceThreshold)
+        #expect(deadInputDwell >= 10.0)
+    }
+
+    @Test func dwellIsLongerThanTheDeliveryThreshold() {
+        // Content-based inference should always be more patient than the
+        // arrival-based check it sits beside.
+        #expect(deadInputDwell > bufferDeliveryTimeout)
+    }
+}
+
+
+// ---------------------------------------------------------------------------
+// MARK: - Watchdog decision truth table
+// ---------------------------------------------------------------------------
+
+/// Every branch of the rule a watchdog tick applies. These are the cases that were
+/// previously reachable only by making real audio hardware fail.
+@Suite("WatchdogDecision")
+struct WatchdogDecisionTests {
+
+    /// `now` is fixed; each case positions the two stamps relative to it.
+    private let now: CFTimeInterval = 1000
+
+    private func decide(
+        buffersAgo: CFTimeInterval,
+        signalAgo: CFTimeInterval,
+        exhausted: Bool = false
+    ) -> WatchdogDecision {
+        watchdogDecision(
+            now: now,
+            lastBufferTime: now - buffersAgo,
+            lastSignalTime: now - signalAgo,
+            recoveryExhausted: exhausted,
+            silenceThreshold: bufferDeliveryTimeout,
+            deadInputThreshold: deadInputDwell
+        )
+    }
+
+    @Test func signalFlowing_isHealthy() {
+        #expect(decide(buffersAgo: 0.02, signalAgo: 0.02) == .healthy)
+    }
+
+    @Test func quietPassageShorterThanTheDwell_isStillHealthy() {
+        // The case that must never restart the engine: a silent moment between taps.
+        #expect(decide(buffersAgo: 0.02, signalAgo: deadInputDwell - 1) == .healthy)
+    }
+
+    @Test func noBuffersAtAll_isStarved() {
+        #expect(decide(buffersAgo: bufferDeliveryTimeout + 1, signalAgo: bufferDeliveryTimeout + 1) == .starved)
+    }
+
+    @Test func buffersArrivingWithNoSignal_isDeadInput() {
+        // The failure this whole mechanism exists for.
+        #expect(decide(buffersAgo: 0.02, signalAgo: deadInputDwell + 1) == .deadInput)
+    }
+
+    @Test func starvationOutranksDeadInput() {
+        // A starved stream is trivially signal-less too; report the deeper failure.
+        #expect(decide(buffersAgo: bufferDeliveryTimeout + 1, signalAgo: deadInputDwell + 1) == .starved)
+    }
+
+    @Test func deadAndOutOfAttempts_warnsWithoutRestarting() {
+        #expect(decide(buffersAgo: 0.02, signalAgo: deadInputDwell + 1, exhausted: true) == .deadInputExhausted)
+    }
+
+    @Test func signalReturningAfterExhaustion_isHealthy() {
+        // The regression from 2026-09-01: raising the input volume again must heal the
+        // app rather than leave it deaf until relaunch.
+        #expect(decide(buffersAgo: 0.02, signalAgo: 0.02, exhausted: true) == .healthy)
+    }
+
+    @Test func exhaustedNeverRestarts_evenWhenStarved() {
+        // While exhausted, no branch may attempt a restart.
+        let d = decide(buffersAgo: bufferDeliveryTimeout + 1, signalAgo: deadInputDwell + 1, exhausted: true)
+        #expect(d == .deadInputExhausted)
+        #expect(d != .starved)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Permission decision truth table
+// ---------------------------------------------------------------------------
+
+/// Swift-only: Python and the web are told about a denial explicitly by their audio
+/// APIs and never have to infer it from silence.
+@Suite("PermissionDecision")
+struct PermissionDecisionTests {
+
+    @Test func tccDenied_isAlwaysADenial() {
+        #expect(shouldDeclarePermissionDenied(
+            tccDenied: true, perfectSilence: false,
+            hasEverReceivedSignal: true, startedByWatchdogRecovery: false))
+    }
+
+    @Test func silenceBeforeAnyAudioHasWorked_isADenial() {
+        // The original case the heuristic was written for: macOS reports authorized
+        // while the hardware is muted, and nothing else will tell us.
+        #expect(shouldDeclarePermissionDenied(
+            tccDenied: false, perfectSilence: true,
+            hasEverReceivedSignal: false, startedByWatchdogRecovery: false))
+    }
+
+    @Test func silenceAfterAudioHasWorked_isNotADenial() {
+        // The bug from 2026-09-01: a dead input reported as a denied permission.
+        #expect(shouldDeclarePermissionDenied(
+            tccDenied: false, perfectSilence: true,
+            hasEverReceivedSignal: true, startedByWatchdogRecovery: false) == false)
+    }
+
+    @Test func silenceOnAWatchdogRecoveryRestart_isNotADenial() {
+        // A recovery restart is EXPECTED to begin silent when the input is dead.
+        #expect(shouldDeclarePermissionDenied(
+            tccDenied: false, perfectSilence: true,
+            hasEverReceivedSignal: false, startedByWatchdogRecovery: true) == false)
+    }
+
+    @Test func noSilenceAndNoTccDenial_isNotADenial() {
+        #expect(shouldDeclarePermissionDenied(
+            tccDenied: false, perfectSilence: false,
+            hasEverReceivedSignal: false, startedByWatchdogRecovery: false) == false)
     }
 }
