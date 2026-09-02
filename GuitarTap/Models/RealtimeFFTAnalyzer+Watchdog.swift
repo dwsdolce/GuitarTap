@@ -81,7 +81,7 @@ extension RealtimeFFTAnalyzer {
 
         // Failure mode 1: buffers stopped arriving at all.
         let starvedFor = now - lastBufferTime
-        if starvedFor > watchdogSilenceThreshold {
+        if starvedFor > watchdogSilenceThreshold, !watchdogRecoveryExhausted {
             gtLog("⏱️ Buffer watchdog: no audio for \(String(format: "%.1f", starvedFor))s while running — I/O appears wedged")
             isRecoveringEngine = true
             attemptWatchdogRecovery()
@@ -92,7 +92,7 @@ extension RealtimeFFTAnalyzer {
         // Delivery looks healthy and the spectrum keeps updating, so nothing else
         // notices; every reading is silence until the app is restarted by hand.
         let deadFor = now - lastSignalTime
-        if deadFor > watchdogDeadInputThreshold {
+        if deadFor > watchdogDeadInputThreshold, !watchdogRecoveryExhausted {
             gtLog("🔇 Dead-input watchdog: buffers arriving but no signal for \(String(format: "%.1f", deadFor))s — input appears dead")
             logAudioRouteDiagnostics()
             // Tell the user, not just the log. A device-level failure cannot be fixed
@@ -106,8 +106,29 @@ extension RealtimeFFTAnalyzer {
             return
         }
 
-        // Healthy — signal is flowing again; clear the warning and any recovery streak.
+        // Still dead, but out of restart attempts: keep the warning up and keep
+        // watching. No restart is attempted until signal returns.
+        if watchdogRecoveryExhausted && (now - lastSignalTime) > watchdogDeadInputThreshold {
+            if !inputAppearsDead { inputAppearsDead = true }
+            return
+        }
+
+        // Healthy — signal is flowing again. Clear the warning, the recovery streak,
+        // and the exhausted latch, so a later failure gets a full set of attempts.
         if inputAppearsDead { inputAppearsDead = false }
+
+        // Real audio falsifies any earlier "permission denied" determination. Nothing
+        // else clears that flag — only dismissing the alert did — so a denial inferred
+        // wrongly, or one the user has since granted, would otherwise persist for the
+        // life of the session while audio was demonstrably working.
+        if microphonePermissionDenied {
+            gtLog("✅ Receiving audio — clearing the earlier permission-denied determination")
+            microphonePermissionDenied = false
+        }
+        if watchdogRecoveryExhausted {
+            gtLog("✅ Audio input returned — dead-input warning cleared, recovery re-armed")
+            watchdogRecoveryExhausted = false
+        }
         if watchdogRecoveryAttempts != 0 { watchdogRecoveryAttempts = 0 }
     }
 
@@ -168,9 +189,15 @@ extension RealtimeFFTAnalyzer {
     private func attemptWatchdogRecovery() {
         watchdogRecoveryAttempts += 1
         guard watchdogRecoveryAttempts <= watchdogMaxAttempts else {
-            gtLog("❌ Buffer watchdog: giving up after \(watchdogMaxAttempts) failed restarts — leaving engine stopped")
+            // Stop RESTARTING, but keep WATCHING. Stopping the timer here used to leave
+            // the app permanently deaf: nothing was left to notice the input coming
+            // back, so a user who fixed the microphone — reconnected it, un-muted it,
+            // raised an input level — saw no change until they relaunched. The tick is
+            // cheap; it now keeps evaluating and clears the warning the moment real
+            // signal returns.
+            gtLog("❌ Buffer watchdog: giving up on restarts after \(watchdogMaxAttempts) attempts — still watching; will clear as soon as audio returns")
             isRecoveringEngine = false
-            stopBufferWatchdog()
+            watchdogRecoveryExhausted = true
             return
         }
 

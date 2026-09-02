@@ -693,6 +693,20 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// and real cost in fighting a user who has legitimately muted their input.
     let watchdogDeadInputThreshold: CFTimeInterval = 15.0
 
+    /// True once the input has produced real signal at any point since launch.
+    ///
+    /// The discriminator between "the OS is muting us" and "the device died": macOS
+    /// permission cannot be silently revoked and re-granted mid-session, so silence
+    /// that follows working audio is a dead input, never a permission problem. The
+    /// post-start denial check relies on this to stop blaming the user's microphone
+    /// permissions for a hardware failure.
+    var hasEverReceivedSignal: Bool = false
+
+    /// True once recovery has exhausted its attempts. Restart attempts stop, but the
+    /// watchdog keeps WATCHING, so the app heals itself the moment audio returns
+    /// instead of staying dead until it is relaunched.
+    var watchdogRecoveryExhausted: Bool = false
+
     /// True while the input is delivering buffers that carry no signal.
     ///
     /// Surfaced in the status line rather than only auto-healed: the device-level

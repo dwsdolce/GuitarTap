@@ -29,6 +29,15 @@ extension RealtimeFFTAnalyzer {
     func start() throws {
         gtLog("🎤 === Starting Audio Engine ===")
 
+        // Whether THIS start is a watchdog recovery restart, captured synchronously
+        // here because it cannot be read later. `isRecoveringEngine` is cleared by the
+        // recovery block as soon as start() returns, while the post-start permission
+        // check runs 3 s afterwards — and the UI updates it lives in are themselves
+        // dispatched async, so by the time the check runs the flag is always false.
+        // Reading it there silently disabled that half of the guard. The local travels
+        // into both closures and stays true for the whole deferred check.
+        let startedByWatchdogRecovery = isRecoveringEngine
+
         // CRITICAL: Always remove any existing tap to prevent "Tap already exists" error
         // This must be done BEFORE stopping or resetting the engine.
         // We always attempt removal regardless of audioEngine.isRunning state because:
@@ -438,6 +447,8 @@ extension RealtimeFFTAnalyzer {
             // Prime the dead-input clock too, so the 5 s no-signal window is measured
             // from the start rather than from a `lastSignalTime` of 0.
             self.lastSignalTime = CACurrentMediaTime()
+            // A deliberate (re)start gets a clean slate: full recovery attempts again.
+            self.watchdogRecoveryExhausted = false
             if !self.isPlayingFile {
                 self.startBufferWatchdog()
                 self.registerConfigurationChangeObserver()
@@ -487,13 +498,32 @@ extension RealtimeFFTAnalyzer {
                     && self.firstBufferReceived
                     && tccStatus != .notDetermined
                 gtLog("🎤 3s TCC check — status: \(tccStatus.rawValue), peak: \(self.peakMagnitude) dB, perfectSilence: \(perfectSilence), buffersReceived: \(self.firstBufferReceived)")
+                // Silence is evidence of a PERMISSION problem only before the input has
+                // ever worked, and never during a watchdog recovery restart.
+                //
+                // The original reasoning — "a real mic is never exactly zero, so zero
+                // means the OS muted us" — had one cause in mind and is no longer
+                // sufficient: a dead-but-present device produces identical output
+                // (hub AUDIO-WATCHDOG-SILENT-STREAM.md). Left unqualified it takes a
+                // hardware failure, tells the user their microphone permission was
+                // denied, and calls stop() — which also cancels the dead-input
+                // watchdog's remaining recovery attempts, so the app cannot heal and
+                // the user is asked to fix a permission that was never the problem.
+                //
+                // A recovery restart is EXPECTED to begin silent when the input is
+                // genuinely dead, so running the check there guarantees a false denial.
+                let silenceCouldBeDenial = !self.hasEverReceivedSignal && !startedByWatchdogRecovery
+                if perfectSilence && !silenceCouldBeDenial {
+                    gtLog("🔇 3s check: silent, but the input has produced audio this session (or a recovery is in flight) — a dead input, not a permission denial; leaving it to the dead-input watchdog")
+                }
+
                 if self.permissionJustGranted {
                     // First check right after a grant: silence here is the HAL
                     // input-acquisition transition, not a denial — clear the flag and
                     // never show the alert. (Backstop; the deferred-binding fix should
                     // prevent silence entirely.)
                     self.permissionJustGranted = false
-                } else if tccDenied || perfectSilence {
+                } else if tccDenied || (perfectSilence && silenceCouldBeDenial) {
                     gtLog("⚠️ Microphone permission confirmed DENIED after 3s — tccDenied=\(tccDenied), perfectSilence=\(perfectSilence)")
                     self.stop()
                     self.microphonePermissionDenied = true

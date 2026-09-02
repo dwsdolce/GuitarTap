@@ -140,6 +140,7 @@ extension RealtimeFFTAnalyzer {
         // genuinely dead stream fails to refresh the stamp.
         if rms > deadInputRMSThreshold {
             lastSignalTime = CACurrentMediaTime()
+            if !hasEverReceivedSignal { hasEverReceivedSignal = true }
         }
         let wallNow = Date()
 
