@@ -435,7 +435,13 @@ extension RealtimeFFTAnalyzer {
             // window, then (re)start the buffer-delivery watchdog. Not armed during
             // file playback (the file path feeds buffers synthetically).
             self.lastBufferTime = CACurrentMediaTime()
-            if !self.isPlayingFile { self.startBufferWatchdog() }
+            // Prime the dead-input clock too, so the 5 s no-signal window is measured
+            // from the start rather than from a `lastSignalTime` of 0.
+            self.lastSignalTime = CACurrentMediaTime()
+            if !self.isPlayingFile {
+                self.startBufferWatchdog()
+                self.registerConfigurationChangeObserver()
+            }
 
             #if os(iOS)
             // Refresh device list now that audio session is fully configured
@@ -844,6 +850,7 @@ extension RealtimeFFTAnalyzer {
         // Stop the buffer-delivery watchdog so it can't fire a recovery restart
         // during an intentional stop/restart cycle.
         stopBufferWatchdog()
+        unregisterConfigurationChangeObserver()
 
         #if os(macOS)
         // Remove the sample-rate listener so it doesn't fire during the stop/restart cycle

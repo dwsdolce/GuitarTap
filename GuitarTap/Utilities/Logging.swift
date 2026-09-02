@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import QuartzCore
 
 // Debug logging utility.
 //
@@ -18,7 +19,12 @@ import OSLog
 // and to the unified log (Console.app, subsystem: com.dolcesfogato.guitar-tap)
 // during development.
 
-private let _gtLogEnabled = false
+// TEMPORARILY ENABLED to diagnose the silent-input failure (buffers arriving with
+// no signal after wake-from-sleep / while idling between taps). The watchdogs now
+// recover automatically, but the log is what identifies WHICH trigger fired —
+// AVAudioEngineConfigurationChange, a device mismatch, or a dead-but-alive device.
+// Turn back off once the cause is confirmed; the file grows for the whole session.
+private let _gtLogEnabled = true
 private let _tapDebugEnabled = false
 
 private let _logger = Logger(subsystem: "com.dolcesfogato.guitar-tap", category: "general")
@@ -30,6 +36,16 @@ private let _fileLogger = FileLogger()
 private final class FileLogger: @unchecked Sendable {
     private let fileHandle: FileHandle?
     private let queue = DispatchQueue(label: "com.dolcesfogato.guitar-tap.filelog")
+
+    /// Wall-clock stamp, ISO 8601 UTC with milliseconds.
+    private static let stampFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    /// Monotonic origin for the `t=` column.
+    private let logStart = CACurrentMediaTime()
 
     /// The app's `Documents/GuitarTap/GuitarTap-debug.log`.
     ///
@@ -61,6 +77,21 @@ private final class FileLogger: @unchecked Sendable {
     }
 
     init() {
+        // Never write the shared debug log from a test run.
+        //
+        // The file is a FIELD diagnostic: it is what the user sends after a failure,
+        // and every session in it should be a session of the app. A test run appends
+        // hundreds of construct/teardown cycles that look exactly like app activity,
+        // which makes a real log unreadable — while chasing the silent-input bug, two
+        // `xcodebuild test` runs in this file were initially misread as an app defect.
+        // Mirrors the same XCTest check that already redirects `measurementsFileURL`
+        // and `TapDisplaySettings`. OSLog output is unaffected, so test diagnostics are
+        // still available in Console.app; only the shared file is left alone.
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+            fileHandle = nil
+            return
+        }
+
         guard let url = FileLogger.logFileURL else {
             fileHandle = nil
             return
@@ -82,10 +113,24 @@ private final class FileLogger: @unchecked Sendable {
         try? fileHandle?.close()
     }
 
+    /// Writes one stamped line.
+    ///
+    /// Every line carries BOTH a wall clock and a monotonic elapsed time, because the
+    /// pair is what makes a SLEEP visible. `CACurrentMediaTime()` is suspended while the
+    /// machine sleeps; `Date()` is not. So a line whose wall-clock gap far exceeds its
+    /// `t=` gap is the first line after a wake — which is otherwise invisible in a log
+    /// and is exactly the event under investigation for the silent-input failure.
+    /// Ordinary gaps (an idle app, a long capture) move both clocks together.
+    ///
+    /// Both are sampled at CALL time rather than when the queue drains, so the stamps
+    /// reflect when something happened, not when the writer got around to it.
     func write(_ message: String) {
         guard let handle = fileHandle else { return }
+        let wall = FileLogger.stampFormatter.string(from: Date())
+        let mono = CACurrentMediaTime() - logStart
         queue.async {
-            let line = message.hasSuffix("\n") ? message : message + "\n"
+            let body = message.hasSuffix("\n") ? String(message.dropLast()) : message
+            let line = String(format: "%@ t=%9.3f %@\n", wall, mono, body)
             if let data = line.data(using: .utf8) {
                 handle.write(data)
             }

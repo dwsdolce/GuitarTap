@@ -6,6 +6,7 @@
 // @parity dsp/guitar-fft tests=test/file-playback
 // @parity dsp/wav tests=test/file-playback,test/tap-decisions
 import AVFoundation
+import QuartzCore
 import Accelerate
 
 // MARK: - FFT Processing
@@ -131,6 +132,15 @@ extension RealtimeFFTAnalyzer {
         var rms: Float = 0
         vDSP_rmsqv(samples, 1, &rms, vDSP_Length(samples.count))
         let levelDB = rms > 0 ? 20 * log10(rms) : -100
+
+        // Dead-input watchdog liveness stamp. Buffers keep arriving with no signal
+        // when the I/O context survives a device change underneath it, which the
+        // buffer-DELIVERY watchdog cannot see (it stamps on arrival, not content).
+        // A live room clears this floor by ~20 dB on its noise alone, so only a
+        // genuinely dead stream fails to refresh the stamp.
+        if rms > deadInputRMSThreshold {
+            lastSignalTime = CACurrentMediaTime()
+        }
         let wallNow = Date()
 
         // ── Input-clipping detection ────────────────────────────────
@@ -142,6 +152,7 @@ extension RealtimeFFTAnalyzer {
         // clipping detection block.
         var peakAbs: Float = 0
         vDSP_maxmgv(samples, 1, &peakAbs, vDSP_Length(samples.count))
+
         let chunkClipped = (peakAbs >= 0.99) || (levelDB >= 0)
         if chunkClipped {
             self.lastClipTime = wallNow

@@ -2,7 +2,20 @@
 //  RealtimeFFTAnalyzer+Watchdog.swift
 //  GuitarTap
 //
-//  Buffer-delivery watchdog: recovers from a silently-wedged audio I/O context.
+//  Audio-liveness watchdogs: recover from a silently-wedged audio I/O context.
+//
+//  Two distinct failure modes, both silent and both needing the same recovery:
+//
+//    1. NO BUFFERS — the tap stops being called at all. The spectrum freezes.
+//    2. NO SIGNAL  — the tap keeps being called on schedule but every buffer is
+//       empty. The spectrum keeps updating and everything looks alive; only the
+//       readings are silence. Delivery-based detection cannot see this, because
+//       arrival is stamped without regard to content.
+//
+//  Plus the notification that most often causes (2): AVAudioEngineConfigurationChange,
+//  which macOS posts when the engine's I/O is reconfigured underneath it — a USB mic
+//  re-enumerating, a route change, or wake from sleep. AVAudioEngine keeps running
+//  against the stale context and renders zeros until the graph is rebuilt.
 //
 //  Symptom this fixes: the input tap stops delivering buffers with NO thrown error
 //  (e.g. another app forces the shared built-in mic through a CADefaultDeviceAggregate,
@@ -64,16 +77,89 @@ extension RealtimeFFTAnalyzer {
         // and give a freshly-(re)started engine time to deliver its first buffer.
         guard Date().timeIntervalSince(started) > 4.0 else { return }
 
-        let silentFor = CACurrentMediaTime() - lastBufferTime
-        guard silentFor > watchdogSilenceThreshold else {
-            // Healthy — clear any prior recovery streak.
-            if watchdogRecoveryAttempts != 0 { watchdogRecoveryAttempts = 0 }
+        let now = CACurrentMediaTime()
+
+        // Failure mode 1: buffers stopped arriving at all.
+        let starvedFor = now - lastBufferTime
+        if starvedFor > watchdogSilenceThreshold {
+            gtLog("⏱️ Buffer watchdog: no audio for \(String(format: "%.1f", starvedFor))s while running — I/O appears wedged")
+            isRecoveringEngine = true
+            attemptWatchdogRecovery()
             return
         }
 
-        gtLog("⏱️ Buffer watchdog: no audio for \(String(format: "%.1f", silentFor))s while running — I/O appears wedged")
-        isRecoveringEngine = true
-        attemptWatchdogRecovery()
+        // Failure mode 2: buffers still arriving on schedule, but carrying nothing.
+        // Delivery looks healthy and the spectrum keeps updating, so nothing else
+        // notices; every reading is silence until the app is restarted by hand.
+        let deadFor = now - lastSignalTime
+        if deadFor > watchdogDeadInputThreshold {
+            gtLog("🔇 Dead-input watchdog: buffers arriving but no signal for \(String(format: "%.1f", deadFor))s — input appears dead")
+            logAudioRouteDiagnostics()
+            // Tell the user, not just the log. A device-level failure cannot be fixed
+            // by restarting the engine (the recorded incident needed a USB
+            // re-enumeration), so recovery will exhaust its attempts and stop — and
+            // the status line is then the only thing standing between the user and an
+            // app that looks alive while deaf. Stays set until signal returns.
+            if !inputAppearsDead { inputAppearsDead = true }
+            isRecoveringEngine = true
+            attemptWatchdogRecovery()
+            return
+        }
+
+        // Healthy — signal is flowing again; clear the warning and any recovery streak.
+        if inputAppearsDead { inputAppearsDead = false }
+        if watchdogRecoveryAttempts != 0 { watchdogRecoveryAttempts = 0 }
+    }
+
+    /// Logs what the audio route actually looks like at the moment a wedge is
+    /// detected: the device the AUHAL is bound to, whether that is still the device
+    /// the user selected, and whether CoreAudio still considers it alive. This is
+    /// the evidence that separates "the device vanished" from "the device is fine
+    /// but the stream is dead", which the symptom alone cannot distinguish.
+    func logAudioRouteDiagnostics() {
+        #if os(macOS)
+        guard let audioUnit = inputNode?.audioUnit else {
+            gtLog("   route: input node has no audio unit")
+            return
+        }
+
+        var boundDevice = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let getStatus = AudioUnitGetProperty(
+            audioUnit,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &boundDevice,
+            &size
+        )
+        let selected = selectedInputDevice
+        gtLog("   route: AUHAL bound to device \(getStatus == noErr ? String(boundDevice) : "unknown (\(getStatus))"), selected '\(selected?.name ?? "none")' (\(selected?.deviceID.description ?? "-"))")
+        if getStatus == noErr, let selected, boundDevice != selected.deviceID {
+            gtLog("   route: ⚠️ MISMATCH — the engine is not bound to the selected device")
+        }
+
+        // Is the bound device still alive, and is the AUHAL still running?
+        if getStatus == noErr, boundDevice != 0 {
+            var aliveAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyDeviceIsAlive,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var alive: UInt32 = 0
+            var aliveSize = UInt32(MemoryLayout<UInt32>.size)
+            if AudioObjectGetPropertyData(boundDevice, &aliveAddr, 0, nil, &aliveSize, &alive) == noErr {
+                gtLog("   route: bound device isAlive = \(alive)")
+            }
+        }
+
+        var running: UInt32 = 0
+        var runningSize = UInt32(MemoryLayout<UInt32>.size)
+        if AudioUnitGetProperty(audioUnit, kAudioOutputUnitProperty_IsRunning,
+                                kAudioUnitScope_Global, 0, &running, &runningSize) == noErr {
+            gtLog("   route: AUHAL isRunning = \(running)")
+        }
+        #endif
     }
 
     /// One recovery cycle: bounded by `watchdogMaxAttempts`, backed off, and
@@ -104,5 +190,60 @@ extension RealtimeFFTAnalyzer {
                 self.attemptWatchdogRecovery()  // bounded retry
             }
         }
+    }
+
+    // MARK: - Configuration-change recovery
+
+    /// Observes `AVAudioEngineConfigurationChange` and rebuilds the engine.
+    ///
+    /// macOS posts this when the engine's I/O is reconfigured out from under it:
+    /// the input device re-enumerating on the USB bus, a route change, or wake from
+    /// sleep. AVAudioEngine does **not** recover on its own — it keeps running
+    /// against the stale context, and the installed tap keeps firing with empty
+    /// buffers indefinitely. The documented contract is to rebuild the graph and
+    /// reinstall taps, which is exactly what the recovery path already does.
+    ///
+    /// Registered when the live-mic engine starts and removed on `stop()`, so it can
+    /// never fire during an intentional stop/restart cycle or during file playback.
+    func registerConfigurationChangeObserver() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.registerConfigurationChangeObserver() }
+            return
+        }
+        unregisterConfigurationChangeObserver()
+        configurationChangeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: audioEngine,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            gtLog("🔀 AVAudioEngineConfigurationChange — audio I/O was reconfigured underneath the engine")
+            self.logAudioRouteDiagnostics()
+
+            // Ignore it unless we are actually meant to be listening: an intentional
+            // stop, file playback, or an in-flight recovery all post this too.
+            guard self.isRunning, !self.isPlayingFile, !self.isRecoveringEngine else {
+                gtLog("   ignoring — not running live, or a recovery is already in flight")
+                return
+            }
+
+            // Rebuild through the same bounded, backed-off path the watchdogs use, so
+            // a device that is still settling gets retried instead of failing once.
+            self.isRecoveringEngine = true
+            self.watchdogRecoveryAttempts = 0
+            self.attemptWatchdogRecovery()
+        }
+        gtLog("✅ Registered AVAudioEngineConfigurationChange observer")
+    }
+
+    /// Removes the configuration-change observer. Safe to call repeatedly.
+    func unregisterConfigurationChangeObserver() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.unregisterConfigurationChangeObserver() }
+            return
+        }
+        guard let token = configurationChangeObserver else { return }
+        NotificationCenter.default.removeObserver(token)
+        configurationChangeObserver = nil
     }
 }

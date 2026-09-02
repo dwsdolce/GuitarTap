@@ -647,6 +647,64 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// so a genuinely-unavailable device can't cause a restart storm.
     let watchdogMaxAttempts = 6
 
+    // MARK: - Dead-input Watchdog
+    //
+    // A second, distinct failure mode: buffers keep arriving on schedule but carry
+    // NO SIGNAL. Delivery looks perfectly healthy — `lastBufferTime` is stamped by
+    // every buffer regardless of content — so the buffer-delivery watchdog above is
+    // blind to it, the spectrum keeps updating, and every reading is silence.
+    // Observed on macOS with a USB mic after wake-from-sleep and while idling
+    // between taps: the AUHAL survives the device re-enumerating underneath it and
+    // renders zeros forever.
+    //
+    // The discriminator is deliberately "impossibly quiet", never merely "quiet". A
+    // real microphone always delivers its own self-noise — a UMIK-1 sits tens of dB
+    // above this floor even in a silent room — so sustained near-digital-zero means
+    // a dead stream, not a quiet workshop, and a legitimately silent room can never
+    // trigger a restart.
+
+    /// Monotonic timestamp (`CACurrentMediaTime`) of the last buffer that carried
+    /// any signal at all. Stamped on the audio processing queue; read on the main
+    /// thread by the watchdog (same relaxed access pattern as `lastBufferTime`).
+    var lastSignalTime: CFTimeInterval = 0
+
+    /// RMS below which a buffer counts as carrying no signal: 1e-5 = **-100 dBFS**.
+    ///
+    /// Calibrated from the recorded incidents (hub `AUDIO-WATCHDOG-SILENT-STREAM.md`),
+    /// not from theory. A dead-but-present device was measured pinned at ≈ -100 dBFS
+    /// while a live room reads ≈ -70 dBFS and a UMIK-1's Air peak ≈ -63 dBFS.
+    ///
+    /// Deliberately set at the BOTTOM of that range rather than mid-way. The UMIK-1 is
+    /// an unusually quiet microphone and can sit near -90 dBFS in a silent room, so a
+    /// mid-range threshold would call a quiet workshop a dead input and restart the
+    /// engine during a measurement. The asymmetry is the point: a missed detection
+    /// costs one more watchdog cycle, a false positive interrupts real work. Anything a
+    /// live microphone produces — including a very quiet one in a silent room — stays
+    /// clear of -100 dBFS; only a stream that is not producing audio at all goes below.
+    ///
+    /// RMS rather than peak deliberately: the documented floor/peak figures above are
+    /// RMS-based, and all three editions must apply the identical criterion (peak is
+    /// always ≥ RMS, so mixing them would give the ports different sensitivities).
+    let deadInputRMSThreshold: Float = 1e-5
+
+    /// Seconds of unbroken no-signal buffers before the input is considered dead.
+    /// Much longer than the delivery threshold: this one infers from content, and a
+    /// recorded incident persisted for minutes, so there is no value in being hasty
+    /// and real cost in fighting a user who has legitimately muted their input.
+    let watchdogDeadInputThreshold: CFTimeInterval = 15.0
+
+    /// True while the input is delivering buffers that carry no signal.
+    ///
+    /// Surfaced in the status line rather than only auto-healed: the device-level
+    /// failure in the recorded incidents could NOT be fixed by restarting the engine
+    /// (it needed a USB re-enumeration), so recovery exhausts its attempts and stops.
+    /// An app that says "no audio input" beats an app that looks alive while deaf.
+    @Published var inputAppearsDead: Bool = false
+
+    /// Observer token for `AVAudioEngineConfigurationChange`, held so it can be
+    /// removed when the engine stops.
+    var configurationChangeObserver: NSObjectProtocol?
+
     // MARK: - Testing Support
 
     /// When `true`, the analyzer was created via ``forTesting()`` and has no
