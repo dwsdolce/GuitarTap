@@ -299,6 +299,9 @@ img.screenshot-tablet      { max-width: 150mm; }   /* iPad */
 img.screenshot-desktop     { max-width: 160mm; }   /* macOS / Python window */
 img.screenshot-panel       { max-width: 120mm; }   /* Settings sheet, Results panel close-up */
 img.screenshot-strip       { max-width: 150mm; }   /* Horizontal toolbar / chart-strip crops */
+/* Line art with its legend set beside the drawing rather than under it, so the
+   figure stays short. Capped by width like the screenshot classes. */
+img.diagram-wide           { max-width: 140mm; }   /* Brace hold/tap diagram */
 
 /* Height cap so a tall (portrait) screenshot can never exceed the printable page and
    orphan its heading. Budget: A4 is 297mm; @page margins take 25mm (top) + 22mm (bottom),
@@ -526,6 +529,15 @@ ol.steps li::before {
 
 .title-version {
     font-size: 1rem;
+    color: var(--color-muted);
+    margin: 0 0 0.3rem;
+}
+
+/* Set below the version: a documentation-only rebuild can republish an already
+   released version's manual, so two documents can share a version number and be
+   told apart only by this date. */
+.title-revised {
+    font-size: 0.85rem;
     color: var(--color-muted);
     margin: 0 0 0.3rem;
 }

@@ -22,7 +22,7 @@
 
 **FLC** — see **Diagonal (fLC) tap**.
 
-**Free-free beam** — A beam suspended at its bending-mode nodal points (22% from each end), leaving it free to vibrate without damping at the supports. The standard suspension assumption for Plate and Brace material measurements. In practice a single hold at one of the two nodal points is sufficient — see §4.4.
+**Free-free beam** — A beam suspended at its bending-mode nodal points (22.4% from each end), leaving it free to vibrate without damping at the supports. The standard suspension assumption for Plate and Brace material measurements. In practice a single hold at one of the two nodal points is sufficient — see §4.4.
 
 **Free-Length-Cross (fLC) mode** — The torsional mode excited by the Diagonal (fLC) tap; its frequency feeds the shear-modulus calculation. See Diagonal (fLC) tap.
 

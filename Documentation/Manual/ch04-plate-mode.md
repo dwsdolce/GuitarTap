@@ -86,44 +86,68 @@ The per-measurement dimensions you enter (or edit) in the results
 are saved with that measurement; the Settings defaults are left
 untouched.
 
-## 4.4 The 22% Suspension Technique
+## 4.4 The 22.4% Suspension Technique
 
-The three taps share one principle: hold the blank at a nodal
-point of the mode you want to measure, and tap at an antinode.
+The three taps share one principle: hold the blank on a nodal line
+of the mode you want to measure, and tap at one of that mode's
+antinodes.
 
 For longitudinal and cross-grain there is a catch — **both modes
 are easy to excite at the same time**, and the hold point alone
 decides which one wins in the spectrum. A hold on a mode's nodal
 line suspends that mode (it can vibrate freely); a hold on a
-mode's antinode damps it. To get a clean reading the hold must
-sit **on the target mode's node *and* off the orthogonal mode's
-node.**
+mode's antinode damps it. So the hold must sit **on the target
+mode's node *and* on the orthogonal mode's antinode.** That one
+combination frees the mode you want and damps the mode you don't,
+and it names a specific point rather than a region to avoid.
 
-In all three orientations the **tap point is the centre of the
-plate face**.
+Hold the **face** of the plate, pinched between thumb and
+forefinger just in from the edge. You are not gripping the edge
+itself.
 
-- **Longitudinal.** Plate oriented with grain horizontal.
-    - The longitudinal mode's nodal line runs cross-wise at 22%
-      from each short end.
-    - The cross-grain mode's nodal lines run length-wise at 22%
-      from each long edge.
-    - Hold between thumb and forefinger **22% in from one short
-      end along the length, close to one long edge but not at 22%
-      in from it.** The other end of the plate hangs free; tap at
-      the centre.
+How far in is the one judgement call, and the answer is **as close
+to the edge as you can manage while still on the face.** The edge
+is where the orthogonal mode moves most, so the closer your
+fingers sit to it, the harder that mode is damped and the cleaner
+the target mode reads. Moving inboard weakens the damping you
+want and, past a point, starts loading the target mode as well.
 
-- **Cross-grain.** Rotate the plate 90° so grain is now vertical.
-  Same logic with the modes swapped: now the cross-grain mode's
-  node is the one you want to be on, and the longitudinal mode's
-  node is the one to avoid.
-    - Hold **22% in from one long edge, close to one short end but
-      not at 22% in from it.** Other end hangs free.
+![Hold and tap points for the three plate taps, on the face of the blank.](images/ch04-plate-hold-tap.png){: .screenshot-desktop }
 
-- **Diagonal (fLC).** One hand only. Hold at the **midpoint of one
-  long edge**. Tap near the **opposite corner**, approximately 22%
-  in from both the end and the side. The torsional mode this tap
-  excites has its node along the centreline of the plate, so a
-  single midpoint hold is enough.
+Three families of lines account for every hold and tap:
+
+- The **longitudinal** mode's nodal lines (blue) run cross-wise,
+  22.4% in from each short end.
+- The **cross-grain** mode's nodal lines (rust) run length-wise,
+  22.4% in from each long edge.
+- The **diagonal** mode's nodal lines (green) are the two 50%
+  centrelines.
+
+
+22.4% is the free-free beam node (0.2242 of the length). It is
+quoted to that precision because the geometry has a definite
+answer, not because a finger can be placed that accurately —
+close is good enough.
+
+- **Longitudinal (fL).** Plate oriented with grain horizontal.
+  Hold the face on a longitudinal nodal line, as close to a long
+  edge as you can: the long edges are the cross-grain mode's
+  antinodes, so that single hold frees fL and damps fC. The rest of the plate hangs
+  free. Tap the centre of the face.
+
+- **Cross-grain (fC).** Rotate the plate 90° so the grain runs
+  vertically. The same logic with the modes swapped — hold the
+  face on a cross-grain nodal line, as close to a short end as you
+  can, because the short ends are the longitudinal mode's
+  antinodes. Tap the centre
+  of the face.
+
+- **Diagonal (fLC).** One hand only. Hold the face at the
+  **midpoint of one long edge**, which lies on a centreline — the
+  torsional mode's node. Tap **22.4% in from the opposite corner
+  in both directions.** That point is where the longitudinal and
+  cross-grain nodal lines cross, so the tap excites neither
+  bending mode and puts its energy into the twist instead.
 
 Common errors: putting the hold on both modes' node lines at once
 (contamination — a longitudinal reading that looks like
@@ -132,14 +156,6 @@ axis (the support falls inside the mode shape and damps it);
 holding too firmly (adds damping regardless of position); and
 forgetting to rotate the plate between fL and fC — easy to do,
 easy to spot when fC reads close to fL.
-
-<!--
-Diagrams of the three hold positions appear in the outline but
-are intentionally omitted from this chapter: the audience is
-expected to know what 22% from the ends of a free-free beam
-means, and the textual orientation conventions above are
-unambiguous.
--->
 
 ## 4.5 The Accept / Redo Review Flow
 
@@ -175,7 +191,8 @@ starts again from the Longitudinal (fL) tap.
 ## 4.6 Tap 1 — Longitudinal
 
 1. Orient the plate with the **grain running horizontally**.
-2. Hold at 22% from each end along the length, near one long edge.
+2. Hold the face on a longitudinal nodal line — 22.4% in from one
+   short end — as close to a long edge as you can (§4.4).
 3. Press **New Tap**. The instruction card below the chart shows
    **Step 1: Longitudinal (fL) Mode** with a **Phase 1/2** indicator
    (or **Phase 1/3** if Measure Diagonal (fLC) Tap is on).
@@ -192,7 +209,8 @@ After Accept the sequence advances to Cross-grain automatically.
 ## 4.7 Tap 2 — Cross-Grain
 
 1. **Rotate the plate 90°** so the grain now runs vertically.
-2. Hold at 22% from each end along the width, near one short edge.
+2. Hold the face on a cross-grain nodal line — 22.4% in from one
+   long edge — as close to a short end as you can (§4.4).
 3. The card now shows **Step 2: Cross-grain (fC) Mode**,
    **Phase 2/2** (or **Phase 2/3**). Detection is already armed —
    do not press New Tap.
@@ -214,10 +232,11 @@ capturing the Diagonal tap is worth the extra tap.
 
 1. Enable Measure Diagonal (fLC) Tap in Settings before starting
    the sequence if you have not already.
-2. Hold one long edge at its **midpoint**, with one hand only.
+2. Hold the face at the **midpoint of one long edge**, with one
+   hand only.
 3. The card shows **Step 3: Diagonal (fLC) Mode**, **Phase 3/3**.
-4. Tap near the **opposite corner**, approximately 22% in from
-   the end and 22% in from the side.
+4. Tap **22.4% in from the opposite corner in both directions** —
+   where the longitudinal and cross-grain nodal lines cross.
 5. **Accept** or **Redo fLC**.
 
 After Accept the measurement is complete and the Results panel

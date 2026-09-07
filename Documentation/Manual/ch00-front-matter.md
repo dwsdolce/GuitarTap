@@ -6,6 +6,7 @@
     <h1 class="title-main">Guitar Tap</h1>
     <p class="title-subtitle">User Manual</p>
     <p class="title-version">Version {{VERSION}}</p>
+    <p class="title-revised">Revised {{REVISED}}</p>
     <p class="title-platforms">iOS/iPadOS &nbsp;·&nbsp; macOS &nbsp;·&nbsp; Windows &nbsp;·&nbsp; Linux</p>
   </div>
   <div class="title-footer">

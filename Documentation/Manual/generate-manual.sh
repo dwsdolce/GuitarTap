@@ -34,7 +34,40 @@ if [[ -z "$MARKETING_VERSION" ]]; then
     echo "ERROR: Could not read MARKETING_VERSION from $PBXPROJ" >&2
     exit 1
 fi
-echo "Marketing version: $MARKETING_VERSION"
+
+# MANUAL_VERSION overrides that, for republishing the manual of an ALREADY-RELEASED
+# version. The app fetches its manual from the website by version at click time
+# (DocumentationLinks.userManual builds the filename from CFBundleShortVersionString),
+# so a documentation-only improvement can reach every user of a shipped release by
+# rebuilding under that release's number and replacing the file on the server — no
+# app release required. Without the override the build would name everything after
+# the in-development version, which is not published and which no installed app asks
+# for.
+#
+#   MANUAL_VERSION=1.0.2 ./generate-manual.sh
+#
+if [[ -n "${MANUAL_VERSION:-}" ]]; then
+    echo "Marketing version: $MARKETING_VERSION (OVERRIDDEN to $MANUAL_VERSION)"
+    MARKETING_VERSION="$MANUAL_VERSION"
+else
+    echo "Marketing version: $MARKETING_VERSION"
+fi
+
+# Revision date for the title page. Taken from the last commit touching the manual
+# sources rather than "today", so rebuilding an unchanged manual does not appear to
+# revise it. Falls back to today's date outside a git checkout, or if nothing here is
+# committed yet.
+# If the manual sources are dirty, the content has been revised since that commit,
+# so use today — otherwise a build made before committing is stamped with the
+# PREVIOUS revision's date, which is worse than no date at all.
+if [[ -n "$(git -C "$REPO_ROOT" status --porcelain -- "$SCRIPT_DIR" 2>/dev/null)" ]]; then
+    MANUAL_REVISED="$(date '+%-d %B %Y')"
+else
+    MANUAL_REVISED="$(git -C "$REPO_ROOT" log -1 --format=%ad --date=format:'%-d %B %Y' -- \
+        "$SCRIPT_DIR"/*.md "$SCRIPT_DIR"/images 2>/dev/null || true)"
+fi
+[[ -n "$MANUAL_REVISED" ]] || MANUAL_REVISED="$(date '+%-d %B %Y')"
+echo "Manual revised:    $MANUAL_REVISED"
 
 # macOS: ensure Homebrew libs are found by python.org Python
 export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
@@ -218,7 +251,7 @@ FULL_HTML="$OUTPUT_DIR/GuitarTap-User-Manual-${MARKETING_VERSION}.html"
 CSS_PATH="$SCRIPT_DIR/manual.css"
 
 # Assemble the full HTML page
-"$VENV_PYTHON" - "$NAV_HTML" "$TOC_HTML" "$TITLE_PAGE" "$HTML_BODY" "$CSS_PATH" "$FULL_HTML" "$MARKETING_VERSION" <<'PYEOF'
+"$VENV_PYTHON" - "$NAV_HTML" "$TOC_HTML" "$TITLE_PAGE" "$HTML_BODY" "$CSS_PATH" "$FULL_HTML" "$MARKETING_VERSION" "$MANUAL_REVISED" <<'PYEOF'
 import sys, os
 
 nav_path          = sys.argv[1]
@@ -228,6 +261,7 @@ body_path         = sys.argv[4]
 css_path          = sys.argv[5]
 out_path          = sys.argv[6]
 marketing_version = sys.argv[7]
+manual_revised    = sys.argv[8]
 
 def read(p):
     if os.path.exists(p):
@@ -239,6 +273,7 @@ nav_html        = read(nav_path)
 toc_html        = read(toc_path)
 title_page_html = read(title_page_path)   # raw HTML fragment, not Markdown-processed
 title_page_html = title_page_html.replace('{{VERSION}}', marketing_version)
+title_page_html = title_page_html.replace('{{REVISED}}', manual_revised)
 body_html       = read(body_path)
 
 # Inline CSS so the HTML file is self-contained

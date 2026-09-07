@@ -55,10 +55,20 @@ are left untouched.
 
 A brace strip is a long thin beam — the same free-free fundamental
 applies, but the measurement is much simpler than plate because
-only one mode is in play.
+only one mode is in play. With no orthogonal mode to suppress,
+there is nothing to trade off: hold on a nodal line, tap the
+centre.
 
-1. Hold the strip between thumb and forefinger **22% in from one
-   end along the length**. The other end hangs free.
+![Hold and tap points for a brace strip, drawn as the strip hangs from your fingers.](images/ch05-brace-hold-tap.png){: .diagram-wide }
+
+The curve alongside the strip is the first free-free bending mode.
+It crosses zero exactly at the two nodal lines, which is where the
+22.4% figure comes from — and the hold is a pinch through the
+thickness at that line, so both marks land on the face you tap.
+
+1. Hold the strip between thumb and forefinger **22.4% in from one
+   end along the length** — pinch the face you intend to tap and
+   the face opposite it. The other end hangs free.
 2. Lay the strip flat (or mount it however you usually orient it
    on the bench) so the face you intend to tap is exposed. The
    `Height` value in Settings must match the dimension
