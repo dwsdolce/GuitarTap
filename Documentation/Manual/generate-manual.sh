@@ -53,19 +53,30 @@ else
     echo "Marketing version: $MARKETING_VERSION"
 fi
 
-# Revision date for the title page. Taken from the last commit touching the manual
-# sources rather than "today", so rebuilding an unchanged manual does not appear to
-# revise it. Falls back to today's date outside a git checkout, or if nothing here is
-# committed yet.
-# If the manual sources are dirty, the content has been revised since that commit,
-# so use today — otherwise a build made before committing is stamped with the
-# PREVIOUS revision's date, which is worse than no date at all.
-if [[ -n "$(git -C "$REPO_ROOT" status --porcelain -- "$SCRIPT_DIR" 2>/dev/null)" ]]; then
+# Revision date for the title page, computed from the manual's SOURCES ONLY —
+# the .md chapters, manual.css and images/.
+#
+# It must never be computed from the directory as a whole. The build rewrites
+# index.html in place (and writes nav.html and ch00-toc.html), so a directory-wide
+# dirty check sees the PREVIOUS build's output and reports "revised today" on every
+# rebuild after the first, even when not a word has changed. That is exactly what
+# happened on 2026-09-15: a rebuild of content last touched on 2026-09-06 stamped
+# itself 15 September.
+#
+# Both branches below read the same list, so the "is it dirty" question and the
+# "when was it last changed" question can never disagree about what counts as a
+# source.
+MANUAL_SOURCES=("$SCRIPT_DIR"/*.md "$SCRIPT_DIR/manual.css" "$SCRIPT_DIR/images")
+
+if [[ -n "$(git -C "$REPO_ROOT" status --porcelain -- "${MANUAL_SOURCES[@]}" 2>/dev/null)" ]]; then
+    # Uncommitted source edits: the content HAS been revised since the last commit,
+    # and stamping it with that commit's date would be worse than no date at all.
     MANUAL_REVISED="$(date '+%-d %B %Y')"
 else
     MANUAL_REVISED="$(git -C "$REPO_ROOT" log -1 --format=%ad --date=format:'%-d %B %Y' -- \
-        "$SCRIPT_DIR"/*.md "$SCRIPT_DIR"/images 2>/dev/null || true)"
+        "${MANUAL_SOURCES[@]}" 2>/dev/null || true)"
 fi
+# Outside a git checkout, or before anything here is committed, fall back to today.
 [[ -n "$MANUAL_REVISED" ]] || MANUAL_REVISED="$(date '+%-d %B %Y')"
 echo "Manual revised:    $MANUAL_REVISED"
 
