@@ -758,12 +758,18 @@ extension TapToneAnalyzer {
     ///
     /// The per-phase frequency search windows are:
     ///
-    /// | Mode / Phase | Min Hz | Max Hz |
-    /// |---|---|---|
-    /// | Brace (longitudinal) | 100 | 1200 |
-    /// | Plate — longitudinal | 50 | 500 |
-    /// | Plate — cross-grain | 20 | 250 |
-    /// | Plate — FLC | 20 | 200 |
+    /// | Mode / Phase | Min Hz | Max Hz | Why |
+    /// |---|---|---|---|
+    /// | Brace (longitudinal) | 100 | 1200 | bars resonate 100–1000 Hz; excludes sub-100 Hz thud |
+    /// | Plate — longitudinal (fL) | 20 | 100 | Gore course data ~43–77 Hz; 20 Hz excludes DC/rumble |
+    /// | Plate — cross-grain (fC) | 40 | 220 | Gore course data ~57–194 Hz; 40 Hz excludes fL/fLC |
+    /// | Plate — FLC (torsional) | 15 | 100 | Gore course data ~25–76 Hz; 15 Hz is near the mic limit |
+    /// | Plate — any other phase | 15 | 220 | fallback spanning the three plate windows |
+    /// | Neither plate nor brace | 20 | 2000 | fallback; the guitar analysis range |
+    ///
+    /// fL and fLC overlap in frequency (~43–77 vs ~25–76 Hz) by nature: tap *orientation*
+    /// selects the mode, not the search window — fL from a tap near the centre of the long
+    /// edge, fLC from a corner tap.
     ///
     /// - Parameters:
     ///   - samples: Captured PCM samples (pre-roll + gate window).
