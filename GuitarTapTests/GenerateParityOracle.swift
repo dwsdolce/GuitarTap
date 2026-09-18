@@ -145,6 +145,29 @@ struct GenerateParityOracleTests {
     /// committed oracle still carried the placeholder `TBD-swift-commit-sha`, so when its
     /// numbers were found to have drifted there was no way to say WHICH build produced
     /// them, or when. This field is how the next person dates the goldens.
+    /// Edition, OS and arch — the key every edition's self-baseline is filed under.
+    ///
+    /// Deliberately excludes the Swift and Xcode versions: a toolchain upgrade that moves the
+    /// numbers is precisely the event the zero-tolerance bar exists to catch, and keying on the
+    /// version would let the baseline follow the upgrade and report nothing.
+    private static func configuration() -> [String: String] {
+    #if arch(arm64)
+        let arch = "arm64"
+    #elseif arch(x86_64)
+        let arch = "x86_64"
+    #else
+        let arch = "unknown"
+    #endif
+    #if os(macOS)
+        let system = "darwin"
+    #elseif os(iOS)
+        let system = "ios"
+    #else
+        let system = "unknown"
+    #endif
+        return ["edition": "swift", "os": system, "arch": arch]
+    }
+
     private static func oracleVersion() -> String {
         if let sha = ProcessInfo.processInfo.environment["PARITY_ORACLE_VERSION"],
            !sha.isEmpty {
@@ -153,7 +176,16 @@ struct GenerateParityOracleTests {
         return gitShortSHA()   // works only if ever run unsandboxed; otherwise "unknown"
     }
 
+    /// The repo's short SHA, for stamping which commit produced an oracle.
+    ///
+    /// macOS only: `Process` does not exist on iOS, and shelling out to git from a sandboxed
+    /// test host would be blocked even where it does. Minting is a macOS act by design — but
+    /// this file compiles into the test target on every platform, so the iOS build needs the
+    /// guard or the whole suite fails to build. `Tooling/mint-oracle.sh` computes the SHA
+    /// outside the sandbox and passes it in via PARITY_ORACLE_VERSION, which is the path
+    /// actually used; this is the fallback for a direct run.
     private static func gitShortSHA() -> String {
+    #if os(macOS)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git", "-C", URL(fileURLWithPath: #filePath).deletingLastPathComponent().path,
@@ -170,6 +202,7 @@ struct GenerateParityOracleTests {
         } catch {
             // fall through
         }
+    #endif
         return "unknown"
     }
 
@@ -317,6 +350,11 @@ struct GenerateParityOracleTests {
         root["gatedFft"] = gated
         root["oracleVersion"] = Self.oracleVersion()
         root["generatedAt"] = ISO8601DateFormatter().string(from: Date())
+        // Which configuration minted this. The oracle is the cross-edition contract AND the
+        // canonical configuration's own zero-tolerance self-baseline — it is only the second
+        // of those for the configuration that produced it, so the file has to say which one
+        // that was rather than leave the hub to assume it.
+        root["configuration"] = Self.configuration()
 
         // Tolerances are hand-written, not computed, but they still round-trip through
         // Double — so 0.03 re-serialises as 0.029999999999999999 and churns the diff on
