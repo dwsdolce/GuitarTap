@@ -49,9 +49,15 @@ private let braceExpectedFrequency: Float = braceExpectedPeak.frequency
 private let braceExpectedMagnitude: Float = braceExpectedPeak.magnitude
 private let braceExpectedQ: Float = braceExpectedPeak.q ?? 0
 private let braceTapThreshold: Float = braceCase.settings.tapDetectionThreshold
-private let freqTolerance: Float = ParityOracle.shared.tolerances.freqHz  // Hz
-private let magTolerance: Float  = ParityOracle.shared.tolerances.magDb   // dB
-private let qTolerance: Float    = ParityOracle.shared.tolerances.q       // dimensionless
+// Swift MINTS the oracle, so these assert at the same-edition bar — zero. The values in
+// the file are the exact Floats this code produced, stored as the shortest decimal that
+// recovers them, so equality is exact and any movement is a real change in the DSP.
+// ParityOracle.shared.tolerances is the cross-edition bar and is for the tracking
+// editions; using it here would hide Swift drift four orders of magnitude below it,
+// which is precisely what it did until the oracle was first re-minted.
+private let freqTolerance: Float = ParityOracle.selfTolerance(\.freqHz)  // Hz
+private let magTolerance: Float  = ParityOracle.selfTolerance(\.magDb)   // dB
+private let qTolerance: Float    = ParityOracle.selfTolerance(\.q)       // dimensionless
 
 // REG-P1 - plate, UMIK-1 mic, 48 kHz. Full-session recording covering all three plate phases
 // (L -> C -> FLC). Played back end-to-end through the plate pipeline, which auto-advances
@@ -92,8 +98,10 @@ private let plate3TapThreshold: Float = plate3TapCase.settings.tapDetectionThres
 // single tap would; 0.5 dB still leaves headroom for FFT-library differences while
 // reliably catching a regression to last-tap selection (the masked deltas were
 // fL 0.94, fC 0.81, fLC 2.62 dB — all caught at 0.5).
-private let plate3TapMagTolerance: Float = ParityOracle.tolerance(
-    \.magDb, global: \.magDb, for: "REG-P2")  // dB - tighter than generic, declared by the case
+// REG-P2 declares a tighter CROSS-EDITION tolerance (0.5 dB) because its averaged
+// magnitudes are deterministic across editions. That override is about parity; for
+// Swift's own regression the bar is zero like everything else here.
+private let plate3TapMagTolerance: Float = ParityOracle.selfTolerance(\.magDb)  // dB
 
 // ---------------------------------------------------------------------------
 // MARK: - Tests  (REG-B1)
@@ -227,17 +235,17 @@ struct FilePlaybackRegressionTests {
         // 3. Verify dominant peak frequency.
         guard let dominant = sut.longitudinalPeaks.first else { return }
         let freqDelta = abs(dominant.frequency - braceExpectedFrequency)
-        #expect(freqDelta < freqTolerance,
+        #expect(freqDelta <= freqTolerance,
                 "Peak frequency: expected \(braceExpectedFrequency) Hz ±\(freqTolerance), got \(dominant.frequency) Hz (delta \(freqDelta))")
 
         // 4. Verify dominant peak magnitude.
         let magDelta = abs(dominant.magnitude - braceExpectedMagnitude)
-        #expect(magDelta < magTolerance,
+        #expect(magDelta <= magTolerance,
                 "Peak magnitude: expected \(braceExpectedMagnitude) dB ±\(magTolerance), got \(dominant.magnitude) dB (delta \(magDelta))")
 
         // 5. Verify dominant peak Q factor.
         let qDelta = abs(dominant.quality - braceExpectedQ)
-        #expect(qDelta < qTolerance,
+        #expect(qDelta <= qTolerance,
                 "Peak Q factor: expected \(braceExpectedQ) ±\(qTolerance), got \(dominant.quality) (delta \(qDelta))")
     }
 
@@ -286,27 +294,27 @@ struct FilePlaybackRegressionTests {
             Issue.record("No Air peak found")
             return
         }
-        #expect(abs(airPeak.frequency - Self.g1AirFreq) < freqTolerance,
+        #expect(abs(airPeak.frequency - Self.g1AirFreq) <= freqTolerance,
                 "Air freq: expected \(Self.g1AirFreq) ±\(freqTolerance), got \(airPeak.frequency)")
-        #expect(abs(airPeak.magnitude - Self.g1AirMag) < magTolerance,
+        #expect(abs(airPeak.magnitude - Self.g1AirMag) <= magTolerance,
                 "Air mag: expected \(Self.g1AirMag) ±\(magTolerance), got \(airPeak.magnitude)")
 
         guard let topPeak = sut.getPeak(for: .top) else {
             Issue.record("No Top peak found")
             return
         }
-        #expect(abs(topPeak.frequency - Self.g1TopFreq) < freqTolerance,
+        #expect(abs(topPeak.frequency - Self.g1TopFreq) <= freqTolerance,
                 "Top freq: expected \(Self.g1TopFreq) ±\(freqTolerance), got \(topPeak.frequency)")
-        #expect(abs(topPeak.magnitude - Self.g1TopMag) < magTolerance,
+        #expect(abs(topPeak.magnitude - Self.g1TopMag) <= magTolerance,
                 "Top mag: expected \(Self.g1TopMag) ±\(magTolerance), got \(topPeak.magnitude)")
 
         guard let backPeak = sut.getPeak(for: .back) else {
             Issue.record("No Back peak found")
             return
         }
-        #expect(abs(backPeak.frequency - Self.g1BackFreq) < freqTolerance,
+        #expect(abs(backPeak.frequency - Self.g1BackFreq) <= freqTolerance,
                 "Back freq: expected \(Self.g1BackFreq) ±\(freqTolerance), got \(backPeak.frequency)")
-        #expect(abs(backPeak.magnitude - Self.g1BackMag) < magTolerance,
+        #expect(abs(backPeak.magnitude - Self.g1BackMag) <= magTolerance,
                 "Back mag: expected \(Self.g1BackMag) ±\(magTolerance), got \(backPeak.magnitude)")
     }
 
@@ -335,8 +343,8 @@ struct FilePlaybackRegressionTests {
             return
         }
         let golden: Float = ParityOracle.playback("REG-G1").ringOutSec ?? 0
-        let tol: Float = ParityOracle.shared.tolerances.ringOutSec
-        #expect(abs(decay - golden) < tol,
+        let tol: Float = ParityOracle.selfTolerance(\.ringOutSec)
+        #expect(abs(decay - golden) <= tol,
                 "Ring-out: expected \(golden) ±\(tol), got \(decay)")
     }
 
@@ -421,27 +429,27 @@ struct FilePlaybackRegressionTests {
             Issue.record("No averaged Air peak found")
             return
         }
-        #expect(abs(airPeak.frequency - Self.guitarAvgAirFreq) < freqTolerance,
+        #expect(abs(airPeak.frequency - Self.guitarAvgAirFreq) <= freqTolerance,
                 "Avg Air freq: expected \(Self.guitarAvgAirFreq) ±\(freqTolerance), got \(airPeak.frequency)")
-        #expect(abs(airPeak.magnitude - Self.guitarAvgAirMag) < magTolerance,
+        #expect(abs(airPeak.magnitude - Self.guitarAvgAirMag) <= magTolerance,
                 "Avg Air mag: expected \(Self.guitarAvgAirMag) ±\(magTolerance), got \(airPeak.magnitude)")
 
         guard let topPeak = sut.getPeak(for: .top) else {
             Issue.record("No averaged Top peak found")
             return
         }
-        #expect(abs(topPeak.frequency - Self.guitarAvgTopFreq) < freqTolerance,
+        #expect(abs(topPeak.frequency - Self.guitarAvgTopFreq) <= freqTolerance,
                 "Avg Top freq: expected \(Self.guitarAvgTopFreq) ±\(freqTolerance), got \(topPeak.frequency)")
-        #expect(abs(topPeak.magnitude - Self.guitarAvgTopMag) < magTolerance,
+        #expect(abs(topPeak.magnitude - Self.guitarAvgTopMag) <= magTolerance,
                 "Avg Top mag: expected \(Self.guitarAvgTopMag) ±\(magTolerance), got \(topPeak.magnitude)")
 
         guard let backPeak = sut.getPeak(for: .back) else {
             Issue.record("No averaged Back peak found")
             return
         }
-        #expect(abs(backPeak.frequency - Self.guitarAvgBackFreq) < freqTolerance,
+        #expect(abs(backPeak.frequency - Self.guitarAvgBackFreq) <= freqTolerance,
                 "Avg Back freq: expected \(Self.guitarAvgBackFreq) ±\(freqTolerance), got \(backPeak.frequency)")
-        #expect(abs(backPeak.magnitude - Self.guitarAvgBackMag) < magTolerance,
+        #expect(abs(backPeak.magnitude - Self.guitarAvgBackMag) <= magTolerance,
                 "Avg Back mag: expected \(Self.guitarAvgBackMag) ±\(magTolerance), got \(backPeak.magnitude)")
 
         // 3. Per-tap peaks — uses TapEntry.resolvedModePeaks(), the same
@@ -454,9 +462,9 @@ struct FilePlaybackRegressionTests {
 
             // Air
             if let air = modePeaks[.air] {
-                #expect(abs(air.frequency - expected.airFreq) < freqTolerance,
+                #expect(abs(air.frequency - expected.airFreq) <= freqTolerance,
                         "\(tapLabel) Air freq: expected \(expected.airFreq) ±\(freqTolerance), got \(air.frequency)")
-                #expect(abs(air.magnitude - expected.airMag) < magTolerance,
+                #expect(abs(air.magnitude - expected.airMag) <= magTolerance,
                         "\(tapLabel) Air mag: expected \(expected.airMag) ±\(magTolerance), got \(air.magnitude)")
             } else {
                 Issue.record("\(tapLabel): no Air peak found in selected peaks")
@@ -464,9 +472,9 @@ struct FilePlaybackRegressionTests {
 
             // Top
             if let top = modePeaks[.top] {
-                #expect(abs(top.frequency - expected.topFreq) < freqTolerance,
+                #expect(abs(top.frequency - expected.topFreq) <= freqTolerance,
                         "\(tapLabel) Top freq: expected \(expected.topFreq) ±\(freqTolerance), got \(top.frequency)")
-                #expect(abs(top.magnitude - expected.topMag) < magTolerance,
+                #expect(abs(top.magnitude - expected.topMag) <= magTolerance,
                         "\(tapLabel) Top mag: expected \(expected.topMag) ±\(magTolerance), got \(top.magnitude)")
             } else {
                 Issue.record("\(tapLabel): no Top peak found in selected peaks")
@@ -474,9 +482,9 @@ struct FilePlaybackRegressionTests {
 
             // Back
             if let back = modePeaks[.back] {
-                #expect(abs(back.frequency - expected.backFreq) < freqTolerance,
+                #expect(abs(back.frequency - expected.backFreq) <= freqTolerance,
                         "\(tapLabel) Back freq: expected \(expected.backFreq) ±\(freqTolerance), got \(back.frequency)")
-                #expect(abs(back.magnitude - expected.backMag) < magTolerance,
+                #expect(abs(back.magnitude - expected.backMag) <= magTolerance,
                         "\(tapLabel) Back mag: expected \(expected.backMag) ±\(magTolerance), got \(back.magnitude)")
             } else {
                 Issue.record("\(tapLabel): no Back peak found in selected peaks")
@@ -538,13 +546,13 @@ struct FilePlaybackRegressionTests {
             return
         }
         let lFreqDelta = abs(lPeak.frequency - plateLExpectedFrequency)
-        #expect(lFreqDelta < freqTolerance,
+        #expect(lFreqDelta <= freqTolerance,
                 "fL frequency: expected \(plateLExpectedFrequency) Hz ±\(freqTolerance), got \(lPeak.frequency) Hz (delta \(lFreqDelta))")
         let lMagDelta = abs(lPeak.magnitude - plateLExpectedMagnitude)
-        #expect(lMagDelta < magTolerance,
+        #expect(lMagDelta <= magTolerance,
                 "fL magnitude: expected \(plateLExpectedMagnitude) dB ±\(magTolerance), got \(lPeak.magnitude) dB (delta \(lMagDelta))")
         let lQDelta = abs(lPeak.quality - plateLExpectedQ)
-        #expect(lQDelta < qTolerance,
+        #expect(lQDelta <= qTolerance,
                 "fL Q factor: expected \(plateLExpectedQ) ±\(qTolerance), got \(lPeak.quality) (delta \(lQDelta))")
 
         // 3b. fC peak.
@@ -553,13 +561,13 @@ struct FilePlaybackRegressionTests {
             return
         }
         let cFreqDelta = abs(cPeak.frequency - plateCExpectedFrequency)
-        #expect(cFreqDelta < freqTolerance,
+        #expect(cFreqDelta <= freqTolerance,
                 "fC frequency: expected \(plateCExpectedFrequency) Hz ±\(freqTolerance), got \(cPeak.frequency) Hz (delta \(cFreqDelta))")
         let cMagDelta = abs(cPeak.magnitude - plateCExpectedMagnitude)
-        #expect(cMagDelta < magTolerance,
+        #expect(cMagDelta <= magTolerance,
                 "fC magnitude: expected \(plateCExpectedMagnitude) dB ±\(magTolerance), got \(cPeak.magnitude) dB (delta \(cMagDelta))")
         let cQDelta = abs(cPeak.quality - plateCExpectedQ)
-        #expect(cQDelta < qTolerance,
+        #expect(cQDelta <= qTolerance,
                 "fC Q factor: expected \(plateCExpectedQ) ±\(qTolerance), got \(cPeak.quality) (delta \(cQDelta))")
 
         // 3c. fLC peak.
@@ -568,13 +576,13 @@ struct FilePlaybackRegressionTests {
             return
         }
         let flcFreqDelta = abs(flcPeak.frequency - plateFlcExpectedFrequency)
-        #expect(flcFreqDelta < freqTolerance,
+        #expect(flcFreqDelta <= freqTolerance,
                 "fLC frequency: expected \(plateFlcExpectedFrequency) Hz ±\(freqTolerance), got \(flcPeak.frequency) Hz (delta \(flcFreqDelta))")
         let flcMagDelta = abs(flcPeak.magnitude - plateFlcExpectedMagnitude)
-        #expect(flcMagDelta < magTolerance,
+        #expect(flcMagDelta <= magTolerance,
                 "fLC magnitude: expected \(plateFlcExpectedMagnitude) dB ±\(magTolerance), got \(flcPeak.magnitude) dB (delta \(flcMagDelta))")
         let flcQDelta = abs(flcPeak.quality - plateFlcExpectedQ)
-        #expect(flcQDelta < qTolerance,
+        #expect(flcQDelta <= qTolerance,
                 "fLC Q factor: expected \(plateFlcExpectedQ) ±\(qTolerance), got \(flcPeak.quality) (delta \(flcQDelta))")
     }
 
@@ -674,27 +682,27 @@ struct FilePlaybackRegressionTests {
         #expect(sut.isMeasurementComplete, "isMeasurementComplete should be true")
 
         guard let lPeak = sut.selectedLongitudinalPeak else { Issue.record("selectedLongitudinalPeak is nil"); return }
-        #expect(abs(lPeak.frequency - plate3TapLExpectedFrequency) < freqTolerance,
+        #expect(abs(lPeak.frequency - plate3TapLExpectedFrequency) <= freqTolerance,
                 "fL frequency: expected \(plate3TapLExpectedFrequency) Hz, got \(lPeak.frequency) Hz")
-        #expect(abs(lPeak.magnitude - plate3TapLExpectedMagnitude) < plate3TapMagTolerance,
+        #expect(abs(lPeak.magnitude - plate3TapLExpectedMagnitude) <= plate3TapMagTolerance,
                 "fL magnitude: expected \(plate3TapLExpectedMagnitude) dB, got \(lPeak.magnitude) dB")
-        #expect(abs(lPeak.quality - plate3TapLExpectedQ) < qTolerance,
+        #expect(abs(lPeak.quality - plate3TapLExpectedQ) <= qTolerance,
                 "fL Q: expected \(plate3TapLExpectedQ), got \(lPeak.quality)")
 
         guard let cPeak = sut.selectedCrossPeak else { Issue.record("selectedCrossPeak is nil"); return }
-        #expect(abs(cPeak.frequency - plate3TapCExpectedFrequency) < freqTolerance,
+        #expect(abs(cPeak.frequency - plate3TapCExpectedFrequency) <= freqTolerance,
                 "fC frequency: expected \(plate3TapCExpectedFrequency) Hz, got \(cPeak.frequency) Hz")
-        #expect(abs(cPeak.magnitude - plate3TapCExpectedMagnitude) < plate3TapMagTolerance,
+        #expect(abs(cPeak.magnitude - plate3TapCExpectedMagnitude) <= plate3TapMagTolerance,
                 "fC magnitude: expected \(plate3TapCExpectedMagnitude) dB, got \(cPeak.magnitude) dB")
-        #expect(abs(cPeak.quality - plate3TapCExpectedQ) < qTolerance,
+        #expect(abs(cPeak.quality - plate3TapCExpectedQ) <= qTolerance,
                 "fC Q: expected \(plate3TapCExpectedQ), got \(cPeak.quality)")
 
         guard let flcPeak = sut.selectedFlcPeak else { Issue.record("selectedFlcPeak is nil"); return }
-        #expect(abs(flcPeak.frequency - plate3TapFlcExpectedFrequency) < freqTolerance,
+        #expect(abs(flcPeak.frequency - plate3TapFlcExpectedFrequency) <= freqTolerance,
                 "fLC frequency: expected \(plate3TapFlcExpectedFrequency) Hz, got \(flcPeak.frequency) Hz")
-        #expect(abs(flcPeak.magnitude - plate3TapFlcExpectedMagnitude) < plate3TapMagTolerance,
+        #expect(abs(flcPeak.magnitude - plate3TapFlcExpectedMagnitude) <= plate3TapMagTolerance,
                 "fLC magnitude: expected \(plate3TapFlcExpectedMagnitude) dB, got \(flcPeak.magnitude) dB")
-        #expect(abs(flcPeak.quality - plate3TapFlcExpectedQ) < qTolerance,
+        #expect(abs(flcPeak.quality - plate3TapFlcExpectedQ) <= qTolerance,
                 "fLC Q: expected \(plate3TapFlcExpectedQ), got \(flcPeak.quality)")
     }
 }

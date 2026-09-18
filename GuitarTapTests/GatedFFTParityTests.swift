@@ -76,7 +76,9 @@ private func magnitudeAtFrequency(
 struct GatedFFTParityTests {
 
     /// The one tolerance every edition applies to gated-FFT dB.
-    private static let tol: Float = ParityOracle.shared.tolerances.gatedFftDb
+    // Same-edition bar: zero. See FilePlaybackRegressionTests for why Swift does not
+    // assert against the cross-edition tolerance.
+    private static let tol: Float = ParityOracle.selfTolerance(\.gatedFftDb)
 
     // GFFT1: a single sine at the amplitude the oracle declares.
     @Test func singleTone100Hz_magnitudeIsReasonable() {
@@ -93,7 +95,7 @@ struct GatedFFTParityTests {
         let (mags, freqs) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
 
         let mag100 = magnitudeAtFrequency(Float(tone.hz), magnitudes: mags, frequencies: freqs)!
-        #expect(abs(mag100 - expected) < Self.tol,
+        #expect(abs(mag100 - expected) <= Self.tol,
                 "\(tone.hz) Hz: Swift=\(mag100) dB, oracle=\(expected) dB — difference > \(Self.tol) dB")
     }
 
@@ -116,11 +118,11 @@ struct GatedFFTParityTests {
         let m117 = magnitudeAtFrequency(Float(t2.hz), magnitudes: mags, frequencies: freqs)!
         let delta = m117 - m67
 
-        #expect(abs(m67 - exp1) < Self.tol,
+        #expect(abs(m67 - exp1) <= Self.tol,
                 "\(t1.hz) Hz: Swift=\(m67) dB, oracle=\(exp1) dB — difference > \(Self.tol) dB")
-        #expect(abs(m117 - exp2) < Self.tol,
+        #expect(abs(m117 - exp2) <= Self.tol,
                 "\(t2.hz) Hz: Swift=\(m117) dB, oracle=\(exp2) dB — difference > \(Self.tol) dB")
-        #expect(abs(delta - expDelta) < Self.tol,
+        #expect(abs(delta - expDelta) <= Self.tol,
                 "Delta: Swift=\(delta) dB, oracle=\(expDelta) dB — difference > \(Self.tol) dB")
     }
 
@@ -145,11 +147,11 @@ struct GatedFFTParityTests {
         let m2 = magnitudeAtFrequency(Float(t2.hz), magnitudes: mags, frequencies: freqs)!
         let delta = m2 - m1
 
-        #expect(abs(m1 - exp1) < Self.tol,
+        #expect(abs(m1 - exp1) <= Self.tol,
                 "\(t1.hz) Hz: Swift=\(m1) dB, oracle=\(exp1) dB — difference > \(Self.tol) dB")
-        #expect(abs(m2 - exp2) < Self.tol,
+        #expect(abs(m2 - exp2) <= Self.tol,
                 "\(t2.hz) Hz: Swift=\(m2) dB, oracle=\(exp2) dB — difference > \(Self.tol) dB")
-        #expect(abs(delta - expDelta) < Self.tol,
+        #expect(abs(delta - expDelta) <= Self.tol,
                 "Delta: Swift=\(delta) dB, oracle=\(expDelta) dB — difference > \(Self.tol) dB")
     }
 
@@ -181,17 +183,25 @@ struct GatedFFTParityTests {
         let amplitude = Float(tone.amplitude)
         let sampleCount = Int(sampleRate * 0.4)
 
+        // Synthesised in Double and cast to Float per sample, matching makeTwoToneSignal
+        // above, the oracle generator, and — the reason for all three — what the app is
+        // actually handed. Real audio arrives as Float32 samples that are each correctly
+        // rounded from the true waveform; nothing accumulates phase error along the way.
+        // Computing t and sin() in Float does accumulate it (~7 significant digits over
+        // 19,200 samples), so the array is not a faithful Float32 rendering of the tone.
+        // On this bin-centred case that was worth 0.2 dB — which is why the golden moved
+        // from -49.7 to -49.5 when the oracle was first minted rather than hand-recorded.
         var signal = [Float](repeating: 0, count: sampleCount)
         for i in 0..<sampleCount {
-            let t = Float(i) / Float(sampleRate)
-            signal[i] = amplitude * sin(2.0 * Float.pi * Float(freq) * t)
+            let t = Double(i) / sampleRate
+            signal[i] = Float(Double(amplitude) * sin(2.0 * .pi * freq * t))
         }
 
         let fft = RealtimeFFTAnalyzer()
         let (mags, freqs) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
         let swiftDB = magnitudeAtFrequency(Float(freq), magnitudes: mags, frequencies: freqs)!
 
-        #expect(abs(swiftDB - expected) < Self.tol,
+        #expect(abs(swiftDB - expected) <= Self.tol,
                 "bin \(targetBin): Swift=\(swiftDB) dB, oracle=\(expected) dB — difference > \(Self.tol) dB")
     }
 }

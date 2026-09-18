@@ -115,7 +115,14 @@ struct ParityOracle: Codable {
 
     var oracleVersion: String
     var generatedAt: String
+    /// The CROSS-EDITION bar — what a tracking edition must match. See `selfTolerances`.
     var tolerances: Tolerances
+    /// The SAME-EDITION bar: zero. Used when an edition checks against goldens it minted
+    /// itself, where the input bytes, the code path and the machine are all identical, so
+    /// the output is bit-reproducible and any movement is a real change rather than
+    /// numerical noise. Optional so a tracking edition's vendored copy still decodes if it
+    /// predates this field.
+    var selfTolerances: Tolerances?
     var filePlayback: [String: PlaybackCase]
     var gatedFft: [String: GatedCase]
 
@@ -155,6 +162,18 @@ struct ParityOracle: Codable {
                           for name: String) -> Float {
         if let override = playback(name).tolerances?[keyPath: key] { return override }
         return shared.tolerances[keyPath: global]
+    }
+
+    /// The same-edition bar for this key. Swift mints the oracle, so Swift's own
+    /// regression tests assert against it at this bar, not the cross-edition one.
+    ///
+    /// Zero is meant literally: the stored text is the shortest decimal that recovers the
+    /// exact Float the generator computed, so a comparison of `abs(delta) <= 0` is exact
+    /// equality with no rounding on either side. Per-case overrides deliberately do NOT
+    /// apply — those loosen the parity bar for cross-edition reasons, which say nothing
+    /// about whether this edition reproduces itself.
+    static func selfTolerance(_ global: KeyPath<Tolerances, Float>) -> Float {
+        shared.selfTolerances?[keyPath: global] ?? 0
     }
 
     /// Absolute URL of a case's WAV fixture in the test bundle.

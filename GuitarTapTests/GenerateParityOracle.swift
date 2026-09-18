@@ -8,11 +8,23 @@
 //  would make the file record what the tracking edition does, and the day the two
 //  disagreed there would be no way to say which was wrong.
 //
-//  This is NOT part of a normal test run — it is disabled unless GENERATE_PARITY_ORACLE
-//  is set, because it rewrites a committed file:
+//  This is NOT part of a normal test run — it is disabled unless the generate flag is
+//  set, because it regenerates a committed file. Mint it through the wrapper:
 //
-//      GENERATE_PARITY_ORACLE=1 xcodebuild test -scheme GuitarTap \
-//          -only-testing:GuitarTapTests/GenerateParityOracle
+//      ./Tooling/mint-oracle.sh
+//
+//  Do NOT hand-run the xcodebuild invocation. Three things about it are easy to get
+//  wrong and ALL THREE produce "** TEST SUCCEEDED **" while minting nothing:
+//
+//    - the scheme is `guitar_tap`, not `GuitarTap` (that is a target name);
+//    - `-only-testing` takes the TYPE name, GenerateParityOracleTests, not the
+//      @Suite display name — a mismatch runs "Executed 0 tests" and still succeeds;
+//    - xcodebuild does not forward the shell environment to a hosted test runner, so
+//      the flag must be passed as TEST_RUNNER_GENERATE_PARITY_ORACLE. Unprefixed, the
+//      test is simply skipped.
+//
+//  The wrapper gets all three right and then verifies a file was actually produced,
+//  so a silent no-op cannot be mistaken for a clean run.
 //
 //  Then, from the Swift repo:
 //      ORACLE_SRC=~/src/guitar-tap-project ./Tooling/sync-oracle.sh --publish
@@ -39,17 +51,47 @@ import Foundation
 struct GenerateParityOracleTests {
 
     /// The vendored oracle in the SOURCE tree (not the built test bundle, which is a copy).
+    /// READ from here: regeneration is in-place over the committed file, so the prose
+    /// notes survive and a diff shows exactly the values the algorithm moved.
     private static var sourceOracleURL: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .appendingPathComponent("parity-oracle.json")
     }
 
-    /// Values are rounded so regeneration produces a stable, readable file: a raw Float
-    /// widened to Double prints as 87.30731010437012, which would churn the diff without
-    /// saying anything (every tolerance here is >= 0.03).
-    private static func round5(_ value: Float) -> Double {
-        (Double(value) * 100_000).rounded() / 100_000
+    /// Where the regenerated JSON is WRITTEN — which cannot be the source tree.
+    ///
+    /// This test bundle is hosted in the app (TEST_HOST), and the app has
+    /// ENABLE_APP_SANDBOX = YES, so the test process inherits the app's sandbox and a
+    /// write to the checkout fails with NSCocoaErrorDomain 513 / EPERM. Reads are
+    /// permitted, which is why the source file above is still the input.
+    ///
+    /// So the generator emits to a permitted path and the wrapper copies it into the
+    /// tree. Redirecting the write was chosen over turning the sandbox off for Debug:
+    /// the suite should run against an app sandboxed the way the shipped one is.
+    private static var outputURL: URL {
+        if let out = ProcessInfo.processInfo.environment["PARITY_ORACLE_OUT"], !out.isEmpty {
+            return URL(fileURLWithPath: out)
+        }
+        return URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("parity-oracle.json")
+    }
+
+    /// The stored form of a computed value: the SHORTEST decimal that recovers this exact
+    /// Float.
+    ///
+    /// Not a rounding. `String(Float)` gives the shortest round-tripping representation,
+    /// so the text stays short — 87.30731, not the 87.30731010437012 you get by widening
+    /// to Double first and printing the binary tail — while `Float(text)` returns the
+    /// identical bits. That is what lets the regression tolerance be literally zero:
+    /// the test compares Floats with ==, no rounding step on either side.
+    ///
+    /// This replaced a fixed 5-decimal rounding. That was lossless for the values here
+    /// only by accident of magnitude (5 dp on values in the tens-to-hundreds exceeds
+    /// Float32's ~7.2 significant digits); a much smaller value would have quietly lost
+    /// bits, and under a zero tolerance that reads as a test that can never pass.
+    private static func stored(_ value: Float) -> Double {
+        Double(String(value)) ?? Double(value)
     }
 
     /// Replace frequency/magnitude/q in an existing array of peak dictionaries, keyed by
@@ -61,10 +103,10 @@ struct GenerateParityOracleTests {
         existing.map { peak in
             var out = peak
             guard let role = peak["role"] as? String, let got = computed[role] else { return out }
-            out["frequency"] = round5(got.frequency)
-            out["magnitude"] = round5(got.magnitude)
+            out["frequency"] = stored(got.frequency)
+            out["magnitude"] = stored(got.magnitude)
             if out["q"] != nil, let quality = got.quality {
-                out["q"] = round5(quality)
+                out["q"] = stored(quality)
             }
             return out
         }
@@ -95,6 +137,22 @@ struct GenerateParityOracleTests {
 
     /// Short git SHA of the working tree, or "unknown" when git is unavailable (a
     /// sandboxed run). Never fails the generation — the stamp is provenance, not data.
+    /// The Swift commit these numbers were minted from.
+    ///
+    /// Supplied by the wrapper, because this process cannot ask git itself: the test
+    /// bundle runs inside the app's sandbox, which denies spawning a subprocess, and the
+    /// failure was silent — every mint stamped "unknown". That is not cosmetic. The
+    /// committed oracle still carried the placeholder `TBD-swift-commit-sha`, so when its
+    /// numbers were found to have drifted there was no way to say WHICH build produced
+    /// them, or when. This field is how the next person dates the goldens.
+    private static func oracleVersion() -> String {
+        if let sha = ProcessInfo.processInfo.environment["PARITY_ORACLE_VERSION"],
+           !sha.isEmpty {
+            return sha
+        }
+        return gitShortSHA()   // works only if ever run unsandboxed; otherwise "unknown"
+    }
+
     private static func gitShortSHA() -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -183,7 +241,7 @@ struct GenerateParityOracleTests {
                 }
             }
             if caseDict["ringOutSec"] != nil, let decay = sut.currentDecayTime {
-                caseDict["ringOutSec"] = Self.round5(decay)
+                caseDict["ringOutSec"] = Self.stored(decay)
             }
             playback[name] = caseDict
         }
@@ -243,13 +301,13 @@ struct GenerateParityOracleTests {
                     guard let hz = expected[i]["hz"] as? Double,
                           let db = Self.magnitudeAt(Float(hz), magnitudes: mags, frequencies: freqs)
                     else { continue }
-                    expected[i]["db"] = (Double(db) * 100).rounded() / 100  // 2 dp, as published
+                    expected[i]["db"] = Self.stored(db)
                 }
                 caseDict["expected"] = expected
                 if caseDict["deltaDb"] != nil, expected.count >= 2,
                    let first = expected.first?["db"] as? Double,
                    let last = expected.last?["db"] as? Double {
-                    caseDict["deltaDb"] = (( last - first) * 100).rounded() / 100
+                    caseDict["deltaDb"] = Self.stored(Float(last - first))
                 }
             }
             gated[name] = caseDict
@@ -257,15 +315,30 @@ struct GenerateParityOracleTests {
 
         root["filePlayback"] = playback
         root["gatedFft"] = gated
-        root["oracleVersion"] = Self.gitShortSHA()
+        root["oracleVersion"] = Self.oracleVersion()
         root["generatedAt"] = ISO8601DateFormatter().string(from: Date())
 
-        let out = try JSONSerialization.data(
+        // Tolerances are hand-written, not computed, but they still round-trip through
+        // Double — so 0.03 re-serialises as 0.029999999999999999 and churns the diff on
+        // every regeneration. Round them like everything else.
+        for key in ["tolerances", "selfTolerances"] {
+            if var block = root[key] as? [String: Any] {
+                for (k, v) in block {
+                    if let d = v as? Double { block[k] = (d * 100_000).rounded() / 100_000 }
+                }
+                root[key] = block
+            }
+        }
+
+        var out = try JSONSerialization.data(
             withJSONObject: root,
             options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         )
-        try out.write(to: url)
-        print("Wrote \(url.path) — review the diff, then publish with Tooling/sync-oracle.sh --publish")
+        out.append(0x0A)   // trailing newline, so every diff does not end in "\ No newline"
+        let dest = Self.outputURL
+        try out.write(to: dest)
+        print("PARITY_ORACLE_WROTE \(dest.path)")
+        print("Regenerated from \(url.path) — the wrapper copies it into the tree; review the diff, then publish with Tooling/sync-oracle.sh --publish")
     }
 
     private static func magnitudeAt(_ targetHz: Float,
