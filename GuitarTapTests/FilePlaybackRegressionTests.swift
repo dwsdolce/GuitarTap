@@ -33,70 +33,67 @@ private var testBundle: Bundle { Bundle(for: TestBundleMarker.self) }
 // MARK: - Expected values
 // ---------------------------------------------------------------------------
 
-// brace-umik-1-swift-mac-1778816093.wav — Brace bar, UMIK-1 mic, 48 kHz.
-// Full-session recording (mono float32, 48 kHz).
-// Reference values from the matching .guitartap file
-// (Tests/Brace/brace-umik-1-swift-mac-1778816093.guitartap):
-//   Peak frequency: 512.68880 Hz
-//   Peak magnitude: -70.93484 dB
-//   Peak Q factor:  87.5
-//   Tap detection threshold: -53.33838 dB
-// The test uses tolerances per the test plan: ±1.0 Hz, ±1.0 dB, ±1.0 Q.
-private let braceExpectedFrequency: Float = 512.68880
-private let braceExpectedMagnitude: Float = -70.93484
-private let braceExpectedQ: Float = 87.5
-private let braceTapThreshold: Float = -53.33838  // dB — matches .guitartap reference
-private let freqTolerance: Float = 1.0  // Hz
-private let magTolerance: Float  = 1.0  // dB
-private let qTolerance: Float    = 1.0  // dimensionless
+// Every expected value below is read from the shared oracle (parity-oracle.json, vendored
+// beside this file by Tooling/sync-oracle.sh). They were file-scope literals until
+// guitar-tap-project#10: the same numbers were also typed into the Python suite and a third
+// time into the web suite, with nothing keeping the three equal. Swift still owns them -
+// GenerateParityOracle mints the oracle from this very pipeline - but it now owns them in one
+// place that the other editions read.
 
-// plate-umik-1-swift-mac-1778816330.wav — Plate, UMIK-1 mic, 48 kHz.
-// Full-session recording (mono float32, 48 kHz) covering all three plate
-// phases (L → C → FLC).  Played back end-to-end through the plate pipeline,
-// which auto-advances between phases on file playback so the run reaches
-// .complete with all three peaks populated.
-//
-// Reference values from the matching .guitartap file
-// (Tests/Plate/plate-umik-1-swift-mac-1778816330.guitartap):
-//   fL  frequency: 67.11537 Hz   magnitude: -60.36113 dB   Q: 15.333
-//   fC  frequency: 116.27016 Hz  magnitude: -52.80130 dB   Q: 26.333
-//   fLC frequency: 35.35375 Hz   magnitude: -58.28925 dB   Q: 6.000
-//   Tap detection threshold: -53.33838 dB
-private let plateLExpectedFrequency: Float = 67.11537
-private let plateLExpectedMagnitude: Float = -60.36113
-private let plateLExpectedQ: Float = 15.333
+// REG-B1 - brace bar, UMIK-1 mic, 48 kHz, full-session recording (mono float32). The oracle's
+// values originally came from the matching .guitartap reference
+// (Tests/Brace/brace-umik-1-swift-mac-1778816093.guitartap).
+private let braceCase = ParityOracle.playback("REG-B1")
+private let braceExpectedPeak = braceCase.peak("longitudinal")
+private let braceExpectedFrequency: Float = braceExpectedPeak.frequency
+private let braceExpectedMagnitude: Float = braceExpectedPeak.magnitude
+private let braceExpectedQ: Float = braceExpectedPeak.q ?? 0
+private let braceTapThreshold: Float = braceCase.settings.tapDetectionThreshold
+private let freqTolerance: Float = ParityOracle.shared.tolerances.freqHz  // Hz
+private let magTolerance: Float  = ParityOracle.shared.tolerances.magDb   // dB
+private let qTolerance: Float    = ParityOracle.shared.tolerances.q       // dimensionless
 
-private let plateCExpectedFrequency: Float = 116.27016
-private let plateCExpectedMagnitude: Float = -52.80130
-private let plateCExpectedQ: Float = 26.333
+// REG-P1 - plate, UMIK-1 mic, 48 kHz. Full-session recording covering all three plate phases
+// (L -> C -> FLC). Played back end-to-end through the plate pipeline, which auto-advances
+// between phases on file playback so the run reaches .complete with all three peaks populated.
+private let plateCase = ParityOracle.playback("REG-P1")
+private let plateLExpectedFrequency: Float = plateCase.peak("longitudinal").frequency
+private let plateLExpectedMagnitude: Float = plateCase.peak("longitudinal").magnitude
+private let plateLExpectedQ: Float = plateCase.peak("longitudinal").q ?? 0
 
-private let plateFlcExpectedFrequency: Float = 35.35375
-private let plateFlcExpectedMagnitude: Float = -58.28925
-private let plateFlcExpectedQ: Float = 6.000
+private let plateCExpectedFrequency: Float = plateCase.peak("cross").frequency
+private let plateCExpectedMagnitude: Float = plateCase.peak("cross").magnitude
+private let plateCExpectedQ: Float = plateCase.peak("cross").q ?? 0
 
-private let plateTapThreshold: Float = -53.33838  // dB — matches .guitartap reference
+private let plateFlcExpectedFrequency: Float = plateCase.peak("flc").frequency
+private let plateFlcExpectedMagnitude: Float = plateCase.peak("flc").magnitude
+private let plateFlcExpectedQ: Float = plateCase.peak("flc").q ?? 0
 
-// plate-umik-1-web-mac-3-taps.wav — Plate, UMIK-1, 48 kHz, recorded by the WEB app (Chrome) with
-// numberOfTaps = 3 (3 taps PER PHASE, 9 total). Replaying at numberOfTaps = 3 averages each phase.
-// Expected values are the WEB capture's (companion .guitartap, same recording) — so a pass means
-// Swift agrees with the web on multi-tap material averaging. (Close to, not equal to, the separate
-// Swift 3-tap capture L66.6/C117.1/FLC35.5.)
-private let plate3TapLExpectedFrequency: Float = 68.2587
-private let plate3TapLExpectedMagnitude: Float = -71.5858
-private let plate3TapLExpectedQ: Float = 15.667
-private let plate3TapCExpectedFrequency: Float = 117.4681
-private let plate3TapCExpectedMagnitude: Float = -56.5436
-private let plate3TapCExpectedQ: Float = 26.667
-private let plate3TapFlcExpectedFrequency: Float = 35.3011
-private let plate3TapFlcExpectedMagnitude: Float = -63.6008  // peak read off the AVERAGED spectrum
-private let plate3TapFlcExpectedQ: Float = 6.000
-private let plate3TapThreshold: Float = -40.0  // dB — matches the .guitartap reference
+private let plateTapThreshold: Float = plateCase.settings.tapDetectionThreshold
+
+// REG-P2 - plate, UMIK-1, 48 kHz, recorded by the WEB app (Chrome) with numberOfTaps = 3
+// (3 taps PER PHASE, 9 total). Replaying at numberOfTaps = 3 averages each phase. The expected
+// values are the WEB capture's, so a pass means Swift agrees with the web on multi-tap material
+// averaging. (Close to, not equal to, the separate Swift 3-tap capture L66.6/C117.1/FLC35.5.)
+private let plate3TapCase = ParityOracle.playback("REG-P2")
+private let plate3TapLExpectedFrequency: Float = plate3TapCase.peak("longitudinal").frequency
+private let plate3TapLExpectedMagnitude: Float = plate3TapCase.peak("longitudinal").magnitude
+private let plate3TapLExpectedQ: Float = plate3TapCase.peak("longitudinal").q ?? 0
+private let plate3TapCExpectedFrequency: Float = plate3TapCase.peak("cross").frequency
+private let plate3TapCExpectedMagnitude: Float = plate3TapCase.peak("cross").magnitude
+private let plate3TapCExpectedQ: Float = plate3TapCase.peak("cross").q ?? 0
+private let plate3TapFlcExpectedFrequency: Float = plate3TapCase.peak("flc").frequency
+// peak read off the AVERAGED spectrum, not the last tap - see the oracle's _note
+private let plate3TapFlcExpectedMagnitude: Float = plate3TapCase.peak("flc").magnitude
+private let plate3TapFlcExpectedQ: Float = plate3TapCase.peak("flc").q ?? 0
+private let plate3TapThreshold: Float = plate3TapCase.settings.tapDetectionThreshold
 // REG-P2 uses a tighter magnitude tolerance than the generic 1.0 dB.  The averaged
 // values are deterministic across platforms, so they agree far more closely than a
 // single tap would; 0.5 dB still leaves headroom for FFT-library differences while
 // reliably catching a regression to last-tap selection (the masked deltas were
 // fL 0.94, fC 0.81, fLC 2.62 dB — all caught at 0.5).
-private let plate3TapMagTolerance: Float = 0.5  // dB
+private let plate3TapMagTolerance: Float = ParityOracle.tolerance(
+    \.magDb, global: \.magDb, for: "REG-P2")  // dB - tighter than generic, declared by the case
 
 // ---------------------------------------------------------------------------
 // MARK: - Tests  (REG-B1)
@@ -251,12 +248,13 @@ struct FilePlaybackRegressionTests {
     // Settings: peakMinThreshold = -76, tapDetectionThreshold = -40,
     //           measurementType = .generic, numberOfTaps = 1.
     //           FFT size is a constant (65536) inside RealtimeFFTAnalyzer.
-    private static let g1AirFreq: Float = 87.30731
-    private static let g1AirMag: Float  = -45.351357
-    private static let g1TopFreq: Float = 164.09756
-    private static let g1TopMag: Float  = -36.67097
-    private static let g1BackFreq: Float = 240.5668
-    private static let g1BackMag: Float  = -54.567883
+    private static let g1Case = ParityOracle.playback("REG-G1")
+    private static let g1AirFreq: Float = g1Case.peak("air").frequency
+    private static let g1AirMag: Float  = g1Case.peak("air").magnitude
+    private static let g1TopFreq: Float = g1Case.peak("top").frequency
+    private static let g1TopMag: Float  = g1Case.peak("top").magnitude
+    private static let g1BackFreq: Float = g1Case.peak("back").frequency
+    private static let g1BackMag: Float  = g1Case.peak("back").magnitude
 
     /// REG-G1: Generic guitar single-tap — validates Air/Top/Back peaks.
     ///
@@ -336,8 +334,8 @@ struct FilePlaybackRegressionTests {
             Issue.record("No ring-out measured")
             return
         }
-        let golden: Float = 0.0853
-        let tol: Float = 0.03
+        let golden: Float = ParityOracle.playback("REG-G1").ringOutSec ?? 0
+        let tol: Float = ParityOracle.shared.tolerances.ringOutSec
         #expect(abs(decay - golden) < tol,
                 "Ring-out: expected \(golden) ±\(tol), got \(decay)")
     }
@@ -351,24 +349,26 @@ struct FilePlaybackRegressionTests {
     //           FFT size is a constant (65536) inside RealtimeFFTAnalyzer.
 
     // Average peaks
-    private static let guitarAvgAirFreq: Float = 87.233154
-    private static let guitarAvgAirMag: Float  = -44.34529
-    private static let guitarAvgTopFreq: Float = 164.04662
-    private static let guitarAvgTopMag: Float  = -35.105385
-    private static let guitarAvgBackFreq: Float = 240.57095
-    private static let guitarAvgBackMag: Float  = -55.152287
+    private static let g2Case = ParityOracle.playback("REG-G2")
+    private static let guitarAvgAirFreq: Float = g2Case.peak("air", averaged: true).frequency
+    private static let guitarAvgAirMag: Float  = g2Case.peak("air", averaged: true).magnitude
+    private static let guitarAvgTopFreq: Float = g2Case.peak("top", averaged: true).frequency
+    private static let guitarAvgTopMag: Float  = g2Case.peak("top", averaged: true).magnitude
+    private static let guitarAvgBackFreq: Float = g2Case.peak("back", averaged: true).frequency
+    private static let guitarAvgBackMag: Float  = g2Case.peak("back", averaged: true).magnitude
 
     // Per-tap expected values: (airFreq, airMag, topFreq, topMag, backFreq, backMag)
-    private static let guitarPerTap: [(airFreq: Float, airMag: Float, topFreq: Float, topMag: Float, backFreq: Float, backMag: Float)] = [
-        (87.20365, -46.083164, 164.15787, -37.15723,  296.5797,  -57.117817), // Tap 1
-        (87.22049, -43.714653, 163.98953, -34.96168,  240.6308,  -54.930405), // Tap 2
-        (87.21567, -44.400375, 164.00642, -36.064285, 240.54478, -56.384575), // Tap 3
-        (87.23355, -43.930878, 164.02281, -34.72927,  240.58727, -55.048416), // Tap 4
-        (87.23911, -44.447514, 164.09766, -36.650166, 240.52957, -54.569893), // Tap 5
-        (87.258545,-44.08946,  164.05678, -34.239933, 240.63478, -54.847008), // Tap 6
-        (87.2434,  -43.969948, 164.05476, -33.775253, 296.5151,  -54.0257),   // Tap 7
-        (87.24372, -44.523045, 164.0366,  -34.412136, 240.49031, -54.849174), // Tap 8
-    ]
+    // Taps 1 and 7 pin Back at ~296.5 Hz rather than ~240.6 - real behaviour of the shared
+    // selection path on this fixture, pinned deliberately (see _perTapNote in the oracle).
+    private static let guitarPerTap: [(airFreq: Float, airMag: Float, topFreq: Float, topMag: Float, backFreq: Float, backMag: Float)] =
+        (g2Case.perTap ?? []).map { row in
+            (airFreq: row.peaks.first { $0.role == "air" }?.frequency ?? 0,
+             airMag:  row.peaks.first { $0.role == "air" }?.magnitude ?? 0,
+             topFreq: row.peaks.first { $0.role == "top" }?.frequency ?? 0,
+             topMag:  row.peaks.first { $0.role == "top" }?.magnitude ?? 0,
+             backFreq: row.peaks.first { $0.role == "back" }?.frequency ?? 0,
+             backMag:  row.peaks.first { $0.role == "back" }?.magnitude ?? 0)
+        }
 
     /// REG-G2: Generic guitar 8-tap — validates averaged and per-tap Air/Top/Back.
     ///

@@ -2,11 +2,11 @@
 //  GatedFFTParityTests.swift
 //  GuitarTapTests
 //
-//  Parity tests for computeGatedFFT: feed identical synthetic signals and verify
-//  the output magnitudes match the expected values.  The companion Python test
-//  (test_gated_fft_parity.py) uses the same signal and expected values, so any
-//  systematic difference between the two implementations will show up as a
-//  failing test on one side only.
+//  Parity tests for computeGatedFFT: feed identical synthetic signals and verify the
+//  output magnitudes match the expected values. Signals and expected values come from the
+//  shared oracle (parity-oracle.json), so the Python and web suites feed the same tones
+//  and assert the same dB - any systematic difference between the implementations shows up
+//  as a one-sided failure rather than as three sets of numbers drifting apart.
 //
 //  Test plan coverage: GFFT1–GFFT5
 //
@@ -75,76 +75,82 @@ private func magnitudeAtFrequency(
 @Suite("GatedFFTParityTests")
 struct GatedFFTParityTests {
 
-    // GFFT1: A single 100 Hz sine at amplitude 0.5.
-    // Python reports: -15.72 dB.  Swift should match within ~1 dB.
+    /// The one tolerance every edition applies to gated-FFT dB.
+    private static let tol: Float = ParityOracle.shared.tolerances.gatedFftDb
+
+    // GFFT1: a single sine at the amplitude the oracle declares.
     @Test func singleTone100Hz_magnitudeIsReasonable() {
         let sampleRate: Double = 48000
+        let gfft = ParityOracle.gated("GFFT1")
+        let tone = gfft.toneList[0]
+        let expected = gfft.expectedDb(at: tone.hz)
         let signal = makeTwoToneSignal(
             sampleRate: sampleRate, duration: 0.4,
-            freq1: 100, amp1: 0.5,
+            freq1: tone.hz, amp1: tone.amplitude,
             freq2: 0, amp2: 0
         )
         let fft = RealtimeFFTAnalyzer()
         let (mags, freqs) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
 
-        let mag100 = magnitudeAtFrequency(100, magnitudes: mags, frequencies: freqs)!
-        // Python: -15.72 dB.  Check Swift is within 1 dB of that.
-        #expect(abs(mag100 - (-15.72)) < 1.0,
-                "100 Hz: Swift=\(mag100) dB, Python=-15.72 dB — difference > 1 dB")
+        let mag100 = magnitudeAtFrequency(Float(tone.hz), magnitudes: mags, frequencies: freqs)!
+        #expect(abs(mag100 - expected) < Self.tol,
+                "\(tone.hz) Hz: Swift=\(mag100) dB, oracle=\(expected) dB — difference > \(Self.tol) dB")
     }
 
-    // GFFT2: Two tones at 67 Hz and 117 Hz with known amplitudes.
-    // Python reports: 67 Hz = -49.74 dB, 117 Hz = -29.55 dB, delta = 20.19 dB.
+    // GFFT2: two tones at the plate-C capture frequencies that exposed the discrepancy.
     @Test func twoTone_67Hz_and_117Hz_magnitudesMatch() {
         let sampleRate: Double = 48000
+        let gfft = ParityOracle.gated("GFFT2")
+        let t1 = gfft.toneList[0], t2 = gfft.toneList[1]
+        let exp1 = gfft.expectedDb(at: t1.hz), exp2 = gfft.expectedDb(at: t2.hz)
+        let expDelta = gfft.deltaDb ?? (exp2 - exp1)
         let signal = makeTwoToneSignal(
             sampleRate: sampleRate, duration: 0.4,
-            freq1: 67, amp1: 0.01,
-            freq2: 117, amp2: 0.1
+            freq1: t1.hz, amp1: t1.amplitude,
+            freq2: t2.hz, amp2: t2.amplitude
         )
         let fft = RealtimeFFTAnalyzer()
         let (mags, freqs) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
 
-        let m67 = magnitudeAtFrequency(67, magnitudes: mags, frequencies: freqs)!
-        let m117 = magnitudeAtFrequency(117, magnitudes: mags, frequencies: freqs)!
+        let m67 = magnitudeAtFrequency(Float(t1.hz), magnitudes: mags, frequencies: freqs)!
+        let m117 = magnitudeAtFrequency(Float(t2.hz), magnitudes: mags, frequencies: freqs)!
         let delta = m117 - m67
 
-        // Check each magnitude matches Python within 1 dB
-        #expect(abs(m67 - (-49.74)) < 1.0,
-                "67 Hz: Swift=\(m67) dB, Python=-49.74 dB — difference > 1 dB")
-        #expect(abs(m117 - (-29.55)) < 1.0,
-                "117 Hz: Swift=\(m117) dB, Python=-29.55 dB — difference > 1 dB")
-        #expect(abs(delta - 20.19) < 1.0,
-                "Delta: Swift=\(delta) dB, Python=20.19 dB — difference > 1 dB")
+        #expect(abs(m67 - exp1) < Self.tol,
+                "\(t1.hz) Hz: Swift=\(m67) dB, oracle=\(exp1) dB — difference > \(Self.tol) dB")
+        #expect(abs(m117 - exp2) < Self.tol,
+                "\(t2.hz) Hz: Swift=\(m117) dB, oracle=\(exp2) dB — difference > \(Self.tol) dB")
+        #expect(abs(delta - expDelta) < Self.tol,
+                "Delta: Swift=\(delta) dB, oracle=\(expDelta) dB — difference > \(Self.tol) dB")
     }
 
-    // GFFT3: Exact bin-centred tones to eliminate spectral leakage.
-    // Python reports: 67.3828 Hz = -49.70 dB, 117.1875 Hz = -29.51 dB, delta = 20.19 dB.
+    // GFFT3: exact bin-centred tones to eliminate spectral leakage. With paddedSize 32768
+    // the oracle's frequencies are exact multiples of the 1.46484375 Hz bin width (bins 46, 80).
     @Test func binCentred_tones_exactMagnitudes() {
         let sampleRate: Double = 48000
-        let paddedSize = 32768
-        let binWidth = sampleRate / Double(paddedSize)
-        let freq1 = Double(46) * binWidth   // 67.3828125 Hz
-        let freq2 = Double(80) * binWidth   // 117.1875 Hz
+        let gfft = ParityOracle.gated("GFFT3")
+        let t1 = gfft.toneList[0], t2 = gfft.toneList[1]
+        let exp1 = gfft.expectedDb(at: t1.hz), exp2 = gfft.expectedDb(at: t2.hz)
+        let expDelta = gfft.deltaDb ?? (exp2 - exp1)
 
         let signal = makeTwoToneSignal(
             sampleRate: sampleRate, duration: 0.4,
-            freq1: freq1, amp1: 0.01,
-            freq2: freq2, amp2: 0.1
+            freq1: t1.hz, amp1: t1.amplitude,
+            freq2: t2.hz, amp2: t2.amplitude
         )
         let fft = RealtimeFFTAnalyzer()
         let (mags, freqs) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
 
-        let m1 = magnitudeAtFrequency(Float(freq1), magnitudes: mags, frequencies: freqs)!
-        let m2 = magnitudeAtFrequency(Float(freq2), magnitudes: mags, frequencies: freqs)!
+        let m1 = magnitudeAtFrequency(Float(t1.hz), magnitudes: mags, frequencies: freqs)!
+        let m2 = magnitudeAtFrequency(Float(t2.hz), magnitudes: mags, frequencies: freqs)!
         let delta = m2 - m1
 
-        #expect(abs(m1 - (-49.70)) < 1.0,
-                "\(freq1) Hz: Swift=\(m1) dB, Python=-49.70 dB — difference > 1 dB")
-        #expect(abs(m2 - (-29.51)) < 1.0,
-                "\(freq2) Hz: Swift=\(m2) dB, Python=-29.51 dB — difference > 1 dB")
-        #expect(abs(delta - 20.19) < 1.0,
-                "Delta: Swift=\(delta) dB, Python=20.19 dB — difference > 1 dB")
+        #expect(abs(m1 - exp1) < Self.tol,
+                "\(t1.hz) Hz: Swift=\(m1) dB, oracle=\(exp1) dB — difference > \(Self.tol) dB")
+        #expect(abs(m2 - exp2) < Self.tol,
+                "\(t2.hz) Hz: Swift=\(m2) dB, oracle=\(exp2) dB — difference > \(Self.tol) dB")
+        #expect(abs(delta - expDelta) < Self.tol,
+                "Delta: Swift=\(delta) dB, oracle=\(expDelta) dB — difference > \(Self.tol) dB")
     }
 
     // GFFT4: Silence should produce all bins near noise floor (< -100 dB).
@@ -155,9 +161,10 @@ struct GatedFFTParityTests {
         let fft = RealtimeFFTAnalyzer()
         let (mags, _) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
 
+        let ceiling = ParityOracle.gated("GFFT4").maxDbBelow ?? -100
         let maxMag = mags.max() ?? 0
-        #expect(maxMag < -100,
-                "All bins should be below -100 dB for silence, max = \(maxMag)")
+        #expect(maxMag < ceiling,
+                "All bins should be below \(ceiling) dB for silence, max = \(maxMag)")
     }
 
     // GFFT5: Verify that HANN_DENORM window produces values matching Python.
@@ -166,10 +173,13 @@ struct GatedFFTParityTests {
     @Test func afterFix_binCentred_matchesPython() {
         let N = 32768
         let sampleRate: Double = 48000
-        let targetBin = 46
-        let amplitude: Float = 0.01
+        let gfft = ParityOracle.gated("GFFT5")
+        let tone = gfft.toneList[0]
+        let expected = gfft.expectedDb(at: tone.hz)
+        let freq = tone.hz
+        let targetBin = Int((freq * Double(N) / sampleRate).rounded())  // 46, for the message
+        let amplitude = Float(tone.amplitude)
         let sampleCount = Int(sampleRate * 0.4)
-        let freq = Double(targetBin) * sampleRate / Double(N)
 
         var signal = [Float](repeating: 0, count: sampleCount)
         for i in 0..<sampleCount {
@@ -181,8 +191,7 @@ struct GatedFFTParityTests {
         let (mags, freqs) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
         let swiftDB = magnitudeAtFrequency(Float(freq), magnitudes: mags, frequencies: freqs)!
 
-        // Python compute_gated_fft reports -49.70 dB for this signal.
-        #expect(abs(swiftDB - (-49.70)) < 1.0,
-                "bin 46: Swift=\(swiftDB) dB, Python=-49.70 dB — difference > 1 dB")
+        #expect(abs(swiftDB - expected) < Self.tol,
+                "bin \(targetBin): Swift=\(swiftDB) dB, oracle=\(expected) dB — difference > \(Self.tol) dB")
     }
 }
