@@ -692,6 +692,12 @@ extension TapToneAnalyzer {
             chunk.append(contentsOf: Array(repeating: Float(0), count: fftSize - chunk.count))
         }
 
+        // Diagnostic for the alignment family (#7/#3/#5): fingerprint the buffer on both
+        // sides of the alignment step, so a cross-edition comparison can say whether the
+        // editions captured the same samples, aligned them differently, or differ only in
+        // the arithmetic afterwards. Inert unless CaptureProbe.enabled.
+        CaptureProbe.record(buffer: samples, window: chunk)
+
         // Compute FFT with the SAME rectangular window and same fftSize as the
         // live FFT path so the resulting spectrum is bin-compatible with the
         // continuous FFT frames (and with capturedTaps entries from the legacy
