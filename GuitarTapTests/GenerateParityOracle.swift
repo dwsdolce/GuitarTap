@@ -74,7 +74,8 @@ struct GenerateParityOracleTests {
         _ sut: TapToneAnalyzer
     ) -> [String: (frequency: Float, magnitude: Float, quality: Float?)] {
         var out: [String: (frequency: Float, magnitude: Float, quality: Float?)] = [:]
-        for (role, mode) in [("air", GuitarMode.air), ("top", .top), ("back", .back)] {
+        let roles: [(String, GuitarMode)] = [("air", .air), ("top", .top), ("back", .back)]
+        for (role, mode) in roles {
             if let peak = sut.getPeak(for: mode) {
                 out[role] = (peak.frequency, peak.magnitude, peak.quality)
             }
@@ -171,7 +172,8 @@ struct GenerateParityOracleTests {
                           let rowPeaks = row["peaks"] as? [[String: Any]] else { return outRow }
                     let modePeaks = sut.tapEntries[index].resolvedModePeaks()
                     var byRole: [String: (frequency: Float, magnitude: Float, quality: Float?)] = [:]
-                    for (role, mode) in [("air", GuitarMode.air), ("top", .top), ("back", .back)] {
+                    let roles: [(String, GuitarMode)] = [("air", .air), ("top", .top), ("back", .back)]
+                    for (role, mode) in roles {
                         if let peak = modePeaks[mode] {
                             byRole[role] = (peak.frequency, peak.magnitude, peak.quality)
                         }

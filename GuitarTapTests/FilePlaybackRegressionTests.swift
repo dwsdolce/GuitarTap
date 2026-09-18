@@ -360,15 +360,37 @@ struct FilePlaybackRegressionTests {
     // Per-tap expected values: (airFreq, airMag, topFreq, topMag, backFreq, backMag)
     // Taps 1 and 7 pin Back at ~296.5 Hz rather than ~240.6 - real behaviour of the shared
     // selection path on this fixture, pinned deliberately (see _perTapNote in the oracle).
-    private static let guitarPerTap: [(airFreq: Float, airMag: Float, topFreq: Float, topMag: Float, backFreq: Float, backMag: Float)] =
-        (g2Case.perTap ?? []).map { row in
-            (airFreq: row.peaks.first { $0.role == "air" }?.frequency ?? 0,
-             airMag:  row.peaks.first { $0.role == "air" }?.magnitude ?? 0,
-             topFreq: row.peaks.first { $0.role == "top" }?.frequency ?? 0,
-             topMag:  row.peaks.first { $0.role == "top" }?.magnitude ?? 0,
-             backFreq: row.peaks.first { $0.role == "back" }?.frequency ?? 0,
-             backMag:  row.peaks.first { $0.role == "back" }?.magnitude ?? 0)
+    private typealias PerTapRow = (airFreq: Float, airMag: Float,
+                                   topFreq: Float, topMag: Float,
+                                   backFreq: Float, backMag: Float)
+
+    /// One oracle `perTap` row, as the tuple the assertions below expect.
+    ///
+    /// Written out in annotated steps rather than as a single tuple literal: six optional
+    /// chains with `??` defaults in one expression is more than the type checker will solve
+    /// in reasonable time (it was the literal that produced "unable to type-check this
+    /// expression in reasonable time").
+    private static func perTapRow(_ row: ParityOracle.TapRow) -> PerTapRow {
+        func peak(_ role: String) -> ParityOracle.Peak? {
+            row.peaks.first(where: { $0.role == role })
         }
+        let air: ParityOracle.Peak? = peak("air")
+        let top: ParityOracle.Peak? = peak("top")
+        let back: ParityOracle.Peak? = peak("back")
+
+        let airFreq: Float = air?.frequency ?? 0
+        let airMag: Float = air?.magnitude ?? 0
+        let topFreq: Float = top?.frequency ?? 0
+        let topMag: Float = top?.magnitude ?? 0
+        let backFreq: Float = back?.frequency ?? 0
+        let backMag: Float = back?.magnitude ?? 0
+
+        return (airFreq: airFreq, airMag: airMag,
+                topFreq: topFreq, topMag: topMag,
+                backFreq: backFreq, backMag: backMag)
+    }
+
+    private static let guitarPerTap: [PerTapRow] = (g2Case.perTap ?? []).map(perTapRow)
 
     /// REG-G2: Generic guitar 8-tap — validates averaged and per-tap Air/Top/Back.
     ///
