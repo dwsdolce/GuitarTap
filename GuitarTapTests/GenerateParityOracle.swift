@@ -358,11 +358,17 @@ struct GenerateParityOracleTests {
 
         // Tolerances are hand-written, not computed, but they still round-trip through
         // Double — so 0.03 re-serialises as 0.029999999999999999 and churns the diff on
-        // every regeneration. Round them like everything else.
-        for key in ["tolerances", "selfTolerances"] {
+        // every regeneration. Re-round them through the shortest decimal that reproduces
+        // the value, the same treatment the computed values get.
+        //
+        // NOT by rounding to a fixed number of decimal places: the parity bar is now
+        // 1e-07 for ringOutSec and 1e-05 for q, and rounding those to 5 dp would silently
+        // write 0 — a bar of zero on values that cannot be zero, which would fail every
+        // run and look like a real finding.
+        for key in ["tolerances", "selfTolerances", "bootstrapTolerances"] {
             if var block = root[key] as? [String: Any] {
                 for (k, v) in block {
-                    if let d = v as? Double { block[k] = (d * 100_000).rounded() / 100_000 }
+                    if let d = v as? Double { block[k] = Double(String(d)) ?? d }
                 }
                 root[key] = block
             }
