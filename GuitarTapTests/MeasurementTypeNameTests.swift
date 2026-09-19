@@ -70,4 +70,30 @@ struct MeasurementTypeNameTests {
         let m = TapToneMeasurement(peaks: [], spectrum: snap(nil))
         #expect(m.measurementTypeShortName == "—")
     }
+
+    // ── Every type maps to its single word ──
+
+    /// The cases above cover the resolution *chain*; this covers the *mapping*, so a new or renamed
+    /// MeasurementType cannot silently resolve to the wrong word in the Details pane.
+    @Test(arguments: [(MeasurementType.acoustic, "Acoustic"),
+                      (.classical, "Classical"),
+                      (.flamenco, "Flamenco"),
+                      (.generic, "Generic"),
+                      (.plate, "Plate"),
+                      (.brace, "Brace")])
+    func everyTypeResolvesToItsShortName(type: MeasurementType, expected: String) {
+        let m = TapToneMeasurement(peaks: [], spectrum: snap(type))
+        #expect(m.measurementTypeShortName == expected)
+    }
+
+    // ── The material flag reads the same resolution ──
+
+    /// `isMaterial` resolves through the same snapshot chain, so it is pinned here too: a brace
+    /// measurement whose type lives only in the longitudinal snapshot must still read as material.
+    @Test func materialFlagResolvesFromTheSameSnapshot() {
+        let brace = TapToneMeasurement(peaks: [], longitudinalSnapshot: snap(.brace))
+        #expect(brace.isMaterial)
+        let guitar = TapToneMeasurement(peaks: [], spectrum: snap(.generic))
+        #expect(!guitar.isMaterial)
+    }
 }

@@ -17,7 +17,7 @@
 //  Both Swift and Python test suites use the same WAV files and expected
 //  values so that passing both suites guarantees cross-platform parity.
 //
-//  Test plan coverage: REG-G1, REG-B1, REG-G2
+//  Test plan coverage: REG-G1, REG-B1, REG-G2, REG-P1, REG-P2, REG-B2
 //
 // @parity test/file-playback
 
@@ -49,6 +49,19 @@ private let braceExpectedFrequency: Float = braceExpectedPeak.frequency
 private let braceExpectedMagnitude: Float = braceExpectedPeak.magnitude
 private let braceExpectedQ: Float = braceExpectedPeak.q ?? 0
 private let braceTapThreshold: Float = braceCase.settings.tapDetectionThreshold
+
+// REG-B2 — the brace counterpart to REG-P2: three taps, averaged. Captured live 2026-09-19 to
+// close the gap that let a claimed 2 dB Swift/Python divergence sit unexamined for two months
+// (project issue #5) — REG-P2 pinned PLATE multi-tap and REG-B1 is single-tap brace, so brace
+// averaging was exercised by nothing. Deliberately harder than the other material fixtures: the
+// UMIK-1 is on its 18 dB gain path, so the peak sits at -65.5 dB against a -63.9 dB threshold.
+private let brace3Case = ParityOracle.playback("REG-B2")
+private let brace3ExpectedPeak = brace3Case.peak("longitudinal")
+private let brace3ExpectedFrequency: Float = brace3ExpectedPeak.frequency
+private let brace3ExpectedMagnitude: Float = brace3ExpectedPeak.magnitude
+private let brace3ExpectedQ: Float = brace3ExpectedPeak.q ?? 0
+private let brace3TapThreshold: Float = brace3Case.settings.tapDetectionThreshold
+private let brace3TapCount: Int = brace3Case.settings.numberOfTaps ?? 3
 // Swift MINTS the oracle, so these assert at the same-edition bar — zero. The values in
 // the file are the exact Floats this code produced, stored as the shortest decimal that
 // recovers them, so equality is exact and any movement is a real change in the DSP.
@@ -209,6 +222,42 @@ struct FilePlaybackRegressionTests {
     //   3. The dominant peak frequency matches the .guitartap reference ± 1 Hz
     //   4. The dominant peak magnitude matches the reference ± 1 dB
     //   5. The dominant peak Q factor matches the reference ± 1
+    @Test func REG_B2_braceThreeTaps_averagesToExpectedPeak() async throws {
+        let stem = "brace-3-tap-umik-1-mac-algo-test-1789854214"
+        guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
+            Issue.record("\(stem).wav not found in test bundle")
+            return
+        }
+        let calURL = testBundle.url(forResource: "7108913", withExtension: "txt")
+
+        let sut = TapToneAnalyzer.forTesting()
+        sut.tapDetectionThreshold = brace3TapThreshold
+        try await sut.playFileForTesting(url: url, measurementType: .brace,
+                                         numberOfTaps: brace3TapCount, calibrationURL: calURL)
+
+        #expect(sut.materialTapPhase == .complete,
+                "materialTapPhase should be .complete, got \(sut.materialTapPhase)")
+        #expect(sut.isMeasurementComplete, "isMeasurementComplete should be true")
+        #expect(!sut.longitudinalPeaks.isEmpty, "longitudinalPeaks should not be empty")
+
+        // The peak must come off the AVERAGED spectrum, not the last tap — the same rule REG-P2
+        // pins for plate. The three taps here differ by ~6 dB, so a regression to last-tap
+        // selection moves this well outside the bar.
+        guard let dominant = sut.selectedLongitudinalPeak ?? sut.longitudinalPeaks.first else { return }
+
+        let freqDelta = abs(dominant.frequency - brace3ExpectedFrequency)
+        #expect(freqDelta <= freqTolerance,
+                "Peak frequency: expected \(brace3ExpectedFrequency) Hz ±\(freqTolerance), got \(dominant.frequency) Hz (delta \(freqDelta))")
+
+        let magDelta = abs(dominant.magnitude - brace3ExpectedMagnitude)
+        #expect(magDelta <= magTolerance,
+                "Peak magnitude: expected \(brace3ExpectedMagnitude) dB ±\(magTolerance), got \(dominant.magnitude) dB (delta \(magDelta))")
+
+        let qDelta = abs(dominant.quality - brace3ExpectedQ)
+        #expect(qDelta <= qTolerance,
+                "Peak Q factor: expected \(brace3ExpectedQ) ±\(qTolerance), got \(dominant.quality) (delta \(qDelta))")
+    }
+
     @Test func REG_B1_braceSingleTap_producesExpectedPeak() async throws {
         let stem = "brace-umik-1-swift-mac-1778816093"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
