@@ -62,10 +62,23 @@ struct CaptureProbeTests {
         // for this eight-tap file where Python produces eight, which is a finding to record
         // rather than a failure to trip over — a diagnostic that goes red tells you less than
         // one that reports.
-        let records = CaptureProbe.records
-        if records.count != taps {
-            print("CAPTURE_PROBE_NOTE captures (\(records.count)) != taps (\(taps))")
+        print("CAPTURE_PROBE_SELF analyzer=\(String(UInt(bitPattern: ObjectIdentifier(sut).hashValue) % 10000))")
+        print("CAPTURE_PROBE_COUNTS capturedTaps=\(sut.capturedTaps.count) "
+              + "tapEntries=\(sut.tapEntries.count) numberOfTaps=\(taps) "
+              + "complete=\(sut.isMeasurementComplete)")
+
+        // Only this analyzer's captures. The test bundle is HOSTED IN THE APP, so the app's
+        // own TapToneAnalyzer is alive alongside this one and occasionally completes its own
+        // gated capture mid-test. A static probe pools both, which reads as a phantom ninth
+        // capture in an eight-tap measurement — it is a second object, not a defect.
+        let selfID = String(UInt(bitPattern: ObjectIdentifier(sut).hashValue) % 10000)
+        let foreign = CaptureProbe.records.filter { $0.instance != selfID }
+        if !foreign.isEmpty {
+            print("CAPTURE_PROBE_NOTE ignored \(foreign.count) capture(s) from another analyzer instance")
         }
+        let records = CaptureProbe.records.filter { $0.instance == selfID }
+        #expect(records.count == taps,
+                "this analyzer should capture exactly one window per tap")
 
         struct Document: Codable {
             let edition: String
@@ -92,8 +105,10 @@ struct CaptureProbeTests {
         try data.write(to: Self.outputURL)
         print("CAPTURE_PROBE_WROTE \(Self.outputURL.path)")
         for (index, record) in records.enumerated() {
-            print("  tap \(index + 1): buffer \(record.bufferCount) \(record.bufferHash)"
-                  + "  window \(record.windowCount) \(record.windowHash)")
+            let aligned = record.bufferHash == record.windowHash ? "NO-ONSET" : "aligned "
+            print("  capture \(index + 1): \(record.accepted ? "ACCEPTED" : "DROPPED ") \(aligned)"
+                  + "  taps \(record.tapsBefore)->\(record.tapsAfter)"
+                  + "  buffer \(record.bufferHash.prefix(8))  window \(record.windowHash.prefix(8))")
         }
     }
 }

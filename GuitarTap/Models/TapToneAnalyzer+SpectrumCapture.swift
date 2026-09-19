@@ -696,7 +696,8 @@ extension TapToneAnalyzer {
         // sides of the alignment step, so a cross-edition comparison can say whether the
         // editions captured the same samples, aligned them differently, or differ only in
         // the arithmetic afterwards. Inert unless CaptureProbe.enabled.
-        CaptureProbe.record(buffer: samples, window: chunk)
+        let probeIndex = CaptureProbe.record(buffer: samples, window: chunk, tapsBefore: capturedTaps.count,
+            instance: String(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10000))
 
         // Compute FFT with the SAME rectangular window and same fftSize as the
         // live FFT path so the resulting spectrum is bin-compatible with the
@@ -717,6 +718,7 @@ extension TapToneAnalyzer {
         let frequencies = fftAnalyzer.frequencies
 
         capturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: Date()))
+        CaptureProbe.markAccepted(probeIndex, tapsAfter: capturedTaps.count)   // diagnostic (#7)
         let peakDb = magnitudes.max() ?? -100
         // DIAG: spectrum fingerprint — sum of first 100 magnitude bins
         let diagSpecHash: Float = magnitudes.count >= 100 ? magnitudes[0..<100].reduce(0, +) : 0
