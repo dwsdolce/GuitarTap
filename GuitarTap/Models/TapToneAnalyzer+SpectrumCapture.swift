@@ -910,6 +910,14 @@ extension TapToneAnalyzer {
             preOnsetSamples: Int(sampleRate * Self.preOnsetDuration)
         )
 
+        // Diagnostic for the material multi-tap divergence (#5): fingerprint the buffer on
+        // both sides of the alignment step, the same three-way split the guitar path uses —
+        // a differing buffer puts the divergence in detection, a matching buffer with a
+        // differing window puts it in alignment, both matching puts it in the arithmetic.
+        CaptureProbe.record(buffer: samples, window: aligned,
+                            tapsBefore: materialCapturedTaps.count,
+                            instance: String(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10000))
+
         let (magnitudes, frequencies) = fftAnalyzer.computeGatedFFT(samples: aligned, sampleRate: sampleRate)
 
         guard !magnitudes.isEmpty else {

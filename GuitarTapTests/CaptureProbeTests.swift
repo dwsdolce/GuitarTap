@@ -14,11 +14,13 @@
 //
 //  Compare against the Python edition's file (guitar_tap Tooling/capture-probe.py) with
 //  guitar-tap-project/tooling/compare-capture-probes.py.
-//  @parity test/capture-probe
+//  @parity tooling/capture-probe
 
 import Foundation
 import Testing
 @testable import GuitarTap
+
+private final class ProbeAnchor2 {}
 
 @Suite(.serialized)
 struct CaptureProbeTests {
@@ -33,6 +35,46 @@ struct CaptureProbeTests {
         }
         return URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("capture-probe-swift.json")
+    }
+
+    /// Material multi-tap probe for #5. Takes the WAV path from CAPTURE_PROBE_WAV so it can
+    /// run against a capture that is not a bundled fixture; the sandboxed test host may refuse
+    /// a path outside its container, which the test reports rather than hiding.
+    @Test @MainActor
+    func writeMaterialCaptureFingerprints() async throws {
+        guard Self.enabled,
+              let path = ProcessInfo.processInfo.environment["CAPTURE_PROBE_WAV"], !path.isEmpty
+        else { return }
+        let url = URL(fileURLWithPath: path)
+        guard FileManager.default.isReadableFile(atPath: path) else {
+            print("CAPTURE_PROBE_NOTE cannot read \(path) — sandbox, or missing")
+            return
+        }
+
+        CaptureProbe.reset()
+        CaptureProbe.enabled = true
+        defer { CaptureProbe.enabled = false }
+
+        let sut = TapToneAnalyzer.forTesting()
+        let env = ProcessInfo.processInfo.environment
+        sut.tapDetectionThreshold = Float(env["CAPTURE_PROBE_TAP_DB"] ?? "") ?? -49.037598
+        sut.peakMinThreshold = Float(env["CAPTURE_PROBE_PEAKMIN_DB"] ?? "") ?? -78
+        let restore = TapDisplaySettings.measureFlc
+        TapDisplaySettings.measureFlc = false
+        defer { TapDisplaySettings.measureFlc = restore }
+
+        try await sut.playFileForTesting(
+            url: url, measurementType: .brace, numberOfTaps: 3,
+            calibrationURL: Bundle(for: ProbeAnchor2.self).url(forResource: "7108913", withExtension: "txt"))
+
+        let selfID = String(UInt(bitPattern: ObjectIdentifier(sut).hashValue) % 10000)
+        let mine = CaptureProbe.records.filter { $0.instance == selfID }
+        print("MATERIAL_PROBE captures=\(mine.count) phase=\(sut.materialTapPhase) "
+              + "peak=\(sut.selectedLongitudinalPeak.map { "\($0.frequency) Hz \($0.magnitude) dB" } ?? "none")")
+        for (index, record) in mine.enumerated() {
+            print("  capture \(index + 1): buffer \(record.bufferCount) \(record.bufferHash.prefix(8))"
+                  + "  window \(record.windowCount) \(record.windowHash.prefix(8))")
+        }
     }
 
     @Test @MainActor

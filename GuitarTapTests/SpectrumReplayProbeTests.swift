@@ -12,7 +12,9 @@
 //  xcodebuild, which does not forward the plain environment to a hosted test runner).
 //  Prints SPECTRUM_PROBE_WROTE <path> — the sandboxed test host cannot write where a shell
 //  would choose, so the test picks the path and reports it.
-//  @parity test/spectrum-replay-probe
+//  @parity none — Swift-only by nature: it compares this edition's replay against the
+//  spectrum stored in a .guitartap written by this edition's live capture. The other
+//  editions have no such archive to check themselves against.
 
 import Foundation
 import Testing
