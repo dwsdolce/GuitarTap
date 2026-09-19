@@ -817,15 +817,25 @@ extension RealtimeFFTAnalyzer {
                                         "Failed to get frame count or file is empty: status \(status)"])
         }
 
-        // ── Set client format to mono Float32 at the file's sample rate ─────
+        // ── Set client format to the file's channel count, Float32 ──────────
+        //
+        // NOT mono. This asked ExtAudioFile for one channel and assumed it would
+        // downmix; it does not — it hands back the FIRST channel and discards the
+        // rest. Every stereo recording was therefore analysed as its left channel
+        // alone, while Python and web averaged both, so the editions were measuring
+        // different audio on exactly the stereo (guitar) fixtures. Read every channel
+        // and average them here instead, which is what the old comment claimed was
+        // happening. See guitar-tap-project issue #7.
+        let channels = max(Int(fileChannels), 1)
+        let bytesPerFrame = UInt32(4 * channels)
         var clientFormat = AudioStreamBasicDescription(
             mSampleRate: fileSampleRate,
             mFormatID: kAudioFormatLinearPCM,
             mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
-            mBytesPerPacket: 4,
+            mBytesPerPacket: bytesPerFrame,
             mFramesPerPacket: 1,
-            mBytesPerFrame: 4,
-            mChannelsPerFrame: 1,    // mono — ExtAudioFile handles downmix
+            mBytesPerFrame: bytesPerFrame,
+            mChannelsPerFrame: UInt32(channels),
             mBitsPerChannel: 32,
             mReserved: 0
         )
@@ -839,9 +849,9 @@ extension RealtimeFFTAnalyzer {
                                         "Failed to set client format: status \(status)"])
         }
 
-        // ── Read all frames ─────────────────────────────────────────────────
+        // ── Read all frames (interleaved, every channel) ────────────────────
         let frameCount = Int(totalFrames)
-        var monoSamples = [Float](repeating: 0, count: frameCount)
+        var interleaved = [Float](repeating: 0, count: frameCount * channels)
         var framesRead = 0
 
         // Read in chunks to handle any partial reads
@@ -853,11 +863,11 @@ extension RealtimeFFTAnalyzer {
             let bufferList = AudioBufferList.allocate(maximumBuffers: 1)
             defer { free(bufferList.unsafeMutablePointer) }
 
-            monoSamples.withUnsafeMutableBufferPointer { ptr in
+            interleaved.withUnsafeMutableBufferPointer { ptr in
                 bufferList[0] = AudioBuffer(
-                    mNumberChannels: 1,
-                    mDataByteSize: UInt32(framesToRead * 4),
-                    mData: UnsafeMutableRawPointer(ptr.baseAddress! + framesRead)
+                    mNumberChannels: UInt32(channels),
+                    mDataByteSize: UInt32(framesToRead * channels * 4),
+                    mData: UnsafeMutableRawPointer(ptr.baseAddress! + framesRead * channels)
                 )
             }
 
@@ -873,9 +883,30 @@ extension RealtimeFFTAnalyzer {
             framesRead += Int(frameCountMutable)
         }
 
-        // Trim if file was shorter than reported (shouldn't happen, but be safe)
-        if framesRead < frameCount {
-            monoSamples = Array(monoSamples.prefix(framesRead))
+        // ── Downmix: average the channels ───────────────────────────────────
+        //
+        // Summed in Float and divided by the channel count, matching Python's
+        // data.mean(axis=1) on a float32 array and the web's decodeWav downmix. For
+        // two channels the divide is exact, so all three editions produce the same
+        // samples for the same file.
+        //
+        // Averaging is the right rule, not merely a consistent one: a stereo recording
+        // is two channels of the same audio. Where the channels are independently
+        // quantised copies of one mono source — which is what the stereo fixtures here
+        // are, differing by whole 16-bit LSBs in a quarter of their samples — averaging
+        // also cancels half of that quantisation noise, so it is strictly better than
+        // picking a channel.
+        var monoSamples = [Float](repeating: 0, count: framesRead)
+        if channels == 1 {
+            monoSamples = Array(interleaved.prefix(framesRead))
+        } else {
+            let scale = 1.0 / Float(channels)
+            for frame in 0..<framesRead {
+                var sum: Float = 0
+                let base = frame * channels
+                for channel in 0..<channels { sum += interleaved[base + channel] }
+                monoSamples[frame] = sum * scale
+            }
         }
 
         gtLog("🎤 readAudioFileAsMonoFloat32: \(framesRead) frames, \(fileChannels) ch, \(Int(fileSampleRate)) Hz (via ExtAudioFile)")

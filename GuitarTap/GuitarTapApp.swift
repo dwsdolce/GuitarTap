@@ -233,11 +233,39 @@ struct GuitarTapApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
 
+    /// True when this process was launched only to HOST a test bundle.
+    ///
+    /// `GuitarTapTests` is a hosted bundle, so running the tests launches this app —
+    /// which would otherwise build the full UI, construct a live `TapToneAnalyzer`,
+    /// open the microphone, and run 65 536-point FFTs on room audio alongside the
+    /// suite being measured. That instance shares the process with the tests: the same
+    /// isolated `TapDisplaySettings` suite, the same CPU, and (until the probe was
+    /// scoped) the same static diagnostics, where its captures read as phantom taps in
+    /// an eight-tap measurement. See guitar-tap-project issue #7.
+    ///
+    /// `XCTestConfigurationFilePath` is set by the test runner and never on a normal
+    /// launch — the same signal `TapDisplaySettings` already uses to redirect storage.
+    private static let isHostingTests =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
+    /// The app's real UI, or nothing at all when hosting tests.
+    ///
+    /// Tests build their own analyzers via `forTesting()` and never reach for the
+    /// app's, so suppressing this costs them nothing.
+    @ViewBuilder
+    private var rootView: some View {
+        if Self.isHostingTests {
+            Color.clear
+        } else {
+            TapToneAnalysisView()
+        }
+    }
+
     var body: some Scene {
         #if os(macOS)
         // On macOS, use Window instead of WindowGroup to prevent multiple instances
         Window(appTitle, id: "main") {
-            TapToneAnalysisView()
+            rootView
                 .onOpenURL { url in
                     NotificationCenter.default.post(
                         name: .openMeasurementFile,
@@ -271,7 +299,7 @@ struct GuitarTapApp: App {
         // opens a fresh copy of the app.  The wildcard set routes all URLs
         // to the existing scene when one is already running.
         WindowGroup {
-            TapToneAnalysisView()
+            rootView
                 .onOpenURL { url in
                     NotificationCenter.default.post(
                         name: .openMeasurementFile,
