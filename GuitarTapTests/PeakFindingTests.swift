@@ -111,6 +111,32 @@ struct FindPeaksTests {
     // F13: A spectrum with three distinct peaks in wide mode ranges returns all three.
     // Uses upperModes (1000 Hz), ringMode (700 Hz), and dipole (400 Hz) — all in
     // ideal ranges with sufficient bin density for the ±5-bin window check.
+    /// Two tones of UNEQUAL amplitude: a threshold between them keeps only the stronger.
+    ///
+    /// `multipleTones_detectsAll` uses near-equal amplitudes and one threshold, so it cannot show
+    /// the threshold discriminating between peaks. Moved here from the frozen-recalc suite
+    /// (project issue #8), where it was the only coverage of this case in any edition but sat under
+    /// a slug about recalculation — it tests detection, not recalculation.
+    @Test func raisedThreshold_dropsTheWeakerOfTwoTones() {
+        let sut = makeSUT()
+        sut.minFrequency = 50
+        sut.maxFrequency = 2000
+
+        let strong = makeSpectrum(peakHz: 400, peakDB: -20, halfWidthHz: 15)
+        let weak   = makeSpectrum(peakHz: 900, peakDB: -55, halfWidthHz: 15)
+        let (mags, freqs) = combineSpectra(strong, weak)
+
+        sut.peakMinThreshold = -60
+        let low = sut.findPeaks(magnitudes: mags, frequencies: freqs)
+        #expect(low.contains { abs($0.frequency - 400) < 20 }, "strong tone missing at the low threshold")
+        #expect(low.contains { abs($0.frequency - 900) < 20 }, "weak tone missing at the low threshold")
+
+        sut.peakMinThreshold = -40
+        let high = sut.findPeaks(magnitudes: mags, frequencies: freqs)
+        #expect(high.contains { abs($0.frequency - 400) < 20 }, "strong tone should survive the raised threshold")
+        #expect(!high.contains { abs($0.frequency - 900) < 20 }, "weak tone should be dropped by the raised threshold")
+    }
+
     @Test func multipleTones_detectsAll() {
         let sut = makeSUT()
         sut.peakMinThreshold = -60
