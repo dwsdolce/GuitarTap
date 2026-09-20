@@ -73,19 +73,35 @@ struct TapDisplaySettings {
     // defaults. Tests can redirect it to an isolated named suite so
     // they never touch real user data:
     //
-    //   TapDisplaySettings.defaults = UserDefaults(suiteName: "com.guitartap.tests")!
+    //   TapDisplaySettings.defaults = UserDefaults(suiteName: "com.guitartap.tests.<pid>")!
     //
     static var defaults: UserDefaults = {
-        // When running under XCTest, use an isolated suite so tests never
-        // pollute the user's real UserDefaults.
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
-            let suiteName = "com.guitartap.tests"
+        // When running under XCTest, use an isolated suite so tests never pollute the user's real
+        // UserDefaults — and a PER-PROCESS one, so concurrent test runs never wipe each other's.
+        // See TestSandbox for what the shared name cost.
+        if TestSandbox.isActive {
+            let suiteName = TestSandbox.name("com.guitartap.tests")
             let isolated = UserDefaults(suiteName: suiteName)!
             isolated.removePersistentDomain(forName: suiteName)
+            isolatedSuiteName = suiteName
+            TestSandbox.reapStaleSandboxes(base: "com.guitartap.tests")
+            // Per-process names would otherwise leave one plist behind per run, forever.
+            atexit { TapDisplaySettings.removeIsolatedSuite() }
             return isolated
         }
         return .standard
     }()
+
+    /// The isolated suite this process claimed, so `atexit` can remove it. Test-only.
+    nonisolated(unsafe) private static var isolatedSuiteName: String?
+
+    /// Remove this process's isolated suite. Registered with `atexit` when the suite is created.
+    nonisolated static func removeIsolatedSuite() {
+        guard let name = isolatedSuiteName else { return }
+        let suite = UserDefaults(suiteName: name)
+        suite?.removePersistentDomain(forName: name)
+        suite?.synchronize()   // cfprefsd flushes lazily; at exit there is no later.
+    }
 
     // MARK: - UserDefaults Keys
 

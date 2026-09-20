@@ -57,9 +57,11 @@ extension TapToneAnalyzer {
     /// process environment) a temporary directory is used instead, so tests
     /// never read from or write to the user's real measurements file.
     static var measurementsFileURL: URL {
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+        if TestSandbox.isActive {
+            // Per-process, so concurrent test runs never share or delete each other's measurements
+            // file — see TestSandbox.
             return FileManager.default.temporaryDirectory
-                .appendingPathComponent("com.guitartap.tests")
+                .appendingPathComponent(TestSandbox.name("com.guitartap.tests"))
                 .appendingPathComponent("saved_measurements.json")
         }
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
