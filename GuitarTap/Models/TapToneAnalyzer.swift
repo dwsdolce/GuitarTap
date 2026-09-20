@@ -971,33 +971,39 @@ final class TapToneAnalyzer: ObservableObject {
     /// The dominant FLC peak stored when the FLC phase finalises.
     @Published var selectedFlcPeak: ResonantPeak?
 
-    // MARK: - Effective Peak Selection (Two-Layer Resolution)
+    // MARK: - Effective Peak Selection
+    //
+    // `selected<Phase>Peak` is the identified peak. The resolvers below used to fall back to
+    // `autoSelected<Phase>PeakID`, but that arm was UNREACHABLE: both are assigned on adjacent
+    // lines in the phase-completion handlers, and the selected one is never nil when the auto id is
+    // set (`?? avgPeak`). Removed 2026-09-20.
+    //
+    // The `autoSelected*PeakID` properties THEMSELVES stay — they are a @Published change channel
+    // the view subscribes to (`.onReceive(tap.$autoSelectedLongitudinalPeakID)`) to widen the chart
+    // axis onto a newly identified peak. Deleting them would silently drop that behaviour.
 
     /// Resolved UUID for the longitudinal (fL) peak, applying two-layer priority.
     ///
     /// Priority order: ``selectedLongitudinalPeak``
-    /// > ``autoSelectedLongitudinalPeakID``.
     ///
     /// Views and material-property calculations should read this property rather than
     /// consulting the three underlying sources directly.
     var effectiveLongitudinalPeakID: UUID? {
-        selectedLongitudinalPeak?.id ?? autoSelectedLongitudinalPeakID
+        selectedLongitudinalPeak?.id
     }
 
     /// Resolved UUID for the cross-grain (fC) peak.
     ///
     /// Priority order: ``selectedCrossPeak``
-    /// > ``autoSelectedCrossPeakID``.
     var effectiveCrossPeakID: UUID? {
-        selectedCrossPeak?.id ?? autoSelectedCrossPeakID
+        selectedCrossPeak?.id
     }
 
     /// Resolved UUID for the FLC (torsional/twist) peak.
     ///
     /// Priority order: ``selectedFlcPeak``
-    /// > ``autoSelectedFlcPeakID``.
     var effectiveFlcPeakID: UUID? {
-        selectedFlcPeak?.id ?? autoSelectedFlcPeakID
+        selectedFlcPeak?.id
     }
 
     // MARK: - Loaded / Restored State

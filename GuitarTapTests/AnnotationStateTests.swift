@@ -302,6 +302,51 @@ struct ModeOverrideTests {
     // overlap, so the fallback returned .top for anything between 180 and 260 Hz — including a
     // plate/brace peak, which has no guitar mode at all. A real brace fL at 220 Hz reported .top.
     // Removed 2026-09-20 to match web, which never guessed.
+    // The CLEAR half of the store. Setting each of these was tested; clearing them was not — in
+    // either native edition — while web covered all three. Found 2026-09-20 by checking the web
+    // `peak-state-store` tests against native BEHAVIOUR rather than method names (project #8).
+    // A characteristic gap: whoever wrote these covered setting a thing and not unsetting it.
+    @Test func resetModeOverride_clearsOnlyThatPeaksOverride() {
+        let sut = makeSUT()
+        let kept = makePeak(frequency: 100), cleared = makePeak(frequency: 200)
+        sut.setModeOverride(.assigned("Wolf note"), for: cleared.id)
+        sut.setModeOverride(.assigned("Keep me"), for: kept.id)
+
+        sut.resetModeOverride(for: cleared.id)
+
+        #expect(sut.peakModeOverrides[cleared.id] == nil, "the targeted override is gone")
+        if case .assigned(let label) = sut.peakModeOverrides[kept.id] {
+            #expect(label == "Keep me", "the other peak's override is untouched")
+        } else {
+            Issue.record("Expected the other peak to keep its .assigned override")
+        }
+    }
+
+    @Test func resetAnnotationOffset_clearsOnlyThatPeaksOffset() {
+        let sut = makeSUT()
+        let kept = makePeak(frequency: 100), cleared = makePeak(frequency: 200)
+        sut.updateAnnotationOffset(for: cleared.id, offset: CGPoint(x: 9, y: 9))
+        sut.updateAnnotationOffset(for: kept.id, offset: CGPoint(x: 1, y: 2))
+
+        sut.resetAnnotationOffset(for: cleared.id)
+
+        #expect(sut.peakAnnotationOffsets[cleared.id] == nil, "the dragged position is gone")
+        #expect(sut.peakAnnotationOffsets[kept.id] == CGPoint(x: 1, y: 2),
+                "the other peak keeps its dragged position")
+    }
+
+    @Test func resetAllAnnotationOffsets_emptiesTheWholeStore() {
+        let sut = makeSUT()
+        let a = makePeak(frequency: 100), b = makePeak(frequency: 200)
+        sut.updateAnnotationOffset(for: a.id, offset: CGPoint(x: 1, y: 2))
+        sut.updateAnnotationOffset(for: b.id, offset: CGPoint(x: 3, y: 4))
+        #expect(sut.peakAnnotationOffsets.count == 2, "precondition")
+
+        sut.resetAllAnnotationOffsets()
+
+        #expect(sut.peakAnnotationOffsets.isEmpty, "Reset Labels returns every callout to its anchor")
+    }
+
     @Test func unclassifiedPeak_hasNoMode_evenInTheTopBackOverlap() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic

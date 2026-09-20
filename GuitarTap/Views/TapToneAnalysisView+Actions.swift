@@ -292,14 +292,16 @@ extension TapToneAnalysisView {
     /// Adds 10% padding above/below. Used when plate/brace peaks are auto-selected
     /// to ensure they're always in view even if outside the persisted default range.
     func expandFreqRangeToInclude(_ frequency: Float) {
+        // Material only: a guitar range is the user's analysis window and is not widened for them.
         guard !TapDisplaySettings.measurementType.isGuitar else { return }
-        let padding = frequency * 0.10
-        if frequency > maxFreq {
-            maxFreq = frequency + padding
+        // The RULE lives in DisplayRange so Python and web share it and all three can test it.
+        let widened = DisplayRange.expanded(toInclude: frequency, min: minFreq, max: maxFreq)
+        if widened.max != maxFreq {
+            maxFreq = widened.max
             maxFreqInput = String(format: "%.0f", maxFreq)
         }
-        if frequency < minFreq {
-            minFreq = max(1, frequency - padding)
+        if widened.min != minFreq {
+            minFreq = widened.min
             minFreqInput = String(format: "%.0f", minFreq)
         }
     }
