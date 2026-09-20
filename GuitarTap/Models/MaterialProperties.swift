@@ -6,10 +6,12 @@
 //  Used for evaluating tonewood quality for guitar tops, backs, and other instrument parts.
 //
 // @parity dsp/material-properties tests=test/brace,test/plate
-// @parity model/quality-colors tests=test/quality-colors — `WoodQuality.color` only. Mirrors the GuitarMode.swift pattern,
-// where the colour concern is its own slug (`model/mode-colors`) because the web extracts it into
-// its presentation layer (`src/presentation/qualityColors.ts`). See that file: hanging a colour off
-// the model enum is a layer violation the natives should shed when the theme work lands.
+// @parity model/quality-colors tests=test/quality-colors — `WoodQuality.hex` / `.color` only. Mirrors
+// the GuitarMode.swift pattern, where the colour concern is its own slug (`model/mode-colors`) because
+// the web extracts it into its presentation layer (`src/presentation/qualityColors.ts`). See that file:
+// hanging a colour off the model enum is a layer violation the natives should shed when the theme work
+// lands. The VALUES are already absolute in all three editions (#17) — that was a separate defect from
+// where they live, and it is fixed; only the layering is still outstanding.
 
 /// # MaterialProperties
 ///
@@ -534,19 +536,45 @@ enum WoodQuality: String, CaseIterable {
         }
     }
 
+    /// Display colour for quality labels and PDF report cells, as an absolute sRGB hex.
+    ///
+    /// ## Why absolute, and not `.green` / `.mint` / `.blue` / `.orange` / `.red`
+    ///
+    /// These were SwiftUI's semantic system colours until the #17 sweep. That made cross-edition
+    /// parity untestable and, in the end, untrue. A semantic colour is resolved by the OS, so what
+    /// GuitarTap draws changes when Apple revises the palette — and macOS 26 did revise it. Swift
+    /// moved to `.blue = #0088FF` and `.orange = #FF8D28` while Python and the web still pinned the
+    /// previous `#007AFF` and `#FF9500`. Three editions that all claimed to agree rendered two
+    /// visibly different blues and oranges on the same white surface: the macOS app, the Python app,
+    /// and the PDF report the web generates.
+    ///
+    /// Nothing caught it, and nothing could have: the old test asserted `color == .green`, which
+    /// stays true whatever hue the OS hands back. This parity group exists *because* a colour once
+    /// drifted with nothing to catch it, so the test has to pin the hue itself.
+    ///
+    /// The hue carries no meaning here — it only has to separate five grades and be the same in
+    /// every edition. So the value is fixed, and `hex` is what the paired Swift/Python/web tests
+    /// compare. The theme work (THEME-SPEC.md) would have made these absolute in any case; it owns
+    /// *scheme selection* — a second table for dark surfaces — not the values below.
+    ///
+    /// Mirrors Python `WoodQuality.color` and web `WOOD_QUALITY_COLOR.light`, which already carried
+    /// exactly these values.
+    var hex: String {
+        switch self {
+        case .excellent: return "#34C759"
+        case .veryGood:  return "#00C7BE"
+        case .good:      return "#007AFF"
+        case .fair:      return "#FF9500"
+        case .poor:      return "#FF3B30"
+        }
+    }
+
     /// Display colour for quality labels and PDF report cells.
     ///
     /// Single source of truth — both the UI (`TapAnalysisResultsView`) and the PDF
     /// renderer (`PDFReportGenerator`) use this property so the two are always in sync.
-    var color: Color {
-        switch self {
-        case .excellent: return .green
-        case .veryGood:  return .mint
-        case .good:      return .blue
-        case .fair:      return .orange
-        case .poor:      return .red
-        }
-    }
+    /// Derived from ``hex`` so there is one place the value lives.
+    var color: Color { Color(sRGBHex: hex) }
 
     // MARK: - Supporting Enums
 

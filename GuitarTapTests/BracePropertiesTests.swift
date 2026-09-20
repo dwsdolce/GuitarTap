@@ -12,9 +12,18 @@
 //  Reference formula:
 //    E = 48π²ρf²L⁴ / (22.37332·t)²
 //
-//  All test fixtures are derived from a real measured brace blank:
-//    Length 556 mm, Width 20.4 mm, Thickness (Height) 29.4 mm, Mass 128 g, fL 512.3 Hz
-//    → ρ ≈ 383.8 kg/m³, EL ≈ 10.54 GPa, c ≈ 5240 m/s, specific modulus ≈ 27.46 → Excellent
+//  All test fixtures are the real measured brace blank, read out of the hub's committed
+//  measurement rather than transcribed:
+//
+//    guitar-tap-project/Tests/Brace/brace-umik-1-swift-mac-1778816093.guitartap
+//
+//    Length 556 mm, Width 20.4 mm, Thickness (Height) 29.4 mm, Mass 128 g, fL 512.6888 Hz
+//    → ρ ≈ 383.8 kg/m³, EL ≈ 10.557 GPa, c ≈ 5244 m/s, specific modulus ≈ 27.50 → Excellent
+//
+//  The expected values are the ones GuitarTap reported for that sample (see the .pdf beside
+//  the file), not numbers this suite produced. fL was 512.3 here until the #17 sweep — a
+//  transcription of the report's rounded "512.7 Hz" display that matched neither the saved
+//  measurement nor the parity oracle, both of which carry 512.6888.
 // @parity test/brace
 
 import Testing
@@ -29,7 +38,7 @@ import Foundation
 private let realBraceDimensions = MaterialDimensions(
     lengthMM: 556, widthMM: 20.4, thicknessMM: 29.4, massGrams: 128
 )
-private let realBraceFl: Float = 512.3
+private let realBraceFl: Float = 512.6888
 
 // ---------------------------------------------------------------------------
 // MARK: - Young's Modulus Tests
@@ -46,12 +55,12 @@ struct BraceYoungModulusTests {
                 "EL (\(EL/1e9) GPa) should be in 8–16 GPa range for quality spruce")
     }
 
-    // Spot-check: EL should be within 1% of the hand-calculated 10.541 GPa.
-    @Test func youngsModulusLong_realBrace_matchesKnownValue() {
+    // EL for the real blank, as GuitarTap reported it: 10.557 GPa.
+    @Test func youngsModulusLong_realBrace_matchesReportedValue() {
         let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
         let EL_GPa = props.youngsModulusLong / 1e9
-        #expect(abs(EL_GPa - 10.541) < 0.05,
-                "EL should be ≈10.54 GPa, got \(EL_GPa) GPa")
+        #expect(abs(EL_GPa - 10.557) < 0.01,
+                "EL should be ≈10.557 GPa, got \(EL_GPa) GPa")
     }
 
     // Zero thickness → guard returns 0.
@@ -120,7 +129,7 @@ struct BraceYoungModulusTests {
 @Suite("BraceSpeedOfSound")
 struct BraceSpeedOfSoundTests {
 
-    // Real blank: c ≈ 5240 m/s — well within the 4000–7000 m/s spruce range.
+    // Real blank: c ≈ 5244 m/s — well within the 4000–7000 m/s spruce range.
     @Test func speedOfSoundLong_realBrace_inExpectedRange() {
         let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
         let c = props.speedOfSoundLong
@@ -128,11 +137,11 @@ struct BraceSpeedOfSoundTests {
                 "Sound speed (\(c) m/s) should be in 4000–7000 m/s range for quality spruce")
     }
 
-    // Spot-check: c should be within 10 m/s of the hand-calculated 5240 m/s.
-    @Test func speedOfSoundLong_realBrace_matchesKnownValue() {
+    // c for the real blank, as GuitarTap reported it: 5244 m/s.
+    @Test func speedOfSoundLong_realBrace_matchesReportedValue() {
         let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
-        #expect(abs(props.speedOfSoundLong - 5240.4) < 10,
-                "c should be ≈5240 m/s, got \(props.speedOfSoundLong) m/s")
+        #expect(abs(props.speedOfSoundLong - 5244.4) < 1,
+                "c should be ≈5244 m/s, got \(props.speedOfSoundLong) m/s")
     }
 
     // speedOfSoundLong = √(youngsModulusLong / density).
@@ -167,11 +176,11 @@ struct BraceSpeedOfSoundTests {
 @Suite("BraceSpecificModulus")
 struct BraceSpecificModulusTests {
 
-    // Real blank: specific modulus ≈ 27.46 GPa/(g/cm³) → Excellent grade spruce.
-    @Test func specificModulusLong_realBrace_matchesKnownValue() {
+    // Real blank: specific modulus ≈ 27.50 GPa/(g/cm³) → Excellent grade spruce.
+    @Test func specificModulusLong_realBrace_matchesReportedValue() {
         let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
-        #expect(abs(props.specificModulusLong - 27.46) < 0.1,
-                "Specific modulus should be ≈27.46, got \(props.specificModulusLong)")
+        #expect(abs(props.specificModulusLong - 27.504) < 0.01,
+                "Specific modulus should be ≈27.50, got \(props.specificModulusLong)")
     }
 
     // specificModulusLong = youngsModulusLongGPa / densityGPerCm3
@@ -204,11 +213,11 @@ struct BraceSpecificModulusTests {
 @Suite("BraceQuality")
 struct BraceQualityTests {
 
-    // Real blank has specific modulus ≈ 27.46 (≥25) → Excellent.
+    // Real blank has specific modulus ≈ 27.50 (≥25) → Excellent.
     @Test func spruceQuality_realBrace_excellent() {
         let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
         #expect(props.spruceQuality == .excellent,
-                "Real spruce brace with specific modulus ≈27.46 should be Excellent")
+                "Real spruce brace with specific modulus ≈27.50 should be Excellent")
     }
 
     // Half the frequency → EL × ¼ → specific modulus × ¼ ≈ 6.9 → Poor (<16).
@@ -225,5 +234,50 @@ struct BraceQualityTests {
         let pHigh = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
         #expect(pHigh.spruceQuality.numericScore >= pLow.spruceQuality.numericScore,
                 "Higher fL should yield equal or better quality rating")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Radiation Ratio Tests
+//
+// R = c_L/ρ is shown in the Brace Properties panel and in the exported image in all
+// three editions, and had no test in any of them until the #17 sweep. See the matching
+// suite in PlatePropertiesTests.swift for what that cost.
+// ---------------------------------------------------------------------------
+
+@Suite("BraceRadiationRatio")
+struct BraceRadiationRatioTests {
+
+    // R = c_L / ρ.
+    @Test func radiationRatioLong_isSpeedOverDensity() {
+        let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
+        let expected = props.speedOfSoundLong / realBraceDimensions.density
+        #expect(abs(props.radiationRatioLong - expected) < 1e-4,
+                "radiationRatioLong should equal c_L / ρ; expected \(expected), got \(props.radiationRatioLong)")
+    }
+
+    // Real blank: c ≈ 5244 m/s at ρ ≈ 383.8 kg/m³ → R ≈ 13.7, inside the 10–15 m⁴/(kg·s)
+    // band quoted for guitar-top spruce.
+    @Test func radiationRatioLong_realBrace_inExpectedRange() {
+        let props = BraceProperties(dimensions: realBraceDimensions, fundamentalFrequencyLong: realBraceFl)
+        #expect(props.radiationRatioLong > 10 && props.radiationRatioLong < 15,
+                "R (\(props.radiationRatioLong)) should be in the 10–15 range for quality spruce")
+    }
+
+    // Zero density → c is 0 too, so the unguarded quotient would be 0/0.
+    @Test func radiationRatioLong_zeroDensity_returnsZeroNotNaN() {
+        let d = MaterialDimensions(lengthMM: 556, widthMM: 20.4, thicknessMM: 0, massGrams: 128)
+        let props = BraceProperties(dimensions: d, fundamentalFrequencyLong: realBraceFl)
+        #expect(d.density == 0, "fixture should have zero density")
+        #expect(!props.radiationRatioLong.isNaN, "radiationRatioLong must not be NaN at zero density")
+        #expect(props.radiationRatioLong == 0)
+    }
+
+    // Zero mass reaches the same guard by the other route.
+    @Test func radiationRatioLong_zeroMass_returnsZeroNotNaN() {
+        let d = MaterialDimensions(lengthMM: 556, widthMM: 20.4, thicknessMM: 29.4, massGrams: 0)
+        let props = BraceProperties(dimensions: d, fundamentalFrequencyLong: realBraceFl)
+        #expect(!props.radiationRatioLong.isNaN)
+        #expect(props.radiationRatioLong == 0)
     }
 }
