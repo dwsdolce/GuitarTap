@@ -147,6 +147,11 @@ struct DotLayerVsAnnotationListTests {
         let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
         let p1 = peak(100), p2 = peak(200), p3 = peak(250)
         sut.allPeaks = [p1, p2, p3]
+        // Classify them too. Production never assigns allPeaks without a classify pass in the same
+        // step, and peakMode no longer classifies a stray peak on its own — so skipping this makes
+        // every peak .unknown and the showUnknownModes filter hides all three dots.
+        let modes = GuitarMode.classifyAll([p1, p2, p3])
+        sut.identifiedModes = [p1, p2, p3].map { (peak: $0, mode: modes[$0.id] ?? .unknown) }
         sut.selectedPeakIDs = [p2.id]          // only ONE peak selected
 
         let expectedDots: [Float] = [100, 200, 250]

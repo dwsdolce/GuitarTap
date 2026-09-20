@@ -41,8 +41,9 @@ extension TapToneAnalyzer {
     /// mode ranges (e.g. classical Top/Back at 190–230 Hz) resolve to distinct
     /// modes rather than both returning `.top`.
     ///
-    /// Falls back to ``GuitarMode/classifyAll(_:guitarType:)`` on a single-element
-    /// array if the peak is not found in the current set (e.g. a stale reference).
+    /// A peak with no entry in ``identifiedModes`` resolves to `.unknown`. It is NOT classified
+    /// on its own: one peak cannot compete for a band, so that answer was `.top` for anything in
+    /// the Top/Back overlap. Mirrors web's `modeByPeak.get(id) ?? 'unknown'`.
     ///
     /// - Parameter peak: The peak to classify.
     /// - Returns: The ``GuitarMode`` assigned to this peak.
@@ -50,8 +51,18 @@ extension TapToneAnalyzer {
         // Override-aware, via the one shared resolver so every "which mode is this peak" surface
         // agrees. A freeform override resolves to .unknown; views detect that case separately via
         // hasManualOverride + fromDisplayName == nil.
-        let auto = identifiedModes.first(where: { $0.peak.id == peak.id })?.mode
-            ?? GuitarMode.classifyAll([peak])[peak.id] ?? .unknown
+        //
+        // A peak with no entry in identifiedModes has NO mode, and says so. It used to fall back to
+        // `GuitarMode.classifyAll([peak])` — classifying the peak ALONE — which cannot disambiguate
+        // the Top/Back overlap (Generic: Top 140–260 Hz, Back 180–300) and so returned .top for
+        // anything in it. classifyAll earns its answer by letting peaks compete for a band; handed
+        // one peak it has nothing to arbitrate.
+        //
+        // The miss is not an error case: a completed plate/brace capture leaves identifiedModes
+        // empty on purpose, because material peaks have no guitar mode. The fallback answered that
+        // with "Top" — a real brace fL at 220 Hz reported .top. Mirrors web, which has never
+        // guessed here (`modeByPeak.get(id) ?? 'unknown'`).
+        let auto = identifiedModes.first(where: { $0.peak.id == peak.id })?.mode ?? .unknown
         return GuitarMode.effectiveMode(override: peakModeOverrides[peak.id], auto: auto)
     }
 

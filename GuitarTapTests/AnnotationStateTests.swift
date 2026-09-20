@@ -237,7 +237,11 @@ struct ModeOverrideTests {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .acoustic
         defer { TapDisplaySettings.measurementType = savedType }
+        // The analyzer must KNOW the peak: effectiveModeLabel reads identifiedModes and no longer
+        // classifies a stray peak on its own (one peak cannot compete for a band — see peakMode).
         let peak = makePeak(frequency: 100)   // Air mode for acoustic
+        sut.allPeaks = [peak]
+        sut.identifiedModes = [(peak: peak, mode: GuitarMode.classifyAll([peak])[peak.id] ?? .unknown)]
 
         let label = sut.effectiveModeLabel(for: peak)
 
@@ -291,12 +295,52 @@ struct ModeOverrideTests {
     }
 
     // Clearing an override (setting .auto) reverts to auto-classification.
+    // An unclassified peak has NO mode — it is not guessed at.
+    //
+    // This used to fall back to classifying the peak ALONE (`GuitarMode.classifyAll([peak])`). One
+    // peak cannot compete for a band, and the Generic Top (140–260 Hz) and Back (180–300 Hz) ranges
+    // overlap, so the fallback returned .top for anything between 180 and 260 Hz — including a
+    // plate/brace peak, which has no guitar mode at all. A real brace fL at 220 Hz reported .top.
+    // Removed 2026-09-20 to match web, which never guessed.
+    @Test func unclassifiedPeak_hasNoMode_evenInTheTopBackOverlap() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        // 220 Hz sits in BOTH the Generic Top and Back ranges — the band where classifying a lone
+        // peak cannot arbitrate, and where the old fallback always answered .top.
+        let stray = makePeak(frequency: 220)
+        #expect(sut.identifiedModes.isEmpty, "precondition: the analyzer knows nothing about it")
+
+        #expect(sut.peakMode(for: stray) == .unknown)
+        #expect(sut.autoDetectedMode(for: stray) == .unknown)
+    }
+
+    /// The real case the fallback mis-answered: material peaks have no guitar mode. A completed
+    /// plate/brace capture sets allPeaks but leaves identifiedModes empty on purpose.
+    @Test func completedMaterialCapture_leavesItsPeakUnclassified() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .brace
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        let fL = makePeak(frequency: 220)
+        sut.allPeaks = [fL]          // as the material capture handlers do — no classify pass
+        #expect(sut.identifiedModes.isEmpty)
+
+        #expect(sut.peakMode(for: fL) == .unknown,
+                "a material peak must not be labelled with a guitar mode")
+    }
+
     @Test func clearOverride_revertsToAutoLabel() {
         let sut = makeSUT()
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .acoustic
         defer { TapDisplaySettings.measurementType = savedType }
         let peak = makePeak(frequency: 100)  // Air mode
+        sut.allPeaks = [peak]
+        sut.identifiedModes = [(peak: peak, mode: GuitarMode.classifyAll([peak])[peak.id] ?? .unknown)]
 
         sut.setModeOverride(.assigned("Temp"), for: peak.id)
         sut.setModeOverride(.auto, for: peak.id)

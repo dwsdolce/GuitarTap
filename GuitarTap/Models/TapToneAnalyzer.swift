@@ -694,14 +694,13 @@ final class TapToneAnalyzer: ObservableObject {
     /// The mode this peak would carry with **no** override — i.e. the mode a "Reset to Auto-Detected"
     /// would restore it to.
     ///
-    /// Deliberately override-blind: it reads the auto-classification (``identifiedModes``, falling
-    /// back to ``GuitarMode/classifyAll(_:guitarType:)``) and never consults ``peakModeOverrides``.
-    /// This is exactly the value the reset menu item should name — the target of the reset, not the
-    /// current label. `.unknown` is a legitimate result (a peak in no band) and is shown as such.
+    /// Deliberately override-blind: it reads the auto-classification (``identifiedModes``) and
+    /// never consults ``peakModeOverrides``. This is exactly the value the reset menu item should
+    /// name — the target of the reset, not the current label. `.unknown` is a legitimate result (a
+    /// peak in no band, or a material peak, which has no guitar mode) and is shown as such — so a
+    /// peak with no entry resolves to it rather than being classified alone. See ``peakMode(for:)``.
     func autoDetectedMode(for peak: ResonantPeak) -> GuitarMode {
-        identifiedModes.first(where: { $0.peak.id == peak.id })?.mode
-            ?? GuitarMode.classifyAll([peak])[peak.id]
-            ?? .unknown
+        identifiedModes.first(where: { $0.peak.id == peak.id })?.mode ?? .unknown
     }
 
     /// Sets or clears a mode override for a specific peak, thread-safely.
