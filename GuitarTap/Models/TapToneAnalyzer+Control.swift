@@ -496,7 +496,6 @@ extension TapToneAnalyzer {
             longitudinalPeaks = []
             autoSelectedLongitudinalPeakID = nil
             selectedLongitudinalPeak = nil
-            userSelectedLongitudinalPeakID = nil
             materialCapturedTaps = []
             currentTapCount = 0
             tapProgress = 0.0
@@ -514,7 +513,6 @@ extension TapToneAnalyzer {
             crossPeaks = []
             autoSelectedCrossPeakID = nil
             selectedCrossPeak = nil
-            userSelectedCrossPeakID = nil
             materialCapturedTaps = []
             let lCount = (longitudinalSpectrum != nil) ? numberOfTaps : 0
             currentTapCount = lCount
@@ -533,7 +531,6 @@ extension TapToneAnalyzer {
             flcPeaks = []
             autoSelectedFlcPeakID = nil
             selectedFlcPeak = nil
-            userSelectedFlcPeakID = nil
             materialCapturedTaps = []
             let lcCount = (longitudinalSpectrum != nil && crossSpectrum != nil) ? numberOfTaps * 2 : 0
             currentTapCount = lcCount
@@ -579,9 +576,6 @@ extension TapToneAnalyzer {
         selectedLongitudinalPeak        = nil
         selectedCrossPeak               = nil
         selectedFlcPeak                 = nil
-        userSelectedLongitudinalPeakID  = nil
-        userSelectedCrossPeakID         = nil
-        userSelectedFlcPeakID           = nil
         materialCapturedTaps            = []
     }
 

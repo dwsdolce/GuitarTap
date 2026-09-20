@@ -688,9 +688,6 @@ extension TapToneAnalyzer {
             .flatMap { id in allPeaks.first(where: { $0.id == id }) }
         selectedFlcPeak = measurement.selectedFlcPeakID
             .flatMap { id in allPeaks.first(where: { $0.id == id }) }
-        userSelectedLongitudinalPeakID = nil
-        userSelectedCrossPeakID = nil
-        userSelectedFlcPeakID = nil
         gtLog("  🔵 Restored longitudinal peak: \(selectedLongitudinalPeak?.frequency ?? -1) Hz")
         gtLog("  🟠 Restored cross-grain peak: \(selectedCrossPeak?.frequency ?? -1) Hz")
         gtLog("  🟣 Restored FLC peak: \(selectedFlcPeak?.frequency ?? -1) Hz")

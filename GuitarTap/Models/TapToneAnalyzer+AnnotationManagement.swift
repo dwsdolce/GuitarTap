@@ -115,73 +115,15 @@ extension TapToneAnalyzer {
         }
     }
 
-    // MARK: - Plate Peak Selection
-
-    /// Toggles `peakID` as the user-selected longitudinal peak.
-    ///
-    /// Tapping an already-selected longitudinal peak deselects it. Selecting a
-    /// new peak also clears any conflicting cross or Flc user-selection for the
-    /// same peak ID, enforcing mutual exclusion across tap-type assignments.
-    ///
-    /// - Parameter peakID: The ``ResonantPeak/id`` to select or deselect.
-    func selectLongitudinalPeak(_ peakID: UUID) {
-        if effectiveLongitudinalPeakID == peakID {
-            userSelectedLongitudinalPeakID = nil
-            selectedLongitudinalPeak = nil
-        } else {
-            userSelectedLongitudinalPeakID = peakID
-            if effectiveCrossPeakID == peakID {
-                userSelectedCrossPeakID = nil
-                selectedCrossPeak = nil
-            }
-            if effectiveFlcPeakID == peakID {
-                userSelectedFlcPeakID = nil
-                selectedFlcPeak = nil
-            }
-        }
-    }
-
-    /// Toggles `peakID` as the user-selected cross peak.
-    ///
-    /// Mirrors the mutual-exclusion logic of ``selectLongitudinalPeak(_:)``.
-    ///
-    /// - Parameter peakID: The ``ResonantPeak/id`` to select or deselect.
-    func selectCrossPeak(_ peakID: UUID) {
-        if effectiveCrossPeakID == peakID {
-            userSelectedCrossPeakID = nil
-            selectedCrossPeak = nil
-        } else {
-            userSelectedCrossPeakID = peakID
-            if effectiveLongitudinalPeakID == peakID {
-                userSelectedLongitudinalPeakID = nil
-                selectedLongitudinalPeak = nil
-            }
-            if effectiveFlcPeakID == peakID {
-                userSelectedFlcPeakID = nil
-                selectedFlcPeak = nil
-            }
-        }
-    }
-
-    /// Toggles `peakID` as the user-selected Flc peak.
-    ///
-    /// Mirrors the mutual-exclusion logic of ``selectLongitudinalPeak(_:)``.
-    ///
-    /// - Parameter peakID: The ``ResonantPeak/id`` to select or deselect.
-    func selectFlcPeak(_ peakID: UUID) {
-        if effectiveFlcPeakID == peakID {
-            userSelectedFlcPeakID = nil
-            selectedFlcPeak = nil
-        } else {
-            userSelectedFlcPeakID = peakID
-            if effectiveLongitudinalPeakID == peakID {
-                userSelectedLongitudinalPeakID = nil
-                selectedLongitudinalPeak = nil
-            }
-            if effectiveCrossPeakID == peakID {
-                userSelectedCrossPeakID = nil
-                selectedCrossPeak = nil
-            }
-        }
-    }
+    // MARK: - Plate Peak Selection — REMOVED 2026-09-20
+    //
+    // `selectLongitudinalPeak/Cross/Flc(_:)` let the user re-assign which detected peak was the
+    // fL / fC / fFLC, from L / C / FLC buttons on each peak row in the material Results panel.
+    // Those buttons were removed on 2026-04-17 (`c88e5e1`, "Make the phase detected labels
+    // inactive") and the correction path became: REDO the phase (plate) or the measurement (brace).
+    // That decision stands. The model layer outlived the UI by five months, reachable only from its
+    // own tests, and is deleted here along with the `userSelected*PeakID` tier it wrote to.
+    //
+    // Do not reintroduce it without the UI: a setter nothing can call is indistinguishable from a
+    // feature, and it was the only reason material peaks had to sit in the shared `allPeaks`.
 }

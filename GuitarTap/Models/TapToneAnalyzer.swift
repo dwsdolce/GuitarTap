@@ -25,17 +25,19 @@
 /// | Plate | L + C (+ optional FLC) | Per-phase gated FFT → Young's moduli, specific modulus |
 /// | Brace | L only | Longitudinal Young's modulus and specific modulus |
 ///
-/// ## Three-Layer Peak Selection (Plate / Brace)
+/// ## Two-Layer Peak Selection (Plate / Brace)
 ///
-/// For material measurements the app tracks three independent peak-selection signals and
-/// resolves them with strict priority order:
+/// For material measurements the app tracks two peak-selection signals and resolves them with
+/// strict priority order:
 ///
-/// 1. **User override** (`userSelectedLongitudinalPeakID` / Cross / Flc) — set when the user
-///    explicitly taps a peak row in the results panel.  Takes highest priority.
-/// 2. **Phase-stored peak** (`selectedLongitudinalPeak` / Cross / Flc) — set automatically
+/// 1. **Phase-stored peak** (`selectedLongitudinalPeak` / Cross / Flc) — set automatically
 ///    when a gated-FFT phase completes and the dominant peak is identified.
-/// 3. **Auto-selected ID** (`autoSelectedLongitudinalPeakID` / Cross / Flc) — intermediate
+/// 2. **Auto-selected ID** (`autoSelectedLongitudinalPeakID` / Cross / Flc) — intermediate
 ///    result set during HPS analysis before the phase is finalised.
+///
+/// There was a third, highest-priority layer — an explicit user override set by tapping a peak
+/// row — until 2026-09-20. Its UI was removed on 2026-04-17 and replaced by redoing the phase;
+/// see "Plate Peak Selection — REMOVED" in TapToneAnalyzer+AnnotationManagement.swift.
 ///
 /// The computed ``effectiveLongitudinalPeakID``, ``effectiveCrossPeakID``, and
 /// ``effectiveFlcPeakID`` properties expose the winning ID to views.
@@ -943,30 +945,20 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Intermediate auto-selected UUID from HPS analysis of the longitudinal phase.
     ///
-    /// Part of the three-layer peak-selection system; overridden by ``selectedLongitudinalPeak``
-    /// once the phase finalises, and further overridden by ``userSelectedLongitudinalPeakID``
-    /// if the user makes a manual choice.
+    /// Part of the two-layer peak-selection system; overridden by ``selectedLongitudinalPeak``
+    /// once the phase finalises.
     @Published var autoSelectedLongitudinalPeakID: UUID?
 
     /// The dominant longitudinal peak stored when the longitudinal phase finalises.
     ///
-    /// Second priority in the three-layer selection: used when no user override exists.
+    /// First priority: the finalised phase peak, used whenever the phase has completed.
     @Published var selectedLongitudinalPeak: ResonantPeak?
-
-    /// Explicit user override for the longitudinal peak selection.
-    ///
-    /// Highest priority in the three-layer selection.  Set when the user taps a peak row
-    /// in the results panel.
-    @Published var userSelectedLongitudinalPeakID: UUID?
 
     /// Intermediate auto-selected UUID from HPS analysis of the cross-grain phase.
     @Published var autoSelectedCrossPeakID: UUID?
 
     /// The dominant cross-grain peak stored when the cross-grain phase finalises.
     @Published var selectedCrossPeak: ResonantPeak?
-
-    /// Explicit user override for the cross-grain peak selection.
-    @Published var userSelectedCrossPeakID: UUID?
 
     /// Peaks detected from the FLC (torsional/twist) tap.
     @Published var flcPeaks: [ResonantPeak] = []
@@ -980,36 +972,33 @@ final class TapToneAnalyzer: ObservableObject {
     /// The dominant FLC peak stored when the FLC phase finalises.
     @Published var selectedFlcPeak: ResonantPeak?
 
-    /// Explicit user override for the FLC peak selection.
-    @Published var userSelectedFlcPeakID: UUID?
+    // MARK: - Effective Peak Selection (Two-Layer Resolution)
 
-    // MARK: - Effective Peak Selection (Three-Layer Resolution)
-
-    /// Resolved UUID for the longitudinal (fL) peak, applying three-layer priority.
+    /// Resolved UUID for the longitudinal (fL) peak, applying two-layer priority.
     ///
-    /// Priority order: ``userSelectedLongitudinalPeakID`` > ``selectedLongitudinalPeak``
+    /// Priority order: ``selectedLongitudinalPeak``
     /// > ``autoSelectedLongitudinalPeakID``.
     ///
     /// Views and material-property calculations should read this property rather than
     /// consulting the three underlying sources directly.
     var effectiveLongitudinalPeakID: UUID? {
-        userSelectedLongitudinalPeakID ?? selectedLongitudinalPeak?.id ?? autoSelectedLongitudinalPeakID
+        selectedLongitudinalPeak?.id ?? autoSelectedLongitudinalPeakID
     }
 
     /// Resolved UUID for the cross-grain (fC) peak.
     ///
-    /// Priority order: ``userSelectedCrossPeakID`` > ``selectedCrossPeak``
+    /// Priority order: ``selectedCrossPeak``
     /// > ``autoSelectedCrossPeakID``.
     var effectiveCrossPeakID: UUID? {
-        userSelectedCrossPeakID ?? selectedCrossPeak?.id ?? autoSelectedCrossPeakID
+        selectedCrossPeak?.id ?? autoSelectedCrossPeakID
     }
 
     /// Resolved UUID for the FLC (torsional/twist) peak.
     ///
-    /// Priority order: ``userSelectedFlcPeakID`` > ``selectedFlcPeak``
+    /// Priority order: ``selectedFlcPeak``
     /// > ``autoSelectedFlcPeakID``.
     var effectiveFlcPeakID: UUID? {
-        userSelectedFlcPeakID ?? selectedFlcPeak?.id ?? autoSelectedFlcPeakID
+        selectedFlcPeak?.id ?? autoSelectedFlcPeakID
     }
 
     // MARK: - Loaded / Restored State
