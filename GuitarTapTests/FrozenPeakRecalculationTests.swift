@@ -534,6 +534,42 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
     // The counterpart of PR3b, and inverted for the same reason. Naming a peak is user work; a
     // display filter must not throw it away. Doubly so after Phase 4, where a custom name is what
     // makes a peak *known* — destroying it here would silently reclassify the peak as unknown.
+    /// B29: on the loaded branch the peak ids are stable, so remapping is a no-op — an override
+    /// restored against a saved peak must still be keyed to THAT id afterwards.
+    ///
+    /// The remap exists for the re-mint case, where detection produces fresh ids and state has to be
+    /// carried across by frequency. On the loaded branch `allPeaks = savedPeaks` keeps the original
+    /// ids, so the same code path must leave the override exactly where it was rather than
+    /// re-homing it onto a different peak. Gap filled 2026-09-19 (issue #8); web covered it, Swift
+    /// and Python did not.
+    @Test func loadedPath_stableIDs_leaveRestoredOverridesInPlace() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        let a = makePeak(frequency: 200, magnitude: -20)
+        let b = makePeak(frequency: 400, magnitude: -25)
+        freeze(sut, peaks: [a, b])
+        sut.loadedMeasurementPeaks = [a, b]
+        sut.peakModeOverrides = [a.id: .assigned("Air"), b.id: .assigned("Top")]
+        sut.peakMinThreshold = -80          // nothing hidden; isolate the id question
+
+        sut.recalculateFrozenPeaksIfNeeded()
+
+        #expect(sut.peakModeOverrides.count == 2, "both overrides survive the loaded branch")
+        if case .assigned(let label) = sut.peakModeOverrides[a.id] {
+            #expect(label == "Air", "the 200 Hz override stays on the 200 Hz peak's own id")
+        } else {
+            Issue.record("Expected the 200 Hz peak to keep its .assigned override under its ORIGINAL id")
+        }
+        if case .assigned(let label) = sut.peakModeOverrides[b.id] {
+            #expect(label == "Top", "the 400 Hz override stays on the 400 Hz peak's own id")
+        } else {
+            Issue.record("Expected the 400 Hz peak to keep its .assigned override under its ORIGINAL id")
+        }
+    }
+
     @Test func loadedPath_overrideForFilteredOutPeak_survives() {
         // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
         let savedType = TapDisplaySettings.measurementType
