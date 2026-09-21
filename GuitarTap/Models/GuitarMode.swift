@@ -363,23 +363,41 @@ enum GuitarMode: String, Codable {
 
 extension GuitarMode {
 
-    /// Display color for a guitar mode, derived from `self.normalized`.
+    /// Display colour for a guitar mode, as an absolute sRGB hex, derived from `self.normalized`.
     ///
-    /// Legacy enum cases are collapsed to their canonical equivalents via
-    /// `normalized` before the color is resolved, so all historical variants
-    /// of e.g. `.air` map to `.cyan`.
-    var color: Color {
+    /// Legacy enum cases are collapsed to their canonical equivalents via `normalized` first, so
+    /// all historical variants of e.g. `.air` share one colour.
+    ///
+    /// ## Why absolute, and not `.cyan` / `.green` / `.orange` / …
+    ///
+    /// These were SwiftUI's semantic system colours until the #17 sweep, for the same reason
+    /// `WoodQuality.color` was, and with the same consequence: a semantic colour is resolved by the
+    /// OS, so what GuitarTap draws moves when Apple revises the palette, and a port pinning hex
+    /// cannot follow. The values below are what this app rendered on macOS 26; they are now fixed,
+    /// and Python carries the same table.
+    ///
+    /// The hue is not meaningful — it only has to tell seven modes apart and be the same in every
+    /// edition. The web keeps its own brightened variants where its dark chart genuinely needs
+    /// them (Top, Back, Dipole, and the two greys) and follows these values where the difference
+    /// was never about the background (Air, Ring). See SLUG-SWEEP.md F9.
+    var hex: String {
         switch self.normalized {
-        case .air:        return .cyan
-        case .top:        return .green
-        case .back:       return .orange
-        case .dipole:     return .red
-        case .ringMode:   return .purple
-        case .upperModes: return .gray
-        case .unknown:    return .secondary
-        default:          return .secondary
+        case .air:        return "#00C0E8"
+        case .top:        return "#34C759"
+        case .back:       return "#FF8D28"
+        case .dipole:     return "#FF383C"
+        case .ringMode:   return "#CB30E0"
+        case .upperModes: return "#8E8E93"
+        case .unknown:    return "#808080"
+        default:          return "#808080"
         }
     }
+
+    /// Display colour for a guitar mode. Derived from ``hex`` so there is one place the value lives.
+    ///
+    /// `.unknown` was `.secondary` — black at 50% alpha, which composites to `#808080` on the
+    /// white chart. It is now that value outright, so it no longer changes with what is behind it.
+    var color: Color { Color(sRGBHex: hex) }
 
     /// Short mode abbreviation for compact UI display (e.g., "Air", "DP").
     var abbreviation: String {

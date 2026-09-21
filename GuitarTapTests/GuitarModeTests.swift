@@ -231,6 +231,58 @@ struct GuitarModeClassificationTests {
 // MARK: - classifyAll (context-aware, overlap-resolving)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// MARK: - Override Label Resolution
+//
+// Added in the #17 sweep. `fromDisplayName` is reachable from the override picker
+// (CombinedPeakModeRowView offers both groups) and was tested in NO edition — which is how
+// Swift and Python came to disagree about one of the seven academic labels, and how the web
+// port came to lack the table entirely. See SLUG-SWEEP.md F11/F12.
+// ---------------------------------------------------------------------------
+
+@Suite("ModeOverrideLabels")
+struct ModeOverrideLabelsTests {
+
+    @Test func standardDisplayNames_resolveToTheirOwnMode() {
+        for mode in GuitarMode.currentCases {
+            #expect(GuitarMode.fromDisplayName(mode.displayName) == mode,
+                    "\(mode.displayName) should resolve to \(mode)")
+        }
+    }
+
+    // The academic T(m,n) labels. All three editions offer these and must agree on what they
+    // mean — a measurement saved in one edition opens in the others.
+    @Test func academicLabels_resolveToTheirMode() {
+        #expect(GuitarMode.fromDisplayName("Helmholtz T(1,1)_1")  == .air)
+        #expect(GuitarMode.fromDisplayName("Top T(1,1)_2")        == .top)
+        #expect(GuitarMode.fromDisplayName("Back T(1,1)_3")       == .back)
+        #expect(GuitarMode.fromDisplayName("Cross Dipole T(2,1)") == .dipole)
+        #expect(GuitarMode.fromDisplayName("Long Dipole T(1,2)")  == .dipole)
+        // Swift is canonical here; Python mapped Quadrapole to Upper Modes until #17.
+        #expect(GuitarMode.fromDisplayName("Quadrapole T(2,2)")   == .ringMode)
+        #expect(GuitarMode.fromDisplayName("Cross Tripole T(3,1)") == .ringMode)
+    }
+
+    // Every label the picker offers must resolve — an unresolvable one would silently become a
+    // freeform label and drop out of the ratio and the definitive-peak resolution.
+    @Test func everyOfferedLabelResolves() {
+        for label in GuitarMode.additionalModeLabels {
+            #expect(GuitarMode.fromDisplayName(label) != nil,
+                    "the picker offers \(label) but nothing resolves it")
+        }
+    }
+
+    @Test func freeformLabel_isUnknown_andDoesNotFallThroughToAuto() {
+        #expect(GuitarMode.fromDisplayName("Wolf note") == nil)
+        #expect(GuitarMode.effectiveMode(override: .assigned("Wolf note"), auto: .top) == .unknown)
+    }
+
+    @Test func noOverride_leavesTheAutoClassificationStanding() {
+        #expect(GuitarMode.effectiveMode(override: .auto, auto: .top) == .top)
+        #expect(GuitarMode.effectiveMode(override: nil, auto: .back) == .back)
+    }
+}
+
 @Suite("GuitarModeClassifyAll")
 struct GuitarModeClassifyAllTests {
 
@@ -295,6 +347,22 @@ struct GuitarModeClassifyAllTests {
     // in step 1; the weaker one falls through to step 3 where the private
     // classify() path is exercised.  Both should resolve to the same mode
     // (not .unknown), confirming step 3 classifies by range, not by "leftover".
+    // On equal magnitude the FIRST peak wins the band. All three editions agree — Swift's
+    // max(by:) and Python's max() both keep the first maximal element, and web's loop replaces
+    // only on a strict >. Pinned during the #17 sweep because no edition pinned it: a tie-break
+    // that differed per edition would stay invisible until a real measurement produced a tie,
+    // and would then move which peak is "the Air peak" in one app and not the others.
+    @Test func classifyAll_equalMagnitude_firstPeakWinsTheBand() {
+        let first  = ResonantPeak(frequency:  95, magnitude: -20)
+        let second = ResonantPeak(frequency: 100, magnitude: -20)
+        let result = GuitarMode.classifyAll([first, second], guitarType: .acoustic)
+        #expect(result[first.id]  == .air)
+        #expect(result[second.id] == .air)
+        // Both are Air; the question is which one the claiming pass took.
+        let claimed = [first, second].max(by: { $0.magnitude < $1.magnitude })
+        #expect(claimed?.frequency == 95, "the first of two equal-magnitude peaks is claimed")
+    }
+
     @Test func classifyAll_secondPeakInSameRange_stillClassifiedCorrectly() {
         // Acoustic air range: 90–120 Hz; two peaks, both unambiguously in Air.
         let strongerAir = ResonantPeak(frequency:  95, magnitude: -15) // claimed in step 1
