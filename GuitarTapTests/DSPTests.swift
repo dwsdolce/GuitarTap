@@ -209,19 +209,26 @@ struct QFactorTests {
         #expect(q > 0 && q < 15, "Expected 0 < Q < 15 for broad peak (Q ≈ 1.25), got \(q)")
     }
 
-    // F9: When all bins stay above the -3 dB threshold (noise floor too high),
-    // bandwidth walks all the way to the edges → Q falls back to 0.
-    @Test func allBinsAboveThreshold_returnsZeroQ() {
+    // F9: When no bin ever drops 3 dB below the peak, the walk runs to both edges and the
+    // bandwidth becomes the whole spectrum span. Q is then centre / span — small, but defined.
+    //
+    // This test was called `allBinsAboveThreshold_returnsZeroQ` until the #17 sweep and asserted
+    // only that Q was neither NaN nor infinite, with a comment conceding the value was "not
+    // meaningful". Q is 0.505 here, not 0: the name promised a behaviour the body never checked
+    // and that does not hold. A test name is a comment, and the same rule applies to it — see
+    // SLUG-SWEEP.md F14.
+    @Test func noBinDropsBelowThreshold_bandwidthSpansTheSpectrum() {
         let sut = makeSUT()
-        // Flat spectrum — every bin at the same level → no -3 dB crossing possible
+        // Flat spectrum — every bin at the same level, so there is no -3 dB crossing.
         let mags = [Float](repeating: -20, count: 100)
         let freqs = (0..<100).map { Float($0) * 10 }
         let (q, bw) = sut.calculateQFactor(
             magnitudes: mags, frequencies: freqs, peakIndex: 50, peakMagnitude: -20
         )
-        // The walk reaches the edges; centre/bandwidth arithmetic may produce 0 or
-        // a very small Q, but must not crash and must not be infinite.
+        // The walk reaches bin 0 and bin 99, so the bandwidth is the full span: 990 - 0.
+        #expect(abs(bw - 990) < 1e-3, "bandwidth should span the spectrum, got \(bw)")
+        // Q = centre / span = 500 / 990.
+        #expect(abs(q - 0.50505) < 1e-4, "Q should be centre/span ≈ 0.505, got \(q)")
         #expect(!q.isInfinite && !q.isNaN, "Q must not be infinite/NaN")
-        let _ = bw  // acknowledged — value not meaningful in this degenerate case
     }
 }
