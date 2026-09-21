@@ -324,12 +324,12 @@ Help menu:
                 )
                 #endif
                 helpRow(
-                    title: "… Chart Options",
+                    title: "Chart Options",
                     body: "The ellipsis button in the top-right corner of the spectrum opens the Chart Options menu (on macOS, right-clicking the chart opens the same menu). From here you can reset either or both axes to the values you last saved in Settings (\"Reset to Saved\"), or restore the factory defaults (\"Reset to Defaults\"). If peak labels have been dragged from their auto-positions, \"Reset Labels\" moves them back.",
                     systemImages: ["ellipsis.circle"]
                 )
                 helpRow(
-                    title: "ⓘ Zoom & Pan Help",
+                    title: "Zoom & Pan Help",
                     body: "The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom of both axes or each individual axis (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.",
                     systemImages: ["info.circle"]
                 )

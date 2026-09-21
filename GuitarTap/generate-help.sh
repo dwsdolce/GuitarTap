@@ -295,6 +295,12 @@ if command -v pandoc &>/dev/null; then
 \usepackage{newunicodechar}
 \newfontfamily\unicodefallback{Arial Unicode MS}[Scale=MatchLowercase]
 \DeclareTextFontCommand{\textuf}{\unicodefallback}
+% A SECOND fallback: Arial Unicode MS is broad but lacks U+26A0 WARNING SIGN, and a
+% fallback font that silently lacks the character it was chosen for fails exactly as
+% loudly as no fallback at all — i.e. not at all, beyond one "Missing character" line.
+% Apple Symbols has it. Probed against the installed fonts, not assumed.
+\newfontfamily\symbolfallback{Apple Symbols}[Scale=MatchLowercase]
+\DeclareTextFontCommand{\textsym}{\symbolfallback}
 \newunicodechar{→}{\textuf{→}}
 \newunicodechar{⇧}{\textuf{⇧}}
 \newunicodechar{⌘}{\textuf{⌘}}
@@ -307,6 +313,14 @@ if command -v pandoc &>/dev/null; then
 \newunicodechar{÷}{\textuf{÷}}
 \newunicodechar{–}{\textuf{–}}
 \newunicodechar{√}{\textuf{√}}
+\newunicodechar{⋯}{\textuf{⋯}}
+\newunicodechar{⚠}{\textsym{⚠}}
+% U+FE0F VARIATION SELECTOR-16 asks for emoji presentation of the preceding
+% character. It is a modifier, not a glyph: xelatex has nothing to draw for it and
+% warns "Missing character". Map it to nothing so the warning sign above renders in
+% its text form and the selector disappears silently, as it should. Written in TeX
+% ^^^^ notation because the literal character is invisible in an editor.
+\newunicodechar{^^^^fe0f}{}
 TEXEOF
 
     # Resource path is the markdown's own directory so relative image
