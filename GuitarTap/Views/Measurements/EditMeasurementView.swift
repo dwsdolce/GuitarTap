@@ -13,6 +13,11 @@
 /// into `savedMeasurements` is used rather than `id` matching so that
 /// duplicate imports (which share the same `id`) are treated independently.
 ///
+/// Save is disabled until the name or notes actually differ from the stored values. A saved edit
+/// mints a new measurement `id` — an amended measurement is a different dataset — so a Save that
+/// changes nothing must not be reachable, or unchanged content would get a new identity. With the
+/// button disabled, saving an untouched form and cancelling it are the same action.
+///
 /// - SeeAlso: `MeasurementsListView`, `MeasurementDetailView`,
 ///   `TapToneAnalyzer.updateMeasurement(at:measurementName:notes:)`
 
@@ -35,6 +40,18 @@ struct EditMeasurementView: View {
         self._notes = State(initialValue: measurement.notes ?? "")
     }
 
+    /// The values Save would write, normalized by the model's own rules — the same ones the save
+    /// path uses — so the change test compares against what would actually be stored.
+    private var normalizedName: String? { TapToneMeasurement.normalizedName(measurementName) }
+    private var normalizedNotes: String? { TapToneMeasurement.normalizedNotes(notes) }
+
+    /// Whether Save would change anything — the gate on the Save button. The rule itself lives on
+    /// the model (``TapToneMeasurement/isAmended(measurementName:notes:)``) so all three platforms
+    /// and their tests share one definition; this view only supplies the normalized values.
+    private var hasChanges: Bool {
+        measurement.isAmended(measurementName: normalizedName, notes: normalizedNotes)
+    }
+
     var body: some View {
         #if os(macOS)
         formContent
@@ -46,6 +63,7 @@ struct EditMeasurementView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
+                        .disabled(!hasChanges)
                 }
             }
         #else
@@ -58,6 +76,7 @@ struct EditMeasurementView: View {
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Save") { save() }
+                            .disabled(!hasChanges)
                     }
                 }
         }
@@ -129,8 +148,8 @@ struct EditMeasurementView: View {
     private func save() {
         analyzer.updateMeasurement(
             at: index,
-            measurementName: measurementName.isEmpty ? nil : measurementName,
-            notes: notes.isEmpty ? nil : notes
+            measurementName: normalizedName,
+            notes: normalizedNotes
         )
         dismiss()
     }

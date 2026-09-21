@@ -403,10 +403,16 @@ extension TapToneAnalyzer {
     }
     
     /// Replaces the `measurementName` and `notes` fields of the measurement at a
-    /// specific array index, preserving all other data unchanged.
+    /// specific array index.
     ///
-    /// Uses the caller-supplied index rather than `id` matching so that
-    /// duplicate imports (which share the same `id`) are treated independently.
+    /// All captured data is preserved, but the entry receives a **new `id`**: name and notes are
+    /// part of a measurement's data, so an amended entry is a different dataset. See
+    /// ``TapToneMeasurement/with(measurementName:notes:)``.
+    ///
+    /// Uses the caller-supplied index rather than `id` matching, because duplicate imports share
+    /// an `id` until one of them is edited — so an id cannot address a row. Callers must pass the
+    /// position in `savedMeasurements` itself, which is why the list is displayed in storage
+    /// order.
     ///
     /// - Parameters:
     ///   - index: Position in `savedMeasurements` to update.

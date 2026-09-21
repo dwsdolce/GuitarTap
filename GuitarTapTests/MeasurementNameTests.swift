@@ -39,6 +39,27 @@ struct MeasurementNameTests {
         #expect(TapToneMeasurement.normalizedName("   ") == nil)
     }
 
+    // MARK: - normalizedNotes — the other user-entered field, normalized the same way
+
+    // Notes trim exactly as the name does. Swift stored them verbatim until the #17 sweep while
+    // both ports trimmed; the ports were right. It matters because "has this been edited" compares
+    // stored values: if one path trims and another does not, reopening an untouched measurement
+    // reads as an edit. See SLUG-SWEEP.md F21.
+    @Test func normalizedNotes_trimsAndBlanksToNil() {
+        #expect(TapToneMeasurement.normalizedNotes("  Tapped cold  ") == "Tapped cold")
+        #expect(TapToneMeasurement.normalizedNotes("line one\nline two") == "line one\nline two")
+        #expect(TapToneMeasurement.normalizedNotes("") == nil)
+        #expect(TapToneMeasurement.normalizedNotes("   \n  ") == nil)
+    }
+
+    // The two fields must agree, or a round trip through one of them looks like an edit.
+    @Test func bothFieldsNormalizeIdentically() {
+        for candidate in ["", "  ", "\n", "a", "  a  ", "Spruce Top", " multi word \n"] {
+            #expect(TapToneMeasurement.normalizedName(candidate) == TapToneMeasurement.normalizedNotes(candidate),
+                    "name and notes must normalize identically for \(candidate.debugDescription)")
+        }
+    }
+
     // MARK: - The rule is consistent: valid ⇒ stores non-nil; invalid ⇒ nil
 
     @Test func validityMatchesStorage() {

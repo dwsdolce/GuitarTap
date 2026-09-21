@@ -521,52 +521,6 @@ struct MeasurementExportModeLabelTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - with(measurementName:notes:) builder
-//
-// Mirrors Python TestWithMethod in test_measurement_codable.py.
-// ---------------------------------------------------------------------------
-
-@Suite("WithMethod")
-struct WithMethodTests {
-
-    // Updating measurementName via with() returns a copy with the new measurementName.
-    @Test func with_updatesMeasurementName() {
-        let original = TapToneMeasurement(peaks: [], measurementName: "Old")
-        let updated = original.with(measurementName: "New", notes: nil)
-        #expect(updated.measurementName == "New")
-        #expect(updated.id == original.id, "id must be preserved")
-    }
-
-    // Updating notes via with() returns a copy with the new notes.
-    @Test func with_updatesNotes() {
-        let original = TapToneMeasurement(peaks: [], notes: "old notes")
-        let updated = original.with(measurementName: nil, notes: "new notes")
-        #expect(updated.notes == "new notes")
-    }
-
-    // Passing nil for measurementName clears it in the copy.
-    @Test func with_clearsMeasurementNameWithNil() {
-        let original = TapToneMeasurement(peaks: [], measurementName: "Bridge")
-        let updated = original.with(measurementName: nil, notes: nil)
-        #expect(updated.measurementName == nil)
-    }
-
-    // All other fields are preserved in the returned copy.
-    @Test func with_preservesOtherFields() throws {
-        let peak = ResonantPeak(frequency: 195, magnitude: -20)
-        let snap = SpectrumSnapshot(
-            frequencies: [100, 200], magnitudes: [-30, -20],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false
-        )
-        let original = TapToneMeasurement(peaks: [peak], decayTime: 0.5, measurementName: "Bridge", spectrum: snap)
-        let updated = original.with(measurementName: "Neck", notes: nil)
-        #expect(updated.peaks.count == 1)
-        #expect(updated.decayTime == 0.5, "decayTime must be preserved")
-        #expect(updated.measurementName == "Neck")
-    }
-}
-
-// ---------------------------------------------------------------------------
 // MARK: - Annotation offsets on TapToneMeasurement (D1)
 //
 // Mirrors Python TestAnnotationOffsets - D1 multi-peak case.

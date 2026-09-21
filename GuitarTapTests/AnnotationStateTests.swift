@@ -473,7 +473,8 @@ struct UpdateMeasurementTests {
         #expect(analyzer.savedMeasurements[1].notes == "Second", "Second entry must not be affected")
     }
 
-    // Editing one of two duplicates (same id, different index) leaves the other unchanged.
+    // Editing one of two duplicates (same id, different index) leaves the other unchanged, and
+    // the two ids diverge — the edited entry is no longer the same dataset as its twin.
     @Test func update_duplicateImport_onlyEditedIndexChanges() {
         let original = makeMeasurement(measurementName: "Top", notes: "Original")
         // Simulate importing the same file twice — both entries share the same id.
@@ -485,8 +486,10 @@ struct UpdateMeasurementTests {
         #expect(analyzer.savedMeasurements[0].notes == "Original",   "First duplicate must not change")
         #expect(analyzer.savedMeasurements[1].measurementName == "Back", "Second duplicate should be updated")
         #expect(analyzer.savedMeasurements[1].notes == "Copy",       "Second duplicate should be updated")
-        #expect(analyzer.savedMeasurements[0].id == analyzer.savedMeasurements[1].id,
-                "id must be preserved through the update")
+        #expect(analyzer.savedMeasurements[0].id == original.id,
+                "the untouched duplicate keeps its id")
+        #expect(analyzer.savedMeasurements[0].id != analyzer.savedMeasurements[1].id,
+                "the edited duplicate is different data, so it must no longer share the twin's id")
     }
 
     // Passing nil clears the fields.
@@ -498,6 +501,7 @@ struct UpdateMeasurementTests {
 
         #expect(analyzer.savedMeasurements[0].measurementName == nil)
         #expect(analyzer.savedMeasurements[0].notes == nil)
+        #expect(analyzer.savedMeasurements[0].id != m.id, "clearing the fields is a data change too")
     }
 
     // An out-of-range index is a no-op.
@@ -511,21 +515,40 @@ struct UpdateMeasurementTests {
         #expect(analyzer.savedMeasurements.count == 1)
     }
 
-    // The id and all other fields are preserved after an update.
-    @Test func update_preservesIdAndOtherFields() {
+    // An update mints a NEW id — name and notes are part of the data, so an amended measurement
+    // is a different dataset — while preserving every captured field and the capture time.
+    @Test func update_mintsNewId_andPreservesCapturedData() {
         let peak = ResonantPeak(frequency: 195, magnitude: -22)
         let m = TapToneMeasurement(peaks: [peak], decayTime: 0.5, measurementName: "Old", notes: "Old notes")
         let originalID = m.id
+        let originalTimestamp = m.timestamp
         let analyzer = makeAnalyzerWithMeasurements([m])
 
         analyzer.updateMeasurement(at: 0, measurementName: "New", notes: "New notes")
 
         let updated = analyzer.savedMeasurements[0]
-        #expect(updated.id == originalID, "id must be preserved")
+        #expect(updated.id != originalID, "an amended measurement is a different dataset")
+        #expect(updated.timestamp == originalTimestamp,
+                "timestamp records when the tap was captured; amending a name does not change that")
         #expect(updated.peaks.count == 1,  "peaks must be preserved")
         #expect(updated.decayTime == 0.5,  "decayTime must be preserved")
         #expect(updated.measurementName == "New")
         #expect(updated.notes == "New notes")
+    }
+
+    // Two successive edits yield three distinct ids: identity tracks content, not the row.
+    @Test func update_successiveEdits_eachMintANewId() {
+        let m = makeMeasurement(measurementName: "First", notes: nil)
+        let analyzer = makeAnalyzerWithMeasurements([m])
+
+        analyzer.updateMeasurement(at: 0, measurementName: "Second", notes: nil)
+        let afterFirst = analyzer.savedMeasurements[0].id
+        analyzer.updateMeasurement(at: 0, measurementName: "Third", notes: nil)
+        let afterSecond = analyzer.savedMeasurements[0].id
+
+        #expect(afterFirst != m.id)
+        #expect(afterSecond != afterFirst)
+        #expect(analyzer.savedMeasurements[0].measurementName == "Third")
     }
 }
 

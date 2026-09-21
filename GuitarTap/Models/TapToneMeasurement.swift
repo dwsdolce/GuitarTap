@@ -189,6 +189,17 @@ struct TapToneMeasurement: Identifiable, Codable {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// The notes to store: trimmed, or `nil` if blank.
+    ///
+    /// The two user-entered text fields normalize the same way, so "has this been edited" means
+    /// the same thing for both. Swift stored notes verbatim until the #17 sweep while both ports
+    /// trimmed; the ports were right, and this follows them. Every path that stores notes — save
+    /// and edit alike — goes through here, so they cannot disagree.
+    static func normalizedNotes(_ notes: String) -> String? {
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     // MARK: - Guitar Spectrum
 
     /// The averaged frequency spectrum for guitar-mode measurements.
@@ -454,12 +465,40 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.tapEntries = tapEntries
     }
 
-    /// Returns a copy of the measurement with only `measurementName` and `notes` replaced.
+    // @parity model/measurement-amend tests=test/measurement-amend
+
+    /// Whether the supplied values differ from what this measurement stores — the gate on the edit
+    /// sheet's Save button.
     ///
-    /// All other fields — including `id` and `timestamp` — are preserved exactly.
+    /// Both arguments must already be normalized (``normalizedName(_:)`` / ``normalizedNotes(_:)``)
+    /// so the comparison is against what would actually be written. Amending mints a new ``id``, so
+    /// a Save that changes nothing must not be reachable — it would give unchanged content a new
+    /// identity. Single source of truth so all three platforms, and their tests, agree; a view
+    /// binds its Save button to this and never re-implements it, exactly as it does for
+    /// ``isValidName(_:)``.
+    func isAmended(measurementName: String?, notes: String?) -> Bool {
+        measurementName != self.measurementName || notes != self.notes
+    }
+
+    /// Returns a copy of the measurement with `measurementName` and `notes` replaced and a
+    /// **new** ``id``.
+    ///
+    /// Name and notes are part of a measurement's data, not annotations on top of it, so an
+    /// amended measurement is a different dataset and must carry a different identity. That is
+    /// what makes ``id`` mean *same content* rather than *same act of saving*: two entries share
+    /// an id exactly when they hold identical data — the state a duplicate import produces, and
+    /// which editing either one correctly ends.
+    ///
+    /// ``timestamp`` is preserved. It records when the tap was captured, and amending a name does
+    /// not change when it was captured.
+    ///
+    /// This is the *amend* operation, so callers must only reach it when something actually
+    /// differs. `EditMeasurementView` enforces that by disabling Save until the normalized name or
+    /// notes differ from the stored values; calling it with identical values would give unchanged
+    /// content a new identity and break the rule above.
     func with(measurementName: String?, notes: String?) -> TapToneMeasurement {
         return TapToneMeasurement(
-            id: id,
+            id: UUID(),
             timestamp: timestamp,
             peaks: peaks,
             decayTime: decayTime,

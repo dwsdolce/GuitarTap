@@ -226,7 +226,7 @@ extension TapToneAnalysisView {
         if tap.isSavedMeasurementComparison {
             tap.saveComparison(
                 measurementName: TapToneMeasurement.normalizedName(measurementName),
-                notes: notes.isEmpty ? nil : notes
+                notes: TapToneMeasurement.normalizedNotes(notes)
             )
             measurementName = ""
             notes = ""
@@ -242,7 +242,7 @@ extension TapToneAnalysisView {
         // using makePhaseSnapshot. Mirrors Python TapToneAnalysisView.save_measurement().
         tapToneAnalyzer.saveMeasurement(
             measurementName: TapToneMeasurement.normalizedName(measurementName),
-            notes: notes.isEmpty ? nil : notes,
+            notes: TapToneMeasurement.normalizedNotes(notes),
             includeSpectrum: true,
             annotationOffsets: tap.peakAnnotationOffsets,
             selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
