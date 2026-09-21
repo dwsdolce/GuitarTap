@@ -22,6 +22,12 @@ unset _texbin
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SWIFT_SOURCE="$SCRIPT_DIR/Views/HelpView.swift"
+# BOTH OUTPUTS ARE GITIGNORED BUILD ARTIFACTS (.gitignore:47-48), untracked since
+# ee1e4c5. So `git status` says nothing about them after a run — and that silence means
+# "ignored", NOT "unchanged". Do not read a clean status as evidence that a change to
+# HelpView.swift left the generated docs alone; diff the file or read it. A commit
+# message in this repo (16474b2) claims the regenerated markdown was "byte-identical to
+# the committed copy" — there is no committed copy, and the claim is false.
 OUTPUT_MD="$SCRIPT_DIR/../Documentation/GuitarTap-Quick-Start-Guide.md"
 OUTPUT_PDF="$SCRIPT_DIR/../Documentation/GuitarTap-Quick-Start-Guide.pdf"
 
