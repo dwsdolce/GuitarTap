@@ -87,9 +87,28 @@ if [[ $status -ne 0 ]]; then
   exit 1
 fi
 
-if diff -q "$OUT" "$DEST" >/dev/null 2>&1; then
+# diff's exit status is THREE-valued: 0 same, 1 different, 2 error. Testing only for
+# "non-zero" reports an error as a difference — which is exactly what happened when this
+# script could not read $OUT out of the app's sandbox container: it announced "Regenerated
+# output differs from the committed oracle" having compared nothing at all, and the diff
+# that should have shown what differed was an "Operation not permitted" line. A script whose
+# stated purpose is that a silent no-op cannot be read as a clean run must not let a failed
+# comparison be read as a finding either.
+#
+# `|| diff_status=$?` rather than a bare call: `set -e` is in force and would abort on the
+# non-zero that simply means "these files differ".
+diff_status=0
+diff -q "$OUT" "$DEST" >/dev/null 2>&1 || diff_status=$?
+if [[ $diff_status -eq 0 ]]; then
   echo "✅ Regenerated — identical to the committed oracle. No values moved."
   exit 0
+elif [[ $diff_status -gt 1 ]]; then
+  echo "❌ Could not compare the regenerated output against $DEST — diff exited $diff_status." >&2
+  echo "   The files were NOT compared, so this is not a finding about the oracle." >&2
+  echo "   Usually permissions: $OUT lives in the app's sandbox container, which macOS" >&2
+  echo "   protects from other processes. Grant Full Disk Access to the terminal or IDE" >&2
+  echo "   running this script, relaunch it (TCC is captured at process start), and retry." >&2
+  exit 1
 fi
 
 echo "Regenerated output differs from the committed oracle:"
