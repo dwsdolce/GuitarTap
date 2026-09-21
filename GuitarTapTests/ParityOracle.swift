@@ -14,7 +14,7 @@
 //  suite and a third time in the web suite — three copies of one contract with nothing
 //  keeping them equal.
 //
-// @parity test/parity-oracle
+// @parity tooling/parity-oracle
 
 import Foundation
 
