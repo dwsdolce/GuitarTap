@@ -437,7 +437,12 @@ extension RealtimeFFTAnalyzer {
         #endif
 
         // Update UI state - set isRunning to true on main thread
-        DispatchQueue.main.async {
+        // `[self]` states the capture this closure already had implicitly. It must NOT be weak:
+        // this runs in `start()`, on an object that is self-evidently alive, and a weak capture
+        // would silently skip the whole post-start setup if the analyzer were released between
+        // `start()` returning and the main queue draining. The delayed watchdog below stays weak —
+        // it must not hold the engine alive for its 3-second timeout.
+        DispatchQueue.main.async { [self] in
             self.isRunning = true
             self.engineStartTime = Date()  // Track start time
             // Prime the watchdog clock so it doesn't fire during the start-up grace

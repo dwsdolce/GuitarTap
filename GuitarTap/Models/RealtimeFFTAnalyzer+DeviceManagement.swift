@@ -431,8 +431,12 @@ extension RealtimeFFTAnalyzer {
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             guard let self = self else { return }
             gtLog("🔄 Sample rate changed on device \(deviceID) — restarting engine if running")
-            DispatchQueue.main.async {
-                guard self.isRunning else { return }
+            // Weak at every hop, like the listener block itself. This is a stored CoreAudio
+            // listener that can fire during teardown; an implicit strong capture here would pin
+            // the analyzer alive across the queue hop and stop/restart it even after everything
+            // else had released it, which is exactly what the outer `[weak self]` exists to avoid.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isRunning else { return }
                 self.stop()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                     guard let self = self else { return }

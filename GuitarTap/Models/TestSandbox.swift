@@ -33,7 +33,7 @@ enum TestSandbox {
     ///
     /// `XCTestConfigurationFilePath` is set by the test runner and never on a normal launch — the
     /// same signal `GuitarTapApp` uses to render nothing while hosting tests.
-    nonisolated(unsafe) static let id: String? = {
+    nonisolated static let id: String? = {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil else {
             return nil
         }
