@@ -3,8 +3,14 @@
 //  GuitarTapTests
 //
 //  Tests for the Pitch class — note identification, cents calculation,
-//  nearest-note frequency, and in-tune detection.
+//  nearest-note frequency, semitone bounds, and in-tune detection.
 //  All computations are pure math, requiring no hardware.
+//
+//  Pitch is deliberately a GENERAL package, not only what GuitarTap calls: pitchRange,
+//  formattedNote and isInTune have no call site in the app. They are still tested, because
+//  the package's API is the contract, not the subset the app happens to use today. The web
+//  edition carries only the subset it uses, which is why test/pitch reads 22/22/6 — that
+//  spread is a difference in surface, not a gap in coverage. See SLUG-SWEEP.md F13.
 //
 // @parity test/pitch
 
@@ -14,6 +20,67 @@ import Foundation
 
 @Suite("Pitch")
 struct PitchTests {
+
+    // MARK: - Semitone bounds (pitchRange)
+    //
+    // Added in the #17 sweep: pitchRange had NO test in any edition, despite branching on the
+    // sign of the cents offset and on the two octave boundaries (B→C going up, C→B going down).
+    // Four branches, nothing pinning any of them.
+
+    // Exactly on the note (cents == 0) takes the >= 0 branch: the note itself is the lower
+    // bound and the next semitone up is the upper.
+    @Test func pitchRange_exactlyOnNote_spansUpToTheNextSemitone() {
+        let p = Pitch(a4: 440)
+        let r = p.pitchRange(frequency: 440)
+        #expect(abs(r.lower - 440.0) < 1e-4, "lower should be A4 itself, got \(r.lower)")
+        #expect(abs(r.upper - 466.1638) < 1e-3, "upper should be A#4, got \(r.upper)")
+    }
+
+    // Sharp of the note: same branch as exact.
+    @Test func pitchRange_sharpOfNote_spansNoteToNextSemitone() {
+        let p = Pitch(a4: 440)
+        let r = p.pitchRange(frequency: 442)
+        #expect(abs(r.lower - 440.0) < 1e-4)
+        #expect(abs(r.upper - 466.1638) < 1e-3)
+    }
+
+    // Flat of the note takes the other branch: the note becomes the UPPER bound and the
+    // semitone below becomes the lower.
+    @Test func pitchRange_flatOfNote_spansPreviousSemitoneToNote() {
+        let p = Pitch(a4: 440)
+        let r = p.pitchRange(frequency: 438)
+        #expect(abs(r.upper - 440.0) < 1e-4, "upper should be A4 itself, got \(r.upper)")
+        #expect(abs(r.lower - 415.3047) < 1e-3, "lower should be G#4, got \(r.lower)")
+    }
+
+    // B sharp: the upper bound has to cross into the next octave (note == 11 → C, octave + 1).
+    @Test func pitchRange_sharpOfB_upperCrossesIntoTheNextOctave() {
+        let p = Pitch(a4: 440)
+        let b4 = p.freq(note: 11, octave: 4)
+        let r = p.pitchRange(frequency: b4 * 1.01)
+        #expect(abs(r.lower - 493.8833) < 1e-3, "lower should be B4, got \(r.lower)")
+        #expect(abs(r.upper - 523.2511) < 1e-3, "upper should be C5, got \(r.upper)")
+    }
+
+    // C flat: the lower bound has to cross into the previous octave (note == 0 → B, octave - 1).
+    @Test func pitchRange_flatOfC_lowerCrossesIntoThePreviousOctave() {
+        let p = Pitch(a4: 440)
+        let c5 = p.freq(note: 0, octave: 5)
+        let r = p.pitchRange(frequency: c5 * 0.99)
+        #expect(abs(r.upper - 523.2511) < 1e-3, "upper should be C5, got \(r.upper)")
+        #expect(abs(r.lower - 493.8833) < 1e-3, "lower should be B4, got \(r.lower)")
+    }
+
+    // The bounds are always one semitone apart, whichever branch was taken.
+    @Test func pitchRange_boundsAreAlwaysOneSemitoneApart() {
+        let p = Pitch(a4: 440)
+        for f in [440.0, 442.0, 438.0, 82.41, 1046.5, 65.406] {
+            let r = p.pitchRange(frequency: f)
+            let ratio = r.upper / r.lower
+            #expect(abs(ratio - pow(2.0, 1.0/12.0)) < 1e-6,
+                    "\(f) Hz: bounds should be a semitone apart, ratio was \(ratio)")
+        }
+    }
 
     // MARK: - Note identification
 

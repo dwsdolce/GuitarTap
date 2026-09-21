@@ -82,38 +82,33 @@ class Pitch {
         return (note, octave)
     }
 
-    /// Returns the frequencies of the notes immediately above and below the given frequency.
+    /// Returns the frequencies of the semitones bracketing the given frequency.
+    ///
+    /// Which side the nearest note falls on depends on the sign of the cents offset: a
+    /// frequency *above* its nearest note is bracketed by that note and the semitone above,
+    /// and one *below* it by the semitone below and that note.
+    ///
+    /// No octave special-casing is needed, and none should be added back. ``freq(note:octave:)``
+    /// is `c0 · 2^(note/12) · 2^octave` with no bounds check, so note 12 already *means* C of the
+    /// next octave and note −1 already means B of the previous one — the exponent carries it.
+    /// Two `if note == 0 / == 11` branches stood here until the #17 sweep claiming to "handle
+    /// octave boundaries"; deleting them changed 648 bound values across C0–B8 by at most
+    /// 1.15e-16 relative. See SLUG-SWEEP.md F13.
     ///
     /// - Parameter frequency: The frequency to analyse, in Hz.
-    /// - Returns: A tuple `(upper: Double, lower: Double)` where `upper` is the frequency of
-    ///   the next semitone above the nearest note and `lower` is the semitone below.
-    ///   Octave boundaries are handled correctly (e.g. B4 → C5 above, A4 below).
+    /// - Returns: A tuple `(upper: Double, lower: Double)` one semitone apart, bracketing
+    ///   `frequency`.
     func pitchRange(frequency: Double) -> (upper: Double, lower: Double) {
         let (note, octave) = pitch(frequency: frequency)
-        let cents = self.cents(frequency: frequency)
 
-        let upper: Double
-        let lower: Double
-
-        if cents >= 0 {
-            // Frequency is above the nearest note: upper bound is the next semitone.
-            if note == 11 {
-                upper = freq(note: 0, octave: octave + 1)  // B → C in next octave
-            } else {
-                upper = freq(note: note + 1, octave: octave)
-            }
-            lower = freq(note: note, octave: octave)
-        } else {
-            // Frequency is below the nearest note: lower bound is the previous semitone.
-            upper = freq(note: note, octave: octave)
-            if note == 0 {
-                lower = freq(note: 11, octave: octave - 1)  // C → B in previous octave
-            } else {
-                lower = freq(note: note - 1, octave: octave)
-            }
+        if cents(frequency: frequency) >= 0 {
+            // Sharp of (or exactly on) the nearest note: that note is the LOWER bound.
+            return (upper: freq(note: note + 1, octave: octave),
+                    lower: freq(note: note, octave: octave))
         }
-
-        return (upper, lower)
+        // Flat of the nearest note: that note is the UPPER bound.
+        return (upper: freq(note: note, octave: octave),
+                lower: freq(note: note - 1, octave: octave))
     }
 
     /// Returns the name of the nearest equal-temperament note for the given frequency.
