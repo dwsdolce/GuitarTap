@@ -402,6 +402,14 @@ extension TapToneAnalyzer {
                 // Re-enable detection for the FLC phase after the cooldown.
                 DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
                     guard let self = self else { return }
+                    // Cancelled or restarted while the cooldown ran (Cancel / New Tap / measurement-type
+                    // change)? Then the phase is no longer .waitingForFlcTap, and re-arming would drag a
+                    // fresh sequence into the FLC capture — clearing its frozen spectrum and re-enabling
+                    // detection under a phase the user already left. `asyncAfter` cannot be cancelled and
+                    // `cancelTapSequence()`'s `captureTimer.invalidate()` does not reach this closure, so
+                    // this guard IS the cancellation. Mirrors Python `_do_start_flc` and the web's FLC
+                    // cooldown timer, both of which have always guarded here.
+                    guard self.materialTapPhase == .waitingForFlcTap else { return }
                     self.materialTapPhase = .capturingFlc
                     self.setFrozenSpectrum(frequencies: [], magnitudes: [])
                     self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)

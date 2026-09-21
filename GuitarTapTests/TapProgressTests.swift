@@ -207,3 +207,39 @@ struct RedoRebasesCumulativeCountTests {
         #expect(sut.tapProgress == 0.0)
     }
 }
+
+// MARK: - FLC cooldown cancellation (#17)
+
+@Suite("The FLC cooldown must not re-arm a cancelled sequence")
+struct FlcCooldownCancellationTests {
+
+    /// Accepting fC schedules a 0.5 s cooldown, after which detection re-arms for the FLC tap. The
+    /// closure runs on `DispatchQueue.main.asyncAfter`, which cannot be cancelled, and
+    /// `cancelTapSequence()`'s `captureTimer.invalidate()` does not reach it — so without a phase
+    /// guard it fires into whatever sequence happens to be running half a second later, forcing
+    /// `.capturingFlc` and `isDetecting = true` onto a measurement the user already restarted.
+    ///
+    /// Both ports have always guarded this; Swift was the outlier. Mirrors Python
+    /// `_do_start_flc`'s WAITING_FOR_FLC_TAP guard and the web's FLC cooldown timer.
+    @Test("Cancel during the cooldown leaves the fresh sequence alone")
+    @MainActor
+    func cancelDuringFlcCooldownDoesNotReArm() async throws {
+        let sut = makeSUT(numberOfTaps: 1, measurementType: .plate, measureFlc: true)
+        sut.longitudinalSpectrum = spec()
+        sut.crossSpectrum = spec()
+        sut.materialTapPhase = .reviewingCross
+
+        sut.acceptCurrentPhase()                       // → .waitingForFlcTap, schedules the re-arm
+        #expect(sut.materialTapPhase == .waitingForFlcTap)
+
+        sut.cancelTapSequence()                        // the user restarts before the cooldown elapses
+        let phaseAfterCancel = sut.materialTapPhase
+        #expect(phaseAfterCancel != .waitingForFlcTap) // the restart really did leave the FLC wait
+
+        try await Task.sleep(nanoseconds: 800_000_000) // outlast the 0.5 s cooldown
+
+        #expect(sut.materialTapPhase == phaseAfterCancel,
+                "the cooldown closure dragged a cancelled sequence back into the FLC phase")
+        #expect(sut.materialTapPhase != .capturingFlc)
+    }
+}

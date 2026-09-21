@@ -982,26 +982,23 @@ final class TapToneAnalyzer: ObservableObject {
     // the view subscribes to (`.onReceive(tap.$autoSelectedLongitudinalPeakID)`) to widen the chart
     // axis onto a newly identified peak. Deleting them would silently drop that behaviour.
 
-    /// Resolved UUID for the longitudinal (fL) peak, applying two-layer priority.
+    /// UUID of the longitudinal (fL) peak, or `nil` before the phase finalises.
     ///
-    /// Priority order: ``selectedLongitudinalPeak``
-    ///
-    /// Views and material-property calculations should read this property rather than
-    /// consulting the three underlying sources directly.
+    /// There is nothing to resolve: this is the phase's identified peak. It was a three-layer
+    /// resolution until 2026-09-20 — a user-override tier whose UI went in April 2026, over the
+    /// phase peak, over `autoSelectedLongitudinalPeakID` — and the note above records why both
+    /// extra layers went. Kept as a named property because views and the material-property
+    /// calculations read it, and because its two siblings exist for the other phases.
     var effectiveLongitudinalPeakID: UUID? {
         selectedLongitudinalPeak?.id
     }
 
-    /// Resolved UUID for the cross-grain (fC) peak.
-    ///
-    /// Priority order: ``selectedCrossPeak``
+    /// UUID of the cross-grain (fC) peak, or `nil` before the phase finalises.
     var effectiveCrossPeakID: UUID? {
         selectedCrossPeak?.id
     }
 
-    /// Resolved UUID for the FLC (torsional/twist) peak.
-    ///
-    /// Priority order: ``selectedFlcPeak``
+    /// UUID of the FLC (torsional/twist) peak, or `nil` before the phase finalises.
     var effectiveFlcPeakID: UUID? {
         selectedFlcPeak?.id
     }
