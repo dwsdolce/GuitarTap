@@ -21,6 +21,7 @@
 /// - SeeAlso: `MeasurementsListView`, `MeasurementDetailView`,
 ///   `TapToneAnalyzer.updateMeasurement(at:measurementName:notes:)`
 
+// @parity view/edit-sheet
 import SwiftUI
 
 struct EditMeasurementView: View {
