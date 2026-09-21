@@ -128,10 +128,15 @@ def bullets_to_markdown(text):
 
 def img_tag(sym, height):
     # Emit a raw HTML <img> tag so it renders correctly in any markdown
-    # previewer (GitHub, VS Code, etc.) in addition to pandoc.  The size
-    # is given in pixels (pt × 4/3) so the previewer respects it as a
-    # legacy HTML width/height attribute; pandoc and Weasy/HTML browsers
-    # honour the same attributes.
+    # previewer (GitHub, VS Code, etc.).  The size is given in pixels
+    # (pt × 4/3) so the previewer respects it as a legacy HTML width/height
+    # attribute; WeasyPrint (the manual) honours the same attributes.
+    #
+    # Pandoc does NOT: it parses this as raw inline HTML and its LaTeX writer
+    # discards raw HTML silently, which left every icon out of the Quick-Start
+    # PDF with no warning.  html-img.lua converts these tags back into real
+    # pandoc Images for the PDF pass — see that file.  Do not assume a writer
+    # honours an HTML attribute just because a browser does.
     px = int(round(height * 4 / 3))
     return f'<img src="{symbol_dir}/{sym}.png" width="{px}" height="{px}" alt="{sym}">'
 
@@ -320,6 +325,7 @@ TEXEOF
         --variable "colorlinks=true" \
         --variable "linkcolor=NavyBlue" \
         --include-in-header="$LATEX_HEADER" \
+        --lua-filter="$SCRIPT_DIR/html-img.lua" \
         -o "$OUTPUT_PDF"
     rm -f "$LATEX_HEADER"
     echo "PDF written to $OUTPUT_PDF"
