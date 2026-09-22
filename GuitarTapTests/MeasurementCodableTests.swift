@@ -857,6 +857,47 @@ struct SpectrumSnapshotOnMeasurementTests {
 @MainActor
 struct FixtureLoadingTests {
 
+    /// Reads a `.guitartap` fixture from the test bundle, falling back to the source tree.
+    private func fixtureURL(_ name: String) -> URL? {
+        Bundle.allBundles.lazy.compactMap { $0.url(forResource: name, withExtension: "guitartap") }.first
+            ?? {
+                let url = URL(fileURLWithPath: #file).deletingLastPathComponent()
+                    .appendingPathComponent("\(name).guitartap")
+                return FileManager.default.fileExists(atPath: url.path) ? url : nil
+            }()
+    }
+
+    // Mode overrides, read from files the APPS actually wrote — one saved by Swift, one by Python.
+    //
+    // Until #17 F28 no file in the corpus carried `peakModeOverrides` at all: 119 measurements, 116
+    // with selection, 91 with annotation offsets, ZERO with an override. Every override test used a
+    // hand-built fixture, so the reader had never met a real one. The owner captured these two.
+    //
+    // The Python-written file matters most here: Python's writer was untouched by F28, so reading it
+    // proves cross-edition parity against bytes Swift did not produce.
+    @Test(arguments: [
+        ("annotation-override-1790037028", "Fred"),          // written by Swift
+        ("annotation-override-python-1790037332", "Fred2"),  // written by Python
+    ])
+    func realOverrideFixture_decodesItsLabel(fixture: String, expectedLabel: String) throws {
+        guard let url = fixtureURL(fixture) else {
+            withKnownIssue("Fixture \(fixture).guitartap not found in bundle or source tree") { }
+            return
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let measurements = try decoder.decode([TapToneMeasurement].self, from: try Data(contentsOf: url))
+        let overrides = try #require(measurements.first?.peakModeOverrides,
+                                     "the fixture must carry peakModeOverrides")
+        #expect(overrides.count == 1)
+        #expect(overrides.values.first == expectedLabel,
+                "the label must survive the wire shape, in memory, as the label alone")
+        // And the peak it names must still be in the measurement.
+        let peakID = try #require(overrides.keys.first)
+        #expect(measurements.first?.peaks.contains { $0.id == peakID } == true,
+                "the override must key a peak the file still contains")
+    }
+
     // R4: The real test fixture (contreras-classical-1774731564.guitartap) must decode without error.
     // The fixture is a JSON array of TapToneMeasurement objects stored with the .guitartap extension.
     @Test func realFixture_decodesWithoutError() throws {
