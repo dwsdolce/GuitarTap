@@ -324,7 +324,7 @@ extension TapToneAnalyzer {
     ///     seed ring-out decay tracking so it is measured in audio time (load-invariant).
     func handleTapDetection(magnitudes: [Float], frequencies: [Float], time: Date, audioTime: Double) {
         // Stop detection temporarily
-        isDetecting = false
+        detectionState = .idle
         
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
@@ -400,7 +400,7 @@ extension TapToneAnalyzer {
     ///   - time: Timestamp of the tap event.
     func handlePlateTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
         // Stop detection while we capture the ring-out window
-        isDetecting = false
+        detectionState = .idle
 
         let phase = materialTapPhase
         TAP_DEBUG("handlePlateTapDetection", "ENTERED | phase=\(phase) materialCapturedTaps.count=\(materialCapturedTaps.count) numberOfTaps=\(numberOfTaps)")
@@ -433,7 +433,7 @@ extension TapToneAnalyzer {
             let currentLevel = self.fftAnalyzer.inputLevelDB
             let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
             self.isAboveThreshold = currentLevel > fallingThreshold
-            self.isDetecting = true
+            self.detectionState = .listening
             self.tapDetected = false
             // Clear stale fast-start marker so the next tap's main-thread
             // startGatedCapture correctly falls back to pre-roll seeding

@@ -119,7 +119,7 @@ struct StateInvariantTests {
         let sut = makeSUT(numberOfTaps: 1)
         sut.startTapSequence()
         try await Task.sleep(for: .milliseconds(50))
-        sut.isDetecting = false
+        sut.detectionState = .idle
         sut.capturedTaps = [fakeTap()]
         sut.currentTapCount = 1
         sut.processMultipleTaps()
@@ -135,7 +135,7 @@ struct StateInvariantTests {
         sut.capturedTaps = [fakeTap()]
         sut.currentTapCount = 1
         // After re-arming for next tap:
-        sut.isDetecting = true
+        sut.detectionState = .listening
         #expect(stateInvariantViolation(sut) == nil,
                 "Mid-sequence guitar state must not violate invariants")
     }
@@ -165,7 +165,7 @@ struct StateInvariantTests {
     // with violation == nil, the checker itself has regressed.
     @Test func impossibleState_detectingAndComplete_isFlagged() {
         let sut = makeSUT(numberOfTaps: 1)
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.isMeasurementComplete = true
         #expect(stateInvariantViolation(sut) != nil,
                 "Invariant checker must reject (isDetecting && isMeasurementComplete) in guitar mode")

@@ -98,7 +98,7 @@ struct ScenarioStateTraceTests {
         trace.append(snap("postStart", sut))
 
         // Simulate tap → gated capture → completion.
-        sut.isDetecting = false                 // handleTapDetection
+        sut.detectionState = .idle                 // handleTapDetection
         sut.capturedTaps = [fakeTap()]
         sut.currentTapCount = 1
         trace.append(snap("postCapture", sut))
@@ -126,7 +126,7 @@ struct ScenarioStateTraceTests {
 
         sut.startTapSequence()                  // triggered by type-change handler
         // Spurious tap fires BEFORE the async housekeeping block runs.
-        sut.isDetecting = false                 // handleTapDetection effect
+        sut.detectionState = .idle                 // handleTapDetection effect
         // NOW the housekeeping runs (post-fix: must not clobber isDetecting).
         try await Task.sleep(for: .milliseconds(50))
         trace.append(snap("postStart", sut))
@@ -144,7 +144,7 @@ struct ScenarioStateTraceTests {
             StateSnapshot(label: "postCapture", isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
             StateSnapshot(label: "postProcess", isDetecting: false, isDetectionPaused: false, isMeasurementComplete: true,  currentTapCount: 1, capturedTapsCount: 1),
         ]
-        #expect(trace == expected, "REGRESSION: spurious-tap trace must end with isDetecting=false at every checkpoint; if isDetecting=true at postStart, the line-304 race has been reintroduced")
+        #expect(trace == expected, "REGRESSION: spurious-tap trace must end in `.idle` at every checkpoint; if the state is `.listening` at postStart, the line-304 race has been reintroduced")
     }
 
     // S3: Multi-tap with mid-sequence pause/resume.
@@ -160,7 +160,7 @@ struct ScenarioStateTraceTests {
         // First tap captured; re-arm for next.
         sut.capturedTaps = [fakeTap()]
         sut.currentTapCount = 1
-        sut.isDetecting = true   // scheduleGuitarReEnable result
+        sut.detectionState = .listening   // scheduleGuitarReEnable result
         trace.append(snap("postTap1", sut))
 
         sut.pauseTapDetection()
@@ -172,7 +172,7 @@ struct ScenarioStateTraceTests {
         // Remaining taps captured; final processing.
         sut.capturedTaps = [fakeTap(), fakeTap(), fakeTap()]
         sut.currentTapCount = 3
-        sut.isDetecting = false
+        sut.detectionState = .idle
         sut.processMultipleTaps()
         trace.append(snap("postProcess", sut))
 
@@ -188,7 +188,7 @@ struct ScenarioStateTraceTests {
     }
 
     // S4: Multi-tap cancelled mid-sequence.  Cancel is a restart — cancelTapSequence
-    // re-arms a fresh sequence (≡ New Tap): isDetecting=true, isMeasurementComplete=false,
+    // re-arms a fresh sequence (≡ New Tap): detectionState = .listening, isMeasurementComplete=false,
     // counts reset to 0.
     @Test func scenario_multiTap_cancel() async throws {
         let sut = makeSUT(numberOfTaps: 3)
@@ -201,7 +201,7 @@ struct ScenarioStateTraceTests {
 
         sut.capturedTaps = [fakeTap()]
         sut.currentTapCount = 1
-        sut.isDetecting = true
+        sut.detectionState = .listening
         trace.append(snap("postTap1", sut))
 
         sut.cancelTapSequence()

@@ -326,9 +326,14 @@ struct ExportableSpectrumChart: View {
                         .symbolSize(200)
                     }
                 }
+                // Charts warns and falls back when handed an EMPTY scale, and this chart re-renders
+                // once per FFT frame — thousands of warnings in guitar mode, where materialSpectra is
+                // always []. The series content above is already guarded by `if !materialSpectra.isEmpty`;
+                // this modifier was not. A single placeholder keeps the scale non-empty and shows
+                // nothing, because the legend is hidden on the next line.
                 .chartForegroundStyleScale(
-                    domain: materialSpectra.map { $0.label },
-                    range: materialSpectra.map { $0.color }
+                    domain: materialSpectra.isEmpty ? [""] : materialSpectra.map { $0.label },
+                    range: materialSpectra.isEmpty ? [Color.clear] : materialSpectra.map { $0.color }
                 )
                 .chartLegend(.hidden)
                 .chartPlotStyle { plotArea in

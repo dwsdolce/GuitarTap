@@ -567,12 +567,12 @@ extension TapToneAnalysisView {
                         in: 1...10)
                     .labelsHidden()
                     .accessibilityLabel("Number of taps: \(tap.numberOfTaps)")
-                    .disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)
                     .hint(HintText.taps)
                 Text("\(tap.numberOfTaps)")
                     .font(.caption)
                     .frame(width: 20)
             }
+            .disabledDimmed(tapCountLocked)
 
             // Threshold — level meter with draggable marker (mirrors other layouts)
             // Disabled for brace mode — brace taps bypass the spectral

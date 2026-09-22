@@ -507,7 +507,7 @@ extension TapToneAnalyzer {
     ///    the restored peak array.
     /// 4. Annotation offsets, selected peak IDs, annotation visibility mode,
     ///    and mode overrides are all restored.
-    /// 5. Tap detection is disabled (`isDetecting = false`, `currentTapCount = 0`).
+    /// 5. Tap detection is disabled (`detectionState = .idle`, `currentTapCount = 0`).
     /// 6. The recording microphone is auto-selected if connected; otherwise
     ///    `microphoneWarning` is set.
     ///
@@ -559,7 +559,9 @@ extension TapToneAnalyzer {
         comparisonSpectra = []
         comparisonSnapshots = []
         setFrozenSpectrum(frequencies: [], magnitudes: [])
-        displayMode = .frozen
+        // Not a comparison any more; the loaded measurement displays because
+        // `isMeasurementComplete` is set below, not because of the mode.
+        displayMode = .live
 
         // Track the original timestamp so the Results-panel PDF can use it
         sourceMeasurementTimestamp = measurement.timestamp
@@ -701,11 +703,10 @@ extension TapToneAnalyzer {
         gtLog("  🟣 Restored FLC peak: \(selectedFlcPeak?.frequency ?? -1) Hz")
         
         // Stop tap detection when loading a measurement (frozen state).
-        // Clear isDetectionPaused too — if a tap sequence was paused before loading,
-        // the analyzeMagnitudes loop would otherwise keep overwriting peaksAbovePeakMin
-        // with fresh live-audio peaks on every FFT frame.
-        isDetecting = false
-        isDetectionPaused = false
+        // `.idle` rather than `.paused` matters: if a tap sequence was paused before
+        // loading, the analyzeMagnitudes loop would otherwise keep overwriting
+        // peaksAbovePeakMin with fresh live-audio peaks on every FFT frame.
+        detectionState = .idle
         isMeasurementComplete = true
         currentTapCount = 0
         tapProgress = 0.0
@@ -990,6 +991,16 @@ extension TapToneAnalyzer {
         }
 
         displayMode = comparisonSpectra.isEmpty ? .live : .comparison
+
+        // An overlay is frozen, exactly like a loaded measurement — so stand the detector down,
+        // as `loadMeasurement` does above for the same reason.  Left armed, `analyzeMagnitudes`
+        // goes on overwriting the displayed peaks from live audio underneath the overlay, and a
+        // tap captures and completes a measurement the user never sees being made.  Empty data
+        // means we stayed `.live`, so there is nothing to freeze and nothing to disarm.
+        // Mirrors web `loadComparison` (#17 F31).
+        if !comparisonSpectra.isEmpty {
+            detectionState = .idle
+        }
     }
 
     /// Saves the current comparison as a first-class measurement record.
@@ -1054,8 +1065,8 @@ extension TapToneAnalyzer {
     /// a `comparisonSpectra` entry (using the existing 5-color palette) and the averaged
     /// frozen spectrum is appended as the final entry with a bold yellow color.
     ///
-    /// When turned off, `comparisonSpectra` is cleared and `displayMode` is restored to
-    /// `.frozen` so the chart reverts to the averaged spectrum only.
+    /// When turned off, `comparisonSpectra` is cleared and `displayMode` returns to `.live`; the
+    /// chart reverts to the averaged spectrum on its own, because the measurement is complete.
     ///
     /// **Display mode note:** This method sets `displayMode = .comparison` while overlays
     /// are active so the chart's `materialSpectra` computed property feeds `comparisonSpectra`
@@ -1069,8 +1080,9 @@ extension TapToneAnalyzer {
         guard enabled else {
             comparisonSpectra = []
             comparisonSnapshots = []
-            // Restore frozen display mode so the chart goes back to the averaged spectrum only.
-            displayMode = .frozen
+            // Leave comparison; the chart goes back to the averaged spectrum on its own, because
+            // the measurement is complete.
+            displayMode = .live
             return
         }
         guard !tapEntries.isEmpty else { return }

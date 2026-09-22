@@ -73,7 +73,7 @@ struct TapDetectionTests {
     // T1: Rising edge above threshold sets tapDetected = true.
     @Test func aboveThreshold_setsTapDetected() {
         let sut = makeSUT(threshold: -40)
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.isAboveThreshold = false   // currently below
 
         // Rising-edge fires after RealtimeFFTAnalyzer.levelCrossingConfirmationChunks
@@ -88,7 +88,7 @@ struct TapDetectionTests {
     // T1b: lastTapTime is set when a tap is detected.
     @Test func aboveThreshold_setsLastTapTime() {
         let sut = makeSUT(threshold: -40)
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.isAboveThreshold = false
 
         let before = Date()
@@ -106,7 +106,7 @@ struct TapDetectionTests {
     // T2: Signal below threshold leaves tapDetected = false.
     @Test func belowThreshold_doesNotDetect() {
         let sut = makeSUT(threshold: -40)
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.isAboveThreshold = false
 
         sut.detectTap(level: -50, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
@@ -117,7 +117,7 @@ struct TapDetectionTests {
     // T3: Calls during warm-up period suppress detection entirely.
     @Test func duringWarmup_suppressesDetection() {
         let sut = makeSUT()
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.isAboveThreshold = false
         // Warm-up still active: start the window at the engine's current audio time (0 in tests, and
         // detectTap is called directly so the audio clock never advances → still inside the window).
@@ -131,7 +131,7 @@ struct TapDetectionTests {
     // T4: A second detectTap call within tapCooldown (0.5 s) is rejected.
     @Test func duringCooldown_suppressesDetection() {
         let sut = makeSUT(threshold: -40)
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.isAboveThreshold = false
 
         // Simulate that a tap was just recorded 0.1 s ago
@@ -147,7 +147,7 @@ struct TapDetectionTests {
     // should NOT trigger a new tap.  hysteresisMargin is hardcoded to 3 dB.
     @Test func hysteresis_preventsBouncingOnFallingEdge() {
         let sut = makeSUT(threshold: -40)
-        sut.isDetecting = true
+        sut.detectionState = .listening
 
         // First sequence: rising-edge confirmation requires N consecutive
         // above-rising-threshold calls before firing — feed enough to latch.
@@ -176,7 +176,7 @@ struct TapDetectionTests {
     // (ready for the next rising edge).
     @Test func hysteresis_signalBelowFallingThreshold_resetsAboveThreshold() {
         let sut = makeSUT(threshold: -40)
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.isAboveThreshold = true   // currently above
 
         // Signal drops below fallingThreshold (-43)
@@ -190,7 +190,7 @@ struct TapDetectionTests {
     // fire tapDetected.
     @Test func justExitedWarmup_syncsThenSkips() {
         let sut = makeSUT(threshold: -40)
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.justExitedWarmup = true
         // warmupStartAudioTime is 2 audio-seconds ago → warm-up check passes
 
@@ -216,7 +216,7 @@ struct TapDetectionTests {
         sut.numberOfTaps = 1
         sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed
         sut.justExitedWarmup = false
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.isAboveThreshold = false
         // Put the analyzer in the correct plate phase so handlePlateTapDetection
         // doesn't fall through to the .notStarted warning branch and discard the tap.

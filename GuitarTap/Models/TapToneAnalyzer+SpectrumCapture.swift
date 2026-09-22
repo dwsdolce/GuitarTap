@@ -619,7 +619,7 @@ extension TapToneAnalyzer {
             let currentLevel = self.fftAnalyzer.inputLevelDB
             let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
             self.isAboveThreshold = currentLevel > fallingThreshold
-            self.isDetecting = true
+            self.detectionState = .listening
             self.tapDetected = false
             self.mpmLock.lock()
             self.lastLevelCrossingCaptureID = -1
@@ -656,17 +656,17 @@ extension TapToneAnalyzer {
             return
         }
 
-        // A capture has been confirmed.  Clear isDetecting so the analyzer
+        // A capture has been confirmed.  Leave `listening` so the analyzer
         // reflects "tap acknowledged" regardless of which path triggered the
-        // capture.  The RMS path (handleTapDetection) clears it earlier, at
+        // capture.  The RMS path (handleTapDetection) leaves it earlier, at
         // the moment of detection; the audio-queue path (levelCrossingHandler)
-        // does not touch isDetecting at all, so without this line a tap that
-        // came in via the audio queue leaves isDetecting=true through the
+        // does not touch the detection state at all, so without this line a tap
+        // that came in via the audio queue stays `listening` through the
         // capture and into processMultipleTaps, producing the impossible
         // (isDetecting && isMeasurementComplete) state that drove the iPad
         // type-change bug.  For multi-tap sequences, scheduleGuitarReEnable
-        // below sets isDetecting=true again after the cooldown.
-        isDetecting = false
+        // below returns to `listening` after the cooldown.
+        detectionState = .idle
 
         // NOTE: no per-tap WAV dump here. The "Dump Capture Audio" diagnostic writes only ONE
         // continuous session WAV per measurement (finishSessionRecording), which already contains
@@ -1287,7 +1287,7 @@ extension TapToneAnalyzer {
             // the decay, capturing 67 Hz L content instead of the real C tap.
             // Matches the skipWarmup=true initial setup in startTapSequence.
             isAboveThreshold = true
-            isDetecting = true
+            detectionState = .listening
             tapDetected = false
             // Clear stale fast-start marker so the C tap's main-thread
             // startGatedCapture correctly falls back to pre-roll seeding
@@ -1302,7 +1302,7 @@ extension TapToneAnalyzer {
             // The user must press Accept (advance to C) or Redo (re-capture L).
             setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
             materialTapPhase = .reviewingLongitudinal
-            isDetecting = false
+            detectionState = .idle
             statusMessage = "fL: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
         }
     }
@@ -1406,7 +1406,7 @@ extension TapToneAnalyzer {
                 // rationale.  Without this the C tap's ring-out fires a
                 // bogus FLC "rising edge" on the decaying tail.
                 isAboveThreshold = true
-                isDetecting = true
+                detectionState = .listening
                 tapDetected = false
                 mpmLock.lock()
                 lastLevelCrossingCaptureID = -1
@@ -1423,7 +1423,7 @@ extension TapToneAnalyzer {
             // The user must press Accept (advance to FLC or complete) or Redo (re-capture C).
             setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
             materialTapPhase = .reviewingCross
-            isDetecting = false
+            detectionState = .idle
             statusMessage = "fC: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
         }
     }
@@ -1491,7 +1491,7 @@ extension TapToneAnalyzer {
             // The user must press Accept (complete) or Redo (re-capture FLC).
             setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
             materialTapPhase = .reviewingFlc
-            isDetecting = false
+            detectionState = .idle
             statusMessage = "fLC: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to complete or Redo to re-tap"
         }
         gtLog("📊 FLC review: L=\(selectedLongitudinalPeak?.frequency ?? 0) C=\(selectedCrossPeak?.frequency ?? 0) FLC=\(avgPeak.frequency) Hz")

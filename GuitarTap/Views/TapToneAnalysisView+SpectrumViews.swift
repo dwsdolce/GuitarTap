@@ -70,10 +70,12 @@ extension TapToneAnalysisView {
         if tap.displayMode == .comparison {
             return ([], [])
         }
-        // During a device-change settle, displayMode is .frozen but isMeasurementComplete
-        // is false.  Return the frozen arrays directly (empty = blank spectrum).
-        if tap.displayMode == .frozen && !tap.isMeasurementComplete {
-            return (tap.frozenFrequencies, tap.frozenMagnitudes)
+        // A device/route change is settling — show nothing rather than the old device's spectrum.
+        // This used to be expressed as `displayMode == .frozen && !isMeasurementComplete`, reading
+        // back a blank the settle had written into the frozen arrays; the settle now says so
+        // directly and leaves a completed measurement's arrays alone (#17 F35).
+        if tap.isSettling {
+            return ([], [])
         }
         if tap.isMeasurementComplete {
             // For plate/brace measurements frozen arrays are intentionally empty

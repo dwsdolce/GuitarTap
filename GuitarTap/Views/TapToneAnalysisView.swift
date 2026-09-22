@@ -199,57 +199,46 @@ struct TapToneAnalysisView: View {
         }
     }
 
-    /// True while a tap sequence is **actively in flight** — for guitar, detecting or
-    /// paused; for material, past `notStarted` and before completion.
+    /// The analyzer state the button rule reads, gathered from the model and this view.
     ///
-    /// This is the honest "is the analyzer working toward a measurement?" predicate.
-    /// New Tap is disabled while it holds and enabled otherwise (idle OR complete).
-    /// It replaces the old `!isMeasurementComplete` proxy, which assumed a disarmed-idle
-    /// state was impossible — no longer true once the Dump Capture Audio folder guard can
-    /// decline to arm (§4b), leaving the analyzer idle-but-not-complete.
-    var isSequenceActive: Bool {
-        let type = TapDisplaySettings.measurementType
-        return type.isGuitar
-            ? (tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused)
-            : (tapToneAnalyzer.materialTapPhase != .notStarted && !tapToneAnalyzer.isMeasurementComplete)
+    /// The rule itself lives in `ButtonEnablement.swift` so the view and the
+    /// button-enablement test exercise ONE implementation — mirrors web, where `App.tsx`
+    /// and `button-enablement.test.ts` both import `buttonRule`.
+    var buttonState: ButtonState {
+        ButtonState(detectionState: tapToneAnalyzer.detectionState,
+                    isMeasurementComplete: tapToneAnalyzer.isMeasurementComplete,
+                    isReadyForDetection: tapToneAnalyzer.isReadyForDetection,
+                    fftIsRunning: fft.isRunning,
+                    displayMode: tapToneAnalyzer.displayMode,
+                    measurementType: TapDisplaySettings.measurementType,
+                    materialTapPhase: tapToneAnalyzer.materialTapPhase,
+                    numberOfTaps: tapToneAnalyzer.numberOfTaps)
     }
 
-    /// True while an **active multi-step** sequence — multi-tap (`numberOfTaps > 1`) or
-    /// multi-phase (plate; brace is single-phase) — is in progress.
+    /// The tap-count control is locked once a tap has been captured, so the total cannot change
+    /// mid-measurement; it unlocks when the measurement completes. Python's
+    /// `tap_num_spin.setEnabled` and web's `tapsLocked` compute the same thing.
     ///
-    /// Cancel (restart) is offered here.  Builds on ``isSequenceActive``: a sequence is
-    /// underway and it's multi-step.  Single-tap / single-phase captures are not
-    /// restartable via Cancel — there's nothing collected to discard; just tap, or New
-    /// Tap once complete.
-    var isInActiveMultiStepSequence: Bool {
-        guard isSequenceActive else { return false }
-        return tapToneAnalyzer.numberOfTaps > 1 || TapDisplaySettings.measurementType == .plate
+    /// Deliberately NOT part of `buttonRule`: that rule answers which of the three ACTION buttons
+    /// are live, and a numeric input's lock is a different question about a different control.
+    var tapCountLocked: Bool {
+        tapToneAnalyzer.currentTapCount > 0 && !tapToneAnalyzer.isMeasurementComplete
     }
 
     /// Cancel restarts the current sequence; it's offered during a review phase (where it
     /// acts as "Redo") or while an active multi-step sequence is in progress.
-    // @parity state/button-enablement
-    var cancelButtonEnabled: Bool {
-        isInReviewPhase || isInActiveMultiStepSequence
-    }
+    var cancelButtonEnabled: Bool { buttonRule(buttonState).cancelEnabled }
 
     /// Pause/Resume button is enabled during any active tap detection sequence.
     /// During a review phase it acts as "Accept" and is always enabled.
-    var pauseResumeButtonEnabled: Bool {
-        if isInReviewPhase { return true }
-        return tapToneAnalyzer.isDetecting || tapToneAnalyzer.isDetectionPaused
-    }
+    var pauseResumeButtonEnabled: Bool { buttonRule(buttonState).pauseEnabled }
 
-    /// New Tap starts a fresh measurement, so it's disabled only while a sequence is
-    /// **in flight** (``isSequenceActive`` — capturing, paused, or reviewing) and enabled
-    /// otherwise: once a measurement is complete *and* in the disarmed-idle state the Dump
-    /// Capture Audio folder guard can produce (§4b), so the user can re-arm.  Always enabled
-    /// in comparison mode; disabled when the FFT isn't running/ready.
-    var newTapButtonDisabled: Bool {
-        guard tapToneAnalyzer.displayMode != .comparison else { return false }
-        guard fft.isRunning && tapToneAnalyzer.isReadyForDetection else { return true }
-        return isSequenceActive
-    }
+    /// New Tap starts a fresh measurement, so it's disabled only while a sequence is in
+    /// flight (capturing, paused, or reviewing) and enabled otherwise: once a measurement
+    /// is complete *and* in the disarmed-idle state the Dump Capture Audio folder guard can
+    /// produce (§4b), so the user can re-arm.  Always enabled in comparison mode; disabled
+    /// when the FFT isn't running/ready.
+    var newTapButtonDisabled: Bool { buttonRule(buttonState).newTapDisabled }
 
     /// Creates the view and its paired audio analyzers.
     ///

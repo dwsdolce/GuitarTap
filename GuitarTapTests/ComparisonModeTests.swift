@@ -160,6 +160,36 @@ struct ComparisonClearTests {
         #expect(sut.comparisonSpectra.isEmpty)
         #expect(sut.displayMode == .live, "displayMode should be .live when no measurements have snapshots")
     }
+
+    // CP-U9: Building a comparison from an ARMED sequence stands the detector down.
+    //
+    // An overlay is frozen, like a loaded measurement.  Left armed, analyzeMagnitudes keeps
+    // overwriting the displayed peaks from live audio underneath the overlay, and a tap
+    // captures and completes a measurement the user never sees being made — which is what a
+    // run-review of #17 F30 found in the shipping app (#17 F31).
+    @Test func loadComparison_whileDetecting_disarmsDetection() {
+        let sut = makeSUT()
+        sut.detectionState = .listening
+
+        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
+
+        #expect(sut.displayMode == .comparison)
+        #expect(sut.detectionState == .idle,
+                "REGRESSION: a comparison overlay is frozen — leaving the detector armed lets live audio overwrite the overlay's peaks and lets a tap complete a measurement invisibly")
+    }
+
+    // CP-U10: An EMPTY comparison leaves the mode live, so there is nothing to freeze and the
+    // detector must be left exactly as it was — the mode follows the data, and so does the disarm.
+    @Test func loadComparison_emptyArray_leavesDetectionAlone() {
+        let sut = makeSUT()
+        sut.detectionState = .listening
+
+        sut.loadComparison(measurements: [])
+
+        #expect(sut.displayMode == .live)
+        #expect(sut.detectionState == .listening,
+                "an empty comparison stays live, so the detector must keep running")
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -191,23 +221,24 @@ struct DisplayModeTransitionTests {
         #expect(sut.displayMode == .live)
     }
 
-    // loadMeasurement sets displayMode to .frozen.
-    @Test func loadMeasurement_setsDisplayModeToFrozen() {
+    // loadMeasurement leaves displayMode .live — the loaded measurement displays because
+    // isMeasurementComplete is set, not because of the mode (#17 F35 removed the .frozen case).
+    @Test func loadMeasurement_leavesDisplayModeLive() {
         let sut = makeSUT()
         let m = makeMeasurement(measurementName: "Bridge")
         sut.loadMeasurement(m)
-        #expect(sut.displayMode == .frozen)
+        #expect(sut.displayMode == .live)
     }
 
-    // loadMeasurement while in comparison also exits comparison and sets .frozen.
-    @Test func loadMeasurement_duringComparison_setsDisplayModeToFrozen() {
+    // loadMeasurement while in comparison also exits comparison, returning to .live.
+    @Test func loadMeasurement_duringComparison_exitsComparison() {
         let sut = makeSUT()
         sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
         #expect(sut.displayMode == .comparison)
 
         sut.loadMeasurement(makeMeasurement(measurementName: "Neck"))
 
-        #expect(sut.displayMode == .frozen)
+        #expect(sut.displayMode == .live)
         #expect(sut.comparisonSpectra.isEmpty, "comparisonSpectra should be cleared when loading a measurement")
     }
 }

@@ -217,7 +217,7 @@ struct FlcCooldownCancellationTests {
     /// closure runs on `DispatchQueue.main.asyncAfter`, which cannot be cancelled, and
     /// `cancelTapSequence()`'s `captureTimer.invalidate()` does not reach it — so without a phase
     /// guard it fires into whatever sequence happens to be running half a second later, forcing
-    /// `.capturingFlc` and `isDetecting = true` onto a measurement the user already restarted.
+    /// `.capturingFlc` and `detectionState = .listening` onto a measurement the user already restarted.
     ///
     /// Both ports have always guarded this; Swift was the outlier. Mirrors Python
     /// `_do_start_flc`'s WAITING_FOR_FLC_TAP guard and the web's FLC cooldown timer.
@@ -241,5 +241,29 @@ struct FlcCooldownCancellationTests {
         #expect(sut.materialTapPhase == phaseAfterCancel,
                 "the cooldown closure dragged a cancelled sequence back into the FLC phase")
         #expect(sut.materialTapPhase != .capturingFlc)
+    }
+}
+// ---------------------------------------------------------------------------
+// MARK: - A later count change must not rewrite a finished measurement (#17 F34)
+// ---------------------------------------------------------------------------
+
+/// `tapProgress` is STORED, written at each capture site and pinned to 1.0 at completion — so a
+/// completed measurement's bar records what was actually measured. Raising the tap count afterwards
+/// configures the NEXT measurement and must leave the finished one alone. Web derived it at render
+/// time instead, so a complete 1-tap measurement's full bar dropped to a third when Taps went to 3.
+@Suite("TapProgressAfterCountChange", .serialized)
+@MainActor
+struct TapProgressAfterCountChangeTests {
+
+    @Test func completeMeasurement_keepsFullBar_whenTapCountRaised() {
+        let sut = makeSUT(numberOfTaps: 1, measurementType: .generic)
+        sut.currentTapCount = 1
+        sut.tapProgress = 1.0
+        sut.isMeasurementComplete = true
+
+        sut.numberOfTaps = 3   // configures the next measurement
+
+        #expect(sut.tapProgress == 1.0,
+                "REGRESSION: tapProgress must be stored, not derived — a later count change cannot rewrite a finished measurement's bar")
     }
 }

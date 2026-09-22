@@ -152,7 +152,7 @@ struct StatusMessageTests {
         let sut = makeSUT(numberOfTaps: 2)
         sut.capturedTaps = [fakeTap(), fakeTap()]
         sut.currentTapCount = 2
-        sut.isDetecting = false
+        sut.detectionState = .idle
         sut.processMultipleTaps()
 
         let announced = sut.statusMessage

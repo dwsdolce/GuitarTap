@@ -4,7 +4,7 @@
 //
 //  Regression tests for the bug where startTapSequence()'s deferred async
 //  housekeeping block at TapToneAnalyzer+Control.swift:304 redundantly re-set
-//  `isDetecting = true`, clobbering a legitimate `false` set by
+//  `detectionState = .listening`, clobbering a legitimate `.idle` set by
 //  `handleTapDetection` from the audio thread between the sync arming and the
 //  async block running.
 //
@@ -12,7 +12,7 @@
 //  background noise, switch measurement type to Generic.  A spurious tap fired
 //  on the type change auto-restarted detection, the gated capture completed,
 //  processMultipleTaps set isMeasurementComplete=true, but the now-stale async
-//  block had already reasserted isDetecting=true — leaving the analyzer in the
+//  block had already reasserted `.listening` — leaving the analyzer in the
 //  impossible state (isDetecting && isMeasurementComplete) which made Pause
 //  enabled and New Tap disabled even though the measurement was done.
 //
@@ -53,30 +53,30 @@ struct StartTapSequenceRaceTests {
     init() { TapDisplaySettings.measurementType = .generic }
 
     // R1: After startTapSequence arms detection synchronously, a subsequent
-    // handleTapDetection-style flip of isDetecting=false must survive the
+    // handleTapDetection-style flip to `.idle` must survive the
     // deferred async housekeeping block.  This is the exact race the line-304
     // fix addresses.
     @Test func isDetectingFalse_survives_asyncHousekeeping() async throws {
         let sut = makeSUT(numberOfTaps: 1)
 
         sut.startTapSequence()
-        #expect(sut.isDetecting == true, "Sync arming must set isDetecting=true")
+        #expect(sut.isDetecting == true, "Sync arming must set detectionState = .listening")
 
         // Simulate the audio thread firing handleTapDetection between the sync
         // arming and the deferred housekeeping block running.  The real handler
-        // sets isDetecting=false to gate the capture window; we mirror that
+        // sets detectionState = .idle to gate the capture window; we mirror that
         // state change directly so the test doesn't depend on the audio pipeline.
-        sut.isDetecting = false
+        sut.detectionState = .idle
 
         // Drain the deferred housekeeping block.
         try await Task.sleep(for: .milliseconds(50))
 
         #expect(sut.isDetecting == false,
-                "Async housekeeping must NOT re-assert isDetecting=true; doing so clobbers handleTapDetection's intentional false and leaves the analyzer stuck in 'detecting' after the gated capture and processMultipleTaps complete.")
+                "Async housekeeping must NOT re-assert `.listening`; doing so clobbers handleTapDetection's intentional `.idle` and leaves the analyzer stuck in 'detecting' after the gated capture and processMultipleTaps complete.")
     }
 
     // R2: End-to-end repro for the iPad bug — startTapSequence, spurious tap
-    // (handleTapDetection sets isDetecting=false), gated capture completes
+    // (handleTapDetection sets detectionState = .idle), gated capture completes
     // (we simulate by populating capturedTaps), processMultipleTaps finishes
     // the measurement.  Final state must satisfy the guitar-mode invariants:
     // measurement complete, not detecting, not paused.
@@ -84,7 +84,7 @@ struct StartTapSequenceRaceTests {
         let sut = makeSUT(numberOfTaps: 1)
 
         sut.startTapSequence()
-        sut.isDetecting = false                 // handleTapDetection effect
+        sut.detectionState = .idle                 // handleTapDetection effect
         try await Task.sleep(for: .milliseconds(50))   // drain housekeeping
         sut.capturedTaps = [fakeTap()]          // gated capture finished
         sut.processMultipleTaps()
@@ -96,9 +96,9 @@ struct StartTapSequenceRaceTests {
     }
 
     // R3: For multi-tap guitar (numberOfTaps > 1), the same race must not
-    // strand the analyzer.  Mid-sequence we expect (isDetecting=true,
+    // strand the analyzer.  Mid-sequence we expect (`.listening`,
     // isMeasurementComplete=false); after completion we expect
-    // (isDetecting=false, isMeasurementComplete=true).
+    // (`.idle`, isMeasurementComplete=true).
     @Test func spuriousTap_multiTap_eventually_completes_cleanly() async throws {
         let sut = makeSUT(numberOfTaps: 3)
 
@@ -108,7 +108,7 @@ struct StartTapSequenceRaceTests {
         // Simulate three taps captured by the gated path.
         sut.capturedTaps = [fakeTap(), fakeTap(), fakeTap()]
         sut.currentTapCount = 3
-        sut.isDetecting = false
+        sut.detectionState = .idle
         sut.processMultipleTaps()
 
         #expect(sut.isMeasurementComplete == true)
@@ -126,8 +126,8 @@ struct StartTapSequenceRaceTests {
     // false — otherwise the UI shows the impossible (detecting && complete)
     // state with Pause enabled and New Tap disabled.
     //
-    // R1–R3 above drive the MODEL through the RMS path (they directly mutate
-    // isDetecting=false to simulate handleTapDetection); they passed even
+    // R1–R3 above drive the MODEL through the RMS path (they directly set
+    // `.idle` to simulate handleTapDetection); they passed even
     // with the iPad bug present because they bypass the audio-queue path
     // that exhibited it.  This test drives the audio-queue path: it never
     // calls handleTapDetection, it goes straight from startTapSequence to
@@ -153,10 +153,35 @@ struct StartTapSequenceRaceTests {
 
         // Now run processMultipleTaps to finish the measurement.  The end
         // state must satisfy the invariants — isMeasurementComplete=true,
-        // isDetecting=false, isDetectionPaused=false.
+        // detectionState = .idle, isDetectionPaused=false.
         sut.processMultipleTaps()
         #expect(sut.isMeasurementComplete == true)
         #expect(sut.isDetecting == false)
         #expect(sut.isDetectionPaused == false)
+    }
+
+    // R5: A restart from PAUSED must end LISTENING, not paused.
+    //
+    // startTapSequence used to clear the pause flag up front; with one detection state it
+    // simply moves to `.listening` at the arming step, and nothing in between may leave
+    // `.paused` standing.  Cancel is the reachable route: the button rule DISABLES New Tap
+    // while paused (a paused sequence is still in flight, B6) and ENABLES Cancel, which
+    // delegates to startTapSequence in all three editions.
+    @Test func restartFromPaused_endsListening() async throws {
+        let sut = makeSUT(numberOfTaps: 3)
+
+        sut.startTapSequence()
+        try await Task.sleep(for: .milliseconds(50))   // drain housekeeping
+        sut.currentTapCount = 1
+        sut.pauseTapDetection()
+        #expect(sut.isDetectionPaused == true, "precondition: the sequence is paused")
+
+        sut.cancelTapSequence()
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(sut.detectionState == .listening,
+                "REGRESSION: a restart from paused must arm; leaving it `.paused` strands the user with a sequence they cannot resume or restart")
+        #expect(sut.isDetectionPaused == false)
+        #expect(sut.currentTapCount == 0)
     }
 }

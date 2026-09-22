@@ -196,6 +196,24 @@ extension View {
         self
         #endif
     }
+
+    /// Disables a control AND shows that it is disabled.
+    ///
+    /// `.disabled(_:)` alone stops a control responding but does not reliably dim it — a
+    /// `Stepper`'s own title is drawn by the control and survives the disabled environment, and a
+    /// sibling `Text` showing the value is not covered at all. The result is a control that ignores
+    /// the user while still looking available. Python (Qt) and web (`.btn:disabled { opacity: .45 }`)
+    /// both grey theirs, so Swift was the only edition that swallowed the click silently (#17).
+    ///
+    /// Apply this to the whole group — label, control and any sibling value `Text` — so all of it
+    /// dims together. 0.45 matches web's disabled opacity, so the three editions look alike.
+    ///
+    /// - Parameter isDisabled: `true` to disable and dim.
+    /// - Returns: The view, disabled and dimmed when `isDisabled`.
+    func disabledDimmed(_ isDisabled: Bool) -> some View {
+        self.disabled(isDisabled)
+            .opacity(isDisabled ? 0.45 : 1)
+    }
 }
 
 // MARK: - UI Hint Text Constants

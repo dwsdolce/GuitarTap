@@ -51,7 +51,7 @@ struct TapCountChangeTests {
     // Raising the count while armed-and-waiting refreshes the prompt.
     @Test func raisingCountWhileArmedIdle_refreshesPrompt() {
         let sut = makeSUT(numberOfTaps: 1)
-        sut.isDetecting = true       // armed, waiting for the first tap
+        sut.detectionState = .listening       // armed, waiting for the first tap
         sut.currentTapCount = 0
         sut.numberOfTaps = 3         // didSet → refresh
         #expect(sut.statusMessage == "Tap the guitar 3 times...")
@@ -61,7 +61,7 @@ struct TapCountChangeTests {
     // "3-tap brace → Generic → Taps=1" left the bar stuck on the old count).
     @Test func loweringCountWhileArmedIdle_refreshesPrompt() {
         let sut = makeSUT(numberOfTaps: 4)
-        sut.isDetecting = true
+        sut.detectionState = .listening
         sut.currentTapCount = 0
         sut.numberOfTaps = 1
         #expect(sut.statusMessage == "Tap the guitar...")
@@ -69,7 +69,7 @@ struct TapCountChangeTests {
 
     // An idle change (before arming / a frozen loaded result) must NOT refresh.
     @Test func changingCountWhileIdle_doesNotRefresh() {
-        let sut = makeSUT(numberOfTaps: 1) // isDetecting = false
+        let sut = makeSUT(numberOfTaps: 1) // detectionState = .idle
         let before = sut.statusMessage
         sut.numberOfTaps = 5
         #expect(sut.statusMessage == before)
@@ -80,7 +80,7 @@ struct TapCountChangeTests {
 /// OUT-5 — a count change with taps already in hand must NOT finalise the measurement.
 ///
 /// Guards the removal of the unreachable reduce-mid-sequence branch (see the file header).
-/// Before the removal, `didSet` set `isDetecting = false`, wrote "All taps captured. Processing...",
+/// Before the removal, `didSet` set `detectionState = .idle`, wrote "All taps captured. Processing...",
 /// and deferred `processMultipleTaps()` by `captureWindow` — averaging ALL captured taps, not the
 /// newly-requested count. Python truncated instead. Neither was reachable.
 @Suite("TapCountChange — no implicit finalise", .serialized)
@@ -97,7 +97,7 @@ struct NoImplicitFinaliseTests {
             (magnitudes: mags, frequencies: freqs, captureTime: Date())
         }
         sut.currentTapCount = taps
-        sut.isDetecting = true
+        sut.detectionState = .listening
         return sut
     }
 

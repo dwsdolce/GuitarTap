@@ -319,6 +319,58 @@ final class TapToneAnalyzer: ObservableObject {
     /// `capturing == true` → the in-progress "Tap n/N capturing…" or, on the final tap,
     /// "All taps captured. Processing…".  (guitar mode keeps `currentTapCount ==
     /// capturedTaps.count`, so the provisional `+1` matches the old `capturedTaps.count + 1`.)
+    /// The status shown while a sequence is PAUSED.  One literal, used by `pauseTapDetection()`
+    /// and by ``statusAfterSettle()`` so a device change cannot silently reword a paused sequence.
+    static let pausedStatus = "Detection paused – tap freely, then resume"
+
+    /// The prompt for an ARMED analyzer, whatever it is measuring — guitar count-aware, material
+    /// phase-aware.  Extracted from `resumeTapDetection()`, which is where this logic lived as the
+    /// only "restore a context-appropriate prompt" in the app.
+    func armedPrompt() -> String {
+        let type = TapDisplaySettings.measurementType
+        guard !type.isGuitar else { return guitarLoopStatus(capturing: false) }
+        switch materialTapPhase {
+        case .capturingLongitudinal:
+            // "fL", not "L", for plate as well — the phase-tap rename missed this one site, so
+            // ARMING a plate sequence said "Ready for fL tap" while RESUMING the same sequence said
+            // "Ready for L tap". Python and web already said fL throughout (#17 F33).
+            return "Ready for fL tap"
+        case .capturingFlc, .waitingForFlcTap:
+            return "Ready for fLC tap"
+        default:
+            return "Ready for fC tap"
+        }
+    }
+
+    /// The status to restore when a device/route-change settle ends — or `nil` to leave the current
+    /// status alone.
+    ///
+    /// The settle used to CHOOSE between two strings (`tapPrompt()` when detecting, `"Ready"`
+    /// otherwise), which is wrong in both directions: mid-sequence it said "Tap the guitar 3
+    /// times…" when one tap was already captured, and on a finished measurement it replaced
+    /// "Analysis complete! N peaks…" with "Ready".  The status is a function of state, so derive it
+    /// rather than guessing — and say nothing at all where the status is a RESULT announcement
+    /// rather than a live prompt, because a completed or loaded measurement's status is not
+    /// re-derivable and must not be thrown away (#17 F33).
+    func statusAfterSettle() -> String? {
+        if isMeasurementComplete { return nil }        // "Analysis complete…" / "Loaded measurement…"
+        if displayMode == .comparison { return nil }   // an overlay is not a tap prompt
+        if isDetectionPaused { return Self.pausedStatus }
+        if isDetecting { return armedPrompt() }
+        return "Ready"
+    }
+
+    /// The status to show when a settle ends, given what the status said before it began.
+    ///
+    /// The whole decision in one pure function, so every edition can pin it: derive from state, and
+    /// where the state's status is a result announcement rather than a prompt, put back what was
+    /// there. The first version returned "nothing to say" and left the caller to skip the
+    /// assignment — which left the "Audio device changed - reinitializing…" transient up forever on
+    /// a completed measurement (#17 F33).
+    func restoredStatus(before: String) -> String {
+        statusAfterSettle() ?? before
+    }
+
     func guitarLoopStatus(capturing: Bool) -> String {
         if capturing {
             let prov = min(currentTapCount + 1, numberOfTaps)
@@ -463,32 +515,37 @@ final class TapToneAnalyzer: ObservableObject {
     /// Views observe this to flash the tap indicator.
     @Published var tapDetected: Bool = false
 
-    /// `true` when tap detection is actively listening for taps.
+    /// Whether the detector is listening, paused mid-sequence, or neither.
     ///
-    /// `false` after `stop()`, `cancelTapSequence()`, or while paused.
     /// Setting this property automatically arms or disarms the audio-queue
-    /// level-crossing handler that snapshots the pre-roll buffer.
-    @Published var isDetecting: Bool = false {
+    /// level-crossing handler that snapshots the pre-roll buffer, on entry to
+    /// and exit from ``DetectionState/listening``.
+    ///
+    /// One value rather than the `isDetecting` / `isDetectionPaused` pair it
+    /// replaced: that pair could express "detecting AND paused", and every site
+    /// touching either flag had to keep them consistent by hand.  Both remain
+    /// available as computed reads below.
+    @Published var detectionState: DetectionState = .idle {
         didSet {
-            TAP_DEBUG("isDetecting", "\(oldValue) → \(isDetecting) | paused=\(isDetectionPaused) complete=\(isMeasurementComplete) ready=\(isReadyForDetection) tapCount=\(currentTapCount)/\(numberOfTaps) capt=\(capturedTaps.count) phase=\(materialTapPhase) measType=\(TapDisplaySettings.measurementType) | isPlayingFile=\(fftAnalyzer.isPlayingFile)")
-            // Brief call stack so we can see WHO flipped the flag (top 8 frames,
+            // Nothing to do for a same-value assignment — and in particular the
+            // re-confirmation in startTapSequence's async block must not
+            // re-arm, so that a capture already started by the audio queue
+            // between the synchronous and async assignments is not disrupted.
+            guard oldValue != detectionState else { return }
+            let wasDetecting = (oldValue == .listening)
+            TAP_DEBUG("detectionState", "\(oldValue.rawValue) → \(detectionState.rawValue) | complete=\(isMeasurementComplete) ready=\(isReadyForDetection) tapCount=\(currentTapCount)/\(numberOfTaps) capt=\(capturedTaps.count) phase=\(materialTapPhase) measType=\(TapDisplaySettings.measurementType) | isPlayingFile=\(fftAnalyzer.isPlayingFile)")
+            // Brief call stack so we can see WHO changed the state (top 8 frames,
             // first one is the dispatch_wrap for swift property setters and is
             // skipped).  Strip the leading address columns to keep lines short.
             let frames = Thread.callStackSymbols.dropFirst().prefix(8)
                 .map { $0.replacingOccurrences(of: "  +0x[0-9a-f]+", with: "", options: .regularExpression) }
                 .joined(separator: " | ")
-            TAP_DEBUG("isDetecting.stack", frames)
-            if isDetecting && !oldValue {
-                // false → true transition only: arm the audio-queue level-
-                // crossing handler so it can start the gated capture at the
-                // exact buffer that crosses the threshold (no main-thread
-                // delay).
-                //
-                // We deliberately ignore true → true assignments (e.g. the
-                // re-confirmation in startTapSequence's async block) so that
-                // a capture already started by the audio queue between the
-                // synchronous and async assignments is not disrupted.
-                TAP_DEBUG("isDetecting", "ARMING level crossing (false→true)")
+            TAP_DEBUG("detectionState.stack", frames)
+            if isDetecting && !wasDetecting {
+                // Entering `listening`: arm the audio-queue level-crossing
+                // handler so it can start the gated capture at the exact
+                // buffer that crosses the threshold (no main-thread delay).
+                TAP_DEBUG("detectionState", "ARMING level crossing (→ listening)")
                 fftAnalyzer.levelCrossingArmed = true
                 // During file playback the audio queue is already tracking
                 // previousLevelDB naturally.  Resetting it to -100 would
@@ -506,33 +563,39 @@ final class TapToneAnalyzer: ObservableObject {
                 // re-arming cycle (accumulateGatedSamples re-arms after
                 // each capture completes).  Disarming here would undo that
                 // re-arm before the next tap's audio arrives on the queue,
-                // because the main-thread tap detection (which triggers
-                // isDetecting = false) runs after the audio-queue re-arm
-                // but before the next tap's audio chunks are processed.
+                // because the main-thread tap detection (which leaves
+                // `listening`) runs after the audio-queue re-arm but before
+                // the next tap's audio chunks are processed.
                 if !fftAnalyzer.isPlayingFile {
-                    TAP_DEBUG("isDetecting", "DISARMING level crossing (not playing file)")
+                    TAP_DEBUG("detectionState", "DISARMING level crossing (not playing file)")
                     fftAnalyzer.levelCrossingArmed = false
                 } else {
-                    TAP_DEBUG("isDetecting", "SKIPPED disarm (playing file)")
+                    TAP_DEBUG("detectionState", "SKIPPED disarm (playing file)")
                 }
             }
         }
     }
 
+    /// `true` when tap detection is actively listening for taps.
+    ///
+    /// `false` after `stop()`, `cancelTapSequence()`, or while paused.
+    var isDetecting: Bool { detectionState == .listening }
+
     /// `true` when the tap sequence is paused (spectrum stays live, detection is off).
     ///
-    /// Distinct from `isDetecting = false` because pause preserves the in-progress
+    /// Distinct from ``DetectionState/idle`` because pause preserves the in-progress
     /// tap count, while a full stop resets it.
-    @Published var isDetectionPaused: Bool = false {
-        didSet {
-            guard oldValue != isDetectionPaused else { return }
-            TAP_DEBUG("isDetectionPaused", "\(oldValue) → \(isDetectionPaused) | detecting=\(isDetecting) complete=\(isMeasurementComplete) ready=\(isReadyForDetection)")
-            let frames = Thread.callStackSymbols.dropFirst().prefix(6)
-                .map { $0.replacingOccurrences(of: "  +0x[0-9a-f]+", with: "", options: .regularExpression) }
-                .joined(separator: " | ")
-            TAP_DEBUG("isDetectionPaused.stack", frames)
-        }
-    }
+    var isDetectionPaused: Bool { detectionState == .paused }
+
+    /// `true` while a device/route change settles and the chart should show nothing.
+    ///
+    /// The transient blank used to be expressed by writing `displayMode = .frozen`, which
+    /// overloaded that value: `.frozen` then meant "a loaded measurement" AND "blanked for a
+    /// moment", and the guard that decided whether to blank asked `displayMode == .live` — which is
+    /// still true of a COMPLETED measurement, because no completion path sets `.frozen`. A device
+    /// change therefore wiped a finished result's spectrum and peaks (#17 F35, regression from
+    /// `a086638`, build 264). One flag for one fact.
+    @Published var isSettling: Bool = false
 
     /// `false` during the brief period after an audio route change while the engine
     /// reinitialises.  The UI disables the New Tap and Resume buttons while this is `false`.
@@ -1814,11 +1877,14 @@ final class TapToneAnalyzer: ObservableObject {
     func handleRouteChangeRestart() {
         gtLog("🔄 TapToneAnalyzer: Handling route change restart - resetting detection state")
 
-        let wasDetecting = isDetecting
+        let wasDetecting = (detectionState == .listening)
 
         // Disable the New Tap and Resume buttons while reinitialising.
         isReadyForDetection = false
-        isDetecting = false
+        // Stand the detector down only if it was listening.  A sequence paused before the
+        // route change must still be paused after it, so Resume picks up where it left off —
+        // which the old boolean pair expressed by clearing `isDetecting` alone.
+        if wasDetecting { detectionState = .idle }
 
         // Reset the warm-up timer so the new engine session starts cleanly.
         warmupStartAudioTime = fftAnalyzer.audioElapsed
@@ -1831,19 +1897,26 @@ final class TapToneAnalyzer: ObservableObject {
         // Freeze the display on the last good spectrum while the pipeline refills with
         // valid data from the new device.  This prevents the transitional noise/silence
         // from the device switch showing as a bogus live waveform.
-        // Only freeze if we were in live mode — don't disturb a frozen measurement result.
-        let wasLive = (displayMode == .live)
-        if wasLive {
-            // Show a blank spectrum during the settle period rather than the old
-            // device's spectrum, which would be confusing (wrong noise floor, wrong
-            // shape).  Empty arrays signal the view to render nothing.
-            setFrozenSpectrum(frequencies: [], magnitudes: [])
-            displayMode = .frozen
+        // Blank only if a LIVE spectrum is on screen. `displayMode == .live` was the old test and
+        // it is wrong: no completion path sets `.frozen`, so a finished measurement is still
+        // `.live` and was being wiped. `isMeasurementComplete` is the field that actually says
+        // whether what you are looking at is a result (#17 F35).
+        let wasShowingLive = !isMeasurementComplete && displayMode != .comparison
+        if wasShowingLive {
+            // Show nothing during the settle rather than the old device's spectrum, which would be
+            // confusing (wrong noise floor, wrong shape). The flag is the whole mechanism — no
+            // `displayMode` write, so a completed or loaded measurement is untouched.
+            isSettling = true
             // Clear peak annotations so they don't float on a blank chart during settle.
             allPeaks = []
             identifiedModes = []
         }
 
+        // Remember what the status said BEFORE the transient replaces it. When the settle ends,
+        // `statusAfterSettle()` returns nil for the states whose status is a result announcement
+        // rather than a prompt — and "leave it alone" has to mean restoring THIS, not leaving the
+        // transient up forever, which is what it meant on the first pass (#17 F33).
+        let statusBeforeSettle = statusMessage
         statusMessage = "Audio device changed - reinitializing..."
 
         // Wait for the FFT pipeline to fill with valid post-restart data (~1.36 s for
@@ -1874,19 +1947,14 @@ final class TapToneAnalyzer: ObservableObject {
                     let currentPeakMag = self.fftAnalyzer.peakMagnitude
                     self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
 
-                    if wasLive {
-                        self.setFrozenSpectrum(frequencies: [], magnitudes: [])
-                        self.displayMode = .live
-                    }
+                    if wasShowingLive { self.isSettling = false }
 
                     self.isReadyForDetection = true
 
-                    if wasDetecting {
-                        self.isDetecting = true
-                        self.statusMessage = self.tapPrompt()
-                    } else {
-                        self.statusMessage = "Ready"
-                    }
+                    if wasDetecting { self.detectionState = .listening }
+                    // Derive the status from the state we are now in; where that is a result
+                    // announcement rather than a prompt, put back what was there before the settle.
+                    self.statusMessage = self.restoredStatus(before: statusBeforeSettle)
                     gtLog("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
                 }
                 .store(in: &self.cancellables)

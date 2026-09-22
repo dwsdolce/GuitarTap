@@ -634,7 +634,7 @@ extension TapToneAnalysisView {
                     Stepper("\(tap.numberOfTaps)",
                             value: $tapToneAnalyzer.numberOfTaps,
                             in: 1...10)
-                        .disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)
+                        .disabledDimmed(tapCountLocked)
                         .frame(maxWidth: 120)
                         .hint(HintText.taps)
 
@@ -801,8 +801,8 @@ extension TapToneAnalysisView {
                         value: $tapToneAnalyzer.numberOfTaps,
                         in: 1...10)
                     .labelsHidden()
-                    .disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)
             }
+            .disabledDimmed(tapCountLocked)
             .hint(HintText.taps)
 
             Divider()
@@ -932,8 +932,8 @@ extension TapToneAnalysisView {
                             value: $tapToneAnalyzer.numberOfTaps,
                             in: 1...10)
                         .labelsHidden()
-                        .disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)
                 }
+                .disabledDimmed(tapCountLocked)
                 .hint(HintText.taps)
 
                 Divider()

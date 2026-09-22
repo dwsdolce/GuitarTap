@@ -126,7 +126,7 @@ extension TapToneAnalyzer {
         // State that detectTap() reads on the audio thread (isMeasurementComplete,
         // isDetecting, warmupStartAudioTime, isAboveThreshold, justExitedWarmup,
         // materialTapPhase, noiseFloorEstimate, gatedCaptureActive / preRollBuffer)
-        // is set BEFORE `isDetecting = true` so the first audio buffer observed
+        // is set BEFORE `detectionState = .listening` so the first audio buffer observed
         // by the crossing handler sees a fully-reset analyzer.
 
         // ===== UI / per-sequence state (not audio-thread visible) =====
@@ -157,16 +157,18 @@ extension TapToneAnalyzer {
         currentTapCount     = 0
         tapProgress         = 0.0
         tapDetected         = false
-        isDetectionPaused   = false
+        // No pause-clear here: `detectionState = .listening` further down leaves `.paused`
+        // on its own, and clearing to `.idle` at this point would disarm a level crossing
+        // that a restart-while-listening is relying on staying armed.
 
         currentDecayTime    = nil
         peakMagnitudeHistory = []
         resetDecayTracking()
 
-        // ===== Audio-thread-visible state (must precede isDetecting = true) =====
+        // ===== Audio-thread-visible state (must precede detectionState = .listening) =====
         isMeasurementComplete = false
 
-        // Clear any frozen spectrum BEFORE setting isDetecting = true.  If we
+        // Clear any frozen spectrum BEFORE setting detectionState = .listening.  If we
         // set isDetecting first and the audio thread fires a tap immediately
         // (file-playback case), a later setFrozenSpectrum() would wipe the
         // just-captured gated-FFT result.
@@ -252,7 +254,7 @@ extension TapToneAnalyzer {
         warmupStartAudioTime = skipWarmup
             ? fftAnalyzer.audioElapsed - (warmupPeriod + 0.1)
             : fftAnalyzer.audioElapsed
-        isDetecting = true
+        detectionState = .listening
 
         // ===== Status message and final UI clear =====
         if isBraceMode {
@@ -293,11 +295,10 @@ extension TapToneAnalyzer {
     ///
     /// No-op when not currently detecting or already paused.
     func pauseTapDetection() {
-        guard isDetecting && !isDetectionPaused else { return }
-        isDetecting      = false
-        isDetectionPaused = true
+        guard detectionState == .listening else { return }
+        detectionState = .paused
         isSessionRecording = false  // Stop accumulating audio during pause
-        statusMessage    = "Detection paused – tap freely, then resume"
+        statusMessage    = Self.pausedStatus
         gtLog("⏸️ Tap detection paused at \(currentTapCount)/\(numberOfTaps)")
     }
 
@@ -308,32 +309,17 @@ extension TapToneAnalyzer {
     ///
     /// No-op when not paused.
     func resumeTapDetection() {
-        guard isDetectionPaused else { return }
-        isDetectionPaused = false
+        guard detectionState == .paused else { return }
 
         // Reset warm-up to prevent an immediate false trigger on the first frame.
         warmupStartAudioTime = fftAnalyzer.audioElapsed
         isAboveThreshold  = false
 
         isSessionRecording = true  // Resume accumulating audio after pause
-        isDetecting = true
+        detectionState = .listening
 
-        // Restore a context-appropriate prompt.
-        let resumeType = TapDisplaySettings.measurementType
-        let isPlateMode = resumeType == .plate
-        let isBraceMode = resumeType == .brace
-        if isPlateMode || isBraceMode {
-            switch materialTapPhase {
-            case .capturingLongitudinal:
-                statusMessage = isBraceMode ? "Ready for fL tap" : "Ready for L tap"
-            case .capturingFlc, .waitingForFlcTap:
-                statusMessage = "Ready for fLC tap"
-            default:
-                statusMessage = "Ready for fC tap"
-            }
-        } else {
-            statusMessage = guitarLoopStatus(capturing: false)
-        }
+        // Restore a context-appropriate prompt. The same derivation the device-change settle uses.
+        statusMessage = armedPrompt()
         gtLog("▶️ Tap detection resumed at \(currentTapCount)/\(numberOfTaps)")
     }
 
@@ -360,7 +346,7 @@ extension TapToneAnalyzer {
         captureTimer = nil
         // Re-arm a fresh sequence — identical to pressing New Tap. startTapSequence
         // clears captured taps / counts / frozen spectrum, resets the material phase,
-        // restarts session recording, and sets isDetecting = true with the correct
+        // restarts session recording, and sets detectionState = .listening with the correct
         // "Ready…" status.
         startTapSequence()
     }
@@ -390,7 +376,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
-            isDetecting = true
+            detectionState = .listening
             tapDetected = false
             statusMessage = "Rotate 90° and tap for fC"
 
@@ -414,7 +400,7 @@ extension TapToneAnalyzer {
                     self.setFrozenSpectrum(frequencies: [], magnitudes: [])
                     self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
                     self.warmupStartAudioTime = fftAnalyzer.audioElapsed
-                    self.isDetecting = true
+                    self.detectionState = .listening
                     self.tapDetected = false
                 }
             } else {
@@ -511,7 +497,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
-            isDetecting = true
+            detectionState = .listening
             tapDetected = false
             statusMessage = "Ready for fL tap — tap again"
 
@@ -529,7 +515,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
-            isDetecting = true
+            detectionState = .listening
             tapDetected = false
             statusMessage = "Ready for fC tap — tap again"
 
@@ -547,7 +533,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
-            isDetecting = true
+            detectionState = .listening
             tapDetected = false
             statusMessage = "Ready for fLC tap — tap again"
 
@@ -567,7 +553,7 @@ extension TapToneAnalyzer {
     /// **Does NOT clear gated capture state** (`gatedCaptureActive`, `gatedAccumBuffer`,
     /// `preRollBuffer`).  Callers that need to cancel an in-flight capture must do so
     /// explicitly — and crucially, they must do it *synchronously* before arming detection
-    /// (`isDetecting = true`).  If the clear were here (deferred inside a `main.async`
+    /// (`detectionState = .listening`).  If the clear were here (deferred inside a `main.async`
     /// block), the audio-queue level-crossing handler could start a legitimate gated
     /// capture between the sync and async sections, and this method would then kill it.
     private func resetMaterialPhaseState(to phase: MaterialTapPhase) {

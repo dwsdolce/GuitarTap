@@ -18,11 +18,13 @@
 /// - SeeAlso: ``TapToneAnalyzer/displayMode``
 enum AnalysisDisplayMode: Equatable {
 
-    /// Live FFT input is displayed; tap detection is active or waiting.
+    /// The main spectrum is shown — live input, or the measurement's own frozen result once
+    /// `isMeasurementComplete` is set. Those two are NOT distinguished here: there used to be a
+    /// `.frozen` case, but nothing ever branched on it, because whether a result is displayed is
+    /// what `isMeasurementComplete` says. Keeping both meant two fields describing one fact, and
+    /// no completion path set `.frozen` — so the device-settle guard, which asked
+    /// `displayMode == .live`, wiped finished measurements (#17 F35).
     case live
-
-    /// A single frozen or loaded measurement is displayed; tap detection is idle.
-    case frozen
 
     /// Two or more saved guitar measurements are overlaid for comparison.
     case comparison
