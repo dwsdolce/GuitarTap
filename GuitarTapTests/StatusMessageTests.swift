@@ -23,11 +23,13 @@
 //  2. Per-tap capture PROGRESS transients — "Tap n/N capturing...",
 //     "Tap n/N captured. Tap again...", "All taps captured. Processing...", the
 //     material "fL/fC/fLC tap n/N captured..." / review / "No resonance detected"
-//     strings — are written deep in the gated-capture pipeline (finishGuitarGatedCapture,
-//     handle*GatedProgress) and are produced by the file-playback + gated-capture
-//     regression tests running the real capture.  The web pins them directly because
-//     it has an explicit engine-state setter (setEngineState); Swift/Python set them
-//     imperatively mid-pipeline, so a state-driven suite can't reach them cleanly.
+//     strings — are pinned below, in StatusMessageCaptureProgressTests.
+//
+//     This used to say they were written too deep in the gated-capture pipeline for a
+//     state-driven suite to reach, and were covered by the file-playback regression tests.
+//     Neither held (#17 F29): those tests RUN the pipeline but assert no status at all, and
+//     the handlers take a spectrum and a peak, which FrozenPeakRecalculationTests has always
+//     called directly.  The strings were pinned in no edition but web.
 //
 // @parity test/status-message
 
@@ -214,5 +216,122 @@ struct StatusMessageTests {
         #expect(sut.statusMessage == "Rotate 90° and tap for fC")
         sut.onRmsLevelChanged(-80, audioTime: 0) // a warm-up frame
         #expect(sut.statusMessage == "Rotate 90° and tap for fC")
+    }
+
+    /// The OTHER accept transition: fC → the FLC set-up prompt, shown during the disarmed cooldown.
+    /// Web covered both in one case; the natives covered only the first, so this string was asserted
+    /// in no edition but web (#17 F29). It is the prompt the FLC cooldown guard hands the user.
+    @Test func acceptC_promptsToSetUpForFlc_andSurvivesWarmup() {
+        let saved = TapDisplaySettings.measureFlc
+        TapDisplaySettings.measureFlc = true
+        defer { TapDisplaySettings.measureFlc = saved }
+
+        let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
+        sut.materialTapPhase = .reviewingCross
+        sut.acceptCurrentPhase()
+        #expect(sut.statusMessage == "Set up for fLC tap, then tap")
+        sut.onRmsLevelChanged(-80, audioTime: 0) // a warm-up frame must not overwrite it
+        #expect(sut.statusMessage == "Set up for fLC tap, then tap")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Capture-progress strings  (#17 F29)
+// ---------------------------------------------------------------------------
+//
+// These were excluded for years on the grounds that they are "written deep in the gated-capture
+// pipeline … so a state-driven suite can't reach them cleanly", and were credited to the
+// file-playback regression tests. Those tests RUN the pipeline, so the strings are certainly set —
+// but `statusMessage` is asserted in exactly two test files in this target, and neither is one of
+// them. Deleting `No signal detected — tap again` from all five of its sites left both native
+// suites green. Web pinned them all along; the spread read 12/12/16 as though web had extras.
+//
+// Every case below drives a method a sibling test file already calls without audio:
+// FrozenPeakRecalculationTests drives handleLongitudinalGatedProgress the same way.
+
+@Suite("StatusMessage — capture progress")
+@MainActor
+struct StatusMessageCaptureProgressTests {
+
+    /// A synthetic spectrum with one gaussian peak, enough for findDominantPeak to bite.
+    private func peakSpectrum(at freq: Float, from minHz: Float, to maxHz: Float)
+        -> (magnitudes: [Float], frequencies: [Float]) {
+        let n = 512
+        let freqs = (0..<n).map { minHz + (maxHz - minHz) * Float($0) / Float(n - 1) }
+        let mags = freqs.map { f -> Float in
+            let d = (f - freq) / 8
+            return -80 + 50 * expf(-0.5 * d * d)
+        }
+        return (magnitudes: mags, frequencies: freqs)
+    }
+
+    // The guitar loop's two strings, from the helper the capture transitions call.
+    @Test func guitarLoop_capturingAndBetweenTaps() {
+        let sut = makeSUT(numberOfTaps: 3)
+        sut.currentTapCount = 0
+        #expect(sut.guitarLoopStatus(capturing: true) == "Tap 1/3 capturing...")
+        sut.currentTapCount = 1
+        #expect(sut.guitarLoopStatus(capturing: false) == "Tap 1/3 captured. Tap again...")
+        sut.currentTapCount = 2
+        #expect(sut.guitarLoopStatus(capturing: true) == "All taps captured. Processing...",
+                "the last tap's provisional string announces processing, not 3/3 capturing")
+    }
+
+    // Redo re-arms the phase with its own prompt — the "— tap again" family.
+    @Test func redoLongitudinal_promptsToTapAgain() {
+        let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
+        sut.materialTapPhase = .reviewingLongitudinal
+        sut.redoCurrentPhase()
+        #expect(sut.statusMessage == "Ready for fL tap — tap again")
+    }
+
+    // Multi-tap material progress: a tap short of the total re-arms and counts.
+    @Test func materialProgress_countsAndAsksForAnother() throws {
+        let sut = makeSUT(numberOfTaps: 3, measurementType: .brace)
+        sut.minFrequency = 100
+        sut.maxFrequency = 1200
+        let spec = peakSpectrum(at: 300, from: 100, to: 1200)
+        let dominant = try #require(sut.findDominantPeak(magnitudes: spec.magnitudes,
+                                                        frequencies: spec.frequencies,
+                                                        minHz: 100, maxHz: 1200,
+                                                        preferLowestSignificant: false))
+        sut.materialCapturedTaps = [(magnitudes: spec.magnitudes, frequencies: spec.frequencies, captureTime: Date())]
+        sut.handleLongitudinalGatedProgress(magnitudes: spec.magnitudes,
+                                            frequencies: spec.frequencies,
+                                            dominantPeak: dominant,
+                                            minHz: 100, maxHz: 1200,
+                                            preferLowest: false)
+        #expect(sut.statusMessage == "fL tap 1/3 captured. Tap again...")
+    }
+
+    // A tap with no resonance in the phase's band re-arms WITHOUT counting.
+    @Test func noResonanceInBand_asksToTapAgain() {
+        let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
+        let silence = [Float](repeating: 0, count: 24_000)
+        sut.finishGatedFFTCapture(samples: silence, sampleRate: 48_000, phase: .capturingLongitudinal)
+        #expect(sut.statusMessage.hasSuffix("— tap again"),
+                "a tap with nothing in band must prompt again, not advance")
+        #expect(sut.materialCapturedTaps.isEmpty, "and it must not count toward the phase")
+    }
+
+    // File playback auto-advances L → C with its own transition string.
+    @Test func filePlayback_announcesTheAutoAdvance() throws {
+        let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
+        sut.fftAnalyzer.isPlayingFile = true
+        defer { sut.fftAnalyzer.isPlayingFile = false }
+        sut.minFrequency = 100
+        sut.maxFrequency = 1200
+        let spec = peakSpectrum(at: 300, from: 100, to: 1200)
+        let dominant = try #require(sut.findDominantPeak(magnitudes: spec.magnitudes,
+                                                        frequencies: spec.frequencies,
+                                                        minHz: 100, maxHz: 1200,
+                                                        preferLowestSignificant: false))
+        sut.materialCapturedTaps = [(magnitudes: spec.magnitudes, frequencies: spec.frequencies, captureTime: Date())]
+        sut.handleLongitudinalGatedProgress(magnitudes: spec.magnitudes,
+                                            frequencies: spec.frequencies,
+                                            dominantPeak: dominant,
+                                            minHz: 100, maxHz: 1200,
+                                            preferLowest: false)
+        #expect(sut.statusMessage == "File: fL complete, capturing fC...")
     }
 }
