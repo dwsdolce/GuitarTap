@@ -230,7 +230,7 @@ struct TapToneMeasurementCodableTests {
         )
 
         let annotationOffset = CGPoint(x: 12, y: -8)
-        let overrides: [UUID: UserAssignedMode] = [peak1.id: .assigned("Air"), peak2.id: .auto]
+        let overrides: [UUID: String] = [peak1.id: "Air"]
 
         return TapToneMeasurement(
             peaks: [peak1, peak2],
@@ -412,7 +412,7 @@ struct TapToneRatioTests {
         let m = TapToneMeasurement(
             peaks: [air, top], spectrum: snapshot,
             selectedPeakIDs: [air.id, top.id],
-            peakModeOverrides: [top.id: .assigned("Wolf note")]
+            peakModeOverrides: [top.id: "Wolf note"]
         )
         #expect(m.tapToneRatio == nil,
                 "a Top peak renamed to a freeform label is no longer the definitive Top")
@@ -430,7 +430,7 @@ struct TapToneRatioTests {
         let m = TapToneMeasurement(
             peaks: [air, far], spectrum: snapshot,
             selectedPeakIDs: [air.id, far.id],
-            peakModeOverrides: [far.id: .assigned(GuitarMode.top.displayName)]
+            peakModeOverrides: [far.id: GuitarMode.top.displayName]
         )
         let ratio = m.tapToneRatio
         #expect(ratio != nil, "the relabelled peak is now the definitive Top")
@@ -512,7 +512,7 @@ struct MeasurementExportModeLabelTests {
         let measurement = TapToneMeasurement(
             peaks: [peak],
             spectrum: snapshot,
-            peakModeOverrides: [peak.id: .assigned("Custom Label")]
+            peakModeOverrides: [peak.id: "Custom Label"]
         )
         let data = try JSONEncoder().encode(measurement)
         let json = try #require(String(data: data, encoding: .utf8))
@@ -665,17 +665,17 @@ struct ModeOverridesCodableTests {
     // D7: peakModeOverrides keyed by peak UUID stores custom mode labels.
     @Test func modeOverrides_storedPerPeak() {
         let peak = ResonantPeak(frequency: 200, magnitude: -20)
-        let m = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: .assigned("Top")])
-        #expect(m.peakModeOverrides?[peak.id] == .assigned("Top"))
+        let m = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: "Top"])
+        #expect(m.peakModeOverrides?[peak.id] == "Top")
     }
 
     // D8: peakModeOverrides survive a JSON round-trip.
     @Test func modeOverrides_surviveRoundTrip() throws {
         let peak = ResonantPeak(frequency: 200, magnitude: -20)
-        let original = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: .assigned("Dipole")])
+        let original = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: "Dipole"])
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
-        #expect(decoded.peakModeOverrides?[peak.id] == .assigned("Dipole"))
+        #expect(decoded.peakModeOverrides?[peak.id] == "Dipole")
     }
 
     // Empty peakModeOverrides: nil overrides produce no key in JSON.
@@ -687,13 +687,34 @@ struct ModeOverridesCodableTests {
                 "nil peakModeOverrides should not appear in JSON")
     }
 
-    // Auto-type entries: a peak with .auto override round-trips correctly.
-    @Test func autoOverride_roundTrips() throws {
+    // An `auto` entry in a FILE carries no label and means "no override", so it is dropped on read.
+    // The app cannot produce one — overrides are label-only in memory, and clearing removes the key
+    // (#17 F28) — but a hand-edited or legacy file can, and both ports drop it the same way.
+    @Test func autoOverrideEntry_isDroppedOnRead() throws {
+        let peakID = UUID(uuidString: "5E2A8C7D-1111-2222-3333-444455556666")!
+        let json = """
+        [{"id":"00000000-0000-0000-0000-0000000000AA","timestamp":"2026-01-01T00:00:00Z","peaks":[],
+          "peakModeOverrides":["\(peakID.uuidString)",{"type":"auto"}]}]
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode([TapToneMeasurement].self, from: Data(json.utf8))
+        #expect(decoded.first?.peakModeOverrides?[peakID] == nil,
+                "an auto entry means no override, so it must not become one")
+    }
+
+    // The WIRE shape is `{"type":"assigned","label":…}` per entry, even though the label alone is
+    // what lives in memory (#17 F28). Pins write parity with Python `to_dict()` and web `encode.ts`,
+    // both of which emit the same wrapper — a silent change here would produce files the ports read
+    // as having no overrides at all.
+    @Test func overrides_areWrittenAsAssignedEntries() throws {
         let peak = ResonantPeak(frequency: 200, magnitude: -20)
-        let original = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: .auto])
-        let data = try JSONEncoder().encode(original)
-        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
-        #expect(decoded.peakModeOverrides?[peak.id] == .auto)
+        let m = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: "Top"])
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let json = String(decoding: try encoder.encode(m), as: UTF8.self)
+        #expect(json.contains("\"type\":\"assigned\""), "each entry keeps its type tag")
+        #expect(json.contains("\"label\":\"Top\""),      "each entry keeps its label")
     }
 
     // D9: legacy {uuidString: mode} object form (written by GuitarTap Python 1.0.x)
@@ -713,7 +734,7 @@ struct ModeOverridesCodableTests {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let decoded = try decoder.decode([TapToneMeasurement].self, from: Data(json.utf8))
-        #expect(decoded.first?.peakModeOverrides?[peakID] == .assigned("Back"))
+        #expect(decoded.first?.peakModeOverrides?[peakID] == "Back")
     }
 
     // D10: a file produced by the GuitarTap Python build (canonical flat-array
@@ -729,7 +750,7 @@ struct ModeOverridesCodableTests {
         let decoded = try decoder.decode([TapToneMeasurement].self, from: Data(json.utf8))
         let m = try #require(decoded.first)
         let pid = try #require(UUID(uuidString: "5e2a8c7d-1111-2222-3333-444455556666"))
-        #expect(m.peakModeOverrides?[pid] == .assigned("Top"))
+        #expect(m.peakModeOverrides?[pid] == "Top")
         #expect(m.peakMinThreshold == -60.0)
     }
 }

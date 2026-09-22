@@ -586,7 +586,7 @@ struct TapAnalysisResultsView: View {
                                     analyzer.togglePeakSelection(item.peak.id)
                                 },
                                 onSetModeOverride: { label in
-                                    analyzer.setModeOverride(.assigned(label), for: item.peak.id)
+                                    analyzer.setModeOverride(label, for: item.peak.id)
                                 },
                                 onResetModeOverride: {
                                     analyzer.resetModeOverride(for: item.peak.id)

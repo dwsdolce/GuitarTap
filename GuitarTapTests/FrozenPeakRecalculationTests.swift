@@ -308,7 +308,7 @@ struct PeakMinDurabilityTests {
 
         // User state, all on the peak that is about to be hidden.
         sut.selectedPeakIDs = [quiet.id]
-        sut.setModeOverride(.assigned("Wolf note"), for: quiet.id)
+        sut.setModeOverride("Wolf note", for: quiet.id)
         sut.updateAnnotationOffset(for: quiet.id, offset: CGPoint(x: 12, y: 34))
 
         // Raise Peak Min above the quiet peak — it should vanish from the DISPLAY only.
@@ -414,7 +414,7 @@ struct PeakMinDurabilityTests {
         guard let quiet else { return }
 
         sut.updateAnnotationOffset(for: quiet.id, offset: CGPoint(x: 21, y: 42))
-        sut.setModeOverride(.assigned("Wolf note"), for: quiet.id)
+        sut.setModeOverride("Wolf note", for: quiet.id)
 
         sut.peakMinThreshold = -40          // hides the quiet peak from the DISPLAY
         #expect(!sut.peaksAbovePeakMin.contains { $0.id == quiet.id },
@@ -624,7 +624,7 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
         let savedPeak = makePeak(frequency: 200, magnitude: -30)
         freeze(sut, peaks: [savedPeak])
         sut.loadedMeasurementPeaks = [savedPeak]
-        sut.peakModeOverrides = [savedPeak.id: .assigned("Custom Label")]
+        sut.peakModeOverrides = [savedPeak.id: "Custom Label"]
         sut.peakMinThreshold = -80
 
         sut.recalculateFrozenPeaksIfNeeded()
@@ -632,11 +632,11 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
         let newPeak = sut.peaksAbovePeakMin.first
         #expect(newPeak != nil)
         let override = sut.peakModeOverrides[newPeak!.id]
-        if case .assigned(let label) = override {
+        if let label = override {
             #expect(label == "Custom Label",
                     "Mode override should be remapped to the surviving peak")
         } else {
-            Issue.record("Expected .assigned(\"Custom Label\") override, got \(String(describing: override))")
+            Issue.record("Expected the \"Custom Label\" override, got \(String(describing: override))")
         }
     }
 
@@ -663,18 +663,18 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
         let b = makePeak(frequency: 400, magnitude: -25)
         freeze(sut, peaks: [a, b])
         sut.loadedMeasurementPeaks = [a, b]
-        sut.peakModeOverrides = [a.id: .assigned("Air"), b.id: .assigned("Top")]
+        sut.peakModeOverrides = [a.id: "Air", b.id: "Top"]
         sut.peakMinThreshold = -80          // nothing hidden; isolate the id question
 
         sut.recalculateFrozenPeaksIfNeeded()
 
         #expect(sut.peakModeOverrides.count == 2, "both overrides survive the loaded branch")
-        if case .assigned(let label) = sut.peakModeOverrides[a.id] {
+        if let label = sut.peakModeOverrides[a.id] {
             #expect(label == "Air", "the 200 Hz override stays on the 200 Hz peak's own id")
         } else {
             Issue.record("Expected the 200 Hz peak to keep its .assigned override under its ORIGINAL id")
         }
-        if case .assigned(let label) = sut.peakModeOverrides[b.id] {
+        if let label = sut.peakModeOverrides[b.id] {
             #expect(label == "Top", "the 400 Hz override stays on the 400 Hz peak's own id")
         } else {
             Issue.record("Expected the 400 Hz peak to keep its .assigned override under its ORIGINAL id")
@@ -693,8 +693,8 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
         freeze(sut, peaks: [strongPeak, weakPeak])
         sut.loadedMeasurementPeaks = [strongPeak, weakPeak]
         sut.peakModeOverrides = [
-            strongPeak.id: .assigned("Keep"),
-            weakPeak.id:   .assigned("Drop")
+            strongPeak.id: "Keep",
+            weakPeak.id:   "Drop"
         ]
         sut.peakMinThreshold = -40   // drops weakPeak
 
@@ -702,7 +702,7 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
 
         #expect(sut.peakModeOverrides.count == 2,
                 "Both overrides survive — hiding a peak must not erase its name; got \(sut.peakModeOverrides.count)")
-        if case .assigned(let label) = sut.peakModeOverrides[weakPeak.id] {
+        if let label = sut.peakModeOverrides[weakPeak.id] {
             #expect(label == "Drop", "the hidden peak keeps its exact custom name")
         } else {
             Issue.record("Expected the hidden peak to keep its .assigned override")
@@ -746,7 +746,7 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
             Issue.record("precondition: no peak detected at 200 Hz")
             return
         }
-        sut.peakModeOverrides = [old.id: .assigned("Wolf note")]
+        sut.peakModeOverrides = [old.id: "Wolf note"]
 
         remint(sut, bumps: [(freq: 300, mag: -20)])   // far outside the ±5 Hz tolerance
 
@@ -754,10 +754,7 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
         #expect(!sut.allPeaks.contains { $0.id == old.id }, "precondition: the old peak is gone")
         // Assert the LABEL is gone from the whole map — "absent from the new id" would also pass
         // on a leak under the stale id, which is the failure worth catching.
-        let labels: [String] = sut.peakModeOverrides.values.compactMap {
-            if case .assigned(let l) = $0 { return l }
-            return nil
-        }
+        let labels: [String] = Array(sut.peakModeOverrides.values)
         #expect(!labels.contains("Wolf note"),
                 "an orphaned override must be dropped, not re-homed or left under a stale id")
     }

@@ -111,7 +111,7 @@ struct PDFReportData {
     let selectedFlcPeakID: UUID?
 
     /// Per-peak user mode overrides; empty means all peaks use auto-classification.
-    var peakModeOverrides: [UUID: UserAssignedMode] = [:]
+    var peakModeOverrides: [UUID: String] = [:]
 
     /// Context-aware mode classification for all peaks, keyed by peak UUID.
     /// Computed via ``GuitarMode/classifyAll(_:guitarType:)`` so overlapping ranges
@@ -504,13 +504,8 @@ private struct PDFReportContentView: View {
     /// - Returns: A tuple with the display label string and a flag indicating
     ///   whether the label came from a user override.
     private func effectiveModeLabel(for peak: ResonantPeak) -> (label: String, isOverridden: Bool) {
-        switch data.peakModeOverrides[peak.id] ?? .auto {
-        case .auto:
-            let mode = data.peakModes[peak.id] ?? .unknown
-            return (mode.displayName, false)
-        case .assigned(let label):
-            return (label + " *", true)
-        }
+        if let label = data.peakModeOverrides[peak.id] { return (label + " *", true) }
+        return ((data.peakModes[peak.id] ?? .unknown).displayName, false)
     }
 
     private func peakRow(for peak: ResonantPeak) -> some View {
@@ -520,7 +515,7 @@ private struct PDFReportContentView: View {
         // Determine effective color: freeform user-defined label → teal,
         // predefined override → overridden mode's color, auto → classified mode's color.
         let effectiveColor: Color = {
-            if case .assigned(let label) = data.peakModeOverrides[peak.id] {
+            if let label = data.peakModeOverrides[peak.id] {
                 if let overriddenMode = GuitarMode.fromDisplayName(label) {
                     return modeColor(overriddenMode)
                 }

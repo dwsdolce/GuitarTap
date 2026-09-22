@@ -87,7 +87,7 @@ struct PeakAnnotationsOverlay: View {
     let selectedFlcPeakID: UUID?
 
     /// Per-peak user-assigned mode overrides. Empty = auto-classification.
-    var modeOverrides: [UUID: UserAssignedMode] = [:]
+    var modeOverrides: [UUID: String] = [:]
 
     /// Pre-computed mode assignments from the analyzer (keyed by peak UUID).
     ///
@@ -190,7 +190,7 @@ struct DraggablePeakAnnotation: View {
     let selectedFlcPeakID: UUID?
 
     /// Per-peak user-assigned mode overrides. Empty = auto-classification.
-    var modeOverrides: [UUID: UserAssignedMode] = [:]
+    var modeOverrides: [UUID: String] = [:]
 
     /// Called when the drag ends with the new cumulative offset.
     let onOffsetChange: (CGPoint) -> Void
@@ -210,7 +210,7 @@ struct DraggablePeakAnnotation: View {
     private var modeColor: Color {
         if measurementType.isGuitar {
             // Freeform user-defined label → teal.
-            if case .assigned(let label) = modeOverrides[peak.id],
+            if let label = modeOverrides[peak.id],
                GuitarMode.fromDisplayName(label) == nil {
                 return GuitarMode.userDefinedColor
             }
@@ -497,23 +497,17 @@ private struct PeakAnnotationLabel: View {
     var isFlc: Bool = false
 
     /// Per-peak user-assigned mode overrides. Empty = auto-classification.
-    var modeOverrides: [UUID: UserAssignedMode] = [:]
+    var modeOverrides: [UUID: String] = [:]
 
     /// Whether this peak has a user-assigned label
     private var isManualOverride: Bool {
-        if case .assigned = modeOverrides[peak.id] { return true }
-        return false
+        modeOverrides[peak.id] != nil
     }
 
     /// The mode label to display - user override, guitar mode name, or plate/brace mode (L/C/FLC)
     private var modeLabel: String {
         if measurementType.isGuitar {
-            switch modeOverrides[peak.id] ?? .auto {
-            case .auto:
-                return (classifiedMode ?? .unknown).displayName
-            case .assigned(let label):
-                return label
-            }
+            return modeOverrides[peak.id] ?? (classifiedMode ?? .unknown).displayName
         } else {
             // Plate/brace mode labels
             if isLongitudinal {

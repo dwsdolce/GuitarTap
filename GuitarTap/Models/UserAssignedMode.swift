@@ -31,12 +31,19 @@
 /// For long-term stability, prefer `.assigned`.
 import Foundation
 
-/// Represents whether a peak's mode label is auto-detected or manually overridden by the user.
+/// The `.guitartap` WIRE SHAPE for a peak's mode override, plus the predefined label catalogs the
+/// override picker offers.
+///
+/// This is **not** app state. In memory an override is the label alone — `[UUID: String]` on the
+/// analyzer and on ``TapToneMeasurement``, matching Python `{uuid: label}` and web
+/// `Map<number, string>` — and a peak with no entry uses auto-classification. Absence is the only
+/// way to say "no override", so a stored value meaning it cannot exist (#17 F28).
+///
+/// ``auto`` survives here solely so a file containing `{"type":"auto"}` still decodes; such an entry
+/// carries no label and is DROPPED on read, exactly as both ports drop it.
 ///
 /// When the label matches a predefined mode, the peak's colour and icon update to that mode.
 /// Freeform labels use a distinct user-defined colour and icon.
-///
-/// - SeeAlso: ``TapToneAnalyzer`` for the three-layer peak-selection system that consults this type.
 enum UserAssignedMode: Codable, Equatable, Hashable {
 
     /// Use the auto-detected label produced by `GuitarMode.classify(frequency:guitarType:)` at display time.

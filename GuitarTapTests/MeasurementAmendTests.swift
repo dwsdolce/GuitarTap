@@ -85,6 +85,7 @@ struct MeasurementAmendTests {
         let original = TapToneMeasurement(peaks: [], measurementName: "Bridge")
         let updated = original.with(measurementName: nil, notes: nil)
         #expect(updated.measurementName == nil)
+        #expect(updated.id != original.id, "clearing the fields is a data change too, so it mints")
     }
 
     // Every captured field, and the capture time, are preserved in the returned copy. Only the

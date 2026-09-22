@@ -48,11 +48,11 @@ extension TapToneAnalyzer {
     /// Use this when loading a saved ``TapToneMeasurement`` to restore the
     /// user's previously assigned peak labels.
     ///
-    /// - Parameter overrides: A dictionary mapping each ``ResonantPeak/id`` to
-    ///   the ``UserAssignedMode`` the user last assigned to that peak.
+    /// - Parameter overrides: A dictionary mapping each ``ResonantPeak/id`` to the label the user
+    ///   last assigned to that peak. Every entry is an override; absence means auto (#17 F28).
     ///
     /// - Note: Safe to call from any thread.
-    func applyModeOverrides(_ overrides: [UUID: UserAssignedMode]) {
+    func applyModeOverrides(_ overrides: [UUID: String]) {
         if Thread.isMainThread {
             peakModeOverrides = overrides
         } else {

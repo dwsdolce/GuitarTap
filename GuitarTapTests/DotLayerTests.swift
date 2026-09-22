@@ -185,7 +185,7 @@ struct DotLayerVsAnnotationListTests {
         let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
         let p = peak(200)                       // squarely inside top/back
         sut.allPeaks = [p]
-        sut.setModeOverride(.assigned("My Custom Label"), for: p.id)
+        sut.setModeOverride("My Custom Label", for: p.id)
 
         // The assigned mode is now .unknown (freeform labels have no GuitarMode)…
         #expect(sut.peakMode(for: p).normalized == .unknown,
@@ -231,7 +231,7 @@ struct DotLayerUserNamedPeakTests {
                 "precondition: an unnamed out-of-band peak is hidden")
         #expect(sut.isUnknown(named), "precondition: it is unknown before being named")
 
-        sut.setModeOverride(.assigned("Wolf note"), for: named.id)
+        sut.setModeOverride("Wolf note", for: named.id)
 
         #expect(!sut.isUnknown(named), "naming a peak makes it known")
         #expect(dotsWithOverrides(sut) == [100, 305],
@@ -248,7 +248,7 @@ struct DotLayerUserNamedPeakTests {
         let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
         let named = peak(Self.outOfBand)
         sut.allPeaks = [named]
-        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: named.id)
+        sut.setModeOverride(GuitarMode.top.displayName, for: named.id)
 
         #expect(!sut.isUnknown(named),
                 "a peak relabelled to a real mode is known regardless of its frequency")
@@ -272,7 +272,7 @@ struct DotLayerUserNamedPeakTests {
         sut.allPeaks = [named]
         sut.selectedPeakIDs = [named.id]
         sut.annotationVisibilityMode = .all
-        sut.setModeOverride(.assigned("Wolf note"), for: named.id)
+        sut.setModeOverride("Wolf note", for: named.id)
 
         // Dot layer.
         #expect(dotsWithOverrides(sut) == [305], "dot: user-named peak is shown")

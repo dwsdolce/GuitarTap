@@ -274,11 +274,12 @@ struct ModeOverrideLabelsTests {
 
     @Test func freeformLabel_isUnknown_andDoesNotFallThroughToAuto() {
         #expect(GuitarMode.fromDisplayName("Wolf note") == nil)
-        #expect(GuitarMode.effectiveMode(override: .assigned("Wolf note"), auto: .top) == .unknown)
+        #expect(GuitarMode.effectiveMode(override: "Wolf note", auto: .top) == .unknown)
     }
 
     @Test func noOverride_leavesTheAutoClassificationStanding() {
-        #expect(GuitarMode.effectiveMode(override: .auto, auto: .top) == .top)
+        // Absence is the only way to say "no override" — there is no stored value meaning it (F28).
+        #expect(GuitarMode.effectiveMode(override: nil, auto: .top) == .top)
         #expect(GuitarMode.effectiveMode(override: nil, auto: .back) == .back)
     }
 }

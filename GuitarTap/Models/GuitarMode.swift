@@ -488,8 +488,8 @@ extension GuitarMode {
     /// cannot disagree: the analyzer's ``TapToneAnalyzer/peakMode(for:)``, the saved
     /// ``TapToneMeasurement``'s ratio and per-tap resolution, and the static
     /// ``TapToneAnalyzer/resolvedModePeaks(peaks:overrides:guitarType:)``.
-    static func effectiveMode(override: UserAssignedMode?, auto: GuitarMode) -> GuitarMode {
-        if case .assigned(let label) = override {
+    static func effectiveMode(override: String?, auto: GuitarMode) -> GuitarMode {
+        if let label = override {
             return GuitarMode.fromDisplayName(label) ?? .unknown
         }
         return auto

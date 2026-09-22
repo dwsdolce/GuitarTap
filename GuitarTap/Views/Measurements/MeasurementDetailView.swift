@@ -194,15 +194,10 @@ struct MeasurementDetailView: View {
                                                 if peak.id == measurement.selectedFlcPeakID { return "Diagonal" }
                                                 return "Peak"
                                             }
-                                            switch measurement.peakModeOverrides?[peak.id] ?? .auto {
-                                            case .auto: return mode.displayName
-                                            case .assigned(let label): return label
-                                            }
+                                            return measurement.peakModeOverrides?[peak.id] ?? mode.displayName
                                         }()
-                                        let isOverridden = !isMaterialMeasurement && measurement.peakModeOverrides?[peak.id].flatMap {
-                                            if case .assigned = $0 { return $0 }
-                                            return nil
-                                        } != nil
+                                        let isOverridden = !isMaterialMeasurement
+                                            && measurement.peakModeOverrides?[peak.id] != nil
                                         CombinedPeakModeRowView(
                                             peak: peak,
                                             mode: mode,

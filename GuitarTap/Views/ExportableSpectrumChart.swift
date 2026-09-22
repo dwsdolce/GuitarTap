@@ -96,7 +96,7 @@ struct ExportableSpectrumChart: View {
 
     /// Per-peak user-assigned mode overrides. An empty dictionary means all
     /// peaks use automatic `GuitarMode` classification.
-    var modeOverrides: [UUID: UserAssignedMode] = [:]
+    var modeOverrides: [UUID: String] = [:]
 
     /// Pre-computed context-aware mode assignments, keyed by peak UUID.
     ///
@@ -173,8 +173,7 @@ struct ExportableSpectrumChart: View {
 
     /// Whether the peak carries a manual (user-assigned) mode override.
     private func isManualOverride(_ peak: ResonantPeak) -> Bool {
-        if case .assigned = modeOverrides[peak.id] { return true }
-        return false
+        modeOverrides[peak.id] != nil
     }
 
     /// Returns the appropriate color for a peak based on measurement type and selection.
@@ -182,7 +181,7 @@ struct ExportableSpectrumChart: View {
         if measurementType.isGuitar {
             // Override wins (like the label): a predefined label uses that mode's color; a freeform
             // label is user-defined teal. Otherwise the auto-classified mode's color.
-            if case .assigned(let label) = modeOverrides[peak.id] {
+            if let label = modeOverrides[peak.id] {
                 return GuitarMode.fromDisplayName(label)?.color ?? GuitarMode.userDefinedColor
             }
             return (peakModeMap[peak.id] ?? .unknown).color
@@ -203,12 +202,7 @@ struct ExportableSpectrumChart: View {
     /// Returns the mode label for a peak, respecting user overrides for guitar measurements.
     private func peakModeLabel(for peak: ResonantPeak) -> String {
         if measurementType.isGuitar {
-            switch modeOverrides[peak.id] ?? .auto {
-            case .auto:
-                return (peakModeMap[peak.id] ?? .unknown).displayName
-            case .assigned(let label):
-                return label
-            }
+            return modeOverrides[peak.id] ?? (peakModeMap[peak.id] ?? .unknown).displayName
         } else {
             if peak.id == selectedLongitudinalPeakID {
                 return "Longitudinal"
@@ -498,7 +492,7 @@ func makeExportableSpectrumView(
     selectedLongitudinalPeakID: UUID? = nil,
     selectedCrossPeakID: UUID? = nil,
     selectedFlcPeakID: UUID? = nil,
-    modeOverrides: [UUID: UserAssignedMode] = [:],
+    modeOverrides: [UUID: String] = [:],
     peakModes: [UUID: GuitarMode] = [:],
     materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = [],
     dateLabel: String,
@@ -659,7 +653,7 @@ func makeExportableSpectrumView(
                         : [:]
                     ForEach(peaks.prefix(8).sorted(by: { $0.frequency < $1.frequency })) { peak in
                         let assigned: String? = {
-                            if case .assigned(let l) = modeOverrides[peak.id] { return l }
+                            if let l = modeOverrides[peak.id] { return l }
                             return nil
                         }()
                         let ovr = measurementType.isGuitar && assigned != nil

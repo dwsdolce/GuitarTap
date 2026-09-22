@@ -226,7 +226,7 @@ struct SpectrumView: View {
     var selectedFlcPeakID: UUID?
 
     /// Per-peak user mode overrides — passed through to annotation labels (guitar mode only)
-    var modeOverrides: [UUID: UserAssignedMode] = [:]
+    var modeOverrides: [UUID: String] = [:]
 
     /// Context-aware mode classification for all peaks in this view, keyed by peak UUID.
     ///
@@ -408,10 +408,7 @@ struct SpectrumView: View {
     /// leaves the filter purely positional there — correct, since those peaks belong to other
     /// measurements and carry no overrides of their own.
     private var overriddenPeakIDs: Set<UUID> {
-        Set(modeOverrides.compactMap { id, mode in
-            if case .assigned = mode { return id }
-            return nil
-        })
+        Set(modeOverrides.keys)
     }
 
     /// Returns the peaks that should show annotation labels.

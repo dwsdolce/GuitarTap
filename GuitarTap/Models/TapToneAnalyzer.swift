@@ -622,11 +622,14 @@ final class TapToneAnalyzer: ObservableObject {
     /// persisted in ``TapToneMeasurement/peakAnnotationOffsets`` when a measurement is saved.
     @Published var peakAnnotationOffsets: [UUID: CGPoint] = [:]
 
-    /// Per-peak user mode label overrides.
+    /// Per-peak user mode label overrides, keyed by peak UUID.
     ///
-    /// An empty dictionary means all peaks use auto-classification.
-    /// - SeeAlso: ``UserAssignedMode``
-    @Published var peakModeOverrides: [UUID: UserAssignedMode] = [:]
+    /// Every entry IS an override: the label the user assigned. A peak with no entry uses
+    /// auto-classification — absence is the only way to say "no override", so a stored value
+    /// meaning "no override" cannot exist. Mirrors Python `peak_mode_overrides` (`{uuid: label}`)
+    /// and web `overrides` (`Map<number, string>`); ``UserAssignedMode`` remains the `.guitartap`
+    /// wire shape, converted at the file boundary (#17 F28).
+    @Published var peakModeOverrides: [UUID: String] = [:]
 
     /// UUIDs of peaks the user has marked as significant results.
     ///
@@ -683,12 +686,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// - Returns: The ``UserAssignedMode/assigned(_:)`` string if a manual override exists,
     ///   otherwise the auto-classified ``GuitarMode/displayName``.
     func effectiveModeLabel(for peak: ResonantPeak) -> String {
-        switch peakModeOverrides[peak.id] ?? .auto {
-        case .auto:
-            return peakMode(for: peak).displayName
-        case .assigned(let label):
-            return label
-        }
+        peakModeOverrides[peak.id] ?? peakMode(for: peak).displayName
     }
 
     /// The mode this peak would carry with **no** override — i.e. the mode a "Reset to Auto-Detected"
@@ -710,16 +708,16 @@ final class TapToneAnalyzer: ObservableObject {
     /// - Parameters:
     ///   - override: The ``UserAssignedMode`` to apply.
     ///   - peakID: UUID of the target peak.
-    func setModeOverride(_ override: UserAssignedMode, for peakID: UUID) {
+    func setModeOverride(_ label: String, for peakID: UUID) {
         if Thread.isMainThread {
-            peakModeOverrides[peakID] = override
+            peakModeOverrides[peakID] = label
             // A mode change on an ALREADY-SELECTED peak can leave two definitive peaks in one mode;
             // that is the only way an override touches selection. Relabelling an unselected peak
             // just adds a candidate. See `enforceDefinitiveModeUniqueness(preferring:)`.
             enforceDefinitiveModeUniqueness(preferring: peakID)
         } else {
             DispatchQueue.main.async { [weak self] in
-                self?.peakModeOverrides[peakID] = override
+                self?.peakModeOverrides[peakID] = label
                 self?.enforceDefinitiveModeUniqueness(preferring: peakID)
             }
         }
@@ -729,9 +727,7 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// - Parameter peakID: UUID of the peak to check.
     func hasManualOverride(for peakID: UUID) -> Bool {
-        guard let override = peakModeOverrides[peakID] else { return false }
-        if case .assigned = override { return true }
-        return false
+        peakModeOverrides[peakID] != nil
     }
 
     /// The UUIDs of every peak the user has given a manual mode label.
@@ -740,10 +736,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// so a static, pure function can apply the same unknown-mode rule the analyzer uses, without
     /// needing an analyzer reference at the call site.
     var overriddenPeakIDs: Set<UUID> {
-        Set(peakModeOverrides.compactMap { id, mode in
-            if case .assigned = mode { return id }
-            return nil
-        })
+        Set(peakModeOverrides.keys)
     }
 
     /// Whether a peak counts as **unknown** for the Show Unknown Modes filter.

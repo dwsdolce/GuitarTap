@@ -184,7 +184,7 @@ extension TapToneAnalyzer {
             return (peak.frequency, offset)
         }
 
-        let overridesByFrequency: [(frequency: Float, override: UserAssignedMode)] = peakModeOverrides.compactMap { uuid, mode in
+        let overridesByFrequency: [(frequency: Float, override: String)] = peakModeOverrides.compactMap { uuid, mode in
             guard let peak = allPeaks.first(where: { $0.id == uuid }) else { return nil }
             return (peak.frequency, mode)
         }
@@ -491,7 +491,7 @@ extension TapToneAnalyzer {
         peaks: [ResonantPeak],
         modesByFrequency: [(frequency: Float, mode: GuitarMode)],
         offsetsByFrequency: [(frequency: Float, offset: CGPoint)],
-        overridesByFrequency: [(frequency: Float, override: UserAssignedMode)],
+        overridesByFrequency: [(frequency: Float, override: String)],
         previouslySelectedFrequencies: [Float],
         isGuitar: Bool,
         tolerance: Float
@@ -515,7 +515,7 @@ extension TapToneAnalyzer {
         peakAnnotationOffsets = newOffsets
 
         // Remap mode overrides to new UUIDs by frequency proximity.
-        var newOverrides: [UUID: UserAssignedMode] = [:]
+        var newOverrides: [UUID: String] = [:]
         for newPeak in peaks {
             if let match = overridesByFrequency.first(where: { abs($0.frequency - newPeak.frequency) <= tolerance }) {
                 newOverrides[newPeak.id] = match.override
@@ -649,7 +649,7 @@ extension TapToneAnalyzer {
     /// - Returns: A dictionary mapping each identified `GuitarMode` to its strongest `ResonantPeak`.
     static func resolvedModePeaks(
         peaks: [ResonantPeak],
-        overrides: [UUID: UserAssignedMode] = [:],
+        overrides: [UUID: String] = [:],
         guitarType: GuitarType?
     ) -> [GuitarMode: ResonantPeak] {
         let modeMap: [UUID: GuitarMode]

@@ -291,7 +291,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///
     /// `nil` means all peaks use automatic classification on load (backward-compatible default).
     /// - SeeAlso: ``UserAssignedMode``
-    let peakModeOverrides: [UUID: UserAssignedMode]?
+    let peakModeOverrides: [UUID: String]?
 
     // MARK: - Microphone Provenance
 
@@ -428,7 +428,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          selectedPeakFrequencies: [Float]? = nil,
          userModifiedSelection: Bool? = nil,
          annotationVisibilityMode: AnnotationVisibilityMode? = nil,
-         peakModeOverrides: [UUID: UserAssignedMode]? = nil,
+         peakModeOverrides: [UUID: String]? = nil,
          microphoneName: String? = nil,
          microphoneUID: String? = nil,
          calibrationName: String? = nil,
@@ -578,7 +578,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         for mode in [GuitarMode.air, .top, .back] {
             guard let p = definitivePeak(for: mode) else { continue }
             let isOverride: Bool
-            if case .assigned = peakModeOverrides?[p.id] { isOverride = true } else { isOverride = false }
+            isOverride = peakModeOverrides?[p.id] != nil
             out[mode] = (p.frequency, isOverride)
         }
         return out
@@ -697,12 +697,17 @@ struct TapToneMeasurement: Identifiable, Codable {
         // JSONEncoder serialises [UUID: UserAssignedMode] (UUID is not a string key).
         // GuitarTap Python 1.0.x instead wrote a {uuidString: mode} JSON object;
         // accept that legacy shape on import so those files remain loadable.
-        var decodedOverrides: [UUID: UserAssignedMode]?
+        // The wire shape stays `{"type":"assigned","label":…}` per entry; in memory this is the label
+        // alone, matching Python `{uuid: label}` and web `Map<number, string>`. An `auto` entry
+        // carries no label and means "no override", so it is DROPPED on read — both ports do the
+        // same. That is why nothing in the app can hold a "no override" override (#17 F28).
+        var decodedOverrides: [UUID: String]?
         if let native = try? container.decodeIfPresent([UUID: UserAssignedMode].self, forKey: .peakModeOverrides) {
-            decodedOverrides = native
+            decodedOverrides = native.compactMapValues { if case .assigned(let l) = $0 { return l } else { return nil } }
         } else if let legacy = try? container.decodeIfPresent([String: UserAssignedMode].self, forKey: .peakModeOverrides) {
             decodedOverrides = Dictionary(uniqueKeysWithValues: legacy.compactMap { key, value in
-                UUID(uuidString: key).map { ($0, value) }
+                guard case .assigned(let l) = value, let uuid = UUID(uuidString: key) else { return nil }
+                return (uuid, l)
             })
         } else {
             decodedOverrides = nil
@@ -881,7 +886,9 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(selectedPeakFrequencies, forKey: .selectedPeakFrequencies)
         try container.encodeIfPresent(userModifiedSelection,    forKey: .userModifiedSelection)
         try container.encodeIfPresent(annotationVisibilityMode, forKey: .annotationVisibilityMode)
-        try container.encodeIfPresent(peakModeOverrides, forKey: .peakModeOverrides)
+        // Re-wrap each label as `.assigned` so the on-disk shape is unchanged (see the decoder).
+        try container.encodeIfPresent(peakModeOverrides?.mapValues { UserAssignedMode.assigned($0) },
+                                      forKey: .peakModeOverrides)
         try container.encodeIfPresent(microphoneName,    forKey: .microphoneName)
         try container.encodeIfPresent(microphoneUID,     forKey: .microphoneUID)
         try container.encodeIfPresent(calibrationName,   forKey: .calibrationName)
@@ -918,12 +925,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             // Resolve the mode label: user override > auto-classify > plate/brace role
             let label: String
             if mt.isGuitar {
-                switch peakModeOverrides?[peak.id] ?? .auto {
-                case .auto:
-                    label = (exportModeMap[peak.id] ?? .unknown).displayName
-                case .assigned(let customLabel):
-                    label = customLabel
-                }
+                label = peakModeOverrides?[peak.id] ?? (exportModeMap[peak.id] ?? .unknown).displayName
             } else {
                 if peak.id == selectedLongitudinalPeakID      { label = "Longitudinal" }
                 else if peak.id == selectedCrossPeakID        { label = "Cross-grain" }

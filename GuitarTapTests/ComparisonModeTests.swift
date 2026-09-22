@@ -323,7 +323,7 @@ struct ComparisonModePersistenceTests {
             peaks: [air, autoTop, far],
             spectrum: classicalSnapshotWith([air, autoTop, far]),
             selectedPeakIDs: [air.id, far.id],                       // far is selected, autoTop is not
-            peakModeOverrides: [far.id: .assigned(GuitarMode.top.displayName)]  // far renamed to Top
+            peakModeOverrides: [far.id: GuitarMode.top.displayName]  // far renamed to Top
         )
 
         sut.loadComparison(measurements: [source])

@@ -264,7 +264,7 @@ struct ModeOverrideTests {
         sut.reclassifyPeaks()
         #expect(sut.autoDetectedMode(for: air).normalized == .air, "precondition: auto-detects Air")
 
-        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: air.id)
+        sut.setModeOverride(GuitarMode.top.displayName, for: air.id)
 
         #expect(sut.effectiveModeLabel(for: air) == GuitarMode.top.displayName,
                 "the visible label follows the override")
@@ -272,26 +272,31 @@ struct ModeOverrideTests {
                 "…but the reset target is still the auto-detected Air, not the override")
     }
 
-    // D8: .assigned("Custom") override returns the custom string.
+    // D8: "Custom" override returns the custom string.
     @Test func assignedOverride_returnsCustomLabel() {
         let sut = makeSUT()
         let peak = makePeak(frequency: 200)
-        sut.setModeOverride(.assigned("My Label"), for: peak.id)
+        sut.setModeOverride("My Label", for: peak.id)
 
         let label = sut.effectiveModeLabel(for: peak)
         #expect(label == "My Label", "Expected 'My Label', got '\(label)'")
     }
 
-    // hasManualOverride returns true only for .assigned overrides.
-    @Test func hasManualOverride_trueForAssigned_falseForAuto() {
+    // hasManualOverride tracks presence: an assigned label is an override, and clearing removes it.
+    // Driven through the two calls the app actually makes — setModeOverride and resetModeOverride —
+    // rather than through a stored "no override" value, which no longer exists (#17 F28).
+    @Test func hasManualOverride_trueOnceAssigned_falseOnceCleared() {
         let sut = makeSUT()
         let peak = makePeak()
 
-        sut.setModeOverride(.auto, for: peak.id)
-        #expect(!sut.hasManualOverride(for: peak.id), ".auto should not count as a manual override")
+        #expect(!sut.hasManualOverride(for: peak.id), "a peak starts with no override")
 
-        sut.setModeOverride(.assigned("Test"), for: peak.id)
-        #expect(sut.hasManualOverride(for: peak.id), ".assigned should be a manual override")
+        sut.setModeOverride("Test", for: peak.id)
+        #expect(sut.hasManualOverride(for: peak.id), "an assigned label is a manual override")
+
+        sut.resetModeOverride(for: peak.id)
+        #expect(!sut.hasManualOverride(for: peak.id), "clearing removes the override entirely")
+        #expect(sut.peakModeOverrides[peak.id] == nil, "cleared means absent, not a stored 'auto'")
     }
 
     // Clearing an override (setting .auto) reverts to auto-classification.
@@ -309,13 +314,13 @@ struct ModeOverrideTests {
     @Test func resetModeOverride_clearsOnlyThatPeaksOverride() {
         let sut = makeSUT()
         let kept = makePeak(frequency: 100), cleared = makePeak(frequency: 200)
-        sut.setModeOverride(.assigned("Wolf note"), for: cleared.id)
-        sut.setModeOverride(.assigned("Keep me"), for: kept.id)
+        sut.setModeOverride("Wolf note", for: cleared.id)
+        sut.setModeOverride("Keep me", for: kept.id)
 
         sut.resetModeOverride(for: cleared.id)
 
         #expect(sut.peakModeOverrides[cleared.id] == nil, "the targeted override is gone")
-        if case .assigned(let label) = sut.peakModeOverrides[kept.id] {
+        if let label = sut.peakModeOverrides[kept.id] {
             #expect(label == "Keep me", "the other peak's override is untouched")
         } else {
             Issue.record("Expected the other peak to keep its .assigned override")
@@ -387,8 +392,8 @@ struct ModeOverrideTests {
         sut.allPeaks = [peak]
         sut.identifiedModes = [(peak: peak, mode: GuitarMode.classifyAll([peak])[peak.id] ?? .unknown)]
 
-        sut.setModeOverride(.assigned("Temp"), for: peak.id)
-        sut.setModeOverride(.auto, for: peak.id)
+        sut.setModeOverride("Temp", for: peak.id)
+        sut.resetModeOverride(for: peak.id)   // what the Reset menu item calls
 
         let label = sut.effectiveModeLabel(for: peak)
         #expect(label == "Air (Helmholtz)")
@@ -434,121 +439,6 @@ struct AnnotationVisibilityCycleTests {
         for mode in AnnotationVisibilityMode.allCases {
             #expect(!mode.iconName.isEmpty, "Icon name for \(mode) should not be empty")
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Update Measurement  (moved from MeasurementCodableTests)
-//
-// Tests TapToneAnalyzer.updateMeasurement(at:measurementName:notes:) — a state-
-// mutation operation on the live analyzer, not a JSON serialisation test.
-// Mirrors Python TestUpdateMeasurement in test_annotation_state.py.
-// ---------------------------------------------------------------------------
-
-@Suite("UpdateMeasurement")
-@MainActor
-struct UpdateMeasurementTests {
-
-    private func makeAnalyzerWithMeasurements(_ measurements: [TapToneMeasurement]) -> TapToneAnalyzer {
-        let analyzer = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
-        analyzer.savedMeasurements = measurements
-        return analyzer
-    }
-
-    private func makeMeasurement(measurementName: String? = nil, notes: String? = nil) -> TapToneMeasurement {
-        TapToneMeasurement(peaks: [], measurementName: measurementName, notes: notes)
-    }
-
-    // Updating by index changes only the targeted entry's measurementName and notes.
-    @Test func update_byIndex_changesOnlyTargetedEntry() {
-        let m0 = makeMeasurement(measurementName: "Bridge", notes: "First")
-        let m1 = makeMeasurement(measurementName: "Soundhole", notes: "Second")
-        let analyzer = makeAnalyzerWithMeasurements([m0, m1])
-
-        analyzer.updateMeasurement(at: 0, measurementName: "Upper Bout", notes: "Edited")
-
-        #expect(analyzer.savedMeasurements[0].measurementName == "Upper Bout")
-        #expect(analyzer.savedMeasurements[0].notes == "Edited")
-        #expect(analyzer.savedMeasurements[1].measurementName == "Soundhole", "Second entry must not be affected")
-        #expect(analyzer.savedMeasurements[1].notes == "Second", "Second entry must not be affected")
-    }
-
-    // Editing one of two duplicates (same id, different index) leaves the other unchanged, and
-    // the two ids diverge — the edited entry is no longer the same dataset as its twin.
-    @Test func update_duplicateImport_onlyEditedIndexChanges() {
-        let original = makeMeasurement(measurementName: "Top", notes: "Original")
-        // Simulate importing the same file twice — both entries share the same id.
-        let analyzer = makeAnalyzerWithMeasurements([original, original])
-
-        analyzer.updateMeasurement(at: 1, measurementName: "Back", notes: "Copy")
-
-        #expect(analyzer.savedMeasurements[0].measurementName == "Top",  "First duplicate must not change")
-        #expect(analyzer.savedMeasurements[0].notes == "Original",   "First duplicate must not change")
-        #expect(analyzer.savedMeasurements[1].measurementName == "Back", "Second duplicate should be updated")
-        #expect(analyzer.savedMeasurements[1].notes == "Copy",       "Second duplicate should be updated")
-        #expect(analyzer.savedMeasurements[0].id == original.id,
-                "the untouched duplicate keeps its id")
-        #expect(analyzer.savedMeasurements[0].id != analyzer.savedMeasurements[1].id,
-                "the edited duplicate is different data, so it must no longer share the twin's id")
-    }
-
-    // Passing nil clears the fields.
-    @Test func update_nilValues_clearFields() {
-        let m = makeMeasurement(measurementName: "Bridge", notes: "Some notes")
-        let analyzer = makeAnalyzerWithMeasurements([m])
-
-        analyzer.updateMeasurement(at: 0, measurementName: nil, notes: nil)
-
-        #expect(analyzer.savedMeasurements[0].measurementName == nil)
-        #expect(analyzer.savedMeasurements[0].notes == nil)
-        #expect(analyzer.savedMeasurements[0].id != m.id, "clearing the fields is a data change too")
-    }
-
-    // An out-of-range index is a no-op.
-    @Test func update_outOfRangeIndex_isNoOp() {
-        let m = makeMeasurement(measurementName: "Bridge")
-        let analyzer = makeAnalyzerWithMeasurements([m])
-
-        analyzer.updateMeasurement(at: 99, measurementName: "Changed", notes: nil)
-
-        #expect(analyzer.savedMeasurements[0].measurementName == "Bridge", "Out-of-range update must not modify array")
-        #expect(analyzer.savedMeasurements.count == 1)
-    }
-
-    // An update mints a NEW id — name and notes are part of the data, so an amended measurement
-    // is a different dataset — while preserving every captured field and the capture time.
-    @Test func update_mintsNewId_andPreservesCapturedData() {
-        let peak = ResonantPeak(frequency: 195, magnitude: -22)
-        let m = TapToneMeasurement(peaks: [peak], decayTime: 0.5, measurementName: "Old", notes: "Old notes")
-        let originalID = m.id
-        let originalTimestamp = m.timestamp
-        let analyzer = makeAnalyzerWithMeasurements([m])
-
-        analyzer.updateMeasurement(at: 0, measurementName: "New", notes: "New notes")
-
-        let updated = analyzer.savedMeasurements[0]
-        #expect(updated.id != originalID, "an amended measurement is a different dataset")
-        #expect(updated.timestamp == originalTimestamp,
-                "timestamp records when the tap was captured; amending a name does not change that")
-        #expect(updated.peaks.count == 1,  "peaks must be preserved")
-        #expect(updated.decayTime == 0.5,  "decayTime must be preserved")
-        #expect(updated.measurementName == "New")
-        #expect(updated.notes == "New notes")
-    }
-
-    // Two successive edits yield three distinct ids: identity tracks content, not the row.
-    @Test func update_successiveEdits_eachMintANewId() {
-        let m = makeMeasurement(measurementName: "First", notes: nil)
-        let analyzer = makeAnalyzerWithMeasurements([m])
-
-        analyzer.updateMeasurement(at: 0, measurementName: "Second", notes: nil)
-        let afterFirst = analyzer.savedMeasurements[0].id
-        analyzer.updateMeasurement(at: 0, measurementName: "Third", notes: nil)
-        let afterSecond = analyzer.savedMeasurements[0].id
-
-        #expect(afterFirst != m.id)
-        #expect(afterSecond != afterFirst)
-        #expect(analyzer.savedMeasurements[0].measurementName == "Third")
     }
 }
 
@@ -641,7 +531,7 @@ struct DefinitiveModeUniquenessTests {
         sut.togglePeakSelection(air.id)
         #expect(sut.selectedPeakIDs == [top.id, air.id], "one Air and one Top, both definitive")
 
-        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: air.id)
+        sut.setModeOverride(GuitarMode.top.displayName, for: air.id)
 
         #expect(sut.selectedPeakIDs == [air.id],
                 "the relabelled peak becomes the definitive Top; the previous holder is displaced")
@@ -661,7 +551,7 @@ struct DefinitiveModeUniquenessTests {
         sut.reclassifyPeaks()
         sut.togglePeakSelection(top.id)
 
-        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: air.id)
+        sut.setModeOverride(GuitarMode.top.displayName, for: air.id)
 
         #expect(sut.selectedPeakIDs == [top.id],
                 "overriding an unselected peak must not touch selection")
@@ -681,7 +571,7 @@ struct DefinitiveModeUniquenessTests {
         sut.reclassifyPeaks()
         sut.togglePeakSelection(topA.id)
 
-        sut.setModeOverride(.assigned("Wolf note"), for: topA.id)
+        sut.setModeOverride("Wolf note", for: topA.id)
 
         #expect(sut.peakMode(for: topA).normalized == .unknown, "freeform label, so no longer Top")
         #expect(!sut.selectedPeakIDs.contains(topB.id),
@@ -757,7 +647,7 @@ struct DefinitivePeakAndRatioTests {
         sut.togglePeakSelection(top.id)
         #expect(sut.calculateTapToneRatio() != nil, "precondition: a ratio is shown")
 
-        sut.setModeOverride(.assigned("Wolf note"), for: top.id)
+        sut.setModeOverride("Wolf note", for: top.id)
 
         #expect(sut.getPeak(for: .top) == nil, "a renamed Top is no longer the definitive Top")
         #expect(sut.calculateTapToneRatio() == nil,
@@ -797,7 +687,7 @@ struct DefinitivePeakAndRatioTests {
         sut.togglePeakSelection(far.id)
         #expect(sut.getPeak(for: .top) == nil, "precondition: no Top yet")
 
-        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: far.id)
+        sut.setModeOverride(GuitarMode.top.displayName, for: far.id)
 
         #expect(sut.getPeak(for: .top)?.id == far.id, "the relabelled peak is now the definitive Top")
         #expect(sut.calculateTapToneRatio() != nil, "and the ratio returns")
@@ -820,7 +710,7 @@ struct DefinitivePeakAndRatioTests {
         sut.reclassifyPeaks()
         sut.togglePeakSelection(air.id)
         sut.togglePeakSelection(belowTop.id)
-        sut.setModeOverride(.assigned(GuitarMode.top.displayName), for: belowTop.id)  // 138 → Top
+        sut.setModeOverride(GuitarMode.top.displayName, for: belowTop.id)  // 138 → Top
 
         let info = sut.definitiveModeInfo()
         #expect(info[.top]?.frequency == 138,
@@ -874,7 +764,7 @@ struct Phase7TriggersTests {
         sut.allPeaks = [air, top]
         sut.reclassifyPeaks()
         sut.togglePeakSelection(air.id)
-        sut.setModeOverride(.assigned("Wolf note"), for: top.id)   // a label made under the OLD type
+        sut.setModeOverride("Wolf note", for: top.id)   // a label made under the OLD type
         #expect(sut.hasManualOverride(for: top.id), "precondition: override in effect")
 
         sut.reclassifyForGuitarTypeChange()
@@ -896,7 +786,7 @@ struct Phase7TriggersTests {
         sut.allPeaks = [air, top]
         sut.reclassifyPeaks()
         sut.togglePeakSelection(air.id)
-        sut.setModeOverride(.assigned("Wolf note"), for: top.id)
+        sut.setModeOverride("Wolf note", for: top.id)
         sut.selectedPeakFrequencies = [100]
         #expect(!sut.selectedPeakIDs.isEmpty && !sut.peakModeOverrides.isEmpty, "precondition")
 
