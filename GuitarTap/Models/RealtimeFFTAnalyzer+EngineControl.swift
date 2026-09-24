@@ -449,11 +449,24 @@ extension RealtimeFFTAnalyzer {
             // window, then (re)start the buffer-delivery watchdog. Not armed during
             // file playback (the file path feeds buffers synthetically).
             self.lastBufferTime = CACurrentMediaTime()
-            // Prime the dead-input clock too, so the 5 s no-signal window is measured
-            // from the start rather than from a `lastSignalTime` of 0.
-            self.lastSignalTime = CACurrentMediaTime()
-            // A deliberate (re)start gets a clean slate: full recovery attempts again.
-            self.watchdogRecoveryExhausted = false
+            // Prime the dead-input clock too, so the no-signal window is measured from the start
+            // rather than from a `lastSignalTime` of 0 — but ONLY for a start the user asked for.
+            //
+            // A watchdog RECOVERY must not stamp this: `lastSignalTime` means "signal was last
+            // OBSERVED", and a restart observes nothing. Stamping it made the next tick read
+            // .healthy, which cleared the warning and reset the attempt streak, while the clean
+            // slate below cleared the exhausted latch — so .deadInputExhausted was unreachable and
+            // the engine restarted every 15 s forever, strobing the warning. Found on a BlackHole
+            // 2ch virtual input during the #17 run-review; any permanently silent input does it.
+            // Uses the flag start() ALREADY captures at entry (`startedByWatchdogRecovery =
+            // isRecoveringEngine`). A first pass at this added a second parameter carrying the same
+            // fact — the duplicate-state shape this whole issue exists to remove.
+            if !startedByWatchdogRecovery {
+                self.lastSignalTime = CACurrentMediaTime()
+                // A deliberate (re)start gets a clean slate: full recovery attempts again.
+                self.watchdogRecoveryExhausted = false
+                self.watchdogRecoveryAttempts = 0
+            }
             if !self.isPlayingFile {
                 self.startBufferWatchdog()
                 self.registerConfigurationChangeObserver()
@@ -517,13 +530,8 @@ extension RealtimeFFTAnalyzer {
                 //
                 // A recovery restart is EXPECTED to begin silent when the input is
                 // genuinely dead, so running the check there guarantees a false denial.
-                if perfectSilence && !shouldDeclarePermissionDenied(
-                    tccDenied: false,
-                    perfectSilence: true,
-                    hasEverReceivedSignal: self.hasEverReceivedSignal,
-                    startedByWatchdogRecovery: startedByWatchdogRecovery
-                ) {
-                    gtLog("🔇 3s check: silent, but the input has produced audio this session (or a recovery is in flight) — a dead input, not a permission denial; leaving it to the dead-input watchdog")
+                if perfectSilence && !tccDenied {
+                    gtLog("🔇 3s check: silent but authorized — a dead or muted input, not a permission denial; leaving it to the dead-input watchdog")
                 }
 
                 if self.permissionJustGranted {
@@ -532,12 +540,7 @@ extension RealtimeFFTAnalyzer {
                     // never show the alert. (Backstop; the deferred-binding fix should
                     // prevent silence entirely.)
                     self.permissionJustGranted = false
-                } else if shouldDeclarePermissionDenied(
-                    tccDenied: tccDenied,
-                    perfectSilence: perfectSilence,
-                    hasEverReceivedSignal: self.hasEverReceivedSignal,
-                    startedByWatchdogRecovery: startedByWatchdogRecovery
-                ) {
+                } else if shouldDeclarePermissionDenied(tccDenied: tccDenied) {
                     gtLog("⚠️ Microphone permission confirmed DENIED after 3s — tccDenied=\(tccDenied), perfectSilence=\(perfectSilence)")
                     self.stop()
                     self.microphonePermissionDenied = true

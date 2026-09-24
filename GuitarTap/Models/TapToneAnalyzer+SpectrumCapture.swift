@@ -620,7 +620,6 @@ extension TapToneAnalyzer {
             let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
             self.isAboveThreshold = currentLevel > fallingThreshold
             self.detectionState = .listening
-            self.tapDetected = false
             self.mpmLock.lock()
             self.lastLevelCrossingCaptureID = -1
             self.mpmLock.unlock()
@@ -1288,7 +1287,6 @@ extension TapToneAnalyzer {
             // Matches the skipWarmup=true initial setup in startTapSequence.
             isAboveThreshold = true
             detectionState = .listening
-            tapDetected = false
             // Clear stale fast-start marker so the C tap's main-thread
             // startGatedCapture correctly falls back to pre-roll seeding
             // if the audio-queue level crossing doesn't fire in time.
@@ -1407,7 +1405,6 @@ extension TapToneAnalyzer {
                 // bogus FLC "rising edge" on the decaying tail.
                 isAboveThreshold = true
                 detectionState = .listening
-                tapDetected = false
                 mpmLock.lock()
                 lastLevelCrossingCaptureID = -1
                 mpmLock.unlock()

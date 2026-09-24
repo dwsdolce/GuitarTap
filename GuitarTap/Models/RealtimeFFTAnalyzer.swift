@@ -287,6 +287,13 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Updates in lockstep with `magnitudes`/`peakMagnitude` (i.e. at the FFT frame rate),
     /// so the status-bar level number refreshes at the same cadence as the graph.
     @Published var displayLevelDB: Float = -100
+
+    /// The latest chunk's level AS A READOUT: `inputLevelDB`, except that a chunk of true digital
+    /// silence (RMS exactly 0) is -∞ rather than -100. -100 dB is a real level — a quiet UMIK-1
+    /// reaches it — so the readout must not show it for the absence of any signal. Detection and the
+    /// level meters keep reading `inputLevelDB`, whose -100 on silence is unchanged.
+    /// Published at the frame rate as `displayLevelDB`.
+    var readoutLevelDB: Float = -100
     
     /// Maximum input level observed over the last `peakHoldDuration` seconds (dBFS).
     ///

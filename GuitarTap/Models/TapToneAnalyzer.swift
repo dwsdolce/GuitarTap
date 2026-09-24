@@ -279,8 +279,13 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var numberOfTaps: Int = 1 {
         didSet {
             // Update the prompt if we're still waiting for the first tap.
+            //
+            // `armedPrompt()`, not `tapPrompt()`: the latter is the GUITAR prompt, so changing Taps
+            // at the start of a plate or brace sequence — where the control is still unlocked,
+            // because no tap has been captured — wrote "Tap the guitar 3 times..." over "Ready for
+            // fL tap (×3 each for L, C)" (#17 F36).
             if isDetecting && currentTapCount == 0 {
-                statusMessage = tapPrompt()
+                statusMessage = armedPrompt()
             }
             // NOTE: there is deliberately NO "reduce the count mid-sequence → finalise with the taps
             // already captured" branch here. The Taps stepper is disabled the moment a sequence has a
@@ -329,16 +334,35 @@ final class TapToneAnalyzer: ObservableObject {
     func armedPrompt() -> String {
         let type = TapDisplaySettings.measurementType
         guard !type.isGuitar else { return guitarLoopStatus(capturing: false) }
+        return materialArmPrompt()
+    }
+
+    /// The prompt a material (plate/brace) sequence shows while armed and waiting in its CURRENT
+    /// phase — the single source for these strings.
+    ///
+    /// Three callers, which is the point: ``startTapSequence`` (which sets the phase before the
+    /// status), the phase advances in ``acceptCurrentPhase``, and ``armedPrompt()``. They used to
+    /// hold two sets of literals — the advance said "Rotate 90° and tap for fC" while the armed
+    /// derivation said "Ready for fC tap" — so resuming or changing the tap count silently reworded
+    /// the instruction the user was following (#17 F37).
+    ///
+    /// The fL branch is count-aware, because that is the phase whose prompt names the tap count and
+    /// the only phase where the Taps control is still unlocked.
+    func materialArmPrompt() -> String {
         switch materialTapPhase {
-        case .capturingLongitudinal:
-            // "fL", not "L", for plate as well — the phase-tap rename missed this one site, so
-            // ARMING a plate sequence said "Ready for fL tap" while RESUMING the same sequence said
-            // "Ready for L tap". Python and web already said fL throughout (#17 F33).
-            return "Ready for fL tap"
+        case .capturingCross:
+            return "Rotate 90° and tap for fC"
         case .capturingFlc, .waitingForFlcTap:
-            return "Ready for fLC tap"
+            return "Set up for fLC tap, then tap"
         default:
-            return "Ready for fC tap"
+            // capturingLongitudinal / notStarted. "fL", not "L", for plate as well — the phase-tap
+            // rename missed this site once already (#17 F33).
+            guard numberOfTaps > 1 else { return "Ready for fL tap" }
+            guard TapDisplaySettings.measurementType == .plate else {
+                return "Ready for fL tap (×\(numberOfTaps))"
+            }
+            let phases = TapDisplaySettings.measureFlc ? "L, C, FLC" : "L, C"
+            return "Ready for fL tap (×\(numberOfTaps) each for \(phases))"
         }
     }
 
@@ -356,7 +380,17 @@ final class TapToneAnalyzer: ObservableObject {
         if isMeasurementComplete { return nil }        // "Analysis complete…" / "Loaded measurement…"
         if displayMode == .comparison { return nil }   // an overlay is not a tap prompt
         if isDetectionPaused { return Self.pausedStatus }
-        if isDetecting { return armedPrompt() }
+        if isDetecting {
+            // A material phase prompt is an INSTRUCTION tied to a transition that already happened
+            // — "Rotate 90° and tap for fC" — not a description of the state the analyzer is in.
+            // It is therefore not re-derivable here: after a device swap the user has already
+            // rotated the plate, and a redo's "Ready for fC tap — tap again" is a different, equally
+            // correct string for the same phase. Preserve it, exactly as a completed measurement's
+            // announcement is preserved. Guitar's prompt IS a function of count and total, both of
+            // which the analyzer holds, so it is still derived (#17 F37).
+            guard TapDisplaySettings.measurementType.isGuitar else { return nil }
+            return armedPrompt()
+        }
         return "Ready"
     }
 
@@ -510,11 +544,6 @@ final class TapToneAnalyzer: ObservableObject {
     /// it equals ``tapDetectionThreshold``.
     @Published var tapDetectionLevel: Float = -100
 
-    /// `true` for a single frame immediately after a tap rising edge is confirmed.
-    ///
-    /// Views observe this to flash the tap indicator.
-    @Published var tapDetected: Bool = false
-
     /// Whether the detector is listening, paused mid-sequence, or neither.
     ///
     /// Setting this property automatically arms or disarms the audio-queue
@@ -632,6 +661,13 @@ final class TapToneAnalyzer: ObservableObject {
     /// Updated by a Combine sink on `$statusMessage` (see setupSubscriptions).
     /// Mirrors Python `_latest_real_status`.
     var latestRealStatus: String = "Tap the guitar to begin"
+
+    /// What the status said before a device-change settle replaced it with the "reinitializing…"
+    /// transient, or `nil` when no settle is in flight.
+    ///
+    /// A stored property rather than a local, matching Python `_status_before_settle` and web
+    /// `statusBeforeSettle`, so the capture is observable and all three editions can pin it (#17 F37).
+    var statusBeforeSettle: String?
 
     /// Sentinel string used to detect (and ignore) self-writes to
     /// `statusMessage` performed by the clipping-override path, so the
@@ -1892,7 +1928,6 @@ final class TapToneAnalyzer: ObservableObject {
         // Pre-set isAboveThreshold = true so the first FFT frame does not fire a false
         // rising edge.  The actual value will be corrected after the settle delay.
         isAboveThreshold = true
-        tapDetected = false
 
         // Freeze the display on the last good spectrum while the pipeline refills with
         // valid data from the new device.  This prevents the transitional noise/silence
@@ -1916,7 +1951,12 @@ final class TapToneAnalyzer: ObservableObject {
         // `statusAfterSettle()` returns nil for the states whose status is a result announcement
         // rather than a prompt — and "leave it alone" has to mean restoring THIS, not leaving the
         // transient up forever, which is what it meant on the first pass (#17 F33).
-        let statusBeforeSettle = statusMessage
+        //
+        // `latestRealStatus`, NOT `statusMessage`: the latter is the OVERRIDE-RESOLVED string, so a
+        // route change while the input is clipping or dead preserved the warning sentinel and put it
+        // back as though the analyzer had set it. The override layer re-resolves on its own from the
+        // real status, so the real status is what has to survive the settle (#17 F37).
+        statusBeforeSettle = latestRealStatus
         statusMessage = "Audio device changed - reinitializing..."
 
         // Wait for the FFT pipeline to fill with valid post-restart data (~1.36 s for
@@ -1954,7 +1994,8 @@ final class TapToneAnalyzer: ObservableObject {
                     if wasDetecting { self.detectionState = .listening }
                     // Derive the status from the state we are now in; where that is a result
                     // announcement rather than a prompt, put back what was there before the settle.
-                    self.statusMessage = self.restoredStatus(before: statusBeforeSettle)
+                    self.statusMessage = self.restoredStatus(before: self.statusBeforeSettle ?? "Ready")
+                    self.statusBeforeSettle = nil
                     gtLog("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
                 }
                 .store(in: &self.cancellables)

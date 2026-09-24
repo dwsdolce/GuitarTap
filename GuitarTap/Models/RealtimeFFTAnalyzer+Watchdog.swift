@@ -208,7 +208,7 @@ extension RealtimeFFTAnalyzer {
         DispatchQueue.main.asyncAfter(deadline: .now() + backoff) { [weak self] in
             guard let self = self else { return }
             do {
-                try self.start()  // success: start() re-arms the watchdog; buffers resume → streak clears
+                try self.start()  // isRecoveringEngine is still true, so start() knows this is a recovery
                 gtLog("✅ Buffer watchdog: engine restarted (attempt \(self.watchdogRecoveryAttempts))")
                 self.isRecoveringEngine = false
             } catch {

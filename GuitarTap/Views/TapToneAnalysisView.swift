@@ -358,21 +358,7 @@ struct TapToneAnalysisView: View {
             defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
             let data = try Data(contentsOf: url)
-            let imported = try tapToneAnalyzer.importMeasurements(from: data)
-
-            var message: String
-            if imported.count == 1, let measurement = imported.first {
-                tapToneAnalyzer.loadMeasurement(measurement)
-                message = "Successfully imported and loaded 1 measurement"
-            } else {
-                message = "Successfully imported \(imported.count) measurements"
-            }
-
-            if let warning = tapToneAnalyzer.microphoneWarning {
-                message += "\n\n⚠️ " + warning
-                tapToneAnalyzer.microphoneWarning = nil
-            }
-            openURLImportSuccess = message
+            openURLImportSuccess = try tapToneAnalyzer.importAndLoadMeasurements(from: data)
         } catch {
             let nsError = error as NSError
             let isPermissionError = (nsError.domain == NSPOSIXErrorDomain && nsError.code == 1) ||

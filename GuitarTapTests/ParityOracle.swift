@@ -98,7 +98,9 @@ struct ParityOracle: Codable {
         let deltaDb: Float?
         let binCentered: Bool?
         let signal: String?
-        let maxDbBelow: Float?
+        /// The case's exact peak, where one is recorded instead of per-tone expectations — GFFT4's
+        /// silence, which is -inf (stored as the string "-Infinity"; see `shared`).
+        let maxDb: Float?
 
         var toneList: [GatedTone] {
             (tones ?? []).map { GatedTone(hz: $0[0], amplitude: $0[1]) }
@@ -134,7 +136,13 @@ struct ParityOracle: Codable {
             fatalError("parity-oracle.json not in the test bundle — run Tooling/sync-oracle.sh")
         }
         do {
-            return try JSONDecoder().decode(ParityOracle.self, from: Data(contentsOf: url))
+            // JSON has no infinity, and GFFT4's silence is -inf, so every oracle and baseline file —
+            // all three editions and the hub — writes a non-finite number as the STRING
+            // "-Infinity" / "Infinity" / "NaN" (#17 F44).
+            let decoder = JSONDecoder()
+            decoder.nonConformingFloatDecodingStrategy =
+                .convertFromString(positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
+            return try decoder.decode(ParityOracle.self, from: Data(contentsOf: url))
         } catch {
             fatalError("parity-oracle.json could not be decoded: \(error)")
         }

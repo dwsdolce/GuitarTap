@@ -57,8 +57,13 @@ enum FieldPrecision {
     // MARK: - Helpers
 
     /// Format a value for display at the given precision.
+    ///
+    /// Infinity reads as "-∞" / "∞" — what SwiftUI's `specifier:` shows — not the C formatter's
+    /// "-inf". A silent input's peak is -∞ dB, and it must not look different from one screen to
+    /// the next.
     static func string(_ value: Float, _ decimals: Int) -> String {
-        String(format: "%.\(decimals)f", value)
+        if value.isInfinite { return value < 0 ? "-∞" : "∞" }
+        return String(format: "%.\(decimals)f", value)
     }
 
     /// Round a value to the given precision. Retained as a safety net for values that reach

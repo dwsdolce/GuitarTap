@@ -77,6 +77,86 @@ struct TapCountChangeTests {
 
 }
 
+/// The same hook, on a MATERIAL measurement — the case whose absence hid #17 F36.
+///
+/// Every case above is guitar, in all three editions, and the hook is shared by plate and brace.
+/// At the start of a material sequence no tap has been captured, so the Taps control is still
+/// unlocked (`currentTapCount > 0 && !isMeasurementComplete` is false) and detection is listening:
+/// the count CAN change here, and it is the one phase whose prompt names the count.
+@Suite("TapCountChange — material", .serialized)
+@MainActor
+struct TapCountChangeMaterialTests {
+
+    private func plateSUT(numberOfTaps: Int, measureFlc: Bool) -> TapToneAnalyzer {
+        TapDisplaySettings.measurementType = .plate
+        TapDisplaySettings.measureFlc = measureFlc
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        sut.numberOfTaps = numberOfTaps
+        sut.materialTapPhase = .capturingLongitudinal
+        sut.currentTapCount = 0
+        sut.detectionState = .listening
+        return sut
+    }
+
+    @Test("raising Taps at the start of a plate sequence refreshes the fL arm prompt")
+    func raisingCountAtPlateStart_refreshesTheMaterialArmPrompt() {
+        let sut = plateSUT(numberOfTaps: 1, measureFlc: false)
+
+        sut.numberOfTaps = 3
+
+        #expect(sut.statusMessage == "Ready for fL tap (×3 each for L, C)",
+                "REGRESSION: the hook called the GUITAR prompt, so changing Taps during a plate measurement said \"Tap the guitar 3 times...\" (#17 F36)")
+    }
+
+    @Test("the FLC setting is reflected in the refreshed prompt")
+    func raisingCountAtPlateStart_withFlc_namesAllThreePhases() {
+        let sut = plateSUT(numberOfTaps: 1, measureFlc: true)
+
+        sut.numberOfTaps = 2
+
+        #expect(sut.statusMessage == "Ready for fL tap (×2 each for L, C, FLC)")
+    }
+
+    @Test("a brace sequence gets the brace variant, which names no phases")
+    func raisingCountAtBraceStart_usesTheBracePrompt() {
+        TapDisplaySettings.measurementType = .brace
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        sut.numberOfTaps = 1
+        sut.materialTapPhase = .capturingLongitudinal
+        sut.currentTapCount = 0
+        sut.detectionState = .listening
+
+        sut.numberOfTaps = 4
+
+        #expect(sut.statusMessage == "Ready for fL tap (×4)")
+    }
+
+    /// The guard, not the prompt. `currentTapCount` is CUMULATIVE across L → C → FLC while
+    /// `capturedTaps` is the within-phase buffer, cleared at every phase completion — so a guard
+    /// written against the buffer reads "nothing captured yet" at the start of every phase. Python's
+    /// was, and would have rewritten the fC instruction mid-measurement (#17 F36).
+    @Test("mid-sequence, at a later phase, the hook stays silent")
+    func countChangeAtALaterPhase_doesNotRewriteTheInstruction() {
+        TapDisplaySettings.measurementType = .plate
+        TapDisplaySettings.measureFlc = false
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        sut.numberOfTaps = 3
+        sut.materialTapPhase = .capturingCross
+        sut.capturedTaps = []            // the phase buffer is empty — L's taps were consumed
+        sut.currentTapCount = 3          // but three taps ARE captured for this measurement
+        sut.detectionState = .listening
+        // The string a REDO leaves on screen — deliberately NOT what the hook would derive for this
+        // phase, so "the hook stayed silent" and "the hook fired" are distinguishable. Asserting the
+        // derived string here passed under both, which is an assertion true by construction.
+        sut.statusMessage = "Ready for fC tap — tap again"
+
+        sut.numberOfTaps = 5
+
+        #expect(sut.statusMessage == "Ready for fC tap — tap again",
+                "REGRESSION: the guard read the within-phase buffer, which is empty at every phase boundary, so the hook fired mid-measurement and overwrote the instruction (#17 F36)")
+    }
+}
+
 /// OUT-5 — a count change with taps already in hand must NOT finalise the measurement.
 ///
 /// Guards the removal of the unreachable reduce-mid-sequence branch (see the file header).

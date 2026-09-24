@@ -186,3 +186,59 @@ struct UpdateMeasurementTests {
 
 
 }
+
+// ---------------------------------------------------------------------------
+// MARK: - The import message: what the user is told
+// ---------------------------------------------------------------------------
+
+/// An import is a library operation and says nothing about microphones; a LOAD shows the user
+/// data, so a load warns. A single-file import also loads, so its one dialog carries the load's
+/// warning. These pin the OUTCOME — the message — not any edition's mechanism for clearing an
+/// acknowledged warning, so they hold however that mechanism changes (#17 F41).
+@Suite("ImportMessage", .serialized)
+@MainActor
+struct ImportMessageTests {
+
+    init() {
+        try? FileManager.default.removeItem(at: TapToneAnalyzer.measurementsFileURL)
+    }
+
+    /// A microphone no machine running the tests will have.
+    private static let absentMic = "No Such Microphone (test)"
+
+    private func fileData(_ measurements: [TapToneMeasurement]) throws -> Data {
+        try TapToneAnalyzer.encodeMeasurements(measurements)
+    }
+
+    private func measurement(mic: String?) -> TapToneMeasurement {
+        TapToneMeasurement(timestamp: Date(timeIntervalSinceReferenceDate: 0), peaks: [],
+                           measurementName: "Test",
+                           microphoneName: mic, microphoneUID: mic.map { "\($0)-uid" })
+    }
+
+    @Test("a library import says nothing about microphones, even ones that are not connected")
+    func libraryImport_hasNoMicrophoneWarning() throws {
+        let sut = makeSUT()
+        sut.microphoneWarning = "a warning from an earlier load" // nothing loads here, so nothing clears it
+        let message = try sut.importAndLoadMeasurements(
+            from: fileData([measurement(mic: Self.absentMic), measurement(mic: Self.absentMic)]))
+        #expect(message == "Successfully imported 2 measurements")
+        #expect(sut.microphoneWarning == nil)
+    }
+
+    @Test("a single-file import carries the LOAD's warning, in one dialog")
+    func singleImport_carriesTheLoadsWarning() throws {
+        let sut = makeSUT()
+        let message = try sut.importAndLoadMeasurements(from: fileData([measurement(mic: Self.absentMic)]))
+        #expect(message.hasPrefix("Successfully imported and loaded 1 measurement\n\n⚠️ Recorded with '\(Self.absentMic)'"))
+        #expect(sut.microphoneWarning == nil, "folded into the message, so the main view's alert does not show it again")
+    }
+
+    @Test("an earlier, acknowledged warning never rides along on a later import")
+    func singleImport_doesNotCarryAStaleWarning() throws {
+        let sut = makeSUT()
+        sut.microphoneWarning = "a warning from an earlier load"
+        let message = try sut.importAndLoadMeasurements(from: fileData([measurement(mic: nil)]))
+        #expect(message == "Successfully imported and loaded 1 measurement")
+    }
+}

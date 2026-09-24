@@ -69,7 +69,6 @@ extension TapToneAnalyzer {
         // Don't analyze anything if the FFT analyzer isn't actually running
         guard fftAnalyzer.isRunning else {
             // Reset tap detection state to prevent false positives before start
-            tapDetected = false
             return
         }
         

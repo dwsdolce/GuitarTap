@@ -135,4 +135,80 @@ struct StateNotificationTests {
 
         #expect(sut.isSettling == true, "a live spectrum is blanked for the settle")
     }
+
+    // N9: a MATERIAL phase prompt is an instruction about something that already happened
+    // ("Rotate 90°…"), not a description of the state, so the settle must put it back rather than
+    // re-derive it. Two strings are equally correct for one phase — the advance's instruction and a
+    // redo's "…— tap again" — which is the proof it is not a function of the state (#17 F37).
+    @Test func settle_preservesAMaterialPhaseInstruction() {
+        TapDisplaySettings.measurementType = .plate
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        sut.cancellables.removeAll()
+        sut.materialTapPhase = .capturingCross
+        sut.detectionState = .listening
+        let afterRedo = "Ready for fC tap — tap again"
+
+        #expect(sut.statusAfterSettle() == nil,
+                "a material phase instruction is not re-derivable from (type, phase)")
+        #expect(sut.restoredStatus(before: afterRedo) == afterRedo,
+                "REGRESSION: the settle reworded the instruction the user was following — it said \"Rotate 90° and tap for fC\" to someone who had already rotated the plate (#17 F37)")
+    }
+
+    // N10: the override precedence, in one place. Dead input outranks clipping, and an ordinary
+    // status write while a condition holds must not drop the warning — Python resolved clipping
+    // inline and ignored dead input entirely, and web had no dead-input status at all (#17 F37).
+    @Test func statusOverrides_deadInputOutranksClippingAndSurvivesAStatusWrite() {
+        let sut = makeSUT()
+        sut.latestRealStatus = "Tap the guitar..."
+
+        sut.fftAnalyzer.isClipping = true
+        sut.applyStatusOverrides()
+        #expect(sut.statusMessage == TapToneAnalyzer.clippingWarningStatus)
+
+        sut.fftAnalyzer.inputAppearsDead = true
+        sut.applyStatusOverrides()
+        #expect(sut.statusMessage == TapToneAnalyzer.deadInputStatus, "dead input outranks clipping")
+
+        sut.fftAnalyzer.inputAppearsDead = false
+        sut.fftAnalyzer.isClipping = false
+        sut.applyStatusOverrides()
+        #expect(sut.statusMessage == "Tap the guitar...",
+                "clearing both conditions restores the analyzer's own status")
+    }
+
+    // N11: what the settle PRESERVES is the analyzer's real status, not the override-resolved
+    // string. Capturing the displayed value meant a route change during clipping preserved the
+    // warning sentinel and put it back as though the analyzer had set it (#17 F37).
+    @Test func settle_capturesTheRealStatusNotAnOverrideWarning() {
+        let sut = makeSUT()
+        sut.detectionState = .listening
+        sut.latestRealStatus = "Tap the guitar 3 times..."
+        sut.fftAnalyzer.isClipping = true
+        sut.applyStatusOverrides()
+        #expect(sut.statusMessage == TapToneAnalyzer.clippingWarningStatus, "precondition: the warning is showing")
+
+        sut.handleRouteChangeRestart()
+
+        #expect(sut.statusBeforeSettle == "Tap the guitar 3 times...",
+                "REGRESSION: the settle preserved the clipping sentinel instead of the real status")
+    }
+
+    // N12: the phase ADVANCE and the armed DERIVATION must produce the same string, because they
+    // are the same string. They used to be two sets of literals — the advance said "Rotate 90° and
+    // tap for fC", the derivation "Ready for fC tap" — so every resume, settle or tap-count change
+    // mid-plate silently reworded the instruction (#17 F37). Pins the single source from both ends.
+    @Test func materialPhaseAdvance_andTheArmedDerivation_agree() {
+        TapDisplaySettings.measurementType = .plate
+        TapDisplaySettings.measureFlc = false
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        sut.cancellables.removeAll()
+        sut.materialTapPhase = .reviewingLongitudinal
+
+        sut.acceptCurrentPhase()
+
+        #expect(sut.materialTapPhase == .capturingCross, "precondition: the accept advanced the phase")
+        #expect(sut.statusMessage == "Rotate 90° and tap for fC")
+        #expect(sut.armedPrompt() == sut.statusMessage,
+                "REGRESSION: the advance and the derivation drifted apart — one source, or the settle and the resume reword what the advance said")
+    }
 }

@@ -94,6 +94,14 @@ struct GenerateParityOracleTests {
         Double(String(value)) ?? Double(value)
     }
 
+    /// `stored`, but a non-finite value becomes the string JSON can carry: "-Infinity" /
+    /// "Infinity" / "NaN" — the same encoding Python, the web and the hub read and write.
+    private static func storedAllowingNonFinite(_ value: Float) -> Any {
+        if value.isNaN { return "NaN" }
+        if value.isInfinite { return value > 0 ? "Infinity" : "-Infinity" }
+        return stored(value)
+    }
+
     /// Replace frequency/magnitude/q in an existing array of peak dictionaries, keyed by
     /// role. Keys the case does not carry (q on the guitar cases) are left absent.
     private static func updatePeaks(
@@ -328,6 +336,14 @@ struct GenerateParityOracleTests {
             }
 
             let (mags, freqs) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
+
+            // Silence: record the exact peak — -inf. JSONSerialization cannot write infinity, which
+            // is why this case used to carry only a bound (maxDbBelow: -100); it is stored as the
+            // string "-Infinity", which every edition's reader and the hub decode (#17 F44).
+            if (caseDict["signal"] as? String) == "silence" {
+                caseDict.removeValue(forKey: "maxDbBelow")
+                caseDict["maxDb"] = Self.storedAllowingNonFinite(mags.max() ?? -.infinity)
+            }
 
             if var expected = caseDict["expected"] as? [[String: Any]] {
                 for i in expected.indices {

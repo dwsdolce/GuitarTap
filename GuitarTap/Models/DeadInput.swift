@@ -99,25 +99,25 @@ func watchdogDecision(
 
 /// Whether the post-start check should declare the microphone permission denied.
 ///
-/// Silence alone is NOT evidence of a denial. macOS can report `.authorized` while the
-/// hardware is muted, which is why silence was treated as proof in the first place —
-/// but a dead-but-present device produces byte-identical output. Reading every silence
-/// as a denial takes a hardware failure, blames the user's permissions, and stops the
-/// engine, which also cancels the dead-input watchdog's remaining recovery attempts.
+/// **Only the platform's own answer counts.** Silence is never evidence of a denial, so this is
+/// now `tccDenied` and nothing else.
 ///
-/// So silence counts only when the input has never worked this session — permission
-/// cannot be silently revoked and re-granted mid-session — and never on a watchdog
-/// recovery restart, which is expected to begin silent when the input is genuinely dead.
+/// It used to infer denial from silence, qualified by "the input has never produced audio this
+/// session" and "this is not a watchdog restart". Both qualifiers are true at LAUNCH by definition,
+/// so selecting a silent input device — a muted mic, or a virtual device like BlackHole with
+/// nothing routed into it — and starting the app declared a permission denial and called `stop()`.
+/// The user was told to fix a permission that was already granted, and the engine was dead until
+/// relaunch: switching to a working microphone could not recover it. Found during the #17
+/// run-review on BlackHole 2ch.
 ///
-/// Swift-only by design: Python detects denial from PortAudio's stream-open error and
-/// the web from `getUserMedia`'s `NotAllowedError`, so neither ever has to infer it.
-func shouldDeclarePermissionDenied(
-    tccDenied: Bool,
-    perfectSilence: Bool,
-    hasEverReceivedSignal: Bool,
-    startedByWatchdogRecovery: Bool
-) -> Bool {
-    if tccDenied { return true }
-    guard perfectSilence else { return false }
-    return !hasEverReceivedSignal && !startedByWatchdogRecovery
+/// The case the inference existed for — macOS reporting `.authorized` while the hardware is muted —
+/// is not a permissions problem at all, so "permission denied" was the wrong message and stopping
+/// the engine the wrong remedy. That case now has a proper owner: the dead-input watchdog says
+/// "no audio input", keeps watching, and clears itself the moment signal returns.
+///
+/// This also removes a divergence. Python reads PortAudio's stream-open error and the web reads
+/// `getUserMedia`'s `NotAllowedError` — neither ever inferred denial from silence, so the canonical
+/// edition was the only one guessing. All three now report a denial only when the platform says so.
+func shouldDeclarePermissionDenied(tccDenied: Bool) -> Bool {
+    tccDenied
 }

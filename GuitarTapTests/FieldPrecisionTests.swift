@@ -108,4 +108,11 @@ struct FieldPrecisionTests {
     @Test func string_roundsForDisplay() {
         #expect(FieldPrecision.string(2.678, 2) == "2.68")
     }
+
+    /// A silent input's peak is -∞ dB. It reads "-∞" — the glyph SwiftUI's `specifier:` draws on the
+    /// status bar — not the C formatter's "-inf", so every screen shows it the same way.
+    @Test func string_infinityReadsAsSymbol() {
+        #expect(FieldPrecision.string(-.infinity, 1) == "-∞")
+        #expect(FieldPrecision.string(.infinity, 1) == "∞")
+    }
 }

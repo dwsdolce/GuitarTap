@@ -228,6 +228,7 @@ extension RealtimeFFTAnalyzer {
         // longer depends on this path.
         DispatchQueue.main.async {
             self.inputLevelDB = levelDB
+            self.readoutLevelDB = rms > 0 ? levelDB : -.infinity
 
             // Track recent peak: update if current level is higher, or if peak has expired
             if levelDB > self.recentPeakLevelDB || wallNow.timeIntervalSince(self.recentPeakTime) > self.peakHoldDuration {
@@ -408,7 +409,7 @@ extension RealtimeFFTAnalyzer {
                     self.processingTimeMs = processingTime
                     self.avgProcessingTimeMs = avgTime
                     // displayLevelDB updates at the same rate as the graph (gated by shouldPublish)
-                    self.displayLevelDB = self.inputLevelDB
+                    self.displayLevelDB = self.readoutLevelDB
                 }
             }
         }

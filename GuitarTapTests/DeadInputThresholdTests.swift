@@ -164,42 +164,32 @@ struct WatchdogDecisionTests {
 // MARK: - Permission decision truth table
 // ---------------------------------------------------------------------------
 
-/// Swift-only: Python and the web are told about a denial explicitly by their audio
-/// APIs and never have to infer it from silence.
+/// Only the platform's own answer counts. Silence is never evidence of a denial.
+///
+/// This suite used to encode a four-input heuristic: silence WAS a denial when the input had never
+/// produced audio this session and the start was not a watchdog recovery. Both qualifiers hold at
+/// LAUNCH by definition, so starting the app with a silent input selected — a muted mic, or a
+/// virtual device like BlackHole with nothing routed in — declared a permission denial and stopped
+/// the engine. The user was told to fix a permission that was already granted, and switching to a
+/// working microphone could not recover it (#17 run-review).
+///
+/// The case the heuristic existed for — macOS reporting `.authorized` while the hardware is muted —
+/// is not a permissions problem, so the message and the remedy were both wrong. The dead-input
+/// watchdog owns it now, and its rules are the suite above.
+///
+/// Removing it also removed a divergence: Python reads PortAudio's stream-open error, the web reads
+/// `getUserMedia`'s `NotAllowedError`, and neither ever inferred denial from silence. The canonical
+/// edition was the only one guessing.
 @Suite("PermissionDecision")
 struct PermissionDecisionTests {
 
-    @Test func tccDenied_isAlwaysADenial() {
-        #expect(shouldDeclarePermissionDenied(
-            tccDenied: true, perfectSilence: false,
-            hasEverReceivedSignal: true, startedByWatchdogRecovery: false))
+    @Test func tccDenied_isADenial() {
+        #expect(shouldDeclarePermissionDenied(tccDenied: true))
     }
 
-    @Test func silenceBeforeAnyAudioHasWorked_isADenial() {
-        // The original case the heuristic was written for: macOS reports authorized
-        // while the hardware is muted, and nothing else will tell us.
-        #expect(shouldDeclarePermissionDenied(
-            tccDenied: false, perfectSilence: true,
-            hasEverReceivedSignal: false, startedByWatchdogRecovery: false))
-    }
-
-    @Test func silenceAfterAudioHasWorked_isNotADenial() {
-        // The bug from 2026-09-01: a dead input reported as a denied permission.
-        #expect(shouldDeclarePermissionDenied(
-            tccDenied: false, perfectSilence: true,
-            hasEverReceivedSignal: true, startedByWatchdogRecovery: false) == false)
-    }
-
-    @Test func silenceOnAWatchdogRecoveryRestart_isNotADenial() {
-        // A recovery restart is EXPECTED to begin silent when the input is dead.
-        #expect(shouldDeclarePermissionDenied(
-            tccDenied: false, perfectSilence: true,
-            hasEverReceivedSignal: false, startedByWatchdogRecovery: true) == false)
-    }
-
-    @Test func noSilenceAndNoTccDenial_isNotADenial() {
-        #expect(shouldDeclarePermissionDenied(
-            tccDenied: false, perfectSilence: false,
-            hasEverReceivedSignal: false, startedByWatchdogRecovery: false) == false)
+    @Test func authorized_isNotADenial_howeverSilentTheInput() {
+        // The regression this replaced: silence on an authorized device is a dead or muted INPUT,
+        // which the dead-input watchdog reports accurately and recovers from.
+        #expect(shouldDeclarePermissionDenied(tccDenied: false) == false)
     }
 }

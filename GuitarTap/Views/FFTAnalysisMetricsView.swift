@@ -132,7 +132,7 @@ struct FFTAnalysisMetricsView: View {
                     
                     MetricRow(
                         label: "Peak Magnitude",
-                        value: String(format: "%.1f dB", analyzer.peakMagnitude),
+                        value: "\(FieldPrecision.string(analyzer.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB",
                         subtitle: "Signal strength"
                     )
                 }

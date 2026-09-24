@@ -193,7 +193,6 @@ extension TapToneAnalyzer {
         // the prompt set at the transition (arm / accept / redo / resume) survives — mirrors
         // the web's counter-based warm-up. (Was: overwrote the status with "Initializing…".)
         if let t0 = warmupStartAudioTime, audioTime - t0 < warmupPeriod {
-            tapDetected = false
             justExitedWarmup = true  // Mark that next frame is first after warm-up
             return
         }
@@ -219,7 +218,6 @@ extension TapToneAnalyzer {
             }
             // Don't detect on this frame - just sync the state.  (The noise-floor
             // re-anchor above stays; only the status write is gone — the warm-up is silent.)
-            tapDetected = false
             return
         }
 
@@ -233,7 +231,6 @@ extension TapToneAnalyzer {
                 TAP_DEBUG("detectTap", "COOLDOWN active | remaining=\(String(format: "%.3f", cooldownRemaining))s peakMag=\(String(format: "%.2f", level))")
                 cooldownLogged = true
             }
-            tapDetected = false
             return
         } else {
             cooldownLogged = false
@@ -268,7 +265,6 @@ extension TapToneAnalyzer {
                 isAboveThreshold = false
                 detectTapConsecutiveAbove = 0
             }
-            tapDetected = false
         } else {
             // Currently latched below — apply rising-threshold gate with
             // N-chunk confirmation.
@@ -279,7 +275,6 @@ extension TapToneAnalyzer {
                     TAP_DEBUG("detectTap", "RISING EDGE FIRED | peakMag=\(String(format: "%.2f", level)) risingThresh=\(String(format: "%.2f", risingThreshold)) tapCount=\(currentTapCount+1)/\(numberOfTaps) confirmedBy=\(confirmTarget)")
                     isAboveThreshold = true
                     detectTapConsecutiveAbove = 0
-                    tapDetected = true
                     lastTapTime = now
 
                     // Capture the recent peak input level for decay tracking reference.
@@ -295,7 +290,6 @@ extension TapToneAnalyzer {
                     if fftAnalyzer.isPlayingFile && detectTapConsecutiveAbove == 1 {
                         TAP_DEBUG("detectTap", "RISING EDGE PENDING | peakMag=\(String(format: "%.2f", level)) risingThresh=\(String(format: "%.2f", risingThreshold)) need=\(confirmTarget - 1) more")
                     }
-                    tapDetected = false
                 }
             } else {
                 // Below rising threshold.
@@ -303,7 +297,6 @@ extension TapToneAnalyzer {
                     TAP_DEBUG("detectTap", "RISING EDGE CANCELED | peakMag=\(String(format: "%.2f", level)) (signal fell below after \(detectTapConsecutiveAbove)/\(confirmTarget) chunks)")
                 }
                 detectTapConsecutiveAbove = 0
-                tapDetected = false
             }
         }
     }
@@ -434,7 +427,6 @@ extension TapToneAnalyzer {
             let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
             self.isAboveThreshold = currentLevel > fallingThreshold
             self.detectionState = .listening
-            self.tapDetected = false
             // Clear stale fast-start marker so the next tap's main-thread
             // startGatedCapture correctly falls back to pre-roll seeding
             // if the audio-queue level crossing doesn't fire in time.

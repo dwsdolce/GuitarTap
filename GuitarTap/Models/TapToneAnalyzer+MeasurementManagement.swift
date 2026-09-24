@@ -442,10 +442,11 @@ extension TapToneAnalyzer {
     /// Decodes a JSON data blob into ``TapToneMeasurement`` records and
     /// appends them to `savedMeasurements`.
     ///
-    /// After import, the UID of each measurement's recording microphone is
-    /// compared against `fftAnalyzer.availableInputDevices`. If any microphone
-    /// is missing, `microphoneWarning` is set with a list of missing device
-    /// names.
+    /// A library operation only: it says nothing about microphones. Nothing is on screen yet, so
+    /// there is nothing for a microphone difference to affect — the check belongs to
+    /// ``loadMeasurement(_:)``, which is what shows the user data. (It used to list every imported
+    /// measurement's missing microphone here, so importing an exported library warned about
+    /// measurements the user had not opened.)
     ///
     /// - Parameters:
     ///   - jsonData: Raw JSON data containing an array of encoded
@@ -462,37 +463,37 @@ extension TapToneAnalyzer {
         // Persist to disk
         persistMeasurements()
 
-        // Warn if any imported measurement's microphone is not currently available.
-        // A device is considered available if its UID matches (Swift/CoreAudio measurements) OR
-        // its name matches (Python companion app measurements, which store a "Name:SampleRate"
-        // fingerprint as the UID rather than a CoreAudio UID).
-        let availableUIDs  = Set(fftAnalyzer.availableInputDevices.map(\.uid))
-        let availableNames = Set(fftAnalyzer.availableInputDevices.map(\.name))
-        var missingNames: [String] = []
-        for m in measurements {
-            if let uid = m.microphoneUID {
-                let foundByUID  = availableUIDs.contains(uid)
-                let foundByName = !foundByUID && availableNames.contains(m.microphoneName ?? "")
-                if !foundByUID && !foundByName {
-                    let name = m.microphoneName ?? uid
-                    if !missingNames.contains(name) {
-                        missingNames.append(name)
-                    }
-                }
-            }
-        }
-        if !missingNames.isEmpty {
-            let list = missingNames.joined(separator: ", ")
-            // Report UNKNOWN, not "unplugged": a no-match can equally mean the device is attached
-            // under a different name on this platform (the same UMIK-1 is "Umik-1  Gain: 18dB" here
-            // and "Microphone (Umik-1  Gain: 18dB)" on Windows). Impact stated so the reader can
-            // judge — frequencies are essentially mic-independent; levels, trigger and faint peaks
-            // are not. Mirrors the Python + web wording.
-            microphoneWarning = "Recorded with \(list). No connected microphone matches that name — it may be unplugged, or attached under a different name on this platform. Peak frequencies should still be comparable; input levels, the tap threshold, and faint peaks (such as FLC) may differ."
-        }
-
         gtLog("📥 Imported \(measurements.count) measurements")
         return measurements
+    }
+
+    /// Imports a `.guitartap` file and returns the one message the user sees for it.
+    ///
+    /// A single measurement is also loaded — so, and only then, the message carries the LOAD's
+    /// microphone warning, folded in so one dialog appears rather than two, and consumed so the
+    /// main view's alert does not show it again. A library import (Export All) only adds to the
+    /// library and says nothing about microphones.
+    ///
+    /// The warning is cleared first, so the message can only ever describe THIS import — whatever
+    /// mechanism a view uses to clear an acknowledged warning, a stale one cannot ride along.
+    /// Every import entry point calls this; the views only display the result.
+    ///
+    /// - Parameter jsonData: The file's contents.
+    /// - Returns: The user-facing success message.
+    /// - Throws: A decoding error if the file is not a valid `.guitartap` array.
+    func importAndLoadMeasurements(from jsonData: Data) throws -> String {
+        microphoneWarning = nil
+        let imported = try importMeasurements(from: jsonData)
+        guard imported.count == 1, let measurement = imported.first else {
+            return "Successfully imported \(imported.count) measurements"
+        }
+        loadMeasurement(measurement)
+        var message = "Successfully imported and loaded 1 measurement"
+        if let warning = microphoneWarning {
+            message += "\n\n⚠️ " + warning
+            microphoneWarning = nil
+        }
+        return message
     }
     
     /// Restores the full analyser state from a saved measurement, entering
@@ -825,8 +826,11 @@ extension TapToneAnalyzer {
                     ? nil
                     : "This measurement was recorded with a different \(diffs.joined(separator: " and ")). A newly captured tap may not match the saved result."
             } else {
-                // See the note at the missingNames warning above: a no-match cannot distinguish
-                // "unplugged" from "attached under a different name on this platform".
+                // Report UNKNOWN, not "unplugged": a no-match can equally mean the device is attached
+                // under a different name on this platform (the same UMIK-1 is "Umik-1  Gain: 18dB" here
+                // and "Microphone (Umik-1  Gain: 18dB)" on Windows). Impact stated so the reader can
+                // judge — frequencies are essentially mic-independent; levels, trigger and faint peaks
+                // are not. Mirrors the Python + web wording.
                 microphoneWarning = "Recorded with '\(name)'. No connected microphone matches that name — it may be unplugged, or attached under a different name on this platform. Peak frequencies should still be comparable; input levels, the tap threshold, and faint peaks (such as FLC) may differ."
             }
         }

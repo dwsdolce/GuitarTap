@@ -11,6 +11,7 @@
 // @parity test/dsp
 
 import Testing
+import Foundation
 @testable import GuitarTap
 
 // ---------------------------------------------------------------------------
@@ -230,5 +231,82 @@ struct QFactorTests {
         // Q = centre / span = 500 / 990.
         #expect(abs(q - 0.50505) < 1e-4, "Q should be centre/span ≈ 0.505, got \(q)")
         #expect(!q.isInfinite && !q.isNaN, "Q must not be infinite/NaN")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - A silent buffer reads -inf, not a finite floor
+// ---------------------------------------------------------------------------
+
+/// A bin with no energy must read `-inf`, and this edition is the reference for it.
+///
+/// All three convert magnitude with 20·log10, so an empty bin is -inf, and `vDSP_vdbcon` returns
+/// exactly that. Python and web had each clamped the magnitude up to float64 epsilon first — the
+/// SAME literal, 2.220446049250313e-16, Python's since 2026-05-09 and web's transcribed from it —
+/// which put "-313.0 dB" on screen for the absence of a signal. Both carried it TWICE, on the live
+/// path and the gated one.
+///
+/// It matters because -100 dB is a REAL reading: a live UMIK-1 in a quiet room sits near there, and
+/// it is the dead-input watchdog's own threshold. A finite floor makes "no microphone at all" look
+/// like "a very quiet microphone", which is the one distinction the Peak readout has to keep.
+/// Owner's call during the #17 run-review, having seen -inf here and -313 on Python.
+///
+/// Only the GATED path is exercised. `computeFFT` — the live per-frame path — cannot be called on
+/// an analyzer that was never started: it multiplies by `window`, which is empty until `start()`
+/// builds it, so any call reads off the end of an empty buffer. `computeGatedFFT` creates its own
+/// DFT setup and sizes from the input, so it needs no engine. The ports' live paths ARE reachable
+/// and are pinned there (Python `dft_anal`, web `dftAnalRect`); this asymmetry is in the harness,
+/// not the coverage of the rule.
+@Suite("DSP — silence is -inf")
+struct SilentBufferTests {
+
+    @Test("the gated path returns -inf for an all-zero buffer")
+    func gatedFFT_silentBuffer_isNegativeInfinity() {
+        let fft = RealtimeFFTAnalyzer()
+        let (mags, _) = fft.computeGatedFFT(samples: [Float](repeating: 0, count: 4096),
+                                            sampleRate: 48000)
+
+        #expect(!mags.isEmpty, "precondition: the gated FFT produced a spectrum")
+        #expect(mags.allSatisfy { $0 == -.infinity },
+                "an all-zero buffer must be -inf in every bin, not a clamped floor")
+    }
+
+    @Test("a real signal is unaffected — the clamp never applied to it")
+    func gatedFFT_realSignal_isFinite() {
+        let fft = RealtimeFFTAnalyzer()
+        let n = 4096
+        let sig = (0..<n).map { i in 0.5 * sin(2 * Float.pi * 1000 * Float(i) / 48000) }
+        let (mags, _) = fft.computeGatedFFT(samples: sig, sampleRate: 48000)
+
+        let peak = mags.max() ?? -.infinity
+        #expect(peak.isFinite, "a half-scale tone must report a finite level")
+        #expect(peak > -60, "expected well above -60 dB, got \(peak)")
+    }
+
+    /// Drains the main queue, where processRawSamples publishes its levels.
+    private func drainMain() async {
+        for _ in 0..<5 { try? await Task.sleep(nanoseconds: 5_000_000) }
+    }
+
+    /// True digital silence: the READOUT is -∞, and detection's level is unchanged at -100.
+    /// -100 dB is a real level (a quiet UMIK-1 reaches it), so the material level readout must not
+    /// show it for no signal at all — but detection keeps its -100, so its behaviour is unchanged.
+    @Test("a silent chunk reads -∞ on the readout; detection still sees -100")
+    func silentChunk_readoutIsNegativeInfinity_detectionIsMinus100() async {
+        let fft = RealtimeFFTAnalyzer()
+        fft.processRawSamples([Float](repeating: 0, count: 1024))
+        await drainMain()
+        #expect(fft.inputLevelDB == -100, "detection's level on silence is unchanged")
+        #expect(fft.readoutLevelDB == -.infinity, "the readout shows no signal as -∞")
+    }
+
+    @Test("a real chunk reads the same level on the readout and for detection")
+    func realChunk_readoutEqualsDetectionLevel() async {
+        let fft = RealtimeFFTAnalyzer()
+        let chunk = (0..<1024).map { i in 0.01 * sin(2 * Float.pi * 1000 * Float(i) / 48000) }
+        fft.processRawSamples(chunk)
+        await drainMain()
+        #expect(fft.inputLevelDB.isFinite && fft.inputLevelDB > -100)
+        #expect(fft.readoutLevelDB == fft.inputLevelDB)
     }
 }

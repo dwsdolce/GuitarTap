@@ -155,7 +155,9 @@ struct GatedFFTParityTests {
                 "Delta: Swift=\(delta) dB, oracle=\(expDelta) dB — difference > \(Self.tol) dB")
     }
 
-    // GFFT4: Silence should produce all bins near noise floor (< -100 dB).
+    // GFFT4: silence reads exactly the oracle's value — -inf in every bin. The oracle used to record
+    // only a bound (maxDbBelow: -100) because JSON cannot hold infinity; it now stores "-Infinity"
+    // as a string and all three editions compare exactly (#17 F44).
     @Test func silence_allBinsBelowNoiseFloor() {
         let sampleRate: Double = 48000
         let count = Int(sampleRate * 0.4)
@@ -163,10 +165,10 @@ struct GatedFFTParityTests {
         let fft = RealtimeFFTAnalyzer()
         let (mags, _) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
 
-        let ceiling = ParityOracle.gated("GFFT4").maxDbBelow ?? -100
-        let maxMag = mags.max() ?? 0
-        #expect(maxMag < ceiling,
-                "All bins should be below \(ceiling) dB for silence, max = \(maxMag)")
+        let expected = ParityOracle.gated("GFFT4").maxDb
+        let maxMag = mags.max()
+        #expect(expected != nil, "the oracle records GFFT4's exact value")
+        #expect(maxMag == expected, "silence must read \(String(describing: expected)) dB, got \(String(describing: maxMag))")
     }
 
     // GFFT5: Verify that HANN_DENORM window produces values matching Python.

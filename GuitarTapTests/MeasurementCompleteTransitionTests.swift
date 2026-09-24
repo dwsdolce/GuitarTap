@@ -177,4 +177,24 @@ struct MeasurementCompleteTransitionTests {
         #expect(sut.showLoadedSettingsWarning == false,
                 "isMeasurementComplete = true must clear showLoadedSettingsWarning")
     }
+
+    // MC9-MC11: the other three rules that move this flag. Paired with Python and web, where until
+    // #17 F40 the banner's real state was an App.tsx useState and these were untestable — web's MC8
+    // passed against a field the application never read.
+
+    // MC9: starting a new sequence clears it — the user's own Threshold/Taps now apply.
+    @Test func startTapSequence_clearsSettingsWarning() {
+        let sut = makeSUT()
+        sut.showLoadedSettingsWarning = true
+        sut.startTapSequence()
+        #expect(sut.showLoadedSettingsWarning == false)
+    }
+
+    // MC10: changing Taps clears it (numberOfTaps.didSet).
+    @Test func tapCountChange_clearsSettingsWarning() {
+        let sut = makeSUT()
+        sut.showLoadedSettingsWarning = true
+        sut.numberOfTaps = 3
+        #expect(sut.showLoadedSettingsWarning == false)
+    }
 }

@@ -156,7 +156,6 @@ extension TapToneAnalyzer {
         capturedTaps        = []
         currentTapCount     = 0
         tapProgress         = 0.0
-        tapDetected         = false
         // No pause-clear here: `detectionState = .listening` further down leaves `.paused`
         // on its own, and clearing to `.idle` at this point would disarm a level crossing
         // that a restart-while-listening is relying on staying armed.
@@ -257,19 +256,11 @@ extension TapToneAnalyzer {
         detectionState = .listening
 
         // ===== Status message and final UI clear =====
-        if isBraceMode {
-            statusMessage = numberOfTaps > 1 ? "Ready for fL tap (×\(numberOfTaps))" : "Ready for fL tap"
-        } else if isPlateMode {
-            let measureFlc = TapDisplaySettings.measureFlc
-            if numberOfTaps > 1 {
-                let phases = measureFlc ? "L, C, FLC" : "L, C"
-                statusMessage = "Ready for fL tap (×\(numberOfTaps) each for \(phases))"
-            } else {
-                statusMessage = "Ready for fL tap"
-            }
-        } else {
-            statusMessage = tapPrompt()
-        }
+        // `resetMaterialPhaseState(to:)` above has already set the phase, so the material prompt is
+        // read from it rather than rebuilt here — one source for these strings (#17 F37). A
+        // phase-targeted start (file playback) consequently announces the phase it actually begins
+        // in instead of always announcing fL.
+        statusMessage = (isPlateMode || isBraceMode) ? materialArmPrompt() : tapPrompt()
 
         // Clear previous results so the chart shows a clean slate while waiting.
         allPeaks        = []
@@ -377,14 +368,13 @@ extension TapToneAnalyzer {
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             detectionState = .listening
-            tapDetected = false
-            statusMessage = "Rotate 90° and tap for fC"
+            statusMessage = materialArmPrompt()   // phase is .capturingCross — one source (#17 F37)
 
         case .reviewingCross:
             if measureFlc {
                 gtLog("✅ Accepted C tap — advancing to FLC")
                 materialTapPhase = .waitingForFlcTap
-                statusMessage = "Set up for fLC tap, then tap"
+                statusMessage = materialArmPrompt()  // phase is .waitingForFlcTap — one source (#17 F37)
                 // Re-enable detection for the FLC phase after the cooldown.
                 DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
                     guard let self = self else { return }
@@ -401,7 +391,6 @@ extension TapToneAnalyzer {
                     self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
                     self.warmupStartAudioTime = fftAnalyzer.audioElapsed
                     self.detectionState = .listening
-                    self.tapDetected = false
                 }
             } else {
                 gtLog("✅ Accepted C tap — measurement complete")
@@ -498,7 +487,6 @@ extension TapToneAnalyzer {
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             detectionState = .listening
-            tapDetected = false
             statusMessage = "Ready for fL tap — tap again"
 
         case .reviewingCross:
@@ -516,7 +504,6 @@ extension TapToneAnalyzer {
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             detectionState = .listening
-            tapDetected = false
             statusMessage = "Ready for fC tap — tap again"
 
         case .reviewingFlc:
@@ -534,7 +521,6 @@ extension TapToneAnalyzer {
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             detectionState = .listening
-            tapDetected = false
             statusMessage = "Ready for fLC tap — tap again"
 
         default:

@@ -744,23 +744,7 @@ struct MeasurementsListView: View {
             }
             
             data = try Data(contentsOf: url)
-            let importedMeasurements = try analyzer.importMeasurements(from: data)
-            
-            // If only 1 measurement was imported, automatically load it into the view
-            var successMsg: String
-            if importedMeasurements.count == 1, let measurement = importedMeasurements.first {
-                analyzer.loadMeasurement(measurement)
-                successMsg = "Successfully imported and loaded 1 measurement"
-            } else {
-                successMsg = "Successfully imported \(importedMeasurements.count) measurements"
-            }
-
-            // Fold any microphone warning into the success message so only one alert fires
-            if let warning = analyzer.microphoneWarning {
-                successMsg += "\n\n⚠️ " + warning
-                analyzer.microphoneWarning = nil
-            }
-            importSuccess = successMsg
+            importSuccess = try analyzer.importAndLoadMeasurements(from: data)
         } catch {
             importError = importErrorMessage(for: error, url: url)
         }
