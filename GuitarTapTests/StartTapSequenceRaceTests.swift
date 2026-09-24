@@ -36,14 +36,21 @@ private func makeSUT(numberOfTaps: Int = 1) -> TapToneAnalyzer {
     sut.justExitedWarmup = false
     TapDisplaySettings.measurementType = .generic
     sut.cancellables.removeAll()
+    // An unstarted analyzer has no frequency bins (all 0 Hz); build them as starting the engine does.
+    // They are published asynchronously, so each test's wait after startTapSequence lets them land.
+    sut.fftAnalyzer.actualSampleRate = 48000
+    sut.fftAnalyzer.updateFrequencyBins()
     return sut
 }
 
-private func fakeTap(n: Int = 64, peakDB: Float = -30) -> (magnitudes: [Float], frequencies: [Float], captureTime: Date) {
-    var mags = [Float](repeating: -80, count: n)
-    mags[n / 4] = peakDB
-    let freqs = (0..<n).map { Float($0) * 31.25 }
-    return (magnitudes: mags, frequencies: freqs, captureTime: Date())
+/// Capture one tap through the REAL completion path — the merge point of both detection paths.
+@MainActor
+private func captureTap(_ sut: TapToneAnalyzer) {
+    let samples = (0..<sut.fftAnalyzer.fftSize).map { i -> Float in
+        let t = Float(i) / 48000
+        return 0.5 * expf(-t * 6) * sinf(2 * .pi * 100 * t)
+    }
+    sut.finishGuitarGatedCapture(samples: samples, sampleRate: 48000)
 }
 
 @Suite("StartTapSequenceRace", .serialized)
@@ -76,18 +83,18 @@ struct StartTapSequenceRaceTests {
     }
 
     // R2: End-to-end repro for the iPad bug — startTapSequence, spurious tap
-    // (handleTapDetection sets detectionState = .idle), gated capture completes
-    // (we simulate by populating capturedTaps), processMultipleTaps finishes
-    // the measurement.  Final state must satisfy the guitar-mode invariants:
-    // measurement complete, not detecting, not paused.
+    // (handleTapDetection sets detectionState = .idle), the gated capture completes through the REAL
+    // path, and the measurement completes on its own after the capture window. Final state must
+    // satisfy the guitar-mode invariants: complete, not detecting, not paused. (The capture used to be
+    // simulated by populating capturedTaps and calling processMultipleTaps by hand — #17 F48.)
     @Test func spuriousTap_onTypeChange_settles_to_complete_not_detecting() async throws {
         let sut = makeSUT(numberOfTaps: 1)
 
         sut.startTapSequence()
         sut.detectionState = .idle                 // handleTapDetection effect
         try await Task.sleep(for: .milliseconds(50))   // drain housekeeping
-        sut.capturedTaps = [fakeTap()]          // gated capture finished
-        sut.processMultipleTaps()
+        captureTap(sut)
+        try await Task.sleep(for: .seconds(sut.captureWindow + 0.3))
 
         #expect(sut.isMeasurementComplete == true)
         #expect(sut.isDetecting == false,
@@ -95,22 +102,20 @@ struct StartTapSequenceRaceTests {
         #expect(sut.isDetectionPaused == false)
     }
 
-    // R3: For multi-tap guitar (numberOfTaps > 1), the same race must not
-    // strand the analyzer.  Mid-sequence we expect (`.listening`,
-    // isMeasurementComplete=false); after completion we expect
-    // (`.idle`, isMeasurementComplete=true).
+    // R3: For multi-tap guitar (numberOfTaps > 1), the same race must not strand the analyzer: three
+    // real captures, the real cooldowns between them, and the real completion.
     @Test func spuriousTap_multiTap_eventually_completes_cleanly() async throws {
         let sut = makeSUT(numberOfTaps: 3)
 
         sut.startTapSequence()
         try await Task.sleep(for: .milliseconds(50))   // drain housekeeping
+        for tap in 1...3 {
+            captureTap(sut)
+            if tap < 3 { try await Task.sleep(for: .seconds(sut.tapCooldown + 0.3)) }
+        }
+        try await Task.sleep(for: .seconds(sut.captureWindow + 0.3))
 
-        // Simulate three taps captured by the gated path.
-        sut.capturedTaps = [fakeTap(), fakeTap(), fakeTap()]
-        sut.currentTapCount = 3
-        sut.detectionState = .idle
-        sut.processMultipleTaps()
-
+        #expect(sut.currentTapCount == 3)
         #expect(sut.isMeasurementComplete == true)
         #expect(sut.isDetecting == false)
         #expect(sut.isDetectionPaused == false)
@@ -121,40 +126,30 @@ struct StartTapSequenceRaceTests {
     // The audio-queue levelCrossingHandler starts a gated capture directly
     // (sets gatedCaptureActive=true, seeds gatedAccumBuffer) without ever
     // calling handleTapDetection.  So isDetecting stays true through the
-    // capture window.  When finishGuitarGatedCapture eventually runs and
-    // processMultipleTaps completes the measurement, isDetecting must be
-    // false — otherwise the UI shows the impossible (detecting && complete)
-    // state with Pause enabled and New Tap disabled.
+    // capture window.  When finishGuitarGatedCapture eventually runs and the
+    // measurement completes, isDetecting must be false — otherwise the UI shows
+    // the impossible (detecting && complete) state with Pause enabled and New
+    // Tap disabled.
     //
-    // R1–R3 above drive the MODEL through the RMS path (they directly set
-    // `.idle` to simulate handleTapDetection); they passed even
-    // with the iPad bug present because they bypass the audio-queue path
-    // that exhibited it.  This test drives the audio-queue path: it never
-    // calls handleTapDetection, it goes straight from startTapSequence to
-    // finishGuitarGatedCapture (the function called by both paths once the
-    // capture buffer fills).
+    // This test drives the audio-queue path: it never calls handleTapDetection,
+    // it goes straight from startTapSequence to finishGuitarGatedCapture (the
+    // function called by both paths once the capture buffer fills), then lets the
+    // measurement complete on its own — processMultipleTaps is scheduled by the
+    // capture itself; calling it here as well ran it twice (#17 F48).
     @Test func audioQueueGatedCapturePath_clearsIsDetecting() async throws {
         let sut = makeSUT(numberOfTaps: 1)
 
         sut.startTapSequence()
         // NOTE: we intentionally do NOT simulate handleTapDetection here.
-        // This mirrors the audio-queue path where the level-crossing handler
-        // starts a gated capture directly and the RMS handler never runs.
         #expect(sut.isDetecting == true, "post-startTapSequence: isDetecting must be true (detection armed)")
 
-        // finishGuitarGatedCapture is the merge point for both paths.
-        // Pass a synthetic raw-sample buffer of fftSize length.
-        let fftSize = sut.fftAnalyzer.fftSize
-        let samples = [Float](repeating: 0, count: fftSize)
+        let samples = [Float](repeating: 0, count: sut.fftAnalyzer.fftSize)
         sut.finishGuitarGatedCapture(samples: samples, sampleRate: 48000)
 
         #expect(sut.isDetecting == false,
                 "REGRESSION: finishGuitarGatedCapture must clear isDetecting so the audio-queue path doesn't leave the analyzer stuck in 'detecting' through measurement completion")
 
-        // Now run processMultipleTaps to finish the measurement.  The end
-        // state must satisfy the invariants — isMeasurementComplete=true,
-        // detectionState = .idle, isDetectionPaused=false.
-        sut.processMultipleTaps()
+        try await Task.sleep(for: .seconds(sut.captureWindow + 0.3))
         #expect(sut.isMeasurementComplete == true)
         #expect(sut.isDetecting == false)
         #expect(sut.isDetectionPaused == false)
