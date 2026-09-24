@@ -249,6 +249,41 @@ struct StatusMessageTests {
 // Every case below drives a method a sibling test file already calls without audio:
 // FrozenPeakRecalculationTests drives handleLongitudinalGatedProgress the same way.
 
+/// The re-arm after a guitar tap's cooldown does not touch the status: the capture set the loop prompt
+/// ("Tap 1/3 captured. Tap again...") and it stays. Python used to rewrite it at the re-arm — and to
+/// show "Tap N/M captured. Waiting for settle..." while the level was still high — text neither other
+/// edition has (#17 F45).
+@Suite("StatusMessage — guitar re-arm", .serialized)
+@MainActor
+struct StatusMessageReArmTests {
+    @Test func reArm_leavesStatusAsTheCaptureSetIt() async throws {
+        let sut = makeSUT(numberOfTaps: 3)
+        // Drop the Combine sinks: the clipping / dead-input overrides re-resolve the status from
+        // `latestRealStatus`, which a SINK keeps current — asynchronously. In a busy full run an
+        // override delivery landed before that sink had caught up and restored the initial "Tap the
+        // guitar to begin". Neither override is in play here; without the sinks the status can only
+        // change by a direct write, which is exactly what this test is about.
+        sut.cancellables.removeAll()
+        sut.fftAnalyzer.actualSampleRate = 48000   // an unstarted analyzer has no frequency bins
+        sut.fftAnalyzer.updateFrequencyBins()
+        sut.startTapSequence()
+        try await Task.sleep(for: .milliseconds(50))
+        let n = sut.fftAnalyzer.fftSize
+        let tap = (0..<n).map { i -> Float in
+            let t = Float(i) / 48000
+            return 0.5 * expf(-t * 6) * sinf(2 * .pi * 100 * t)
+        }
+        sut.finishGuitarGatedCapture(samples: tap, sampleRate: 48000)
+        let afterCapture = sut.statusMessage
+        #expect(afterCapture == sut.guitarLoopStatus(capturing: false))
+
+        sut.fftAnalyzer.inputLevelDB = -20   // still ringing, above the falling threshold at re-arm
+        try await Task.sleep(for: .seconds(sut.tapCooldown + 0.3))
+        #expect(sut.isDetecting, "re-armed")
+        #expect(sut.statusMessage == afterCapture, "the re-arm leaves the status alone")
+    }
+}
+
 @Suite("StatusMessage — capture progress")
 @MainActor
 struct StatusMessageCaptureProgressTests {

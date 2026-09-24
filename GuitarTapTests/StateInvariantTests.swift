@@ -127,17 +127,28 @@ struct StateInvariantTests {
                 "Single-tap completion must not leave the analyzer in an impossible state")
     }
 
-    // V4: Mid-sequence for a multi-tap guitar measurement, invariants hold.
+    // V4: Mid-sequence for a multi-tap guitar measurement, invariants hold — reached through the
+    // REAL capture path (finishGuitarGatedCapture: the merge point of both detection paths), not
+    // by assigning capturedTaps / currentTapCount / detectionState by hand, which would only test
+    // the checker on a state the test invented (#17 F45). Checked twice: resting through the tap
+    // cooldown, and re-armed after it.
     @Test func midMultiTapSequence_holdsInvariants() async throws {
         let sut = makeSUT(numberOfTaps: 3)
+        // An unstarted analyzer has no frequency bins (all 0 Hz), so a real spectrum would put every
+        // peak at 0 Hz; set them up as starting the engine or file playback does.
+        sut.fftAnalyzer.actualSampleRate = 48000
+        sut.fftAnalyzer.updateFrequencyBins()
         sut.startTapSequence()
         try await Task.sleep(for: .milliseconds(50))
-        sut.capturedTaps = [fakeTap()]
-        sut.currentTapCount = 1
-        // After re-arming for next tap:
-        sut.detectionState = .listening
-        #expect(stateInvariantViolation(sut) == nil,
-                "Mid-sequence guitar state must not violate invariants")
+        sut.finishGuitarGatedCapture(samples: tapSamples(100, count: sut.fftAnalyzer.fftSize),
+                                     sampleRate: 48000)
+        #expect(sut.capturedTaps.count == 1)
+        #expect(sut.isDetecting == false, "detection rests through the tap cooldown")
+        #expect(stateInvariantViolation(sut) == nil, "mid-sequence, resting")
+
+        try await Task.sleep(for: .seconds(sut.tapCooldown + 0.3))
+        #expect(sut.isDetecting == true, "re-armed for the next tap once the cooldown has passed")
+        #expect(stateInvariantViolation(sut) == nil, "mid-sequence, re-armed")
     }
 
     // V5: Cancel mid-sequence holds invariants.
@@ -169,6 +180,66 @@ struct StateInvariantTests {
         sut.isMeasurementComplete = true
         #expect(stateInvariantViolation(sut) != nil,
                 "Invariant checker must reject (isDetecting && isMeasurementComplete) in guitar mode")
+    }
+
+    // V8: A plate capture reaches its REVIEW phase through the real gated path, and invariants hold
+    // there — including I6 (no detection while reviewing), which no guitar case can reach (#17 F45).
+    @Test func plateReviewPhase_holdsInvariants() {
+        let sut = makeSUT(numberOfTaps: 1)
+        TapDisplaySettings.measurementType = .plate
+        defer { TapDisplaySettings.measurementType = .generic }
+        sut.tapDetectionThreshold = -90 // accept the synthetic tap
+        sut.startTapSequence()
+        sut.finishGatedFFTCapture(samples: tapSamples(60, count: 24_000), sampleRate: 48000,
+                                  phase: .capturingLongitudinal)
+        #expect(sut.materialTapPhase == .reviewingLongitudinal, "one L tap completes the phase → review")
+        #expect(sut.isDetecting == false)
+        #expect(stateInvariantViolation(sut) == nil)
+    }
+
+    // V9–V13: each invariant the checker enforces REPORTS its forbidden state. V7 did this for I1
+    // alone, so nothing showed that I2–I6 could ever fire (#17 F45).
+    @Test func I2_pausedAndComplete_isFlagged() {
+        let sut = makeSUT()
+        sut.detectionState = .paused
+        sut.isMeasurementComplete = true
+        #expect(stateInvariantViolation(sut)?.hasPrefix("I2") == true)
+    }
+
+    @Test func I3_moreTapsThanRequested_isFlagged() {
+        let sut = makeSUT(numberOfTaps: 1)
+        sut.capturedTaps = [fakeTap(), fakeTap()]
+        #expect(stateInvariantViolation(sut)?.hasPrefix("I3") == true)
+    }
+
+    @Test func I4_countOutOfStepWithTaps_isFlagged() {
+        let sut = makeSUT(numberOfTaps: 3)
+        sut.capturedTaps = [fakeTap()]
+        sut.currentTapCount = 0
+        #expect(stateInvariantViolation(sut)?.hasPrefix("I4") == true)
+    }
+
+    @Test func I5_progressOutOfRange_isFlagged() {
+        let sut = makeSUT()
+        sut.tapProgress = 1.5
+        #expect(stateInvariantViolation(sut)?.hasPrefix("I5") == true)
+    }
+
+    @Test func I6_detectingWhileReviewing_isFlagged() {
+        let sut = makeSUT()
+        TapDisplaySettings.measurementType = .plate
+        defer { TapDisplaySettings.measurementType = .generic }
+        sut.materialTapPhase = .reviewingLongitudinal
+        sut.detectionState = .listening
+        #expect(stateInvariantViolation(sut)?.hasPrefix("I6") == true)
+    }
+
+    /// A decaying sinusoid — a synthetic tap with one resonance at `freqHz`.
+    private func tapSamples(_ freqHz: Float, count: Int, sampleRate: Float = 48000) -> [Float] {
+        (0..<count).map { i in
+            let t = Float(i) / sampleRate
+            return 0.5 * expf(-t * 6.0) * sinf(2 * .pi * freqHz * t)
+        }
     }
 
     private func fakeTap(n: Int = 64) -> (magnitudes: [Float], frequencies: [Float], captureTime: Date) {
