@@ -146,7 +146,7 @@ struct StateInvariantTests {
         #expect(sut.isDetecting == false, "detection rests through the tap cooldown")
         #expect(stateInvariantViolation(sut) == nil, "mid-sequence, resting")
 
-        try await Task.sleep(for: .seconds(sut.tapCooldown + 0.3))
+        advanceAudio(sut, by: sut.tapCooldown)   // the rest runs on the audio clock (#19)
         #expect(sut.isDetecting == true, "re-armed for the next tap once the cooldown has passed")
         #expect(stateInvariantViolation(sut) == nil, "mid-sequence, re-armed")
     }

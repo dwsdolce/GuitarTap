@@ -213,8 +213,8 @@ struct RedoRebasesCumulativeCountTests {
 @Suite("The FLC cooldown must not re-arm a cancelled sequence")
 struct FlcCooldownCancellationTests {
 
-    /// Accepting fC schedules a 0.5 s cooldown, after which detection re-arms for the FLC tap. The
-    /// closure runs on `DispatchQueue.main.asyncAfter`, which cannot be cancelled, and
+    /// Accepting fC schedules a 0.5 s hold, after which detection re-arms for the FLC tap. The
+    /// closure runs on the audio clock (`afterAudio`, #19), which cannot be cancelled, and
     /// `cancelTapSequence()`'s `captureTimer.invalidate()` does not reach it — so without a phase
     /// guard it fires into whatever sequence happens to be running half a second later, forcing
     /// `.capturingFlc` and `detectionState = .listening` onto a measurement the user already restarted.
@@ -236,7 +236,7 @@ struct FlcCooldownCancellationTests {
         let phaseAfterCancel = sut.materialTapPhase
         #expect(phaseAfterCancel != .waitingForFlcTap) // the restart really did leave the FLC wait
 
-        try await Task.sleep(nanoseconds: 800_000_000) // outlast the 0.5 s cooldown
+        advanceAudio(sut, by: 0.8)                     // outlast the 0.5 s hold, in audio (#19)
 
         #expect(sut.materialTapPhase == phaseAfterCancel,
                 "the cooldown closure dragged a cancelled sequence back into the FLC phase")

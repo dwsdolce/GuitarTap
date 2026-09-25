@@ -277,8 +277,9 @@ struct StatusMessageReArmTests {
         let afterCapture = sut.statusMessage
         #expect(afterCapture == sut.guitarLoopStatus(capturing: false))
 
-        sut.fftAnalyzer.inputLevelDB = -20   // still ringing, above the falling threshold at re-arm
-        try await Task.sleep(for: .seconds(sut.tapCooldown + 0.3))
+        // The rest runs on the audio clock (#19); the audio is still ringing, above the falling
+        // threshold, when the re-arm falls due.
+        advanceAudio(sut, by: sut.tapCooldown, level: -20)
         #expect(sut.isDetecting, "re-armed")
         #expect(sut.statusMessage == afterCapture, "the re-arm leaves the status alone")
     }

@@ -106,6 +106,14 @@ extension TapToneAnalyzer {
         if fftAnalyzer.isPlayingFile {
             TAP_DEBUG("onRmsLevel", "FILE | levelDB=\(String(format: "%.2f", levelDB)) isDetecting=\(isDetecting) isPaused=\(isDetectionPaused) isComplete=\(isMeasurementComplete)")
         }
+        // Advance the analyzer's audio clock and run any lifecycle action this chunk makes due —
+        // before the guards, since a re-arm is what turns detection back on (#19). A chunk that made
+        // an action due is not also detected on: a re-arm has just re-anchored the latch from it.
+        lastAudioTime = audioTime
+        lastChunkLevelDB = levelDB
+        lastChunkWallTime = ProcessInfo.processInfo.systemUptime
+        if runDueAudioActions() { return }
+
         guard isDetecting && !isDetectionPaused && !isMeasurementComplete else {
             return
         }
@@ -113,6 +121,75 @@ extension TapToneAnalyzer {
                   audioTime: audioTime,
                   magnitudes: fftAnalyzer.magnitudes,
                   frequencies: fftAnalyzer.frequencies)
+    }
+
+    // MARK: - Audio-clock lifecycle timers (#19)
+
+    /// Schedules `action` to run once the analyzer's audio clock has advanced `delay` seconds past
+    /// ``lastAudioTime``. The tap lifecycle's delays — the rest before re-arming, the FLC hold, the
+    /// capture window — run on this clock, never the wall clock: file playback advances audio at
+    /// "real time + processing time", so a wall-clock delay covered a different stretch of audio on
+    /// a slower run and late captures in a sequence moved (#19). The action runs on the main thread
+    /// from ``onRmsLevelChanged(_:audioTime:)``, on the first chunk whose audio time reaches the due
+    /// time. Like the `asyncAfter` it replaces, it cannot be cancelled; each action guards itself.
+    ///
+    /// - Parameters:
+    ///   - delay: Seconds of AUDIO to wait.
+    ///   - releasedAtFileEnd: Run it at once when file playback ends, if it is still pending. With no
+    ///     more audio the clock stops, and an action that must happen — the capture window's
+    ///     processing — would otherwise never run. A re-arm is not released: with no audio there is
+    ///     nothing to detect.
+    ///   - action: The work to run.
+    func afterAudio(_ delay: TimeInterval, releasedAtFileEnd: Bool = false, _ action: @escaping () -> Void) {
+        pendingAudioActions.append((due: lastAudioTime + delay, releasedAtFileEnd: releasedAtFileEnd, action: action))
+    }
+
+    /// Runs, in scheduling order, every pending action whose due time ``lastAudioTime`` has reached.
+    /// - Returns: `true` if any action ran on this chunk.
+    @discardableResult
+    func runDueAudioActions() -> Bool {
+        let due = pendingAudioActions.filter { $0.due <= lastAudioTime }
+        guard !due.isEmpty else { return false }
+        pendingAudioActions.removeAll { $0.due <= lastAudioTime }
+        due.forEach { $0.action() }
+        return true
+    }
+
+    /// File playback has ended: run every pending action marked `releasedAtFileEnd` now, because the
+    /// audio clock will not advance again to make it due. Called from the file-end flush.
+    func releaseAudioActionsAtFileEnd() {
+        let released = pendingAudioActions.filter { $0.releasedAtFileEnd }
+        pendingAudioActions.removeAll { $0.releasedAtFileEnd }
+        released.forEach { $0.action() }
+    }
+
+    /// Runs `action` once NO audio has arrived for `interval` seconds of WALL time — the gated capture's
+    /// safety timeout (T6). It exists for when the audio STOPS (the file ends, the user stops, the device
+    /// drops), and then the audio clock stops too, so it cannot run on that clock. But it must not fire
+    /// while audio is merely slow: measured from the capture's START it did, when paced playback ran
+    /// slower than real time — which macOS timer throttling (App Nap) makes 2–4× — and closed captures
+    /// early (#19). Measured from the LAST chunk, it fires only when the audio has really stopped.
+    /// Stops checking once `relevant` is false (the capture finished or was superseded).
+    func afterAudioStall(_ interval: TimeInterval, while relevant: @escaping () -> Bool,
+                         _ action: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + interval) { [weak self] in
+            guard let self, relevant() else { return }
+            let quiet = ProcessInfo.processInfo.systemUptime - self.lastChunkWallTime
+            if quiet >= interval {
+                action()
+            } else {
+                self.afterAudioStall(interval - quiet, while: relevant, action)
+            }
+        }
+    }
+
+    /// Re-arms detection from the chunk that made a rest due: re-anchor the hysteresis latch from THAT
+    /// chunk's level, so the next rising edge is judged against the audio actually present, then
+    /// listen. Shared by the guitar and plate/brace rests.
+    func reArmFromCurrentChunk() {
+        let fallingThreshold = tapDetectionThreshold - hysteresisMargin
+        isAboveThreshold = lastChunkLevelDB > fallingThreshold
+        detectionState = .listening
     }
 
     // MARK: - Tap Detection
@@ -221,20 +298,11 @@ extension TapToneAnalyzer {
             return
         }
 
-        // Check cooldown
-        if let lastTap = lastTapTime, now.timeIntervalSince(lastTap) < tapCooldown {
-            let cooldownRemaining = tapCooldown - now.timeIntervalSince(lastTap)
-            // Edge-triggered: log only the FIRST chunk in the cooldown window,
-            // not every chunk for the full 0.5 s.  ~43 Hz × 0.5 s = ~22 redundant
-            // lines per cooldown otherwise.  Mirrors Python.
-            if !cooldownLogged {
-                TAP_DEBUG("detectTap", "COOLDOWN active | remaining=\(String(format: "%.3f", cooldownRemaining))s peakMag=\(String(format: "%.2f", level))")
-                cooldownLogged = true
-            }
-            return
-        } else {
-            cooldownLogged = false
-        }
+        // No cooldown gate here. There used to be one — a crossing within `tapCooldown` of the last tap
+        // was ignored — but nothing could reach it: detection goes idle the moment a tap is detected
+        // and returns only after the capture plus the rest. Probed across every suite, including every
+        // file-playback fixture, only a test that set the gate's timestamp by hand ever reached it, so
+        // it was removed (#19).
 
         // Update the detection level for UI display
         tapDetectionLevel = effectiveRisingThreshold
@@ -275,7 +343,6 @@ extension TapToneAnalyzer {
                     TAP_DEBUG("detectTap", "RISING EDGE FIRED | peakMag=\(String(format: "%.2f", level)) risingThresh=\(String(format: "%.2f", risingThreshold)) tapCount=\(currentTapCount+1)/\(numberOfTaps) confirmedBy=\(confirmTarget)")
                     isAboveThreshold = true
                     detectTapConsecutiveAbove = 0
-                    lastTapTime = now
 
                     // Capture the recent peak input level for decay tracking reference.
                     // Use recentPeakLevelDB, which holds the max level over the last
@@ -409,31 +476,27 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Re-enables tap detection after a brief cooldown, used between
-    /// consecutive taps within the same plate/brace capture phase.
+    /// Re-enables tap detection after the rest between consecutive taps within the same plate/brace
+    /// capture phase.
     ///
-    /// Waits `tapCooldown` seconds, then checks the current input level
-    /// to seed `isAboveThreshold` correctly so the hysteresis logic starts
-    /// from an accurate state.
+    /// Rests `tapCooldown` seconds of AUDIO (#19), then re-anchors the hysteresis latch from the chunk
+    /// that made the rest due, so the next rising edge is judged against the audio actually present.
     ///
     /// - Important: Does **not** reset `warmupStartAudioTime` — doing so would
     ///   restart the warm-up timer and destabilise `isAboveThreshold` via
     ///   the `justExitedWarmup` sync path.
     func reEnableDetectionForNextPlateTap() {
-        TAP_DEBUG("reEnableDetectionForNextPlateTap", "Scheduling re-enable after cooldown=\(tapCooldown)s")
-        DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
+        TAP_DEBUG("reEnableDetectionForNextPlateTap", "Scheduling re-enable after cooldown=\(tapCooldown)s of audio")
+        afterAudio(tapCooldown) { [weak self] in
             guard let self = self else { return }
-            let currentLevel = self.fftAnalyzer.inputLevelDB
-            let fallingThreshold = self.tapDetectionThreshold - self.hysteresisMargin
-            self.isAboveThreshold = currentLevel > fallingThreshold
-            self.detectionState = .listening
+            self.reArmFromCurrentChunk()
             // Clear stale fast-start marker so the next tap's main-thread
             // startGatedCapture correctly falls back to pre-roll seeding
             // if the audio-queue level crossing doesn't fire in time.
             self.mpmLock.lock()
             self.lastLevelCrossingCaptureID = -1
             self.mpmLock.unlock()
-            TAP_DEBUG("reEnableDetectionForNextPlateTap", "Re-enabled | currentLevel=\(String(format: "%.2f", currentLevel)) fallingThreshold=\(String(format: "%.2f", fallingThreshold)) isAboveThreshold=\(self.isAboveThreshold) isDetecting=\(self.isDetecting)")
+            TAP_DEBUG("reEnableDetectionForNextPlateTap", "Re-enabled | chunkLevel=\(String(format: "%.2f", self.lastChunkLevelDB)) isAboveThreshold=\(self.isAboveThreshold) isDetecting=\(self.isDetecting)")
             // Do NOT reset warmupStartAudioTime here — that would restart warmup and
             // destabilise isAboveThreshold via the justExitedWarmup sync path.
         }

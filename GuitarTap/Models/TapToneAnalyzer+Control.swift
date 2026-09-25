@@ -375,21 +375,22 @@ extension TapToneAnalyzer {
                 gtLog("✅ Accepted C tap — advancing to FLC")
                 materialTapPhase = .waitingForFlcTap
                 statusMessage = materialArmPrompt()  // phase is .waitingForFlcTap — one source (#17 F37)
-                // Re-enable detection for the FLC phase after the cooldown.
-                DispatchQueue.main.asyncAfter(deadline: .now() + tapCooldown) { [weak self] in
+                // Re-enable detection for the FLC phase after the hold: `tapCooldown` of AUDIO (#19).
+                afterAudio(tapCooldown) { [weak self] in
                     guard let self = self else { return }
-                    // Cancelled or restarted while the cooldown ran (Cancel / New Tap / measurement-type
+                    // Cancelled or restarted while the hold ran (Cancel / New Tap / measurement-type
                     // change)? Then the phase is no longer .waitingForFlcTap, and re-arming would drag a
                     // fresh sequence into the FLC capture — clearing its frozen spectrum and re-enabling
-                    // detection under a phase the user already left. `asyncAfter` cannot be cancelled and
+                    // detection under a phase the user already left. `afterAudio` cannot be cancelled and
                     // `cancelTapSequence()`'s `captureTimer.invalidate()` does not reach this closure, so
                     // this guard IS the cancellation. Mirrors Python `_do_start_flc` and the web's FLC
-                    // cooldown timer, both of which have always guarded here.
+                    // hold, both of which have always guarded here.
                     guard self.materialTapPhase == .waitingForFlcTap else { return }
                     self.materialTapPhase = .capturingFlc
                     self.setFrozenSpectrum(frequencies: [], magnitudes: [])
-                    self.isAboveThreshold = self.fftAnalyzer.inputLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
-                    self.warmupStartAudioTime = fftAnalyzer.audioElapsed
+                    // Anchored on the chunk that made the hold due — its level and its audio time.
+                    self.isAboveThreshold = self.lastChunkLevelDB > (self.tapDetectionThreshold - self.hysteresisMargin)
+                    self.warmupStartAudioTime = self.lastAudioTime
                     self.detectionState = .listening
                 }
             } else {
@@ -559,10 +560,8 @@ extension TapToneAnalyzer {
         materialCapturedTaps            = []
     }
 
-    /// Stops any active decay tracking and clears the associated timer.
+    /// Stops any active decay tracking.
     private func resetDecayTracking() {
         isTrackingDecay = false
-        decayTrackingTimer?.invalidate()
-        decayTrackingTimer = nil
     }
 }

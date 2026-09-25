@@ -5,13 +5,13 @@
 //  Tests for the tap detection hysteresis logic in TapToneAnalyzer+TapDetection.
 //
 //  Strategy: `detectTap` is directly callable as a method on TapToneAnalyzer.
-//  We manipulate its internal guard state (warmupStartAudioTime, isAboveThreshold,
-//  lastTapTime) directly via @testable import so the method exercises pure logic
+//  We manipulate its internal guard state (warmupStartAudioTime, isAboveThreshold)
+//  directly via @testable import so the method exercises pure logic
 //  without a real audio engine.  The `fftAnalyzer.peakMagnitude` and `recentPeakLevelDB`
 //  properties are read by `handleTapDetection`, so we construct a no-op
 //  RealtimeFFTAnalyzer that never starts.
 //
-//  Test plan coverage: T1–T9
+//  Test plan coverage: T1–T9 (T4, the cooldown gate, removed in #19 — nothing reached it)
 //
 // @parity test/tap-decisions
 
@@ -45,7 +45,9 @@ private func makeSUT(
     // Disconnect Combine subscriptions so the $magnitudes publisher cannot fire analyzeMagnitudes
     // between detectTap() returning and the assertion.
     //
-    // These tests observe `lastTapTime`, which a confirmed tap sets and nothing clears. They used to
+    // These tests observe `decayTapAudioTime`, which a confirmed tap sets to its own audio time and
+    // nothing clears. (They observed `lastTapTime` until #19 removed it with the cooldown gate it
+    // fed — a gate no production path reached.) They used to
     // observe a `tapDetected` flag that existed on the analyzer for no other purpose: no view and no
     // model logic ever read it, in any edition — Python alone had wired a status-dot flash to it.
     // A production field kept alive to make tests observable is the application bending to the
@@ -89,7 +91,7 @@ struct TapDetectionTests {
             sut.detectTap(level: -35, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
 
-        #expect(sut.lastTapTime != nil, "a tap should be recorded after crossing the rising threshold")
+        #expect(sut.decayTapAudioTime != nil, "a tap should be recorded after crossing the rising threshold")
     }
 
     // T1c-T1e: the detector must use the threshold the APPLICATION configured.
@@ -114,7 +116,7 @@ struct TapDetectionTests {
             sut.detectTap(level: -35, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
 
-        #expect(sut.lastTapTime == nil,
+        #expect(sut.decayTapAudioTime == nil,
                 "a tap quieter than the configured threshold must not fire — if this fails, the detector is not reading the configured value")
     }
 
@@ -128,7 +130,7 @@ struct TapDetectionTests {
             sut.detectTap(level: -25, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
 
-        #expect(sut.lastTapTime != nil)
+        #expect(sut.decayTapAudioTime != nil)
     }
 
     // T1e: the same tap, judged against two thresholds, must be decided differently.
@@ -139,7 +141,7 @@ struct TapDetectionTests {
         for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
             lenient.detectTap(level: -45, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
-        #expect(lenient.lastTapTime != nil, "-45 clears a -50 threshold")
+        #expect(lenient.decayTapAudioTime != nil, "-45 clears a -50 threshold")
 
         let strict = makeSUT(threshold: -35)
         strict.detectionState = .listening
@@ -147,7 +149,7 @@ struct TapDetectionTests {
         for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
             strict.detectTap(level: -45, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
-        #expect(strict.lastTapTime == nil, "the same tap is too quiet for a -35 threshold")
+        #expect(strict.decayTapAudioTime == nil, "the same tap is too quiet for a -35 threshold")
     }
 
     // T1f: the re-arm rule — a ring-out above the falling threshold is not a new tap.
@@ -172,7 +174,7 @@ struct TapDetectionTests {
             sut.detectTap(level: -20, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
 
-        #expect(sut.lastTapTime == nil,
+        #expect(sut.decayTapAudioTime == nil,
                 "a ring-out that never fell below the falling threshold must not be taken as a new tap")
     }
 
@@ -189,25 +191,22 @@ struct TapDetectionTests {
             sut.detectTap(level: -20, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
 
-        #expect(sut.lastTapTime != nil)
+        #expect(sut.decayTapAudioTime != nil)
     }
 
-    // T1b: lastTapTime is set when a tap is detected.
-    @Test func aboveThreshold_setsLastTapTime() {
+    // T1b: a detected tap is stamped with the AUDIO time of the chunk that confirmed it.
+    @Test func aboveThreshold_stampsTheTapsAudioTime() {
         let sut = makeSUT(threshold: -40)
         sut.detectionState = .listening
         sut.isAboveThreshold = false
 
-        let before = Date()
-        for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(level: -35, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
+        let chunks = RealtimeFFTAnalyzer.levelCrossingConfirmationChunks
+        for k in 0..<chunks {
+            sut.detectTap(level: -35, audioTime: 2.0 + Double(k) * 0.02, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
-        let after = Date()
 
-        #expect(sut.lastTapTime != nil, "lastTapTime should be set on detection")
-        if let t = sut.lastTapTime {
-            #expect(t >= before && t <= after)
-        }
+        #expect(sut.decayTapAudioTime == 2.0 + Double(chunks - 1) * 0.02,
+                "the tap's time is the confirming chunk's audio time")
     }
 
     // T2: Signal below threshold records no tap.
@@ -218,7 +217,7 @@ struct TapDetectionTests {
 
         sut.detectTap(level: -50, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
 
-        #expect(sut.lastTapTime == nil, "Signal below threshold must not trigger detection")
+        #expect(sut.decayTapAudioTime == nil, "Signal below threshold must not trigger detection")
     }
 
     // T3: Calls during warm-up period suppress detection entirely.
@@ -232,23 +231,7 @@ struct TapDetectionTests {
 
         sut.detectTap(level: -20, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
 
-        #expect(sut.lastTapTime == nil, "Should not detect during warm-up")
-    }
-
-    // T4: A second detectTap call within tapCooldown (0.5 s) is rejected.
-    @Test func duringCooldown_suppressesDetection() {
-        let sut = makeSUT(threshold: -40)
-        sut.detectionState = .listening
-        sut.isAboveThreshold = false
-
-        // Simulate that a tap was just recorded 0.1 s ago. `lastTapTime` is the cooldown's own
-        // input, so "no tap fired" here is "it did not MOVE", not "it is nil".
-        let cooldownAnchor = Date(timeIntervalSinceNow: -0.1)
-        sut.lastTapTime = cooldownAnchor
-
-        sut.detectTap(level: -30, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-
-        #expect(sut.lastTapTime == cooldownAnchor, "Should not fire while in cooldown window")
+        #expect(sut.decayTapAudioTime == nil, "Should not detect during warm-up")
     }
 
     // T5: Hysteresis — signal that rises above risingThreshold but then only
@@ -266,19 +249,17 @@ struct TapDetectionTests {
         }
         // A tap has fired; isAboveThreshold == true.
 
-        // Advance lastTapTime past cooldown so the next call isn't blocked by it. This also becomes
-        // the anchor: a second tap would move it.
-        let anchor = Date(timeIntervalSinceNow: -1)
-        sut.lastTapTime = anchor
+        // The anchor: the first tap was stamped at audio time 0; a second tap, fed at 1, would move it.
+        let anchor = sut.decayTapAudioTime
 
         // Second call: signal at -42 dB — between fallingThreshold (-43) and
         // risingThreshold (-40). Should stay "above" and not fire a new tap.
-        sut.detectTap(level: -42, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
+        sut.detectTap(level: -42, audioTime: 1, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         // isAboveThreshold should still be true (signal > fallingThreshold -43)
         #expect(sut.isAboveThreshold == true,
                 "Signal above fallingThreshold should keep isAboveThreshold = true")
-        #expect(sut.lastTapTime == anchor,
+        #expect(anchor == 0 && sut.decayTapAudioTime == anchor,
                 "No new tap should fire when still above falling threshold")
     }
 
@@ -306,7 +287,7 @@ struct TapDetectionTests {
         sut.detectTap(level: -30, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
 
         // No tap must fire on the first sync frame
-        #expect(sut.lastTapTime == nil,
+        #expect(sut.decayTapAudioTime == nil,
                 "First frame after warmup should sync state but not fire a tap")
         // justExitedWarmup should be cleared
         #expect(sut.justExitedWarmup == false,
@@ -342,7 +323,9 @@ struct TapDetectionTests {
             sut.detectTap(level: -35, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
         }
 
-        #expect(sut.lastTapTime != nil,
+        // Plate taps do not start ring-out tracking, so `decayTapAudioTime` is not set here; the tap's
+        // own effect is that detection stops while its gated capture runs.
+        #expect(sut.detectionState == .idle,
                 "Plate mode: signal above noise floor + headroom should fire")
     }
 

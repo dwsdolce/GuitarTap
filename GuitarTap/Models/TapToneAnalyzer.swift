@@ -1519,23 +1519,39 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Audio-clock time (seconds since engine start) of the tap that started the current
     /// decay-tracking window — the time-zero reference for ``measureDecayTime(tapTime:)``.
-    /// Separate from ``lastTapTime`` (wall-clock, used for the cooldown gate).
     var decayTapAudioTime: Double?
 
-    /// Wall-clock time of the most recent detected tap.
-    var lastTapTime: Date?
+    /// The audio clock as the analyzer has seen it: the audio time of the latest chunk delivered to
+    /// ``onRmsLevelChanged(_:audioTime:)``, recorded on every chunk before any guard.
+    ///
+    /// The tap-lifecycle timers run on THIS clock, not the wall clock (#19). File playback advances
+    /// audio at "real time + processing time", so a wall-clock delay covered a different stretch of
+    /// audio on a slower run, and captures late in a sequence moved. Chunks reach the main thread in
+    /// order, each carrying its own audio time, so a delay measured here covers exactly the same audio
+    /// on every run. Never substitute `fftAnalyzer.audioElapsed` read on the main thread: the audio
+    /// thread races ahead of it.
+    var lastAudioTime: Double = 0
 
-    /// Edge-triggered guard for the cooldown TAP_DEBUG line — set true the first
-    /// chunk inside the cooldown window so we log once per cooldown rather than
-    /// ~22 times.  Mirrors Python `_cooldown_logged`.
-    var cooldownLogged: Bool = false
+    /// The level (dBFS) of the chunk whose audio time is ``lastAudioTime``. A re-arm that falls due on
+    /// a chunk re-anchors the hysteresis latch from THIS level — the published meter level
+    /// (`fftAnalyzer.inputLevelDB`) lags a chunk behind on the main thread.
+    var lastChunkLevelDB: Float = -100
+
+    /// The WALL time (`ProcessInfo.systemUptime`) at which the latest chunk reached
+    /// ``onRmsLevelChanged(_:audioTime:)`` — what the capture safety timeout measures its silence from
+    /// (``afterAudioStall(_:while:_:)``, #19).
+    var lastChunkWallTime: TimeInterval = 0
+
+    /// Tap-lifecycle actions waiting on the audio clock — see ``afterAudio(_:releasedAtFileEnd:_:)``.
+    var pendingAudioActions: [(due: Double, releasedAtFileEnd: Bool, action: () -> Void)] = []
 
     /// Input level (dBFS) at the moment the most recent tap was detected.
     ///
     /// Used as the reference magnitude for ring-out time computation.
     var tapPeakLevel: Float = -100
 
-    /// Minimum inter-tap interval to prevent double-trigger artefacts, in seconds.
+    /// The rest after a capture before detection re-arms, and the hold before the FLC phase arms, in
+    /// seconds of AUDIO (see ``afterAudio(_:releasedAtFileEnd:_:)``, #19).
     let tapCooldown: TimeInterval = 0.5
 
     /// Value of the engine's AUDIO clock (`fftAnalyzer.audioElapsed`, in seconds of audio processed)
@@ -1584,8 +1600,8 @@ final class TapToneAnalyzer: ObservableObject {
     /// audio queue can still fire here and start a bogus gated capture.
     var detectTapConsecutiveAbove: Int = 0
 
-    /// Timer that bounds the ring-out decay tracking window.
-    var decayTrackingTimer: Timer?
+    /// How long after a tap the ring-out is tracked, in seconds of AUDIO (#19).
+    let decayTrackingDuration: Double = 3.0
 
     /// `true` while decay tracking is actively recording the post-tap signal envelope.
     var isTrackingDecay: Bool = false

@@ -42,15 +42,14 @@ extension TapToneAnalyzer {
 
     /// Initialises decay tracking immediately after a tap is detected.
     ///
-    /// Clears the magnitude history, seeds it with `tapPeakLevel` as the
-    /// time-zero reference, and starts a 3-second timer that calls
-    /// ``stopDecayTracking()`` when it fires.
+    /// Clears the magnitude history and seeds it with `tapPeakLevel` as the
+    /// time-zero reference. Tracking stops once a chunk arrives 3 s of AUDIO
+    /// after the tap (see ``trackDecayFast(inputLevel:audioTime:)``).
     ///
     /// - Parameter tapAudioTime: The audio-clock time (seconds since engine start) of the tap
     ///   onset — the time-zero reference for the ring-out measurement, carried from the audio
     ///   thread so the decay is measured in audio time (load-invariant).
-    /// - Note: Call this from the main thread. The timer is scheduled on the
-    ///   main run loop via `Timer.scheduledTimer`.
+    /// - Note: Call this from the main thread.
     func startDecayTracking(tapAudioTime: Double) {
         // Clear previous decay history and seed with the tap peak level at the tap's AUDIO time.
         peakMagnitudeHistory = [(time: tapAudioTime, magnitude: tapPeakLevel)]
@@ -59,14 +58,6 @@ extension TapToneAnalyzer {
 
         // Enable decay tracking
         isTrackingDecay = true
-
-        // Stop decay tracking after 3 seconds of WALL time (a safety bound on the window; it only
-        // stops appending samples — the measurement itself is audio-time based, so a late-firing
-        // timer under load cannot corrupt the result).
-        decayTrackingTimer?.invalidate()
-        decayTrackingTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
-            self?.stopDecayTracking()
-        }
 
         // Debug output removed - decay tracking now works silently
     }
@@ -80,8 +71,6 @@ extension TapToneAnalyzer {
     /// insufficient history.
     func stopDecayTracking() {
         isTrackingDecay = false
-        decayTrackingTimer?.invalidate()
-        decayTrackingTimer = nil
         // No further action needed: trackDecayFast's guard will no longer
         // append samples, and currentDecayTime retains whatever value was
         // established during the window (or nil if none was).
@@ -105,6 +94,14 @@ extension TapToneAnalyzer {
     func trackDecayFast(inputLevel: Float, audioTime: Double) {
         // Only track decay history if we're actively tracking after a tap
         guard isTrackingDecay else { return }
+
+        // Stop 3 s of AUDIO after the tap, without applying this chunk. This was a 3 s WALL-clock
+        // timer, so on a slow run more (or fewer) chunks got in before it fired and a slow ring-out
+        // could read differently (#19). The web's DecayTracker has always stopped here.
+        if let tapTime = decayTapAudioTime, audioTime - tapTime >= decayTrackingDuration {
+            stopDecayTracking()
+            return
+        }
 
         peakMagnitudeHistory.append((time: audioTime, magnitude: inputLevel))
 

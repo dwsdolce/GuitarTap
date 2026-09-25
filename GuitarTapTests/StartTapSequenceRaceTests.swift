@@ -94,7 +94,7 @@ struct StartTapSequenceRaceTests {
         sut.detectionState = .idle                 // handleTapDetection effect
         try await Task.sleep(for: .milliseconds(50))   // drain housekeeping
         captureTap(sut)
-        try await Task.sleep(for: .seconds(sut.captureWindow + 0.3))
+        advanceAudio(sut, by: sut.captureWindow)   // the capture window runs on the audio clock (#19)
 
         #expect(sut.isMeasurementComplete == true)
         #expect(sut.isDetecting == false,
@@ -111,9 +111,9 @@ struct StartTapSequenceRaceTests {
         try await Task.sleep(for: .milliseconds(50))   // drain housekeeping
         for tap in 1...3 {
             captureTap(sut)
-            if tap < 3 { try await Task.sleep(for: .seconds(sut.tapCooldown + 0.3)) }
+            if tap < 3 { advanceAudio(sut, by: sut.tapCooldown) }   // the rest, in audio (#19)
         }
-        try await Task.sleep(for: .seconds(sut.captureWindow + 0.3))
+        advanceAudio(sut, by: sut.captureWindow)
 
         #expect(sut.currentTapCount == 3)
         #expect(sut.isMeasurementComplete == true)
@@ -149,7 +149,7 @@ struct StartTapSequenceRaceTests {
         #expect(sut.isDetecting == false,
                 "REGRESSION: finishGuitarGatedCapture must clear isDetecting so the audio-queue path doesn't leave the analyzer stuck in 'detecting' through measurement completion")
 
-        try await Task.sleep(for: .seconds(sut.captureWindow + 0.3))
+        advanceAudio(sut, by: sut.captureWindow)
         #expect(sut.isMeasurementComplete == true)
         #expect(sut.isDetecting == false)
         #expect(sut.isDetectionPaused == false)

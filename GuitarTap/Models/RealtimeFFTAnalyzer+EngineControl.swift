@@ -594,6 +594,10 @@ extension RealtimeFFTAnalyzer {
     ///   - sampleRate: Sample rate in Hz.
     ///   - fileName: Display name for status/logging.
     func processFileData(samples: [Float], sampleRate: Double, fileName: String) {
+        // Playback is paced by one-chunk sleeps; keep the OS from throttling them for the whole run (#19).
+        let timingActivity = holdTimingActivity("Guitar Tap file playback")
+        defer { releaseTimingActivity(timingActivity) }
+
         let frameCount = samples.count
 
         let chunkSize = 1024

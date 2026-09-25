@@ -95,7 +95,8 @@ private func captureTap(_ sut: TapToneAnalyzer) {
 // ---------------------------------------------------------------------------
 
 // Every tap goes through the real `finishGuitarGatedCapture`, and the waits are the real ones — the
-// tap cooldown before re-arming, the capture window before averaging. The traces used to assign the
+// tap cooldown before re-arming, the capture window before averaging — measured, as the app measures
+// them, in AUDIO fed through `onRmsLevelChanged` (#19). The traces used to assign the
 // "tap happened" state by hand, so their capture rows recorded what the TEST wrote; and S3/S4's
 // `postTap1` said detection was back on the instant a tap was captured, a path the app never takes
 // (#17 F46). These traces are identical in Swift, Python and web.
@@ -105,11 +106,11 @@ struct ScenarioStateTraceTests {
 
     init() { TapDisplaySettings.measurementType = .generic }
 
-    private func afterCooldown(_ sut: TapToneAnalyzer) async throws {
-        try await Task.sleep(for: .seconds(sut.tapCooldown + 0.3))
+    private func afterCooldown(_ sut: TapToneAnalyzer) {
+        advanceAudio(sut, by: sut.tapCooldown)
     }
-    private func afterCaptureWindow(_ sut: TapToneAnalyzer) async throws {
-        try await Task.sleep(for: .seconds(sut.captureWindow + 0.3))
+    private func afterCaptureWindow(_ sut: TapToneAnalyzer) {
+        advanceAudio(sut, by: sut.captureWindow)
     }
 
     // S1: Clean single-tap guitar measurement.
@@ -125,7 +126,7 @@ struct ScenarioStateTraceTests {
         captureTap(sut)
         trace.append(snap("postCapture", sut))
 
-        try await afterCaptureWindow(sut)          // completion averages after the capture window
+        afterCaptureWindow(sut)          // completion averages after the capture window
         trace.append(snap("postProcess", sut))
 
         let expected: [StateSnapshot] = [
@@ -154,7 +155,7 @@ struct ScenarioStateTraceTests {
         captureTap(sut)
         trace.append(snap("postCapture", sut))
 
-        try await afterCaptureWindow(sut)
+        afterCaptureWindow(sut)
         trace.append(snap("postProcess", sut))
 
         let expected: [StateSnapshot] = [
@@ -179,10 +180,10 @@ struct ScenarioStateTraceTests {
         captureTap(sut)                            // tap 1: detection rests through the cooldown
         trace.append(snap("postTap1", sut))
 
-        try await Task.sleep(for: .seconds(sut.tapCooldown / 2))   // halfway: still resting
+        advanceAudio(sut, by: sut.tapCooldown / 2)   // halfway: still resting
         trace.append(snap("midCooldown", sut))
 
-        try await Task.sleep(for: .seconds(sut.tapCooldown / 2 + 0.3))               // ...then re-arms
+        advanceAudio(sut, by: sut.tapCooldown / 2)   // ...then re-arms
         trace.append(snap("postReArm", sut))
 
         sut.pauseTapDetection()
@@ -192,9 +193,9 @@ struct ScenarioStateTraceTests {
         trace.append(snap("postResume", sut))
 
         captureTap(sut)                            // tap 2
-        try await afterCooldown(sut)
+        afterCooldown(sut)
         captureTap(sut)                            // tap 3 — the last
-        try await afterCaptureWindow(sut)
+        afterCaptureWindow(sut)
         trace.append(snap("postProcess", sut))
 
         let expected: [StateSnapshot] = [
@@ -225,10 +226,10 @@ struct ScenarioStateTraceTests {
         captureTap(sut)
         trace.append(snap("postTap1", sut))
 
-        try await Task.sleep(for: .seconds(sut.tapCooldown / 2))   // halfway: still resting
+        advanceAudio(sut, by: sut.tapCooldown / 2)   // halfway: still resting
         trace.append(snap("midCooldown", sut))
 
-        try await Task.sleep(for: .seconds(sut.tapCooldown / 2 + 0.3))
+        advanceAudio(sut, by: sut.tapCooldown / 2)
         trace.append(snap("postReArm", sut))
 
         sut.cancelTapSequence()
