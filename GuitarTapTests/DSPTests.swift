@@ -21,7 +21,7 @@ import Foundation
 /// Build a minimal TapToneAnalyzer whose underlying RealtimeFFTAnalyzer is
 /// never started.  We only exercise the pure-math extension methods.
 private func makeSUT() -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer()
+    let fft = RealtimeFFTAnalyzer.forTesting()
     return TapToneAnalyzer(fftAnalyzer: fft)
 }
 
@@ -262,7 +262,7 @@ struct SilentBufferTests {
 
     @Test("the gated path returns -inf for an all-zero buffer")
     func gatedFFT_silentBuffer_isNegativeInfinity() {
-        let fft = RealtimeFFTAnalyzer()
+        let fft = RealtimeFFTAnalyzer.forTesting()
         let (mags, _) = fft.computeGatedFFT(samples: [Float](repeating: 0, count: 4096),
                                             sampleRate: 48000)
 
@@ -273,7 +273,7 @@ struct SilentBufferTests {
 
     @Test("a real signal is unaffected — the clamp never applied to it")
     func gatedFFT_realSignal_isFinite() {
-        let fft = RealtimeFFTAnalyzer()
+        let fft = RealtimeFFTAnalyzer.forTesting()
         let n = 4096
         let sig = (0..<n).map { i in 0.5 * sin(2 * Float.pi * 1000 * Float(i) / 48000) }
         let (mags, _) = fft.computeGatedFFT(samples: sig, sampleRate: 48000)
@@ -293,7 +293,7 @@ struct SilentBufferTests {
     /// show it for no signal at all — but detection keeps its -100, so its behaviour is unchanged.
     @Test("a silent chunk reads -∞ on the readout; detection still sees -100")
     func silentChunk_readoutIsNegativeInfinity_detectionIsMinus100() async {
-        let fft = RealtimeFFTAnalyzer()
+        let fft = RealtimeFFTAnalyzer.forTesting()
         fft.processRawSamples([Float](repeating: 0, count: 1024))
         await drainMain()
         #expect(fft.inputLevelDB == -100, "detection's level on silence is unchanged")
@@ -302,7 +302,7 @@ struct SilentBufferTests {
 
     @Test("a real chunk reads the same level on the readout and for detection")
     func realChunk_readoutEqualsDetectionLevel() async {
-        let fft = RealtimeFFTAnalyzer()
+        let fft = RealtimeFFTAnalyzer.forTesting()
         let chunk = (0..<1024).map { i in 0.01 * sin(2 * Float.pi * 1000 * Float(i) / 48000) }
         fft.processRawSamples(chunk)
         await drainMain()

@@ -18,7 +18,7 @@ import Foundation
 // ---------------------------------------------------------------------------
 
 private func makeSUT() -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer()
+    let fft = RealtimeFFTAnalyzer.forTesting()
     return TapToneAnalyzer(fftAnalyzer: fft)
 }
 

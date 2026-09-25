@@ -27,7 +27,7 @@ import Combine
 
 @MainActor
 private func makeSUT() -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer()
+    let fft = RealtimeFFTAnalyzer.forTesting()
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     TapDisplaySettings.measurementType = .generic
     sut.cancellables.removeAll()
@@ -142,7 +142,7 @@ struct StateNotificationTests {
     // redo's "…— tap again" — which is the proof it is not a function of the state (#17 F37).
     @Test func settle_preservesAMaterialPhaseInstruction() {
         TapDisplaySettings.measurementType = .plate
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.cancellables.removeAll()
         sut.materialTapPhase = .capturingCross
         sut.detectionState = .listening
@@ -200,7 +200,7 @@ struct StateNotificationTests {
     @Test func materialPhaseAdvance_andTheArmedDerivation_agree() {
         TapDisplaySettings.measurementType = .plate
         TapDisplaySettings.measureFlc = false
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.cancellables.removeAll()
         sut.materialTapPhase = .reviewingLongitudinal
 

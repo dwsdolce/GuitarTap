@@ -22,7 +22,7 @@ import Foundation
 
 @MainActor
 private func makeSUT() -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer()
+    let fft = RealtimeFFTAnalyzer.forTesting()
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.cancellables.removeAll()
     return sut

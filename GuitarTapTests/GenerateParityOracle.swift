@@ -316,24 +316,16 @@ struct GenerateParityOracleTests {
         }
 
         // ----------------------------------------------------------------- gated FFT
-        let fft = RealtimeFFTAnalyzer()
+        let fft = RealtimeFFTAnalyzer.forTesting()
         let sampleRate: Double = 48000
         for name in gated.keys.sorted() {
             guard var caseDict = gated[name] as? [String: Any] else { continue }  // skips note keys
-            let sampleCount = Int(sampleRate * 0.4)
-            var signal = [Float](repeating: 0, count: sampleCount)
-
-            if (caseDict["signal"] as? String) != "silence" {
-                let tones = (caseDict["tones"] as? [[Double]]) ?? []
-                for i in 0..<sampleCount {
-                    let t = Double(i) / sampleRate
-                    var sample = 0.0
-                    for tone in tones where tone.count >= 2 {
-                        sample += tone[1] * sin(2.0 * .pi * tone[0] * t)
-                    }
-                    signal[i] = Float(sample)
-                }
-            }
+            // Silence is the signal with no tones. The same builder the GFFT tests use (#17 F49).
+            let tones = (caseDict["signal"] as? String) == "silence" ? [] :
+                ((caseDict["tones"] as? [[Double]]) ?? [])
+                    .filter { $0.count >= 2 }
+                    .map { ParityOracle.GatedTone(hz: $0[0], amplitude: $0[1]) }
+            let signal = makeGatedTestSignal(tones: tones, sampleRate: sampleRate)
 
             let (mags, freqs) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
 
@@ -348,7 +340,7 @@ struct GenerateParityOracleTests {
             if var expected = caseDict["expected"] as? [[String: Any]] {
                 for i in expected.indices {
                     guard let hz = expected[i]["hz"] as? Double,
-                          let db = Self.magnitudeAt(Float(hz), magnitudes: mags, frequencies: freqs)
+                          let db = gatedMagnitude(at: Float(hz), magnitudes: mags, frequencies: freqs)
                     else { continue }
                     expected[i]["db"] = Self.stored(db)
                 }
@@ -399,19 +391,6 @@ struct GenerateParityOracleTests {
         try out.write(to: dest)
         print("PARITY_ORACLE_WROTE \(dest.path)")
         print("Regenerated from \(url.path) — the wrapper copies it into the tree; review the diff, then publish with Tooling/sync-oracle.sh --publish")
-    }
-
-    private static func magnitudeAt(_ targetHz: Float,
-                                    magnitudes: [Float],
-                                    frequencies: [Float]) -> Float? {
-        guard !frequencies.isEmpty else { return nil }
-        var bestIdx = 0
-        var bestDist = Float.greatestFiniteMagnitude
-        for (i, f) in frequencies.enumerated() where abs(f - targetHz) < bestDist {
-            bestDist = abs(f - targetHz)
-            bestIdx = i
-        }
-        return magnitudes[bestIdx]
     }
 }
 

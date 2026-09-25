@@ -73,7 +73,7 @@ private func replay(fixture name: String) throws -> (peaks: [ResonantPeak], mode
     let peakMin = (m["peakMinThreshold"] as? NSNumber)?.floatValue ?? -60
 
     TapDisplaySettings.guitarType = GuitarType(rawValue: gtStr) ?? .generic
-    let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+    let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
     sut.peakMinThreshold = peakMin
     sut.minFrequency = kMinHz
     sut.maxFrequency = kMaxHz

@@ -23,7 +23,7 @@ import Foundation
 
 @MainActor
 private func makeSUT() -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer()
+    let fft = RealtimeFFTAnalyzer.forTesting()
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.cancellables.removeAll()
     return sut
@@ -130,7 +130,7 @@ struct ImportPersistenceTests {
 struct UpdateMeasurementTests {
 
     private func makeAnalyzerWithMeasurements(_ measurements: [TapToneMeasurement]) -> TapToneAnalyzer {
-        let analyzer = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let analyzer = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         analyzer.savedMeasurements = measurements
         return analyzer
     }

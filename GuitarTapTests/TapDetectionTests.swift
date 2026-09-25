@@ -31,7 +31,7 @@ private func makeSUT(
     threshold: Float = -40,
     numberOfTaps: Int = 1
 ) -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer()
+    let fft = RealtimeFFTAnalyzer.forTesting()
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.tapDetectionThreshold = threshold
     sut.numberOfTaps = numberOfTaps
@@ -319,7 +319,7 @@ struct TapDetectionTests {
         TapDisplaySettings.measurementType = .plate
         defer { TapDisplaySettings.measurementType = .acoustic }
 
-        let fft = RealtimeFFTAnalyzer()
+        let fft = RealtimeFFTAnalyzer.forTesting()
         let sut = TapToneAnalyzer(fftAnalyzer: fft)
         sut.tapDetectionThreshold = -40
         sut.numberOfTaps = 1
@@ -351,7 +351,7 @@ struct TapDetectionTests {
         TapDisplaySettings.measurementType = .plate
         defer { TapDisplaySettings.measurementType = .acoustic }
 
-        let fft = RealtimeFFTAnalyzer()
+        let fft = RealtimeFFTAnalyzer.forTesting()
         let sut = TapToneAnalyzer(fftAnalyzer: fft)
         sut.tapDetectionThreshold = -40
         sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed

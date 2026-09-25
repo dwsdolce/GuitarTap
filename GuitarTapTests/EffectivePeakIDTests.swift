@@ -31,7 +31,7 @@ import Foundation
 struct EffectivePeakIDTests {
 
     private func makeSUT() -> TapToneAnalyzer {
-        TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
     }
 
     // MARK: - Longitudinal (fL)

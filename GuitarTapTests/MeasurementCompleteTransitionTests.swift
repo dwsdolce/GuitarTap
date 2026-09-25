@@ -37,7 +37,7 @@ import Foundation
 /// Build a non-running TapToneAnalyzer in guitar mode with warm-up satisfied.
 @MainActor
 private func makeSUT(numberOfTaps: Int = 1) -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer()
+    let fft = RealtimeFFTAnalyzer.forTesting()
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.numberOfTaps = numberOfTaps
     sut.tapDetectionThreshold = -40

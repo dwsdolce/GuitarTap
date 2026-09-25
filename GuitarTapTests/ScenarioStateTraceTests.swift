@@ -59,7 +59,7 @@ private func snap(_ label: String, _ a: TapToneAnalyzer) -> StateSnapshot {
 
 @MainActor
 private func makeSUT(numberOfTaps: Int = 1) -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer()
+    let fft = RealtimeFFTAnalyzer.forTesting()
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.numberOfTaps = numberOfTaps
     sut.tapDetectionThreshold = -40

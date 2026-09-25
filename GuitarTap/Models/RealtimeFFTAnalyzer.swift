@@ -40,9 +40,9 @@
 /// amplitude accuracy.
 ///
 /// The **gated** path (`computeGatedFFT`) transforms a short pre-captured PCM
-/// buffer for plate/brace measurements. It uses a **Hann window** for better
-/// frequency resolution and lower sidelobes, since the result feeds material
-/// property calculations.
+/// buffer for plate/brace measurements. It uses a **periodic Hann window** spanning the
+/// zero-padded length, since the result feeds material property calculations — see
+/// `computeGatedFFT` for what that window does and does not suppress.
 ///
 /// ## Platform Differences
 ///
@@ -240,8 +240,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// and behaves identically whether playback is real-time paced or not.
     var audioElapsed: Double = 0
 
-    /// Hann window coefficients applied to audio samples before FFT to reduce spectral leakage
-    /// - Note: The window is pre-computed during initialization for performance
+    /// Window coefficients for the continuous path: rectangular (all ones), filled in `init`.
+    /// The gated path builds its own Hann window per call (`computeGatedFFT`).
     var window: [Float] = []
     
     // MARK: - Published Output Properties

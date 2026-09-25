@@ -144,7 +144,7 @@ struct DotLayerVsAnnotationListTests {
             TapDisplaySettings.showUnknownModes = savedUnknown
         }
 
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         let p1 = peak(100), p2 = peak(200), p3 = peak(250)
         sut.allPeaks = [p1, p2, p3]
         // Classify them too. Production never assigns allPeaks without a classify pass in the same
@@ -182,7 +182,7 @@ struct DotLayerVsAnnotationListTests {
         TapDisplaySettings.measurementType = .generic
         defer { TapDisplaySettings.measurementType = savedType }
 
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         let p = peak(200)                       // squarely inside top/back
         sut.allPeaks = [p]
         sut.setModeOverride("My Custom Label", for: p.id)
@@ -223,7 +223,7 @@ struct DotLayerUserNamedPeakTests {
         TapDisplaySettings.measurementType = .generic
         defer { TapDisplaySettings.measurementType = savedType }
 
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         let named = peak(Self.outOfBand)
         sut.allPeaks = [peak(100), named]
 
@@ -245,7 +245,7 @@ struct DotLayerUserNamedPeakTests {
         TapDisplaySettings.measurementType = .generic
         defer { TapDisplaySettings.measurementType = savedType }
 
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         let named = peak(Self.outOfBand)
         sut.allPeaks = [named]
         sut.setModeOverride(GuitarMode.top.displayName, for: named.id)
@@ -267,7 +267,7 @@ struct DotLayerUserNamedPeakTests {
             TapDisplaySettings.showUnknownModes = savedUnknown
         }
 
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         let named = peak(Self.outOfBand)
         sut.allPeaks = [named]
         sut.selectedPeakIDs = [named.id]

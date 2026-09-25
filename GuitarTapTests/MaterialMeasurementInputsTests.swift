@@ -23,7 +23,7 @@ import Foundation
 struct MaterialMeasurementInputsTests {
 
     private func makeSUT() -> TapToneAnalyzer {
-        TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
     }
 
     /// A minimal loadable plate measurement whose snapshot carries its own dimensions.

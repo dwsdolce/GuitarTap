@@ -33,7 +33,7 @@ private func makeSUT(numberOfTaps: Int,
                      measureFlc: Bool = false) -> TapToneAnalyzer {
     TapDisplaySettings.measurementType = measurementType
     TapDisplaySettings.measureFlc = measureFlc
-    let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+    let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
     sut.numberOfTaps = numberOfTaps
     return sut
 }

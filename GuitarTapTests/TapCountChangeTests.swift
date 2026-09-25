@@ -33,7 +33,7 @@ import Foundation
 
 @MainActor
 private func makeSUT(numberOfTaps: Int = 1) -> TapToneAnalyzer {
-    let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+    let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
     sut.numberOfTaps = numberOfTaps
     sut.tapDetectionThreshold = -40
     sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed
@@ -90,7 +90,7 @@ struct TapCountChangeMaterialTests {
     private func plateSUT(numberOfTaps: Int, measureFlc: Bool) -> TapToneAnalyzer {
         TapDisplaySettings.measurementType = .plate
         TapDisplaySettings.measureFlc = measureFlc
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.numberOfTaps = numberOfTaps
         sut.materialTapPhase = .capturingLongitudinal
         sut.currentTapCount = 0
@@ -120,7 +120,7 @@ struct TapCountChangeMaterialTests {
     @Test("a brace sequence gets the brace variant, which names no phases")
     func raisingCountAtBraceStart_usesTheBracePrompt() {
         TapDisplaySettings.measurementType = .brace
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.numberOfTaps = 1
         sut.materialTapPhase = .capturingLongitudinal
         sut.currentTapCount = 0
@@ -139,7 +139,7 @@ struct TapCountChangeMaterialTests {
     func countChangeAtALaterPhase_doesNotRewriteTheInstruction() {
         TapDisplaySettings.measurementType = .plate
         TapDisplaySettings.measureFlc = false
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.numberOfTaps = 3
         sut.materialTapPhase = .capturingCross
         sut.capturedTaps = []            // the phase buffer is empty — L's taps were consumed

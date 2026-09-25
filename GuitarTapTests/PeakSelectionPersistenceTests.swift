@@ -57,7 +57,7 @@ struct PeakSelectionPersistenceTests {
     }
 
     private func makeSUTForBuild() -> TapToneAnalyzer {
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.minFrequency = 30; sut.maxFrequency = 2000
         return sut
     }
@@ -92,7 +92,7 @@ struct PeakSelectionPersistenceTests {
     @Test func legacyFileDefaultsToManual() throws {
         // Field absent (old file) → nil → treated as manual (prior behaviour, no auto-reselect).
         let (m, _) = try makeMeasurement(userModified: nil)
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.loadMeasurement(m)
         #expect(sut.userHasModifiedPeakSelection == true, "a legacy file (no flag) defaults to manual")
     }

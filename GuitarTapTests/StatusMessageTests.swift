@@ -40,7 +40,7 @@ import Foundation
 @MainActor
 private func makeSUT(numberOfTaps: Int = 1,
                      measurementType: MeasurementType = .generic) -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer()
+    let fft = RealtimeFFTAnalyzer.forTesting()
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     sut.numberOfTaps = numberOfTaps
     sut.tapDetectionThreshold = -40
@@ -83,7 +83,7 @@ struct StatusMessageTests {
 
     // ── initial ────────────────────────────────────────────────────────────
     @Test func initial_isCanonicalBeginMessage() {
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         #expect(sut.statusMessage == "Tap the guitar to begin")
     }
 

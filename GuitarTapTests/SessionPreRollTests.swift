@@ -17,7 +17,7 @@ import Foundation
 struct SessionPreRollTests {
 
     private func makeSUT(rate: Double = 48000) -> TapToneAnalyzer {
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.sessionRecordingSampleRate = rate
         sut.isSessionRecording = true
         sut.sessionPreRollActive = true

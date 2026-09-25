@@ -33,7 +33,7 @@ import Foundation
 // ---------------------------------------------------------------------------
 
 private func makeSUT() -> TapToneAnalyzer {
-    TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer())
+    TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
 }
 
 private func makePeak(frequency: Float, magnitude: Float = -20) -> ResonantPeak {

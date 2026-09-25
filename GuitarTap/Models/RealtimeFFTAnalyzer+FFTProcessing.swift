@@ -426,12 +426,17 @@ extension RealtimeFFTAnalyzer {
     ///  - Creates a temporary DFT setup rather than reusing the continuous one
     ///  - Returns raw values rather than publishing them
     ///  - Applies `activeCalibration` corrections at the bin frequencies
+    ///  - Returns an empty spectrum for fewer than two samples — there is nothing to transform
     ///
     /// - Parameters:
     ///   - samples:    PCM samples captured immediately after tap detection.
     ///   - sampleRate: The hardware sample rate at the time of capture.
     /// - Returns: A tuple of `(magnitudes, frequencies)` in dB and Hz respectively.
     func computeGatedFFT(samples: [Float], sampleRate: Double) -> (magnitudes: [Float], frequencies: [Float]) {
+        // Fewer than two samples is not a spectrum. Without this, nextPowerOfTwo's floor of 2 turned
+        // zero or one sample into a one-bin result; callers treat an empty spectrum as a failed capture.
+        guard samples.count >= 2 else { return ([], []) }
+
         // Choose FFT size: next power-of-two >= sample count, capped at 32768.
         // 32768 samples @ 44100 Hz ≈ 743 ms window, freq resolution ≈ 1.35 Hz/bin.
         let targetSize = 32768
@@ -448,14 +453,21 @@ extension RealtimeFFTAnalyzer {
         defer { vDSP_DFT_DestroySetup(setup) }
 
         // Zero-pad (or truncate) to paddedSize, then apply a Hann window.
-        // Unlike the live display path (which uses a rectangular window for simplicity),
-        // this result is what gets saved and analysed: peak frequencies feed mode
-        // classification, Q-factor calculation, and plate/brace property formulas.
-        // The Hann window suppresses spectral sidelobes by ~31 dB compared to a
-        // rectangular window, giving sharper, cleaner peaks and therefore more accurate
-        // frequency and Q readings. The amplitude roll-off at the frame edges is
-        // not a concern here because the captured buffer naturally starts and ends
-        // near silence (pre-roll silence → tap transient → decaying ring → silence).
+        // Unlike the live display path (rectangular), this result is what gets saved and analysed:
+        // peak frequencies feed the plate/brace property formulas.
+        //
+        // The window spans the PADDED length, not the captured one. At 48 kHz the 0.4 s capture is
+        // 19200 of 32768 samples, so the capture's last sample is weighted ≈0.93, not tapered to
+        // zero. For a steady tone that is a hard edge with poor sidelobes (a tone 7 Hz from a
+        // stronger one picks up its leakage at about −21 dB). For a TAP it works: the ring-out
+        // decays, so the signal supplies its own end taper, and the abrupt onset — 0.1 s in, after
+        // the pre-onset silence — is weighted ≈0.2. Tested against decaying modes at known
+        // frequencies, this measures a tap's frequency as well as or better than a Hann spanning
+        // only the captured samples (#17 F49).
+        //
+        // Because the capture fills a different share of the padded window at each sample rate,
+        // the window's gain differs with it: about −10.8 dB at 44.1 kHz, −9.5 dB at 48 kHz, and
+        // −6.0 dB at 96 kHz, where the 0.4 s capture exceeds 32768 samples and is truncated to it.
         var padded = [Float](repeating: 0, count: paddedSize)
         let copyCount = min(samples.count, paddedSize)
         padded[0..<copyCount] = samples[0..<copyCount]
@@ -464,12 +476,11 @@ extension RealtimeFFTAnalyzer {
         // Use HANN_DENORM (standard unit-peak Hann window) rather than HANN_NORM.
         // HANN_NORM energy-normalises the window by scaling each sample by √(8/3),
         // which inflates magnitudes by +4.26 dB when combined with 1/N normalisation.
-        // HANN_DENORM produces the periodic Hann w[n] = 0.5·(1 − cos(2πn/N)) with
-        // peak = 1.0.  numpy's np.hanning, used by the Python/web ports, is the
-        // *symmetric* form 0.5·(1 − cos(2πn/(N−1))) — a different window, but the two
-        // agree to sub-precision at the gated sizes here (16384–32768 samples):
-        // the measured peak-frequency difference is ~1e-7 Hz, so all three stay
-        // oracle-equal.
+        // HANN_DENORM produces the PERIODIC Hann w[n] = 0.5·(1 − cos(2πn/N)) with
+        // peak = 1.0. Python and web compute this same periodic form — not numpy's
+        // np.hanning, which is the symmetric 0.5·(1 − cos(2πn/(N−1))). The two differ by less
+        // than any tolerance can see, which is how the ports drifted to the symmetric one
+        // before; a window test in all three guards it (#17 F49).
         vDSP_hann_window(&hannWindow, vDSP_Length(paddedSize), Int32(vDSP_HANN_DENORM))
         vDSP_vmul(padded, 1, hannWindow, 1, &padded, 1, vDSP_Length(paddedSize))
 
