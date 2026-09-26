@@ -1247,7 +1247,6 @@ extension TapToneAnalyzer {
             materialTapPhase = .complete
             isMeasurementComplete = true
             finishSessionRecording(label: "Brace")
-            tapProgress = 1.0
             statusMessage = "Complete - check Results"
             gtLog("✅ Brace measurement complete: fL=\(avgPeak.frequency) Hz")
         } else if fftAnalyzer.isPlayingFile {
@@ -1642,7 +1641,6 @@ extension TapToneAnalyzer {
         
         // Update status
         statusMessage = "Analysis complete! \(peaksFromAveragedSpectrum.count) peaks identified (from \(capturedTaps.count) averaged taps)."
-        tapProgress = 1.0
         
         gtLog("✅ Found \(peaksFromAveragedSpectrum.count) peaks in averaged spectrum from \(capturedTaps.count) taps")
 

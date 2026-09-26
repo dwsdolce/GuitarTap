@@ -431,7 +431,6 @@ extension TapToneAnalyzer {
         materialTapPhase = .complete
         isMeasurementComplete = true
         finishSessionRecording(label: "Plate_LC")
-        tapProgress = 1.0
         let fLStr = selectedLongitudinalPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
         let fCStr = selectedCrossPeak.map { String(format: "%.1f", $0.frequency) } ?? "?"
         statusMessage = "Complete — fL: \(fLStr) Hz, fC: \(fCStr) Hz"
@@ -453,7 +452,6 @@ extension TapToneAnalyzer {
         materialTapPhase = .complete
         isMeasurementComplete = true
         finishSessionRecording(label: "Plate_LCF")
-        tapProgress = 1.0
         statusMessage = "Complete - check Results"
     }
 

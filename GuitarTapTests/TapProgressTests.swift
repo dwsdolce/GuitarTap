@@ -4,22 +4,22 @@
 //
 //  Pins `totalPlateTaps` + `tapProgress` + the CUMULATIVE material `currentTapCount` — the values
 //  the status-bar tap/phase progress bar renders (`ProgressView(value: tap.tapProgress)`,
-//  TapToneAnalysisView+Controls:420).
+//  TapToneAnalysisView+Controls).
 //
 //  Why this suite exists: the web port's material `currentTapCount` used to RESET at every phase
 //  advance, while Swift/Python count CUMULATIVELY across L → C → FLC.  The status TEXT agreed by
 //  coincidence (the web printed its per-phase count directly; Swift subtracts the completed phases
-//  from its cumulative one — Controls:411), so nothing caught it.  Adding the progress bar to the
+//  from its cumulative one in the status-bar label), so nothing caught it.  Adding the progress bar to the
 //  other two platforms exposed it: the web's bar would have refilled 0→100% on EVERY phase, and
 //  Python's view recomputed the percentage from `numberOfTaps` instead of rendering `tapProgress`,
 //  pinning its bar at 100% from the end of phase L onward.
 //
 //  Swift was correct on all counts — these tests lock that in as the 3-way contract:
 //
-//      totalPlateTaps = numberOfTaps × (brace ? 1 : measureFlc ? 3 : 2)   [TapDetection:360]
+//      totalPlateTaps = numberOfTaps × (brace ? 1 : measureFlc ? 3 : 2)   [`totalPlateTaps`]
 //      tapProgress    = min(1, currentTapCount / (guitar ? numberOfTaps : totalPlateTaps))
 //      currentTapCount (material) is CUMULATIVE, and rebases to the PRIOR phases' taps on redo
-//                                                                         [Control:465-487]
+//                                                                         [`redoCurrentPhase`]
 //
 // @parity test/tap-progress
 
@@ -36,12 +36,6 @@ private func makeSUT(numberOfTaps: Int,
     let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
     sut.numberOfTaps = numberOfTaps
     return sut
-}
-
-/// A minimal material spectrum — only its PRESENCE matters to the redo rebasing guards.
-private func spec() -> (magnitudes: [Float], frequencies: [Float]) {
-    (magnitudes: [Float](repeating: -60, count: 64),
-     frequencies: (0..<64).map { Float($0) * 30 })
 }
 
 // MARK: - totalPlateTaps — taps expected across ALL phases
@@ -74,32 +68,47 @@ struct TotalPlateTapsTests {
 @Suite("tapProgress")
 struct TapProgressValueTests {
 
-    @Test("guitar divides by numberOfTaps")
-    func guitarDividesByNumberOfTaps() {
+    /// A guitar measurement's bar advances by `numberOfTaps`, through the real capture finish — the
+    /// place progress is decided. (This used to compute `min(1, count / taps)` in the test itself and
+    /// assert that; the material denominator is asserted by the count-across-phases case below, and the
+    /// clamp is unreachable in production — #17 F51.)
+    @Test("guitar progress advances by numberOfTaps as taps are captured")
+    func guitarProgressAdvancesByNumberOfTaps() async throws {
         let sut = makeSUT(numberOfTaps: 4, measurementType: .generic)
-        sut.currentTapCount = 1
-        sut.tapProgress = min(1.0, Float(sut.currentTapCount) / Float(sut.numberOfTaps))
+        // An unstarted analyzer has no frequency bins (all 0 Hz); set them up as starting the engine or
+        // file playback does, and let the main queue publish them (as StateInvariantTests does).
+        sut.fftAnalyzer.actualSampleRate = 48000
+        sut.fftAnalyzer.updateFrequencyBins()
+        try await Task.sleep(for: .milliseconds(50))
+        sut.startTapSequence()
+        #expect(sut.tapProgress == 0)
+
+        let tap = tapSamples(100, dur: Float(sut.fftAnalyzer.fftSize) / 48000)
+        sut.finishGuitarGatedCapture(samples: tap, sampleRate: 48000)
         #expect(abs(sut.tapProgress - 0.25) < 0.0001)
+        sut.finishGuitarGatedCapture(samples: tap, sampleRate: 48000)
+        #expect(abs(sut.tapProgress - 0.5) < 0.0001)
+        sut.finishGuitarGatedCapture(samples: tap, sampleRate: 48000)
+        #expect(abs(sut.tapProgress - 0.75) < 0.0001)
     }
 
-    /// The assertion the web violated: with `numberOfTaps` as the denominator, a cumulative count
-    /// of 2 in a 2-tap plate reads 100% at the END OF PHASE L, not one third.
-    @Test("material divides by totalPlateTaps, NOT numberOfTaps")
-    func materialDividesByTotalPlateTaps() {
-        let sut = makeSUT(numberOfTaps: 2, measurementType: .plate, measureFlc: true)
-        #expect(sut.totalPlateTaps == 6)
+    /// A new sequence starts its bar at 0 — a finished measurement's full bar does not carry into it.
+    @Test("a new sequence resets the bar")
+    func newSequenceResetsTheBar() async throws {
+        let sut = makeSUT(numberOfTaps: 1, measurementType: .generic)
+        sut.fftAnalyzer.actualSampleRate = 48000
+        sut.fftAnalyzer.updateFrequencyBins()
+        try await Task.sleep(for: .milliseconds(50))
+        sut.startTapSequence()
+        sut.finishGuitarGatedCapture(samples: tapSamples(100, dur: Float(sut.fftAnalyzer.fftSize) / 48000),
+                                     sampleRate: 48000)
+        advanceAudio(sut, by: sut.captureWindow)       // complete
+        #expect(sut.isMeasurementComplete)
+        #expect(sut.tapProgress == 1.0)
 
-        sut.currentTapCount = 2 // end of phase L: 2 of 6 taps done
-        #expect(abs(Float(sut.currentTapCount) / Float(sut.totalPlateTaps) - 2.0 / 6.0) < 0.0001)
-        // The WRONG denominator would read a full bar here:
-        #expect(Float(sut.currentTapCount) / Float(sut.numberOfTaps) == 1.0)
-    }
+        sut.startTapSequence()                         // New Tap
 
-    @Test("progress is clamped to 1")
-    func progressIsClamped() {
-        let sut = makeSUT(numberOfTaps: 2, measurementType: .brace)
-        sut.currentTapCount = 5 // over-count
-        #expect(min(1.0, Float(sut.currentTapCount) / Float(sut.totalPlateTaps)) == 1.0)
+        #expect(sut.tapProgress == 0)
     }
 }
 
@@ -112,6 +121,26 @@ private func tapSamples(_ freqHz: Float, sampleRate: Float = 48000, dur: Float =
     return (0..<n).map { i in
         let t = Float(i) / sampleRate
         return amp * expf(-t * 6.0) * sinf(2 * .pi * freqHz * t)
+    }
+}
+
+/// A plate sequence driven to its first review, through real taps at the capture finish: L tapped
+/// `numberOfTaps` times. The phase and count are the app's, not the test's.
+@MainActor
+private func plateReviewingL(_ sut: TapToneAnalyzer) {
+    sut.startTapSequence()
+    for _ in 0..<sut.numberOfTaps {
+        sut.finishGatedFFTCapture(samples: tapSamples(60), sampleRate: 48000, phase: .capturingLongitudinal)
+    }
+}
+
+/// On to C's review: Accept L, then C tapped `numberOfTaps` times.
+@MainActor
+private func plateReviewingC(_ sut: TapToneAnalyzer) {
+    plateReviewingL(sut)
+    sut.acceptCurrentPhase()
+    for _ in 0..<sut.numberOfTaps {
+        sut.finishGatedFFTCapture(samples: tapSamples(150), sampleRate: 48000, phase: .capturingCross)
     }
 }
 
@@ -129,18 +158,15 @@ struct CountSurvivesPhaseAdvanceTests {
     @Test("count accumulates across L → C — it must not restart at the phase boundary")
     func countAccumulatesAcrossPhaseAdvance() {
         let sut = makeSUT(numberOfTaps: 2, measurementType: .plate, measureFlc: true) // total = 6
-        sut.tapDetectionThreshold = -90 // accept the synthetic taps
-        let sr: Double = 48000
+        sut.startTapSequence()                           // capturing L, as the app arms it
+        #expect(sut.materialTapPhase == .capturingLongitudinal)
 
         // Phase L — two taps at 60 Hz (plate L band = 20–100 Hz).
-        sut.materialTapPhase = .capturingLongitudinal
-        sut.finishGatedFFTCapture(samples: tapSamples(60), sampleRate: sr,
-                                  phase: .capturingLongitudinal)
+        sut.finishGatedFFTCapture(samples: tapSamples(60), sampleRate: 48000, phase: .capturingLongitudinal)
         #expect(sut.currentTapCount == 1)
         #expect(abs(sut.tapProgress - 1.0 / 6.0) < 0.0001)
 
-        sut.finishGatedFFTCapture(samples: tapSamples(60), sampleRate: sr,
-                                  phase: .capturingLongitudinal)
+        sut.finishGatedFFTCapture(samples: tapSamples(60), sampleRate: 48000, phase: .capturingLongitudinal)
         #expect(sut.currentTapCount == 2) // L complete
         #expect(abs(sut.tapProgress - 2.0 / 6.0) < 0.0001)
 
@@ -149,20 +175,41 @@ struct CountSurvivesPhaseAdvanceTests {
         #expect(sut.currentTapCount == 2)
 
         // Phase C — the first C tap is the 3rd tap of the SEQUENCE, not the 1st of the phase.
-        sut.finishGatedFFTCapture(samples: tapSamples(150), sampleRate: sr,
-                                  phase: .capturingCross)
+        sut.finishGatedFFTCapture(samples: tapSamples(150), sampleRate: 48000, phase: .capturingCross)
         #expect(sut.currentTapCount == 3)
         #expect(abs(sut.tapProgress - 3.0 / 6.0) < 0.0001)
 
-        sut.finishGatedFFTCapture(samples: tapSamples(150), sampleRate: sr,
-                                  phase: .capturingCross)
+        sut.finishGatedFFTCapture(samples: tapSamples(150), sampleRate: 48000, phase: .capturingCross)
         #expect(sut.currentTapCount == 4)
         #expect(abs(sut.tapProgress - 4.0 / 6.0) < 0.0001)
+
+        // Accept C → waiting for the FLC tap: L + C stay counted through the hold.
+        sut.acceptCurrentPhase()
+        #expect(sut.materialTapPhase == .waitingForFlcTap)
+        #expect(sut.currentTapCount == 4)
+        #expect(abs(sut.tapProgress - 4.0 / 6.0) < 0.0001)
+    }
+
+    /// Brace has one phase: its count and bar fill over its taps, and the last tap completes it.
+    @Test("brace (single phase): the bar fills 0 → 1 over its taps")
+    func braceBarFillsOverItsTaps() {
+        let sut = makeSUT(numberOfTaps: 2, measurementType: .brace)   // total = 2
+        sut.startTapSequence()
+        sut.finishGatedFFTCapture(samples: tapSamples(150), sampleRate: 48000, phase: .capturingLongitudinal)
+        #expect(sut.currentTapCount == 1)
+        #expect(abs(sut.tapProgress - 0.5) < 0.0001)
+
+        sut.finishGatedFFTCapture(samples: tapSamples(150), sampleRate: 48000, phase: .capturingLongitudinal)
+        #expect(sut.currentTapCount == 2)
+        #expect(sut.tapProgress == 1.0)
+        #expect(sut.isMeasurementComplete)
     }
 }
 
 // MARK: - Redo rebases the cumulative count to the PRIOR phases
 
+/// Each case reaches its review through real taps, real Accepts and — for FLC — the real hold, fed in
+/// audio; none sets a spectrum, a count or a phase by hand (#17 F51).
 @MainActor
 @Suite("Redo rebases the cumulative material count")
 struct RedoRebasesCumulativeCountTests {
@@ -170,12 +217,13 @@ struct RedoRebasesCumulativeCountTests {
     @Test("redo C keeps L's taps counted (currentTapCount = lCount, not 0)")
     func redoCrossKeepsLongitudinal() {
         let sut = makeSUT(numberOfTaps: 2, measurementType: .plate, measureFlc: true) // total = 6
-        sut.longitudinalSpectrum = spec() // L was captured
-        sut.currentTapCount = 4           // L (2) + C (2)
-        sut.materialTapPhase = .reviewingCross
+        plateReviewingC(sut)
+        #expect(sut.materialTapPhase == .reviewingCross)
+        #expect(sut.currentTapCount == 4)                // L (2) + C (2)
 
         sut.redoCurrentPhase()
 
+        #expect(sut.materialTapPhase == .capturingCross)
         #expect(sut.currentTapCount == 2) // L's taps stay counted
         #expect(abs(sut.tapProgress - 2.0 / 6.0) < 0.0001)
     }
@@ -183,13 +231,19 @@ struct RedoRebasesCumulativeCountTests {
     @Test("redo FLC keeps L+C counted (currentTapCount = lcCount = numberOfTaps × 2)")
     func redoFlcKeepsLongitudinalAndCross() {
         let sut = makeSUT(numberOfTaps: 2, measurementType: .plate, measureFlc: true) // total = 6
-        sut.longitudinalSpectrum = spec()
-        sut.crossSpectrum = spec()
-        sut.currentTapCount = 6
-        sut.materialTapPhase = .reviewingFlc
+        plateReviewingC(sut)
+        sut.acceptCurrentPhase()                          // → waiting for the FLC tap
+        advanceAudio(sut, by: sut.tapCooldown)            // the hold, in audio → capturing FLC
+        #expect(sut.materialTapPhase == .capturingFlc)
+        for _ in 0..<2 {
+            sut.finishGatedFFTCapture(samples: tapSamples(60), sampleRate: 48000, phase: .capturingFlc)
+        }
+        #expect(sut.materialTapPhase == .reviewingFlc)
+        #expect(sut.currentTapCount == 6)
 
         sut.redoCurrentPhase()
 
+        #expect(sut.materialTapPhase == .capturingFlc)
         #expect(sut.currentTapCount == 4) // L + C stay counted
         #expect(abs(sut.tapProgress - 4.0 / 6.0) < 0.0001)
     }
@@ -197,12 +251,13 @@ struct RedoRebasesCumulativeCountTests {
     @Test("redo L resets to 0 (nothing precedes it)")
     func redoLongitudinalResetsToZero() {
         let sut = makeSUT(numberOfTaps: 2, measurementType: .plate, measureFlc: true)
-        sut.longitudinalSpectrum = spec()
-        sut.currentTapCount = 2
-        sut.materialTapPhase = .reviewingLongitudinal
+        plateReviewingL(sut)
+        #expect(sut.materialTapPhase == .reviewingLongitudinal)
+        #expect(sut.currentTapCount == 2)
 
         sut.redoCurrentPhase()
 
+        #expect(sut.materialTapPhase == .capturingLongitudinal)
         #expect(sut.currentTapCount == 0)
         #expect(sut.tapProgress == 0.0)
     }
@@ -223,11 +278,9 @@ struct FlcCooldownCancellationTests {
     /// `_do_start_flc`'s WAITING_FOR_FLC_TAP guard and the web's FLC cooldown timer.
     @Test("Cancel during the cooldown leaves the fresh sequence alone")
     @MainActor
-    func cancelDuringFlcCooldownDoesNotReArm() async throws {
+    func cancelDuringFlcCooldownDoesNotReArm() {
         let sut = makeSUT(numberOfTaps: 1, measurementType: .plate, measureFlc: true)
-        sut.longitudinalSpectrum = spec()
-        sut.crossSpectrum = spec()
-        sut.materialTapPhase = .reviewingCross
+        plateReviewingC(sut)                           // real taps and Accepts to C's review
 
         sut.acceptCurrentPhase()                       // → .waitingForFlcTap, schedules the re-arm
         #expect(sut.materialTapPhase == .waitingForFlcTap)
@@ -243,23 +296,86 @@ struct FlcCooldownCancellationTests {
         #expect(sut.materialTapPhase != .capturingFlc)
     }
 }
+// MARK: - Loading a measurement tears down an interrupted capture
+
+/// A saved classical measurement to load — built as MeasurementCompleteTransitionTests' MC7 builds one.
+private func savedMeasurement() -> TapToneMeasurement {
+    let freqs = (0..<64).map { Float($0) * 31.25 }
+    var mags = [Float](repeating: -80, count: 64)
+    mags[16] = -30
+    let snap = SpectrumSnapshot(frequencies: freqs, magnitudes: mags, minFreq: 0, maxFreq: 2000,
+                                minDB: -90, maxDB: -20, isLogarithmic: false, measurementType: .classical)
+    return TapToneMeasurement(peaks: [], spectrum: snap, numberOfTaps: 1)
+}
+
+/// Loading a measurement while a capture is unfinished tears it down, so the status-bar progress bar
+/// (shown while currentTapCount > 0) and the Analyzing indicator (isDetecting) do not linger over the
+/// loaded measurement. The sequence is driven for real; the load is the real `loadMeasurement`.
+/// Paired with Python TestLoadTearsDownInterruptedCapture and the web's "loadMeasurement tears down…".
+@MainActor
+@Suite("Loading a measurement tears down an interrupted capture")
+struct LoadTearsDownInterruptedCaptureTests {
+
+    @Test("a plate sequence abandoned after L+C (FLC pending) resets on load")
+    func abandonedPlateSequenceResetsOnLoad() {
+        let sut = makeSUT(numberOfTaps: 2, measurementType: .plate, measureFlc: true)
+        plateReviewingC(sut)
+        sut.acceptCurrentPhase()                          // → waiting for the FLC tap
+        #expect(sut.currentTapCount == 4)
+        #expect(sut.materialTapPhase == .waitingForFlcTap)
+
+        sut.loadMeasurement(savedMeasurement())
+
+        #expect(sut.currentTapCount == 0)
+        #expect(sut.tapProgress == 0)
+        #expect(sut.materialTapPhase == .complete)
+        #expect(!sut.isDetecting)
+        #expect(sut.isMeasurementComplete)
+    }
+
+    @Test("a load while detecting stops detection")
+    func loadWhileDetectingStopsDetection() {
+        let sut = makeSUT(numberOfTaps: 2, measurementType: .plate, measureFlc: true)
+        sut.startTapSequence()
+        sut.finishGatedFFTCapture(samples: tapSamples(60), sampleRate: 48000, phase: .capturingLongitudinal)
+        advanceAudio(sut, by: sut.tapCooldown)            // the rest ends: listening for tap 2
+        #expect(sut.isDetecting)
+        #expect(sut.currentTapCount == 1)
+
+        sut.loadMeasurement(savedMeasurement())
+
+        #expect(!sut.isDetecting)
+        #expect(sut.currentTapCount == 0)
+        #expect(sut.materialTapPhase == .complete)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // MARK: - A later count change must not rewrite a finished measurement (#17 F34)
 // ---------------------------------------------------------------------------
 
-/// `tapProgress` is STORED, written at each capture site and pinned to 1.0 at completion — so a
+/// `tapProgress` is STORED, written at each capture site (the last tap leaves it at 1) — so a
 /// completed measurement's bar records what was actually measured. Raising the tap count afterwards
 /// configures the NEXT measurement and must leave the finished one alone. Web derived it at render
 /// time instead, so a complete 1-tap measurement's full bar dropped to a third when Taps went to 3.
+/// The measurement is completed for real: one tap through the finish, then the capture window's audio.
 @Suite("TapProgressAfterCountChange", .serialized)
 @MainActor
 struct TapProgressAfterCountChangeTests {
 
-    @Test func completeMeasurement_keepsFullBar_whenTapCountRaised() {
+    @Test func completeMeasurement_keepsFullBar_whenTapCountRaised() async throws {
         let sut = makeSUT(numberOfTaps: 1, measurementType: .generic)
-        sut.currentTapCount = 1
-        sut.tapProgress = 1.0
-        sut.isMeasurementComplete = true
+        // An unstarted analyzer has no frequency bins (all 0 Hz); set them up as starting the engine or
+        // file playback does, and let the main queue publish them (as StateInvariantTests does).
+        sut.fftAnalyzer.actualSampleRate = 48000
+        sut.fftAnalyzer.updateFrequencyBins()
+        try await Task.sleep(for: .milliseconds(50))
+        sut.startTapSequence()
+        sut.finishGuitarGatedCapture(samples: tapSamples(100, dur: Float(sut.fftAnalyzer.fftSize) / 48000),
+                                     sampleRate: 48000)
+        advanceAudio(sut, by: sut.captureWindow)       // "All taps captured. Processing..." → complete
+        #expect(sut.isMeasurementComplete)
+        #expect(sut.tapProgress == 1.0)
 
         sut.numberOfTaps = 3   // configures the next measurement
 
