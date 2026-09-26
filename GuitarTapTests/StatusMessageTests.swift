@@ -69,7 +69,7 @@ private func armAndSettle(_ sut: TapToneAnalyzer, level: Float = -80) {
     sut.startTapSequence()
     sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed // past the warm-up window
     sut.justExitedWarmup = true                            // next frame is the first post-warm-up
-    sut.onRmsLevelChanged(level, audioTime: 0)                           // → warm-up exit sets the resting prompt
+    sut.onChunkLevel(level, audioTime: 0)                           // → warm-up exit sets the resting prompt
 }
 
 @Suite("StatusMessage", .serialized)
@@ -205,7 +205,7 @@ struct StatusMessageTests {
         let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
         sut.startTapSequence(initialPhase: .capturingLongitudinal)
         #expect(sut.statusMessage == "Ready for fL tap")
-        sut.onRmsLevelChanged(-80, audioTime: 0) // a warm-up frame (warm-up clock just armed at the current audio time)
+        sut.onChunkLevel(-80, audioTime: 0) // a warm-up frame (warm-up clock just armed at the current audio time)
         #expect(sut.statusMessage == "Ready for fL tap")
     }
 
@@ -214,7 +214,7 @@ struct StatusMessageTests {
         sut.materialTapPhase = .reviewingLongitudinal
         sut.acceptCurrentPhase() // → "Rotate 90° and tap for fC" + warm-up restart
         #expect(sut.statusMessage == "Rotate 90° and tap for fC")
-        sut.onRmsLevelChanged(-80, audioTime: 0) // a warm-up frame
+        sut.onChunkLevel(-80, audioTime: 0) // a warm-up frame
         #expect(sut.statusMessage == "Rotate 90° and tap for fC")
     }
 
@@ -230,7 +230,7 @@ struct StatusMessageTests {
         sut.materialTapPhase = .reviewingCross
         sut.acceptCurrentPhase()
         #expect(sut.statusMessage == "Set up for fLC tap, then tap")
-        sut.onRmsLevelChanged(-80, audioTime: 0) // a warm-up frame must not overwrite it
+        sut.onChunkLevel(-80, audioTime: 0) // a warm-up frame must not overwrite it
         #expect(sut.statusMessage == "Set up for fLC tap, then tap")
     }
 }

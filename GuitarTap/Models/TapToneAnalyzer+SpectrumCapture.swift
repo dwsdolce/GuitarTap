@@ -768,15 +768,27 @@ extension TapToneAnalyzer {
     ///   - windowSize: Desired output length (e.g. 19200 for plate at 48 kHz).
     ///   - preOnsetSamples: Number of silence samples to include before the
     ///     onset.  Defaults to `sampleRate * preOnsetDuration` (100 ms).
-    /// - Returns: A `windowSize`-length buffer with the onset at index
-    ///   `preOnsetSamples`, or the original buffer if onset detection fails.
+    /// - Returns: A `windowSize`-length buffer with the onset at index `preOnsetSamples`. If the
+    ///   buffer is too short to estimate the noise, or no onset is found, the first `windowSize` samples,
+    ///   zero-padded — still `windowSize` long, so the tap reaches the transform at the same length as
+    ///   every other: the same bin grid, so a phase's taps average bin for bin, and the same window gain
+    ///   (the Hann spans the padded length, so its gain depends on how much of it the audio fills). This
+    ///   returned the buffer unchanged, a different length (#17 F50 item 12).
     func alignCaptureToOnset(
         _ samples: [Float],
         windowSize: Int,
         preOnsetSamples: Int
     ) -> [Float] {
+        // The fallback: the first `windowSize` samples, zero-padded (see Returns).
+        func leadingWindow() -> [Float] {
+            var out = [Float](repeating: 0, count: windowSize)
+            let count = min(samples.count, windowSize)
+            out.replaceSubrange(0..<count, with: samples[0..<count])
+            return out
+        }
+
         guard samples.count >= TapToneAnalyzer.onsetNoiseEstimateSamples else {
-            return samples  // buffer too short for noise estimation
+            return leadingWindow()  // buffer too short for noise estimation
         }
 
         // 1. Estimate noise floor from the first N samples (pre-onset silence).
@@ -800,9 +812,9 @@ extension TapToneAnalyzer {
         }
 
         guard var onset = onsetIndex else {
-            // No onset found (noise-only capture) — return unchanged.
+            // No onset found (noise-only capture) — the start of the buffer, window-sized.
             TAP_DEBUG("onsetAlign", "NO_ONSET | noiseRMS=\(String(format: "%.6f", noiseRMS)) threshold=\(String(format: "%.6f", threshold)) len=\(samples.count)")
-            return samples
+            return leadingWindow()
         }
 
         // 4. Back up slightly to catch the very start of the transient.

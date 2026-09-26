@@ -260,4 +260,22 @@ struct PitchTests {
         let f0 = p432.freq0(frequency: 432)
         #expect(abs(f0 - 432) < 0.01, "freq0 should return 432 Hz under 432 Hz A4 reference, got \(f0)")
     }
+
+    // MARK: - No pitch
+
+    // A frequency with no pitch — 0 Hz, negative, NaN, infinite — gets "no pitch" from every function,
+    // and none of them traps. A peak at 0 Hz used to take the process down in Pitch.pitch (#17 F50
+    // item 14). Paired with Python TestNoPitch and the web's "no pitch" cases.
+    @Test(arguments: [0.0, -5.0, Double.nan, Double.infinity])
+    func aFrequencyWithNoPitch_getsNoPitch(frequency: Double) {
+        let p = Pitch(a4: 440)
+        #expect(!p.hasPitch(frequency))
+        #expect(p.note(frequency: frequency) == "")
+        #expect(p.cents(frequency: frequency) == 0)
+        #expect(p.freq0(frequency: frequency) == 0)
+        let range = p.pitchRange(frequency: frequency)
+        #expect(range.upper == 0 && range.lower == 0)
+        #expect(p.formattedNote(frequency: frequency) == "")
+        #expect(!p.isInTune(frequency: frequency))
+    }
 }

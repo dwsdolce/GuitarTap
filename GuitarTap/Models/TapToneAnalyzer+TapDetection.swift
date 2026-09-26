@@ -89,10 +89,26 @@ extension TapToneAnalyzer {
 
     // MARK: - RMS-Level Entry Point
 
+    /// One chunk's level, on the main thread: detection, then ring-out tracking — the per-chunk entry.
+    ///
+    /// The body of `rmsLevelHandler`'s hop to the main thread (``setupSubscriptions()``), named so that
+    /// tests feed audio through exactly the path audio takes: Python `_on_chunk_level`, the web's
+    /// `processAudioFrame` (#17 F50 item 3).
+    ///
+    /// Ring-out tracking rides the SAME carried `audioTime`, so it is stamped in audio time
+    /// (load-invariant). It runs after detection, so a tap confirmed on this chunk records the chunk into
+    /// its new ring-out, and OUTSIDE ``onRmsLevelChanged(_:audioTime:)``'s guards — the ring-out
+    /// continues past measurement completion, which is exactly the window it measures. It self-gates on
+    /// `isTrackingDecay`.
+    func onChunkLevel(_ levelDB: Float, audioTime: Double) {
+        onRmsLevelChanged(levelDB, audioTime: audioTime)
+        trackDecayFast(inputLevel: levelDB, audioTime: audioTime)
+    }
+
     /// Receives the per-chunk RMS input level (~43 Hz) and runs the rising-edge
     /// tap detector for whichever measurement type is currently active.
     ///
-    /// Called from the `$inputLevelDB` Combine sink in ``setupSubscriptions()``.
+    /// Called from ``onChunkLevel(_:audioTime:)``, once per chunk.
     /// Mirrors Python `_on_rms_level_changed` in
     /// `tap_tone_analyzer_tap_detection.py`.  The guards (isDetecting /
     /// isDetectionPaused / isMeasurementComplete) live here in the handler, not
@@ -240,7 +256,7 @@ extension TapToneAnalyzer {
         //                       The slider value is absolute dB (-80…-20); we use it as
         //                       the target "tap above noise floor" margin by computing
         //                       headroom = tapDetectionThreshold - noiseFloorEstimate,
-        //                       clamped to at least 6 dB so there is always a gap to cross.
+        //                       clamped to at least 10 dB so there is always a gap to cross.
         //
         // NOTE: Per-chunk TAP_DEBUG log lines restored for file playback only
         // to diagnose intermittent gated-capture failures.
@@ -298,14 +314,15 @@ extension TapToneAnalyzer {
             return
         }
 
-        // No cooldown gate here. There used to be one — a crossing within `tapCooldown` of the last tap
-        // was ignored — but nothing could reach it: detection goes idle the moment a tap is detected
-        // and returns only after the capture plus the rest. Probed across every suite, including every
-        // file-playback fixture, only a test that set the gate's timestamp by hand ever reached it, so
-        // it was removed (#19).
-
-        // Update the detection level for UI display
-        tapDetectionLevel = effectiveRisingThreshold
+        // No cooldown gate here. There used to be one — a crossing within `tapCooldown` of the last tap,
+        // measured on the WALL clock, was ignored. In this edition nothing reached it: detection goes idle
+        // the moment a tap is detected and returns only after the capture plus the rest. Python's did
+        // reach it — in file playback a plate phase auto-advances and arms the next at once, and Python's
+        // test harness processes audio inline, so the gate rejected the tail of the ring-out there, while
+        // here the audio runs ahead of the main thread and reached the same audio after the gate had
+        // closed: the same audio decided two ways (#19). The auto-advance's own latch
+        // (`isAboveThreshold = true`) already makes a ring-out fall before anything counts, so the gate was
+        // removed in all three editions.
 
         // Hysteresis: Use different thresholds for rising vs falling edges.
         // Rising edge ALSO requires N consecutive chunks above the rising
@@ -325,10 +342,6 @@ extension TapToneAnalyzer {
             // Currently latched above — apply falling-threshold hysteresis.
             if level <= fallingThreshold {
                 // Falling edge.
-                if currentTapCount > 0 && currentTapCount < numberOfTaps {
-                    TAP_DEBUG("detectTap", "SIGNAL SETTLED | tap \(currentTapCount)/\(numberOfTaps) — signal dropped below falling threshold")
-                    statusMessage = guitarLoopStatus(capturing: false)
-                }
                 TAP_DEBUG("detectTap", "FALLING EDGE | peakMag=\(String(format: "%.2f", level)) fallingThresh=\(String(format: "%.2f", fallingThreshold)) — signal settled, ready for next tap")
                 isAboveThreshold = false
                 detectTapConsecutiveAbove = 0
@@ -459,9 +472,8 @@ extension TapToneAnalyzer {
     ///   - frequencies: Corresponding frequency axis, in Hz.
     ///   - time: Timestamp of the tap event.
     func handlePlateTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
-        // Stop detection while we capture the ring-out window
-        detectionState = .idle
-
+        // Detection is already off: `handleTapDetection`, the only caller, turned it off. (This set it
+        // again, to no effect — #17 F50 item 7.)
         let phase = materialTapPhase
         TAP_DEBUG("handlePlateTapDetection", "ENTERED | phase=\(phase) materialCapturedTaps.count=\(materialCapturedTaps.count) numberOfTaps=\(numberOfTaps)")
         switch phase {

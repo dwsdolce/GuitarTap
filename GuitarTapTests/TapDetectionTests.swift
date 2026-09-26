@@ -2,16 +2,19 @@
 //  TapDetectionTests.swift
 //  GuitarTapTests
 //
-//  Tests for the tap detection hysteresis logic in TapToneAnalyzer+TapDetection.
+//  The tap detector's decisions — the rising edge, the threshold the application configured, the
+//  hysteresis latch and the re-arm rule, the warm-up and its sync frame, relative detection and its
+//  noise floor — and the gated capture's onset alignment.
 //
-//  Strategy: `detectTap` is directly callable as a method on TapToneAnalyzer.
-//  We manipulate its internal guard state (warmupStartAudioTime, isAboveThreshold)
-//  directly via @testable import so the method exercises pure logic
-//  without a real audio engine.  The `fftAnalyzer.peakMagnitude` and `recentPeakLevelDB`
-//  properties are read by `handleTapDetection`, so we construct a no-op
-//  RealtimeFFTAnalyzer that never starts.
+//  Every case feeds audio through `onChunkLevel(_:audioTime:)`, the per-chunk entry audio takes, after
+//  arming the way the app does: `startTapSequence()`, then the warm-up on quiet audio. No case sets the
+//  detector's state by hand. A tap has fired when a capture has started (`gatedCaptureActive`) — the one
+//  effect a tap has in both capture kinds; cases about the detector's state read that state. The same
+//  cases, with the same numbers, are in Python tests/test_tap_detection.py and web
+//  test/tap-decisions.test.ts (#17 F50 item 3).
 //
-//  Test plan coverage: T1–T9 (T4, the cooldown gate, removed in #19 — nothing reached it)
+//  They used to call `detectTap` directly with the warm-up, sync flag, detection state and latch set by
+//  hand, one level below the path audio takes.
 //
 // @parity test/tap-decisions
 
@@ -20,341 +23,347 @@ import Foundation
 @testable import GuitarTap
 
 // ---------------------------------------------------------------------------
-// MARK: - Helper
+// MARK: - Helpers
 // ---------------------------------------------------------------------------
 
-/// Build a non-running TapToneAnalyzer in guitar mode (absolute threshold)
-/// with its warm-up period satisfied so detectTap can fire.
-///
+/// An analyzer armed the way the app arms it — warm-up included — with the threshold the app sets.
 @MainActor
-private func makeSUT(
-    threshold: Float = -40,
-    numberOfTaps: Int = 1
-) -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer.forTesting()
-    let sut = TapToneAnalyzer(fftAnalyzer: fft)
-    sut.tapDetectionThreshold = threshold
-    sut.numberOfTaps = numberOfTaps
-    // Defeat the warmup guard by setting the start time 2 s in the past
-    sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed
-    // Defeat the post-warmup sync frame
-    sut.justExitedWarmup = false
-    // Guitar mode (absolute threshold path) — suite init() ensures this is
-    // already set; explicit assignment here is a belt-and-suspenders guard.
-    TapDisplaySettings.measurementType = .acoustic
-    // Disconnect Combine subscriptions so the $magnitudes publisher cannot fire analyzeMagnitudes
-    // between detectTap() returning and the assertion.
-    //
-    // These tests observe `decayTapAudioTime`, which a confirmed tap sets to its own audio time and
-    // nothing clears. (They observed `lastTapTime` until #19 removed it with the cooldown gate it
-    // fed — a gate no production path reached.) They used to
-    // observe a `tapDetected` flag that existed on the analyzer for no other purpose: no view and no
-    // model logic ever read it, in any edition — Python alone had wired a status-dot flash to it.
-    // A production field kept alive to make tests observable is the application bending to the
-    // suite, so it was removed and the assertions moved to state the app actually keeps (#17 F43).
-    // It also read better than the flag did: `tapDetected` was true for ONE frame and the next frame
-    // cleared it, so a test feeding one chunk too many failed while the code was right.
-    // @MainActor on the suite ensures tests run on the main thread, so all
-    // DispatchQueue.main deliveries queued during init() have already drained
-    // before we reach cancellables.removeAll().
+private func armed(threshold: Float, _ type: MeasurementType = .classical) -> TapToneAnalyzer {
+    TapDisplaySettings.measurementType = type
+    let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
+    // Disconnect the Combine subscriptions so the $magnitudes publisher cannot run peak analysis
+    // between a chunk and an assertion.
     sut.cancellables.removeAll()
+    sut.tapDetectionThreshold = threshold
+    sut.startTapSequence()
     return sut
 }
 
-// Synthetic spectrum with a single bin of data — sufficient for the detection path.
-private let fakeMags: [Float] = [Float](repeating: -80, count: 64)
-private let fakeFreqs: [Float] = (0..<64).map { Float($0) * 375 }
+/// Feed `n` chunks at `level`, each one chunk of audio after the last.
+@MainActor
+private func chunks(_ sut: TapToneAnalyzer, _ level: Float, _ n: Int) {
+    for _ in 0..<n {
+        sut.onChunkLevel(level, audioTime: sut.lastAudioTime + audioFeedChunkSeconds)
+    }
+}
+
+/// Through the warm-up on quiet audio, and one chunk past it: the sync chunk sees quiet, so the latch is
+/// down and the detector is ready for a rising edge.
+@MainActor
+private func settled(_ sut: TapToneAnalyzer, level: Float = -90) {
+    advanceAudio(sut, by: sut.warmupPeriod + audioFeedChunkSeconds, level: level)
+}
+
+/// Through the warm-up on quiet audio, then a LOUD first chunk after it: the sync chunk latches the
+/// detector above — the state between taps, a tap still sounding — without firing.
+@MainActor
+private func latchedAbove(_ sut: TapToneAnalyzer) {
+    advanceAudio(sut, by: sut.warmupPeriod - 0.001)
+    chunks(sut, -20, 1)
+}
+
+private let confirm = RealtimeFFTAnalyzer.levelCrossingConfirmationChunks
+
+/// A decaying tone — a tap's ring-out — at 48 kHz. Computed in Float, as the other suites' tap helpers are.
+private func decayingTone(_ hz: Float, count: Int) -> [Float] {
+    (0..<count).map { i in
+        let t = Float(i) / 48000
+        return 0.5 * expf(-t * 6) * sinf(2 * .pi * hz * t)
+    }
+}
 
 // ---------------------------------------------------------------------------
-// MARK: - T1: Signal crossing rising threshold fires tap
+// MARK: - Tests
 // ---------------------------------------------------------------------------
 
 @Suite("TapDetection", .serialized)
 @MainActor
 struct TapDetectionTests {
 
-    // TapDisplaySettings is redirected to an isolated UserDefaults suite by
-    // TestRunner.setUp() so test runs never touch real user settings.
-    // Reset to .acoustic before each test so tests that set .plate don't
-    // affect subsequent tests in the same run.
-    init() { TapDisplaySettings.measurementType = .acoustic }
+    // Settings live in this process's isolated UserDefaults suite; each case sets the measurement type
+    // it needs (`armed`), and this puts back the default for the next.
+    init() { TapDisplaySettings.measurementType = .classical }
 
-    // T1: Rising edge above threshold records a tap.
-    @Test func aboveThreshold_setsTapDetected() {
-        let sut = makeSUT(threshold: -40)
-        sut.detectionState = .listening
-        sut.isAboveThreshold = false   // currently below
-
-        // Rising-edge fires after RealtimeFFTAnalyzer.levelCrossingConfirmationChunks
-        // consecutive above-rising-threshold calls — see TapToneAnalyzer+TapDetection.
-        for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(level: -35, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-
-        #expect(sut.decayTapAudioTime != nil, "a tap should be recorded after crossing the rising threshold")
+    // T1: a rising edge above the threshold is a tap.
+    @Test func t1_risingEdgeFiresATap() {
+        let sut = armed(threshold: -40)
+        settled(sut)
+        chunks(sut, -35, confirm)
+        #expect(sut.gatedCaptureActive, "a tap should start a capture after crossing the rising threshold")
     }
 
-    // T1c-T1e: the detector must use the threshold the APPLICATION configured.
-    //
-    // The `test/tap-decisions` DSP cases pin the detection rule with the threshold handed to them as
-    // an argument, which says nothing about whether the shipping path delivers the right number.
-    // PARITY-TEST-METHOD rule 1 — check what the APPLICATION passes, not what the test does. Here
-    // the application's path IS `tapDetectionThreshold` on the analyzer: the slider binds to it and
-    // `detectTap` reads it. These pass in Swift and Python for that reason, and failed on the web,
-    // where #17 F30 moved the detector onto the analyzer and left the threshold behind in the
-    // engine's config — the slider went dead and detection sat at the -40 dB default.
+    // T1b: the tap is stamped with the AUDIO time of the chunk that confirmed it.
+    @Test func t1b_theTapIsStampedWithTheConfirmingChunksAudioTime() {
+        let sut = armed(threshold: -40)
+        settled(sut)
+        chunks(sut, -35, confirm)
+        #expect(sut.decayTapAudioTime == sut.lastAudioTime, "the tap's time is the confirming chunk's audio time")
+    }
 
-    // T1c: a level BELOW the configured threshold must not fire.
-    @Test func belowConfiguredThreshold_doesNotFire() {
-        let sut = makeSUT(threshold: -30)
-        sut.detectionState = .listening
-        sut.isAboveThreshold = false
+    // T1c–T1e: the detector uses the threshold the APPLICATION configured — `tapDetectionThreshold`, which
+    // the slider writes. The web once left it behind in the engine's config, so the slider went dead and
+    // detection sat at the -40 dB default (#17 F30).
 
-        // -35 is quieter than the configured -30, but LOUDER than the -40 default. An edition that
-        // ignores the configured value and falls back to its default fires here.
-        for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(level: -35, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-
-        #expect(sut.decayTapAudioTime == nil,
+    // T1c: a level below the configured threshold, but above the -40 default, is not a tap.
+    @Test func t1c_belowTheConfiguredThreshold_doesNotFire() {
+        let sut = armed(threshold: -30)
+        settled(sut)
+        chunks(sut, -35, confirm)
+        #expect(!sut.gatedCaptureActive,
                 "a tap quieter than the configured threshold must not fire — if this fails, the detector is not reading the configured value")
     }
 
-    // T1d: the control — a level above it still fires, so T1c cannot pass by detecting nothing.
-    @Test func aboveConfiguredThreshold_fires() {
-        let sut = makeSUT(threshold: -30)
-        sut.detectionState = .listening
-        sut.isAboveThreshold = false
-
-        for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(level: -25, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-
-        #expect(sut.decayTapAudioTime != nil)
+    // T1d: the control — a level above it fires, so T1c cannot pass by detecting nothing.
+    @Test func t1d_aboveTheConfiguredThreshold_fires() {
+        let sut = armed(threshold: -30)
+        settled(sut)
+        chunks(sut, -25, confirm)
+        #expect(sut.gatedCaptureActive)
     }
 
-    // T1e: the same tap, judged against two thresholds, must be decided differently.
-    @Test func theSameTapIsAcceptedOrRejectedByTheThreshold() {
-        let lenient = makeSUT(threshold: -50)
-        lenient.detectionState = .listening
-        lenient.isAboveThreshold = false
-        for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            lenient.detectTap(level: -45, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-        #expect(lenient.decayTapAudioTime != nil, "-45 clears a -50 threshold")
+    // T1e: the same tap, judged against two thresholds, is decided differently.
+    @Test func t1e_theSameTapIsAcceptedOrRejectedByTheThreshold() {
+        let lenient = armed(threshold: -50)
+        settled(lenient)
+        chunks(lenient, -45, confirm)
+        #expect(lenient.gatedCaptureActive, "-45 clears a -50 threshold")
 
-        let strict = makeSUT(threshold: -35)
-        strict.detectionState = .listening
-        strict.isAboveThreshold = false
-        for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            strict.detectTap(level: -45, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-        #expect(strict.decayTapAudioTime == nil, "the same tap is too quiet for a -35 threshold")
+        let strict = armed(threshold: -35)
+        settled(strict)
+        chunks(strict, -45, confirm)
+        #expect(!strict.gatedCaptureActive, "the same tap is too quiet for a -35 threshold")
     }
 
-    // T1f: the re-arm rule — a ring-out above the falling threshold is not a new tap.
-    //
-    // Between taps in a multi-tap sequence the detector sits LATCHED ABOVE with no capture running.
-    // Hysteresis says the ring-out must fall below `falling` (threshold - hysteresisMargin) before
-    // anything counts as a new strike; a decay that dips past `rising` but stays above `falling` is
-    // the SAME tap still sounding. Here `isAboveThreshold` is both the latch and the gate, so while
-    // it is up no counting happens at all. Web splits the two — its latch is `isAboveThreshold` but
-    // firing is gated by `prevAbove`, which clears as soon as the level drops below `rising` — so a
-    // ring-out that never reaches `falling` re-arms it. Paired with Python test_T1f and web's
-    // "the re-arm rule" cases.
-    @Test func ringOutAboveFallingThreshold_isNotANewTap() {
-        let sut = makeSUT(threshold: -40)   // rising -40, falling -43
-        sut.detectionState = .listening
-        sut.isAboveThreshold = true         // the between-taps state: fired, capture done, not settled
-
-        for _ in 0..<3 {  // ring-out: below rising, ABOVE falling — still the same tap
-            sut.detectTap(level: -42, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-        for _ in 0..<3 {  // the decay swings back up
-            sut.detectTap(level: -20, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-
-        #expect(sut.decayTapAudioTime == nil,
+    // T1f: the re-arm rule — while latched above, a ring-out that dips below the rising threshold but not
+    // below the falling one (threshold − margin) is the same tap still sounding, so its next rise is not
+    // a new tap. `isAboveThreshold` is both the latch and the gate.
+    @Test func t1f_aRingOutAboveTheFallingThreshold_isNotANewTap() {
+        let sut = armed(threshold: -40)   // rising -40, falling -43
+        latchedAbove(sut)
+        chunks(sut, -42, 3)               // below rising, ABOVE falling — still the same tap
+        chunks(sut, -20, 3)               // the decay swings back up
+        #expect(!sut.gatedCaptureActive,
                 "a ring-out that never fell below the falling threshold must not be taken as a new tap")
     }
 
-    // T1g: the control — a dip BELOW falling does re-arm, so T1f cannot pass by never firing.
-    @Test func dipBelowFallingThreshold_doesReArm() {
-        let sut = makeSUT(threshold: -40)
-        sut.detectionState = .listening
-        sut.isAboveThreshold = true
-
-        for _ in 0..<3 {  // the signal genuinely settled
-            sut.detectTap(level: -60, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-        for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(level: -20, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-
-        #expect(sut.decayTapAudioTime != nil)
+    // T1g: the control — a dip below the falling threshold does re-arm, so T1f cannot pass by never firing.
+    @Test func t1g_aDipBelowTheFallingThreshold_reArms() {
+        let sut = armed(threshold: -40)
+        latchedAbove(sut)
+        chunks(sut, -60, 3)               // the signal genuinely settled
+        chunks(sut, -20, confirm)         // a real second strike
+        #expect(sut.gatedCaptureActive)
     }
 
-    // T1b: a detected tap is stamped with the AUDIO time of the chunk that confirmed it.
-    @Test func aboveThreshold_stampsTheTapsAudioTime() {
-        let sut = makeSUT(threshold: -40)
-        sut.detectionState = .listening
-        sut.isAboveThreshold = false
-
-        let chunks = RealtimeFFTAnalyzer.levelCrossingConfirmationChunks
-        for k in 0..<chunks {
-            sut.detectTap(level: -35, audioTime: 2.0 + Double(k) * 0.02, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-
-        #expect(sut.decayTapAudioTime == 2.0 + Double(chunks - 1) * 0.02,
-                "the tap's time is the confirming chunk's audio time")
+    // T2: a level below the threshold is not a tap.
+    @Test func t2_belowTheThreshold_doesNotFire() {
+        let sut = armed(threshold: -40)
+        settled(sut)
+        chunks(sut, -50, confirm)
+        #expect(!sut.gatedCaptureActive, "a level below the threshold must not start a capture")
     }
 
-    // T2: Signal below threshold records no tap.
-    @Test func belowThreshold_doesNotDetect() {
-        let sut = makeSUT(threshold: -40)
-        sut.detectionState = .listening
-        sut.isAboveThreshold = false
-
-        sut.detectTap(level: -50, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-
-        #expect(sut.decayTapAudioTime == nil, "Signal below threshold must not trigger detection")
+    // T3: the warm-up suppresses detection.
+    @Test func t3_theWarmUpSuppressesDetection() {
+        let sut = armed(threshold: -40)
+        chunks(sut, -20, confirm)         // loud, but inside the warm-up
+        #expect(sut.lastAudioTime < sut.warmupPeriod)
+        #expect(!sut.gatedCaptureActive, "no tap during the warm-up")
     }
 
-    // T3: Calls during warm-up period suppress detection entirely.
-    @Test func duringWarmup_suppressesDetection() {
-        let sut = makeSUT()
-        sut.detectionState = .listening
-        sut.isAboveThreshold = false
-        // Warm-up still active: start the window at the engine's current audio time (0 in tests, and
-        // detectTap is called directly so the audio clock never advances → still inside the window).
-        sut.warmupStartAudioTime = sut.fftAnalyzer.audioElapsed
-
-        sut.detectTap(level: -20, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-
-        #expect(sut.decayTapAudioTime == nil, "Should not detect during warm-up")
+    // T5: once latched above, a level between the falling and rising thresholds holds the latch.
+    @Test func t5_betweenFallingAndRising_holdsTheLatch() {
+        let sut = armed(threshold: -40)   // rising -40, falling -43
+        latchedAbove(sut)
+        chunks(sut, -42, 1)
+        #expect(sut.isAboveThreshold, "above the falling threshold, the latch holds")
+        #expect(!sut.gatedCaptureActive, "no new tap")
     }
 
-    // T5: Hysteresis — signal that rises above risingThreshold but then only
-    // drops to fallingThreshold+ε should keep isAboveThreshold = true and
-    // should NOT trigger a new tap.  hysteresisMargin is hardcoded to 3 dB.
-    @Test func hysteresis_preventsBouncingOnFallingEdge() {
-        let sut = makeSUT(threshold: -40)
-        sut.detectionState = .listening
-
-        // First sequence: rising-edge confirmation requires N consecutive
-        // above-rising-threshold calls before firing — feed enough to latch.
-        sut.isAboveThreshold = false
-        for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(level: -35, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-        // A tap has fired; isAboveThreshold == true.
-
-        // The anchor: the first tap was stamped at audio time 0; a second tap, fed at 1, would move it.
-        let anchor = sut.decayTapAudioTime
-
-        // Second call: signal at -42 dB — between fallingThreshold (-43) and
-        // risingThreshold (-40). Should stay "above" and not fire a new tap.
-        sut.detectTap(level: -42, audioTime: 1, magnitudes: fakeMags, frequencies: fakeFreqs)
-
-        // isAboveThreshold should still be true (signal > fallingThreshold -43)
-        #expect(sut.isAboveThreshold == true,
-                "Signal above fallingThreshold should keep isAboveThreshold = true")
-        #expect(anchor == 0 && sut.decayTapAudioTime == anchor,
-                "No new tap should fire when still above falling threshold")
+    // T5b: a level below the falling threshold clears the latch.
+    @Test func t5b_belowTheFallingThreshold_clearsTheLatch() {
+        let sut = armed(threshold: -40)
+        latchedAbove(sut)
+        chunks(sut, -50, 1)
+        #expect(!sut.isAboveThreshold, "below the falling threshold, the latch clears")
     }
 
-    // T5b: Once signal drops below fallingThreshold, isAboveThreshold becomes false
-    // (ready for the next rising edge).
-    @Test func hysteresis_signalBelowFallingThreshold_resetsAboveThreshold() {
-        let sut = makeSUT(threshold: -40)
-        sut.detectionState = .listening
-        sut.isAboveThreshold = true   // currently above
+    // T6: plate detection is RELATIVE to the noise floor. With the floor raised to -45 and the threshold
+    // at -40, the relative rising threshold is -35 — above the absolute one — so a -38 level, which the
+    // absolute rule fires on, is not a tap here, and -30 is. The plate is in a real capture phase, and the
+    // tap must start a capture.
+    @Test func t6_plateDetectionIsRelativeToTheNoiseFloor() {
+        let guitar = armed(threshold: -40)
+        settled(guitar)
+        chunks(guitar, -38, confirm)
+        #expect(guitar.gatedCaptureActive, "the control: -38 clears the absolute -40 threshold")
 
-        // Signal drops below fallingThreshold (-43)
-        sut.detectTap(level: -50, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
+        let sut = armed(threshold: -40, .plate)
+        #expect(sut.materialTapPhase == .capturingLongitudinal)
+        settled(sut, level: -45)          // the warm-up, then the floor re-anchors at -45
+        #expect(sut.noiseFloorEstimate == -45)
 
-        #expect(sut.isAboveThreshold == false,
-                "Signal below fallingThreshold should set isAboveThreshold = false")
+        chunks(sut, -38, 3)
+        #expect(!sut.gatedCaptureActive, "-38 is below the relative threshold (-35): not a tap")
+
+        chunks(sut, -30, confirm)
+        #expect(sut.gatedCaptureActive, "-30 clears the relative threshold: a capture starts")
     }
 
-    // T8: The first frame after warm-up exits syncs isAboveThreshold but does not fire a tap.
-    @Test func justExitedWarmup_syncsThenSkips() {
-        let sut = makeSUT(threshold: -40)
-        sut.detectionState = .listening
-        sut.justExitedWarmup = true
-        // warmupStartAudioTime is 2 audio-seconds ago → warm-up check passes
+    // T7: in plate mode the noise-floor estimate follows the ambient level while below the threshold.
+    @Test func t7_theNoiseFloorConvergesTowardTheAmbientLevel() {
+        let sut = armed(threshold: -40, .plate)
+        settled(sut, level: -60)          // the floor re-anchors at -60
+        let start = sut.noiseFloorEstimate
+        #expect(start == -60)
 
-        sut.detectTap(level: -30, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-
-        // No tap must fire on the first sync frame
-        #expect(sut.decayTapAudioTime == nil,
-                "First frame after warmup should sync state but not fire a tap")
-        // justExitedWarmup should be cleared
-        #expect(sut.justExitedWarmup == false,
-                "justExitedWarmup flag should be cleared after sync frame")
+        chunks(sut, -55, 50)              // α = 0.05, 50 steps from -60 toward -55: ≈ -57.4
+        #expect(sut.noiseFloorEstimate > start, "the floor moves toward the ambient level")
+        #expect(sut.noiseFloorEstimate > -58, "after 50 chunks at -55 dB it is close to -55 (got \(sut.noiseFloorEstimate))")
     }
 
-    // T6: Plate mode uses relative detection (noiseFloor + headroom), not the
-    // absolute tapDetectionThreshold.
-    @Test func plateMode_usesRelativeNoiseFloor() {
+    // T8: the first chunk after the warm-up syncs the latch from its level, and does not fire.
+    @Test func t8_theFirstChunkAfterTheWarmUpSyncsTheLatch() {
+        let sut = armed(threshold: -40)
+        advanceAudio(sut, by: sut.warmupPeriod - 0.001)   // every chunk still inside the warm-up
+        #expect(sut.justExitedWarmup)
+        chunks(sut, -30, 1)               // the first chunk after it — loud
+        #expect(!sut.justExitedWarmup, "the sync chunk clears the flag")
+        #expect(sut.isAboveThreshold, "the latch is synced from the level")
+        #expect(!sut.gatedCaptureActive, "the sync chunk does not fire")
+    }
+
+    // The settle — the latched ring-out falling below the falling threshold — leaves the prompt alone.
+    // It used to rewrite it with the GUITAR loop status whatever the mode, so a plate's
+    // "fL tap 1/2 captured. Tap again..." became "Tap 1/2 captured. Tap again..." (#17 F50 item 7).
+    @Test func settle_leavesAPlatePromptAlone() {
+        let sut = armed(threshold: -40, .plate)
+        sut.numberOfTaps = 2
+        settled(sut, level: -60)
+        chunks(sut, -10, confirm)                         // a tap: the capture opens
+        #expect(sut.gatedCaptureActive)
+        sut.finishGatedFFTCapture(samples: decayingTone(60, count: 24_000), sampleRate: 48000, phase: .capturingLongitudinal)
+        let prompt = sut.statusMessage
+        #expect(prompt.hasPrefix("fL tap 1/2"))
+        advanceAudio(sut, by: sut.tapCooldown, level: -20)  // the rest ends while it still rings: latched above
+        #expect(sut.isDetecting && sut.isAboveThreshold)
+        chunks(sut, -60, 3)                               // the ring-out falls: the settle
+        #expect(!sut.isAboveThreshold)
+        #expect(sut.statusMessage == prompt, "the settle must leave the plate prompt alone")
+    }
+
+    @Test func settle_leavesAGuitarPromptAlone() async throws {
+        let sut = armed(threshold: -40)
+        sut.numberOfTaps = 2
+        // An unstarted analyzer has no frequency bins (all 0 Hz), so the guitar finish's real spectrum
+        // would put every peak at 0 Hz; set them up as starting the engine or file playback does, and let
+        // the main queue publish them (as StateInvariantTests does).
+        sut.fftAnalyzer.actualSampleRate = 48000
+        sut.fftAnalyzer.updateFrequencyBins()
+        try await Task.sleep(for: .milliseconds(50))
+        settled(sut)
+        chunks(sut, -10, confirm)
+        #expect(sut.gatedCaptureActive)
+        sut.finishGuitarGatedCapture(samples: decayingTone(100, count: sut.fftAnalyzer.fftSize), sampleRate: 48000)
+        let prompt = sut.statusMessage
+        #expect(prompt == "Tap 1/2 captured. Tap again...")
+        advanceAudio(sut, by: sut.tapCooldown, level: -20)
+        #expect(sut.isDetecting && sut.isAboveThreshold)
+        chunks(sut, -60, 3)
+        #expect(!sut.isAboveThreshold)
+        #expect(sut.statusMessage == prompt)
+    }
+
+    // Arming and resuming (#17 F50 item 13). A new sequence seeds the noise floor from the current input
+    // level — the engine's, here set as the engine sets it — and -100 when the warm-up is skipped.
+    @Test func start_seedsTheNoiseFloorFromTheInputLevel() {
         TapDisplaySettings.measurementType = .plate
-        defer { TapDisplaySettings.measurementType = .acoustic }
-
-        let fft = RealtimeFFTAnalyzer.forTesting()
-        let sut = TapToneAnalyzer(fftAnalyzer: fft)
-        sut.tapDetectionThreshold = -40
-        sut.numberOfTaps = 1
-        sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed
-        sut.justExitedWarmup = false
-        sut.detectionState = .listening
-        sut.isAboveThreshold = false
-        // Put the analyzer in the correct plate phase so handlePlateTapDetection
-        // doesn't fall through to the .notStarted warning branch and discard the tap.
-        sut.materialTapPhase = .capturingLongitudinal
-        // Disconnect Combine subscriptions (same reason as makeSUT)
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.cancellables.removeAll()
+        sut.fftAnalyzer.inputLevelDB = -50
+        sut.startTapSequence()
+        #expect(sut.noiseFloorEstimate == -50)
 
-        // Set a controlled noise floor estimate
-        sut.noiseFloorEstimate = -70
-        // headroom = max(-40 - (-70), 10) = 30 dB
-        // effectiveRisingThreshold = -70 + 30 = -40 dB
-        // So a signal at -35 dB should fire after N consecutive above-threshold calls.
-        for _ in 0..<RealtimeFFTAnalyzer.levelCrossingConfirmationChunks {
-            sut.detectTap(level: -35, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
-
-        // Plate taps do not start ring-out tracking, so `decayTapAudioTime` is not set here; the tap's
-        // own effect is that detection stops while its gated capture runs.
-        #expect(sut.detectionState == .idle,
-                "Plate mode: signal above noise floor + headroom should fire")
+        TapDisplaySettings.measurementType = .classical
+        sut.startTapSequence(skipWarmup: true)
+        #expect(sut.noiseFloorEstimate == -100, "the warm-up skipped (guitar file playback)")
     }
 
-    // T7: Noise floor EMA converges toward signal when below threshold.
-    @Test func noiseFloorEMA_convergesWithRepeatedBelowThresholdFrames() {
-        TapDisplaySettings.measurementType = .plate
-        defer { TapDisplaySettings.measurementType = .acoustic }
+    // A resume restarts the tap confirmation: one chunk above the threshold before the pause and one after
+    // it do not make a tap. Swift and Python kept the count across the pause, so a single loud chunk after
+    // a resume could fire one.
+    @Test func resume_restartsTheTapConfirmation() {
+        let sut = armed(threshold: -40)
+        settled(sut)
+        chunks(sut, -35, 1)               // one chunk counted
+        #expect(!sut.gatedCaptureActive)
+        sut.pauseTapDetection()
+        sut.resumeTapDetection()
+        chunks(sut, -35, 1)               // one chunk after the resume
+        #expect(!sut.gatedCaptureActive, "one chunk after the resume must not confirm a tap")
+        chunks(sut, -35, 1)
+        #expect(sut.gatedCaptureActive, "two chunks do")
+    }
 
-        let fft = RealtimeFFTAnalyzer.forTesting()
-        let sut = TapToneAnalyzer(fftAnalyzer: fft)
-        sut.tapDetectionThreshold = -40
-        sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed
-        sut.justExitedWarmup = false
-        sut.isAboveThreshold = false  // stays below threshold
+    // A new sequence restarts the tap confirmation too: a chunk counted before it cannot help confirm its
+    // first tap.
+    @Test func start_restartsTheTapConfirmation() {
+        let sut = armed(threshold: -40)
+        settled(sut)
+        chunks(sut, -35, 1)               // one chunk counted
+        sut.startTapSequence()
+        // No quiet chunk in between — one would reset the count by itself. (The engine's clock stays at 0
+        // in a test, so the new warm-up, anchored to it, has already run; the same holds for a resume.)
+        chunks(sut, -35, 1)
+        #expect(!sut.gatedCaptureActive, "one chunk of the new sequence must not confirm a tap")
+        chunks(sut, -35, 1)
+        #expect(sut.gatedCaptureActive, "two chunks do")
+    }
 
-        let startEstimate = sut.noiseFloorEstimate  // initial value (-60)
-        let target: Float = -55  // ambient level we'll feed in
+    // A resume keeps the noise floor and puts the latch down.
+    @Test func resume_keepsTheNoiseFloorAndPutsTheLatchDown() {
+        let sut = armed(threshold: -40, .plate)
+        latchedAbove(sut)
+        let floor = sut.noiseFloorEstimate
+        sut.pauseTapDetection()
+        sut.resumeTapDetection()
+        #expect(sut.noiseFloorEstimate == floor, "the floor is left as it was")
+        #expect(!sut.isAboveThreshold, "the latch goes down")
+    }
 
-        // Feed 50 frames at -55 dB (below threshold → EMA updates)
-        for _ in 0..<50 {
-            sut.detectTap(level: target, audioTime: 0, magnitudes: fakeMags, frequencies: fakeFreqs)
-        }
+    // The gated capture's onset alignment: the transient lands at the pre-onset position plus the
+    // backup, at full amplitude. `TapToneAnalyzer+SpectrumCapture`'s tag names this suite as one of the
+    // gated capture's tests.
+    @Test func onsetAlignment_placesTheTransientAtPreOnsetPlusBackup() throws {
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
+        var buf = [Float](repeating: 0, count: 10000)
+        buf[5000] = 0.5  // a single transient after silence
+        let out = sut.alignCaptureToOnset(buf, windowSize: 4096, preOnsetSamples: 1000)
+        try #require(out.count == 4096)
+        let argmax = out.indices.max(by: { abs(out[$0]) < abs(out[$1]) })!
+        #expect(argmax == 1032, "the pre-onset 1000, plus the onset backed up 32 samples")
+        #expect(abs(out[argmax] - 0.5) < 1e-6)
+    }
 
-        // EMA with α=0.05, 50 steps from -60 toward -55:
-        // After 50 steps: estimate ≈ -60 + (-55 - -60) × (1 - (1-0.05)^50) ≈ -57.4
-        // The estimate should have moved noticeably toward -55 (i.e. > -58)
-        #expect(sut.noiseFloorEstimate > startEstimate,
-                "Noise floor should increase toward ambient level after repeated frames")
-        #expect(sut.noiseFloorEstimate > -58,
-                "Noise floor after 50 frames at -55 dB should be close to -55 (got \(sut.noiseFloorEstimate))")
+    // The fallbacks: when the onset cannot be found, the start of the buffer, still window-sized — so the
+    // tap reaches the transform at the same length as every other (same bin grid, same window gain).
+    @Test func onsetAlignment_tooShort_returnsItsStartWindowSized() throws {
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
+        let buf = [Float](repeating: 0.25, count: 1000)  // shorter than the 2048-sample noise estimate
+        let out = sut.alignCaptureToOnset(buf, windowSize: 4096, preOnsetSamples: 1000)
+        // #require stops here if the length is wrong — reading out[1000] of a shorter buffer would trap
+        // and take the whole test process down.
+        try #require(out.count == 4096)
+        #expect(out[0] == 0.25 && out[999] == 0.25)
+        #expect(out[1000] == 0 && out[4095] == 0, "zero-padded after the buffer")
+    }
+
+    @Test func onsetAlignment_noOnset_returnsTheStartWindowSized() throws {
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
+        // A level that never rises 10x above its own RMS: no onset.
+        let buf = (0..<10000).map { Float(0.1) + Float(0.00001) * Float($0) }
+        let out = sut.alignCaptureToOnset(buf, windowSize: 4096, preOnsetSamples: 1000)
+        try #require(out.count == 4096, "window-sized, not the whole buffer")
+        #expect(out[0] == buf[0] && out[4095] == buf[4095], "the start of the buffer")
     }
 }

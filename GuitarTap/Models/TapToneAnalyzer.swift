@@ -417,11 +417,11 @@ final class TapToneAnalyzer: ObservableObject {
             : "Tap \(currentTapCount)/\(numberOfTaps) captured. Tap again..."
     }
 
-    /// Duration of the spectrum-capture window after each tap, in seconds.
+    /// After the LAST guitar tap, "All taps captured. Processing..." shows for this much AUDIO before the
+    /// taps are averaged (``afterAudio(_:releasedAtFileEnd:_:)``, released at file end; #19).
     ///
-    /// The spectrum snapshot is taken at `captureWindow` seconds after the tap event.
-    /// 200 ms (default) captures the early decay while avoiding noise floor.
-    @Published var captureWindow: TimeInterval = 0.2
+    /// A constant: it was `@Published var`, but nothing wrote or observed it (#17 F50 item 4).
+    let captureWindow: TimeInterval = 0.2
 
     /// Tap-detection threshold, in dBFS.
     ///
@@ -537,12 +537,6 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Used internally by the hysteresis detector and exposed for the level-meter view.
     @Published var averageMagnitude: Float = -100
-
-    /// The computed detection-threshold level displayed on the spectrum chart, in dBFS.
-    ///
-    /// For plate/brace mode this is `noiseFloorEstimate + headroom`; for guitar mode
-    /// it equals ``tapDetectionThreshold``.
-    @Published var tapDetectionLevel: Float = -100
 
     /// Whether the detector is listening, paused mid-sequence, or neither.
     ///
@@ -1838,12 +1832,7 @@ final class TapToneAnalyzer: ObservableObject {
                 // audioTime is THIS chunk's audio timestamp, captured on the audio thread. It must be
                 // carried across the hop — the audio thread races ahead of the main queue, so reading
                 // fftAnalyzer.audioElapsed here would give a LATER time and silently skip the warm-up.
-                self?.onRmsLevelChanged(levelDB, audioTime: audioTime)
-                // Ring-out decay tracking rides the SAME carried audioTime, so it is stamped in audio
-                // time (load-invariant) rather than with Date() at delivery. It self-gates on
-                // isTrackingDecay and runs OUTSIDE onRmsLevelChanged's isDetecting guard — the ring-out
-                // continues past measurement completion, which is exactly the window we measure.
-                self?.trackDecayFast(inputLevel: levelDB, audioTime: audioTime)
+                self?.onChunkLevel(levelDB, audioTime: audioTime)
             }
         }
 

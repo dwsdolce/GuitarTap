@@ -67,14 +67,25 @@ class Pitch {
 
     // MARK: - Pitch Calculation
 
+    /// Whether `frequency` has a pitch at all: a finite, positive number of hertz.
+    ///
+    /// A frequency that has none — 0 Hz, a negative value, NaN, infinity — gets "no pitch" from every
+    /// function here: an empty note name, 0 cents, 0 Hz, a (0, 0) range, not in tune. It used to reach
+    /// `Int(round(12 * log2(0)))`, which traps, and a peak at 0 Hz took the process down (#17 F50 item 14).
+    func hasPitch(_ frequency: Double) -> Bool {
+        frequency.isFinite && frequency > 0
+    }
+
     /// Returns the note index (0–11) and octave number closest to the given frequency.
     ///
     /// The note index maps as: 0 = C, 1 = C#, 2 = D, 3 = D#, 4 = E, 5 = F,
     /// 6 = F#, 7 = G, 8 = G#, 9 = A, 10 = A#, 11 = B.
     ///
     /// - Parameter frequency: The frequency to analyse, in Hz.
-    /// - Returns: A tuple `(note: Int, octave: Int)` identifying the nearest equal-temperament pitch.
+    /// - Returns: A tuple `(note: Int, octave: Int)` identifying the nearest equal-temperament pitch;
+    ///   `(0, 0)` for a frequency with no pitch (``hasPitch(_:)``).
     func pitch(frequency: Double) -> (note: Int, octave: Int) {
+        guard hasPitch(frequency) else { return (0, 0) }
         // Count half-steps above C0; rounding snaps to the nearest semitone.
         let halfSteps = Int(round(12 * log2(frequency / c0)))
         let octave = halfSteps / 12
@@ -99,6 +110,7 @@ class Pitch {
     /// - Returns: A tuple `(upper: Double, lower: Double)` one semitone apart, bracketing
     ///   `frequency`.
     func pitchRange(frequency: Double) -> (upper: Double, lower: Double) {
+        guard hasPitch(frequency) else { return (upper: 0, lower: 0) }
         let (note, octave) = pitch(frequency: frequency)
 
         if cents(frequency: frequency) >= 0 {
@@ -114,8 +126,9 @@ class Pitch {
     /// Returns the name of the nearest equal-temperament note for the given frequency.
     ///
     /// - Parameter frequency: The frequency to analyse, in Hz.
-    /// - Returns: A string such as `"A4"` or `"C#3"`.
+    /// - Returns: A string such as `"A4"` or `"C#3"`; empty for a frequency with no pitch.
     func note(frequency: Double) -> String {
+        guard hasPitch(frequency) else { return "" }
         let (note, octave) = pitch(frequency: frequency)
         return "\(noteNames[note])\(octave)"
     }
@@ -126,8 +139,9 @@ class Pitch {
     /// note frequency.
     ///
     /// - Parameter frequency: The frequency to analyse, in Hz.
-    /// - Returns: The exact frequency in Hz of the nearest note.
+    /// - Returns: The exact frequency in Hz of the nearest note; 0 for a frequency with no pitch.
     func freq0(frequency: Double) -> Double {
+        guard hasPitch(frequency) else { return 0 }
         let (note, octave) = pitch(frequency: frequency)
         return freq(note: note, octave: octave)
     }
@@ -150,8 +164,9 @@ class Pitch {
     ///
     /// - Parameter frequency: The measured frequency, in Hz.
     /// - Returns: Cents offset in the range −50 to +50 (100 cents = 1 semitone).
-    ///   Negative means flat; positive means sharp.
+    ///   Negative means flat; positive means sharp. 0 for a frequency with no pitch.
     func cents(frequency: Double) -> Double {
+        guard hasPitch(frequency) else { return 0 }
         let (note, octave) = pitch(frequency: frequency)
         let f0 = freq(note: note, octave: octave)
         // 1200 × log₂ gives the interval in cents between f0 (ideal) and frequency (measured).
@@ -169,8 +184,9 @@ extension Pitch {
     /// Example output: `"A4 (+23 cents)"` or `"C#3 (-5 cents)"`.
     ///
     /// - Parameter frequency: The frequency to format, in Hz.
-    /// - Returns: A human-readable pitch-and-deviation string.
+    /// - Returns: A human-readable pitch-and-deviation string; empty for a frequency with no pitch.
     func formattedNote(frequency: Double) -> String {
+        guard hasPitch(frequency) else { return "" }
         let noteName = note(frequency: frequency)
         let centsOffset = cents(frequency: frequency)
         let sign = centsOffset >= 0 ? "+" : ""
@@ -183,8 +199,9 @@ extension Pitch {
     /// - Parameters:
     ///   - frequency: The frequency to check, in Hz.
     ///   - threshold: Maximum absolute cents deviation considered "in tune".  Defaults to 10 cents.
-    /// - Returns: `true` when `|cents| ≤ threshold`.
+    /// - Returns: `true` when `|cents| ≤ threshold`; `false` for a frequency with no pitch.
     func isInTune(frequency: Double, threshold: Double = 10.0) -> Bool {
+        guard hasPitch(frequency) else { return false }
         return abs(cents(frequency: frequency)) <= threshold
     }
 }

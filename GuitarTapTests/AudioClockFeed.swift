@@ -3,7 +3,7 @@
 //  GuitarTapTests
 //
 //  Advances the analyzer's AUDIO clock the way audio does: chunk by chunk through the production
-//  entry point, `onRmsLevelChanged(_:audioTime:)`. The tap lifecycle's rests, the FLC hold and the
+//  entry point, `onChunkLevel(_:audioTime:)`. The tap lifecycle's rests, the FLC hold and the
 //  capture window run on that clock (#19), so a test that used to sleep through a wall-clock delay
 //  now feeds the audio that delay covers — the same path playback and the microphone take.
 //
@@ -26,6 +26,6 @@ func advanceAudio(_ sut: TapToneAnalyzer, by seconds: Double, level: Float = -90
     var t = sut.lastAudioTime
     while t < target {
         t = min(t + audioFeedChunkSeconds, target)
-        sut.onRmsLevelChanged(level, audioTime: t)
+        sut.onChunkLevel(level, audioTime: t)
     }
 }

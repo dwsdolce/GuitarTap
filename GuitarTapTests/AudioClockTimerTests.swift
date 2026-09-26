@@ -6,7 +6,7 @@
 //  advances audio at "real time + processing time", so a wall-clock delay covered a different
 //  stretch of audio on a slower run and late captures in a sequence moved.
 //
-//  Each case here advances only audio — through `onRmsLevelChanged`, the path audio takes — and no
+//  Each case here advances only audio — through `onChunkLevel`, the path audio takes — and no
 //  wall time to speak of, so a delay that went back to the wall clock would not have fired and the
 //  case fails. The guitar rest (T1) and the capture window (T5) are pinned by the scenario traces'
 //  `midCooldown` / `postReArm` / `postProcess` rows; this file pins what nothing else did.

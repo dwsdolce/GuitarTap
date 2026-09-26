@@ -233,6 +233,9 @@ extension TapToneAnalyzer {
         // threshold, then the real first tap attack will produce the genuine
         // rising edge.
         isAboveThreshold = skipWarmup
+        // A new sequence starts its tap confirmation from zero: a chunk counted before it cannot help
+        // confirm its first tap (#17 F50 item 13, the web's behaviour).
+        detectTapConsecutiveAbove = 0
         justExitedWarmup = false
 
         // Reset material phase state.  When initialPhase is provided
@@ -305,6 +308,9 @@ extension TapToneAnalyzer {
         // Reset warm-up to prevent an immediate false trigger on the first frame.
         warmupStartAudioTime = fftAnalyzer.audioElapsed
         isAboveThreshold  = false
+        // The tap confirmation restarts: a chunk counted before the pause must not help confirm a tap
+        // after it, or a single loud chunk could fire one (#17 F50 item 13, the web's behaviour).
+        detectTapConsecutiveAbove = 0
 
         isSessionRecording = true  // Resume accumulating audio after pause
         detectionState = .listening
