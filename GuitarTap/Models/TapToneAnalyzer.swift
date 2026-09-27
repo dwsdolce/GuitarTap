@@ -905,6 +905,13 @@ final class TapToneAnalyzer: ObservableObject {
         selectedFlcPeak?.id
     }
 
+    /// There is something to save or export: a complete measurement (captured, loaded, multi-tap, or a
+    /// finished plate/brace) or a comparison. Save, Export Spectrum and Export PDF — the buttons and the
+    /// macOS menu commands — are enabled only then.
+    var hasResultToSaveOrExport: Bool {
+        isMeasurementComplete || displayMode == .comparison
+    }
+
     // MARK: - Capture Provenance
 
     /// Where the current result came from when it is not the live input: a played file or a loaded

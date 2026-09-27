@@ -361,6 +361,7 @@ struct TapAnalysisResultsView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
+                                .disabled(!analyzer.hasResultToSaveOrExport)
                             }
                             if let exportPDF = onExportPDFReport {
                                 Button {
@@ -371,6 +372,7 @@ struct TapAnalysisResultsView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
+                                .disabled(!analyzer.hasResultToSaveOrExport)
                             }
                         }
                     } else {

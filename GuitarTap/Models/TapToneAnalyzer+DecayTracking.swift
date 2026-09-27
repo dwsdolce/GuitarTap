@@ -29,10 +29,9 @@
 /// higher value (e.g. 40 dB) captures the full sustain.
 ///
 /// ## Tracking Window
-/// The tracking timer runs for 3 seconds after each tap. If the signal has not
-/// decayed by `decayThreshold` dB within that window, `currentDecayTime`
-/// remains `nil` for the current measurement. The history buffer retains at
-/// most 5 seconds of samples.
+/// Tracking stops at the first chunk `decayTrackingDuration` (3 s) of audio after the tap, without
+/// recording it. If the signal has not decayed by `decayThreshold` dB within that window,
+/// `currentDecayTime` remains `nil` for the current measurement.
 
 import Foundation
 
@@ -58,17 +57,12 @@ extension TapToneAnalyzer {
 
         // Enable decay tracking
         isTrackingDecay = true
-
-        // Debug output removed - decay tracking now works silently
     }
     
-    /// Finalises the decay-tracking window and logs the result.
+    /// Ends the decay-tracking window.
     ///
-    /// Sets `isTrackingDecay` to `false` so that ``trackDecayFast(inputLevel:)``
-    /// stops appending samples. If `currentDecayTime` was not established during
-    /// the window, diagnostic information is printed to the console explaining
-    /// whether the signal never peaked, never decayed far enough, or had
-    /// insufficient history.
+    /// Sets `isTrackingDecay` to `false` so that ``trackDecayFast(inputLevel:audioTime:)`` stops
+    /// recording. `currentDecayTime` keeps whatever value the window established (or `nil`).
     func stopDecayTracking() {
         isTrackingDecay = false
         // No further action needed: trackDecayFast's guard will no longer
@@ -76,12 +70,11 @@ extension TapToneAnalyzer {
         // established during the window (or nil if none was).
     }
     
-    /// Fast-path decay tracker called once per audio buffer (~43 Hz at 44.1 kHz)
-    /// from the `$inputLevelDB` Combine subscription.
+    /// Fast-path decay tracker called once per audio buffer (~43 Hz at 44.1 kHz) from
+    /// ``onChunkLevel(_:audioTime:)``, after tap detection.
     ///
-    /// Appends the current `inputLevel` to `peakMagnitudeHistory` and trims
-    /// entries older than 5 seconds. When enough history is present it calls
-    /// ``measureDecayTime(tapTime:)`` to update `currentDecayTime`.
+    /// Appends the current `inputLevel` to `peakMagnitudeHistory`. Once the history holds more than
+    /// 10 entries it calls ``measureDecayTime(tapTime:)`` to update `currentDecayTime`.
     ///
     /// - Parameters:
     ///   - inputLevel: The current instantaneous input level in dBFS, one value per audio
@@ -96,17 +89,13 @@ extension TapToneAnalyzer {
         guard isTrackingDecay else { return }
 
         // Stop 3 s of AUDIO after the tap, without applying this chunk — on the audio clock, so the
-        // same chunks get in on every run however slowly it plays. The web's DecayTracker stops here too.
+        // same chunks get in on every run however slowly it plays.
         if let tapTime = decayTapAudioTime, audioTime - tapTime >= decayTrackingDuration {
             stopDecayTracking()
             return
         }
 
         peakMagnitudeHistory.append((time: audioTime, magnitude: inputLevel))
-
-        // Keep only recent history (audio-time window)
-        let decayHistoryWindowSeconds: Double = 5.0
-        peakMagnitudeHistory = peakMagnitudeHistory.filter { audioTime - $0.time < decayHistoryWindowSeconds }
 
         // Calculate decay time if we have a tap and enough history
         let minimumDecayHistoryCount = 10
@@ -129,7 +118,7 @@ extension TapToneAnalyzer {
     /// - Parameter tapTime: The audio-clock time (seconds since engine start) of the tap
     ///   onset (set by ``startDecayTracking(tapAudioTime:)``).
     /// - Returns: Elapsed ring-out time in seconds, or `nil` if the signal
-    ///   did not decay by `decayThreshold` dB within the history window.
+    ///   did not decay by `decayThreshold` dB within the recorded history.
     func measureDecayTime(tapTime: Double) -> Float? {
         // Find peak magnitude after tap
         let postTapHistory = peakMagnitudeHistory.filter { $0.time >= tapTime }

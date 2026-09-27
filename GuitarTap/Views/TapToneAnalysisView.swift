@@ -291,6 +291,9 @@ struct TapToneAnalysisView: View {
         #if os(macOS)
             .focusedSceneValue(\.menuActions, menuActions)
             .onAppear { bindMenuActions() }
+            .onChange(of: tap.hasResultToSaveOrExport, initial: true) { _, hasResult in
+                menuActions.hasResultToSaveOrExport = hasResult
+            }
             .alert("Audio Engine Error", isPresented: Binding(
                 get: { engineStartError != nil },
                 set: { if !$0 { engineStartError = nil } }

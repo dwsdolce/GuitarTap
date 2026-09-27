@@ -248,4 +248,17 @@ struct ButtonEnablementTests {
             newTapDisabled: true,
             cancelEnabled: true))
     }
+
+    // Save and the exports: enabled only when there is something to save or export — a complete
+    // measurement or a comparison. One analyzer rule, read by the Save and export buttons and the menu.
+    @MainActor
+    @Test func hasResultToSaveOrExport_onlyForACompleteMeasurementOrAComparison() {
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
+        #expect(!sut.hasResultToSaveOrExport, "nothing to save or export while live")
+        sut.isMeasurementComplete = true
+        #expect(sut.hasResultToSaveOrExport, "a complete measurement")
+        sut.isMeasurementComplete = false
+        sut.displayMode = .comparison
+        #expect(sut.hasResultToSaveOrExport, "a comparison")
+    }
 }

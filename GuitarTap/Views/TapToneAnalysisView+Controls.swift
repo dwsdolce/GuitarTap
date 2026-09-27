@@ -65,7 +65,7 @@ extension TapToneAnalysisView {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .buttonStyle(.bordered)
-                    .disabled(!tap.isMeasurementComplete && tap.displayMode != .comparison)
+                    .disabled(!tap.hasResultToSaveOrExport)
                     .accessibilityLabel("Save")
                     .hint(HintText.save)
 

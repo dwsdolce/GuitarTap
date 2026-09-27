@@ -70,6 +70,9 @@ final class MenuActions {
     var showMetrics: (() -> Void)?
     var showMeasurements: (() -> Void)?
     var showSettings: (() -> Void)?
+    /// Mirrors the analyzer's `hasResultToSaveOrExport`: Save and the exports are enabled only when there
+    /// is something to save or export. Observed, so the menu updates when it changes.
+    var hasResultToSaveOrExport = false
 }
 
 // MARK: - Focused Scene Value
@@ -159,7 +162,7 @@ struct AppCommands: Commands {
                 menuActions?.saveMeasurement?()
             }
             .keyboardShortcut("s", modifiers: .command)
-            .disabled(menuActions?.saveMeasurement == nil)
+            .disabled(menuActions?.saveMeasurement == nil || menuActions?.hasResultToSaveOrExport != true)
 
             Divider()
 
@@ -167,13 +170,13 @@ struct AppCommands: Commands {
                 menuActions?.exportSpectrum?()
             }
             .keyboardShortcut("e", modifiers: .command)
-            .disabled(menuActions?.exportSpectrum == nil)
+            .disabled(menuActions?.exportSpectrum == nil || menuActions?.hasResultToSaveOrExport != true)
 
             Button("Export PDF Report…") {
                 menuActions?.exportPDF?()
             }
             .keyboardShortcut("e", modifiers: [.command, .shift])
-            .disabled(menuActions?.exportPDF == nil)
+            .disabled(menuActions?.exportPDF == nil || menuActions?.hasResultToSaveOrExport != true)
         }
 
         // View menu — inject display controls after the sidebar group so they
