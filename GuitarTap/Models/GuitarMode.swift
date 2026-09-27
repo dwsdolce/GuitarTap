@@ -370,16 +370,14 @@ extension GuitarMode {
     ///
     /// ## Why absolute, and not `.cyan` / `.green` / `.orange` / …
     ///
-    /// These were SwiftUI's semantic system colours until the #17 sweep, for the same reason
-    /// `WoodQuality.color` was, and with the same consequence: a semantic colour is resolved by the
-    /// OS, so what GuitarTap draws moves when Apple revises the palette, and a port pinning hex
-    /// cannot follow. The values below are what this app rendered on macOS 26; they are now fixed,
-    /// and Python carries the same table.
+    /// For the same reason as `WoodQuality.hex`: a semantic colour is resolved by the OS, so what
+    /// GuitarTap draws would move whenever Apple revises the palette, and a port pinning hex could
+    /// not follow. The values below are fixed, and Python carries the same table.
     ///
     /// The hue is not meaningful — it only has to tell seven modes apart and be the same in every
     /// edition. The web keeps its own brightened variants where its dark chart genuinely needs
-    /// them (Top, Back, Dipole, and the two greys) and follows these values where the difference
-    /// was never about the background (Air, Ring). See SLUG-SWEEP.md F9.
+    /// them (Top, Back, Dipole, and the two greys) and follows these values where the background
+    /// makes no difference (Air, Ring).
     var hex: String {
         switch self.normalized {
         case .air:        return "#00C0E8"

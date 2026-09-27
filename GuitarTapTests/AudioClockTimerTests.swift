@@ -2,14 +2,14 @@
 //  AudioClockTimerTests.swift
 //  GuitarTapTests
 //
-//  The tap lifecycle's delays run on the AUDIO clock, not the wall clock (#19). File playback
-//  advances audio at "real time + processing time", so a wall-clock delay covered a different
-//  stretch of audio on a slower run and late captures in a sequence moved.
+//  The tap lifecycle's delays run on the AUDIO clock, not the wall clock. File playback advances
+//  audio at "real time + processing time", so a wall-clock delay would cover a different stretch
+//  of audio on a slower run and move late captures in a sequence.
 //
 //  Each case here advances only audio — through `onChunkLevel`, the path audio takes — and no
-//  wall time to speak of, so a delay that went back to the wall clock would not have fired and the
-//  case fails. The guitar rest (T1) and the capture window (T5) are pinned by the scenario traces'
-//  `midCooldown` / `postReArm` / `postProcess` rows; this file pins what nothing else did.
+//  wall time to speak of, so a delay on the wall clock would not fire and the case fails. The
+//  guitar rest (T1) and the capture window (T5) are pinned by the scenario traces'
+//  `midCooldown` / `postReArm` / `postProcess` rows; this file pins the rest.
 //
 //  Paired with Python tests/test_audio_clock_timers.py and web test/audio-clock-timers.test.ts.
 //
@@ -161,7 +161,7 @@ struct AudioClockTimerTests {
 
     // T6 measures SILENCE, not time since the capture started: while audio keeps arriving — however
     // slowly, as under throttled playback — it does not fire. Measured from the capture's start, it
-    // closed captures early whenever playback ran slower than real time (#19).
+    // would close captures early whenever playback runs slower than real time.
     @Test("the safety timeout does not fire while audio keeps arriving")
     func safetyTimeoutWaitsForSilence() async throws {
         let sut = makeSUT(.plate, numberOfTaps: 1)

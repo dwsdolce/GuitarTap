@@ -398,9 +398,8 @@ struct TapToneRatioTests {
                 "Ratio should use selected air (95 Hz) and top (200 Hz) only")
     }
 
-    // Phase 6: renaming the Top peak to a freeform label removes it as the definitive Top, so the
-    // ratio disappears - the on-screen and saved values agree that there is no Top. (Before Phase 6
-    // tapToneRatio classified override-blind and still divided by the renamed peak.)
+    // Renaming the Top peak to a freeform label removes it as the definitive Top, so the ratio
+    // disappears - the on-screen and saved values agree that there is no Top.
     @Test func tapToneRatio_freeformOverrideOnTop_returnsNil() {
         let air = ResonantPeak(frequency: 95,  magnitude: -28)
         let top = ResonantPeak(frequency: 210, magnitude: -20)
@@ -418,7 +417,7 @@ struct TapToneRatioTests {
                 "a Top peak renamed to a freeform label is no longer the definitive Top")
     }
 
-    // Phase 6: an override that RE-TARGETS a peak to Top makes it the definitive Top.
+    // An override that RE-TARGETS a peak to Top makes it the definitive Top.
     @Test func tapToneRatio_overrideRetargetsTop() {
         let air   = ResonantPeak(frequency: 95,  magnitude: -28)
         let far   = ResonantPeak(frequency: 400, magnitude: -20) // classical: not Top by position
@@ -437,7 +436,7 @@ struct TapToneRatioTests {
         #expect(abs((ratio ?? 0) - 400.0 / 95.0) < 0.01)
     }
 
-    // Phase 6: a Top peak that is DESELECTED is not the definitive Top, so no ratio.
+    // A Top peak that is DESELECTED is not the definitive Top, so no ratio.
     @Test func tapToneRatio_deselectedTop_returnsNil() {
         let air = ResonantPeak(frequency: 95,  magnitude: -28)
         let top = ResonantPeak(frequency: 210, magnitude: -20)
@@ -688,8 +687,8 @@ struct ModeOverridesCodableTests {
     }
 
     // An `auto` entry in a FILE carries no label and means "no override", so it is dropped on read.
-    // The app cannot produce one — overrides are label-only in memory, and clearing removes the key
-    // (#17 F28) — but a hand-edited or legacy file can, and both ports drop it the same way.
+    // The app cannot produce one — overrides are label-only in memory, and clearing removes the key —
+    // but a hand-edited or legacy file can, and both ports drop it the same way.
     @Test func autoOverrideEntry_isDroppedOnRead() throws {
         let peakID = UUID(uuidString: "5E2A8C7D-1111-2222-3333-444455556666")!
         let json = """
@@ -704,7 +703,7 @@ struct ModeOverridesCodableTests {
     }
 
     // The WIRE shape is `{"type":"assigned","label":…}` per entry, even though the label alone is
-    // what lives in memory (#17 F28). Pins write parity with Python `to_dict()` and web `encode.ts`,
+    // what lives in memory. Pins write parity with Python `to_dict()` and web `encode.ts`,
     // both of which emit the same wrapper — a silent change here would produce files the ports read
     // as having no overrides at all.
     @Test func overrides_areWrittenAsAssignedEntries() throws {
@@ -869,12 +868,8 @@ struct FixtureLoadingTests {
 
     // Mode overrides, read from files the APPS actually wrote — one saved by Swift, one by Python.
     //
-    // Until #17 F28 no file in the corpus carried `peakModeOverrides` at all: 119 measurements, 116
-    // with selection, 91 with annotation offsets, ZERO with an override. Every override test used a
-    // hand-built fixture, so the reader had never met a real one. The owner captured these two.
-    //
-    // The Python-written file matters most here: Python's writer was untouched by F28, so reading it
-    // proves cross-edition parity against bytes Swift did not produce.
+    // The other override tests use hand-built fixtures; these two are real files. The Python-written
+    // one matters most: reading it proves cross-edition parity against bytes Swift did not produce.
     @Test(arguments: [
         ("annotation-override-1790037028", "Fred"),          // written by Swift
         ("annotation-override-python-1790037332", "Fred2"),  // written by Python
@@ -1011,9 +1006,9 @@ struct FixtureLoadingTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - Selection heal on decode  (Phase 6)
+// MARK: - Selection heal on decode
 //
-// Legacy files predate the definitive-selection rule: some saved no selection at all, some saved a
+// A legacy file may break the definitive-selection rule: it may have no selection saved at all, or a
 // selection with several Air/Top/Back peaks. The decoder repairs both so the loaded state, the
 // saved-list ratio and the file agree, setting the same `wasHealed` flag as the duplicate-peak heal
 // (so the library re-saves identically). Guitar only.

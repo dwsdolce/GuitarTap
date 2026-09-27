@@ -144,8 +144,7 @@ struct GuitarModeClassificationTests {
         // Corrected 2026-07-19: the old bands were top 190–250 / back 180–240 — the back range
         // sitting BELOW the top range, which inverted Top/Back for flamenco alone (Back was
         // claimed first, so classifyAll's "Back above Top" guard never fired). This case
-        // asserted `.back` at 185 Hz under those bands. See section 7c of
-        // Development/PEAK-FINDING-DUPLICATE-PEAKS.md in GuitarTapWeb.
+        // asserted `.back` at 185 Hz under those bands.
         let peak = ResonantPeak(frequency: 185, magnitude: -20)
         let result = GuitarMode.classifyAll([peak], guitarType: .flamenco)
         #expect(result[peak.id] == .top)
@@ -234,10 +233,8 @@ struct GuitarModeClassificationTests {
 // ---------------------------------------------------------------------------
 // MARK: - Override Label Resolution
 //
-// Added in the #17 sweep. `fromDisplayName` is reachable from the override picker
-// (CombinedPeakModeRowView offers both groups) and was tested in NO edition — which is how
-// Swift and Python came to disagree about one of the seven academic labels, and how the web
-// port came to lack the table entirely. See SLUG-SWEEP.md F11/F12.
+// `fromDisplayName` is reachable from the override picker (CombinedPeakModeRowView offers
+// both groups), and all three editions must resolve every label the same way.
 // ---------------------------------------------------------------------------
 
 @Suite("ModeOverrideLabels")
@@ -258,7 +255,7 @@ struct ModeOverrideLabelsTests {
         #expect(GuitarMode.fromDisplayName("Back T(1,1)_3")       == .back)
         #expect(GuitarMode.fromDisplayName("Cross Dipole T(2,1)") == .dipole)
         #expect(GuitarMode.fromDisplayName("Long Dipole T(1,2)")  == .dipole)
-        // Swift is canonical here; Python mapped Quadrapole to Upper Modes until #17.
+        // Quadrapole is a ring mode, not Upper Modes.
         #expect(GuitarMode.fromDisplayName("Quadrapole T(2,2)")   == .ringMode)
         #expect(GuitarMode.fromDisplayName("Cross Tripole T(3,1)") == .ringMode)
     }
@@ -278,7 +275,7 @@ struct ModeOverrideLabelsTests {
     }
 
     @Test func noOverride_leavesTheAutoClassificationStanding() {
-        // Absence is the only way to say "no override" — there is no stored value meaning it (F28).
+        // Absence is the only way to say "no override" — there is no stored value meaning it.
         #expect(GuitarMode.effectiveMode(override: nil, auto: .top) == .top)
         #expect(GuitarMode.effectiveMode(override: nil, auto: .back) == .back)
     }
@@ -350,8 +347,8 @@ struct GuitarModeClassifyAllTests {
     // (not .unknown), confirming step 3 classifies by range, not by "leftover".
     // On equal magnitude the FIRST peak wins the band. All three editions agree — Swift's
     // max(by:) and Python's max() both keep the first maximal element, and web's loop replaces
-    // only on a strict >. Pinned during the #17 sweep because no edition pinned it: a tie-break
-    // that differed per edition would stay invisible until a real measurement produced a tie,
+    // only on a strict >. Pinned because a tie-break that differed per edition would stay
+    // invisible until a real measurement produced a tie,
     // and would then move which peak is "the Air peak" in one app and not the others.
     @Test func classifyAll_equalMagnitude_firstPeakWinsTheBand() {
         let first  = ResonantPeak(frequency:  95, magnitude: -20)

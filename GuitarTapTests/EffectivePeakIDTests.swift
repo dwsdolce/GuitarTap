@@ -9,18 +9,13 @@
 //
 //   selected<Phase>Peak?.id — the dominant peak stored when the phase FINALISES.
 //
-// It was a three-layer resolution until 2026-09-20: a user-override tier (UI removed in April 2026,
-// replaced by redoing the phase) over the phase peak over `autoSelected<Phase>PeakID`. Both extra
-// layers are gone — the auto arm was unreachable, because both are assigned on adjacent lines in
-// the phase handlers and the phase peak is never nil when the auto id is set.
+// There is no user-override tier: a wrong peak is fixed by redoing the phase.
 //
-// Swift had NO test for any of this, while Python had nine in an untagged, Python-only file
-// (test_wi2_effective_peak_id.py). Written 2026-09-20 as its twin (project issue #8) under a
-// shared slug, so the pair is visible to gen_parity_map.
+// Twin of Python test_wi2_effective_peak_id.py, under a shared slug so the pair is visible to
+// gen_parity_map.
 //
-// WEB HAS NO COUNTERPART, and that is structural rather than a gap: `identifyMaterialPeak` stores
-// exactly ONE peak per phase in `matPeaks`, so there is no intermediate auto-selection to resolve
-// against. Its `selectedLongitudinalPeakID` is a persisted FILE field, not a live two-layer read.
+// WEB HAS NO COUNTERPART: it holds the same three `selected…Peak`s but reads them directly and has
+// no `effective…PeakID` wrapper to test.
 
 import Testing
 import Foundation

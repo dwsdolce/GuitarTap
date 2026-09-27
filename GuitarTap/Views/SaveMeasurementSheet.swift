@@ -37,14 +37,14 @@ struct SaveMeasurementSheet: View {
     let onSave: (String, String) -> Void
 
     /// Seeds the sheet's local fields at init — the loaded measurement's name/notes when re-saving one,
-    /// else "" (FILE-PATHS-AND-NAMES-SPEC §3; R10 for notes). Mirrors the web SaveSheet's defaultName.
+    /// else "". Mirrors the web SaveSheet's defaultName.
     init(defaultName: String = "", defaultNotes: String = "", onSave: @escaping (String, String) -> Void) {
         _measurementName = State(initialValue: defaultName)
         _notes = State(initialValue: defaultNotes)
         self.onSave = onSave
     }
 
-    /// A name must be entered before Save is allowed (§3). Owned by the model so all three agree.
+    /// A name must be entered before Save is allowed. Owned by the model so all three agree.
     private var canSave: Bool { TapToneMeasurement.isValidName(measurementName) }
 
     var body: some View {

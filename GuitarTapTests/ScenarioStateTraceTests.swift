@@ -69,7 +69,7 @@ private func makeSUT(numberOfTaps: Int = 1) -> TapToneAnalyzer {
     sut.cancellables.removeAll()
     // An unstarted analyzer has no frequency bins (all 0 Hz), so a real capture would put every peak
     // at 0 Hz. Build them as starting the engine does. They are published asynchronously on the main
-    // queue, so each scenario's wait after startTapSequence is what lets them land (#17 F46).
+    // queue, so each scenario's wait after startTapSequence is what lets them land.
     sut.fftAnalyzer.actualSampleRate = 48000
     sut.fftAnalyzer.updateFrequencyBins()
     return sut
@@ -96,10 +96,8 @@ private func captureTap(_ sut: TapToneAnalyzer) {
 
 // Every tap goes through the real `finishGuitarGatedCapture`, and the waits are the real ones — the
 // tap cooldown before re-arming, the capture window before averaging — measured, as the app measures
-// them, in AUDIO fed through `onChunkLevel` (#19). The traces used to assign the
-// "tap happened" state by hand, so their capture rows recorded what the TEST wrote; and S3/S4's
-// `postTap1` said detection was back on the instant a tap was captured, a path the app never takes
-// (#17 F46). These traces are identical in Swift, Python and web.
+// them, in AUDIO fed through `onChunkLevel`. No state is assigned by hand, so the capture rows record
+// what the app did. These traces are identical in Swift, Python and web.
 @Suite("ScenarioStateTrace", .serialized)
 @MainActor
 struct ScenarioStateTraceTests {

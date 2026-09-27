@@ -4,14 +4,11 @@
 //
 //  Locks GuitarMode's display colour against silent drift.
 //
-//  Until the #17 sweep this asserted `GuitarMode.air.color == .cyan` — a semantic identity that
-//  stays true whatever hue the OS resolves `.cyan` to, and so could not detect drift at all. It is
-//  the same defect the material quality colours had (see QualityColorsTests), and it mattered more
-//  here: Python's palette had never matched Swift's on the same white background, and Python drew
-//  Upper Modes and Unknown in one grey where Swift and the web separate them.
+//  Pins the hue itself, as absolute hex: an assertion like `GuitarMode.air.color == .cyan` stays
+//  true whatever hue the OS resolves `.cyan` to, and so cannot detect drift (see QualityColorsTests).
 //
-//  The values are now absolute, and Python carries this exact table. The web keeps its own
-//  brightened shades only where its dark chart needs them. See SLUG-SWEEP.md F9.
+//  Python carries this exact table. The web keeps its own brightened shades only where its dark
+//  chart needs them.
 //
 // @parity test/mode-colors
 
@@ -34,7 +31,7 @@ struct ModeColorsTests {
     }
 
     // Seven modes must be seven tellable-apart colours — the only thing the hue has to do.
-    // Upper Modes and Unknown are the close pair, and Python had them identical until #17.
+    // Upper Modes and Unknown are the close pair.
     @Test func everyModeHasItsOwnColour() {
         let hexes = GuitarMode.currentCases.map(\.hex)
         #expect(Set(hexes).count == GuitarMode.currentCases.count,

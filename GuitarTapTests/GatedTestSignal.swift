@@ -4,7 +4,7 @@
 //
 //  The one place the gated-FFT test signal is built and read back. Used by the GFFT parity tests
 //  and by GenerateParityOracle, which mints the values those tests assert — so the tests and the
-//  oracle are fed the same samples by construction, not by two copies kept in step (#17 F49).
+//  oracle are fed the same samples by construction, not by two copies kept in step.
 //
 //  Mirrors Python tests/gated_signal.py and web test/gatedSignal.ts.
 //

@@ -114,15 +114,14 @@ struct ImportPersistenceTests {
 // MARK: - Update Measurement — the saved-measurement LIBRARY, addressed by index
 //
 // Tests TapToneAnalyzer.updateMeasurement(at:measurementName:notes:): editing an entry of the
-// savedMeasurements array. Filed here, with the library, because that is what it mutates — it was
-// under test/annotation-state until #17 F27, which is neither where it belongs nor where the web
-// files its equivalent.
+// savedMeasurements array. Filed here, with the library, because that is what it mutates — and
+// where the web files its equivalent.
 //
 // The VALUE-level rules of an amendment — what `with(...)` preserves, and that every amendment
 // mints a new id — belong to test/measurement-amend and are not repeated here.
 //
 // Two of these have no web counterpart BY ARCHITECTURE, not by omission: the natives address the
-// library by index, while web's store is a rowKey-addressed IndexedDB with no index API (F19b).
+// library by index, while web's store is a rowKey-addressed IndexedDB with no index API.
 // ---------------------------------------------------------------------------
 
 @Suite("UpdateMeasurement — the library, by index")
@@ -194,7 +193,7 @@ struct UpdateMeasurementTests {
 /// An import is a library operation and says nothing about microphones; a LOAD shows the user
 /// data, so a load warns. A single-file import also loads, so its one dialog carries the load's
 /// warning. These pin the OUTCOME — the message — not any edition's mechanism for clearing an
-/// acknowledged warning, so they hold however that mechanism changes (#17 F41).
+/// acknowledged warning, so they hold however that mechanism changes.
 @Suite("ImportMessage", .serialized)
 @MainActor
 struct ImportMessageTests {

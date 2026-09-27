@@ -84,8 +84,8 @@ extension TapToneAnalyzer {
 
     // MARK: - Session Recording
 
-    /// Appends one audio chunk to the session WAV buffer and maintains the **bounded pre-roll**
-    /// (FILE-PATHS-AND-NAMES-SPEC §6). Caller must hold `mpmLock`.
+    /// Appends one audio chunk to the session WAV buffer and maintains the **bounded pre-roll**.
+    /// Caller must hold `mpmLock`.
     ///
     /// The rule, extracted so it is unit-testable independently of the gated-capture pipeline:
     /// - **Before the first tap** (`sessionPreRollActive`): keep only the last
@@ -140,7 +140,7 @@ extension TapToneAnalyzer {
     /// capture paths.
     ///
     /// Under App Sandbox that is the **container's** Documents, not the user's `~/Documents`.
-    /// FILE-PATHS-AND-NAMES-SPEC §4b makes this a user-settable folder.
+    /// The folder is user-settable.
     ///
     /// - Parameters:
     ///   - samples: Raw Float32 PCM samples to dump.
@@ -149,7 +149,7 @@ extension TapToneAnalyzer {
     ///     "session_Plate_LCF").
     func dumpCaptureWAV(samples: [Float], sampleRate: Double, label: String) {
         guard TapDisplaySettings.dumpCaptureAudio else { return }
-        // The user-settable dump folder (§4b): the custom folder (security scope held) or the
+        // The user-settable dump folder: the custom folder (security scope held) or the
         // default container. Reachability was checked at arm time, so this normally succeeds; if the
         // custom folder vanished mid-measurement, skip rather than silently write elsewhere.
         guard let (dumpDir, releaseFolder) = WavDumpFolder.acquireDumpFolder() else {
@@ -383,7 +383,7 @@ extension TapToneAnalyzer {
     /// mic noise.
     func flushGatedCaptureOnFileEnd() {
         // File end is also the end of the audio clock: release what must still happen — the capture
-        // window's processing — after any flush below has scheduled it (#19). On every path out.
+        // window's processing — after any flush below has scheduled it. On every path out.
         defer { releaseAudioActionsAtFileEnd() }
         TAP_DEBUG("flushGatedCapture", "FLUSH_GATED_CHECK | active=\(gatedCaptureActive) accumLen=\(gatedAccumBuffer.count) phase=\(String(describing: gatedCapturePhase)) target=\(gatedCaptureSamples)")
         guard gatedCaptureActive else {
@@ -478,8 +478,7 @@ extension TapToneAnalyzer {
             TAP_DEBUG("gatedCapture", "SEED | preRollSamples=\(preRollCount) target=\(gatedCaptureSamples) rate=\(Int(mpmSampleRate)) deferred=\(deferredPreRoll != nil)\n\(seedProfile)")
         }
 
-        // Safety timeout — ONE, for either path: close the capture once no audio has arrived for 2 s
-        // (#19). Swift used to repeat this closure in each path; Python and the web have one.
+        // Safety timeout — ONE, for either path: close the capture once no audio has arrived for 2 s.
         afterAudioStall(2.0, while: { [weak self] in self?.gatedCaptureID == myCaptureID && self?.gatedCaptureActive == true }) { [weak self] in
             guard let self = self else { return }
             // Identity guard: if a newer capture has started since this
@@ -554,7 +553,7 @@ extension TapToneAnalyzer {
         }
 
         // Safety timeout — ONE, for either path: close the capture once no audio has arrived for the
-        // window + 0.5 s (#19). Swift used to repeat this closure in each path; Python and the web have one.
+        // window + 0.5 s.
         let timeoutMs = targetMs + 500
         afterAudioStall(Double(timeoutMs) / 1000, while: { [weak self] in self?.gatedCaptureID == myCaptureID && self?.gatedCaptureActive == true }) { [weak self] in
             guard let self = self else { return }
@@ -577,7 +576,7 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Re-arms guitar tap detection after the rest: `tapCooldown` seconds of AUDIO (#19), then the
+    /// Re-arms guitar tap detection after the rest: `tapCooldown` seconds of AUDIO, then the
     /// latch is re-anchored from the chunk that made the rest due. Used after each captured tap of a
     /// multi-tap sequence, and when a capture timed out with no audio.
     private func scheduleGuitarReEnable() {
@@ -655,7 +654,7 @@ extension TapToneAnalyzer {
             chunk.append(contentsOf: Array(repeating: Float(0), count: fftSize - chunk.count))
         }
 
-        // Diagnostic for the alignment family (#7/#3/#5): fingerprint the buffer on both
+        // Diagnostic for capture-window alignment: fingerprint the buffer on both
         // sides of the alignment step, so a cross-edition comparison can say whether the
         // editions captured the same samples, aligned them differently, or differ only in
         // the arithmetic afterwards. Inert unless CaptureProbe.enabled.
@@ -681,7 +680,7 @@ extension TapToneAnalyzer {
         let frequencies = fftAnalyzer.frequencies
 
         capturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: Date()))
-        CaptureProbe.markAccepted(probeIndex, tapsAfter: capturedTaps.count)   // diagnostic (#7)
+        CaptureProbe.markAccepted(probeIndex, tapsAfter: capturedTaps.count)   // diagnostic
         let peakDb = magnitudes.max() ?? -100
         // DIAG: spectrum fingerprint — sum of first 100 magnitude bins
         let diagSpecHash: Float = magnitudes.count >= 100 ? magnitudes[0..<100].reduce(0, +) : 0
@@ -708,7 +707,7 @@ extension TapToneAnalyzer {
             statusMessage = "All taps captured. Processing..."
             captureTimer?.invalidate()
             captureTimer = nil
-            // `captureWindow` of AUDIO (#19). Released at file end: when the last capture ends with
+            // `captureWindow` of AUDIO. Released at file end: when the last capture ends with
             // the file, the audio clock stops and would never make it due.
             afterAudio(captureWindow, releasedAtFileEnd: true) { [weak self] in
                 self?.processMultipleTaps()
@@ -772,8 +771,7 @@ extension TapToneAnalyzer {
     ///   buffer is too short to estimate the noise, or no onset is found, the first `windowSize` samples,
     ///   zero-padded — still `windowSize` long, so the tap reaches the transform at the same length as
     ///   every other: the same bin grid, so a phase's taps average bin for bin, and the same window gain
-    ///   (the Hann spans the padded length, so its gain depends on how much of it the audio fills). This
-    ///   returned the buffer unchanged, a different length (#17 F50 item 12).
+    ///   (the Hann spans the padded length, so its gain depends on how much of it the audio fills).
     func alignCaptureToOnset(
         _ samples: [Float],
         windowSize: Int,
@@ -887,7 +885,7 @@ extension TapToneAnalyzer {
             preOnsetSamples: Int(sampleRate * Self.preOnsetDuration)
         )
 
-        // Diagnostic for the material multi-tap divergence (#5): fingerprint the buffer on
+        // Diagnostic for material multi-tap capture: fingerprint the buffer on
         // both sides of the alignment step, the same three-way split the guitar path uses —
         // a differing buffer puts the divergence in detection, a matching buffer with a
         // differing window puts it in alignment, both matching puts it in the arithmetic.
@@ -1177,9 +1175,7 @@ extension TapToneAnalyzer {
     /// Uses the pre-computed `dominantPeak` from `findDominantPeak` instead of
     /// re-running `findPeaks`. Accumulates longitudinal taps until `numberOfTaps`
     /// are collected, averages the captured spectra, then re-finds the dominant
-    /// peak on the average. Also calls
-    /// ``buildAllPeaks(magnitudes:frequencies:dominantPeak:)`` to populate the
-    /// full peak list for manual override.
+    /// peak on the average, which becomes ``selectedLongitudinalPeak``.
     ///
     /// When the taps are complete it either completes (brace — single phase) or
     /// moves toward cross-grain: pausing at `.reviewingLongitudinal` for
@@ -1223,26 +1219,13 @@ extension TapToneAnalyzer {
                                        maxHz: maxHz,
                                        preferLowestSignificant: preferLowest) ?? dominantPeak
 
-        // Build the full peak list for display/manual override, auto-selecting the
-        // dominant peak found on the averaged spectrum.
-        longitudinalPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs,
-                                          dominantPeak: avgPeak)
-        autoSelectedLongitudinalPeakID = avgPeak.id
-        selectedLongitudinalPeak = longitudinalPeaks.first(where: { $0.id == avgPeak.id }) ?? avgPeak
-        gtLog("🔵 Auto-selected longitudinal peak: \(avgPeak.frequency) Hz")
-
-        allPeaks      = longitudinalPeaks
-        // Only the identified (auto-selected) peak is selected — others are informational.
-        selectedPeakIDs   = Set([avgPeak.id])
+        // The phase's peak is the dominant peak of the averaged spectrum.
+        selectedLongitudinalPeak = avgPeak
+        gtLog("🔵 Identified longitudinal peak: \(avgPeak.frequency) Hz")
         materialCapturedTaps = []
 
         let isBrace = TapDisplaySettings.measurementType == .brace
         if isBrace {
-            if let selPeak = longitudinalPeaks.first(where: { $0.id == avgPeak.id }) {
-                allPeaks = [selPeak]
-            } else {
-                allPeaks = [avgPeak]
-            }
             setFrozenSpectrum(frequencies: [], magnitudes: [])
             materialTapPhase = .complete
             isMeasurementComplete = true
@@ -1280,43 +1263,6 @@ extension TapToneAnalyzer {
             detectionState = .idle
             statusMessage = "fL: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
         }
-    }
-
-    /// Builds the ordered list of resolved plate/brace peaks for display after
-    /// each gated-FFT capture phase completes.
-    ///
-    /// For each of the three plate peak slots (longitudinal, cross, FLC), the
-    /// method prefers the user- or auto-selected peak, then falls back to the
-    /// first peak from the corresponding captured array. Slots whose arrays are
-    /// empty are skipped. An explicit `override` peak (the just-captured
-    /// dominant peak) can replace the cross or FLC slot.
-    ///
-    /// - Parameters:
-    ///   - includeCross: Whether to include the cross-grain slot.
-    ///   - crossOverride: If non-nil, used as the cross-grain peak instead of
-    ///     `selectedCrossPeak` / `crossPeaks.first`.
-    ///   - includeFlc: Whether to include the FLC slot.
-    ///   - flcOverride: If non-nil, used as the FLC peak instead of
-    ///     `selectedFlcPeak` / `flcPeaks.first`.
-    /// - Returns: Ordered array `[longitudinal?, cross?, flc?]` with nils dropped.
-    func resolvedPlatePeaks(
-        includeCross: Bool = true,
-        crossOverride: ResonantPeak? = nil,
-        includeFlc: Bool = false,
-        flcOverride: ResonantPeak? = nil
-    ) -> [ResonantPeak] {
-        var sel: [ResonantPeak] = []
-        if let p = selectedLongitudinalPeak { sel.append(p) }
-        else if let p = longitudinalPeaks.first { sel.append(p) }
-        if includeCross {
-            let cross = crossOverride ?? selectedCrossPeak ?? crossPeaks.first
-            if let p = cross { sel.append(p) }
-        }
-        if includeFlc {
-            let flc = flcOverride ?? selectedFlcPeak ?? flcPeaks.first
-            if let p = flc { sel.append(p) }
-        }
-        return sel
     }
 
     /// Gated-FFT handler for the cross-grain capture phase.
@@ -1358,15 +1304,9 @@ extension TapToneAnalyzer {
                                        minHz: minHz,
                                        maxHz: maxHz,
                                        preferLowestSignificant: preferLowest) ?? dominantPeak
-        crossPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs, dominantPeak: avgPeak)
-        autoSelectedCrossPeakID = avgPeak.id
-        selectedCrossPeak = crossPeaks.first(where: { $0.id == avgPeak.id }) ?? avgPeak
-        gtLog("🟠 Auto-selected cross-grain peak: \(avgPeak.frequency) Hz")
+        selectedCrossPeak = avgPeak
+        gtLog("🟠 Identified cross-grain peak: \(avgPeak.frequency) Hz")
         materialCapturedTaps = []
-
-        allPeaks = combinePlatePeaks()
-        // Only the identified (auto-selected) peaks are selected — others are informational.
-        selectedPeakIDs = Set([autoSelectedLongitudinalPeakID, autoSelectedCrossPeakID].compactMap { $0 })
 
         if fftAnalyzer.isPlayingFile {
             // File playback: auto-advance past the review state.
@@ -1441,20 +1381,9 @@ extension TapToneAnalyzer {
                                        minHz: minHz,
                                        maxHz: maxHz,
                                        preferLowestSignificant: preferLowest) ?? dominantPeak
-        flcPeaks = buildAllPeaks(magnitudes: avgMags, frequencies: avgFreqs, dominantPeak: avgPeak)
-        autoSelectedFlcPeakID = avgPeak.id
-        selectedFlcPeak = flcPeaks.first(where: { $0.id == avgPeak.id }) ?? avgPeak
-        gtLog("🟣 Auto-selected FLC peak: \(avgPeak.frequency) Hz")
+        selectedFlcPeak = avgPeak
+        gtLog("🟣 Identified FLC peak: \(avgPeak.frequency) Hz")
         materialCapturedTaps = []
-
-        // Pre-compute the displayed peak selection.  The review-state branch
-        // below needs `peaksAbovePeakMin` / `selectedPeakIDs` set so the chart
-        // shows all three plate peaks; `finalisePlateWithFLC` recomputes
-        // the same values for the file-playback branch.  Mirrors the
-        // structure of Python `_handle_flc_gated_progress`.
-        let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? avgPeak)
-        allPeaks = sel
-        selectedPeakIDs = Set(sel.map { $0.id })
 
         if fftAnalyzer.isPlayingFile {
             // File playback: auto-complete without pausing at the review state.
@@ -1469,47 +1398,6 @@ extension TapToneAnalyzer {
             statusMessage = "fLC: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to complete or Redo to re-tap"
         }
         gtLog("📊 FLC review: L=\(selectedLongitudinalPeak?.frequency ?? 0) C=\(selectedCrossPeak?.frequency ?? 0) FLC=\(avgPeak.frequency) Hz")
-    }
-
-    /// Builds a display-ready peak list from a gated-FFT spectrum, ensuring
-    /// that `dominantPeak` is always present.
-    ///
-    /// Runs the standard ``findPeaks(magnitudes:frequencies:minHz:maxHz:peakMinOverride:)``
-    /// finder with no range restrictions so the user can see and manually
-    /// select any peak in the spectrum. If a peak near `dominantPeak.frequency`
-    /// (within 2 Hz) is found, it is replaced with `dominantPeak` so that the
-    /// `autoSelectedXxxPeakID == dominantPeak.id` identity invariant holds
-    /// for all subsequent UUID-based lookups. If no nearby peak is found,
-    /// `dominantPeak` is prepended.
-    ///
-    /// - Parameters:
-    ///   - magnitudes: Averaged gated-FFT spectrum (dBFS).
-    ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
-    ///   - dominantPeak: The already-selected dominant peak whose UUID must
-    ///     appear in the returned array.
-    /// - Returns: Full peak array with `dominantPeak` guaranteed to be present.
-    func buildAllPeaks(magnitudes: [Float],
-                       frequencies: [Float],
-                       dominantPeak: ResonantPeak) -> [ResonantPeak] {
-        // Use an adaptive noise-floor threshold (median of the full spectrum)
-        // for the plate/brace peak list. This mirrors findDominantPeak's approach
-        // and self-calibrates to each tap's actual signal level, independent of
-        // the guitar-mode peakMinThreshold which is disabled in the UI for plate/brace.
-        let sortedMags = magnitudes.sorted()
-        let medianThreshold: Float = sortedMags[sortedMags.count / 2]
-
-        // Run the standard finder with no range restrictions so the user can see
-        // and manually select any peak in the spectrum.
-        var peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies, peakMinOverride: medianThreshold)
-        // Replace any nearby peak with dominantPeak so UUID is always consistent.
-        // This is critical: autoSelectedXxxPeakID == dominantPeak.id, so the peak
-        // stored in the array must share that UUID for ID-based lookups to work.
-        if let idx = peaks.firstIndex(where: { abs($0.frequency - dominantPeak.frequency) < TapToneAnalyzer.peakProximityHz }) {
-            peaks[idx] = dominantPeak
-        } else {
-            peaks.insert(dominantPeak, at: 0)
-        }
-        return peaks
     }
 
     // MARK: - Spectrum Capture
@@ -1625,7 +1513,7 @@ extension TapToneAnalyzer {
         // Auto-selection deliberately runs over the FULL set, not the Peak-Min-filtered view: a
         // quiet Air below the current Peak Min is therefore selected at freeze even though it is not
         // displayed, and that selection is durable and saved. Lowering Peak Min later simply reveals
-        // an already-selected peak. (PEAK-LIFECYCLE-SPEC.md §2.)
+        // an already-selected peak.
         //
         // A new capture is one of the two things that legitimately resets per-peak state, so the
         // manual-selection flag is cleared here.

@@ -463,7 +463,7 @@ extension RealtimeFFTAnalyzer {
         // decays, so the signal supplies its own end taper, and the abrupt onset — 0.1 s in, after
         // the pre-onset silence — is weighted ≈0.2. Tested against decaying modes at known
         // frequencies, this measures a tap's frequency as well as or better than a Hann spanning
-        // only the captured samples (#17 F49).
+        // only the captured samples.
         //
         // Because the capture fills a different share of the padded window at each sample rate,
         // the window's gain differs with it: about −10.8 dB at 44.1 kHz, −9.5 dB at 48 kHz, and
@@ -479,8 +479,7 @@ extension RealtimeFFTAnalyzer {
         // HANN_DENORM produces the PERIODIC Hann w[n] = 0.5·(1 − cos(2πn/N)) with
         // peak = 1.0. Python and web compute this same periodic form — not numpy's
         // np.hanning, which is the symmetric 0.5·(1 − cos(2πn/(N−1))). The two differ by less
-        // than any tolerance can see, which is how the ports drifted to the symmetric one
-        // before; a window test in all three guards it (#17 F49).
+        // than any tolerance can see, so a window test in all three editions pins the periodic form.
         vDSP_hann_window(&hannWindow, vDSP_Length(paddedSize), Int32(vDSP_HANN_DENORM))
         vDSP_vmul(padded, 1, hannWindow, 1, &padded, 1, vDSP_Length(paddedSize))
 

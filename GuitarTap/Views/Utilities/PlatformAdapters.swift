@@ -129,7 +129,7 @@ struct FileExportHelper {
         savePanel.allowedContentTypes = [contentType]
         savePanel.nameFieldStringValue = filename
         savePanel.canCreateDirectories = true
-        // One source of truth for the starting directory (§1b) — no local copy.
+        // One source of truth for the starting directory — no local copy.
         savePanel.directoryURL = MeasurementFileExporter.startDirectory
 
         savePanel.begin { response in

@@ -9,8 +9,7 @@
 //
 //  These are the *sourcing* invariants that existing tests don't cover: PlateProperties/BraceProperties
 //  test the calc math (dims passed in directly), and MeasurementCodableTests tests the format round-trip
-//  — neither exercises where the dimensions come from. See
-//  GuitarTapWeb/Development/MEASUREMENT-DIMENSIONS-SPEC.md.
+//  — neither exercises where the dimensions come from.
 //
 // @parity test/material-measurement-inputs
 

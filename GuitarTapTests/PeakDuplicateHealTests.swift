@@ -2,7 +2,7 @@
 //  PeakDuplicateHealTests.swift
 //  GuitarTapTests
 //
-//  D8 of Development/PEAK-FINDING-DUPLICATE-PEAKS.md (GuitarTapWeb), section 7b.
+//  The duplicate-peak defect: healing files saved with a duplicate peak.
 //
 //  Fixing findPeaks stops NEW corruption. Every .guitartap file already written still
 //  carries the duplicate peak, and loaded peaks are authoritative — they are never

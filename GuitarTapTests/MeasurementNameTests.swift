@@ -2,7 +2,7 @@
 //  MeasurementNameTests.swift
 //  GuitarTapTests
 //
-//  Pins the required-name rule (FILE-PATHS-AND-NAMES-SPEC §3): a measurement name must be
+//  Pins the required-name rule: a measurement name must be
 //  non-empty after trimming before Save is allowed, and the stored name is trimmed. The Save
 //  button binds to isValidName; the save path stores normalizedName. Three-way with Python
 //  test_measurement_name.py and web measurement-name.test.ts.
@@ -41,10 +41,9 @@ struct MeasurementNameTests {
 
     // MARK: - normalizedNotes — the other user-entered field, normalized the same way
 
-    // Notes trim exactly as the name does. Swift stored them verbatim until the #17 sweep while
-    // both ports trimmed; the ports were right. It matters because "has this been edited" compares
-    // stored values: if one path trims and another does not, reopening an untouched measurement
-    // reads as an edit. See SLUG-SWEEP.md F21.
+    // Notes trim exactly as the name does, as in both ports. It matters because "has this been
+    // edited" compares stored values: if one path trims and another does not, reopening an
+    // untouched measurement reads as an edit.
     @Test func normalizedNotes_trimsAndBlanksToNil() {
         #expect(TapToneMeasurement.normalizedNotes("  Tapped cold  ") == "Tapped cold")
         #expect(TapToneMeasurement.normalizedNotes("line one\nline two") == "line one\nline two")

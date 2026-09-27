@@ -8,15 +8,11 @@
 //  the canonical behavior the Python (set_tap_num) and web
 //  (TapToneAnalyzer.setNumberOfTaps) twins mirror.
 //
-//  OUT-5: the "reduce the count mid-sequence → finalise with the taps already
-//  captured" branch has been REMOVED from didSet (and from Python; the web never
-//  had it).  The Taps stepper is disabled from the first captured tap
-//  (.disabled(currentTapCount > 0 && !isMeasurementComplete)) on every platform, so
-//  the count cannot change mid-sequence — you cancel first.  The branch was therefore
-//  unreachable, and being unreachable it had drifted three ways: Swift deferred by
-//  captureWindow and averaged ALL captured taps; Python finalised synchronously and
-//  TRUNCATED to the new count; the web did nothing.  Removed rather than reconciled.
-//  NoImplicitFinaliseTests below pins the removal.
+//  There is no "reduce the count mid-sequence → finalise with the taps already
+//  captured" behaviour on any platform.  The Taps stepper is disabled from the first
+//  captured tap (.disabled(currentTapCount > 0 && !isMeasurementComplete)) on every
+//  platform, so the count cannot change mid-sequence — you cancel first.
+//  NoImplicitFinaliseTests below pins that a count change never finalises.
 //
 //  NOTE: there is deliberately no "unchanged value → no refresh" case: Swift's
 //  didSet (and Python's set_tap_num) fire on every assignment, so an unchanged
@@ -57,8 +53,8 @@ struct TapCountChangeTests {
         #expect(sut.statusMessage == "Tap the guitar 3 times...")
     }
 
-    // Lowering it back also refreshes (the regression the web's PC-4 fixed:
-    // "3-tap brace → Generic → Taps=1" left the bar stuck on the old count).
+    // Lowering it back also refreshes — "3-tap brace → Generic → Taps=1" must not leave
+    // the prompt on the old count.
     @Test func loweringCountWhileArmedIdle_refreshesPrompt() {
         let sut = makeSUT(numberOfTaps: 4)
         sut.detectionState = .listening
@@ -77,7 +73,7 @@ struct TapCountChangeTests {
 
 }
 
-/// The same hook, on a MATERIAL measurement — the case whose absence hid #17 F36.
+/// The same hook, on a MATERIAL measurement.
 ///
 /// Every case above is guitar, in all three editions, and the hook is shared by plate and brace.
 /// At the start of a material sequence no tap has been captured, so the Taps control is still
@@ -105,7 +101,7 @@ struct TapCountChangeMaterialTests {
         sut.numberOfTaps = 3
 
         #expect(sut.statusMessage == "Ready for fL tap (×3 each for L, C)",
-                "REGRESSION: the hook called the GUITAR prompt, so changing Taps during a plate measurement said \"Tap the guitar 3 times...\" (#17 F36)")
+                "REGRESSION: the hook called the GUITAR prompt, so changing Taps during a plate measurement said \"Tap the guitar 3 times...\"")
     }
 
     @Test("the FLC setting is reflected in the refreshed prompt")
@@ -133,8 +129,8 @@ struct TapCountChangeMaterialTests {
 
     /// The guard, not the prompt. `currentTapCount` is CUMULATIVE across L → C → FLC while
     /// `capturedTaps` is the within-phase buffer, cleared at every phase completion — so a guard
-    /// written against the buffer reads "nothing captured yet" at the start of every phase. Python's
-    /// was, and would have rewritten the fC instruction mid-measurement (#17 F36).
+    /// written against the buffer reads "nothing captured yet" at the start of every phase, and would
+    /// rewrite the fC instruction mid-measurement.
     @Test("mid-sequence, at a later phase, the hook stays silent")
     func countChangeAtALaterPhase_doesNotRewriteTheInstruction() {
         TapDisplaySettings.measurementType = .plate
@@ -153,16 +149,12 @@ struct TapCountChangeMaterialTests {
         sut.numberOfTaps = 5
 
         #expect(sut.statusMessage == "Ready for fC tap — tap again",
-                "REGRESSION: the guard read the within-phase buffer, which is empty at every phase boundary, so the hook fired mid-measurement and overwrote the instruction (#17 F36)")
+                "REGRESSION: the guard read the within-phase buffer, which is empty at every phase boundary, so the hook fired mid-measurement and overwrote the instruction")
     }
 }
 
-/// OUT-5 — a count change with taps already in hand must NOT finalise the measurement.
-///
-/// Guards the removal of the unreachable reduce-mid-sequence branch (see the file header).
-/// Before the removal, `didSet` set `detectionState = .idle`, wrote "All taps captured. Processing...",
-/// and deferred `processMultipleTaps()` by `captureWindow` — averaging ALL captured taps, not the
-/// newly-requested count. Python truncated instead. Neither was reachable.
+/// A count change with taps already in hand must NOT finalise the measurement, stop detection,
+/// or drop captured taps (see the file header).
 @Suite("TapCountChange — no implicit finalise", .serialized)
 @MainActor
 struct NoImplicitFinaliseTests {
@@ -185,7 +177,7 @@ struct NoImplicitFinaliseTests {
     func loweringToCapturedCount_doesNotComplete() {
         let sut = armedWithTaps(total: 4, taps: 2) // 2 of 4 captured
 
-        sut.numberOfTaps = 2 // count == captured — the old branch finalised here
+        sut.numberOfTaps = 2 // count == captured
 
         #expect(sut.isMeasurementComplete == false)
         #expect(sut.isDetecting == true)
@@ -200,7 +192,7 @@ struct NoImplicitFinaliseTests {
 
         #expect(sut.isMeasurementComplete == false)
         #expect(sut.isDetecting == true)
-        #expect(sut.capturedTaps.count == 3) // Python used to truncate to the new count
+        #expect(sut.capturedTaps.count == 3) // not truncated to the new count
     }
 
     @Test("raising the count keeps the taps already captured")

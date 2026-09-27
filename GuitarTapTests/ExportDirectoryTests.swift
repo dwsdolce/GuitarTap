@@ -2,7 +2,7 @@
 //  ExportDirectoryTests.swift
 //  GuitarTapTests
 //
-//  Pins the export Save panel's first-run default (FILE-PATHS-AND-NAMES-SPEC §1b): it must resolve
+//  Pins the export Save panel's first-run default: it must resolve
 //  the user's REAL ~/Documents/GuitarTap via getpwuid, not the sandbox container home that
 //  homeDirectoryForCurrentUser / NSHomeDirectory return. macOS-sandbox-specific — Python/web are
 //  not sandboxed and have no equivalent, so this is a justified platform-only test.

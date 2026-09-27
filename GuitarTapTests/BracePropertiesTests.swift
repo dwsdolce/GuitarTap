@@ -21,9 +21,8 @@
 //    → ρ ≈ 383.8 kg/m³, EL ≈ 10.557 GPa, c ≈ 5244 m/s, specific modulus ≈ 27.50 → Excellent
 //
 //  The expected values are the ones GuitarTap reported for that sample (see the .pdf beside
-//  the file), not numbers this suite produced. fL was 512.3 here until the #17 sweep — a
-//  transcription of the report's rounded "512.7 Hz" display that matched neither the saved
-//  measurement nor the parity oracle, both of which carry 512.6888.
+//  the file), not numbers this suite produced. fL is 512.6888, as the saved measurement and the
+//  parity oracle carry it, not the report's rounded "512.7 Hz" display.
 // @parity test/brace
 
 import Testing
@@ -241,8 +240,7 @@ struct BraceQualityTests {
 // MARK: - Radiation Ratio Tests
 //
 // R = c_L/ρ is shown in the Brace Properties panel and in the exported image in all
-// three editions, and had no test in any of them until the #17 sweep. See the matching
-// suite in PlatePropertiesTests.swift for what that cost.
+// three editions. See the matching suite in PlatePropertiesTests.swift.
 // ---------------------------------------------------------------------------
 
 @Suite("BraceRadiationRatio")

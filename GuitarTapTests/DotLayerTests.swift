@@ -174,9 +174,8 @@ struct DotLayerVsAnnotationListTests {
     }
 
     // DL7: a freeform mode override makes peakMode(for:) report .unknown, but the peak keeps its
-    // dot. The assertion predates Phase 4 and still holds — the REASON changed. It used to hold
-    // because the dot layer was purely positional and 200 Hz is in a band; it now holds because a
-    // user-named peak is known by definition. DL8 is the case that separates the two rules.
+    // dot, because a user-named peak is known by definition. (200 Hz is also in a band, so this
+    // case alone cannot tell naming from position; DL8 can.)
     @Test func dotListIgnoresModeOverrides() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -198,15 +197,13 @@ struct DotLayerVsAnnotationListTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - Naming a peak makes it known  (DL8–DL10) — Phase 4
+// MARK: - Naming a peak makes it known  (DL8–DL10)
 // ---------------------------------------------------------------------------
 //
-// One predicate now governs all three display surfaces: the results table row, the chart dot,
+// One predicate governs all three display surfaces: the results table row, the chart dot,
 // and the annotation badge. A peak is unknown only when auto-classification placed it in no
-// band AND the user has not named it. Before Phase 4 the three surfaces disagreed — the table
-// used the assigned mode while the dot layer and the badges used the positional test — so a
-// peak the user had explicitly labelled could lose its row while keeping its dot, or lose
-// everything if it happened to sit outside every band.
+// band AND the user has not named it, so a peak the user has labelled keeps its row, its dot
+// and its badge even outside every band.
 
 @Suite("DotLayerUserNamedPeaks", .serialized)
 @MainActor
@@ -215,9 +212,8 @@ struct DotLayerUserNamedPeakTests {
     /// Generic bands leave 305 Hz in NO band (back ends at 300, dipole starts at 310).
     private static let outOfBand: Float = 305
 
-    // DL8: THE Phase 4 change. An out-of-band peak is hidden — until the user names it, at
-    // which point it is known and appears. Pre-Phase-4 this peak stayed hidden no matter what
-    // the user called it.
+    // DL8: an out-of-band peak is hidden — until the user names it, at which point it is known
+    // and appears.
     @Test func freeformLabelMakesAnOutOfBandPeakKnown() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic

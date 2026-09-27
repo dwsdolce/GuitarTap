@@ -93,7 +93,7 @@ extension TapToneAnalyzer {
     ///
     /// The body of `rmsLevelHandler`'s hop to the main thread (``setupSubscriptions()``), named so that
     /// tests feed audio through exactly the path audio takes: Python `_on_chunk_level`, the web's
-    /// `processAudioFrame` (#17 F50 item 3).
+    /// `processAudioFrame`.
     ///
     /// Ring-out tracking rides the SAME carried `audioTime`, so it is stamped in audio time
     /// (load-invariant). It runs after detection, so a tap confirmed on this chunk records the chunk into
@@ -123,7 +123,7 @@ extension TapToneAnalyzer {
             TAP_DEBUG("onRmsLevel", "FILE | levelDB=\(String(format: "%.2f", levelDB)) isDetecting=\(isDetecting) isPaused=\(isDetectionPaused) isComplete=\(isMeasurementComplete)")
         }
         // Advance the analyzer's audio clock and run any lifecycle action this chunk makes due —
-        // before the guards, since a re-arm is what turns detection back on (#19). A chunk that made
+        // before the guards, since a re-arm is what turns detection back on. A chunk that made
         // an action due is not also detected on: a re-arm has just re-anchored the latch from it.
         lastAudioTime = audioTime
         lastChunkLevelDB = levelDB
@@ -139,15 +139,15 @@ extension TapToneAnalyzer {
                   frequencies: fftAnalyzer.frequencies)
     }
 
-    // MARK: - Audio-clock lifecycle timers (#19)
+    // MARK: - Audio-clock lifecycle timers
 
     /// Schedules `action` to run once the analyzer's audio clock has advanced `delay` seconds past
     /// ``lastAudioTime``. The tap lifecycle's delays — the rest before re-arming, the FLC hold, the
     /// capture window — run on this clock, never the wall clock: file playback advances audio at
-    /// "real time + processing time", so a wall-clock delay covered a different stretch of audio on
-    /// a slower run and late captures in a sequence moved (#19). The action runs on the main thread
-    /// from ``onRmsLevelChanged(_:audioTime:)``, on the first chunk whose audio time reaches the due
-    /// time. Like the `asyncAfter` it replaces, it cannot be cancelled; each action guards itself.
+    /// "real time + processing time", so a wall-clock delay would cover a different stretch of audio
+    /// on a slower run and move late captures in a sequence. The action runs on the main thread from
+    /// ``onRmsLevelChanged(_:audioTime:)``, on the first chunk whose audio time reaches the due time.
+    /// It cannot be cancelled; each action guards itself.
     ///
     /// - Parameters:
     ///   - delay: Seconds of AUDIO to wait.
@@ -182,9 +182,9 @@ extension TapToneAnalyzer {
     /// Runs `action` once NO audio has arrived for `interval` seconds of WALL time — the gated capture's
     /// safety timeout (T6). It exists for when the audio STOPS (the file ends, the user stops, the device
     /// drops), and then the audio clock stops too, so it cannot run on that clock. But it must not fire
-    /// while audio is merely slow: measured from the capture's START it did, when paced playback ran
-    /// slower than real time — which macOS timer throttling (App Nap) makes 2–4× — and closed captures
-    /// early (#19). Measured from the LAST chunk, it fires only when the audio has really stopped.
+    /// while audio is merely slow: paced playback can run slower than real time — macOS timer
+    /// throttling (App Nap) makes it 2–4× — so a timeout measured from the capture's START would close
+    /// captures early. Measured from the LAST chunk, it fires only when the audio has really stopped.
     /// Stops checking once `relevant` is false (the capture finished or was superseded).
     func afterAudioStall(_ interval: TimeInterval, while relevant: @escaping () -> Bool,
                          _ action: @escaping () -> Void) {
@@ -221,12 +221,9 @@ extension TapToneAnalyzer {
     ///     comparison (`fftAnalyzer.inputLevelDB`, sampled per audio chunk at
     ///     ~43 Hz).
     ///
-    ///     This was previously named `peakMagnitude`, which was wrong and actively misleading: it is
-    ///     the broadband **RMS chunk level**, never an FFT peak-bin magnitude. (A genuine FFT peak does
-    ///     exist — `onFftFrame(magnitudes:frequencies:peakMagnitude:)` — but it drives peak *analysis*,
-    ///     not tap detection.) The old name cost real time during the OUT-4 investigation: it looked as
-    ///     though Swift and the web were detecting on entirely different signals. They are not — all
-    ///     three platforms detect on the per-chunk RMS level.
+    ///     It is the broadband **RMS chunk level**, never an FFT peak-bin magnitude. (A genuine FFT
+    ///     peak does exist — `onFftFrame(magnitudes:frequencies:peakMagnitude:)` — but it drives peak
+    ///     *analysis*, not tap detection.) All three platforms detect on the per-chunk RMS level.
     ///   - magnitudes: Current FFT magnitude spectrum (passed through to
     ///     ``handleTapDetection(magnitudes:frequencies:time:)`` for spectrum
     ///     capture on a confirmed tap).
@@ -314,15 +311,11 @@ extension TapToneAnalyzer {
             return
         }
 
-        // No cooldown gate here. There used to be one — a crossing within `tapCooldown` of the last tap,
-        // measured on the WALL clock, was ignored. In this edition nothing reached it: detection goes idle
-        // the moment a tap is detected and returns only after the capture plus the rest. Python's did
-        // reach it — in file playback a plate phase auto-advances and arms the next at once, and Python's
-        // test harness processes audio inline, so the gate rejected the tail of the ring-out there, while
-        // here the audio runs ahead of the main thread and reached the same audio after the gate had
-        // closed: the same audio decided two ways (#19). The auto-advance's own latch
-        // (`isAboveThreshold = true`) already makes a ring-out fall before anything counts, so the gate was
-        // removed in all three editions.
+        // No cooldown gate here, in any edition. Detection goes idle the moment a tap is detected and
+        // returns only after the capture plus the rest; when a plate phase auto-advances in file playback
+        // and arms the next at once, the auto-advance's own latch (`isAboveThreshold = true`) makes a
+        // ring-out fall before anything counts. A gate on the WALL clock would decide the same audio
+        // differently depending on how far the audio runs ahead of the main thread.
 
         // Hysteresis: Use different thresholds for rising vs falling edges.
         // Rising edge ALSO requires N consecutive chunks above the rising
@@ -472,8 +465,7 @@ extension TapToneAnalyzer {
     ///   - frequencies: Corresponding frequency axis, in Hz.
     ///   - time: Timestamp of the tap event.
     func handlePlateTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
-        // Detection is already off: `handleTapDetection`, the only caller, turned it off. (This set it
-        // again, to no effect — #17 F50 item 7.)
+        // Detection is already off: `handleTapDetection`, the only caller, turned it off.
         let phase = materialTapPhase
         TAP_DEBUG("handlePlateTapDetection", "ENTERED | phase=\(phase) materialCapturedTaps.count=\(materialCapturedTaps.count) numberOfTaps=\(numberOfTaps)")
         switch phase {
@@ -491,7 +483,7 @@ extension TapToneAnalyzer {
     /// Re-enables tap detection after the rest between consecutive taps within the same plate/brace
     /// capture phase.
     ///
-    /// Rests `tapCooldown` seconds of AUDIO (#19), then re-anchors the hysteresis latch from the chunk
+    /// Rests `tapCooldown` seconds of AUDIO, then re-anchors the hysteresis latch from the chunk
     /// that made the rest due, so the next rising edge is judged against the audio actually present.
     ///
     /// - Important: Does **not** reset `warmupStartAudioTime` — doing so would
@@ -512,52 +504,6 @@ extension TapToneAnalyzer {
             // Do NOT reset warmupStartAudioTime here — that would restart warmup and
             // destabilise isAboveThreshold via the justExitedWarmup sync path.
         }
-    }
-    
-    /// Merges the longitudinal, cross-grain, and (if available) FLC peak
-    /// arrays for combined display in plate mode.
-    ///
-    /// Cross and FLC peaks are deduplicated against previously added peaks
-    /// using a 5 Hz frequency tolerance, **except** that the auto-selected
-    /// peak from each phase is always included regardless of proximity to
-    /// another peak.
-    ///
-    /// - Returns: The merged peak array sorted by frequency (ascending).
-    func combinePlatePeaks() -> [ResonantPeak] {
-        var combined: [ResonantPeak] = []
-        
-        // Add longitudinal peaks (these will show as "L" in the UI)
-        combined.append(contentsOf: longitudinalPeaks)
-        
-        // Add cross-grain peaks, avoiding duplicates within frequency tolerance.
-        // Always include the auto-selected cross peak even if it's close to an L peak.
-        let frequencyTolerance: Float = 5.0 // Hz
-        for crossPeak in crossPeaks {
-            // Always include the auto-selected cross peak
-            let isAutoSelected = crossPeak.id == autoSelectedCrossPeakID
-            
-            let isDuplicate = combined.contains { existingPeak in
-                abs(existingPeak.frequency - crossPeak.frequency) < frequencyTolerance
-            }
-            
-            if isAutoSelected || !isDuplicate {
-                combined.append(crossPeak)
-            }
-        }
-        
-        // Add FLC peaks if available, same deduplication logic
-        for flcPeak in flcPeaks {
-            let isAutoSelected = flcPeak.id == autoSelectedFlcPeakID
-            let isDuplicate = combined.contains { existingPeak in
-                abs(existingPeak.frequency - flcPeak.frequency) < frequencyTolerance
-            }
-            if isAutoSelected || !isDuplicate {
-                combined.append(flcPeak)
-            }
-        }
-        
-        // Sort by frequency
-        return combined.sorted { $0.frequency < $1.frequency }
     }
 }
 

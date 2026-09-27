@@ -138,7 +138,7 @@ struct ParityOracle: Codable {
         do {
             // JSON has no infinity, and GFFT4's silence is -inf, so every oracle and baseline file —
             // all three editions and the hub — writes a non-finite number as the STRING
-            // "-Infinity" / "Infinity" / "NaN" (#17 F44).
+            // "-Infinity" / "Infinity" / "NaN".
             let decoder = JSONDecoder()
             decoder.nonConformingFloatDecodingStrategy =
                 .convertFromString(positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")

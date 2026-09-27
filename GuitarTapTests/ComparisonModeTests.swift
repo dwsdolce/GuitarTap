@@ -165,8 +165,7 @@ struct ComparisonClearTests {
     //
     // An overlay is frozen, like a loaded measurement.  Left armed, analyzeMagnitudes keeps
     // overwriting the displayed peaks from live audio underneath the overlay, and a tap
-    // captures and completes a measurement the user never sees being made — which is what a
-    // run-review of #17 F30 found in the shipping app (#17 F31).
+    // captures and completes a measurement the user never sees being made.
     @Test func loadComparison_whileDetecting_disarmsDetection() {
         let sut = makeSUT()
         sut.detectionState = .listening
@@ -222,7 +221,7 @@ struct DisplayModeTransitionTests {
     }
 
     // loadMeasurement leaves displayMode .live — the loaded measurement displays because
-    // isMeasurementComplete is set, not because of the mode (#17 F35 removed the .frozen case).
+    // isMeasurementComplete is set, not because of the mode.
     @Test func loadMeasurement_leavesDisplayModeLive() {
         let sut = makeSUT()
         let m = makeMeasurement(measurementName: "Bridge")
@@ -318,7 +317,7 @@ struct MultiTapToSavedComparisonTransitionTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - Definitive modes persisted in a comparison  (Phase 6b)
+// MARK: - Definitive modes persisted in a comparison
 // ---------------------------------------------------------------------------
 //
 // A comparison MEASUREMENT aggregates other measurements, so their override context is not otherwise

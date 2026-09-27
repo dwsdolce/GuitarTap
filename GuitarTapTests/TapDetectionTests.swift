@@ -11,10 +11,7 @@
 //  detector's state by hand. A tap has fired when a capture has started (`gatedCaptureActive`) — the one
 //  effect a tap has in both capture kinds; cases about the detector's state read that state. The same
 //  cases, with the same numbers, are in Python tests/test_tap_detection.py and web
-//  test/tap-decisions.test.ts (#17 F50 item 3).
-//
-//  They used to call `detectTap` directly with the warm-up, sync flag, detection state and latch set by
-//  hand, one level below the path audio takes.
+//  test/tap-decisions.test.ts.
 //
 // @parity test/tap-decisions
 
@@ -101,8 +98,8 @@ struct TapDetectionTests {
     }
 
     // T1c–T1e: the detector uses the threshold the APPLICATION configured — `tapDetectionThreshold`, which
-    // the slider writes. The web once left it behind in the engine's config, so the slider went dead and
-    // detection sat at the -40 dB default (#17 F30).
+    // the slider writes — not a copy left behind in the engine's config, which would leave the slider dead
+    // and detection at the -40 dB default.
 
     // T1c: a level below the configured threshold, but above the -40 default, is not a tap.
     @Test func t1c_belowTheConfiguredThreshold_doesNotFire() {
@@ -233,9 +230,8 @@ struct TapDetectionTests {
         #expect(!sut.gatedCaptureActive, "the sync chunk does not fire")
     }
 
-    // The settle — the latched ring-out falling below the falling threshold — leaves the prompt alone.
-    // It used to rewrite it with the GUITAR loop status whatever the mode, so a plate's
-    // "fL tap 1/2 captured. Tap again..." became "Tap 1/2 captured. Tap again..." (#17 F50 item 7).
+    // The settle — the latched ring-out falling below the falling threshold — leaves the prompt alone:
+    // a plate's "fL tap 1/2 captured. Tap again..." is not replaced by the GUITAR loop status.
     @Test func settle_leavesAPlatePromptAlone() {
         let sut = armed(threshold: -40, .plate)
         sut.numberOfTaps = 2
@@ -274,7 +270,7 @@ struct TapDetectionTests {
         #expect(sut.statusMessage == prompt)
     }
 
-    // Arming and resuming (#17 F50 item 13). A new sequence seeds the noise floor from the current input
+    // Arming and resuming. A new sequence seeds the noise floor from the current input
     // level — the engine's, here set as the engine sets it — and -100 when the warm-up is skipped.
     @Test func start_seedsTheNoiseFloorFromTheInputLevel() {
         TapDisplaySettings.measurementType = .plate

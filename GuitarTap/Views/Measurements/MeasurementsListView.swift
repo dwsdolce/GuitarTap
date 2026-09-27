@@ -427,7 +427,7 @@ struct MeasurementsListView: View {
             ? renderSpectrumImageForComparison(measurement)
             : renderSpectrumImageForMeasurement(measurement)
 
-        // PNG uses the "spectrum" default word, not baseFilename's "measurement" (§2b).
+        // PNG uses the "spectrum" default word, not baseFilename's "measurement".
         let stem = ExportFilename.stem(name: measurement.measurementName, timestamp: measurement.timestamp, unnamed: "spectrum")
         MeasurementFileExporter.exportSpectrumImage(imageData: imageData, basename: stem) {
             self.isExporting = false
@@ -561,7 +561,7 @@ struct MeasurementsListView: View {
             modeFrequencies: modeFrequencies
         )
 
-        // A comparison report is just a report (§2b): "report" default, not "measurement".
+        // A comparison report is just a report: "report" default, not "measurement".
         let basename = ExportFilename.stem(name: measurement.measurementName, timestamp: measurement.timestamp, unnamed: "report")
 
         guard let pdfData = PDFReportGenerator.generateComparison(data: reportData) else {

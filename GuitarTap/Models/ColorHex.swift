@@ -12,7 +12,7 @@
 //
 //  Hue carries no meaning in this app — a colour only has to separate values and be the same
 //  everywhere — so fixing the value costs nothing and makes cross-edition parity testable.
-//  The theme work (THEME-SPEC.md) owns *scheme selection*, a second table for dark surfaces;
+//  The theme work owns *scheme selection*, a second table for dark surfaces;
 //  it does not change the fact that each entry is an absolute value.
 //
 //  No counterpart: Python and TypeScript take hex strings directly.

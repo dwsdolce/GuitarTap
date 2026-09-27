@@ -211,13 +211,8 @@ struct QFactorTests {
     }
 
     // F9: When no bin ever drops 3 dB below the peak, the walk runs to both edges and the
-    // bandwidth becomes the whole spectrum span. Q is then centre / span — small, but defined.
-    //
-    // This test was called `allBinsAboveThreshold_returnsZeroQ` until the #17 sweep and asserted
-    // only that Q was neither NaN nor infinite, with a comment conceding the value was "not
-    // meaningful". Q is 0.505 here, not 0: the name promised a behaviour the body never checked
-    // and that does not hold. A test name is a comment, and the same rule applies to it — see
-    // SLUG-SWEEP.md F14.
+    // bandwidth becomes the whole spectrum span. Q is then centre / span — small, but defined
+    // (0.505 here, not 0).
     @Test func noBinDropsBelowThreshold_bandwidthSpansTheSpectrum() {
         let sut = makeSUT()
         // Flat spectrum — every bin at the same level, so there is no -3 dB crossing.
@@ -241,15 +236,12 @@ struct QFactorTests {
 /// A bin with no energy must read `-inf`, and this edition is the reference for it.
 ///
 /// All three convert magnitude with 20·log10, so an empty bin is -inf, and `vDSP_vdbcon` returns
-/// exactly that. Python and web had each clamped the magnitude up to float64 epsilon first — the
-/// SAME literal, 2.220446049250313e-16, Python's since 2026-05-09 and web's transcribed from it —
-/// which put "-313.0 dB" on screen for the absence of a signal. Both carried it TWICE, on the live
-/// path and the gated one.
+/// exactly that — with no clamp to a floor (clamping to float64 epsilon would put "-313.0 dB" on
+/// screen for the absence of a signal).
 ///
 /// It matters because -100 dB is a REAL reading: a live UMIK-1 in a quiet room sits near there, and
 /// it is the dead-input watchdog's own threshold. A finite floor makes "no microphone at all" look
 /// like "a very quiet microphone", which is the one distinction the Peak readout has to keep.
-/// Owner's call during the #17 run-review, having seen -inf here and -313 on Python.
 ///
 /// Only the GATED path is exercised. `computeFFT` — the live per-frame path — cannot be called on
 /// an analyzer that was never started: it multiplies by `window`, which is empty until `start()`

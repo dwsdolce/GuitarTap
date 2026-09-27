@@ -166,7 +166,7 @@ struct ExportableSpectrumChart: View {
     /// Falls back to computing a local classification from ``visiblePeaks`` when
     /// ``peakModes`` is empty (e.g. when called from the PDF generator without an analyzer).
     private var peakModeMap: [UUID: GuitarMode] {
-        // Material has no guitar modes — never run the classifier on material peaks. (RESPIN-1.0.2, fix M.)
+        // Material has no guitar modes — never run the classifier on material peaks.
         guard measurementType.isGuitar else { return [:] }
         return peakModes.isEmpty ? GuitarMode.classifyAll(visiblePeaks) : peakModes
     }
@@ -523,7 +523,7 @@ func makeExportableSpectrumView(
 
     // Material (plate/brace) has no guitar modes — the Detected-Peaks-Summary chips must use the
     // L/C/FLC role label + role color, never the guitar classifier. Mirrors ExportableSpectrumChart
-    // .peakModeLabel / .peakColor (and Python/web, which are already correct). (RESPIN-1.0.2, fix M.)
+    // .peakModeLabel / .peakColor, as Python and the web do.
     let roleLabel: (ResonantPeak) -> String = { peak in
         if peak.id == selectedLongitudinalPeakID { return "Longitudinal" }
         if peak.id == selectedCrossPeakID { return "Cross-grain" }
@@ -652,7 +652,7 @@ func makeExportableSpectrumView(
                     // Override-aware, matching the on-graph annotation and the results list: an
                     // override wins for BOTH label and color — a predefined label uses that mode, a
                     // freeform label is user-defined — italic + " *". Material uses the L/C/FLC role.
-                    // (fix M) Inlined because this free function can't call the struct's private helpers.
+                    // Inlined because this free function can't call the struct's private helpers.
                     let summaryModeMap: [UUID: GuitarMode] = measurementType.isGuitar
                         ? (peakModes.isEmpty ? GuitarMode.classifyAll(peaks) : peakModes)
                         : [:]

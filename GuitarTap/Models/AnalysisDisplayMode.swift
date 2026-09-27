@@ -19,11 +19,9 @@
 enum AnalysisDisplayMode: Equatable {
 
     /// The main spectrum is shown — live input, or the measurement's own frozen result once
-    /// `isMeasurementComplete` is set. Those two are NOT distinguished here: there used to be a
-    /// `.frozen` case, but nothing ever branched on it, because whether a result is displayed is
-    /// what `isMeasurementComplete` says. Keeping both meant two fields describing one fact, and
-    /// no completion path set `.frozen` — so the device-settle guard, which asked
-    /// `displayMode == .live`, wiped finished measurements (#17 F35).
+    /// `isMeasurementComplete` is set. Those two are NOT distinguished here: whether a result is
+    /// displayed is what `isMeasurementComplete` says, and a second field for the same fact could
+    /// disagree with it.
     case live
 
     /// Two or more saved guitar measurements are overlaid for comparison.

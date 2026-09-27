@@ -251,8 +251,7 @@ extension TapToneAnalyzer {
     ///   - minDB: Lower bound of the saved display magnitude range (dBFS); `nil` uses `TapDisplaySettings.minMagnitude`.
     ///   - maxDB: Upper bound of the saved display magnitude range (dBFS); `nil` uses `0.0`.
     /// The guitar peak set to persist: the full set detected down to the −100 dB display floor,
-    /// not just those above the current Peak Min (Option 4; see PEAK-MIN-SEMANTICS.md in the
-    /// GuitarTapWeb repo). Filtering the saved full set by Peak Min gives the same result as the
+    /// not just those above the current Peak Min. Filtering the saved full set by Peak Min gives the same result as the
     /// live path re-detecting at that Peak Min — the local-maximum test is threshold-independent —
     /// so a reloaded measurement reveals peaks below its capture-time Peak Min exactly as the live
     /// one does.
@@ -346,21 +345,16 @@ extension TapToneAnalyzer {
                                      minDB: phaseArgs.minDB, maxDB: phaseArgs.maxDB)
         }()
 
-        // Material (plate/brace) has no per-peak selection: persist the FULL identified peak set
-        // (all of `allPeaks`), never the live `selectedPeakIDs` aggregate — that aggregate can
-        // be corrupted by an intermittent phase-transition write, and material always shows all
-        // peaks anyway. Guitar persists the user's actual selection. (RESPIN-1.0.2 selection design;
-        // matches the web/Python save path.)
-        //
-        // `allPeaks` and not `peaksAbovePeakMin`: the two are equal for material (Peak Min is a
-        // guitar-only control), but this is a question about the MEASUREMENT, so it reads the
-        // durable set rather than relying on that equality holding forever.
+        // Guitar saves the full durable set with the user's selection. Material (plate/brace) has no
+        // per-peak selection: its peaks ARE the identified L/C/FLC (`materialIdentifiedPeaks`, in
+        // phase order), and every one is marked selected. (Matches the web/Python save path.)
+        let savedPeaks = measurementType.isGuitar ? guitarFullSavePeaks() : materialIdentifiedPeaks
         let persistedSelectedIDs: Set<UUID> = measurementType.isGuitar
             ? selectedPeakIDs
-            : Set(allPeaks.map { $0.id })
+            : Set(savedPeaks.map { $0.id })
 
         let measurement = TapToneMeasurement(
-            peaks: guitarFullSavePeaks(),
+            peaks: savedPeaks,
             decayTime: currentDecayTime,
             measurementName: measurementName,
             notes: notes,
@@ -377,9 +371,9 @@ extension TapToneAnalyzer {
             crossSnapshot: measurementType == .plate ? crossSnapshot : nil,
             flcSnapshot: measurementType == .plate ? flcSnapshot : nil,
             selectedPeakIDs: persistedSelectedIDs.isEmpty ? nil : Array(persistedSelectedIDs),
-            // Resolved over `allPeaks`: a selected peak sitting below Peak Min is still selected, and
+            // Resolved over the saved set: a selected peak sitting below Peak Min is still selected, and
             // its frequency must reach the file or the carry-forward cache is short on reload.
-            selectedPeakFrequencies: persistedSelectedIDs.isEmpty ? nil : allPeaks
+            selectedPeakFrequencies: persistedSelectedIDs.isEmpty ? nil : savedPeaks
                 .filter { persistedSelectedIDs.contains($0.id) }
                 .map { $0.frequency },
             // Persist whether the guitar selection was hand-modified, so a reloaded measurement
@@ -396,7 +390,7 @@ extension TapToneAnalyzer {
         )
 
         savedMeasurements.append(measurement)
-        gtLog("💾 Saved measurement with \(peaksAbovePeakMin.count) peaks, type: \(measurementType.shortName)")
+        gtLog("💾 Saved measurement with \(savedPeaks.count) peaks, type: \(measurementType.shortName)")
 
         // Persist to disk
         persistMeasurements()
@@ -444,9 +438,8 @@ extension TapToneAnalyzer {
     ///
     /// A library operation only: it says nothing about microphones. Nothing is on screen yet, so
     /// there is nothing for a microphone difference to affect — the check belongs to
-    /// ``loadMeasurement(_:)``, which is what shows the user data. (It used to list every imported
-    /// measurement's missing microphone here, so importing an exported library warned about
-    /// measurements the user had not opened.)
+    /// ``loadMeasurement(_:)``, which is what shows the user data, so importing a library never
+    /// warns about measurements the user has not opened.
     ///
     /// - Parameters:
     ///   - jsonData: Raw JSON data containing an array of encoded
@@ -574,8 +567,9 @@ extension TapToneAnalyzer {
         // Expose the notes so re-saving the loaded measurement keeps them (R10).
         loadedNotes = measurement.notes.flatMap { $0.isEmpty ? nil : $0 }
 
-        // Restore peaks
-        allPeaks = measurement.peaks
+        // Restore peaks. `allPeaks` is guitar-only: a material measurement's peaks are its identified
+        // L/C/FLC, restored into the `selected…Peak`s below.
+        allPeaks = measurement.isMaterial ? [] : measurement.peaks
         
         // Restore decay time
         currentDecayTime = measurement.decayTime
@@ -586,24 +580,18 @@ extension TapToneAnalyzer {
         // Restore per-phase spectra for plate/brace measurements
         if let longSnap = measurement.longitudinalSnapshot {
             longitudinalSpectrum = (magnitudes: longSnap.magnitudes, frequencies: longSnap.frequencies)
-            longitudinalPeaks = [] // peaks come from peaksAbovePeakMin
         } else {
             longitudinalSpectrum = nil
-            longitudinalPeaks = []
         }
         if let crossSnap = measurement.crossSnapshot {
             crossSpectrum = (magnitudes: crossSnap.magnitudes, frequencies: crossSnap.frequencies)
-            crossPeaks = []
         } else {
             crossSpectrum = nil
-            crossPeaks = []
         }
         if let flcSnap = measurement.flcSnapshot {
             flcSpectrum = (magnitudes: flcSnap.magnitudes, frequencies: flcSnap.frequencies)
-            flcPeaks = []
         } else {
             flcSpectrum = nil
-            flcPeaks = []
         }
         
         // For plate/brace: use per-phase spectra for display (no frozen spectrum needed).
@@ -661,8 +649,7 @@ extension TapToneAnalyzer {
             
             // Store B ← the file's own material inputs (never the live Settings defaults). The calc,
             // Results panel, and Save all read this, so a loaded measurement's numbers come from the
-            // file and loading never disturbs the Settings defaults (Store A). Replaces the old
-            // loaded*-dimension → TapDisplaySettings writes that used to clobber the user's defaults.
+            // file and loading never disturbs the Settings defaults (Store A).
             if let mt = snapshot.measurementType, !mt.isGuitar {
                 let brace = mt.isBrace
                 materialInputs = MaterialMeasurementInputs(
@@ -690,15 +677,14 @@ extension TapToneAnalyzer {
                                maxDB: TapDisplaySettings.maxMagnitude)
         }
         
-        // Restore plate/brace peak selections directly into the model properties
-        // that effectiveLongitudinalPeakID etc. read from. Resolved against the durable set: which
-        // peak is L / C / FLC is a fact about the measurement, not a display question.
+        // Restore the plate/brace identified peaks — the only material peak state — by id from the
+        // saved peaks: which peak is L / C / FLC is a fact about the measurement.
         selectedLongitudinalPeak = measurement.selectedLongitudinalPeakID
-            .flatMap { id in allPeaks.first(where: { $0.id == id }) }
+            .flatMap { id in measurement.peaks.first(where: { $0.id == id }) }
         selectedCrossPeak = measurement.selectedCrossPeakID
-            .flatMap { id in allPeaks.first(where: { $0.id == id }) }
+            .flatMap { id in measurement.peaks.first(where: { $0.id == id }) }
         selectedFlcPeak = measurement.selectedFlcPeakID
-            .flatMap { id in allPeaks.first(where: { $0.id == id }) }
+            .flatMap { id in measurement.peaks.first(where: { $0.id == id }) }
         gtLog("  🔵 Restored longitudinal peak: \(selectedLongitudinalPeak?.frequency ?? -1) Hz")
         gtLog("  🟠 Restored cross-grain peak: \(selectedCrossPeak?.frequency ?? -1) Hz")
         gtLog("  🟣 Restored FLC peak: \(selectedFlcPeak?.frequency ?? -1) Hz")
@@ -720,18 +706,14 @@ extension TapToneAnalyzer {
             gtLog("  🏷️ Restored \(offsets.count) annotation offsets")
         }
         
-        // Retain the original saved peaks so recalculateFrozenPeaksIfNeeded() can
-        // remap selectedPeakIDs, peakAnnotationOffsets, and peakModeOverrides by
-        // frequency when Peak Min changes generate new UUIDs.
-        loadedMeasurementPeaks = measurement.peaks
+        // Retain the original saved guitar peaks as the authoritative set (Re-analyze drops them).
+        loadedMeasurementPeaks = measurement.isMaterial ? nil : measurement.peaks
 
-        // Restore selected peak IDs; if none saved, default to selecting all peaks.
-        // Material (plate/brace) has no per-peak selection: always restore ALL peaks, ignoring the
-        // saved `selectedPeakIDs` aggregate (which can be corrupted by the phase-transition glitch).
-        // This HEALS existing corrupt files on load. Guitar restores the user's saved selection.
-        // (RESPIN-1.0.2; matches the web/Python read path.)
+        // Restore selected peak IDs (guitar); if none saved, default to selecting all peaks.
+        // Material has no per-peak selection, so it restores none — its saved `selectedPeakIDs`
+        // aggregate is never read.
         if measurement.isMaterial {
-            selectedPeakIDs = Set(measurement.peaks.map { $0.id })
+            selectedPeakIDs = []
         } else if let saved = measurement.selectedPeakIDs {
             selectedPeakIDs = Set(saved)
         } else {
@@ -1001,7 +983,7 @@ extension TapToneAnalyzer {
         // goes on overwriting the displayed peaks from live audio underneath the overlay, and a
         // tap captures and completes a measurement the user never sees being made.  Empty data
         // means we stayed `.live`, so there is nothing to freeze and nothing to disarm.
-        // Mirrors web `loadComparison` (#17 F31).
+        // Mirrors web `loadComparison`.
         if !comparisonSpectra.isEmpty {
             detectionState = .idle
         }

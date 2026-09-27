@@ -7,13 +7,9 @@
 //
 //  These live apart from the engine because the engine cannot be driven by a test.
 //  The behaviour is gated on a monotonic clock, a main-runloop Timer, real audio
-//  hardware, and an async post-start check — so every rule below used to be
-//  verifiable only by reproducing a hardware failure by hand. Both defects found on
-//  2026-09-01 were single rows of the truth tables here (a dead input reported as a
-//  denied permission; a watchdog that stopped watching after giving up), and both
-//  would have been caught by a unit test the moment they were written.
-//
-//  Calibration and incident history: hub docs/AUDIO-WATCHDOG-SILENT-STREAM.md.
+//  hardware, and an async post-start check. As pure functions, every rule below —
+//  each a row of the truth tables here — is verifiable by a unit test rather than by
+//  reproducing a hardware failure by hand.
 //
 // @parity dead-input
 
@@ -100,24 +96,16 @@ func watchdogDecision(
 /// Whether the post-start check should declare the microphone permission denied.
 ///
 /// **Only the platform's own answer counts.** Silence is never evidence of a denial, so this is
-/// now `tccDenied` and nothing else.
+/// `tccDenied` and nothing else.
 ///
-/// It used to infer denial from silence, qualified by "the input has never produced audio this
-/// session" and "this is not a watchdog restart". Both qualifiers are true at LAUNCH by definition,
-/// so selecting a silent input device — a muted mic, or a virtual device like BlackHole with
-/// nothing routed into it — and starting the app declared a permission denial and called `stop()`.
-/// The user was told to fix a permission that was already granted, and the engine was dead until
-/// relaunch: switching to a working microphone could not recover it. Found during the #17
-/// run-review on BlackHole 2ch.
+/// A silent input device — a muted mic, or a virtual device like BlackHole with nothing routed into
+/// it — is not a permissions problem: "permission denied" would be the wrong message, and stopping
+/// the engine the wrong remedy (switching to a working microphone could not recover it). A silent
+/// input belongs to the dead-input watchdog, which says "no audio input", keeps watching, and clears
+/// itself the moment signal returns.
 ///
-/// The case the inference existed for — macOS reporting `.authorized` while the hardware is muted —
-/// is not a permissions problem at all, so "permission denied" was the wrong message and stopping
-/// the engine the wrong remedy. That case now has a proper owner: the dead-input watchdog says
-/// "no audio input", keeps watching, and clears itself the moment signal returns.
-///
-/// This also removes a divergence. Python reads PortAudio's stream-open error and the web reads
-/// `getUserMedia`'s `NotAllowedError` — neither ever inferred denial from silence, so the canonical
-/// edition was the only one guessing. All three now report a denial only when the platform says so.
+/// Python reads PortAudio's stream-open error and the web reads `getUserMedia`'s `NotAllowedError`;
+/// all three report a denial only when the platform says so.
 func shouldDeclarePermissionDenied(tccDenied: Bool) -> Bool {
     tccDenied
 }

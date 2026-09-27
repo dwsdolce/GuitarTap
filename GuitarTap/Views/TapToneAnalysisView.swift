@@ -236,7 +236,7 @@ struct TapToneAnalysisView: View {
     /// New Tap starts a fresh measurement, so it's disabled only while a sequence is in
     /// flight (capturing, paused, or reviewing) and enabled otherwise: once a measurement
     /// is complete *and* in the disarmed-idle state the Dump Capture Audio folder guard can
-    /// produce (§4b), so the user can re-arm.  Always enabled in comparison mode; disabled
+    /// produce, so the user can re-arm.  Always enabled in comparison mode; disabled
     /// when the FFT isn't running/ready.
     var newTapButtonDisabled: Bool { buttonRule(buttonState).newTapDisabled }
 
@@ -483,28 +483,22 @@ private struct LoadedSettingsModifier: ViewModifier {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedFlcPeakID = nil }
                 }
             }
-            .onReceive(tap.$autoSelectedLongitudinalPeakID) { peakID in
-                if let peakID = peakID {
-                    selectedLongitudinalPeakID = peakID
-                    if let peak = tap.longitudinalPeaks.first(where: { $0.id == peakID }) {
-                        expandFreqRange(peak.frequency)
-                    }
+            .onReceive(tap.$selectedLongitudinalPeak) { peak in
+                if let peak {
+                    selectedLongitudinalPeakID = peak.id
+                    expandFreqRange(peak.frequency)
                 }
             }
-            .onReceive(tap.$autoSelectedCrossPeakID) { peakID in
-                if let peakID = peakID {
-                    selectedCrossPeakID = peakID
-                    if let peak = tap.crossPeaks.first(where: { $0.id == peakID }) {
-                        expandFreqRange(peak.frequency)
-                    }
+            .onReceive(tap.$selectedCrossPeak) { peak in
+                if let peak {
+                    selectedCrossPeakID = peak.id
+                    expandFreqRange(peak.frequency)
                 }
             }
-            .onReceive(tap.$autoSelectedFlcPeakID) { peakID in
-                if let peakID = peakID {
-                    selectedFlcPeakID = peakID
-                    if let peak = tap.flcPeaks.first(where: { $0.id == peakID }) {
-                        expandFreqRange(peak.frequency)
-                    }
+            .onReceive(tap.$selectedFlcPeak) { peak in
+                if let peak {
+                    selectedFlcPeakID = peak.id
+                    expandFreqRange(peak.frequency)
                 }
             }
     }

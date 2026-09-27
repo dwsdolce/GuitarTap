@@ -49,7 +49,7 @@ extension TapToneAnalyzer {
     /// user's previously assigned peak labels.
     ///
     /// - Parameter overrides: A dictionary mapping each ``ResonantPeak/id`` to the label the user
-    ///   last assigned to that peak. Every entry is an override; absence means auto (#17 F28).
+    ///   last assigned to that peak. Every entry is an override; absence means auto.
     ///
     /// - Note: Safe to call from any thread.
     func applyModeOverrides(_ overrides: [UUID: String]) {

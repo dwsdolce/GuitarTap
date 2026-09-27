@@ -99,7 +99,7 @@ extension TapToneAnalysisView {
                     if measurementChanged {
                         tapToneAnalyzer.requestStartTapSequence()
                     } else if guitarTypeChanged {
-                        // Guitar type changed: clean-slate re-derivation for the new type (Phase 7, Option 1).
+                        // Guitar type changed: clean-slate re-derivation for the new type.
                         tapToneAnalyzer.reclassifyForGuitarTypeChange()
                     }
                     // else: display-only Apply (Peak Min/dB/range) — leave peaks, modes and selection alone.
@@ -125,7 +125,7 @@ extension TapToneAnalysisView {
             .frame(minWidth: 400, minHeight: 500)
         }
         .overlay { loadingOverlay }
-        // Arm-time guard (§4b decision 1b): New Tap was pressed with Dump Capture Audio on but its
+        // Arm-time guard: New Tap was pressed with Dump Capture Audio on but its
         // folder unreachable. Prompt before capturing rather than losing the write at completion.
         .alert("Capture Audio Folder Unavailable", isPresented: $tapToneAnalyzer.dumpFolderUnreachable) {
             Button("Change Location…") {
@@ -247,7 +247,7 @@ extension TapToneAnalysisView {
                     if measurementChanged {
                         tapToneAnalyzer.requestStartTapSequence()
                     } else if guitarTypeChanged {
-                        // Guitar type changed: clean-slate re-derivation for the new type (Phase 7, Option 1).
+                        // Guitar type changed: clean-slate re-derivation for the new type.
                         tapToneAnalyzer.reclassifyForGuitarTypeChange()
                     }
                     // else: display-only Apply (Peak Min/dB/range) — leave peaks, modes and selection alone.
@@ -376,7 +376,7 @@ extension TapToneAnalysisView {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
                 .tint(.blue)
-                .disabled(tap.peaksAbovePeakMin.isEmpty || tap.displayMode == .comparison)
+                .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
             }
 
@@ -511,7 +511,7 @@ extension TapToneAnalysisView {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
                 .tint(.blue)
-                .disabled(tap.peaksAbovePeakMin.isEmpty)
+                .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty)
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
             }
 
@@ -825,7 +825,7 @@ extension TapToneAnalysisView {
                         Image(systemName: tap.annotationVisibilityMode.iconName)
                     }
                     .tint(.blue)
-                    .disabled(tap.peaksAbovePeakMin.isEmpty || tap.displayMode == .comparison)
+                    .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
                     .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
                 }
 

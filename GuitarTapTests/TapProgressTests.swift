@@ -69,9 +69,8 @@ struct TotalPlateTapsTests {
 struct TapProgressValueTests {
 
     /// A guitar measurement's bar advances by `numberOfTaps`, through the real capture finish — the
-    /// place progress is decided. (This used to compute `min(1, count / taps)` in the test itself and
-    /// assert that; the material denominator is asserted by the count-across-phases case below, and the
-    /// clamp is unreachable in production — #17 F51.)
+    /// place progress is decided. The material denominator is asserted by the count-across-phases case
+    /// below.
     @Test("guitar progress advances by numberOfTaps as taps are captured")
     func guitarProgressAdvancesByNumberOfTaps() async throws {
         let sut = makeSUT(numberOfTaps: 4, measurementType: .generic)
@@ -209,7 +208,7 @@ struct CountSurvivesPhaseAdvanceTests {
 // MARK: - Redo rebases the cumulative count to the PRIOR phases
 
 /// Each case reaches its review through real taps, real Accepts and — for FLC — the real hold, fed in
-/// audio; none sets a spectrum, a count or a phase by hand (#17 F51).
+/// audio; none sets a spectrum, a count or a phase by hand.
 @MainActor
 @Suite("Redo rebases the cumulative material count")
 struct RedoRebasesCumulativeCountTests {
@@ -263,18 +262,18 @@ struct RedoRebasesCumulativeCountTests {
     }
 }
 
-// MARK: - FLC cooldown cancellation (#17)
+// MARK: - FLC cooldown cancellation
 
 @Suite("The FLC cooldown must not re-arm a cancelled sequence")
 struct FlcCooldownCancellationTests {
 
     /// Accepting fC schedules a 0.5 s hold, after which detection re-arms for the FLC tap. The
-    /// closure runs on the audio clock (`afterAudio`, #19), which cannot be cancelled, and
+    /// closure runs on the audio clock (`afterAudio`), which cannot be cancelled, and
     /// `cancelTapSequence()`'s `captureTimer.invalidate()` does not reach it — so without a phase
-    /// guard it fires into whatever sequence happens to be running half a second later, forcing
+    /// guard it would fire into whatever sequence happens to be running half a second later, forcing
     /// `.capturingFlc` and `detectionState = .listening` onto a measurement the user already restarted.
     ///
-    /// Both ports have always guarded this; Swift was the outlier. Mirrors Python
+    /// Mirrors Python
     /// `_do_start_flc`'s WAITING_FOR_FLC_TAP guard and the web's FLC cooldown timer.
     @Test("Cancel during the cooldown leaves the fresh sequence alone")
     @MainActor
@@ -289,7 +288,7 @@ struct FlcCooldownCancellationTests {
         let phaseAfterCancel = sut.materialTapPhase
         #expect(phaseAfterCancel != .waitingForFlcTap) // the restart really did leave the FLC wait
 
-        advanceAudio(sut, by: 0.8)                     // outlast the 0.5 s hold, in audio (#19)
+        advanceAudio(sut, by: 0.8)                     // outlast the 0.5 s hold, in audio
 
         #expect(sut.materialTapPhase == phaseAfterCancel,
                 "the cooldown closure dragged a cancelled sequence back into the FLC phase")
@@ -351,13 +350,13 @@ struct LoadTearsDownInterruptedCaptureTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - A later count change must not rewrite a finished measurement (#17 F34)
+// MARK: - A later count change must not rewrite a finished measurement
 // ---------------------------------------------------------------------------
 
 /// `tapProgress` is STORED, written at each capture site (the last tap leaves it at 1) — so a
 /// completed measurement's bar records what was actually measured. Raising the tap count afterwards
-/// configures the NEXT measurement and must leave the finished one alone. Web derived it at render
-/// time instead, so a complete 1-tap measurement's full bar dropped to a third when Taps went to 3.
+/// configures the NEXT measurement and must leave the finished one alone: a complete 1-tap
+/// measurement's full bar must not drop to a third when Taps goes to 3.
 /// The measurement is completed for real: one tap through the finish, then the capture window's audio.
 @Suite("TapProgressAfterCountChange", .serialized)
 @MainActor

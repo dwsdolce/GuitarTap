@@ -3,7 +3,6 @@
 //  GuitarTap
 //
 //  The folder "Dump Capture Audio" writes session WAVs to.
-//  See FILE-PATHS-AND-NAMES-SPEC.md §4b / §6.
 //
 // @parity model/wav-dump-folder tests=test/wav-dump-folder
 //
@@ -31,11 +30,18 @@ import AppKit
 /// Saving. This deliberately overrides macOS's silent bookmark-follows-the-folder behaviour, which
 /// would otherwise write captures into a renamed or trashed folder without telling anyone.
 ///
-/// The debug log deliberately does **not** use this — it stays in the app's Documents (§4c).
+/// The debug log deliberately does **not** use this — it stays in the app's Documents.
 enum WavDumpFolder {
 
-    /// The app's `Documents/GuitarTap` (the container under the sandbox). Always writable.
+    /// The app's `Documents/GuitarTap` (the container under the sandbox). Always writable. Under test, a
+    /// per-process temp folder instead, like the measurements file — a test that turns dumps on never
+    /// writes into the user's folder.
     static var defaultFolder: URL {
+        if TestSandbox.isActive {
+            return FileManager.default.temporaryDirectory
+                .appendingPathComponent(TestSandbox.name("com.guitartap.tests"))
+                .appendingPathComponent("GuitarTap")
+        }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         return docs.appendingPathComponent("GuitarTap")
     }
@@ -44,8 +50,11 @@ enum WavDumpFolder {
     private static let bookmarkKey = "GuitarTap.wavDumpFolderBookmark"
     private static let pathKey = "GuitarTap.wavDumpFolderPath"
 
-    /// Whether the user has chosen a custom folder (a bookmark is stored).
-    static var hasCustomFolder: Bool { UserDefaults.standard.data(forKey: bookmarkKey) != nil }
+    /// Whether the user has chosen a custom folder (a bookmark is stored). Never under test: the stored
+    /// bookmark is the real app's, and a test must not write into the user's chosen folder.
+    static var hasCustomFolder: Bool {
+        !TestSandbox.isActive && UserDefaults.standard.data(forKey: bookmarkKey) != nil
+    }
 
     /// The path the user chose — the "name" they care about. Shown in Settings and the dialog, so it
     /// can be named even when the folder is gone. Reading it does **not** resolve the bookmark, so
@@ -97,7 +106,7 @@ enum WavDumpFolder {
     }
 
     /// Whether the configured dump folder can be written to **right now** — checked at New Tap / at
-    /// launch auto-arm (§4b decision 1b). No custom folder → true (the default is always reachable).
+    /// launch auto-arm. No custom folder → true (the default is always reachable).
     /// A custom folder is reachable only if the bookmark resolves **to the chosen path** and is
     /// writable; a rename / move / trash / delete makes it false, and the user must fix it.
     static var isReachable: Bool {

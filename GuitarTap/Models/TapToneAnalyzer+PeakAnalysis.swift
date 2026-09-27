@@ -51,17 +51,18 @@ extension TapToneAnalyzer {
 
     // MARK: - Analysis Methods
 
-    /// Main entry point called by ``RealtimeFFTAnalyzer`` on every FFT frame.
+    /// Live peaks from one FFT frame (via ``onFftFrame(magnitudes:frequencies:peakMagnitude:)``).
     ///
-    /// Performs tap detection (guitar mode only), peak finding, mode
-    /// classification, and decay tracking in sequence.
+    /// While a guitar sequence runs (detecting, paused, or a capture window filling) and is not
+    /// complete, finds the peaks at the Peak Min threshold, selects them all, and classifies them.
+    /// A material sequence has no live peaks. Tap detection and decay tracking run on the RMS-level
+    /// path (+TapDetection.swift), not here.
     ///
     /// - Parameters:
     ///   - magnitudes: The current magnitude spectrum in dBFS, one value per
     ///     FFT bin.
     ///   - frequencies: The frequency axis matching `magnitudes`, in Hz.
-    ///   - peakMagnitude: The maximum bin magnitude in dBFS — used for
-    ///     hysteresis tap detection and decay tracking.
+    ///   - peakMagnitude: The maximum bin magnitude in dBFS.
     ///
     /// - Note: Must be called on the main thread; `fftAnalyzer` publishes on
     ///   the main queue via a Combine `.receive(on: RunLoop.main)` subscription.
@@ -76,44 +77,24 @@ extension TapToneAnalyzer {
         let validMags = magnitudes.filter { $0 > -100 }
         averageMagnitude = validMags.isEmpty ? -100 : validMags.reduce(0, +) / Float(validMags.count)
         
-        // Tap detection runs on the fast inputLevelDB path (see onRmsLevelChanged
-        // in +TapDetection.swift) for all measurement types — not from this
-        // FFT-rate path.  This block only governs the live-threshold strategy
-        // below for plate/brace; mirrors Python tap_tone_analyzer_peak_analysis.py.
-        let mType = TapDisplaySettings.measurementType
-        let usesFastTapDetection = (mType == .plate || mType == .brace)
-        
         // Analyze peaks if detection is enabled, paused (spectrum stays live), or in capture window.
-        // Do not overwrite peaksAbovePeakMin once a measurement is complete — for guitar that means the
-        // frozen averaged spectrum peaks; for plate/brace the final L/C/FLC peaks.
+        // Do not overwrite the peaks once a measurement is complete. Tap detection itself runs on the
+        // fast inputLevelDB path (onRmsLevelChanged in +TapDetection.swift), not here.
         if (isDetecting || isDetectionPaused || captureTimer != nil) && !isMeasurementComplete {
-            // For plate/brace, use an adaptive noise-floor threshold (median of the analysis
-            // range) instead of the guitar-mode peakMinThreshold so the live peak list
-            // self-calibrates to each tap's actual signal level.
-            let liveThreshold: Float?
-            if usesFastTapDetection {
-                let loFreq = minFrequency
-                let hiFreq = maxFrequency
-                let sIdx = frequencies.firstIndex(where: { $0 >= loFreq }) ?? 0
-                let eIdx = frequencies.firstIndex(where: { $0 > hiFreq }) ?? frequencies.count - 1
-                if sIdx < eIdx {
-                    let searchMags = Array(magnitudes[sIdx..<eIdx])
-                    liveThreshold = searchMags.sorted()[searchMags.count / 2]
-                } else {
-                    liveThreshold = nil
+            // Material (plate/brace) has no live peaks: its peaks are the identified L/C/FLC
+            // (`materialIdentifiedPeaks`), and `allPeaks` is guitar-only.
+            guard TapDisplaySettings.measurementType.isGuitar else {
+                if !allPeaks.isEmpty {
+                    allPeaks = []
+                    identifiedModes = []
                 }
-            } else {
-                liveThreshold = nil
+                return
             }
             // Find peaks in spectrum
-            let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies, peakMinOverride: liveThreshold)
+            let peaks = findPeaks(magnitudes: magnitudes, frequencies: frequencies)
             allPeaks = peaks
             // Auto-select all newly detected peaks so visibility mode "selected" shows everything by default.
-            // In plate/brace mode, selection is managed exclusively by the phase-completion handlers
-            // so that only the identified peak(s) appear selected — don't clobber it here.
-            if TapDisplaySettings.measurementType.isGuitar {
-                selectedPeakIDs = Set(peaks.map { $0.id })
-            }
+            selectedPeakIDs = Set(peaks.map { $0.id })
 
             // Classify modes using context-aware algorithm so overlapping ranges resolve correctly
             let modeMap = GuitarMode.classifyAll(peaks)
@@ -123,10 +104,10 @@ extension TapToneAnalyzer {
         
     }
 
-    /// Re-runs peak finding on the frozen spectrum when the peak threshold changes.
+    /// Re-runs peak finding on the frozen spectrum.
     ///
-    /// Called from the `peakMinThreshold` `didSet` observer. Has no effect when the
-    /// spectrum is not frozen or when frozen data is unavailable.
+    /// Reached only through ``reanalyzePeaks()`` (Peak Min is a display projection and does not
+    /// re-detect). Has no effect when the spectrum is not frozen or when frozen data is unavailable.
     ///
     /// **Selection strategy (guitar mode):**
     /// - If the user has not manually touched selections since the last freeze
@@ -176,8 +157,7 @@ extension TapToneAnalyzer {
         // a re-detection. Resolve the UUIDs against `allPeaks`, NOT the Peak Min projection: a peak
         // hidden by the slider still owns its dragged label and its custom name, and looking it up in
         // the displayed set would silently drop both — permanently, since this snapshot is what the
-        // carry-forward restores from. Peak Min no longer triggers this code (Phase 2), but
-        // Re-analyze still does, which is where the loss actually happened.
+        // carry-forward restores from. Re-analyze reaches this code; Peak Min does not.
         let offsetsByFrequency: [(frequency: Float, offset: CGPoint)] = peakAnnotationOffsets.compactMap { uuid, offset in
             guard let peak = allPeaks.first(where: { $0.id == uuid }) else { return nil }
             return (peak.frequency, offset)
@@ -250,9 +230,8 @@ extension TapToneAnalyzer {
         }
 
         // Detect the FULL set (floor -100) and store it as the durable `allPeaks`; `peaksAbovePeakMin`
-        // is its Peak Min projection. The legacy remapping below still operates on the *displayed*
-        // set, exactly as it did before, so behaviour here is unchanged. (Phase 2 removes this
-        // re-detection entirely — a display change must not re-analyse.)
+        // is its Peak Min projection. Only Re-analyze reaches this re-detection — a display change
+        // must not re-analyse.
         allPeaks = findPeaks(magnitudes: frozenMagnitudes, frequencies: frozenFrequencies,
                              peakMinOverride: TapToneAnalyzer.peakDetectionFloor)
         let peaks = allPeaks
@@ -276,21 +255,13 @@ extension TapToneAnalyzer {
         // Per-tap entries are deliberately NOT recomputed here. Each `TapEntry` is detected once,
         // at capture, over the full −100 dB set (`+SpectrumCapture.swift` processMultipleTaps) and is
         // then durable: Peak Min is a display control and must not re-detect, re-identify or
-        // re-select a tap's peaks. `recalculateTapEntryPeaks()` used to run at this point and was
-        // removed in Phase 3 — it re-ran findPeaks at the *current* threshold, overwriting each
-        // entry's full set with a filtered one, minting fresh UUIDs and rebuilding selectedPeakIDs.
-        // Because `tapEntries` is persisted, that was silent save-path data loss.
+        // re-select a tap's peaks. Re-running findPeaks here at the *current* threshold would
+        // overwrite each entry's full set with a filtered one, mint fresh UUIDs and rebuild
+        // selectedPeakIDs — and because `tapEntries` is persisted, lose saved data silently.
     }
 
-    /// Resets peak selections back to the automatic mode-priority algorithm and
-    /// clears the manual-modification flag.
-    ///
-    /// Call this when the user explicitly requests auto-selection (e.g. via a
-    /// "Reset to Auto" button). If the spectrum is frozen the selection is
-    /// applied immediately to `peaksAbovePeakMin`; otherwise it will take effect on
-    /// the next freeze.
     /// Applies a guitar-subtype change (e.g. Classical → Flamenco) as a **clean slate** for the new
-    /// type (Phase 7, Option 1, decided with the user).
+    /// type.
     ///
     /// The guitar type changes what "Top" *means* (the mode bands), so classification and selection
     /// are re-derived for the new type, and manual mode labels — made against the OLD bands' meaning —
@@ -306,6 +277,13 @@ extension TapToneAnalyzer {
         resetToAutoSelection()
     }
 
+    /// Resets peak selections back to the automatic mode-priority algorithm and
+    /// clears the manual-modification flag.
+    ///
+    /// Call this when the user explicitly requests auto-selection (e.g. via a
+    /// "Reset to Auto" button). If the spectrum is frozen the selection is
+    /// applied immediately to `peaksAbovePeakMin`; otherwise it will take effect on
+    /// the next freeze.
     func resetToAutoSelection() {
         userHasModifiedPeakSelection = false
         // Do not nil loadedMeasurementPeaks: the threshold slider must continue
@@ -314,8 +292,8 @@ extension TapToneAnalyzer {
         selectedPeakFrequencies = []
         // Auto-selection runs over the DURABLE set, never the displayed one. Selection identifies
         // which peak IS each mode — a fact about the measurement, not about the current Peak Min.
-        // Using `peaksAbovePeakMin` here meant that with one peak visible the wand picked winners from
-        // that single peak, and lowering Peak Min afterwards left the revealed peaks unselected.
+        // With `peaksAbovePeakMin` the wand would pick winners from only the visible peaks, and
+        // lowering Peak Min afterwards would leave the revealed peaks unselected.
         let peaks = allPeaks
         guard !peaks.isEmpty else { return }
         gtLog("🎯 resetToAutoSelection: guitarType=\(TapDisplaySettings.guitarType.rawValue), \(peaks.count) candidate peaks")
@@ -337,14 +315,10 @@ extension TapToneAnalyzer {
     /// they want and has no other route to it), while a wrongly-ENABLED one costs a click that
     /// recomputes the same answer.  So it is offered whenever it can apply.
     ///
-    /// (The previous rule, `loadedMeasurementPeaks != nil`, was a proxy for "the peaks are stale"
-    /// and was wrong in both directions: it disabled itself after a single press, and it never lit
-    /// up for a live capture whose mode assignments had drifted.)
-    ///
     /// Never for plate/brace: material peaks come from the per-phase captures, and running
-    /// `findPeaks` over them would destroy the saved L / C / FLC peaks.  Material used to be
-    /// disabled only *by accident* — a loaded material measurement leaves the frozen spectrum
-    /// empty, and the emptiness check happened to catch it — so the intent is now stated.
+    /// `findPeaks` over them would destroy the saved L / C / FLC peaks.  The measurement-type check
+    /// states that directly rather than relying on a loaded material measurement's empty frozen
+    /// spectrum.
     var canReanalyze: Bool {
         TapDisplaySettings.measurementType.isGuitar
             && isMeasurementComplete

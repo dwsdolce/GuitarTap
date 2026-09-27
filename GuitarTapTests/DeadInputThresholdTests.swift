@@ -13,8 +13,7 @@
 //  quiet microphone and can sit near -90 dBFS in a silent room, which is what
 //  makes the upper bound real.
 //
-//  Source of the numbers: hub docs/AUDIO-WATCHDOG-SILENT-STREAM.md (incidents
-//  2026-07-16, recurrence 2026-08-21).
+//  Source of the numbers: the silent-input incidents of 2026-07-16 and 2026-08-21.
 //
 // @parity dead-input
 
@@ -166,20 +165,12 @@ struct WatchdogDecisionTests {
 
 /// Only the platform's own answer counts. Silence is never evidence of a denial.
 ///
-/// This suite used to encode a four-input heuristic: silence WAS a denial when the input had never
-/// produced audio this session and the start was not a watchdog recovery. Both qualifiers hold at
-/// LAUNCH by definition, so starting the app with a silent input selected — a muted mic, or a
-/// virtual device like BlackHole with nothing routed in — declared a permission denial and stopped
-/// the engine. The user was told to fix a permission that was already granted, and switching to a
-/// working microphone could not recover it (#17 run-review).
+/// A silent input — a muted mic, or a virtual device like BlackHole with nothing routed in — is not
+/// a permissions problem, even at launch before any audio has arrived. The dead-input watchdog owns
+/// it, and its rules are the suite above.
 ///
-/// The case the heuristic existed for — macOS reporting `.authorized` while the hardware is muted —
-/// is not a permissions problem, so the message and the remedy were both wrong. The dead-input
-/// watchdog owns it now, and its rules are the suite above.
-///
-/// Removing it also removed a divergence: Python reads PortAudio's stream-open error, the web reads
-/// `getUserMedia`'s `NotAllowedError`, and neither ever inferred denial from silence. The canonical
-/// edition was the only one guessing.
+/// Python reads PortAudio's stream-open error and the web reads `getUserMedia`'s `NotAllowedError`;
+/// none of the three infers denial from silence.
 @Suite("PermissionDecision")
 struct PermissionDecisionTests {
 

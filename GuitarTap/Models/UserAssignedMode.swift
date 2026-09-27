@@ -37,7 +37,7 @@ import Foundation
 /// This is **not** app state. In memory an override is the label alone — `[UUID: String]` on the
 /// analyzer and on ``TapToneMeasurement``, matching Python `{uuid: label}` and web
 /// `Map<number, string>` — and a peak with no entry uses auto-classification. Absence is the only
-/// way to say "no override", so a stored value meaning it cannot exist (#17 F28).
+/// way to say "no override", so a stored value meaning it cannot exist.
 ///
 /// ``auto`` survives here solely so a file containing `{"type":"auto"}` still decodes; such an entry
 /// carries no label and is DROPPED on read, exactly as both ports drop it.

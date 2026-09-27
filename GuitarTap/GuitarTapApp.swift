@@ -239,9 +239,8 @@ struct GuitarTapApp: App {
     /// which would otherwise build the full UI, construct a live `TapToneAnalyzer`,
     /// open the microphone, and run 65 536-point FFTs on room audio alongside the
     /// suite being measured. That instance shares the process with the tests: the same
-    /// isolated `TapDisplaySettings` suite, the same CPU, and (until the probe was
-    /// scoped) the same static diagnostics, where its captures read as phantom taps in
-    /// an eight-tap measurement. See guitar-tap-project issue #7.
+    /// isolated `TapDisplaySettings` suite, the same CPU, and the same static
+    /// diagnostics.
     ///
     /// `XCTestConfigurationFilePath` is set by the test runner and never on a normal
     /// launch — the same signal `TapDisplaySettings` already uses to redirect storage.

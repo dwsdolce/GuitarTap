@@ -15,17 +15,11 @@ import Foundation
 /// `measurementsFileURL` redirects to a temp directory, so a test run never touches real user data.
 /// Both names carry the PROCESS ID, and that is the point.
 ///
-/// They used to be the fixed `com.guitartap.tests`: one UserDefaults suite and one directory shared
-/// by every process. The suite is wiped on first access ("so every test run starts with factory
-/// defaults"), so a second `xcodebuild test` wiped the settings of a run already in flight. The
-/// victim carried on with defaults — a different measurement type, hence different guitar mode
-/// bands, hence different peak classification.
-///
-/// Verified 2026-09-20: writing a probe key into
-/// `~/Library/Containers/com.dolcesfogato.GuitarTap/Data/Library/Preferences/com.guitartap.tests.plist`
-/// from another process and then running the suite deleted it. The identical defect in Python cost
-/// a long investigation — it reproduces only when two test processes overlap, so never in
-/// isolation, never under load, and independent of test order. Keep the id.
+/// The suite is wiped on first access ("so every test run starts with factory defaults"). With a
+/// name shared between processes, a second `xcodebuild test` would wipe the settings of a run
+/// already in flight, which would carry on with defaults — a different measurement type, hence
+/// different guitar mode bands, hence different peak classification. That failure appears only
+/// when two test processes overlap, so never in isolation and independent of test order. Keep the id.
 ///
 /// Not an application concern: a real app is one process with its own domain.
 enum TestSandbox {

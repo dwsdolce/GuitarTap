@@ -50,12 +50,11 @@ struct TapEntry: Codable, Identifiable {
     let tapIndex: Int
     /// Full spectrum snapshot for this individual tap.
     let snapshot: SpectrumSnapshot
-    /// All resonant peaks detected in this tap's spectrum.
-    /// Recomputed when the peak threshold changes so that the multi-tap comparison
-    /// table reflects the current Peak Min slider setting.
+    /// All resonant peaks detected in this tap's spectrum, found once at capture at the
+    /// detection floor (`peakDetectionFloor`) and never re-derived — Peak Min does not touch them.
     var peaks: [ResonantPeak]
-    /// UUIDs of the auto-selected peaks for this tap (one per guitar mode where found).
-    /// Recomputed alongside `peaks` when the peak threshold changes.
+    /// UUIDs of the auto-selected peaks for this tap (one per guitar mode where found),
+    /// chosen once at capture alongside `peaks`.
     var selectedPeakIDs: [UUID]
 
     /// Resolves the strongest peak per guitar mode from this tap's selected peaks.
@@ -107,7 +106,7 @@ struct ComparisonEntry: Codable, Identifiable {
     ///
     /// This makes a saved comparison **self-describing**: a reader reproduces the displayed table by
     /// looking each ID up in `peaks` — no need to re-run `classifyAll`, and no need for the source's
-    /// override data (which is not in this file). Absent (`nil`) on files written before Phase 6b;
+    /// override data (which is not in this file). Absent (`nil`) on files that predate this field;
     /// those are healed on decode and re-saved.
     var modePeakIDs: [String: UUID]? = nil
 
@@ -171,7 +170,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// Free-form notes entered by the user at save time.
     let notes: String?
 
-    // MARK: - Name Validation (FILE-PATHS-AND-NAMES-SPEC §3)
+    // MARK: - Name Validation
     // @parity model/measurement-name tests=test/measurement-name
 
     /// Whether `name` is acceptable to save: non-empty after trimming whitespace and newlines.
@@ -192,9 +191,8 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// The notes to store: trimmed, or `nil` if blank.
     ///
     /// The two user-entered text fields normalize the same way, so "has this been edited" means
-    /// the same thing for both. Swift stored notes verbatim until the #17 sweep while both ports
-    /// trimmed; the ports were right, and this follows them. Every path that stores notes — save
-    /// and edit alike — goes through here, so they cannot disagree.
+    /// the same thing for both, as in both ports. Every path that stores notes — save and edit
+    /// alike — goes through here, so they cannot disagree.
     static func normalizedNotes(_ notes: String) -> String? {
         let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
@@ -556,8 +554,8 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///
     /// Selection uses ``effectiveSelectedPeakIDs`` (guitar: the saved selection, or all peaks when a
     /// legacy file saved none; material: all — but material has no Air/Top so the ratio is moot).
-    /// By the Phase 5 invariant there is at most one definitive Air/Top/Back; `max` guards the legacy
-    /// case where a pre-invariant file selected several.
+    /// Selection is unique per Air/Top/Back, so there is at most one definitive holder; `max` guards
+    /// a legacy file that selected several.
     func definitivePeak(for mode: GuitarMode) -> ResonantPeak? {
         let autoMap = GuitarMode.classifyAll(peaks, guitarType: spectrumSnapshot?.guitarType ?? .acoustic)
         let selected = effectiveSelectedPeakIDs
@@ -700,7 +698,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         // The wire shape stays `{"type":"assigned","label":…}` per entry; in memory this is the label
         // alone, matching Python `{uuid: label}` and web `Map<number, string>`. An `auto` entry
         // carries no label and means "no override", so it is DROPPED on read — both ports do the
-        // same. That is why nothing in the app can hold a "no override" override (#17 F28).
+        // same. That is why nothing in the app can hold a "no override" override.
         var decodedOverrides: [UUID: String]?
         if let native = try? container.decodeIfPresent([UUID: UserAssignedMode].self, forKey: .peakModeOverrides) {
             decodedOverrides = native.compactMapValues { if case .assigned(let l) = $0 { return l } else { return nil } }
@@ -759,11 +757,11 @@ struct TapToneMeasurement: Identifiable, Codable {
 
         // --- Heal peak selection so a guitar measurement has a DEFINITIVE Air / Top / Back ---
         //
-        // Phase 5 made selection unique per Air/Top/Back; Phase 6 makes every derived value read that
-        // definitive peak. Legacy files predate both:
-        //   • no selection saved  → nil, which older load code treated as "all selected" — every
-        //     Air/Top/Back at once, which is exactly what the invariant forbids;
-        //   • a pre-Phase-5 selection → could hold two selected Tops.
+        // Selection is unique per Air/Top/Back, and every derived value reads that definitive peak.
+        // A legacy file can break that two ways:
+        //   • no selection saved  → nil, which reads as "all selected" — every Air/Top/Back at once,
+        //     which is exactly what the invariant forbids;
+        //   • an older selection  → can hold two selected Tops.
         // Repair both here, at the one initialiser every read path reaches, so the on-screen state,
         // the saved-list ratio and the file itself all agree. Guitar only — material has no per-peak
         // selection (`effectiveSelectedPeakIDs` already returns all peaks for it). This sets the same
@@ -815,12 +813,11 @@ struct TapToneMeasurement: Identifiable, Codable {
             }
         }
 
-        // --- Heal legacy comparison entries: fill the definitive mode→peak map (Phase 6b) ---
-        // Pre-6b saved comparisons stored no `modePeakIDs`, so their Air/Top/Back was re-derived
-        // positionally at render — and could not reflect a source measurement's override. Compute it
-        // once now from each entry's own selected peaks. Override-BLIND (an old file never wrote the
-        // source's overrides, so nothing better is recoverable), but it freezes what the old app
-        // showed and makes the file self-describing from here on. Flagged for re-save.
+        // --- Heal legacy comparison entries: fill the definitive mode→peak map ---
+        // A comparison entry with no `modePeakIDs` has no stored Air/Top/Back. Compute it once here
+        // from the entry's own selected peaks. Override-BLIND (such a file carries no source
+        // overrides, so nothing better is recoverable), and it makes the file self-describing.
+        // Flagged for re-save.
         if var entries = decodedComparisonEntries {
             var changed = false
             for i in entries.indices where entries[i].modePeakIDs == nil {

@@ -8,12 +8,10 @@
 //
 // A plate or brace scans a wide band (brace: 100–1200 Hz) and the display range is
 // per-measurement-type and persisted, so the fL / fC / fFLC a measurement just produced can land
-// off the edge of the chart. Swift has widened the axis since the feature was written; Python and
-// web did neither, so the same measurement showed the peak on one edition and hid it on two.
-// Ported 2026-09-20 (project issue #8) — user-visible behaviour, not an implementation difference.
+// off the edge of the chart. All three editions widen the axis, so the same measurement shows the
+// peak on every edition.
 //
-// The rule itself was untested even in Swift: it lived in a SwiftUI View extension, so deleting the
-// change channel it rides on would have gone green. Extracted to DisplayRange to fix that.
+// The rule lives in DisplayRange rather than a SwiftUI View extension, so it can be tested here.
 
 import Testing
 @testable import GuitarTap

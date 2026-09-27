@@ -71,9 +71,7 @@ extension TapToneAnalysisView {
             return ([], [])
         }
         // A device/route change is settling — show nothing rather than the old device's spectrum.
-        // This used to be expressed as `displayMode == .frozen && !isMeasurementComplete`, reading
-        // back a blank the settle had written into the frozen arrays; the settle now says so
-        // directly and leaves a completed measurement's arrays alone (#17 F35).
+        // The settle says so through `isSettling` and leaves a completed measurement's arrays alone.
         if tap.isSettling {
             return ([], [])
         }

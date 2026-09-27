@@ -10,7 +10,7 @@
 //  formattedNote and isInTune have no call site in the app. They are still tested, because
 //  the package's API is the contract, not the subset the app happens to use today. The web
 //  edition carries only the subset it uses, which is why test/pitch reads 22/22/6 — that
-//  spread is a difference in surface, not a gap in coverage. See SLUG-SWEEP.md F13.
+//  spread is a difference in surface, not a gap in coverage.
 //
 // @parity test/pitch
 
@@ -23,9 +23,8 @@ struct PitchTests {
 
     // MARK: - Semitone bounds (pitchRange)
     //
-    // Added in the #17 sweep: pitchRange had NO test in any edition, despite branching on the
-    // sign of the cents offset and on the two octave boundaries (B→C going up, C→B going down).
-    // Four branches, nothing pinning any of them.
+    // pitchRange branches on the sign of the cents offset and crosses the two octave boundaries
+    // (B→C going up, C→B going down); the cases below pin each.
 
     // Exactly on the note (cents == 0) takes the >= 0 branch: the note itself is the lower
     // bound and the next semitone up is the upper.
@@ -264,8 +263,7 @@ struct PitchTests {
     // MARK: - No pitch
 
     // A frequency with no pitch — 0 Hz, negative, NaN, infinite — gets "no pitch" from every function,
-    // and none of them traps. A peak at 0 Hz used to take the process down in Pitch.pitch (#17 F50
-    // item 14). Paired with Python TestNoPitch and the web's "no pitch" cases.
+    // and none of them traps. Paired with Python TestNoPitch and the web's "no pitch" cases.
     @Test(arguments: [0.0, -5.0, Double.nan, Double.infinity])
     func aFrequencyWithNoPitch_getsNoPitch(frequency: Double) {
         let p = Pitch(a4: 440)

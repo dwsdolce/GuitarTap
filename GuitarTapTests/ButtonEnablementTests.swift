@@ -35,7 +35,7 @@ import Foundation
 struct ButtonEnablementTests {
 
     // B1: Disarmed-idle guitar — nothing complete, nothing in flight (the Dump Capture
-    // Audio folder guard declined to arm, §4b, or the sub-frame before launch auto-arm).
+    // Audio folder guard declined to arm or the sub-frame before launch auto-arm).
     // New Tap is ENABLED so the user can re-arm — re-pressing re-runs the folder check.
     // Pause and Cancel stay disabled (no sequence to pause or restart).
     @Test func guitar_disarmedIdle_newTapEnabled() {

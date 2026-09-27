@@ -13,9 +13,6 @@
 //  overrides, selection) onto the new peak ids by ±5 Hz frequency proximity.
 //
 //  Swift is canonical here, so these tests are the reference the Python and web suites mirror.
-//  The shared behaviour list — which edition covers what, and why an absence is an absence — is
-//  docs/FROZEN-RECALC-TEST-PARITY.md in the guitar-tap-project hub (one id per behaviour; the
-//  range moves as the table grows, so no bound is cited here).
 //
 //  The suite names below still carry the original PR1–PR7 grouping. That numbering collided
 //  across editions and is being replaced by the flat per-behaviour ids in that document.
@@ -40,7 +37,7 @@ private func makePeak(frequency: Float, magnitude: Float = -20) -> ResonantPeak 
     ResonantPeak(frequency: frequency, magnitude: magnitude)
 }
 
-/// A per-tap entry carrying an explicit peak set and selection, for the Phase 3 durability tests.
+/// A per-tap entry carrying an explicit peak set and selection, for the per-tap durability tests.
 private func makeTapEntry(
     tapIndex: Int,
     peaks: [ResonantPeak],
@@ -330,13 +327,12 @@ struct PeakMinDurabilityTests {
                 "dragged annotation position must survive a Peak Min sweep")
     }
 
-    // ── Phase 3: per-tap entries are computed once, at capture ──────────────────────────────
+    // ── Per-tap entries are computed once, at capture ───────────────────────────────────────
     //
-    // `recalculateTapEntryPeaks()` used to re-run findPeaks over every TapEntry snapshot at the
-    // CURRENT Peak Min, from both recalc branches and from loadMeasurement. That overwrote each
-    // entry's durable −100 dB set with a filtered one, minted fresh UUIDs and rebuilt
-    // selectedPeakIDs — and since `tapEntries` is persisted, saving afterwards truncated the
-    // saved set. It was deleted in Phase 3; these two tests are the guard against it returning.
+    // Nothing re-runs findPeaks over a TapEntry snapshot at the CURRENT Peak Min — not the recalc
+    // branches, not loadMeasurement. Doing so would overwrite each entry's durable −100 dB set with a
+    // filtered one, mint fresh UUIDs and rebuild selectedPeakIDs — and since `tapEntries` is
+    // persisted, saving afterwards would truncate the saved set.
 
     /// The real user path: move the slider and assert the per-tap record does not budge.
     @Test func PR15_peakMinSweep_leavesTapEntriesUntouched() {
@@ -364,8 +360,8 @@ struct PeakMinDurabilityTests {
                 "the sub-Peak-Min peak stays in the durable per-tap set — hidden, not destroyed")
     }
 
-    /// Direct guard: the recalc itself must not touch `tapEntries`, on either branch. Peak Min
-    /// no longer calls it (Phase 2), but load and Re-analyze still do.
+    /// Direct guard: the recalc itself must not touch `tapEntries`, on either branch. Load and
+    /// Re-analyze call it; Peak Min does not.
     @Test func PR16_recalculateFrozenPeaks_leavesTapEntriesUntouched() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -391,14 +387,13 @@ struct PeakMinDurabilityTests {
         }
     }
 
-    /// Phase 4a. Re-analyze snapshots the dragged label positions and custom mode names, keyed by
-    /// frequency, so it can carry them across the re-detection. That snapshot resolved its UUIDs
-    /// against the Peak Min projection — so a peak hidden by the slider was simply absent, and its
-    /// label position and custom name were dropped and never restored.
+    /// Re-analyze snapshots the dragged label positions and custom mode names, keyed by frequency,
+    /// so it can carry them across the re-detection. That snapshot resolves its UUIDs against the
+    /// durable set, not the Peak Min projection — otherwise a peak hidden by the slider would be
+    /// absent, and its label position and custom name dropped and never restored.
     ///
-    /// Phase 2 removed the *slider* as a trigger for this code; Re-analyze still reaches it, which
-    /// is where the loss actually happened. Driven on a real spectrum: the flat fixture used
-    /// elsewhere makes the recalc early-return, which would make this pass without testing anything.
+    /// Driven on a real spectrum: the flat fixture used elsewhere makes the recalc early-return,
+    /// which would make this pass without testing anything.
     @Test func PR19_reanalyzePreservesStateOfPeaksHiddenByPeakMin() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -433,8 +428,8 @@ struct PeakMinDurabilityTests {
     }
 
     /// Selection is a fact about the measurement, so `selectedPeaks` resolves over `allPeaks`.
-    /// Resolving it over `peaksAbovePeakMin` — as the multi-tap averaged row did on screen and in the
-    /// PDF before Phase 3 — silently drops a selected peak once Peak Min rises above it.
+    /// Resolving it over `peaksAbovePeakMin` would silently drop a selected peak — from the multi-tap
+    /// averaged row on screen and in the PDF — once Peak Min rises above it.
     @Test func PR18_selectedPeaks_resolveOverDurableSet_notTheDisplayProjection() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -457,11 +452,10 @@ struct PeakMinDurabilityTests {
     }
 
     /// PR14: the negative half of `peakMinSweep_preservesIdentitySelectionOverrideAndOffset`.
-    /// A DESELECTION is a user decision too, and it must survive the sweep — the bug this suite
-    /// exists for was a deselected peak silently re-selecting on any slider move, because the
-    /// carry-forward ran auto-selection again instead of honouring the edit. Going through
-    /// `togglePeakSelection` is the point: it is what sets `userHasModifiedPeakSelection`.
-    /// Gap filled 2026-09-19 (issue #8); Python already covered this.
+    /// A DESELECTION is a user decision too, and it must survive the sweep: a slider move must not
+    /// silently re-select a deselected peak by running auto-selection again instead of honouring the
+    /// edit. Going through `togglePeakSelection` is the point: it is what sets
+    /// `userHasModifiedPeakSelection`.
     @Test func PR14_peakMinSweep_doesNotResurrectADeselectedPeak() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -486,13 +480,12 @@ struct PeakMinDurabilityTests {
                 "the still-selected peak stays selected")
     }
 
-    /// PR17: the third face of the Phase 3 rule. `peakMinSweep_leavesTapEntriesUntouched` and
+    /// PR17: the third face of the per-tap durability rule. `peakMinSweep_leavesTapEntriesUntouched` and
     /// `recalculateFrozenPeaks_leavesTapEntriesUntouched` pin it against a DISPLAY recalc; this
     /// pins it against the LOAD. The saved entry carries a peak at 777 Hz, a frequency absent
     /// from its own snapshot, so re-detection could not mint it — if it comes back, it was
     /// restored. `tapEntries` is persisted, so re-deriving here would truncate the saved per-tap
     /// set permanently on the next save.
-    /// Gap filled 2026-09-19 (issue #8); web already covered this.
     @Test func PR17_loadMeasurement_restoresSavedTapEntryPeaks_neverReDetects() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -514,6 +507,80 @@ struct PeakMinDurabilityTests {
                 "per-tap peaks are restored by identity, never re-detected from the saved spectrum")
         #expect(sut.tapEntries.first?.peaks.map(\.frequency) == [777],
                 "a peak absent from the snapshot proves the saved set was used")
+    }
+
+    /// PR38: a tap's modes resolve over its SELECTED peaks only. At capture a tap's selection is the
+    /// strongest peak per mode, so resolving over all of its peaks gives the same answer and no other
+    /// case tells the two apart. Here the selected Top is the weaker of two Top-band peaks.
+    @Test func PR38_tapEntryResolvedModePeaks_resolvesOverSelectedPeaksOnly() {
+        let air = makePeak(frequency: 100, magnitude: -25)
+        let strongerTop = makePeak(frequency: 200, magnitude: -20)
+        let selectedTop = makePeak(frequency: 220, magnitude: -30)
+        let entry = makeTapEntry(tapIndex: 1, peaks: [air, strongerTop, selectedTop],
+                                 selected: [air.id, selectedTop.id])
+
+        let modes = entry.resolvedModePeaks(guitarType: .generic)
+
+        #expect(modes[.top]?.id == selectedTop.id, "the selected Top, not the stronger unselected one")
+        #expect(modes[.air]?.id == air.id)
+    }
+
+    /// PR39: a live FFT frame never overwrites a complete result — the durable peaks of a finished or
+    /// loaded measurement are not replaced by live audio. The same frame DOES set the peaks while the
+    /// sequence is running, so the guard is what the first expectation pins.
+    @Test func PR39_liveFrame_neverOverwritesACompleteResult() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        sut.fftAnalyzer.isRunning = true
+        sut.detectionState = .listening
+        let result = makePeak(frequency: 777, magnitude: -30)
+        sut.allPeaks = [result]
+        sut.isMeasurementComplete = true
+        let live = gaussianSpectrum([(200, -20)])
+
+        sut.analyzeMagnitudes(live.magnitudes, frequencies: live.frequencies, peakMagnitude: -20)
+        #expect(sut.allPeaks.map(\.id) == [result.id], "a complete result's peaks are not replaced by a live frame")
+
+        sut.isMeasurementComplete = false
+        sut.analyzeMagnitudes(live.magnitudes, frequencies: live.frequencies, peakMagnitude: -20)
+        #expect(sut.allPeaks.contains { abs($0.frequency - 200) < 5 }, "while running, the frame sets the peaks")
+    }
+
+    /// PR40: a load puts the saved peaks in place — the durable set IS the file's peaks, by identity.
+    @Test func PR40_loadMeasurement_setsTheSavedPeaks() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        let saved = [makePeak(frequency: 100, magnitude: -25), makePeak(frequency: 777, magnitude: -30)]
+        let snap = makeTapEntry(tapIndex: 1, peaks: [], selected: []).snapshot
+        sut.loadMeasurement(TapToneMeasurement(peaks: saved, spectrum: snap))
+
+        #expect(sut.allPeaks.map(\.id) == saved.map(\.id), "the loaded peaks are the saved ones, by identity")
+    }
+
+    /// PR41: Re-analyze drops a loaded measurement's peaks and re-detects the frozen spectrum. The saved
+    /// 777 Hz peak is absent from the spectrum, so it can only survive if the loaded peaks were kept.
+    @Test func PR41_reanalyze_dropsTheLoadedPeaksAndReDetects() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .generic
+        defer { TapDisplaySettings.measurementType = savedType }
+
+        let sut = makeSUT()
+        freezeOnRealSpectrum(sut, bumps: [(200, -20)])
+        let saved = makePeak(frequency: 777, magnitude: -30)
+        sut.allPeaks = [saved]
+        sut.loadedMeasurementPeaks = [saved]
+
+        sut.reanalyzePeaks()
+
+        #expect(sut.loadedMeasurementPeaks == nil, "Re-analyze drops the loaded peaks")
+        #expect(!sut.allPeaks.contains { $0.id == saved.id }, "the saved peak is gone")
+        #expect(sut.allPeaks.contains { abs($0.frequency - 200) < 5 }, "the spectrum's peak is re-detected")
     }
 }
 
@@ -547,12 +614,9 @@ struct FrozenPeakRecalculation_OffsetRemappingTests {
 
     // PR3b: An offset for a peak hidden by Peak Min SURVIVES.
     //
-    // This test asserted the opposite until Phase 4a — that the offset was dropped — and that was
-    // the defect, not the spec. Peak Min is a display filter: hiding a peak must not destroy the
-    // label the user dragged onto it, or lowering the slider again returns a peak whose label has
-    // silently snapped back to the default. Listed in the Phase 2 plan as "asserts destruction, must
-    // assert survival"; it outlived Phase 2 because that phase removed the slider as a *trigger* for
-    // this code without changing the code, and Re-analyze still reaches it.
+    // Peak Min is a display filter: hiding a peak must not destroy the label the user dragged onto
+    // it, or lowering the slider again returns a peak whose label has silently snapped back to the
+    // default. Re-analyze reaches this code.
     @Test func PR21_loadedPath_offsetForFilteredOutPeak_survives() {
         // Guitar-only rule — pin the type (see loadedPeaks_aboveThreshold_areKept).
         let savedType = TapDisplaySettings.measurementType
@@ -583,9 +647,7 @@ struct FrozenPeakRecalculation_OffsetRemappingTests {
     /// The other half of `loadedPath_offsetForFilteredOutPeak_survives` (PR21), and a genuinely
     /// different input: there the peak is HIDDEN by Peak Min but still in the durable set, so its
     /// label position must survive; here the peak is ABSENT after a re-mint, so there is nothing
-    /// for the position to belong to. Pairing those two as one behaviour is what made the offset row read as a
-    /// cross-edition conflict — see C1/C4 in the parity doc. Gap filled 2026-09-20 (issue #8);
-    /// Python and web already covered this.
+    /// for the position to belong to. They are two behaviours, not one.
     ///
     /// Asserts the map is EMPTY, not merely that the old id is missing: a negative-only assertion
     /// passes just as happily on a leak under a stale id.
@@ -640,19 +702,13 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
         }
     }
 
-    // PR4b: The custom mode name on a peak hidden by Peak Min SURVIVES.
-    //
-    // The counterpart of PR3b, and inverted for the same reason. Naming a peak is user work; a
-    // display filter must not throw it away. Doubly so after Phase 4, where a custom name is what
-    // makes a peak *known* — destroying it here would silently reclassify the peak as unknown.
     /// PR31: on the loaded branch the peak ids are stable, so remapping is a no-op — an override
     /// restored against a saved peak must still be keyed to THAT id afterwards.
     ///
     /// The remap exists for the re-mint case, where detection produces fresh ids and state has to be
     /// carried across by frequency. On the loaded branch `allPeaks = savedPeaks` keeps the original
     /// ids, so the same code path must leave the override exactly where it was rather than
-    /// re-homing it onto a different peak. Gap filled 2026-09-19 (issue #8); web covered it, Swift
-    /// and Python did not.
+    /// re-homing it onto a different peak.
     @Test func PR31_loadedPath_stableIDs_leaveRestoredOverridesInPlace() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -712,7 +768,6 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
     /// PR30: remapping with nothing to remap yields nothing. The carry-forward builds a FRESH
     /// dictionary each pass, so the failure this guards against is it inventing entries —
     /// every new peak matching a phantom, or a stale map surviving the rebuild.
-    /// Gap filled 2026-09-19 (issue #8); Python already covered this.
     @Test func PR30_remapWithNoPriorOverrides_yieldsNoOverrides() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -734,7 +789,6 @@ struct FrozenPeakRecalculation_OverrideRemappingTests {
     /// HIDDEN by Peak Min but still present, so it keeps its custom name; here it is ABSENT after a
     /// re-mint, so the name has nothing to attach to. Re-homing it would silently rename a peak the
     /// user never labelled — and that label then travels into the saved measurement.
-    /// Gap filled 2026-09-20 (issue #8); Python and web already covered this.
     @Test func PR25_remint_overrideWithNoNearbyPeak_isOrphaned() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -828,7 +882,6 @@ struct FrozenPeakRecalculation_SelectionCarryForwardTests {
     // NOT re-homed onto whatever peak happens to be nearest — a selection the user never made
     // would silently appear, and it would carry that peak's mode label with it. The frequency
     // cache still keeps the old value so lowering Peak Min can restore the real one.
-    // Gap filled 2026-09-19 (issue #8); Python and web already covered this.
     @Test func PR27_selection_isNotCarried_whenThePeakMovedFar() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -1255,7 +1308,6 @@ struct FrozenPeakRecalculation_MaterialPeakIdentityTests {
     /// The assertion with teeth here is the SAVE side: Swift's `loadMeasurement` restores the
     /// offsets dictionary wholesale, so a reload proves less than it does in Python, whose load
     /// path rebuilds the map from `measurement.peaks`.
-    /// Gap filled 2026-09-19 (issue #8); web already covered this.
     @Test func PR32_capturedMaterialPeak_isSavedAndOwnsItsAnnotationOffset() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .brace
@@ -1293,8 +1345,9 @@ struct FrozenPeakRecalculation_MaterialPeakIdentityTests {
         #expect(sut.peakAnnotationOffsets[captured.id] == CGPoint(x: 12, y: -3),
                 "a material peak's offset lives in peakAnnotationOffsets — the same one store")
 
+        // What the save writes for material: the identified peaks.
         let measurement = TapToneMeasurement(
-            peaks: sut.guitarFullSavePeaks(),
+            peaks: sut.materialIdentifiedPeaks,
             annotationOffsets: sut.peakAnnotationOffsets
         )
         #expect(measurement.peaks.contains { $0.id == captured.id },
@@ -1304,5 +1357,129 @@ struct FrozenPeakRecalculation_MaterialPeakIdentityTests {
         reloaded.loadMeasurement(measurement)
         #expect(reloaded.peakAnnotationOffsets[captured.id] == CGPoint(x: 12, y: -3),
                 "the offset comes back keyed to the same material peak id")
+    }
+
+    // ── A material measurement's peaks are its identified L/C/FLC, and nothing else ──────────────
+
+    /// Capture one material phase through the real gated handler (a synthetic tap at `hz`), on `sut`
+    /// already set to a material type. Returns the identified peak.
+    private func captureLongitudinal(_ sut: TapToneAnalyzer, hz: Float = 300) -> ResonantPeak? {
+        sut.minFrequency = 20
+        sut.maxFrequency = 1200
+        sut.numberOfTaps = 1
+        let spectrum = gaussianSpectrum([(freq: hz, mag: -30)], from: 20, to: 1200)
+        guard let dominant = sut.findDominantPeak(magnitudes: spectrum.magnitudes,
+                                                  frequencies: spectrum.frequencies,
+                                                  minHz: 20, maxHz: 1200,
+                                                  preferLowestSignificant: false) else { return nil }
+        sut.materialCapturedTaps = [(magnitudes: spectrum.magnitudes,
+                                     frequencies: spectrum.frequencies,
+                                     captureTime: Date())]
+        sut.handleLongitudinalGatedProgress(magnitudes: spectrum.magnitudes,
+                                            frequencies: spectrum.frequencies,
+                                            dominantPeak: dominant,
+                                            minHz: 20, maxHz: 1200,
+                                            preferLowest: false)
+        return sut.selectedLongitudinalPeak
+    }
+
+    /// Capture the cross-grain phase the same way (a synthetic tap at `hz`). Returns the identified fC.
+    private func captureCross(_ sut: TapToneAnalyzer, hz: Float) -> ResonantPeak? {
+        let spectrum = gaussianSpectrum([(freq: hz, mag: -30)], from: 20, to: 1200)
+        guard let dominant = sut.findDominantPeak(magnitudes: spectrum.magnitudes,
+                                                  frequencies: spectrum.frequencies,
+                                                  minHz: 20, maxHz: 1200,
+                                                  preferLowestSignificant: false) else { return nil }
+        sut.materialCapturedTaps = [(magnitudes: spectrum.magnitudes,
+                                     frequencies: spectrum.frequencies,
+                                     captureTime: Date())]
+        sut.handleCrossGatedProgress(magnitudes: spectrum.magnitudes,
+                                     frequencies: spectrum.frequencies,
+                                     dominantPeak: dominant,
+                                     minHz: 20, maxHz: 1200,
+                                     preferLowest: false)
+        return sut.selectedCrossPeak
+    }
+
+    /// PR42: saving a material measurement writes its identified peaks — all selected — not the
+    /// guitar peak set, which is empty for material.
+    @Test func PR42_materialSave_writesTheIdentifiedPeaks() throws {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .brace
+        defer { TapDisplaySettings.measurementType = savedType }
+        let sut = makeSUT()
+        let fL = try #require(captureLongitudinal(sut), "precondition: the brace capture identifies fL")
+
+        sut.saveMeasurement()
+        let saved = try #require(sut.savedMeasurements.last)
+
+        #expect(saved.peaks.map(\.id) == [fL.id], "the file's peaks are the identified fL")
+        #expect(saved.selectedPeakIDs == [fL.id], "and it is marked selected")
+    }
+
+    /// PR43: loading a material measurement restores its identified peaks by id from the file, and
+    /// leaves the guitar peak state (`allPeaks`, `selectedPeakIDs`) empty. A plate (fL + fC), so each role
+    /// is restored separately.
+    @Test func PR43_materialLoad_restoresTheIdentifiedPeaksOnly() throws {
+        let savedType = TapDisplaySettings.measurementType
+        let savedFlc = TapDisplaySettings.measureFlc
+        TapDisplaySettings.measurementType = .plate
+        TapDisplaySettings.measureFlc = false
+        defer {
+            TapDisplaySettings.measurementType = savedType
+            TapDisplaySettings.measureFlc = savedFlc
+        }
+        let source = makeSUT()
+        let fL = try #require(captureLongitudinal(source, hz: 60), "precondition: the plate capture identifies fL")
+        source.acceptCurrentPhase()
+        let fC = try #require(captureCross(source, hz: 150), "precondition: the plate capture identifies fC")
+        source.acceptCurrentPhase() // no FLC: the measurement completes, as it must before a save
+        #expect(source.isMeasurementComplete, "precondition: the plate is complete")
+        // The identified ids are passed in, as the view's save passes them (TapToneAnalysisView+Actions).
+        source.saveMeasurement(selectedLongitudinalPeakID: source.effectiveLongitudinalPeakID,
+                               selectedCrossPeakID: source.effectiveCrossPeakID)
+        let saved = try #require(source.savedMeasurements.last)
+
+        let sut = makeSUT()
+        sut.loadMeasurement(saved)
+
+        #expect(sut.selectedLongitudinalPeak?.id == fL.id, "fL restored by id from the file")
+        #expect(sut.selectedCrossPeak?.id == fC.id, "fC restored by id from the file")
+        #expect(sut.allPeaks.isEmpty, "the guitar peak set stays empty for material")
+        #expect(sut.selectedPeakIDs.isEmpty, "and so does the guitar selection")
+    }
+
+    /// PR44: a live FFT frame during a material sequence leaves no peaks — material has no live peaks,
+    /// and any guitar peaks left from before are cleared.
+    @Test func PR44_materialLiveFrame_leavesNoPeaks() {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .plate
+        defer { TapDisplaySettings.measurementType = savedType }
+        let sut = makeSUT()
+        sut.fftAnalyzer.isRunning = true
+        sut.detectionState = .listening
+        sut.allPeaks = [makePeak(frequency: 200, magnitude: -20)] // guitar peaks left from before
+        let live = gaussianSpectrum([(200, -20)])
+
+        sut.analyzeMagnitudes(live.magnitudes, frequencies: live.frequencies, peakMagnitude: -20)
+
+        #expect(sut.allPeaks.isEmpty, "a material frame leaves no peaks")
+    }
+
+    /// PR45: Redo clears the redone phase's identified peak and spectrum, so the rejected fL is gone
+    /// while the user re-taps.
+    @Test func PR45_redo_clearsThePhasesIdentifiedPeak() throws {
+        let savedType = TapDisplaySettings.measurementType
+        TapDisplaySettings.measurementType = .plate
+        defer { TapDisplaySettings.measurementType = savedType }
+        let sut = makeSUT()
+        _ = try #require(captureLongitudinal(sut, hz: 60), "precondition: the plate L capture identifies fL")
+        #expect(sut.materialTapPhase == .reviewingLongitudinal, "precondition: live capture stops at review")
+
+        sut.redoCurrentPhase()
+
+        #expect(sut.selectedLongitudinalPeak == nil, "the rejected fL is gone")
+        #expect(sut.longitudinalSpectrum == nil, "and so is its spectrum")
+        #expect(sut.materialIdentifiedPeaks.isEmpty)
     }
 }

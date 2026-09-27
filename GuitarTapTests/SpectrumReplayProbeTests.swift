@@ -2,11 +2,8 @@
 //  Dumps the replayed material spectrum so it can be compared, bin by bin, against the
 //  spectrum saved in the .guitartap file from the original LIVE capture of the same WAV.
 //
-//  This is the measurement issue #7 is actually about. The peaks already reproduce live
-//  capture essentially exactly (REG-B1 bit-identical; REG-P1 seven of nine values
-//  bit-identical, the other two within 3e-05 Hz / 0.001 dB). What has never reproduced is
-//  the rest of the spectrum — originally reported as ~0.02 dB mean across the >= -100 dB
-//  range with 0 of 3702 bins exact. Peaks agreeing while bins do not is the thing to explain.
+//  The peaks reproduce live capture essentially exactly; this compares the rest of the
+//  spectrum, where the bins can differ while the peaks agree.
 //
 //  Gated: does nothing unless SPECTRUM_PROBE=1 (TEST_RUNNER_SPECTRUM_PROBE=1 under
 //  xcodebuild, which does not forward the plain environment to a hosted test runner).
@@ -20,7 +17,7 @@ import Foundation
 import Testing
 @testable import GuitarTap
 
-/// Bundle anchor for locating fixtures (see project memory: use Bundle(for:), not #filePath).
+/// Bundle anchor for locating fixtures — Bundle(for:), not #filePath.
 private final class ProbeAnchor {}
 
 @Suite(.serialized)
@@ -49,7 +46,7 @@ struct SpectrumReplayProbeTests {
         let sut = TapToneAnalyzer.forTesting()
         sut.peakMinThreshold = -69
         sut.tapDetectionThreshold = -40
-        try await sut.playFileForTesting(
+        try await sut.playFileAndWait(
             url: url, measurementType: .generic, numberOfTaps: 5,
             calibrationURL: bundle.url(forResource: "7108913", withExtension: "txt"))
 
@@ -82,7 +79,7 @@ struct SpectrumReplayProbeTests {
             TapDisplaySettings.measureFlc = spec.settings.measureFlc ?? false
             defer { TapDisplaySettings.measureFlc = restore }
 
-            try await sut.playFileForTesting(
+            try await sut.playFileAndWait(
                 url: url,
                 measurementType: brace ? .brace : .plate,
                 calibrationURL: ParityOracle.calibrationURL(caseName))

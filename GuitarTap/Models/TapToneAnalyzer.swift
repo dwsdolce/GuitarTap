@@ -25,22 +25,16 @@
 /// | Plate | L + C (+ optional FLC) | Per-phase gated FFT → Young's moduli, specific modulus |
 /// | Brace | L only | Longitudinal Young's modulus and specific modulus |
 ///
-/// ## Two-Layer Peak Selection (Plate / Brace)
+/// ## Material Peaks (Plate / Brace)
 ///
-/// For material measurements the app tracks two peak-selection signals and resolves them with
-/// strict priority order:
+/// A material measurement's peaks are its identified peaks, one per phase: `selectedLongitudinalPeak`
+/// / `selectedCrossPeak` / `selectedFlcPeak`, each the dominant peak of the phase's averaged
+/// spectrum, stored when the phase completes (``materialIdentifiedPeaks`` lists them in phase
+/// order). There is no per-peak selection and no other material peak state — `allPeaks` and
+/// `selectedPeakIDs` are guitar-only. A wrong peak is fixed by redoing the phase.
 ///
-/// 1. **Phase-stored peak** (`selectedLongitudinalPeak` / Cross / Flc) — set automatically
-///    when a gated-FFT phase completes and the dominant peak is identified.
-/// 2. **Auto-selected ID** (`autoSelectedLongitudinalPeakID` / Cross / Flc) — intermediate
-///    result set during HPS analysis before the phase is finalised.
-///
-/// There was a third, highest-priority layer — an explicit user override set by tapping a peak
-/// row — until 2026-09-20. Its UI was removed on 2026-04-17 and replaced by redoing the phase;
-/// see "Plate Peak Selection — REMOVED" in TapToneAnalyzer+AnnotationManagement.swift.
-///
-/// The computed ``effectiveLongitudinalPeakID``, ``effectiveCrossPeakID``, and
-/// ``effectiveFlcPeakID`` properties expose the winning ID to views.
+/// ``effectiveLongitudinalPeakID``, ``effectiveCrossPeakID`` and ``effectiveFlcPeakID`` expose the
+/// identified peaks' ids to views.
 ///
 /// ## Gated FFT and Pre-Roll
 ///
@@ -73,17 +67,6 @@
 import SwiftUI
 import Combine
 
-/// Test-only thread-safe completion flag for `playFileForTesting`: the background file-processing
-/// worker `signal()`s it; the main-actor poll loop reads `isDone`. Replaces a `DispatchSemaphore`
-/// whose non-blocking `.wait(timeout:)` is unavailable from async contexts under the Swift 6 language
-/// mode. The lock keeps the cross-thread flag access data-race-free.
-private final class FileProcessingDoneFlag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var done = false
-    func signal() { lock.lock(); done = true; lock.unlock() }
-    var isDone: Bool { lock.lock(); defer { lock.unlock() }; return done }
-}
-
 // MARK: - TapToneAnalyzer
 
 /// The main `ObservableObject` that coordinates tap-tone measurements across all modes.
@@ -101,7 +84,7 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// The returned instance has the full pipeline connected (Combine
     /// subscriptions, raw-sample handler, level-crossing handler) but no
-    /// audio hardware.  Use `playFileForTesting(url:measurementType:numberOfTaps:)`
+    /// audio hardware.  Use ``playFile(url:calibrationURL:completion:)`` — the app's own Play File path —
     /// to feed a WAV file through the pipeline.
     ///
     /// The FFT size is the class-level constant in `RealtimeFFTAnalyzer`
@@ -111,125 +94,6 @@ final class TapToneAnalyzer: ObservableObject {
     static func forTesting() -> TapToneAnalyzer {
         let fft = RealtimeFFTAnalyzer.forTesting()
         return TapToneAnalyzer(fftAnalyzer: fft)
-    }
-
-    /// Feeds a WAV file through the full analysis pipeline for testing.
-    ///
-    /// This is the test-only equivalent of the view-layer `openAudioFile(_:)`.
-    /// It configures the measurement type, starts a tap sequence with warmup
-    /// skipped, pre-fills the pre-roll buffer with silence, and synchronously
-    /// processes all audio through `processFileData`.
-    ///
-    /// Mirrors Python `TapToneAnalyzer.play_file_for_testing()`.
-    ///
-    /// - Parameters:
-    ///   - url: URL of the audio file (WAV, AIFF, CAF, etc.).
-    ///   - measurementType: The measurement type to configure before playback.
-    ///   - numberOfTaps: Number of taps to detect (guitar mode). Default 1.
-    ///   - calibrationURL: Optional microphone calibration file to apply during playback.
-    ///   - plateTapPhase: For plate measurements, the specific phase to test.
-    ///     When set, the analyzer starts in this phase and the run loop exits as soon
-    ///     as the phase advances (rather than waiting for `isMeasurementComplete`).
-    ///     Pass `.capturingLongitudinal` for an L-only test, `.capturingCross` for C,
-    ///     or `.capturingFlc` for FLC.  Ignored for non-plate measurement types.
-    /// - Throws: If the audio file cannot be read.
-    func playFileForTesting(url: URL, measurementType: MeasurementType, numberOfTaps: Int = 1, calibrationURL: URL? = nil, plateTapPhase: MaterialTapPhase? = nil) async throws {
-        // 1. Configure measurement type and tap count.
-        TapDisplaySettings.measurementType = measurementType
-        self.numberOfTaps = numberOfTaps
-
-        // 1b. If a calibration file was provided, parse it and temporarily
-        //     override the active calibration on the FFT analyzer.
-        if let calURL = calibrationURL {
-            let cal = try CalibrationFileParser.parse(url: calURL)
-            fftAnalyzer.setTemporaryCalibration(cal)
-        }
-
-        // 2. Start the tap sequence.  The MEASUREMENT TYPE decides whether to skip the warm-up.
-        //
-        //    Guitar: SKIP it.  The guitar fixtures are externally recorded files (not session dumps)
-        //    with only 0.15–0.26 s before the tap, so a 0.5 s warm-up would suppress the transient.
-        //    Guitar detects against the ABSOLUTE threshold and never uses the noise floor, so skipping
-        //    costs nothing.
-        //
-        //    Material (plate/brace): RUN it.  Material is the ONLY mode that uses the relative
-        //    noise-floor detector, and the warm-up is what establishes that floor (it feeds the EMA and
-        //    fires the re-anchor at exit).  Skipping it also pinned `noiseFloorEstimate = -100`, which
-        //    makes `rising` compute to exactly `tapDetectionThreshold` — i.e. it silently DEGRADED
-        //    relative detection to absolute, so playback was never exercising the path live users take.
-        //    A saved session WAV always contains the warm-up by construction (isSessionRecording is set
-        //    before the warm-up clock, and live suppresses detection during it, so no tap can land in
-        //    the first 0.5 s), and every material fixture carries 2.3–2.9 s of lead-in.
-        //
-        //    Playback must run the LIVE detection path — otherwise it cannot tell us whether live and
-        //    playback agree, which is the whole point of the file-playback regression.
-        //
-        //    When plateTapPhase is provided, pass it as initialPhase so both the
-        //    synchronous setup and the async housekeeping block use the correct
-        //    phase — preventing the async block from resetting the phase back to
-        //    .capturingLongitudinal after the override.
-        let isMaterial = measurementType == .plate || measurementType == .brace
-        startTapSequence(skipWarmup: !isMaterial, initialPhase: plateTapPhase)
-
-        // 3. Read the audio file.
-        let (monoSamples, fileSampleRate) = try RealtimeFFTAnalyzer.readAudioFileAsMonoFloat32(url: url)
-
-        // 4. Set the sample rate so gatedCaptureSamples is computed correctly
-        //    when a tap fires.  Do NOT pre-fill the pre-roll buffer with zeros —
-        //    startTapSequence already cleared it to [], and it will fill naturally
-        //    with real audio as chunks arrive through accumulateGatedSamples.
-        //    Pre-filling with zeros dilutes the gated capture signal by ~50%,
-        //    suppressing the spectral magnitude by ~6 dB.
-        mpmSampleRate = fileSampleRate
-
-        // 5. Configure @Published state and dispatch processFileData to a
-        //    background queue — exactly as startFromFile does in the real app.
-        //    The main run loop must keep spinning so that Combine sinks
-        //    (.receive(on: DispatchQueue.main)) can deliver FFT frames to
-        //    onFftFrame → tap detection → gated capture → finishGatedFFTCapture.
-        let fileName = url.deletingPathExtension().lastPathComponent
-        fftAnalyzer.prepareForFilePlayback(sampleRate: fileSampleRate, fileName: fileName)
-
-        let done = FileProcessingDoneFlag()
-        DispatchQueue.global(qos: .userInitiated).async { [fftAnalyzer] in
-            fftAnalyzer.processFileData(
-                samples: monoSamples,
-                sampleRate: fileSampleRate,
-                fileName: fileName
-            )
-            done.signal()
-        }
-
-        // Spin the main run loop until processFileData finishes, so
-        // DispatchQueue.main.async blocks (Combine sinks, finishGatedFFTCapture)
-        // are drained during processing — matching the real app's threading.
-        // Poll for processFileData to finish, YIELDING the main actor between checks rather than
-        // blocking it in RunLoop.main.run. The worker calls DispatchQueue.main.sync (the gated-capture
-        // flush, RealtimeFFTAnalyzer+EngineControl.swift:622); under the test target's MainActor
-        // isolation the test runs ON the main actor, so a blocking wait here deadlocks that sync.
-        // `Task.sleep` suspends the main actor, freeing the main thread to run the worker's main-queue
-        // work and deliver the Combine `.receive(on: .main)` FFT frames.
-        while !done.isDone {
-            try? await Task.sleep(nanoseconds: 5_000_000)  // 5 ms
-        }
-        // Continue draining the main run loop until the measurement completes.
-        // processMultipleTaps() is scheduled via DispatchQueue.main.asyncAfter
-        // with a delay of captureWindow (0.2 s), so we must keep spinning
-        // until it fires and sets isMeasurementComplete = true.
-        //
-        // For phase-targeted plate tests (plateTapPhase != nil), exit as soon as
-        // the phase advances past the target — the single capture is done and we
-        // don't need to wait for subsequent phases to time out.
-        let deadline = Date(timeIntervalSinceNow: 5.0)
-        if let targetPhase = plateTapPhase, measurementType == .plate {
-            while materialTapPhase == targetPhase && Date() < deadline {
-                try? await Task.sleep(nanoseconds: 5_000_000)  // 5 ms — yields the main actor
-            }
-        } else {
-            while !isMeasurementComplete && Date() < deadline {
-                try? await Task.sleep(nanoseconds: 5_000_000)  // 5 ms — yields the main actor
-            }
-        }
     }
 
     // MARK: - Dependencies
@@ -280,10 +144,9 @@ final class TapToneAnalyzer: ObservableObject {
         didSet {
             // Update the prompt if we're still waiting for the first tap.
             //
-            // `armedPrompt()`, not `tapPrompt()`: the latter is the GUITAR prompt, so changing Taps
-            // at the start of a plate or brace sequence — where the control is still unlocked,
-            // because no tap has been captured — wrote "Tap the guitar 3 times..." over "Ready for
-            // fL tap (×3 each for L, C)" (#17 F36).
+            // `armedPrompt()`, not `tapPrompt()`: the latter is the GUITAR prompt. At the start of a
+            // plate or brace sequence the control is still unlocked (no tap has been captured), and
+            // the prompt must stay "Ready for fL tap (×3 each for L, C)", not "Tap the guitar 3 times...".
             if isDetecting && currentTapCount == 0 {
                 statusMessage = armedPrompt()
             }
@@ -291,13 +154,9 @@ final class TapToneAnalyzer: ObservableObject {
             // already captured" branch here. The Taps stepper is disabled the moment a sequence has a
             // tap — `.disabled(tap.currentTapCount > 0 && !tap.isMeasurementComplete)`, on every
             // stepper on every platform — so the count simply cannot change mid-sequence; to change
-            // it you cancel first. The branch that used to live here was therefore unreachable, and
-            // being unreachable it had silently drifted three ways: Swift deferred processing by
-            // `captureWindow` and averaged ALL captured taps, Python finalised synchronously and
-            // truncated to the new count, and the web never implemented it at all. Removed rather
-            // than reconciled (OUT-5) — reachable behaviour is unchanged. It was also a latent trap:
-            // `loadMeasurement` writes `numberOfTaps`, so a load during a live sequence would have
-            // kicked off `processMultipleTaps()` mid-load, guarded only by call ordering.
+            // it you cancel first. Such a branch would also be a trap: `loadMeasurement` writes
+            // `numberOfTaps`, so a load during a live sequence would kick off `processMultipleTaps()`
+            // mid-load, guarded only by call ordering.
             //
             // If a mid-sequence count change is ever wanted, unlock the stepper and define the
             // semantics deliberately — do not resurrect an implicit finalise.
@@ -341,10 +200,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// phase — the single source for these strings.
     ///
     /// Three callers, which is the point: ``startTapSequence`` (which sets the phase before the
-    /// status), the phase advances in ``acceptCurrentPhase``, and ``armedPrompt()``. They used to
-    /// hold two sets of literals — the advance said "Rotate 90° and tap for fC" while the armed
-    /// derivation said "Ready for fC tap" — so resuming or changing the tap count silently reworded
-    /// the instruction the user was following (#17 F37).
+    /// status), the phase advances in ``acceptCurrentPhase``, and ``armedPrompt()``. All three say the
+    /// same words for a phase, so resuming or changing the tap count never rewords the instruction
+    /// the user is following.
     ///
     /// The fL branch is count-aware, because that is the phase whose prompt names the tap count and
     /// the only phase where the Taps control is still unlocked.
@@ -355,8 +213,7 @@ final class TapToneAnalyzer: ObservableObject {
         case .capturingFlc, .waitingForFlcTap:
             return "Set up for fLC tap, then tap"
         default:
-            // capturingLongitudinal / notStarted. "fL", not "L", for plate as well — the phase-tap
-            // rename missed this site once already (#17 F33).
+            // capturingLongitudinal / notStarted. "fL", not "L", for plate as well.
             guard numberOfTaps > 1 else { return "Ready for fL tap" }
             guard TapDisplaySettings.measurementType == .plate else {
                 return "Ready for fL tap (×\(numberOfTaps))"
@@ -369,13 +226,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// The status to restore when a device/route-change settle ends — or `nil` to leave the current
     /// status alone.
     ///
-    /// The settle used to CHOOSE between two strings (`tapPrompt()` when detecting, `"Ready"`
-    /// otherwise), which is wrong in both directions: mid-sequence it said "Tap the guitar 3
-    /// times…" when one tap was already captured, and on a finished measurement it replaced
-    /// "Analysis complete! N peaks…" with "Ready".  The status is a function of state, so derive it
-    /// rather than guessing — and say nothing at all where the status is a RESULT announcement
-    /// rather than a live prompt, because a completed or loaded measurement's status is not
-    /// re-derivable and must not be thrown away (#17 F33).
+    /// The status is a function of state, so it is derived rather than chosen from fixed strings:
+    /// mid-sequence it counts the taps already captured, and a finished measurement keeps "Analysis
+    /// complete! N peaks…". It says nothing at all where the status is a RESULT announcement rather
+    /// than a live prompt, because a completed or loaded measurement's status is not re-derivable
+    /// and must not be thrown away.
     func statusAfterSettle() -> String? {
         if isMeasurementComplete { return nil }        // "Analysis complete…" / "Loaded measurement…"
         if displayMode == .comparison { return nil }   // an overlay is not a tap prompt
@@ -387,7 +242,7 @@ final class TapToneAnalyzer: ObservableObject {
             // rotated the plate, and a redo's "Ready for fC tap — tap again" is a different, equally
             // correct string for the same phase. Preserve it, exactly as a completed measurement's
             // announcement is preserved. Guitar's prompt IS a function of count and total, both of
-            // which the analyzer holds, so it is still derived (#17 F37).
+            // which the analyzer holds, so it is still derived.
             guard TapDisplaySettings.measurementType.isGuitar else { return nil }
             return armedPrompt()
         }
@@ -398,9 +253,8 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// The whole decision in one pure function, so every edition can pin it: derive from state, and
     /// where the state's status is a result announcement rather than a prompt, put back what was
-    /// there. The first version returned "nothing to say" and left the caller to skip the
-    /// assignment — which left the "Audio device changed - reinitializing…" transient up forever on
-    /// a completed measurement (#17 F33).
+    /// there — so the "Audio device changed - reinitializing…" transient never stays up on a
+    /// completed measurement.
     func restoredStatus(before: String) -> String {
         statusAfterSettle() ?? before
     }
@@ -418,9 +272,7 @@ final class TapToneAnalyzer: ObservableObject {
     }
 
     /// After the LAST guitar tap, "All taps captured. Processing..." shows for this much AUDIO before the
-    /// taps are averaged (``afterAudio(_:releasedAtFileEnd:_:)``, released at file end; #19).
-    ///
-    /// A constant: it was `@Published var`, but nothing wrote or observed it (#17 F50 item 4).
+    /// taps are averaged (``afterAudio(_:releasedAtFileEnd:_:)``, released at file end).
     let captureWindow: TimeInterval = 0.2
 
     /// Tap-detection threshold, in dBFS.
@@ -437,8 +289,7 @@ final class TapToneAnalyzer: ObservableObject {
             // the main-thread detector, which compares against the noise-floor-RELATIVE threshold
             // (`noiseFloorEstimate + headroom`). The level crossing is only a PRE-ROLL SNAPSHOT
             // mechanism — it grabs pre-onset audio so the gated window has lead-in; `detectTap` alone
-            // decides whether a tap actually happened. (The comment here used to claim the two "fire at
-            // the same level", which is false for material.)
+            // decides whether a tap actually happened. The two do not fire at the same level for material.
             fftAnalyzer.levelCrossingThreshold = tapDetectionThreshold
             // If the user changes the threshold manually, the loaded-settings warning
             // is no longer relevant for this setting.
@@ -612,12 +463,9 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// `true` while a device/route change settles and the chart should show nothing.
     ///
-    /// The transient blank used to be expressed by writing `displayMode = .frozen`, which
-    /// overloaded that value: `.frozen` then meant "a loaded measurement" AND "blanked for a
-    /// moment", and the guard that decided whether to blank asked `displayMode == .live` — which is
-    /// still true of a COMPLETED measurement, because no completion path sets `.frozen`. A device
-    /// change therefore wiped a finished result's spectrum and peaks (#17 F35, regression from
-    /// `a086638`, build 264). One flag for one fact.
+    /// A flag of its own, not a `displayMode` value: `.frozen` means "a loaded measurement", and
+    /// `displayMode` stays untouched during a settle, so a completed or loaded measurement keeps its
+    /// spectrum and peaks. One flag for one fact.
     @Published var isSettling: Bool = false
 
     /// `false` during the brief period after an audio route change while the engine
@@ -646,7 +494,7 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var statusMessage: String = "Tap the guitar to begin"
 
     /// Set true when the user tries to start a tap sequence (New Tap) while Dump Capture Audio is on
-    /// but its folder can't be reached (§4b decision 1b). The view shows a prompt — Change Location /
+    /// but its folder can't be reached. The view shows a prompt — Change Location /
     /// Turn Off Saving / Cancel — and the sequence does not arm until it is resolved. macOS only.
     @Published var dumpFolderUnreachable: Bool = false
 
@@ -660,7 +508,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// transient, or `nil` when no settle is in flight.
     ///
     /// A stored property rather than a local, matching Python `_status_before_settle` and web
-    /// `statusBeforeSettle`, so the capture is observable and all three editions can pin it (#17 F37).
+    /// `statusBeforeSettle`, so the capture is observable and all three editions can pin it.
     var statusBeforeSettle: String?
 
     /// Sentinel string used to detect (and ignore) self-writes to
@@ -721,7 +569,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// auto-classification — absence is the only way to say "no override", so a stored value
     /// meaning "no override" cannot exist. Mirrors Python `peak_mode_overrides` (`{uuid: label}`)
     /// and web `overrides` (`Map<number, string>`); ``UserAssignedMode`` remains the `.guitartap`
-    /// wire shape, converted at the file boundary (#17 F28).
+    /// wire shape, converted at the file boundary.
     @Published var peakModeOverrides: [UUID: String] = [:]
 
     /// UUIDs of peaks the user has marked as significant results.
@@ -899,7 +747,7 @@ final class TapToneAnalyzer: ObservableObject {
 
         // Resolve through `peakMode(for:)` — the OVERRIDE-AWARE path. `identifiedModes` is built from
         // classifyAll alone and never consults overrides, so using it here would silently ignore a
-        // mode the user assigned by hand. (See Phase 6 in the lifecycle plan.)
+        // mode the user assigned by hand.
         let mode = peakMode(for: winner).normalized
         guard Self.singleHolderModes.contains(mode) else { return }
 
@@ -922,7 +770,7 @@ final class TapToneAnalyzer: ObservableObject {
     func cycleAnnotationVisibility() {
         // All → Selected → None → All, on every measurement type. For material (plate/brace) there is
         // no per-peak selection, so `.selected` and `.all` render the same set (all identified peaks);
-        // the mode is a shared setting and is never coerced on type change. (RESPIN-1.0.2.)
+        // the mode is a shared setting and is never coerced on type change.
         annotationVisibilityMode = annotationVisibilityMode.next
         TapDisplaySettings.annotationVisibilityMode = annotationVisibilityMode
     }
@@ -936,7 +784,7 @@ final class TapToneAnalyzer: ObservableObject {
     var visiblePeaks: [ResonantPeak] {
         // Material (plate/brace): annotate the accumulated identified L/C/FLC (stable, persistent),
         // matching the web — NOT `peaksAbovePeakMin`, which churns through 87→126→3 raw peaks during
-        // capture. There is no per-peak selection, so `.all`/`.selected` are equivalent. (RESPIN-1.0.2, fix R.)
+        // capture. There is no per-peak selection, so `.all`/`.selected` are equivalent.
         if !TapDisplaySettings.measurementType.isGuitar {
             return annotationVisibilityMode == .none ? [] : materialIdentifiedPeaks
         }
@@ -957,10 +805,9 @@ final class TapToneAnalyzer: ObservableObject {
     }
 
     /// The identified per-phase peaks (L, then C, then FLC) found so far in a material measurement,
-    /// in phase order. Stable and PERSISTENT across phases — the material analog of the guitar
-    /// "selected" set, mirroring the web's `matPeaks` that drives material annotations. Empty for
-    /// guitar. Used as the live-chart annotation source so annotations grow 1→2→3 cleanly instead of
-    /// following `peaksAbovePeakMin` (which churns through all raw peaks during capture). (RESPIN-1.0.2, fix R.)
+    /// in phase order — a material measurement's peaks. The three `selected…Peak`s are the only
+    /// material peak state (`allPeaks` / `selectedPeakIDs` are guitar-only); the chart, annotations,
+    /// results panel, save and PDF all read them through here. Empty for guitar.
     var materialIdentifiedPeaks: [ResonantPeak] {
         guard !TapDisplaySettings.measurementType.isGuitar else { return [] }
         return [selectedLongitudinalPeak, selectedCrossPeak, selectedFlcPeak].compactMap { $0 }
@@ -1022,59 +869,28 @@ final class TapToneAnalyzer: ObservableObject {
     /// `nil` before the cross-grain phase completes.
     @Published var crossSpectrum: (magnitudes: [Float], frequencies: [Float])?
 
-    /// Peaks detected from the longitudinal tap (all candidates, not just the dominant one).
-    @Published var longitudinalPeaks: [ResonantPeak] = []
-
-    /// Peaks detected from the cross-grain tap.
-    @Published var crossPeaks: [ResonantPeak] = []
-
-    /// Intermediate auto-selected UUID from HPS analysis of the longitudinal phase.
-    ///
-    /// Part of the two-layer peak-selection system; overridden by ``selectedLongitudinalPeak``
-    /// once the phase finalises.
-    @Published var autoSelectedLongitudinalPeakID: UUID?
-
-    /// The dominant longitudinal peak stored when the longitudinal phase finalises.
-    ///
-    /// First priority: the finalised phase peak, used whenever the phase has completed.
+    /// The longitudinal (fL) peak — the dominant peak of the phase's averaged spectrum, stored when
+    /// the phase finalises. `nil` before then, and after a Redo of the phase.
     @Published var selectedLongitudinalPeak: ResonantPeak?
 
-    /// Intermediate auto-selected UUID from HPS analysis of the cross-grain phase.
-    @Published var autoSelectedCrossPeakID: UUID?
-
-    /// The dominant cross-grain peak stored when the cross-grain phase finalises.
+    /// The cross-grain (fC) peak, stored when the cross-grain phase finalises.
     @Published var selectedCrossPeak: ResonantPeak?
-
-    /// Peaks detected from the FLC (torsional/twist) tap.
-    @Published var flcPeaks: [ResonantPeak] = []
 
     /// Averaged FFT spectrum from the FLC tap, once captured.
     @Published var flcSpectrum: (magnitudes: [Float], frequencies: [Float])?
 
-    /// Intermediate auto-selected UUID from HPS analysis of the FLC phase.
-    @Published var autoSelectedFlcPeakID: UUID?
-
-    /// The dominant FLC peak stored when the FLC phase finalises.
+    /// The FLC (torsional/twist) peak, stored when the FLC phase finalises.
     @Published var selectedFlcPeak: ResonantPeak?
 
     // MARK: - Effective Peak Selection
     //
-    // `selected<Phase>Peak` is the identified peak. The resolvers below used to fall back to
-    // `autoSelected<Phase>PeakID`, but that arm was UNREACHABLE: both are assigned on adjacent
-    // lines in the phase-completion handlers, and the selected one is never nil when the auto id is
-    // set (`?? avgPeak`). Removed 2026-09-20.
-    //
-    // The `autoSelected*PeakID` properties THEMSELVES stay — they are a @Published change channel
-    // the view subscribes to (`.onReceive(tap.$autoSelectedLongitudinalPeakID)`) to widen the chart
-    // axis onto a newly identified peak. Deleting them would silently drop that behaviour.
+    // `selected<Phase>Peak` is the identified peak, and the only one a phase keeps.
 
     /// UUID of the longitudinal (fL) peak, or `nil` before the phase finalises.
     ///
-    /// There is nothing to resolve: this is the phase's identified peak. It was a three-layer
-    /// resolution until 2026-09-20 — a user-override tier whose UI went in April 2026, over the
-    /// phase peak, over `autoSelectedLongitudinalPeakID` — and the note above records why both
-    /// extra layers went. Kept as a named property because views and the material-property
-    /// calculations read it, and because its two siblings exist for the other phases.
+    /// There is nothing to resolve: this is the phase's identified peak. It is a named property
+    /// because views and the material-property calculations read it, and because its two siblings
+    /// exist for the other phases.
     var effectiveLongitudinalPeakID: UUID? {
         selectedLongitudinalPeak?.id
     }
@@ -1367,7 +1183,7 @@ final class TapToneAnalyzer: ObservableObject {
     //
     // A continuous audio buffer that accumulates raw mic samples while tap
     // detection is active, producing one WAV per measurement that replays
-    // identically through the pipeline.  See session-recording-wav-save.md.
+    // identically through the pipeline.
 
     /// Session recording buffer — accumulates raw mic audio while detection
     /// is active.  Used to produce a single WAV per measurement that can be
@@ -1389,7 +1205,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Sample rate captured at recording start, used for session WAV export.
     var sessionRecordingSampleRate: Double = 48000
 
-    /// Bounded pre-roll for the session WAV (FILE-PATHS-AND-NAMES-SPEC §6).
+    /// Bounded pre-roll for the session WAV.
     ///
     /// While armed and **before the first tap**, the session buffer keeps only the last
     /// ``sessionPreRollDuration`` of audio (trimmed on every chunk), so an app left armed for
@@ -1466,8 +1282,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Frequency proximity tolerance used to identify near-duplicate peaks (Hz).
     ///
     /// Two peaks within this distance are considered the same physical resonance.
-    /// Shared by ``removeDuplicatePeaks(_:)`` in `+PeakAnalysis` and
-    /// ``buildAllPeaks(magnitudes:frequencies:dominantPeak:)`` in `+SpectrumCapture`.
+    /// Used by ``removeDuplicatePeaks(_:)`` in `+PeakAnalysis`.
     static let peakProximityHz: Float = 2.0
 
     /// The absolute magnitude floor (dBFS) for the peak set persisted with a guitar measurement.
@@ -1476,7 +1291,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// Peak Min, so a reloaded measurement can reveal peaks below the capture-time Peak Min exactly
     /// as the live measurement can. −100 dB is the chart's `defaultMinMagnitude` and the Peak Min
     /// slider's lower bound, so a peak below it can neither be drawn nor admitted by Peak Min — there
-    /// is nothing to gain by storing it. See PEAK-MIN-SEMANTICS.md in the GuitarTapWeb repo.
+    /// is nothing to gain by storing it.
     static let peakDetectionFloor: Float = -100.0
 
     /// Combine cancellable storage for FFT and input-level subscriptions.
@@ -1507,8 +1322,8 @@ final class TapToneAnalyzer: ObservableObject {
     /// `time` is the **audio clock** (seconds since engine start), carried with each sample
     /// from the audio thread — NOT wall-clock. The ring-out is therefore measured in audio
     /// time and is invariant to main-thread scheduling jitter under load; stamping with
-    /// `Date()` at the consumer made the decay number drift on a busy machine. (OUT-4 lesson:
-    /// the timestamp must travel with the sample.)
+    /// `Date()` at the consumer would make the decay number drift on a busy machine. The
+    /// timestamp travels with the sample.
     var peakMagnitudeHistory: [(time: Double, magnitude: Float)] = []
 
     /// Audio-clock time (seconds since engine start) of the tap that started the current
@@ -1518,9 +1333,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// The audio clock as the analyzer has seen it: the audio time of the latest chunk delivered to
     /// ``onRmsLevelChanged(_:audioTime:)``, recorded on every chunk before any guard.
     ///
-    /// The tap-lifecycle timers run on THIS clock, not the wall clock (#19). File playback advances
-    /// audio at "real time + processing time", so a wall-clock delay covered a different stretch of
-    /// audio on a slower run, and captures late in a sequence moved. Chunks reach the main thread in
+    /// The tap-lifecycle timers run on THIS clock, not the wall clock. File playback advances audio
+    /// at "real time + processing time", so a wall-clock delay would cover a different stretch of
+    /// audio on a slower run and move captures late in a sequence. Chunks reach the main thread in
     /// order, each carrying its own audio time, so a delay measured here covers exactly the same audio
     /// on every run. Never substitute `fftAnalyzer.audioElapsed` read on the main thread: the audio
     /// thread races ahead of it.
@@ -1533,7 +1348,7 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// The WALL time (`ProcessInfo.systemUptime`) at which the latest chunk reached
     /// ``onRmsLevelChanged(_:audioTime:)`` — what the capture safety timeout measures its silence from
-    /// (``afterAudioStall(_:while:_:)``, #19).
+    /// (``afterAudioStall(_:while:_:)``).
     var lastChunkWallTime: TimeInterval = 0
 
     /// Tap-lifecycle actions waiting on the audio clock — see ``afterAudio(_:releasedAtFileEnd:_:)``.
@@ -1545,7 +1360,7 @@ final class TapToneAnalyzer: ObservableObject {
     var tapPeakLevel: Float = -100
 
     /// The rest after a capture before detection re-arms, and the hold before the FLC phase arms, in
-    /// seconds of AUDIO (see ``afterAudio(_:releasedAtFileEnd:_:)``, #19).
+    /// seconds of AUDIO (see ``afterAudio(_:releasedAtFileEnd:_:)``).
     let tapCooldown: TimeInterval = 0.5
 
     /// Value of the engine's AUDIO clock (`fftAnalyzer.audioElapsed`, in seconds of audio processed)
@@ -1556,7 +1371,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// PLAYBACK they do not — the file is read and the engine reconfigured between arming and the first
     /// chunk, and if that setup outlasts the warm-up, a wall-clock warm-up expires *before any audio
     /// arrives*: it never runs, the noise-floor re-anchor never fires, and the EMA latches at its seed.
-    /// That silently disabled relative detection in playback. See OUT-4-DETECTION-SPEC.md.
+    /// That silently disabled relative detection in playback.
     var warmupStartAudioTime: Double?
 
     /// Duration of the warm-up period during which all taps are suppressed, in seconds.
@@ -1594,7 +1409,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// audio queue can still fire here and start a bogus gated capture.
     var detectTapConsecutiveAbove: Int = 0
 
-    /// How long after a tap the ring-out is tracked, in seconds of AUDIO (#19).
+    /// How long after a tap the ring-out is tracked, in seconds of AUDIO.
     let decayTrackingDuration: Double = 3.0
 
     /// `true` while decay tracking is actively recording the post-tap signal envelope.
@@ -1937,10 +1752,9 @@ final class TapToneAnalyzer: ObservableObject {
         // Freeze the display on the last good spectrum while the pipeline refills with
         // valid data from the new device.  This prevents the transitional noise/silence
         // from the device switch showing as a bogus live waveform.
-        // Blank only if a LIVE spectrum is on screen. `displayMode == .live` was the old test and
-        // it is wrong: no completion path sets `.frozen`, so a finished measurement is still
-        // `.live` and was being wiped. `isMeasurementComplete` is the field that actually says
-        // whether what you are looking at is a result (#17 F35).
+        // Blank only if a LIVE spectrum is on screen. `displayMode == .live` does not say that: no
+        // completion path sets `.frozen`, so a finished measurement is still `.live`.
+        // `isMeasurementComplete` is the field that says whether what you are looking at is a result.
         let wasShowingLive = !isMeasurementComplete && displayMode != .comparison
         if wasShowingLive {
             // Show nothing during the settle rather than the old device's spectrum, which would be
@@ -1955,12 +1769,12 @@ final class TapToneAnalyzer: ObservableObject {
         // Remember what the status said BEFORE the transient replaces it. When the settle ends,
         // `statusAfterSettle()` returns nil for the states whose status is a result announcement
         // rather than a prompt — and "leave it alone" has to mean restoring THIS, not leaving the
-        // transient up forever, which is what it meant on the first pass (#17 F33).
+        // transient up.
         //
         // `latestRealStatus`, NOT `statusMessage`: the latter is the OVERRIDE-RESOLVED string, so a
-        // route change while the input is clipping or dead preserved the warning sentinel and put it
-        // back as though the analyzer had set it. The override layer re-resolves on its own from the
-        // real status, so the real status is what has to survive the settle (#17 F37).
+        // route change while the input is clipping or dead would preserve the warning sentinel and
+        // put it back as though the analyzer had set it. The override layer re-resolves on its own
+        // from the real status, so the real status is what has to survive the settle.
         statusBeforeSettle = latestRealStatus
         statusMessage = "Audio device changed - reinitializing..."
 

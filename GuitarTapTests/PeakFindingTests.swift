@@ -77,6 +77,23 @@ struct FindPeaksTests {
                 "Detected freq \(closest.frequency) should be within 2 bins of \(targetHz) Hz")
     }
 
+    // F17: a found peak carries its pitch — the nearest note, its cents offset and the note's exact
+    // frequency are filled in when the peak is made, as `makePeak` does.
+    @Test func foundPeak_carriesItsPitch() throws {
+        let sut = makeSUT()
+        sut.peakMinThreshold = -60
+        sut.minFrequency = 50
+        sut.maxFrequency = 2000
+
+        let (mags, freqs) = makeSpectrum(peakHz: 440, peakDB: -20, halfWidthHz: 20)
+        let peaks = sut.findPeaks(magnitudes: mags, frequencies: freqs)
+        let a4 = try #require(peaks.min(by: { abs($0.frequency - 440) < abs($1.frequency - 440) }))
+
+        #expect(a4.pitchNote == "A4")
+        #expect(abs(a4.pitchCents ?? 99) < 5)
+        #expect(abs((a4.pitchFrequency ?? 0) - 440) < 0.01)
+    }
+
     // F11: An all-silence spectrum (every bin at -100 dB, i.e. below any reasonable
     // threshold) produces no peaks.
     @Test func silenceSpectrum_returnsEmpty() {
@@ -114,9 +131,8 @@ struct FindPeaksTests {
     /// Two tones of UNEQUAL amplitude: a threshold between them keeps only the stronger.
     ///
     /// `multipleTones_detectsAll` uses near-equal amplitudes and one threshold, so it cannot show
-    /// the threshold discriminating between peaks. Moved here from the frozen-recalc suite
-    /// (project issue #8), where it was the only coverage of this case in any edition but sat under
-    /// a slug about recalculation — it tests detection, not recalculation.
+    /// the threshold discriminating between peaks. Filed with detection, not recalculation, because
+    /// that is what it tests.
     @Test func raisedThreshold_dropsTheWeakerOfTwoTones() {
         let sut = makeSUT()
         sut.minFrequency = 50
@@ -284,9 +300,7 @@ struct SpectrumAveragingTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - Duplicate-peak regression  (D1, D2, D4)
-//
-// Development/PEAK-FINDING-DUPLICATE-PEAKS.md (GuitarTapWeb).
+// MARK: - Duplicate-peak regression
 //
 // findPeaks must never return two peaks for one spectral feature. It did: the
 // per-mode scan visited a bin once per overlapping mode range, minting a fresh
@@ -450,7 +464,7 @@ struct FindPeaksDuplicateTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - Full-set save (Option 4 — PEAK-MIN-SEMANTICS.md, GuitarTapWeb)
+// MARK: - Full-set save
 //
 // A freshly captured guitar measurement persists every peak down to the −100 dB
 // floor, not just those above the current Peak Min, so a reloaded measurement can

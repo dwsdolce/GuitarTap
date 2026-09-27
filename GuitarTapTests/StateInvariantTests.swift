@@ -130,7 +130,7 @@ struct StateInvariantTests {
     // V4: Mid-sequence for a multi-tap guitar measurement, invariants hold — reached through the
     // REAL capture path (finishGuitarGatedCapture: the merge point of both detection paths), not
     // by assigning capturedTaps / currentTapCount / detectionState by hand, which would only test
-    // the checker on a state the test invented (#17 F45). Checked twice: resting through the tap
+    // the checker on a state the test invented. Checked twice: resting through the tap
     // cooldown, and re-armed after it.
     @Test func midMultiTapSequence_holdsInvariants() async throws {
         let sut = makeSUT(numberOfTaps: 3)
@@ -146,7 +146,7 @@ struct StateInvariantTests {
         #expect(sut.isDetecting == false, "detection rests through the tap cooldown")
         #expect(stateInvariantViolation(sut) == nil, "mid-sequence, resting")
 
-        advanceAudio(sut, by: sut.tapCooldown)   // the rest runs on the audio clock (#19)
+        advanceAudio(sut, by: sut.tapCooldown)   // the rest runs on the audio clock
         #expect(sut.isDetecting == true, "re-armed for the next tap once the cooldown has passed")
         #expect(stateInvariantViolation(sut) == nil, "mid-sequence, re-armed")
     }
@@ -183,7 +183,7 @@ struct StateInvariantTests {
     }
 
     // V8: A plate capture reaches its REVIEW phase through the real gated path, and invariants hold
-    // there — including I6 (no detection while reviewing), which no guitar case can reach (#17 F45).
+    // there — including I6 (no detection while reviewing), which no guitar case can reach.
     @Test func plateReviewPhase_holdsInvariants() {
         let sut = makeSUT(numberOfTaps: 1)
         TapDisplaySettings.measurementType = .plate
@@ -197,8 +197,8 @@ struct StateInvariantTests {
         #expect(stateInvariantViolation(sut) == nil)
     }
 
-    // V9–V13: each invariant the checker enforces REPORTS its forbidden state. V7 did this for I1
-    // alone, so nothing showed that I2–I6 could ever fire (#17 F45).
+    // V9–V13: each invariant the checker enforces REPORTS its forbidden state — V7 covers I1, these
+    // cover I2–I6.
     @Test func I2_pausedAndComplete_isFlagged() {
         let sut = makeSUT()
         sut.detectionState = .paused

@@ -66,9 +66,9 @@ let syntheticPlateDimensions = MaterialDimensions(
 // ---------------------------------------------------------------------------
 // MARK: - Real Sample Report
 //
-// One test per number GuitarTap printed for the committed measurement. If the app is ever
-// changed so it would report something different for that plate, exactly this suite fails,
-// and the .pdf beside the file says what it used to say.
+// One test per number GuitarTap printed for the committed measurement. If the app would report
+// something different for that plate, exactly this suite fails, and the .pdf beside the file
+// records the reported values.
 // ---------------------------------------------------------------------------
 
 @Suite("RealPlateReport")
@@ -417,9 +417,7 @@ struct AnisotropyRatioTests {
 // MARK: - Radiation Ratio Tests
 //
 // R = c/ρ is shown in the Results panel and in the exported image in all three
-// editions. It had no test in any of them until the #17 sweep, which is how the
-// web port's inline copy came to be missing the zero-density guard and to render
-// the string "NaN" where the natives render 0.
+// editions. Zero density gives 0, never NaN.
 // ---------------------------------------------------------------------------
 
 @Suite("PlateRadiationRatio")
@@ -492,9 +490,7 @@ struct WoodQualityTests {
     }
 
     // The colour rule is NOT tested here. It belongs to `test/quality-colors`, which owns the
-    // `model/quality-colors` slug, and asserting it in this file as well meant the same rule lived
-    // under two slugs. When #17 made the colours absolute, this copy still demanded the old
-    // semantic ones and the two disagreed — the full suite caught it. See QualityColorsTests.swift.
+    // `model/quality-colors` slug, so the rule lives under one slug. See QualityColorsTests.swift.
 
     // Spruce longitudinal thresholds: >=25=Excellent, >=22=VG, >=19=Good, >=16=Fair, <16=Poor.
     @Test func evaluate_spruceLongitudinal_thresholds() {

@@ -49,7 +49,7 @@ extension TapToneAnalyzer {
 
         // Evaluate the auto-start guard after pending state changes have settled. Launch auto-arm
         // goes through requestStartTapSequence so it gets the same dump-folder reachability check as
-        // the New Tap button (§4b decision 1b) — launching the app is a user action, so it must
+        // the New Tap button — launching the app is a user action, so it must
         // prompt too rather than silently record to (or skip) an unreachable folder.
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -91,14 +91,12 @@ extension TapToneAnalyzer {
     ///   A saved session WAV always contains its warm-up by construction: `isSessionRecording` is set
     ///   before the warm-up clock, and live suppresses detection during the warm-up, so no accepted
     /// tap can land in the first 0.5 s.
-    /// - Parameter initialPhase: For material (plate/brace) modes, the tap phase to begin
-    ///   capturing in; when `nil`, the sequence starts at its first phase.
     // @parity state/tap-tone-analyzer
     /// User-initiated arming (New Tap buttons, settings-apply re-arm). If Dump Capture Audio is on
     /// and its folder can't be reached, sets ``dumpFolderUnreachable`` so the view prompts the user
     /// (Change Location / Turn Off Saving / Cancel) and does **not** arm — the prompt's actions
     /// retry. File-playback setup calls ``startTapSequence`` directly, bypassing this check.
-    /// (§4b decision 1b.) On iOS the check is a no-op — the container folder is always reachable.
+    /// On iOS the check is a no-op — the container folder is always reachable.
     func requestStartTapSequence() {
         #if os(macOS)
         if TapDisplaySettings.dumpCaptureAudio && !WavDumpFolder.isReachable {
@@ -109,7 +107,7 @@ extension TapToneAnalyzer {
         startTapSequence()
     }
 
-    func startTapSequence(skipWarmup: Bool = false, initialPhase: MaterialTapPhase? = nil) {
+    func startTapSequence(skipWarmup: Bool = false) {
         let measurementType = TapDisplaySettings.measurementType
         let isPlateMode = measurementType == .plate
         let isBraceMode = measurementType == .brace
@@ -206,7 +204,7 @@ extension TapToneAnalyzer {
         sessionRecordingBuffer = []
         sessionCheckpoints = [0]
         isSessionRecording = true
-        sessionPreRollActive = true   // bound the pre-first-tap audio to ~2 s (§6)
+        sessionPreRollActive = true   // bound the pre-first-tap audio to ~2 s
         sessionRecordingSampleRate = mpmSampleRate > 0 ? mpmSampleRate : 48000
         mpmLock.unlock()
 
@@ -214,14 +212,13 @@ extension TapToneAnalyzer {
         // reasonable baseline.  Seed from the current input level; the warm-up's EMA then converges it,
         // and the warm-up-exit re-anchor snaps it to the real floor.
         //
-        // The -100 case now only arises when the warm-up is skipped, which — since the caller keys
+        // The -100 case arises only when the warm-up is skipped, which — since the caller keys
         // skipWarmup on the measurement type — means GUITAR, where the estimate is never read
         // (guitar uses the absolute threshold).  It must not be reached for material: -100 makes
         //     headroom = max(threshold - (-100), 10) = threshold + 100
         //     rising   = -100 + headroom             = threshold
         // i.e. the relative rule collapses onto the absolute one, silently disabling the very model
-        // it is meant to implement.  That is what used to happen on EVERY file playback, which is why
-        // the relative detector was never exercised by any regression test on any platform.
+        // it is meant to implement.
         noiseFloorEstimate = skipWarmup ? -100.0 : fftAnalyzer.inputLevelDB
 
         // For file playback (skipWarmup): start with isAboveThreshold = true
@@ -234,21 +231,12 @@ extension TapToneAnalyzer {
         // rising edge.
         isAboveThreshold = skipWarmup
         // A new sequence starts its tap confirmation from zero: a chunk counted before it cannot help
-        // confirm its first tap (#17 F50 item 13, the web's behaviour).
+        // confirm its first tap.
         detectTapConsecutiveAbove = 0
         justExitedWarmup = false
 
-        // Reset material phase state.  When initialPhase is provided
-        // (phase-targeted file-playback tests), use that phase so the
-        // level-crossing handler and gated capture route to the correct
-        // phase handler.
-        let newPhase: MaterialTapPhase
-        if isPlateMode || isBraceMode {
-            newPhase = initialPhase ?? .capturingLongitudinal
-        } else {
-            newPhase = .notStarted
-        }
-        resetMaterialPhaseState(to: newPhase)
+        // Reset material phase state: a material sequence starts at its first phase.
+        resetMaterialPhaseState(to: isPlateMode || isBraceMode ? .capturingLongitudinal : .notStarted)
 
         // ===== Arm detection =====
         // AUDIO clock, not wall clock — see `warmupStartAudioTime`. Skipping the warm-up backdates it
@@ -260,9 +248,8 @@ extension TapToneAnalyzer {
 
         // ===== Status message and final UI clear =====
         // `resetMaterialPhaseState(to:)` above has already set the phase, so the material prompt is
-        // read from it rather than rebuilt here — one source for these strings (#17 F37). A
-        // phase-targeted start (file playback) consequently announces the phase it actually begins
-        // in instead of always announcing fL.
+        // read from it rather than rebuilt here — one source for these strings. A phase-targeted
+        // start (file playback) therefore announces the phase it actually begins in.
         statusMessage = (isPlateMode || isBraceMode) ? materialArmPrompt() : tapPrompt()
 
         // Clear previous results so the chart shows a clean slate while waiting.
@@ -271,7 +258,7 @@ extension TapToneAnalyzer {
 
         // Clear all per-peak state from the PREVIOUS measurement. These are keyed by the old peaks'
         // UUIDs, so once `allPeaks` is emptied they are invisible on screen — but they would still be
-        // written verbatim into the NEXT measurement's saved file (Phase 7). A new sequence starts
+        // written verbatim into the NEXT measurement's saved file. A new sequence starts
         // with no selection, no labels and no dragged offsets.
         selectedPeakIDs              = []
         selectedPeakFrequencies      = []
@@ -309,7 +296,7 @@ extension TapToneAnalyzer {
         warmupStartAudioTime = fftAnalyzer.audioElapsed
         isAboveThreshold  = false
         // The tap confirmation restarts: a chunk counted before the pause must not help confirm a tap
-        // after it, or a single loud chunk could fire one (#17 F50 item 13, the web's behaviour).
+        // after it, or a single loud chunk could fire one.
         detectTapConsecutiveAbove = 0
 
         isSessionRecording = true  // Resume accumulating audio after pause
@@ -348,6 +335,60 @@ extension TapToneAnalyzer {
         startTapSequence()
     }
 
+    // MARK: - Play File
+
+    /// Play an audio file through the live pipeline — the Play File action. Plays with the calibration
+    /// file given for it, or with no calibration (never the live input's), arms a fresh tap sequence,
+    /// then starts the file; the calibration in effect before is restored when playback ends. The view calls this; so do the
+    /// file-playback regressions, which therefore run the path users take.
+    ///
+    /// The warm-up is decided by the MEASUREMENT TYPE, not by "is this a file". Guitar skips it: the
+    /// source is deterministic and the tap may sit within the first 0.5 s of an externally recorded
+    /// file, and guitar uses the absolute threshold, never the noise floor. Material (plate/brace)
+    /// runs it: it is the only mode on the relative noise-floor detector, and the warm-up is what
+    /// establishes that floor — skipping it collapses `rising` onto `tapDetectionThreshold`. A saved
+    /// session WAV always contains its warm-up.
+    ///
+    /// `startTapSequence` runs BEFORE `startFromFile`, so the analyzer state is fully reset before any
+    /// audio flows — otherwise the engine could deliver buffers while the previous session's
+    /// `isMeasurementComplete` still held, or complete a stale capture into `capturedTaps`.
+    ///
+    /// - Parameters:
+    ///   - url: The audio file (WAV, AIFF, CAF, …).
+    ///   - calibrationURL: The calibration of the microphone the file was recorded with, or nil to play
+    ///     uncalibrated. A file that cannot be parsed is logged and the playback is uncalibrated.
+    ///   - completion: Called on the main thread when playback has ended (after the calibration is
+    ///     restored).
+    /// - Throws: If the file cannot be read.
+    func playFile(url: URL, calibrationURL: URL? = nil, completion: (() -> Void)? = nil) throws {
+        // The playback uses the file's calibration, or none. The microphone the file was recorded with is
+        // unknown, so the live input's calibration never applies to it.
+        let previousCalibration = fftAnalyzer.activeCalibration
+        var playbackCalibration: MicrophoneCalibration? = nil
+        if let calURL = calibrationURL {
+            do {
+                playbackCalibration = try CalibrationFileParser.parse(url: calURL)
+            } catch {
+                gtLog("⚠️ Could not parse calibration file: \(error.localizedDescription)")
+            }
+        }
+        fftAnalyzer.setTemporaryCalibration(playbackCalibration)
+
+        let isMaterial = TapDisplaySettings.measurementType == .plate
+            || TapDisplaySettings.measurementType == .brace
+        startTapSequence(skipWarmup: !isMaterial)
+
+        do {
+            try fftAnalyzer.startFromFile(url) { [fftAnalyzer] in
+                fftAnalyzer.setTemporaryCalibration(previousCalibration)
+                completion?()
+            }
+        } catch {
+            fftAnalyzer.setTemporaryCalibration(previousCalibration)
+            throw error
+        }
+    }
+
     // MARK: - Phase Review (Accept / Redo)
 
     /// Accepts the current review-phase spectrum and advances to the next capture phase.
@@ -374,14 +415,14 @@ extension TapToneAnalyzer {
             isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             detectionState = .listening
-            statusMessage = materialArmPrompt()   // phase is .capturingCross — one source (#17 F37)
+            statusMessage = materialArmPrompt()   // phase is .capturingCross — one source
 
         case .reviewingCross:
             if measureFlc {
                 gtLog("✅ Accepted C tap — advancing to FLC")
                 materialTapPhase = .waitingForFlcTap
-                statusMessage = materialArmPrompt()  // phase is .waitingForFlcTap — one source (#17 F37)
-                // Re-enable detection for the FLC phase after the hold: `tapCooldown` of AUDIO (#19).
+                statusMessage = materialArmPrompt()  // phase is .waitingForFlcTap — one source
+                // Re-enable detection for the FLC phase after the hold: `tapCooldown` of AUDIO.
                 afterAudio(tapCooldown) { [weak self] in
                     guard let self = self else { return }
                     // Cancelled or restarted while the hold ran (Cancel / New Tap / measurement-type
@@ -417,16 +458,13 @@ extension TapToneAnalyzer {
 
     /// Finalises a two-tap plate measurement (L + C, no FLC).
     ///
-    /// Resolves the displayed peak selection, freezes the spectrum, marks
+    /// Freezes the spectrum, marks
     /// the phase complete, writes the session WAV, and sets the completion
     /// status message.  Called from both the user-Accept path
     /// (`acceptCurrentPhase` on `.reviewingCross`) and the file-playback
     /// auto-complete path (`handleCrossGatedProgress` when `measureFlc`
     /// is `false`).  Mirrors Python `_finalise_plate_no_flc()`.
     func finalisePlateNoFLC() {
-        let sel = resolvedPlatePeaks(crossOverride: selectedCrossPeak ?? crossPeaks.first)
-        allPeaks = sel
-        selectedPeakIDs = Set(sel.map { $0.id })
         setFrozenSpectrum(frequencies: [], magnitudes: [])
         materialTapPhase = .complete
         isMeasurementComplete = true
@@ -438,16 +476,13 @@ extension TapToneAnalyzer {
 
     /// Finalises a three-tap plate measurement (L + C + FLC).
     ///
-    /// Resolves the displayed peak selection, freezes the spectrum, marks
+    /// Freezes the spectrum, marks
     /// the phase complete, writes the session WAV, and sets the completion
     /// status message.  Called from both the user-Accept path
     /// (`acceptCurrentPhase` on `.reviewingFlc`) and the file-playback
     /// auto-complete path (`handleFlcGatedProgress`).  Mirrors Python
     /// `_finalise_plate_with_flc()`.
     func finalisePlateWithFLC() {
-        let sel = resolvedPlatePeaks(includeCross: true, includeFlc: true, flcOverride: selectedFlcPeak ?? flcPeaks.first)
-        allPeaks = sel
-        selectedPeakIDs = Set(sel.map { $0.id })
         setFrozenSpectrum(frequencies: [], magnitudes: [])
         materialTapPhase = .complete
         isMeasurementComplete = true
@@ -471,7 +506,7 @@ extension TapToneAnalyzer {
            sessionRecordingBuffer.count > phaseStart {
             sessionRecordingBuffer.removeSubrange(phaseStart...)
             // Redoing the FIRST phase empties the buffer back to the pre-first-tap state, so
-            // re-arm the bounded pre-roll (§6) — the redone tap gets its ~2 s lead-in again.
+            // re-arm the bounded pre-roll — the redone tap gets its ~2 s lead-in again.
             // Later phases (phaseStart > 0) keep earlier taps, so the latch stays frozen.
             if phaseStart == 0 { sessionPreRollActive = true }
         }
@@ -481,8 +516,6 @@ extension TapToneAnalyzer {
         case .reviewingLongitudinal:
             gtLog("🔄 Redo L phase — clearing longitudinal data")
             longitudinalSpectrum = nil
-            longitudinalPeaks = []
-            autoSelectedLongitudinalPeakID = nil
             selectedLongitudinalPeak = nil
             materialCapturedTaps = []
             currentTapCount = 0
@@ -497,8 +530,6 @@ extension TapToneAnalyzer {
         case .reviewingCross:
             gtLog("🔄 Redo C phase — clearing cross-grain data")
             crossSpectrum = nil
-            crossPeaks = []
-            autoSelectedCrossPeakID = nil
             selectedCrossPeak = nil
             materialCapturedTaps = []
             let lCount = (longitudinalSpectrum != nil) ? numberOfTaps : 0
@@ -514,8 +545,6 @@ extension TapToneAnalyzer {
         case .reviewingFlc:
             gtLog("🔄 Redo FLC phase — clearing FLC data")
             flcSpectrum = nil
-            flcPeaks = []
-            autoSelectedFlcPeakID = nil
             selectedFlcPeak = nil
             materialCapturedTaps = []
             let lcCount = (longitudinalSpectrum != nil && crossSpectrum != nil) ? numberOfTaps * 2 : 0
@@ -552,12 +581,6 @@ extension TapToneAnalyzer {
         longitudinalSpectrum = nil
         crossSpectrum        = nil
         flcSpectrum          = nil
-        longitudinalPeaks    = []
-        crossPeaks           = []
-        flcPeaks             = []
-        autoSelectedLongitudinalPeakID = nil
-        autoSelectedCrossPeakID        = nil
-        autoSelectedFlcPeakID          = nil
         selectedLongitudinalPeak        = nil
         selectedCrossPeak               = nil
         selectedFlcPeak                 = nil

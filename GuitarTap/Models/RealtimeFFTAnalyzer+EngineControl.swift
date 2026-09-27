@@ -453,14 +453,12 @@ extension RealtimeFFTAnalyzer {
             // rather than from a `lastSignalTime` of 0 — but ONLY for a start the user asked for.
             //
             // A watchdog RECOVERY must not stamp this: `lastSignalTime` means "signal was last
-            // OBSERVED", and a restart observes nothing. Stamping it made the next tick read
-            // .healthy, which cleared the warning and reset the attempt streak, while the clean
-            // slate below cleared the exhausted latch — so .deadInputExhausted was unreachable and
-            // the engine restarted every 15 s forever, strobing the warning. Found on a BlackHole
-            // 2ch virtual input during the #17 run-review; any permanently silent input does it.
-            // Uses the flag start() ALREADY captures at entry (`startedByWatchdogRecovery =
-            // isRecoveringEngine`). A first pass at this added a second parameter carrying the same
-            // fact — the duplicate-state shape this whole issue exists to remove.
+            // OBSERVED", and a restart observes nothing. Stamping it would make the next tick read
+            // .healthy, clearing the warning and the attempt streak, while the clean slate below
+            // clears the exhausted latch — so .deadInputExhausted would be unreachable and a
+            // permanently silent input would restart the engine every 15 s, strobing the warning.
+            // Uses the flag start() captures at entry (`startedByWatchdogRecovery =
+            // isRecoveringEngine`) rather than a parameter carrying the same fact.
             if !startedByWatchdogRecovery {
                 self.lastSignalTime = CACurrentMediaTime()
                 // A deliberate (re)start gets a clean slate: full recovery attempts again.
@@ -521,8 +519,8 @@ extension RealtimeFFTAnalyzer {
                 //
                 // The original reasoning — "a real mic is never exactly zero, so zero
                 // means the OS muted us" — had one cause in mind and is no longer
-                // sufficient: a dead-but-present device produces identical output
-                // (hub AUDIO-WATCHDOG-SILENT-STREAM.md). Left unqualified it takes a
+                // sufficient: a dead-but-present device produces identical output.
+                // Left unqualified it takes a
                 // hardware failure, tells the user their microphone permission was
                 // denied, and calls stop() — which also cancels the dead-input
                 // watchdog's remaining recovery attempts, so the app cannot heal and
@@ -558,8 +556,6 @@ extension RealtimeFFTAnalyzer {
     /// properties (`actualSampleRate`, `magnitudes`, `peakMagnitude`,
     /// `isPlayingFile`, `playingFileName`).  ``startFromFile(_:completion:)``
     /// calls this before dispatching `processFileData` to a background queue.
-    /// `playFileForTesting` calls this on whatever thread it runs on (main
-    /// in tests).
     ///
     /// - Parameters:
     ///   - sampleRate: The file's sample rate in Hz.
@@ -594,7 +590,7 @@ extension RealtimeFFTAnalyzer {
     ///   - sampleRate: Sample rate in Hz.
     ///   - fileName: Display name for status/logging.
     func processFileData(samples: [Float], sampleRate: Double, fileName: String) {
-        // Playback is paced by one-chunk sleeps; keep the OS from throttling them for the whole run (#19).
+        // Playback is paced by one-chunk sleeps; keep the OS from throttling them for the whole run.
         let timingActivity = holdTimingActivity("Guitar Tap file playback")
         defer { releaseTimingActivity(timingActivity) }
 
@@ -768,7 +764,9 @@ extension RealtimeFFTAnalyzer {
                 TAP_DEBUG("file_playback", "MIC_RESTART — main thread: starting mic")
 
                 // Switch back to live mic.
-                try? self.start()
+                // Never under test: there is no audio hardware to restart (the file-playback
+                // regressions run this path headless).
+                if !self.isForTesting { try? self.start() }
                 TAP_DEBUG("file_playback", "MIC_RESTART_DONE")
                 capturedCompletion?()
             }
@@ -831,13 +829,10 @@ extension RealtimeFFTAnalyzer {
 
         // ── Set client format to the file's channel count, Float32 ──────────
         //
-        // NOT mono. This asked ExtAudioFile for one channel and assumed it would
-        // downmix; it does not — it hands back the FIRST channel and discards the
-        // rest. Every stereo recording was therefore analysed as its left channel
-        // alone, while Python and web averaged both, so the editions were measuring
-        // different audio on exactly the stereo (guitar) fixtures. Read every channel
-        // and average them here instead, which is what the old comment claimed was
-        // happening. See guitar-tap-project issue #7.
+        // NOT mono. ExtAudioFile does not downmix: asked for one channel, it hands
+        // back the FIRST channel and discards the rest. Read every channel and
+        // average them here, as Python and web do, so all three editions measure
+        // the same audio from a stereo recording.
         let channels = max(Int(fileChannels), 1)
         let bytesPerFrame = UInt32(4 * channels)
         var clientFormat = AudioStreamBasicDescription(

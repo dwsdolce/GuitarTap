@@ -188,12 +188,10 @@ extension RealtimeFFTAnalyzer {
     private func attemptWatchdogRecovery() {
         watchdogRecoveryAttempts += 1
         guard watchdogRecoveryAttempts <= watchdogMaxAttempts else {
-            // Stop RESTARTING, but keep WATCHING. Stopping the timer here used to leave
-            // the app permanently deaf: nothing was left to notice the input coming
-            // back, so a user who fixed the microphone — reconnected it, un-muted it,
-            // raised an input level — saw no change until they relaunched. The tick is
-            // cheap; it now keeps evaluating and clears the warning the moment real
-            // signal returns.
+            // Stop RESTARTING, but keep WATCHING: the timer keeps running so that a user
+            // who fixes the microphone — reconnects it, un-mutes it, raises an input
+            // level — sees the warning clear the moment real signal returns, without a
+            // relaunch. The tick is cheap.
             gtLog("❌ Buffer watchdog: giving up on restarts after \(watchdogMaxAttempts) attempts — still watching; will clear as soon as audio returns")
             isRecoveringEngine = false
             watchdogRecoveryExhausted = true

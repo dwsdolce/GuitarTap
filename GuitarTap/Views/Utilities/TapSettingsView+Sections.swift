@@ -396,7 +396,7 @@ extension TapSettingsView {
 
             // The analysis frequency range (30–2000 Hz) is a fixed constant, not a user setting —
             // it bounds the useful modal region and never needs changing. See
-            // TapDisplaySettings.analysisMinFrequency. The control was removed in Phase 7.
+            // TapDisplaySettings.analysisMinFrequency.
 
             // Peak Threshold (guitar only — not used for plate/brace)
             VStack(alignment: .leading, spacing: 12) {
@@ -430,8 +430,8 @@ extension TapSettingsView {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Dump Capture Audio")
                     // Names no folder: under the sandbox this is the app's own Documents, not the
-                    // user's — and the folder becomes a visible, settable field in its own right
-                    // (FILE-PATHS-AND-NAMES-SPEC §4b). One WAV per measurement, not one per tap:
+                    // user's — and the folder becomes a visible, settable field in its own right.
+                    // One WAV per measurement, not one per tap:
                     // the per-tap dumps were dropped in favour of a single session recording.
                     Text("Save the captured audio of each measurement as a WAV file")
                         .font(.caption)
@@ -439,7 +439,7 @@ extension TapSettingsView {
                 }
             }
 
-            // WAV-dump folder (§4b): where the recordings go, with buttons to open / change it.
+            // WAV-dump folder: where the recordings go, with buttons to open / change it.
             if dumpCaptureAudio {
                 #if os(macOS)
                 VStack(alignment: .leading, spacing: 4) {

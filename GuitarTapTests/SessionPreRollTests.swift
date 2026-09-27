@@ -2,7 +2,7 @@
 //  SessionPreRollTests.swift
 //  GuitarTapTests
 //
-//  Pins the bounded pre-roll for the session WAV (FILE-PATHS-AND-NAMES-SPEC §6):
+//  Pins the bounded pre-roll for the session WAV:
 //  the head is trimmed to ~2 s ONLY before the first tap; everything after — subsequent taps,
 //  plate phases, and the gaps between them — is completely live. Three-way with Python
 //  test_session_pre_roll.py and web session-pre-roll.test.ts.

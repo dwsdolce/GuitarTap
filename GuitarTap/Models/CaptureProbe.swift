@@ -1,13 +1,8 @@
 //  CaptureProbe.swift
-//  Diagnostic for the capture-window alignment family (project issues #7, #3, #5).
+//  Diagnostic for cross-edition capture-window alignment.
 //
-//  The editions disagree on the guitar path by 0.0004-0.003 dB, and the cause is known to
-//  be at least partly that Swift aligns the guitar FFT window to the sample-level tap onset
-//  while Python and web do not. Adding that alignment to Python closes only 6-52% of the
-//  gap, so something else still differs in what reaches the FFT.
-//
-//  This narrows that "something else" to one of three places by fingerprinting the two
-//  buffers on either side of the alignment step:
+//  Places a cross-edition difference in what reaches the FFT in one of three places by
+//  fingerprinting the two buffers on either side of the alignment step:
 //
 //      buffer differs                  -> the editions are not capturing the same samples
 //      buffer same, window differs     -> the alignment picks a different onset

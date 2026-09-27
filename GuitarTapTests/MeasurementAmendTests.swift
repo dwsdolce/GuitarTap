@@ -14,7 +14,7 @@
 //
 // These cases lived under test/measurement-codable, which is about serialisation; the amend rule is
 // not a serialisation concern and web had no counterpart for it at all. Mirrors Python
-// tests/test_measurement_amend.py and web test/measurement-amend.test.ts. See SLUG-SWEEP.md F20.
+// tests/test_measurement_amend.py and web test/measurement-amend.test.ts.
 
 import Testing
 import Foundation

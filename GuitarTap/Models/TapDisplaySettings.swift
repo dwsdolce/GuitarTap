@@ -519,11 +519,9 @@ struct TapDisplaySettings {
     /// The analysis frequency range for peak detection (Hz) — a **fixed** 30…2000 Hz.
     ///
     /// A real bound on where useful modes live: 30 Hz reaches the material fLC, and nothing useful
-    /// sits above 2000 Hz. It was once user-editable in the Settings sheet, but the range never needs
-    /// changing, so the control was removed and the value is a constant (Phase 7). The concept stays —
-    /// `findPeaks` still restricts detection to this range — only the knob is gone. Distinct from the
-    /// display/pan-zoom range, which remains user-controllable. (Any pre-existing UserDefaults values
-    /// under the old keys are now simply ignored.)
+    /// sits above 2000 Hz. The range never needs changing, so it is a constant with no Settings
+    /// control; `findPeaks` restricts detection to it. Distinct from the display/pan-zoom range, which
+    /// is user-controllable. UserDefaults values under the old analysis-range keys are ignored.
     static var analysisMinFrequency: Float { defaultAnalysisMinFrequency }
     static var analysisMaxFrequency: Float { defaultAnalysisMaxFrequency }
     
@@ -584,7 +582,7 @@ struct TapDisplaySettings {
     }
     
     /// Whether to dump each measurement's captured audio to a WAV file in the app's Documents/GuitarTap
-    /// (the container's Documents under the sandbox; a settable folder per FILE-PATHS-AND-NAMES-SPEC §4b).
+    /// (the container's Documents under the sandbox; a user-settable folder).
     /// One session recording per measurement. Useful for offline debugging / cross-platform comparison.
     /// Defaults to false.
     static var dumpCaptureAudio: Bool {

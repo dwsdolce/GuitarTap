@@ -10,11 +10,10 @@
 //      spectrumSnapshot?.measurementType ?? longitudinalSnapshot?.measurementType   → shortName ?? "—"
 //
 //  These are the Swift counterpart of Python tests/test_measurement_type_name.py and the web
-//  test/measurement-type-name.test.ts. They were deferred while `measurementTypeName` was `private`
-//  inside MeasurementDetailView (unreachable from a test); the resolver now lives on the model as
-//  `TapToneMeasurement.measurementTypeShortName`, so the in-memory cases below can exercise it —
-//  the exact shape that regressed to "—" on Python in the 1.0.2 run-review (a round-trip test can't
-//  catch it: loading from a dict populates the top-level field; only an in-memory measurement does).
+//  test/measurement-type-name.test.ts. The resolver lives on the model as
+//  `TapToneMeasurement.measurementTypeShortName`, so the in-memory cases below can exercise it. The
+//  in-memory shape is the one that matters: a round-trip test cannot catch a "—" here, because
+//  loading from a dict populates the top-level field; only an in-memory measurement does not.
 //
 // @parity test/measurement-type-name
 

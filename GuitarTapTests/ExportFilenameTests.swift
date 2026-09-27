@@ -2,7 +2,7 @@
 //  ExportFilenameTests.swift
 //  GuitarTapTests
 //
-//  Pins the shared export-filename rule (FILE-PATHS-AND-NAMES-SPEC §2b): one stem function,
+//  Pins the shared export-filename rule: one stem function,
 //  per-artifact default word, integer-second discriminator, name slugged (spaces and "/" → "-",
 //  lowercased). Three-way with Python test_export_filename.py and web export-filename.test.ts.
 //

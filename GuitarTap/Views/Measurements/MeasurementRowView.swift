@@ -79,7 +79,7 @@ struct MeasurementRowView<MenuItems: View>: View {
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
                 // A nameless measurement is not a comparison — only fall back to "Comparison"
-                // for an actual comparison record (§6b).
+                // for an actual comparison record.
                 Text(measurement.measurementName ?? (measurement.isComparison ? "Comparison" : "Measurement"))
                     .font(.headline)
 

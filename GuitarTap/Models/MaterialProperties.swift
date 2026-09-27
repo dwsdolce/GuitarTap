@@ -10,8 +10,7 @@
 // the GuitarMode.swift pattern, where the colour concern is its own slug (`model/mode-colors`) because
 // the web extracts it into its presentation layer (`src/presentation/qualityColors.ts`). See that file:
 // hanging a colour off the model enum is a layer violation the natives should shed when the theme work
-// lands. The VALUES are already absolute in all three editions (#17) — that was a separate defect from
-// where they live, and it is fixed; only the layering is still outstanding.
+// lands. The VALUES are absolute sRGB hex in all three editions.
 
 /// # MaterialProperties
 ///
@@ -540,25 +539,18 @@ enum WoodQuality: String, CaseIterable {
     ///
     /// ## Why absolute, and not `.green` / `.mint` / `.blue` / `.orange` / `.red`
     ///
-    /// These were SwiftUI's semantic system colours until the #17 sweep. That made cross-edition
-    /// parity untestable and, in the end, untrue. A semantic colour is resolved by the OS, so what
-    /// GuitarTap draws changes when Apple revises the palette — and macOS 26 did revise it. Swift
-    /// moved to `.blue = #0088FF` and `.orange = #FF8D28` while Python and the web still pinned the
-    /// previous `#007AFF` and `#FF9500`. Three editions that all claimed to agree rendered two
-    /// visibly different blues and oranges on the same white surface: the macOS app, the Python app,
-    /// and the PDF report the web generates.
-    ///
-    /// Nothing caught it, and nothing could have: the old test asserted `color == .green`, which
-    /// stays true whatever hue the OS hands back. This parity group exists *because* a colour once
-    /// drifted with nothing to catch it, so the test has to pin the hue itself.
+    /// A semantic system colour is resolved by the OS, so what GuitarTap draws would change whenever
+    /// Apple revises the palette, while Python and the web, which pin hex, would not — the editions
+    /// would render visibly different hues on the same white surface. A test asserting
+    /// `color == .green` stays true whatever hue the OS hands back, so the test pins the hue itself.
     ///
     /// The hue carries no meaning here — it only has to separate five grades and be the same in
     /// every edition. So the value is fixed, and `hex` is what the paired Swift/Python/web tests
-    /// compare. The theme work (THEME-SPEC.md) would have made these absolute in any case; it owns
-    /// *scheme selection* — a second table for dark surfaces — not the values below.
+    /// compare. The theme work owns *scheme selection* — a second table for dark surfaces — not the
+    /// values below.
     ///
-    /// Mirrors Python `WoodQuality.color` and web `WOOD_QUALITY_COLOR.light`, which already carried
-    /// exactly these values.
+    /// Mirrors Python `WoodQuality.color` and web `WOOD_QUALITY_COLOR.light`, which carry exactly
+    /// these values.
     var hex: String {
         switch self {
         case .excellent: return "#34C759"

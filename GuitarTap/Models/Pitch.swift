@@ -70,8 +70,8 @@ class Pitch {
     /// Whether `frequency` has a pitch at all: a finite, positive number of hertz.
     ///
     /// A frequency that has none — 0 Hz, a negative value, NaN, infinity — gets "no pitch" from every
-    /// function here: an empty note name, 0 cents, 0 Hz, a (0, 0) range, not in tune. It used to reach
-    /// `Int(round(12 * log2(0)))`, which traps, and a peak at 0 Hz took the process down (#17 F50 item 14).
+    /// function here: an empty note name, 0 cents, 0 Hz, a (0, 0) range, not in tune. Without this guard
+    /// 0 Hz reaches `Int(round(12 * log2(0)))`, which traps.
     func hasPitch(_ frequency: Double) -> Bool {
         frequency.isFinite && frequency > 0
     }
@@ -99,12 +99,9 @@ class Pitch {
     /// frequency *above* its nearest note is bracketed by that note and the semitone above,
     /// and one *below* it by the semitone below and that note.
     ///
-    /// No octave special-casing is needed, and none should be added back. ``freq(note:octave:)``
-    /// is `c0 · 2^(note/12) · 2^octave` with no bounds check, so note 12 already *means* C of the
-    /// next octave and note −1 already means B of the previous one — the exponent carries it.
-    /// Two `if note == 0 / == 11` branches stood here until the #17 sweep claiming to "handle
-    /// octave boundaries"; deleting them changed 648 bound values across C0–B8 by at most
-    /// 1.15e-16 relative. See SLUG-SWEEP.md F13.
+    /// No octave special-casing is needed. ``freq(note:octave:)`` is `c0 · 2^(note/12) · 2^octave`
+    /// with no bounds check, so note 12 already *means* C of the next octave and note −1 already
+    /// means B of the previous one — the exponent carries it.
     ///
     /// - Parameter frequency: The frequency to analyse, in Hz.
     /// - Returns: A tuple `(upper: Double, lower: Double)` one semitone apart, bracketing

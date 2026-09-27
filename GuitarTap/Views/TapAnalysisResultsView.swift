@@ -108,11 +108,9 @@ struct TapAnalysisResultsView: View {
         analyzer.effectiveFlcPeakID
     }
     
-    /// Whether FLC measurement was performed (live: has FLC peaks; loaded: has a restored FLC peak selection)
+    /// Whether an FLC measurement was performed (its identified peak exists, live or loaded)
     private var hasFlcMeasurement: Bool {
-        !analyzer.flcPeaks.isEmpty
-            || analyzer.autoSelectedFlcPeakID != nil
-            || analyzer.selectedFlcPeak != nil
+        analyzer.selectedFlcPeak != nil
     }
 
     /// Whether this plate measurement includes (or will include) the FLC tap.
@@ -427,7 +425,7 @@ struct TapAnalysisResultsView: View {
     /// until each phase's peak is captured, and each row's bubble is selected only once found.
     @ViewBuilder
     private var materialSlotRows: some View {
-        let lPeak = analyzer.longitudinalPeaks.first { $0.id == effectiveLongitudinalPeakID }
+        let lPeak = analyzer.selectedLongitudinalPeak
         VStack(alignment: .leading, spacing: 12) {
             if measurementType == .brace {
                 MaterialPeakRowView(peak: lPeak, isLongitudinal: lPeak != nil, isCross: false,
@@ -435,15 +433,39 @@ struct TapAnalysisResultsView: View {
             } else {
                 MaterialPeakRowView(peak: lPeak, isLongitudinal: lPeak != nil, isCross: false,
                                     showFlcButton: includesFlcTap, isSelected: lPeak != nil)
-                let cPeak = analyzer.crossPeaks.first { $0.id == effectiveCrossPeakID }
+                let cPeak = analyzer.selectedCrossPeak
                 MaterialPeakRowView(peak: cPeak, isLongitudinal: false, isCross: cPeak != nil,
                                     showFlcButton: includesFlcTap, isSelected: cPeak != nil)
                 if includesFlcTap {
-                    let flcPeak = analyzer.flcPeaks.first { $0.id == effectiveFlcPeakID }
+                    let flcPeak = analyzer.selectedFlcPeak
                     MaterialPeakRowView(peak: flcPeak, isLongitudinal: false, isCross: false,
                                         isFlc: flcPeak != nil, showFlcButton: true, isSelected: flcPeak != nil)
                 }
             }
+        }
+    }
+
+    /// The material results rows: the fixed per-phase slot rows during capture, then the identified
+    /// L/C/FLC peaks (in frequency order) once the measurement is complete. The identified peaks are
+    /// the measurement's peaks, so every one is marked selected.
+    @ViewBuilder
+    private var materialPeakRows: some View {
+        if analyzer.isMeasurementComplete {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(analyzer.materialIdentifiedPeaks.sorted { $0.frequency < $1.frequency }, id: \.id) { peak in
+                    MaterialPeakRowView(
+                        peak: peak,
+                        isLongitudinal: effectiveLongitudinalPeakID == peak.id,
+                        isCross: effectiveCrossPeakID == peak.id,
+                        isFlc: effectiveFlcPeakID == peak.id,
+                        showCrossButton: measurementType == .plate,
+                        showFlcButton: measurementType == .plate && includesFlcTap,
+                        isSelected: true
+                    )
+                }
+            }
+        } else {
+            materialSlotRows
         }
     }
 
@@ -460,160 +482,61 @@ struct TapAnalysisResultsView: View {
                     guitarType: TapDisplaySettings.guitarType
                 )
                 .padding(.vertical, 4)
+            } else if !measurementType.isGuitar && analyzer.displayMode != .comparison {
+                // Material (plate/brace): the identified L/C/FLC are the peaks — fixed slot rows
+                // during capture, then the identified peaks once complete.
+                materialPeakRows
             } else if sortedPeaksWithModes.isEmpty {
                 if analyzer.displayMode == .comparison {
                     ComparisonResultsView(spectra: analyzer.comparisonSpectra)
                         .padding(.vertical, 4)
-                } else if measurementType != .plate {
+                } else {
                     Text("No peaks detected in visible range")
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding()
-                } else {
-                    // Plate mode with no peaks yet: show process instructions so the
-                    // user knows what to do before making the first tap.
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(includesFlcTap ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(alignment: .top, spacing: 6) {
-                                Circle()
-                                    .fill(Color.blue)
-                                    .frame(width: 8, height: 8)
-                                    .padding(.top, 2)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("**1. Longitudinal (fL) Tap**")
-                                        .font(.caption2)
-                                    Text("Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                            }
-
-                            HStack(alignment: .top, spacing: 6) {
-                                Circle()
-                                    .fill(Color.orange)
-                                    .frame(width: 8, height: 8)
-                                    .padding(.top, 2)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("**2. Cross-grain (fC) Tap**")
-                                        .font(.caption2)
-                                    Text("Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                            }
-
-                            if includesFlcTap {
-                                HStack(alignment: .top, spacing: 6) {
-                                    Circle()
-                                        .fill(Color.purple)
-                                        .frame(width: 8, height: 8)
-                                        .padding(.top, 2)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("**3. Diagonal (fLC) Tap**")
-                                            .font(.caption2)
-                                        Text("Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                                }
-                            }
-                        }
-                        .frame(maxWidth: instructionTextMaxWidth)
-
-                        Text("The strongest peak from each tap is auto-selected. Redo if needed.")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .italic()
-                            .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
-                            .padding(.top, 2)
-                    }
-                    .frame(maxWidth: instructionTextMaxWidth)
-                    .padding(8)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    // For plate measurements, show selectable peaks
-                    if measurementType == .plate {
-                        if analyzer.isMeasurementComplete {
-                            ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
-                                MaterialPeakRowView(
-                                    peak: item.peak,
-                                    isLongitudinal: effectiveLongitudinalPeakID == item.peak.id,
-                                    isCross: effectiveCrossPeakID == item.peak.id,
-                                    isFlc: effectiveFlcPeakID == item.peak.id,
-                                    showFlcButton: includesFlcTap,
-                                    isSelected: analyzer.selectedPeakIDs.contains(item.peak.id)
-                                )
+                    ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
+                        CombinedPeakModeRowView(
+                            peak: item.peak,
+                            mode: item.mode,
+                            autoDetectedMode: analyzer.autoDetectedMode(for: item.peak),
+                            effectiveModeLabel: analyzer.effectiveModeLabel(for: item.peak),
+                            isManualOverride: analyzer.hasManualOverride(for: item.peak.id),
+                            isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
+                            onToggleSelection: {
+                                analyzer.togglePeakSelection(item.peak.id)
+                            },
+                            onSetModeOverride: { label in
+                                analyzer.setModeOverride(label, for: item.peak.id)
+                            },
+                            onResetModeOverride: {
+                                analyzer.resetModeOverride(for: item.peak.id)
                             }
-                        } else {
-                            // Live capture: fixed L/C/(FLC) slot rows, dashed until each is
-                            // captured. The Measurement Process shows beneath (parent view).
-                            materialSlotRows
-                        }
-                    } else if measurementType == .brace {
-                        if analyzer.isMeasurementComplete {
-                            // Brace mode — fL badge only
-                            ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
-                                MaterialPeakRowView(
-                                    peak: item.peak,
-                                    isLongitudinal: effectiveLongitudinalPeakID == item.peak.id,
-                                    isCross: false,
-                                    showCrossButton: false,
-                                    isSelected: analyzer.selectedPeakIDs.contains(item.peak.id)
-                                )
+                        )
+                        #if os(macOS)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(item.mode.color, lineWidth: analyzer.highlightedPeakID == item.peak.id ? 2 : 0)
+                        )
+                        .background(
+                            analyzer.highlightedPeakID == item.peak.id
+                                ? item.mode.color.opacity(0.12)
+                                : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 8)
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if analyzer.highlightedPeakID == item.peak.id {
+                                analyzer.highlightedPeakID = nil
+                            } else {
+                                analyzer.highlightedPeakID = item.peak.id
                             }
-                        } else {
-                            materialSlotRows
                         }
-                    } else {
-                        // Standard guitar mode display
-                        ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
-                            CombinedPeakModeRowView(
-                                peak: item.peak,
-                                mode: item.mode,
-                                autoDetectedMode: analyzer.autoDetectedMode(for: item.peak),
-                                effectiveModeLabel: analyzer.effectiveModeLabel(for: item.peak),
-                                isManualOverride: analyzer.hasManualOverride(for: item.peak.id),
-                                isSelected: analyzer.selectedPeakIDs.contains(item.peak.id),
-                                onToggleSelection: {
-                                    analyzer.togglePeakSelection(item.peak.id)
-                                },
-                                onSetModeOverride: { label in
-                                    analyzer.setModeOverride(label, for: item.peak.id)
-                                },
-                                onResetModeOverride: {
-                                    analyzer.resetModeOverride(for: item.peak.id)
-                                }
-                            )
-                            #if os(macOS)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .strokeBorder(item.mode.color, lineWidth: analyzer.highlightedPeakID == item.peak.id ? 2 : 0)
-                            )
-                            .background(
-                                analyzer.highlightedPeakID == item.peak.id
-                                    ? item.mode.color.opacity(0.12)
-                                    : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 8)
-                            )
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                if analyzer.highlightedPeakID == item.peak.id {
-                                    analyzer.highlightedPeakID = nil
-                                } else {
-                                    analyzer.highlightedPeakID = item.peak.id
-                                }
-                            }
-                            #endif
-                            .id("peak-row-\(item.peak.id)")
-                        }
+                        #endif
+                        .id("peak-row-\(item.peak.id)")
                     }
                 }
             }
@@ -700,30 +623,12 @@ struct TapAnalysisResultsView: View {
     
     /// Computed plate properties based on selected peaks and dimensions
     private var calculatedPlateProperties: PlateProperties? {
-        guard let longPeakID = effectiveLongitudinalPeakID,
-              let crossPeakID = effectiveCrossPeakID else {
+        // The identified peaks, live or loaded.
+        guard let longPeak = analyzer.selectedLongitudinalPeak,
+              let crossPeak = analyzer.selectedCrossPeak else {
             return nil
         }
-
-        // Search phase-specific arrays first (live measurement), then fall back to
-        // peaksAbovePeakMin (loaded/saved measurements where phase arrays are not populated).
-        let longPeak: ResonantPeak? =
-            analyzer.longitudinalPeaks.first(where: { $0.id == longPeakID })
-            ?? sortedPeaksWithModes.first(where: { $0.peak.id == longPeakID })?.peak
-
-        let crossPeak: ResonantPeak? =
-            analyzer.crossPeaks.first(where: { $0.id == crossPeakID })
-            ?? sortedPeaksWithModes.first(where: { $0.peak.id == crossPeakID })?.peak
-
-        guard let longPeak, let crossPeak else { return nil }
-
-        // Resolve FLC peak frequency: check flcPeaks first (from its own tap),
-        // then fall back to combined peaksAbovePeakMin for saved measurements
-        let flcFreq: Float? = {
-            guard let flcPeakID = effectiveFlcPeakID else { return nil }
-            return analyzer.flcPeaks.first(where: { $0.id == flcPeakID })?.frequency
-                ?? sortedPeaksWithModes.first(where: { $0.peak.id == flcPeakID })?.peak.frequency
-        }()
+        let flcFreq: Float? = analyzer.selectedFlcPeak?.frequency
 
         // Store B — the measurement's own dimensions, never the live Settings defaults.
         guard let inputs = analyzer.materialInputs else { return nil }
@@ -950,8 +855,7 @@ struct TapAnalysisResultsView: View {
     
     /// Computed brace properties based on the selected fL peak and dimensions
     private var calculatedBraceProperties: BraceProperties? {
-        guard let longPeakID = effectiveLongitudinalPeakID,
-              let longPeak = sortedPeaksWithModes.first(where: { $0.peak.id == longPeakID })?.peak else {
+        guard let longPeak = analyzer.selectedLongitudinalPeak else {
             return nil
         }
         

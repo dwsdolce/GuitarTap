@@ -37,7 +37,7 @@ struct CaptureProbeTests {
             .appendingPathComponent("capture-probe-swift.json")
     }
 
-    /// Material multi-tap probe for #5. Takes the WAV path from CAPTURE_PROBE_WAV so it can
+    /// Material multi-tap probe. Takes the WAV path from CAPTURE_PROBE_WAV so it can
     /// run against a capture that is not a bundled fixture; the sandboxed test host may refuse
     /// a path outside its container, which the test reports rather than hiding.
     @Test @MainActor
@@ -63,7 +63,7 @@ struct CaptureProbeTests {
         TapDisplaySettings.measureFlc = false
         defer { TapDisplaySettings.measureFlc = restore }
 
-        try await sut.playFileForTesting(
+        try await sut.playFileAndWait(
             url: url, measurementType: .brace, numberOfTaps: 3,
             calibrationURL: Bundle(for: ProbeAnchor2.self).url(forResource: "7108913", withExtension: "txt"))
 
@@ -98,7 +98,7 @@ struct CaptureProbeTests {
             sut.peakMinThreshold = peakMin
         }
         sut.tapDetectionThreshold = spec.settings.tapDetectionThreshold
-        try await sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: taps)
+        try await sut.playFileAndWait(url: url, measurementType: .generic, numberOfTaps: taps)
 
         // NOT an expectation: the capture count is itself data. Swift produces NINE captures
         // for this eight-tap file where Python produces eight, which is a finding to record

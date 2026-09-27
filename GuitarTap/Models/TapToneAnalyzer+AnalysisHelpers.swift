@@ -52,16 +52,15 @@ extension TapToneAnalyzer {
         // agrees. A freeform override resolves to .unknown; views detect that case separately via
         // hasManualOverride + fromDisplayName == nil.
         //
-        // A peak with no entry in identifiedModes has NO mode, and says so. It used to fall back to
-        // `GuitarMode.classifyAll([peak])` — classifying the peak ALONE — which cannot disambiguate
-        // the Top/Back overlap (Generic: Top 140–260 Hz, Back 180–300) and so returned .top for
-        // anything in it. classifyAll earns its answer by letting peaks compete for a band; handed
-        // one peak it has nothing to arbitrate.
+        // A peak with no entry in identifiedModes has NO mode, and says so. Classifying the peak
+        // ALONE (`GuitarMode.classifyAll([peak])`) cannot disambiguate the Top/Back overlap
+        // (Generic: Top 140–260 Hz, Back 180–300) and would return .top for anything in it.
+        // classifyAll earns its answer by letting peaks compete for a band; handed one peak it has
+        // nothing to arbitrate.
         //
         // The miss is not an error case: a completed plate/brace capture leaves identifiedModes
-        // empty on purpose, because material peaks have no guitar mode. The fallback answered that
-        // with "Top" — a real brace fL at 220 Hz reported .top. Mirrors web, which has never
-        // guessed here (`modeByPeak.get(id) ?? 'unknown'`).
+        // empty on purpose, because material peaks have no guitar mode. Mirrors web
+        // (`modeByPeak.get(id) ?? 'unknown'`).
         let auto = identifiedModes.first(where: { $0.peak.id == peak.id })?.mode ?? .unknown
         return GuitarMode.effectiveMode(override: peakModeOverrides[peak.id], auto: auto)
     }
@@ -69,15 +68,15 @@ extension TapToneAnalyzer {
     /// The **definitive** peak for a mode: the user's *selected* peak whose *effective* mode is that
     /// mode — i.e. the one the app treats as *the* Air / Top / Back.
     ///
-    /// Two facts, one rule (Phase 5 + 6):
+    /// Two facts, one rule:
     /// - **Selected.** Deselecting a peak makes it a mere candidate, so a deselected Top is not the
     ///   Top. If the mode has no selected peak, this is `nil` — and any derived value (the ratio)
     ///   is correctly absent.
     /// - **Effective mode.** Resolved via ``peakMode(for:)``, so a user override wins. Rename the
     ///   Top peak to something else and it stops being the Top *here* exactly as it does on the chart.
     ///
-    /// By the Phase 5 invariant there is at most one selected Air/Top/Back, so `max` only guards
-    /// against a transient double-selection; normally it returns that single holder.
+    /// Selection is unique per Air/Top/Back, so there is at most one selected holder and `max` only
+    /// guards against a transient double-selection; normally it returns that single holder.
     ///
     /// Mode comparison uses ``GuitarMode/normalized`` so legacy case names resolve first.
     func getPeak(for mode: GuitarMode) -> ResonantPeak? {

@@ -108,7 +108,7 @@ struct TapSettingsView: View {
     @State var showValidationError = false
     @State var validationMessage = ""
 
-    // Dump Capture Audio folder (§4b) — displayed path, refreshed after Change… / Use Default.
+    // Dump Capture Audio folder — displayed path, refreshed after Change… / Use Default.
     @State var dumpFolderDisplayPath = WavDumpFolder.currentFolder.path
 
     // Calibration states

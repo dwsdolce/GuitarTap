@@ -2,7 +2,7 @@
 //  PeakSelectionPersistenceTests.swift
 //  GuitarTapTests
 //
-//  Option 1 of PEAK-MIN-SEMANTICS.md: the manual/auto selection flag is persisted, so a reloaded
+//  The manual/auto selection flag is persisted, so a reloaded
 //  measurement behaves like a live one. An AUTO selection re-runs auto-selection when Peak Min
 //  changes (a peak revealed by lowering Peak Min is selected as its mode's winner); a MANUAL one is
 //  carried forward. Files saved before the field default to manual (prior behaviour, no regression).

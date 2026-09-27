@@ -85,8 +85,7 @@ struct StartTapSequenceRaceTests {
     // R2: End-to-end repro for the iPad bug — startTapSequence, spurious tap
     // (handleTapDetection sets detectionState = .idle), the gated capture completes through the REAL
     // path, and the measurement completes on its own after the capture window. Final state must
-    // satisfy the guitar-mode invariants: complete, not detecting, not paused. (The capture used to be
-    // simulated by populating capturedTaps and calling processMultipleTaps by hand — #17 F48.)
+    // satisfy the guitar-mode invariants: complete, not detecting, not paused.
     @Test func spuriousTap_onTypeChange_settles_to_complete_not_detecting() async throws {
         let sut = makeSUT(numberOfTaps: 1)
 
@@ -94,7 +93,7 @@ struct StartTapSequenceRaceTests {
         sut.detectionState = .idle                 // handleTapDetection effect
         try await Task.sleep(for: .milliseconds(50))   // drain housekeeping
         captureTap(sut)
-        advanceAudio(sut, by: sut.captureWindow)   // the capture window runs on the audio clock (#19)
+        advanceAudio(sut, by: sut.captureWindow)   // the capture window runs on the audio clock
 
         #expect(sut.isMeasurementComplete == true)
         #expect(sut.isDetecting == false,
@@ -111,7 +110,7 @@ struct StartTapSequenceRaceTests {
         try await Task.sleep(for: .milliseconds(50))   // drain housekeeping
         for tap in 1...3 {
             captureTap(sut)
-            if tap < 3 { advanceAudio(sut, by: sut.tapCooldown) }   // the rest, in audio (#19)
+            if tap < 3 { advanceAudio(sut, by: sut.tapCooldown) }   // the rest, in audio
         }
         advanceAudio(sut, by: sut.captureWindow)
 
@@ -135,7 +134,7 @@ struct StartTapSequenceRaceTests {
     // it goes straight from startTapSequence to finishGuitarGatedCapture (the
     // function called by both paths once the capture buffer fills), then lets the
     // measurement complete on its own — processMultipleTaps is scheduled by the
-    // capture itself; calling it here as well ran it twice (#17 F48).
+    // capture itself, so the test does not call it.
     @Test func audioQueueGatedCapturePath_clearsIsDetecting() async throws {
         let sut = makeSUT(numberOfTaps: 1)
 

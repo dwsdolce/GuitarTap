@@ -2,27 +2,25 @@
 //  FilePlaybackRegressionTests.swift
 //  GuitarTapTests
 //
-//  End-to-end regression tests for the full file-playback pipeline.
-//
-//  Unlike FilePlaybackPipelineTests (FP1–FP5) which test the FFT → findPeaks
-//  → classifyAll path directly, these tests exercise the FULL pipeline:
+//  End-to-end regression tests for the full file-playback pipeline:
 //    WAV read → chunk pacing → RMS → tap detection → gated capture →
-//    Hann window → FFT → peak selection → mode identification
+//    FFT (rectangular window for the guitar capture, Hann for the material one) →
+//    peak selection → mode identification (guitar) / L→C→FLC phases (material)
 //
 //  The analyzer is created via `TapToneAnalyzer.forTesting()` (no audio
-//  hardware) and fed via `playFileForTesting(url:measurementType:)`.
+//  hardware) and fed via `playFileAndWait` (the app's own `playFile` path).
 //
-//  Expected values were established by running the file through the app
-//  and recording the displayed peak frequency and magnitude values.
-//  Both Swift and Python test suites use the same WAV files and expected
-//  values so that passing both suites guarantees cross-platform parity.
+//  The expected values are the shared oracle's (parity-oracle.json): Swift mints them from this
+//  pipeline and asserts them at zero; Python and the web read the same file.
 //
-//  Test plan coverage: REG-G1, REG-B1, REG-G2, REG-P1, REG-P2, REG-B2
+//  Cases: REG-B2, REG-B1, REG-G1, the REG-G ring-out, REG-G2, REG-P1, the noisy plate, REG-P2,
+//  session recording, playback calibration.
 //
 // @parity test/file-playback
 
 import Testing
 import Foundation
+import AVFoundation
 @testable import GuitarTap
 
 // Used to anchor Bundle(for:) lookups to the GuitarTapTests bundle.
@@ -34,11 +32,8 @@ private var testBundle: Bundle { Bundle(for: TestBundleMarker.self) }
 // ---------------------------------------------------------------------------
 
 // Every expected value below is read from the shared oracle (parity-oracle.json, vendored
-// beside this file by Tooling/sync-oracle.sh). They were file-scope literals until
-// guitar-tap-project#10: the same numbers were also typed into the Python suite and a third
-// time into the web suite, with nothing keeping the three equal. Swift still owns them -
-// GenerateParityOracle mints the oracle from this very pipeline - but it now owns them in one
-// place that the other editions read.
+// beside this file by Tooling/sync-oracle.sh). Swift owns them - GenerateParityOracle mints the
+// oracle from this very pipeline - in one place that the other editions read.
 
 // REG-B1 - brace bar, UMIK-1 mic, 48 kHz, full-session recording (mono float32). The oracle's
 // values originally came from the matching .guitartap reference
@@ -50,11 +45,10 @@ private let braceExpectedMagnitude: Float = braceExpectedPeak.magnitude
 private let braceExpectedQ: Float = braceExpectedPeak.q ?? 0
 private let braceTapThreshold: Float = braceCase.settings.tapDetectionThreshold
 
-// REG-B2 — the brace counterpart to REG-P2: three taps, averaged. Captured live 2026-09-19 to
-// close the gap that let a claimed 2 dB Swift/Python divergence sit unexamined for two months
-// (project issue #5) — REG-P2 pinned PLATE multi-tap and REG-B1 is single-tap brace, so brace
-// averaging was exercised by nothing. Deliberately harder than the other material fixtures: the
-// UMIK-1 is on its 18 dB gain path, so the peak sits at -65.5 dB against a -63.9 dB threshold.
+// REG-B2 — the brace counterpart to REG-P2: three taps, averaged. REG-P2 pins PLATE multi-tap and
+// REG-B1 is single-tap brace, so this is the case that exercises brace averaging. Deliberately
+// harder than the other material fixtures: the UMIK-1 is on its 18 dB gain path, so the peak sits
+// at -65.5 dB against a -63.9 dB threshold.
 private let brace3Case = ParityOracle.playback("REG-B2")
 private let brace3ExpectedPeak = brace3Case.peak("longitudinal")
 private let brace3ExpectedFrequency: Float = brace3ExpectedPeak.frequency
@@ -68,6 +62,9 @@ private let brace3TapCount: Int = brace3Case.settings.numberOfTaps ?? 3
 // ParityOracle.shared.tolerances is the cross-edition bar and is for the tracking
 // editions; using it here would hide Swift drift four orders of magnitude below it,
 // which is precisely what it did until the oracle was first re-minted.
+// Every Swift playback case asserts at `selfTolerances` (zero): Swift mints the oracle, so the question
+// is whether Swift still reproduces itself exactly. Python and the web assert the same values at the
+// cross-edition `tolerances` — whether they agree with Swift.
 private let freqTolerance: Float = ParityOracle.selfTolerance(\.freqHz)  // Hz
 private let magTolerance: Float  = ParityOracle.selfTolerance(\.magDb)   // dB
 private let qTolerance: Float    = ParityOracle.selfTolerance(\.q)       // dimensionless
@@ -91,9 +88,8 @@ private let plateFlcExpectedQ: Float = plateCase.peak("flc").q ?? 0
 private let plateTapThreshold: Float = plateCase.settings.tapDetectionThreshold
 
 // REG-P2 - plate, UMIK-1, 48 kHz, recorded by the WEB app (Chrome) with numberOfTaps = 3
-// (3 taps PER PHASE, 9 total). Replaying at numberOfTaps = 3 averages each phase. The expected
-// values are the WEB capture's, so a pass means Swift agrees with the web on multi-tap material
-// averaging. (Close to, not equal to, the separate Swift 3-tap capture L66.6/C117.1/FLC35.5.)
+// (3 taps PER PHASE, 9 total). Replaying at numberOfTaps = 3 averages each phase; the peak must
+// come off the averaged spectrum, not the last tap.
 private let plate3TapCase = ParityOracle.playback("REG-P2")
 private let plate3TapLExpectedFrequency: Float = plate3TapCase.peak("longitudinal").frequency
 private let plate3TapLExpectedMagnitude: Float = plate3TapCase.peak("longitudinal").magnitude
@@ -106,122 +102,17 @@ private let plate3TapFlcExpectedFrequency: Float = plate3TapCase.peak("flc").fre
 private let plate3TapFlcExpectedMagnitude: Float = plate3TapCase.peak("flc").magnitude
 private let plate3TapFlcExpectedQ: Float = plate3TapCase.peak("flc").q ?? 0
 private let plate3TapThreshold: Float = plate3TapCase.settings.tapDetectionThreshold
-// REG-P2 uses a tighter magnitude tolerance than the generic 1.0 dB.  The averaged
-// values are deterministic across platforms, so they agree far more closely than a
-// single tap would; 0.5 dB still leaves headroom for FFT-library differences while
-// reliably catching a regression to last-tap selection (the masked deltas were
-// fL 0.94, fC 0.81, fLC 2.62 dB — all caught at 0.5).
-// REG-P2 declares a tighter CROSS-EDITION tolerance (0.5 dB) because its averaged
-// magnitudes are deterministic across editions. That override is about parity; for
-// Swift's own regression the bar is zero like everything else here.
-private let plate3TapMagTolerance: Float = ParityOracle.selfTolerance(\.magDb)  // dB
 
 // ---------------------------------------------------------------------------
-// MARK: - Tests  (REG-B1)
+// MARK: - Tests
 // ---------------------------------------------------------------------------
 
 @Suite("FilePlaybackRegression")
 struct FilePlaybackRegressionTests {
 
-    // MARK: - Diagnostic helper
-
-    /// Prints comprehensive diagnostic information about the analyzer state
-    /// after a plate phase file playback test.  Output goes to the test console
-    /// so we can compare what happened across P1, P2, and P3.
-    private func printPlateDiagnostics(_ sut: TapToneAnalyzer, phase: String, wavFile: String) {
-        print("╔══════════════════════════════════════════════════════════════════")
-        print("║ PLATE DIAGNOSTIC: \(phase)")
-        print("║ WAV: \(wavFile)")
-        print("╠══════════════════════════════════════════════════════════════════")
-        print("║ materialTapPhase:     \(sut.materialTapPhase)")
-        print("║ isMeasurementComplete: \(sut.isMeasurementComplete)")
-        print("║ isDetecting:          \(sut.isDetecting)")
-        print("║ isAboveThreshold:     \(sut.isAboveThreshold)")
-        print("║ noiseFloorEstimate:   \(String(format: "%.2f", sut.noiseFloorEstimate)) dB")
-        print("║ tapDetectionThreshold: \(String(format: "%.2f", sut.tapDetectionThreshold)) dB")
-        print("║ gatedCaptureActive:   \(sut.gatedCaptureActive)")
-        print("║ gatedCaptureSamples:  \(sut.gatedCaptureSamples)")
-        print("║ gatedAccumBuffer.count: \(sut.gatedAccumBuffer.count)")
-        print("║ preRollBuffer.count:  \(sut.preRollBuffer.count)")
-        print("║ preRollSamples:       \(sut.preRollSamples)")
-        print("║ materialCapturedTaps: \(sut.materialCapturedTaps.count)")
-        print("║ measureFlc:           \(TapDisplaySettings.measureFlc)")
-        print("╠──────────────────────────────────────────────────────────────────")
-        print("║ L peaks: \(sut.longitudinalPeaks.count)")
-        if let p = sut.selectedLongitudinalPeak {
-            print("║   selected: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
-        } else {
-            print("║   selected: nil")
-        }
-        print("║ C peaks: \(sut.crossPeaks.count)")
-        if let p = sut.selectedCrossPeak {
-            print("║   selected: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
-        } else {
-            print("║   selected: nil")
-        }
-        print("║ FLC peaks: \(sut.flcPeaks.count)")
-        if let p = sut.selectedFlcPeak {
-            print("║   selected: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
-        } else {
-            print("║   selected: nil")
-        }
-        // Dump all peaks for each phase so we can see what findPeaks found
-        for (i, p) in sut.longitudinalPeaks.enumerated() {
-            print("║   L[\(i)]: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
-        }
-        for (i, p) in sut.crossPeaks.enumerated() {
-            print("║   C[\(i)]: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
-        }
-        for (i, p) in sut.flcPeaks.enumerated() {
-            print("║   FLC[\(i)]: \(String(format: "%.4f", p.frequency)) Hz, \(String(format: "%.4f", p.magnitude)) dB, Q=\(String(format: "%.4f", p.quality))")
-        }
-        // Read and print the tail of the debug log to capture TAP_DEBUG output.
-        // FileLogger is private, so we construct the path manually.  On macOS
-        // the log lives under the user's home Documents dir; on iOS the test
-        // app is sandboxed and writes to its container's Documents instead.
-        // FileManager.homeDirectoryForCurrentUser is macOS-only, so route via
-        // the standard Documents URL on iOS.
-        let logDir: URL = {
-            #if os(macOS)
-            return FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Documents/GuitarTap")
-            #else
-            let docs = FileManager.default.urls(
-                for: .documentDirectory,
-                in: .userDomainMask
-            ).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
-            return docs.appendingPathComponent("GuitarTap")
-            #endif
-        }()
-        let logURL = logDir.appendingPathComponent("GuitarTap-debug.log")
-        if let logData = try? String(contentsOf: logURL, encoding: .utf8) {
-            let lines = logData.components(separatedBy: "\n")
-            // Find the most recent session start marker and print from there
-            let sessionLines: [String]
-            if let lastSession = lines.lastIndex(where: { $0.contains("=== GuitarTap session started") }) {
-                sessionLines = Array(lines[lastSession...])
-            } else {
-                // Take last 100 lines
-                sessionLines = Array(lines.suffix(100))
-            }
-            print("╠──────────────────────────────────────────────────────────────────")
-            print("║ TAP_DEBUG LOG (from session start):")
-            for line in sessionLines where !line.isEmpty {
-                print("║ > \(line)")
-            }
-        }
-        print("╚══════════════════════════════════════════════════════════════════")
-    }
-
-    // REG-B1: Brace single-tap — known WAV produces expected fL peak.
-    //
-    // Loads a full-session brace recording WAV (~12.6 s, 48 kHz) and plays it
-    // through the full pipeline with measurementType = .brace.  Verifies that:
-    //   1. The pipeline completes (materialTapPhase == .complete)
-    //   2. At least one longitudinal peak is detected
-    //   3. The dominant peak frequency matches the .guitartap reference ± 1 Hz
-    //   4. The dominant peak magnitude matches the reference ± 1 dB
-    //   5. The dominant peak Q factor matches the reference ± 1
+    // REG-B2: Brace, three taps averaged — the brace counterpart to REG-P2 (see its expected values
+    // above). Verifies that the pipeline completes and that the peak read off the AVERAGED spectrum
+    // matches the oracle's frequency, magnitude and Q (at zero).
     @Test func REG_B2_braceThreeTaps_averagesToExpectedPeak() async throws {
         let stem = "brace-3-tap-umik-1-mac-algo-test-1789854214"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
@@ -232,18 +123,18 @@ struct FilePlaybackRegressionTests {
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = brace3TapThreshold
-        try await sut.playFileForTesting(url: url, measurementType: .brace,
+        try await sut.playFileAndWait(url: url, measurementType: .brace,
                                          numberOfTaps: brace3TapCount, calibrationURL: calURL)
 
         #expect(sut.materialTapPhase == .complete,
                 "materialTapPhase should be .complete, got \(sut.materialTapPhase)")
         #expect(sut.isMeasurementComplete, "isMeasurementComplete should be true")
-        #expect(!sut.longitudinalPeaks.isEmpty, "longitudinalPeaks should not be empty")
+        #expect(sut.selectedLongitudinalPeak != nil, "the fL peak should be identified")
 
         // The peak must come off the AVERAGED spectrum, not the last tap — the same rule REG-P2
         // pins for plate. The three taps here differ by ~6 dB, so a regression to last-tap
         // selection moves this well outside the bar.
-        guard let dominant = sut.selectedLongitudinalPeak ?? sut.longitudinalPeaks.first else { return }
+        guard let dominant = sut.selectedLongitudinalPeak else { return }
 
         let freqDelta = abs(dominant.frequency - brace3ExpectedFrequency)
         #expect(freqDelta <= freqTolerance,
@@ -258,6 +149,13 @@ struct FilePlaybackRegressionTests {
                 "Peak Q factor: expected \(brace3ExpectedQ) ±\(qTolerance), got \(dominant.quality) (delta \(qDelta))")
     }
 
+    // REG-B1: Brace single-tap — known WAV produces expected fL peak.
+    //
+    // Loads a full-session brace recording WAV (~12.6 s, 48 kHz) and plays it
+    // through the full pipeline with measurementType = .brace.  Verifies that:
+    //   1. The pipeline completes (materialTapPhase == .complete)
+    //   2. At least one longitudinal peak is detected
+    //   3. The dominant peak's frequency, magnitude and Q match the oracle (at zero — see above)
     @Test func REG_B1_braceSingleTap_producesExpectedPeak() async throws {
         let stem = "brace-umik-1-swift-mac-1778816093"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
@@ -268,7 +166,7 @@ struct FilePlaybackRegressionTests {
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = braceTapThreshold
-        try await sut.playFileForTesting(url: url, measurementType: .brace, calibrationURL: calURL)
+        try await sut.playFileAndWait(url: url, measurementType: .brace, calibrationURL: calURL)
 
         // 1. Pipeline should reach .complete for brace (single-tap mode).
         #expect(sut.materialTapPhase == .complete,
@@ -277,12 +175,11 @@ struct FilePlaybackRegressionTests {
         #expect(sut.isMeasurementComplete,
                 "isMeasurementComplete should be true")
 
-        // 2. Longitudinal peaks should be populated.
-        #expect(!sut.longitudinalPeaks.isEmpty,
-                "longitudinalPeaks should not be empty")
+        // 2. The fL peak should be identified.
+        #expect(sut.selectedLongitudinalPeak != nil, "the fL peak should be identified")
 
-        // 3. Verify dominant peak frequency.
-        guard let dominant = sut.longitudinalPeaks.first else { return }
+        // 3. Verify the fL peak's frequency.
+        guard let dominant = sut.selectedLongitudinalPeak else { return }
         let freqDelta = abs(dominant.frequency - braceExpectedFrequency)
         #expect(freqDelta <= freqTolerance,
                 "Peak frequency: expected \(braceExpectedFrequency) Hz ±\(freqTolerance), got \(dominant.frequency) Hz (delta \(freqDelta))")
@@ -301,7 +198,7 @@ struct FilePlaybackRegressionTests {
     // MARK: - REG-G1: O'Brien single-tap generic guitar
 
     // Recording 5.wav — Generic guitar, single-tap, 48 kHz.
-    // Reference values from the Recording 5.guitartap file (Tests/O'Brien/).
+    // The oracle's values originally came from the Recording 5.guitartap file (Tests/O'Brien/).
     // Settings: peakMinThreshold = -76, tapDetectionThreshold = -40,
     //           measurementType = .generic, numberOfTaps = 1.
     //           FFT size is a constant (65536) inside RealtimeFFTAnalyzer.
@@ -318,7 +215,7 @@ struct FilePlaybackRegressionTests {
     /// Loads a single-tap generic guitar recording and plays it through the
     /// full pipeline.  Verifies that:
     ///   1. The pipeline completes with 1 tap entry
-    ///   2. Air, Top, Back frequencies and magnitudes match reference ± 1
+    ///   2. Air, Top, Back frequencies and magnitudes match the oracle
     @Test func REG_G1_genericGuitarSingleTap_producesExpectedPeaks() async throws {
         let stem = "Recording 5"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
@@ -329,7 +226,7 @@ struct FilePlaybackRegressionTests {
         let sut = TapToneAnalyzer.forTesting()
         sut.peakMinThreshold = -76
         sut.tapDetectionThreshold = -40
-        try await sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 1)
+        try await sut.playFileAndWait(url: url, measurementType: .generic, numberOfTaps: 1)
 
         // 1. Pipeline should complete with 1 captured tap.
         //    (tapEntries is only populated for multi-tap sessions; single-tap
@@ -369,12 +266,8 @@ struct FilePlaybackRegressionTests {
 
     // MARK: - REG-G: ring-out (decay) time
 
-    /// REG-G ring-out — the post-tap level for Recording 5.wav decays to peak−15 dB. Shared
-    /// cross-platform golden (web g4d-decay + Python test_REG_G_generic_guitar_ringout assert the
-    /// same value): 0.0853 s ± 0.03 s. The web is audio-clock-deterministic; Swift's wall-clock
-    /// decay reaches the same crossing because file playback runs at real-time pace (wall-clock ≈
-    /// audio time). The loose tolerance covers per-platform chunk-granularity + clock jitter
-    /// (web 0.0853, Python ~0.091).
+    /// REG-G ring-out — the post-tap level for Recording 5.wav decays to peak−15 dB, measured on the audio
+    /// clock. The value is the oracle's, shared by all three editions.
     @Test func REG_G_genericGuitarRingOut_matchesGolden() async throws {
         let stem = "Recording 5"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
@@ -385,7 +278,7 @@ struct FilePlaybackRegressionTests {
         let sut = TapToneAnalyzer.forTesting()
         sut.peakMinThreshold = -76
         sut.tapDetectionThreshold = -40
-        try await sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 1)
+        try await sut.playFileAndWait(url: url, measurementType: .generic, numberOfTaps: 1)
 
         guard let decay = sut.currentDecayTime else {
             Issue.record("No ring-out measured")
@@ -400,7 +293,7 @@ struct FilePlaybackRegressionTests {
     // MARK: - REG-G2: O'Brien 8-tap generic guitar
 
     // Recording.wav — Generic guitar, 8-tap multi-tap, 48 kHz.
-    // Reference values from the Recording.guitartap file (Tests/O'Brien/).
+    // The oracle's values originally came from the Recording.guitartap file (Tests/O'Brien/).
     // Settings: peakMinThreshold = -76, tapDetectionThreshold = -40,
     //           measurementType = .generic, numberOfTaps = 8.
     //           FFT size is a constant (65536) inside RealtimeFFTAnalyzer.
@@ -454,7 +347,7 @@ struct FilePlaybackRegressionTests {
     /// Loads a live 8-tap generic guitar recording and plays it through the full
     /// pipeline.  Verifies that:
     ///   1. The pipeline completes with 8 tap entries
-    ///   2. Averaged Air, Top, Back frequencies and magnitudes match reference ± 1
+    ///   2. Averaged Air, Top, Back frequencies and magnitudes match the oracle
     ///   3. All 8 individual taps' Air, Top, Back frequencies and magnitudes match
     @Test func REG_G2_genericGuitar8Tap_producesExpectedPeaks() async throws {
         let stem = "Recording"
@@ -466,7 +359,7 @@ struct FilePlaybackRegressionTests {
         let sut = TapToneAnalyzer.forTesting()
         sut.peakMinThreshold = -76
         sut.tapDetectionThreshold = -40
-        try await sut.playFileForTesting(url: url, measurementType: .generic, numberOfTaps: 8)
+        try await sut.playFileAndWait(url: url, measurementType: .generic, numberOfTaps: 8)
 
         // 1. Pipeline should complete with 8 tap entries.
         #expect(sut.isMeasurementComplete, "isMeasurementComplete should be true")
@@ -544,7 +437,7 @@ struct FilePlaybackRegressionTests {
     // MARK: - REG-P1: Plate full-session (L + C + FLC)
 
     // plate-umik-1-swift-mac-1778816330.wav — Plate, UMIK-1, 48 kHz, full session.
-    // Reference values from the matching .guitartap file in Tests/Plate/.
+    // The oracle's values originally came from the matching .guitartap file in Tests/Plate/.
     // The pipeline runs end-to-end with auto-advance between phases on file
     // playback, so all three peaks are populated and the phase reaches .complete.
 
@@ -555,7 +448,7 @@ struct FilePlaybackRegressionTests {
     ///   1. The pipeline reaches .complete (all three phases captured)
     ///   2. fL / fC / fLC peaks are each populated
     ///   3. Each auto-selected peak's frequency, magnitude, and Q factor
-    ///      matches the .guitartap reference within tolerance
+    ///      matches the oracle (at zero)
     @Test func REG_P1_plateFullSession_producesExpectedPeaks() async throws {
         let stem = "plate-umik-1-swift-mac-1778816330"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
@@ -574,9 +467,7 @@ struct FilePlaybackRegressionTests {
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = plateTapThreshold
-        try await sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL)
-
-        printPlateDiagnostics(sut, phase: "P1 — Full session", wavFile: stem)
+        try await sut.playFileAndWait(url: url, measurementType: .plate, calibrationURL: calURL)
 
         // 1. Pipeline should reach .complete after all three phases.
         #expect(sut.materialTapPhase == .complete,
@@ -585,9 +476,9 @@ struct FilePlaybackRegressionTests {
                 "isMeasurementComplete should be true")
 
         // 2. All three peak arrays populated.
-        #expect(!sut.longitudinalPeaks.isEmpty, "longitudinalPeaks should not be empty")
-        #expect(!sut.crossPeaks.isEmpty, "crossPeaks should not be empty")
-        #expect(!sut.flcPeaks.isEmpty, "flcPeaks should not be empty")
+        #expect(sut.selectedLongitudinalPeak != nil, "the fL peak should be identified")
+        #expect(sut.selectedCrossPeak != nil, "the fC peak should be identified")
+        #expect(sut.selectedFlcPeak != nil, "the fLC peak should be identified")
 
         // 3a. fL peak.
         guard let lPeak = sut.selectedLongitudinalPeak else {
@@ -635,32 +526,30 @@ struct FilePlaybackRegressionTests {
                 "fLC Q factor: expected \(plateFlcExpectedQ) ±\(qTolerance), got \(flcPeak.quality) (delta \(flcQDelta))")
     }
 
-    // ── OUT-4: the one test that can tell the two detection models apart ────────────────────────
+    // ── Noisy plate: the one test that can tell the two detection models apart ──────────────────
     //
     // plate-umik-1-noisy-52.wav is the SAME plate session with broadband noise mixed in to raise its
     // noise floor from -77 dBFS to -52 dBFS — i.e. ABOVE the -53.34 dB tap threshold.
     //
-    // Swift/Python detect material taps against an EMA-tracked noise floor; the web port uses a fixed
-    // absolute dBFS threshold. The relative rule reduces to
+    // All three editions detect material taps against an EMA-tracked noise floor, not a fixed absolute
+    // dBFS threshold. The relative rule reduces to
     //     rising = max(tapDetectionThreshold, noiseFloor + 10 dB)
     // so the two are the SAME FUNCTION until the floor climbs within 10 dB of the threshold. Every
-    // other fixture sits at -64…-69 dBFS, far below that — which is why no test has ever separated them.
+    // other fixture sits at -64…-69 dBFS, far below that, so no other test separates them.
     //
     // At a -52 floor an ABSOLUTE detector SATURATES: the level never drops below the threshold, so no
-    // rising edge can be confirmed and it captures NOTHING. (The web's counterpart test asserts exactly
-    // that failure.) The RELATIVE detector floats its threshold to floor+10 = -42 dB and still finds
-    // every tap (they peak at -24…-27 dBFS chunk-RMS). That is precisely the failure the relative model
-    // exists to prevent: "keeps detection working when ambient noise is elevated".
+    // rising edge can be confirmed and it captures NOTHING. The RELATIVE detector floats its threshold
+    // to floor+10 = -42 dB and still finds every tap (they peak at -24…-27 dBFS chunk-RMS). That is
+    // precisely the failure the relative model exists to prevent: "keeps detection working when
+    // ambient noise is elevated".
     //
-    // This test only became possible once file playback stopped pinning noiseFloorEstimate = -100,
-    // which collapsed `rising` onto the absolute threshold and silently disabled relative detection in
-    // playback on every platform.
+    // Material file playback does not skip the warm-up, so noiseFloorEstimate is not pinned at -100
+    // (which would collapse `rising` onto the absolute threshold).
     //
     // Asserts the PHASE COUNT, not peak values: the added noise sums into the gated FFT, so fL/fC/fLC
     // shift slightly. A tight peak assertion here would be measuring the noise, not the detector.
     //
     // Regenerate: python3 GuitarTapWeb/tooling/make-noisy-fixture.py (deterministic, seeded).
-    // Analysis:   GuitarTapWeb/Development/OUT-4-DETECTION-SPEC.md
     @Test func OUT4_noisyPlate_relativeNoiseFloor_stillCapturesAllPhases() async throws {
         let stem = "plate-umik-1-noisy-52"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
@@ -675,7 +564,7 @@ struct FilePlaybackRegressionTests {
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = plateTapThreshold
-        try await sut.playFileForTesting(url: url, measurementType: .plate, calibrationURL: calURL)
+        try await sut.playFileAndWait(url: url, measurementType: .plate, calibrationURL: calURL)
 
         let captured = [
             ("L", sut.longitudinalSpectrum != nil),
@@ -705,9 +594,7 @@ struct FilePlaybackRegressionTests {
     /// Replays a 3-taps-per-phase plate session (recorded by the web app) at
     /// numberOfTaps = 3, exercising the multi-tap-per-phase averaging path
     /// (handleLongitudinalGatedProgress collecting numberOfTaps before
-    /// averageSpectra). Expected values are the WEB capture's, so a pass means
-    /// Swift agrees with the web. printPlateDiagnostics prints Swift's actual
-    /// fL/fC/fLC regardless of pass/fail.
+    /// averageSpectra). The expected values are the oracle's, as for every case.
     @Test func REG_P2_plateThreeTapsPerPhase_averagesEachPhase() async throws {
         let stem = "plate-umik-1-web-mac-3-taps"
         guard let url = testBundle.url(forResource: stem, withExtension: "wav") else {
@@ -722,9 +609,7 @@ struct FilePlaybackRegressionTests {
 
         let sut = TapToneAnalyzer.forTesting()
         sut.tapDetectionThreshold = plate3TapThreshold
-        try await sut.playFileForTesting(url: url, measurementType: .plate, numberOfTaps: 3, calibrationURL: calURL)
-
-        printPlateDiagnostics(sut, phase: "P2 - 3 taps/phase", wavFile: stem)
+        try await sut.playFileAndWait(url: url, measurementType: .plate, numberOfTaps: 3, calibrationURL: calURL)
 
         #expect(sut.materialTapPhase == .complete,
                 "materialTapPhase should be .complete, got \(sut.materialTapPhase)")
@@ -733,7 +618,7 @@ struct FilePlaybackRegressionTests {
         guard let lPeak = sut.selectedLongitudinalPeak else { Issue.record("selectedLongitudinalPeak is nil"); return }
         #expect(abs(lPeak.frequency - plate3TapLExpectedFrequency) <= freqTolerance,
                 "fL frequency: expected \(plate3TapLExpectedFrequency) Hz, got \(lPeak.frequency) Hz")
-        #expect(abs(lPeak.magnitude - plate3TapLExpectedMagnitude) <= plate3TapMagTolerance,
+        #expect(abs(lPeak.magnitude - plate3TapLExpectedMagnitude) <= magTolerance,
                 "fL magnitude: expected \(plate3TapLExpectedMagnitude) dB, got \(lPeak.magnitude) dB")
         #expect(abs(lPeak.quality - plate3TapLExpectedQ) <= qTolerance,
                 "fL Q: expected \(plate3TapLExpectedQ), got \(lPeak.quality)")
@@ -741,7 +626,7 @@ struct FilePlaybackRegressionTests {
         guard let cPeak = sut.selectedCrossPeak else { Issue.record("selectedCrossPeak is nil"); return }
         #expect(abs(cPeak.frequency - plate3TapCExpectedFrequency) <= freqTolerance,
                 "fC frequency: expected \(plate3TapCExpectedFrequency) Hz, got \(cPeak.frequency) Hz")
-        #expect(abs(cPeak.magnitude - plate3TapCExpectedMagnitude) <= plate3TapMagTolerance,
+        #expect(abs(cPeak.magnitude - plate3TapCExpectedMagnitude) <= magTolerance,
                 "fC magnitude: expected \(plate3TapCExpectedMagnitude) dB, got \(cPeak.magnitude) dB")
         #expect(abs(cPeak.quality - plate3TapCExpectedQ) <= qTolerance,
                 "fC Q: expected \(plate3TapCExpectedQ), got \(cPeak.quality)")
@@ -749,9 +634,110 @@ struct FilePlaybackRegressionTests {
         guard let flcPeak = sut.selectedFlcPeak else { Issue.record("selectedFlcPeak is nil"); return }
         #expect(abs(flcPeak.frequency - plate3TapFlcExpectedFrequency) <= freqTolerance,
                 "fLC frequency: expected \(plate3TapFlcExpectedFrequency) Hz, got \(flcPeak.frequency) Hz")
-        #expect(abs(flcPeak.magnitude - plate3TapFlcExpectedMagnitude) <= plate3TapMagTolerance,
+        #expect(abs(flcPeak.magnitude - plate3TapFlcExpectedMagnitude) <= magTolerance,
                 "fLC magnitude: expected \(plate3TapFlcExpectedMagnitude) dB, got \(flcPeak.magnitude) dB")
         #expect(abs(flcPeak.quality - plate3TapFlcExpectedQ) <= qTolerance,
                 "fLC Q: expected \(plate3TapFlcExpectedQ), got \(flcPeak.quality)")
+    }
+
+    // MARK: - Session recording
+    //
+    // With "save capture audio" on, a guitar measurement writes ONE session WAV labelled
+    // "Guitar_<n>tap" covering the audio that flowed through the pipeline (arm → final tap); off, it
+    // writes nothing. The dump folder is test-sandboxed (WavDumpFolder.defaultFolder), so the WAVs are
+    // read back from there. Twins of the web's session-recording cases.
+
+    private static let sessionPrefix = "swift_session_"
+
+    /// The session WAVs in the sandboxed dump folder: label ("Guitar_1tap"), sample rate, sample count.
+    private func sessionWAVs() -> [(label: String, sampleRate: Int, samples: Int)] {
+        let dir = WavDumpFolder.defaultFolder
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        return names.filter { $0.hasPrefix(Self.sessionPrefix) && $0.hasSuffix(".wav") }.sorted().compactMap { name in
+            guard let data = try? Data(contentsOf: dir.appendingPathComponent(name)), data.count >= 44 else { return nil }
+            let rate = data.subdata(in: 24..<28).withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+            let bytes = data.subdata(in: 40..<44).withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+            // "swift_session_Guitar_1tap_<timestamp>.wav" → "Guitar_1tap"
+            let label = name.dropFirst(Self.sessionPrefix.count).split(separator: "_").prefix(2).joined(separator: "_")
+            return (label, Int(UInt32(littleEndian: rate)), Int(UInt32(littleEndian: bytes)) / 4)
+        }
+    }
+
+    /// Play a generic-guitar fixture with "save capture audio" set to `dump`; return the session WAVs.
+    private func playGuitarSession(_ stem: String, numberOfTaps: Int, dump: Bool) async throws
+        -> [(label: String, sampleRate: Int, samples: Int)] {
+        let url = try #require(testBundle.url(forResource: stem, withExtension: "wav"))
+        let dir = WavDumpFolder.defaultFolder
+        for name in (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        where name.hasPrefix(Self.sessionPrefix) {
+            try? FileManager.default.removeItem(at: dir.appendingPathComponent(name))
+        }
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        TapDisplaySettings.dumpCaptureAudio = dump
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump }
+        let sut = TapToneAnalyzer.forTesting()
+        sut.peakMinThreshold = -76
+        sut.tapDetectionThreshold = -40
+        try await sut.playFileAndWait(url: url, measurementType: .generic, numberOfTaps: numberOfTaps)
+        return sessionWAVs()
+    }
+
+    @Test func REG_G1_sessionRecording_dumpOn_writesOneGuitar1tapWAV() async throws {
+        let sessions = try await playGuitarSession("Recording 5", numberOfTaps: 1, dump: true)
+        let file = try AVAudioFile(forReading: try #require(testBundle.url(forResource: "Recording 5", withExtension: "wav")))
+        #expect(sessions.count == 1, "one session WAV, got \(sessions.map(\.label))")
+        guard let session = sessions.first else { return }
+        #expect(session.label == "Guitar_1tap")
+        #expect(session.sampleRate == Int(file.fileFormat.sampleRate))
+        // Covers the arm → tap → capture span: many chunks, and never more than the whole file.
+        #expect(session.samples > 8192, "a continuous run of many chunks, got \(session.samples)")
+        #expect(session.samples <= Int(file.length), "bounded by the file (\(file.length)), got \(session.samples)")
+    }
+
+    @Test func REG_G2_sessionRecording_isLabelledByTheTapCount() async throws {
+        let sessions = try await playGuitarSession("Recording", numberOfTaps: 8, dump: true)
+        #expect(sessions.count == 1, "one session WAV, got \(sessions.map(\.label))")
+        #expect(sessions.first?.label == "Guitar_8tap")
+    }
+
+    @Test func sessionRecording_dumpOff_writesNothing() async throws {
+        let sessions = try await playGuitarSession("Recording 5", numberOfTaps: 1, dump: false)
+        #expect(sessions.isEmpty, "no session WAV with the setting off, got \(sessions.map(\.label))")
+    }
+
+    // MARK: - Playback calibration
+    //
+    // A file plays with the calibration given for it, or with none: the microphone it was recorded with
+    // is unknown, so the live input's calibration never applies to it. The input's calibration is back
+    // once playback ends.
+
+    /// Play "Recording 5" with `calibrationURL`; return the active calibration during and after playback.
+    private func playbackCalibrations(input: MicrophoneCalibration?, calibrationURL: URL?) async throws
+        -> (during: MicrophoneCalibration?, after: MicrophoneCalibration?) {
+        let url = try #require(testBundle.url(forResource: "Recording 5", withExtension: "wav"))
+        let sut = TapToneAnalyzer.forTesting()
+        sut.fftAnalyzer.setTemporaryCalibration(input)
+        TapDisplaySettings.measurementType = .generic
+        var ended = false
+        try sut.playFile(url: url, calibrationURL: calibrationURL) { ended = true }
+        let during = sut.fftAnalyzer.activeCalibration
+        while !ended { try? await Task.sleep(nanoseconds: 5_000_000) }
+        return (during, sut.fftAnalyzer.activeCalibration)
+    }
+
+    @Test func playback_withoutACalibrationFile_isUncalibrated_andTheInputsCalibrationReturns() async throws {
+        let calURL = try #require(testBundle.url(forResource: "7108913", withExtension: "txt"))
+        let input = try CalibrationFileParser.parse(url: calURL)
+        let (during, after) = try await playbackCalibrations(input: input, calibrationURL: nil)
+        #expect(during == nil, "no calibration file → uncalibrated, got \(String(describing: during?.name))")
+        #expect(after == input, "the input's calibration is restored after playback")
+    }
+
+    @Test func playback_withACalibrationFile_usesIt_andTheInputsCalibrationReturns() async throws {
+        let calURL = try #require(testBundle.url(forResource: "7108913", withExtension: "txt"))
+        let fileCalibration = try CalibrationFileParser.parse(url: calURL)
+        let (during, after) = try await playbackCalibrations(input: nil, calibrationURL: calURL)
+        #expect(during?.correctionPoints == fileCalibration.correctionPoints, "the file's calibration is applied")
+        #expect(after == nil, "the input's (absent) calibration is restored after playback")
     }
 }

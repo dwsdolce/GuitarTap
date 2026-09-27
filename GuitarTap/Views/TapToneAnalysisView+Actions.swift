@@ -150,67 +150,17 @@ extension TapToneAnalysisView {
         let accessing = url.startAccessingSecurityScopedResource()
         let accessingCal = calibrationURL?.startAccessingSecurityScopedResource() ?? false
 
-        // If a calibration file was provided, parse it and temporarily override
-        // the active calibration.  Save the previous calibration so we can
-        // restore it after playback completes.
-        let previousCalibration = fft.activeCalibration
-        var didOverrideCalibration = false
-
-        if let calURL = calibrationURL {
-            do {
-                let cal = try CalibrationFileParser.parse(url: calURL)
-                fft.setTemporaryCalibration(cal)
-                didOverrideCalibration = true
-            } catch {
-                gtLog("⚠️ Could not parse calibration file: \(error.localizedDescription)")
-            }
-            if accessingCal { calURL.stopAccessingSecurityScopedResource() }
-        }
-
-        // IMPORTANT: startTapSequence runs BEFORE startFromFile so the analyzer
-        // state (capturedTaps, isMeasurementComplete, isAboveThreshold,
-        // gatedCaptureActive, gatedAccumBuffer, preRollBuffer, etc.) is fully
-        // reset before any audio flows.  If startFromFile ran first, the
-        // engine could begin delivering audio buffers while
-        // isMeasurementComplete from the previous session was still true
-        // (suppressing the live spectrum display) and the gated accumulator
-        // could complete a stale capture and append a phantom entry to
-        // capturedTaps right after startTapSequence cleared it.  Mirrors
-        // Python views/tap_tone_analysis_view.py _open_audio_file.
-        //
-        // skipWarmup is decided by the MEASUREMENT TYPE, not by "is this a file".
-        //
-        // Guitar: skip it.  The audio source is deterministic (no mic startup noise to suppress), and
-        // the tap transient may appear within the first 0.5 s of an externally recorded file, so a
-        // warm-up would suppress it.  Guitar uses the ABSOLUTE threshold and never reads the noise
-        // floor, so there is nothing to lose.
-        //
-        // Material (plate/brace): RUN the warm-up.  It is the only mode that uses the relative
-        // noise-floor detector, and the warm-up is what establishes that floor.  Skipping it pinned
-        // `noiseFloorEstimate = -100`, which collapses `rising` onto `tapDetectionThreshold` — silently
-        // degrading relative detection to absolute, so replaying a session did NOT reproduce what the
-        // live session did.  A saved session WAV always contains its warm-up by construction.
-        let isMaterialPlayback = TapDisplaySettings.measurementType == .plate
-            || TapDisplaySettings.measurementType == .brace
-        tapToneAnalyzer.startTapSequence(skipWarmup: !isMaterialPlayback)
-
         do {
-            try fft.startFromFile(url) { [fft] in
-                // Called on the main thread after playback completes and the engine has
-                // switched back to the microphone — safe to release access here.
+            // The analyzer applies the calibration, arms the sequence and starts the file (the app's one
+            // Play File path, which the file-playback regressions also run).
+            try tapToneAnalyzer.playFile(url: url, calibrationURL: calibrationURL) {
+                // Playback ended and the engine is back on the microphone — safe to release access.
                 if accessing { url.stopAccessingSecurityScopedResource() }
-
-                // Restore the previous calibration now that file playback is done.
-                if didOverrideCalibration {
-                    fft.setTemporaryCalibration(previousCalibration)
-                }
             }
+            if accessingCal { calibrationURL?.stopAccessingSecurityScopedResource() }
         } catch {
             if accessing { url.stopAccessingSecurityScopedResource() }
-            // Restore calibration on error path too.
-            if didOverrideCalibration {
-                fft.setTemporaryCalibration(previousCalibration)
-            }
+            if accessingCal { calibrationURL?.stopAccessingSecurityScopedResource() }
             engineStartError = "Could not play audio file: \(error.localizedDescription)"
             return
         }
@@ -412,7 +362,7 @@ extension TapToneAnalysisView {
             }
             #endif
 
-            // Stem from the live name, else the loaded name, else "spectrum" (§2b).
+            // Stem from the live name, else the loaded name, else "spectrum".
             let effectiveName = self.measurementName.isEmpty ? self.tap.loadedMeasurementName : self.measurementName
             let filename = "\(ExportFilename.stem(name: effectiveName, timestamp: Date(), unnamed: "spectrum")).png"
             FileExportHelper.exportFile(data: pngData, filename: filename, contentType: .png) { success in

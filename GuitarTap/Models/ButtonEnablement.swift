@@ -14,9 +14,8 @@
 /// (`models/button_enablement.py`).  If this rule changes, update the B1–B13 truth table
 /// on all three platforms.
 ///
-/// The rule used to live inline in the view, with a second copy in the test file that the
-/// test asserted against — so the test could pass while the view drifted, which is the one
-/// thing it existed to prevent.  One implementation, exercised by both.
+/// One implementation, exercised by both the view and the test, so the test cannot pass while
+/// the view drifts.
 ///
 // @parity state/button-enablement  tests=test/button-enablement
 import Foundation
@@ -26,16 +25,16 @@ struct ButtonState {
     /// Whether the detector is listening, paused mid-sequence, or neither.
     ///
     /// One value rather than a detecting/paused boolean pair: the pair could express
-    /// "detecting AND paused", which the analyzer can no longer represent, so a fixture
-    /// built from two booleans would encode a contract the app no longer has.
+    /// "detecting AND paused", which the analyzer cannot represent, so a fixture built
+    /// from two booleans would encode a contract the app does not have.
     var detectionState: DetectionState
     var isMeasurementComplete: Bool
     var isReadyForDetection: Bool = true
     var fftIsRunning: Bool = true
     /// What the spectrum is showing.  REQUIRED, and the mode itself rather than a boolean:
-    /// the rule reads `tap.displayMode`, so a defaulted boolean silently answers for a
-    /// state the caller never supplied — which is how New Tap came out DISABLED during a
-    /// comparison in web, trapping the user in it with no way back to live (#17 F24).
+    /// the rule reads `tap.displayMode`, so a defaulted boolean would silently answer for a
+    /// state the caller never supplied — e.g. New Tap disabled during a comparison, with no
+    /// way back to live.
     var displayMode: AnalysisDisplayMode
     var measurementType: MeasurementType = .generic
     var materialTapPhase: MaterialTapPhase = .notStarted
@@ -66,7 +65,7 @@ func buttonRule(_ s: ButtonState) -> ButtonOutput {
     // guitar, detecting or paused; for material, past notStarted and not complete. New Tap
     // is disabled while in flight and enabled otherwise (idle OR complete) — the honest
     // predicate, replacing the old `!isMeasurementComplete` proxy that wrongly locked New
-    // Tap in the disarmed-idle state the Dump Capture Audio folder guard can produce (§4b).
+    // Tap in the disarmed-idle state the Dump Capture Audio folder guard can produce.
     // Cancel restarts, offered during a review phase (as "Redo") or an active multi-step
     // sequence (multi-tap or multi-phase = plate; brace is single-phase).
     let isDetecting = s.detectionState == .listening

@@ -57,8 +57,8 @@ private final class FileLogger: @unchecked Sendable {
     /// iOS: the container's `Documents/` — reachable in Files → On My iPhone → GuitarTap
     /// (`UIFileSharingEnabled`).
     ///
-    /// The log deliberately does **not** follow the user-settable WAV folder
-    /// (FILE-PATHS-AND-NAMES-SPEC §4c): it is plumbing, not a user artifact.
+    /// The log deliberately does **not** follow the user-settable WAV folder:
+    /// it is plumbing, not a user artifact.
     static var logFileURL: URL? {
         #if os(macOS)
         // homeDirectoryForCurrentUser returns the CONTAINER home under the sandbox — as does

@@ -7,14 +7,11 @@
 //  Swift satisfies it with `@Published` (this file observes `objectWillChange`), Python with an
 //  explicit signal, web by putting the field on the snapshot and calling `notify()`. Every one of
 //  those can be broken by an ordinary edit — drop the `@Published`, forget to add the signal, leave
-//  the field off the snapshot — and in Python it simply never existed, so the button row went stale
-//  for the whole route-change settle and New Tap never greyed out (#17 F32).
+//  the field off the snapshot — and then the button row goes stale for the whole route-change
+//  settle and New Tap never greys out.
 //
-//  This suite was nearly not written at all: the Python half was first parked in a file tagged
-//  `@parity none` on the grounds that signal plumbing is PySide6-specific and has no counterpart.
-//  It does have one. The contract is not "does Qt emit" but "does a state change reach the UI",
-//  which all three implement and all three can break. That is PARITY-TEST-METHOD rule 4 — an "n/a"
-//  that rests on the view layer is a finding, not a difference.
+//  The contract is not "does Qt emit" but "does a state change reach the UI", which all three
+//  implement and all three can break.
 //
 //  Mirrors: tests/test_state_notification.py · test/state-notification.test.ts
 //
@@ -109,10 +106,9 @@ struct StateNotificationTests {
     }
 
     // N7: a COMPLETED measurement survives a device change. The settle blanks the chart while the
-    // new device's audio is not yet valid, but only when a LIVE spectrum is on screen. The old
-    // guard asked `displayMode == .live`, which is still true of a finished measurement because no
-    // completion path sets `.frozen` — so a device change wiped the result (#17 F35, a regression
-    // from a086638 / build 264).
+    // new device's audio is not yet valid, but only when a LIVE spectrum is on screen — and
+    // `displayMode == .live` is still true of a finished measurement, because no completion path
+    // sets `.frozen`, so the guard must not ask that.
     @Test func routeChange_leavesACompletedMeasurementIntact() {
         let sut = makeSUT()
         sut.setFrozenSpectrum(frequencies: [100, 200], magnitudes: [-40, -50])
@@ -130,16 +126,18 @@ struct StateNotificationTests {
     @Test func routeChange_blanksALiveSpectrum() {
         let sut = makeSUT()
         sut.detectionState = .listening
+        sut.allPeaks = [ResonantPeak(frequency: 100, magnitude: -40)] // a live frame's peaks
 
         sut.handleRouteChangeRestart()
 
         #expect(sut.isSettling == true, "a live spectrum is blanked for the settle")
+        #expect(sut.allPeaks.isEmpty, "and its peaks cleared, so no annotation floats on a blank chart")
     }
 
     // N9: a MATERIAL phase prompt is an instruction about something that already happened
     // ("Rotate 90°…"), not a description of the state, so the settle must put it back rather than
     // re-derive it. Two strings are equally correct for one phase — the advance's instruction and a
-    // redo's "…— tap again" — which is the proof it is not a function of the state (#17 F37).
+    // redo's "…— tap again" — which is the proof it is not a function of the state.
     @Test func settle_preservesAMaterialPhaseInstruction() {
         TapDisplaySettings.measurementType = .plate
         let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
@@ -151,12 +149,11 @@ struct StateNotificationTests {
         #expect(sut.statusAfterSettle() == nil,
                 "a material phase instruction is not re-derivable from (type, phase)")
         #expect(sut.restoredStatus(before: afterRedo) == afterRedo,
-                "REGRESSION: the settle reworded the instruction the user was following — it said \"Rotate 90° and tap for fC\" to someone who had already rotated the plate (#17 F37)")
+                "REGRESSION: the settle reworded the instruction the user was following — it said \"Rotate 90° and tap for fC\" to someone who had already rotated the plate")
     }
 
     // N10: the override precedence, in one place. Dead input outranks clipping, and an ordinary
-    // status write while a condition holds must not drop the warning — Python resolved clipping
-    // inline and ignored dead input entirely, and web had no dead-input status at all (#17 F37).
+    // status write while a condition holds must not drop the warning.
     @Test func statusOverrides_deadInputOutranksClippingAndSurvivesAStatusWrite() {
         let sut = makeSUT()
         sut.latestRealStatus = "Tap the guitar..."
@@ -177,8 +174,8 @@ struct StateNotificationTests {
     }
 
     // N11: what the settle PRESERVES is the analyzer's real status, not the override-resolved
-    // string. Capturing the displayed value meant a route change during clipping preserved the
-    // warning sentinel and put it back as though the analyzer had set it (#17 F37).
+    // string. Capturing the displayed value would let a route change during clipping preserve the
+    // warning sentinel and put it back as though the analyzer had set it.
     @Test func settle_capturesTheRealStatusNotAnOverrideWarning() {
         let sut = makeSUT()
         sut.detectionState = .listening
@@ -194,9 +191,8 @@ struct StateNotificationTests {
     }
 
     // N12: the phase ADVANCE and the armed DERIVATION must produce the same string, because they
-    // are the same string. They used to be two sets of literals — the advance said "Rotate 90° and
-    // tap for fC", the derivation "Ready for fC tap" — so every resume, settle or tap-count change
-    // mid-plate silently reworded the instruction (#17 F37). Pins the single source from both ends.
+    // are the same string: otherwise every resume, settle or tap-count change mid-plate would
+    // silently reword the instruction. Pins the single source from both ends.
     @Test func materialPhaseAdvance_andTheArmedDerivation_agree() {
         TapDisplaySettings.measurementType = .plate
         TapDisplaySettings.measureFlc = false

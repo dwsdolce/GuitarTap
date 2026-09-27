@@ -7,7 +7,7 @@
 //  same tones and assert the same values — any systematic difference between the implementations
 //  shows up as a one-sided failure rather than as three sets of numbers drifting apart. The remaining
 //  cases pin rules the oracle cases cannot see: which window is used, that calibration is applied
-//  inside the transform, and that too little input is not a spectrum (#17 F49).
+//  inside the transform, and that too little input is not a spectrum.
 //
 //  Test plan coverage: GFFT1–GFFT5
 //
@@ -29,7 +29,7 @@ struct GatedFFTParityTests {
     private static let sampleRate: Double = 48000
 
     /// A hardware-free analyzer: no device enumeration, so no saved device calibration can be loaded
-    /// into it mid-test (#17 F49).
+    /// into it mid-test.
     private func analyzer() -> RealtimeFFTAnalyzer {
         RealtimeFFTAnalyzer.forTesting()
     }
@@ -70,7 +70,7 @@ struct GatedFFTParityTests {
     func gfft3_binCentredTwoTones() { check("GFFT3") }
 
     // GFFT4: silence reads exactly the oracle's value — −∞ in every bin. The oracle stores it as the
-    // string "-Infinity", which every edition's reader decodes (#17 F44).
+    // string "-Infinity", which every edition's reader decodes.
     @Test("GFFT4 — silence is −∞ in every bin")
     func gfft4_silenceIsMinusInfinity() {
         let signal = makeGatedTestSignal(tones: [], sampleRate: Self.sampleRate)

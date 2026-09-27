@@ -85,13 +85,9 @@ extension TapToneAnalysisView {
         var plateProps: PlateProperties? = nil
         var braceProps: BraceProperties? = nil
         if measurementType == .plate {
-            let effLong = tap.effectiveLongitudinalPeakID
-            let effCross = tap.effectiveCrossPeakID
-            let effFlc = tap.effectiveFlcPeakID
-            let allPlatePeaks = tap.longitudinalPeaks + tap.crossPeaks + tap.flcPeaks + tap.allPeaks
-            if let longPeak = allPlatePeaks.first(where: { $0.id == effLong }),
-               let crossPeak = allPlatePeaks.first(where: { $0.id == effCross }) {
-                let flcFreq: Float? = allPlatePeaks.first(where: { $0.id == effFlc })?.frequency
+            if let longPeak = tap.selectedLongitudinalPeak,
+               let crossPeak = tap.selectedCrossPeak {
+                let flcFreq: Float? = tap.selectedFlcPeak?.frequency
                 // Store B — the measurement's own dimensions (edited in the Results panel, restored on
                 // load), never the live Settings template. Falls back to settings only when unset.
                 let dims = tap.materialInputs?.dimensions ?? MaterialDimensions(
@@ -110,9 +106,7 @@ extension TapToneAnalysisView {
                 }
             }
         } else if measurementType == .brace {
-            let effLong = tap.effectiveLongitudinalPeakID
-            let allBracePeaks = tap.longitudinalPeaks + tap.allPeaks
-            if let longPeak = allBracePeaks.first(where: { $0.id == effLong }) {
+            if let longPeak = tap.selectedLongitudinalPeak {
                 // Store B — the measurement's own dimensions, never the live Settings template.
                 let dims = tap.materialInputs?.dimensions ?? MaterialDimensions(
                     lengthMM: TapDisplaySettings.braceLength,
@@ -130,7 +124,7 @@ extension TapToneAnalysisView {
         }
 
         // Only include peaks within the currently displayed frequency range
-        let rangeFilteredPeaks = tap.peaksAbovePeakMin.filter {
+        let rangeFilteredPeaks = (measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).filter {
             $0.frequency >= minFreq && $0.frequency <= maxFreq
         }
 
@@ -141,7 +135,9 @@ extension TapToneAnalysisView {
             measurementType: measurementType,
             guitarType: TapDisplaySettings.guitarType,
             peaks: rangeFilteredPeaks,
-            selectedPeakIDs: tap.selectedPeakIDs,
+            // Material has no per-peak selection: every identified peak is selected, as a saved
+            // measurement's `effectiveSelectedPeakIDs` has it.
+            selectedPeakIDs: measurementType.isGuitar ? tap.selectedPeakIDs : Set(tap.materialIdentifiedPeaks.map { $0.id }),
             decayTime: tap.currentDecayTime,
             tapToneRatio: tap.calculateTapToneRatio(),
             spectrumImageData: spectrumImageData,
@@ -240,7 +236,7 @@ extension TapToneAnalysisView {
             modeFrequencies: modeFrequencies
         )
 
-        // A comparison report is just a report (§2b). Effective name: live name, else loaded name.
+        // A comparison report is just a report. Effective name: live name, else loaded name.
         let effectiveName = measurementName.isEmpty ? tap.loadedMeasurementName : measurementName
         let basename = ExportFilename.stem(name: effectiveName, timestamp: Date(), unnamed: "report")
 
@@ -285,13 +281,9 @@ extension TapToneAnalysisView {
         var plateProps: PlateProperties? = nil
         var braceProps: BraceProperties? = nil
         if measurementType == .plate {
-            let effLong = tap.effectiveLongitudinalPeakID
-            let effCross = tap.effectiveCrossPeakID
-            let effFlc = tap.effectiveFlcPeakID
-            let allPlatePeaks = tap.longitudinalPeaks + tap.crossPeaks + tap.flcPeaks + tap.allPeaks
-            if let longPeak = allPlatePeaks.first(where: { $0.id == effLong }),
-               let crossPeak = allPlatePeaks.first(where: { $0.id == effCross }) {
-                let flcFreq: Float? = allPlatePeaks.first(where: { $0.id == effFlc })?.frequency
+            if let longPeak = tap.selectedLongitudinalPeak,
+               let crossPeak = tap.selectedCrossPeak {
+                let flcFreq: Float? = tap.selectedFlcPeak?.frequency
                 // Store B — the measurement's own dimensions, never the live Settings template.
                 let dims = tap.materialInputs?.dimensions ?? MaterialDimensions(
                     lengthMM: TapDisplaySettings.plateLength, widthMM: TapDisplaySettings.plateWidth,
@@ -304,9 +296,7 @@ extension TapToneAnalysisView {
                 }
             }
         } else if measurementType == .brace {
-            let effLong = tap.effectiveLongitudinalPeakID
-            let allBracePeaks = tap.longitudinalPeaks + tap.allPeaks
-            if let longPeak = allBracePeaks.first(where: { $0.id == effLong }) {
+            if let longPeak = tap.selectedLongitudinalPeak {
                 // Store B — the measurement's own dimensions, never the live Settings template.
                 let dims = tap.materialInputs?.dimensions ?? MaterialDimensions(
                     lengthMM: TapDisplaySettings.braceLength, widthMM: TapDisplaySettings.braceWidth,
@@ -316,7 +306,7 @@ extension TapToneAnalysisView {
                 }
             }
         }
-        let rangeFilteredPeaks = tap.peaksAbovePeakMin.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq }
+        let rangeFilteredPeaks = (measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).filter { $0.frequency >= minFreq && $0.frequency <= maxFreq }
         let avgReportData = PDFReportData(
             timestamp: tap.sourceMeasurementTimestamp ?? Date(),
             measurementName: measurementName.isEmpty ? tap.loadedMeasurementName : measurementName,

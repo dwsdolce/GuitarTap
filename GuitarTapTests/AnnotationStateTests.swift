@@ -97,11 +97,6 @@ struct PeakSelectionTests {
         #expect(!sut.selectedPeakIDs.contains(id), "After second toggle, peak should be deselected")
     }
 
-    // Select All was removed in Phase 5: Air, Top and Back can each have only ONE definitive
-    // (selected) peak, so "everything selected" is not a state the model can hold. The tests that
-    // pinned it (selectAllPeaks_selectsAllCurrentPeaks, selectAllPeaks_setsModifiedFlag) went with
-    // the feature rather than being rewritten.
-
     // selectNoPeaks clears all selections.
     @Test func selectNoPeaks_clearsAll() {
         let sut = makeSUT()
@@ -284,7 +279,7 @@ struct ModeOverrideTests {
 
     // hasManualOverride tracks presence: an assigned label is an override, and clearing removes it.
     // Driven through the two calls the app actually makes — setModeOverride and resetModeOverride —
-    // rather than through a stored "no override" value, which no longer exists (#17 F28).
+    // — absence is the only "no override" there is.
     @Test func hasManualOverride_trueOnceAssigned_falseOnceCleared() {
         let sut = makeSUT()
         let peak = makePeak()
@@ -299,18 +294,7 @@ struct ModeOverrideTests {
         #expect(sut.peakModeOverrides[peak.id] == nil, "cleared means absent, not a stored 'auto'")
     }
 
-    // Clearing an override (setting .auto) reverts to auto-classification.
-    // An unclassified peak has NO mode — it is not guessed at.
-    //
-    // This used to fall back to classifying the peak ALONE (`GuitarMode.classifyAll([peak])`). One
-    // peak cannot compete for a band, and the Generic Top (140–260 Hz) and Back (180–300 Hz) ranges
-    // overlap, so the fallback returned .top for anything between 180 and 260 Hz — including a
-    // plate/brace peak, which has no guitar mode at all. A real brace fL at 220 Hz reported .top.
-    // Removed 2026-09-20 to match web, which never guessed.
-    // The CLEAR half of the store. Setting each of these was tested; clearing them was not — in
-    // either native edition — while web covered all three. Found 2026-09-20 by checking the web
-    // `peak-state-store` tests against native BEHAVIOUR rather than method names (project #8).
-    // A characteristic gap: whoever wrote these covered setting a thing and not unsetting it.
+    // The CLEAR half of the store: clearing one peak's override leaves every other peak's alone.
     @Test func resetModeOverride_clearsOnlyThatPeaksOverride() {
         let sut = makeSUT()
         let kept = makePeak(frequency: 100), cleared = makePeak(frequency: 200)
@@ -352,6 +336,11 @@ struct ModeOverrideTests {
         #expect(sut.peakAnnotationOffsets.isEmpty, "Reset Labels returns every callout to its anchor")
     }
 
+    // Clearing an override reverts to auto-classification, and an unclassified peak has NO mode —
+    // it is not guessed at. A peak classified ALONE (`GuitarMode.classifyAll([peak])`) cannot compete
+    // for a band, and the Generic Top (140–260 Hz) and Back (180–300 Hz) ranges overlap, so it would
+    // come out .top anywhere between 180 and 260 Hz — including a plate/brace peak, which has no
+    // guitar mode at all. Matches web.
     @Test func unclassifiedPeak_hasNoMode_evenInTheTopBackOverlap() {
         let savedType = TapDisplaySettings.measurementType
         TapDisplaySettings.measurementType = .generic
@@ -443,17 +432,7 @@ struct AnnotationVisibilityCycleTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - Plate Peak Selection (PS1–PS6) — REMOVED 2026-09-20
-// ---------------------------------------------------------------------------
-//
-// These six tests were the only callers of selectLongitudinalPeak/Cross/Flc(_:). The L / C / FLC
-// buttons that drove them were deleted on 2026-04-17 (c88e5e1) and replaced by redoing the phase,
-// so the model they exercised had been unreachable for five months. Tests are the last thing
-// keeping removed code alive; deleting the feature means deleting them too. Python's PS1–PS6 went
-// with them.
-
-// ---------------------------------------------------------------------------
-// MARK: - Definitive Air/Top/Back uniqueness  (D11–D16) — Phase 5
+// MARK: - Definitive Air/Top/Back uniqueness  (D11–D16)
 // ---------------------------------------------------------------------------
 //
 // Classification and selection are independent. Classification is band membership: five peaks in
@@ -601,7 +580,7 @@ struct DefinitiveModeUniquenessTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - Definitive peak & tap-tone ratio  (D17–D20) — Phase 6
+// MARK: - Definitive peak & tap-tone ratio  (D17–D20)
 // ---------------------------------------------------------------------------
 //
 // getPeak(for:) and calculateTapToneRatio resolve the DEFINITIVE peak: the selected peak whose
@@ -738,10 +717,10 @@ struct DefinitivePeakAndRatioTests {
     }
 }
 
-// MARK: - Phase 7 triggers  (paired with Python TestPhase7Triggers)
+// MARK: - Clean-slate triggers  (paired with Python TestPhase7Triggers)
 //
-// Clean-slate guitar-type change + a new tap sequence clears ALL per-peak state. Added to BOTH
-// platforms so the behaviour is pinned identically (Swift shipped Phase 7 test-free at e3a7303).
+// Clean-slate guitar-type change + a new tap sequence clears ALL per-peak state. Pinned identically
+// in Swift and Python.
 
 @Suite("Phase7Triggers", .serialized)
 @MainActor
@@ -773,6 +752,25 @@ struct Phase7TriggersTests {
         #expect(sut.userHasModifiedPeakSelection == false, "selection reset to auto")
         #expect(sut.selectedPeakIDs == sut.guitarModeSelectedPeakIDs(from: sut.allPeaks),
                 "selection is the fresh auto-selection for the new type")
+    }
+
+    // A guitar-type change re-classifies the SAME peaks under the new type's bands (no re-detection).
+    // 160 Hz is below the Classical Top band (170–230) and inside the Acoustic one (150–210).
+    @Test func reclassifyForGuitarTypeChange_reclassifiesThePeaks() {
+        let saved = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = saved }
+        TapDisplaySettings.measurementType = .classical
+        let sut = makeSUT()
+        let peak160 = makePeak(frequency: 160, magnitude: -20)
+        sut.allPeaks = [makePeak(frequency: 100, magnitude: -25), peak160]
+        sut.reclassifyPeaks()
+        let modeOf160 = { sut.identifiedModes.first { $0.peak.id == peak160.id }?.mode }
+        #expect(modeOf160() != .top, "precondition: 160 Hz is not Top on a classical")
+
+        TapDisplaySettings.measurementType = .acoustic
+        sut.reclassifyForGuitarTypeChange()
+
+        #expect(modeOf160() == .top, "re-classified under the new type's bands")
     }
 
     // A new sequence must leave nothing from the previous measurement to leak into the next file.

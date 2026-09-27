@@ -2,7 +2,7 @@
 //  PeakFixtureRegressionTests.swift
 //  GuitarTapTests
 //
-//  D3 + D5 + D6 of Development/PEAK-FINDING-DUPLICATE-PEAKS.md (GuitarTapWeb).
+//  The duplicate-peak defect: fixture regressions.
 //
 //  Replays real captured spectra through findPeaks and pins the result against a
 //  golden baseline.

@@ -95,9 +95,8 @@ extension TapToneAnalyzer {
         // Only track decay history if we're actively tracking after a tap
         guard isTrackingDecay else { return }
 
-        // Stop 3 s of AUDIO after the tap, without applying this chunk. This was a 3 s WALL-clock
-        // timer, so on a slow run more (or fewer) chunks got in before it fired and a slow ring-out
-        // could read differently (#19). The web's DecayTracker has always stopped here.
+        // Stop 3 s of AUDIO after the tap, without applying this chunk — on the audio clock, so the
+        // same chunks get in on every run however slowly it plays. The web's DecayTracker stops here too.
         if let tapTime = decayTapAudioTime, audioTime - tapTime >= decayTrackingDuration {
             stopDecayTracking()
             return

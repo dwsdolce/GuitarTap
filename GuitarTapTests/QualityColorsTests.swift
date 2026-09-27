@@ -2,20 +2,13 @@
 //  QualityColorsTests.swift
 //  GuitarTapTests
 //
-//  Locks WoodQuality's display colour (+ the raw label) against silent drift. The material
-//  quality colours are the bug that motivated this whole parity group — a copy drifted to a
-//  wrong hue with nothing to catch it.
+//  Locks WoodQuality's display colour (+ the raw label) against silent drift.
 //
-//  Until the #17 sweep this suite asserted `WoodQuality.excellent.color == .green`: a semantic
-//  identity, which stays true no matter what hue the OS resolves `.green` to. It therefore could
-//  not detect the thing the group exists to detect, and did not. macOS 26 revised the system
-//  palette, moving Swift to `.blue = #0088FF` and `.orange = #FF8D28` while Python and the web
-//  still pinned #007AFF and #FF9500 — so the macOS app, the Python app and the web's PDF report,
-//  all of them white surfaces, rendered two visibly different blues and oranges.
-//
-//  The colours are now absolute (see `WoodQuality.hex`) and this suite pins the hex, which is the
-//  same thing Python's test_quality_colors.py and web's quality-colors.test.ts pin. All three
-//  editions now compare the same values, so a drift in any one of them fails a test.
+//  An assertion like `WoodQuality.excellent.color == .green` stays true no matter what hue the OS
+//  resolves `.green` to, so it cannot detect drift. The colours are absolute (see
+//  `WoodQuality.hex`) and this suite pins the hex, which is the same thing Python's
+//  test_quality_colors.py and web's quality-colors.test.ts pin. All three editions compare the
+//  same values, so a drift in any one of them fails a test.
 //
 // @parity test/quality-colors
 

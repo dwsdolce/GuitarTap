@@ -10,26 +10,19 @@
 //  idiom on state tuples).
 //
 //  SCOPE: the state-reachable strings — arm/rest, clipping, device-change begin,
-//  paused/resume, completion (frozen across recalc), loaded, plate completion.
-//  Two families are intentionally NOT pinned here:
+//  paused/resume, completion (frozen across recalc), loaded, plate completion — plus:
 //
-//  1. Material phase-guidance — "Ready for fL tap", "Rotate 90° and tap for fC" — is now
-//     VISIBLE (OUT-1 fixed by the status state-machine alignment: the warm-up is silent).
-//     Pinned below by the "survives the warm-up" cases, which feed a warm-up frame and
-//     assert the guidance persists (these FAILED before the alignment — the warm-up
-//     overwrote them with "Initializing…"). The redo / FLC phase strings follow the same
-//     mechanism and are covered by the material accept/redo transitions.
+//  1. Material phase-guidance — "Ready for fL tap", "Rotate 90° and tap for fC" — which
+//     stays VISIBLE because the warm-up is silent. Pinned below by the "survives the
+//     warm-up" cases, which feed a warm-up frame and assert the guidance persists. The
+//     redo / FLC phase strings follow the same mechanism and are covered by the material
+//     accept/redo transitions.
 //
 //  2. Per-tap capture PROGRESS transients — "Tap n/N capturing...",
 //     "Tap n/N captured. Tap again...", "All taps captured. Processing...", the
 //     material "fL/fC/fLC tap n/N captured..." / review / "No resonance detected"
-//     strings — are pinned below, in StatusMessageCaptureProgressTests.
-//
-//     This used to say they were written too deep in the gated-capture pipeline for a
-//     state-driven suite to reach, and were covered by the file-playback regression tests.
-//     Neither held (#17 F29): those tests RUN the pipeline but assert no status at all, and
-//     the handlers take a spectrum and a peak, which FrozenPeakRecalculationTests has always
-//     called directly.  The strings were pinned in no edition but web.
+//     strings — pinned below, in StatusMessageCaptureProgressTests. The handlers take a
+//     spectrum and a peak, so they are driven directly, without audio.
 //
 // @parity test/status-message
 
@@ -197,13 +190,12 @@ struct StatusMessageTests {
         #expect(sut.statusMessage == "Complete - check Results") // ASCII hyphen
     }
 
-    // ── OUT-1 fixed: material phase-guidance survives the (now silent) warm-up ───
+    // ── Material phase-guidance survives the (silent) warm-up ───────────────────────
     // Each phase-arm restarts the warm-up; feed a warm-up frame and assert the guidance
-    // persists. These FAILED before the state-machine alignment (the warm-up overwrote
-    // them with "Initializing…" → "Tap the guitar…").
+    // persists rather than being replaced by "Initializing…" or "Tap the guitar…".
     @Test func materialArm_readyForLTap_survivesWarmup() {
         let sut = makeSUT(numberOfTaps: 1, measurementType: .plate)
-        sut.startTapSequence(initialPhase: .capturingLongitudinal)
+        sut.startTapSequence()
         #expect(sut.statusMessage == "Ready for fL tap")
         sut.onChunkLevel(-80, audioTime: 0) // a warm-up frame (warm-up clock just armed at the current audio time)
         #expect(sut.statusMessage == "Ready for fL tap")
@@ -219,8 +211,7 @@ struct StatusMessageTests {
     }
 
     /// The OTHER accept transition: fC → the FLC set-up prompt, shown during the disarmed cooldown.
-    /// Web covered both in one case; the natives covered only the first, so this string was asserted
-    /// in no edition but web (#17 F29). It is the prompt the FLC cooldown guard hands the user.
+    /// It is the prompt the FLC cooldown guard hands the user.
     @Test func acceptC_promptsToSetUpForFlc_andSurvivesWarmup() {
         let saved = TapDisplaySettings.measureFlc
         TapDisplaySettings.measureFlc = true
@@ -236,23 +227,15 @@ struct StatusMessageTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - Capture-progress strings  (#17 F29)
+// MARK: - Capture-progress strings
 // ---------------------------------------------------------------------------
 //
-// These were excluded for years on the grounds that they are "written deep in the gated-capture
-// pipeline … so a state-driven suite can't reach them cleanly", and were credited to the
-// file-playback regression tests. Those tests RUN the pipeline, so the strings are certainly set —
-// but `statusMessage` is asserted in exactly two test files in this target, and neither is one of
-// them. Deleting `No signal detected — tap again` from all five of its sites left both native
-// suites green. Web pinned them all along; the spread read 12/12/16 as though web had extras.
-//
-// Every case below drives a method a sibling test file already calls without audio:
+// The file-playback regression tests RUN the pipeline but do not assert `statusMessage`, so these
+// strings are pinned here. Every case below drives a method a sibling test file already calls without audio:
 // FrozenPeakRecalculationTests drives handleLongitudinalGatedProgress the same way.
 
 /// The re-arm after a guitar tap's cooldown does not touch the status: the capture set the loop prompt
-/// ("Tap 1/3 captured. Tap again...") and it stays. Python used to rewrite it at the re-arm — and to
-/// show "Tap N/M captured. Waiting for settle..." while the level was still high — text neither other
-/// edition has (#17 F45).
+/// ("Tap 1/3 captured. Tap again...") and it stays, even while the level is still high.
 @Suite("StatusMessage — guitar re-arm", .serialized)
 @MainActor
 struct StatusMessageReArmTests {
@@ -277,7 +260,7 @@ struct StatusMessageReArmTests {
         let afterCapture = sut.statusMessage
         #expect(afterCapture == sut.guitarLoopStatus(capturing: false))
 
-        // The rest runs on the audio clock (#19); the audio is still ringing, above the falling
+        // The rest runs on the audio clock; the audio is still ringing, above the falling
         // threshold, when the re-arm falls due.
         advanceAudio(sut, by: sut.tapCooldown, level: -20)
         #expect(sut.isDetecting, "re-armed")

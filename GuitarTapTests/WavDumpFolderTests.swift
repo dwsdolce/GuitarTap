@@ -2,9 +2,9 @@
 //  WavDumpFolderTests.swift
 //  GuitarTapTests
 //
-//  Pins the shared WAV-dump-folder logic (FILE-PATHS-AND-NAMES-SPEC §4b): default folder, no-custom
-//  reachability, and the acquire/release write helper. The macOS bookmark round-trip and the picker
-//  are manual run-review (the Step-0 spike proved the mechanism). Two-way with Python
+//  Pins the shared WAV-dump-folder logic: default folder, no-custom reachability, and the
+//  acquire/release write helper. The macOS bookmark round-trip and the picker are checked by hand,
+//  not here. Two-way with Python
 //  test_wav_dump_folder.py (the web has no counterpart — a page can only download to Downloads).
 //
 // @parity test/wav-dump-folder

@@ -37,7 +37,7 @@ struct MeasurementFileExporter {
 
     #if os(macOS)
     /// First-run starting directory for the export Save panel: the user's real
-    /// `~/Documents/GuitarTap` (FILE-PATHS-AND-NAMES-SPEC §1b).
+    /// `~/Documents/GuitarTap`.
     ///
     /// Resolved via `getpwuid(getuid())`, **not** `FileManager.homeDirectoryForCurrentUser` /
     /// `NSHomeDirectory()`, which under App Sandbox return the *container* home

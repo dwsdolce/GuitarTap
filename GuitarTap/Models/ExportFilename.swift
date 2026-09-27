@@ -3,7 +3,6 @@
 //  GuitarTap
 //
 //  Single source of truth for exported-artifact filenames.
-//  See FILE-PATHS-AND-NAMES-SPEC.md §2b.
 //
 // @parity model/export-filename tests=test/export-filename
 
@@ -11,7 +10,7 @@ import Foundation
 
 /// The filename stem shared by every exported artifact — `.guitartap`, PDF, and spectrum PNG.
 ///
-/// Rule (FILE-PATHS-AND-NAMES-SPEC §2b):
+/// Rule:
 ///
 ///     stem = <measurement name, slugged  OR  the artifact's own default word> - <unix seconds>
 ///

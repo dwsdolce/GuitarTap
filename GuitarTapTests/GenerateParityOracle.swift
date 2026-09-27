@@ -253,7 +253,7 @@ struct GenerateParityOracleTests {
             sut.peakMinThreshold = Float(set["peakMinThreshold"] as? Double ?? -76)
             sut.tapDetectionThreshold = Float(set["tapDetectionThreshold"] as? Double ?? -40)
             let taps = set["numberOfTaps"] as? Int ?? 1
-            try await sut.playFileForTesting(url: try fixtureURL(caseDict),
+            try await sut.playFileAndWait(url: try fixtureURL(caseDict),
                                              measurementType: .generic,
                                              numberOfTaps: taps)
 
@@ -299,16 +299,12 @@ struct GenerateParityOracleTests {
 
             let sut = TapToneAnalyzer.forTesting()
             sut.tapDetectionThreshold = Float(set["tapDetectionThreshold"] as? Double ?? -40)
-            try await sut.playFileForTesting(url: try fixtureURL(caseDict),
+            try await sut.playFileAndWait(url: try fixtureURL(caseDict),
                                              measurementType: isBrace ? .brace : .plate,
                                              numberOfTaps: set["numberOfTaps"] as? Int ?? 1,
                                              calibrationURL: calibrationURL(caseDict))
 
-            var computed = Self.materialPeaks(sut)
-            if isBrace, let dominant = sut.longitudinalPeaks.first {
-                // Brace asserts the dominant longitudinal peak, not the selection.
-                computed["longitudinal"] = (dominant.frequency, dominant.magnitude, dominant.quality)
-            }
+            let computed = Self.materialPeaks(sut)
             if let peaks = caseDict["peaks"] as? [[String: Any]] {
                 caseDict["peaks"] = Self.updatePeaks(peaks, with: computed)
             }
@@ -320,7 +316,7 @@ struct GenerateParityOracleTests {
         let sampleRate: Double = 48000
         for name in gated.keys.sorted() {
             guard var caseDict = gated[name] as? [String: Any] else { continue }  // skips note keys
-            // Silence is the signal with no tones. The same builder the GFFT tests use (#17 F49).
+            // Silence is the signal with no tones. The same builder the GFFT tests use.
             let tones = (caseDict["signal"] as? String) == "silence" ? [] :
                 ((caseDict["tones"] as? [[Double]]) ?? [])
                     .filter { $0.count >= 2 }
@@ -329,9 +325,8 @@ struct GenerateParityOracleTests {
 
             let (mags, freqs) = fft.computeGatedFFT(samples: signal, sampleRate: sampleRate)
 
-            // Silence: record the exact peak — -inf. JSONSerialization cannot write infinity, which
-            // is why this case used to carry only a bound (maxDbBelow: -100); it is stored as the
-            // string "-Infinity", which every edition's reader and the hub decode (#17 F44).
+            // Silence: record the exact peak — -inf. JSONSerialization cannot write infinity, so it
+            // is stored as the string "-Infinity", which every edition's reader and the hub decode.
             if (caseDict["signal"] as? String) == "silence" {
                 caseDict.removeValue(forKey: "maxDbBelow")
                 caseDict["maxDb"] = Self.storedAllowingNonFinite(mags.max() ?? -.infinity)
