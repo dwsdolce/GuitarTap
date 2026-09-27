@@ -374,10 +374,9 @@ private struct PDFReportContentView: View {
             }
             metaRow(label: "Frequency Range",
                     value: "\(data.minFreq.formattedAsFrequency()) – \(data.maxFreq.formattedAsFrequency())")
-            if let mic = data.microphoneName {
-                let calSuffix = data.calibrationName.map { " · calibrated (\($0))" } ?? " · uncalibrated"
-                metaRow(label: "Microphone", value: mic + calSuffix)
-            }
+            // No recorded microphone means it is unknown (a played file, say): say so, and keep the calibration.
+            let calSuffix = data.calibrationName.map { " · calibrated (\($0))" } ?? " · uncalibrated"
+            metaRow(label: "Microphone", value: (data.microphoneName ?? "unknown") + calSuffix)
         }
     }
 

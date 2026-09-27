@@ -905,6 +905,46 @@ final class TapToneAnalyzer: ObservableObject {
         selectedFlcPeak?.id
     }
 
+    // MARK: - Capture Provenance
+
+    /// Where the current result came from when it is not the live input: a played file or a loaded
+    /// measurement. `nil` while the sequence listens to the input. A played file has no microphone (the
+    /// microphone that recorded a file is not known), the calibration it was played with (or none) and
+    /// its sample rate; a loaded measurement has what the file recorded. Set by
+    /// ``playFile(url:calibrationURL:completion:)`` and ``loadMeasurement(_:)``; a new sequence clears it.
+    struct ResultProvenance {
+        let microphoneName: String?
+        let microphoneUID: String?
+        let calibrationName: String?
+        let sampleRate: Double?
+    }
+    var resultProvenance: ResultProvenance?
+
+    /// The microphone the current result was captured with, as shown, saved and reported: the input
+    /// device for a live result; the recorded one for a played file or a loaded measurement, `nil`
+    /// (unknown) when there is none.
+    var captureMicrophoneName: String? {
+        resultProvenance.map { $0.microphoneName } ?? fftAnalyzer.selectedInputDevice?.name
+    }
+
+    /// The UID of ``captureMicrophoneName``'s device.
+    var captureMicrophoneUID: String? {
+        resultProvenance.map { $0.microphoneUID } ?? fftAnalyzer.selectedInputDevice?.uid
+    }
+
+    /// The calibration the current result was captured with: the input's for a live result, the
+    /// recorded one otherwise (none for a file played uncalibrated).
+    var captureCalibrationName: String? {
+        resultProvenance.map { $0.calibrationName } ?? fftAnalyzer.activeCalibration?.name
+    }
+
+    /// The sample rate the current result was captured at: the input's for a live result (`nil` when the
+    /// engine has no rate yet), the recorded one otherwise.
+    var captureSampleRate: Double? {
+        resultProvenance.map { $0.sampleRate }
+            ?? (fftAnalyzer.actualSampleRate > 0 ? fftAnalyzer.actualSampleRate : nil)
+    }
+
     // MARK: - Loaded / Restored State
 
     /// All four axis bounds from a saved measurement, published as a single unit.

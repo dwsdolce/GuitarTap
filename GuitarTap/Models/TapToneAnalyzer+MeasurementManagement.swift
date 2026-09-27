@@ -215,75 +215,35 @@ extension TapToneAnalyzer {
         )
     }
 
-    /// Captures the current analyser state into a new ``TapToneMeasurement``
-    /// and appends it to `savedMeasurements`.
-    ///
-    /// For **guitar** measurements a combined `SpectrumSnapshot` is built from
-    /// the frozen or live spectrum. For **plate/brace** measurements all three
-    /// per-phase snapshots are built internally from `longitudinalSpectrum`,
-    /// `crossSpectrum`, and `flcSpectrum` using `makePhaseSnapshot`.
-    ///
-    /// - Parameters:
-    ///   - measurementName: A short label for where the measurement was taken,
-    ///     e.g. `"Top — Bridge"`.
-    ///   - notes: Free-text user notes to attach to the measurement.
-    ///   - includeSpectrum: When `true`, spectrum snapshots are generated.
-    ///   - spectrumSnapshot: Optional override for the guitar snapshot. If
-    ///     `nil` and `includeSpectrum` is `true`, one is built from the
-    ///     live/frozen FFT.
-    ///   - annotationOffsets: Custom annotation drag offsets to persist. If
-    ///     `nil`, `peakAnnotationOffsets` is used.
-    ///   - selectedLongitudinalPeakID: UUID of the user/auto-selected
-    ///     longitudinal peak (plate/brace only).
-    ///   - selectedCrossPeakID: UUID of the user/auto-selected cross-grain
-    ///     peak (plate only).
-    ///   - selectedFlcPeakID: UUID of the user/auto-selected FLC peak (plate
-    ///     only, FLC enabled).
-    ///   - microphoneName: Display name of the recording microphone, for
-    ///     re-connection warnings on load.
-    ///   - microphoneUID: Persistent UID of the recording microphone, used
-    ///     for device matching on load.
-    ///   - calibrationName: Name of the active calibration profile, for
-    ///     reference information.
-    ///   - sampleRate: Capture sample rate in Hz; `nil` falls back to the engine's actual rate.
-    ///   - minFreq: Lower bound of the saved display frequency range (Hz); `nil` uses `TapDisplaySettings.minFrequency`.
-    ///   - maxFreq: Upper bound of the saved display frequency range (Hz); `nil` uses `TapDisplaySettings.maxFrequency`.
-    ///   - minDB: Lower bound of the saved display magnitude range (dBFS); `nil` uses `TapDisplaySettings.minMagnitude`.
-    ///   - maxDB: Upper bound of the saved display magnitude range (dBFS); `nil` uses `0.0`.
-    /// The guitar peak set to persist: the full set detected down to the −100 dB display floor,
-    /// not just those above the current Peak Min. Filtering the saved full set by Peak Min gives the same result as the
-    /// live path re-detecting at that Peak Min — the local-maximum test is threshold-independent —
-    /// so a reloaded measurement reveals peaks below its capture-time Peak Min exactly as the live
-    /// one does.
-    ///
-    /// `peaksAbovePeakMin` (≥ Peak Min, carrying their UUIDs / selection / modes / annotations) are kept
-    /// as-is; only the sub-Peak-Min peaks are appended, so nothing that is displayed or selected is
-    /// disturbed. Applies to freshly captured guitar measurements only — a **loaded** measurement
-    /// keeps its authoritative saved peaks (Re-analyze regenerates them from the spectrum), and
-    /// material (plate/brace) has no full-set concept.
-    /// **Now simply the stored set.** `allPeaks` IS the full −100 dB set (captured that way since the
-    /// peak-lifecycle work), so the old "re-detect at −100 and append the sub-Peak-Min remainder"
-    /// dance is redundant — and re-detecting minted throwaway UUIDs for the appended peaks, which is
-    /// exactly the identity churn the lifecycle spec removes. Kept as a named function because the
-    /// save path reads it and the intent ("save the whole set, not just what is displayed") is worth
-    /// stating.
+    /// The guitar peak set to persist: the full set detected down to the −100 dB display floor, not just
+    /// those above the current Peak Min. Filtering the saved set by Peak Min gives the same result as
+    /// the live path re-detecting at that Peak Min — the local-maximum test is threshold-independent —
+    /// so a reloaded measurement reveals peaks below its capture-time Peak Min exactly as the live one
+    /// does. `allPeaks` is that set; the name states the intent: save the whole set, not what is shown.
     func guitarFullSavePeaks() -> [ResonantPeak] {
         allPeaks
     }
 
+    /// Captures the current analyser state into a new ``TapToneMeasurement``
+    /// and appends it to `savedMeasurements`.
+    ///
+    /// Everything but the view's own state is read from the model: the peaks and selection, the
+    /// identified material peaks, overrides, annotation offsets, the ring-out, the spectra, and the
+    /// capture's provenance (``captureMicrophoneName``, ``captureMicrophoneUID``,
+    /// ``captureCalibrationName``, ``captureSampleRate``). For **guitar** a combined `SpectrumSnapshot`
+    /// is built from the frozen or live spectrum; for **plate/brace** the per-phase snapshots are built
+    /// from `longitudinalSpectrum`, `crossSpectrum` and `flcSpectrum` using `makePhaseSnapshot`.
+    ///
+    /// - Parameters:
+    ///   - measurementName: A short label for where the measurement was taken, e.g. `"Top — Bridge"`.
+    ///   - notes: Free-text user notes to attach to the measurement.
+    ///   - minFreq: Lower bound of the saved display frequency range (Hz); `nil` uses `TapDisplaySettings.minFrequency`.
+    ///   - maxFreq: Upper bound of the saved display frequency range (Hz); `nil` uses `TapDisplaySettings.maxFrequency`.
+    ///   - minDB: Lower bound of the saved display magnitude range (dBFS); `nil` uses `TapDisplaySettings.minMagnitude`.
+    ///   - maxDB: Upper bound of the saved display magnitude range (dBFS); `nil` uses `0.0`.
     func saveMeasurement(
         measurementName: String? = nil,
         notes: String? = nil,
-        includeSpectrum: Bool = true,
-        spectrumSnapshot: SpectrumSnapshot? = nil,
-        annotationOffsets: [UUID: CGPoint]? = nil,
-        selectedLongitudinalPeakID: UUID? = nil,
-        selectedCrossPeakID: UUID? = nil,
-        selectedFlcPeakID: UUID? = nil,
-        microphoneName: String? = nil,
-        microphoneUID: String? = nil,
-        calibrationName: String? = nil,
-        sampleRate: Double? = nil,
         minFreq: Float? = nil,
         maxFreq: Float? = nil,
         minDB: Float? = nil,
@@ -301,10 +261,10 @@ extension TapToneAnalyzer {
         // Build guitar SpectrumSnapshot internally from frozen/live FFT.
         // Mirrors Python: guitar_snapshot = spectrum_snapshot or SpectrumSnapshot(...)
         let snapshot: SpectrumSnapshot?
-        if includeSpectrum && measurementType.isGuitar {
+        if measurementType.isGuitar {
             let freqs = isMeasurementComplete ? frozenFrequencies : fftAnalyzer.frequencies
             let mags  = isMeasurementComplete ? frozenMagnitudes  : fftAnalyzer.magnitudes
-            snapshot = spectrumSnapshot ?? SpectrumSnapshot(
+            snapshot = SpectrumSnapshot(
                 frequencies: freqs,
                 magnitudes: mags,
                 minFreq: _minFreq,
@@ -324,21 +284,21 @@ extension TapToneAnalyzer {
         // Mirrors Python: longitudinal_snapshot = self._make_phase_snapshot(...)
         let phaseArgs = (minFreq: _minFreq, maxFreq: _maxFreq, minDB: _minDB, maxDB: _maxDB)
         let longitudinalSnapshot: SpectrumSnapshot? = {
-            guard includeSpectrum, !measurementType.isGuitar,
+            guard !measurementType.isGuitar,
                   let spec = longitudinalSpectrum else { return nil }
             return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies,
                                      minFreq: phaseArgs.minFreq, maxFreq: phaseArgs.maxFreq,
                                      minDB: phaseArgs.minDB, maxDB: phaseArgs.maxDB)
         }()
         let crossSnapshot: SpectrumSnapshot? = {
-            guard includeSpectrum, measurementType == .plate,
+            guard measurementType == .plate,
                   let spec = crossSpectrum else { return nil }
             return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies,
                                      minFreq: phaseArgs.minFreq, maxFreq: phaseArgs.maxFreq,
                                      minDB: phaseArgs.minDB, maxDB: phaseArgs.maxDB)
         }()
         let flcSnapshot: SpectrumSnapshot? = {
-            guard includeSpectrum, measurementType == .plate,
+            guard measurementType == .plate,
                   let spec = flcSpectrum else { return nil }
             return makePhaseSnapshot(magnitudes: spec.magnitudes, frequencies: spec.frequencies,
                                      minFreq: phaseArgs.minFreq, maxFreq: phaseArgs.maxFreq,
@@ -359,14 +319,14 @@ extension TapToneAnalyzer {
             measurementName: measurementName,
             notes: notes,
             spectrum: snapshot,
-            annotationOffsets: annotationOffsets ?? peakAnnotationOffsets,
+            annotationOffsets: peakAnnotationOffsets,
             tapDetectionThreshold: tapDetectionThreshold,
             numberOfTaps: numberOfTaps,
             peakMinThreshold: peakMinThreshold,
             // Include peak selections for plate and brace measurements
-            selectedLongitudinalPeakID: !measurementType.isGuitar ? selectedLongitudinalPeakID : nil,
-            selectedCrossPeakID: measurementType == .plate ? selectedCrossPeakID : nil,
-            selectedFlcPeakID: measurementType == .plate ? selectedFlcPeakID : nil,
+            selectedLongitudinalPeakID: !measurementType.isGuitar ? selectedLongitudinalPeak?.id : nil,
+            selectedCrossPeakID: measurementType == .plate ? selectedCrossPeak?.id : nil,
+            selectedFlcPeakID: measurementType == .plate ? selectedFlcPeak?.id : nil,
             longitudinalSnapshot: !measurementType.isGuitar ? longitudinalSnapshot : nil,
             crossSnapshot: measurementType == .plate ? crossSnapshot : nil,
             flcSnapshot: measurementType == .plate ? flcSnapshot : nil,
@@ -382,10 +342,10 @@ extension TapToneAnalyzer {
             userModifiedSelection: measurementType.isGuitar ? userHasModifiedPeakSelection : nil,
             annotationVisibilityMode: annotationVisibilityMode,
             peakModeOverrides: peakModeOverrides.isEmpty ? nil : peakModeOverrides,
-            microphoneName: microphoneName,
-            microphoneUID: microphoneUID,
-            calibrationName: calibrationName,
-            sampleRate: sampleRate,
+            microphoneName: captureMicrophoneName,
+            microphoneUID: captureMicrophoneUID,
+            calibrationName: captureCalibrationName,
+            sampleRate: captureSampleRate,
             tapEntries: measurementType.isGuitar && !tapEntries.isEmpty ? tapEntries : nil
         )
 
@@ -537,6 +497,7 @@ extension TapToneAnalyzer {
             tapEntries = []
             showingMultiTapComparison = false
             displayMode = .comparison
+            resultProvenance = nil   // a comparison has no microphone of its own
             return
         }
 
@@ -818,6 +779,11 @@ extension TapToneAnalyzer {
         }
 
         showLoadedSettingsWarning = true
+        // The loaded result's provenance is what the file recorded; no microphone means unknown.
+        resultProvenance = ResultProvenance(microphoneName: measurement.microphoneName,
+                                            microphoneUID: measurement.microphoneUID,
+                                            calibrationName: measurement.calibrationName,
+                                            sampleRate: measurement.sampleRate)
 
         // Restore per-tap spectra so the multi-tap comparison toggle is available after reload.
         // tapEntries is nil for single-tap, plate/brace, and older saved measurements.

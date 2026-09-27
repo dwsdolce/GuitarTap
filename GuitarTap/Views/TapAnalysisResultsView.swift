@@ -189,7 +189,10 @@ struct TapAnalysisResultsView: View {
                     // peak list gets the full height (Re-analyze stays available in portrait / iPad).
                     if !compactLandscape {
                         HStack {
-                            if let deviceName = fftAnalyzer.selectedInputDevice?.name {
+                            // The microphone the result was captured with: the input for a live result,
+                            // the recorded one — or "unknown" — for a played file or a loaded measurement.
+                            if let deviceName = analyzer.captureMicrophoneName
+                                ?? (analyzer.resultProvenance != nil ? "unknown" : nil) {
                                 Text(deviceName)
                                     .font(.caption)
                                     .foregroundColor(.secondary)

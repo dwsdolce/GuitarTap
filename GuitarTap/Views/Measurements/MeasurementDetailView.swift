@@ -112,12 +112,14 @@ struct MeasurementDetailView: View {
                                 }
                             }
 
-                            if let mic = measurement.microphoneName {
+                            // No recorded microphone means it is unknown (a played file, say). A comparison
+                            // has no microphone of its own.
+                            if !measurement.isComparison {
                                 HStack {
                                     Text("Microphone:")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
-                                    Text(mic)
+                                    Text(measurement.microphoneName ?? "unknown")
                                         .font(.body)
                                 }
                             }

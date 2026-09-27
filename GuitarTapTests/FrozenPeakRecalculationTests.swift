@@ -1435,9 +1435,8 @@ struct FrozenPeakRecalculation_MaterialPeakIdentityTests {
         let fC = try #require(captureCross(source, hz: 150), "precondition: the plate capture identifies fC")
         source.acceptCurrentPhase() // no FLC: the measurement completes, as it must before a save
         #expect(source.isMeasurementComplete, "precondition: the plate is complete")
-        // The identified ids are passed in, as the view's save passes them (TapToneAnalysisView+Actions).
-        source.saveMeasurement(selectedLongitudinalPeakID: source.effectiveLongitudinalPeakID,
-                               selectedCrossPeakID: source.effectiveCrossPeakID)
+        // The save reads the identified peaks itself.
+        source.saveMeasurement()
         let saved = try #require(source.savedMeasurements.last)
 
         let sut = makeSUT()

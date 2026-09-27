@@ -535,6 +535,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Python's `sentinel` list / `_file_playback_thread` identity guard.
     var filePlaybackGeneration: Int = 0
 
+    /// The completion passed to ``startFromFile(_:completion:)`` for the playback in progress. It runs once,
+    /// on the main thread, when that playback ends — at the end of the file or when
+    /// ``stopFilePlayback()`` stops it.
+    var filePlaybackCompletion: (() -> Void)?
+
     /// True when audio is being sourced from a file rather than the microphone.
     /// The view observes this to show a "File" label near the device selector.
     @Published var isPlayingFile: Bool = false

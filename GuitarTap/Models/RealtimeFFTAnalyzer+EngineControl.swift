@@ -666,6 +666,9 @@ extension RealtimeFFTAnalyzer {
         //    to exit before reaching this point when a second file is opened.
         TAP_DEBUG("file_playback", "PRE_MIC_RESTART — calling preMicRestartHandler")
         let flushAndClear = { [self] in
+            // Stopped while this worker was finishing? Then the capture belongs to a playback the user
+            // abandoned, and the sequence now running must not receive it.
+            guard filePlaybackGeneration == myGeneration else { return }
             preMicRestartHandler?()
             isPlayingFile = false
         }
@@ -688,7 +691,7 @@ extension RealtimeFFTAnalyzer {
     ///   duration (e.g. files picked from Dropbox or iCloud Drive on iOS).
     /// - Throws: An error if the file cannot be opened or the engine fails to start.
     ///
-    /// - Note: No microphone permission is required.  Call `stop()` to end playback early.
+    /// - Note: No microphone permission is required.  ``stopFilePlayback()`` ends a playback early.
     func startFromFile(_ url: URL, completion: (() -> Void)? = nil) throws {
         gtLog("🎤 === Starting file playback (direct injection): \(url.lastPathComponent) ===")
 
@@ -739,7 +742,7 @@ extension RealtimeFFTAnalyzer {
 
         TAP_DEBUG("file_playback", "PRE_DISPATCH | armed=\(levelCrossingArmed) isPlayingFile=\(isPlayingFile)")
 
-        let capturedCompletion = completion
+        filePlaybackCompletion = completion
         let myGeneration = filePlaybackGeneration
 
         // ── 3. Spawn a background worker that calls processFileData. ─────
@@ -768,9 +771,37 @@ extension RealtimeFFTAnalyzer {
                 // regressions run this path headless).
                 if !self.isForTesting { try? self.start() }
                 TAP_DEBUG("file_playback", "MIC_RESTART_DONE")
-                capturedCompletion?()
+                self.runFilePlaybackCompletion()
             }
         }
+    }
+
+    /// Stops a file playback before the end of the file and switches back to the microphone.
+    ///
+    /// The rest of the file is not played, and nothing from it is processed: no partial FFT frame is
+    /// flushed and an unfinished capture is not completed — the playback is being abandoned. The
+    /// playback's completion runs, as it does at the end of a file. No-op when no file is playing.
+    ///
+    /// Must be called on the main thread.
+    func stopFilePlayback() {
+        guard isPlayingFile else { return }
+        gtLog("🎤 File playback stopped")
+        // The worker checks the generation on every chunk and before any end-of-file work.
+        filePlaybackGeneration += 1
+        // Let a chunk already being processed finish, then drop what it accumulated.
+        audioProcessingQueue.sync { }
+        bufferAccessQueue.sync { inputBuffer.removeAll() }
+        isPlayingFile = false
+        playingFileName = nil
+        if !isForTesting { try? start() }
+        runFilePlaybackCompletion()
+    }
+
+    /// Runs the current playback's completion once and clears it.
+    private func runFilePlaybackCompletion() {
+        let completion = filePlaybackCompletion
+        filePlaybackCompletion = nil
+        completion?()
     }
 
     /// Stops the audio engine and releases audio resources.

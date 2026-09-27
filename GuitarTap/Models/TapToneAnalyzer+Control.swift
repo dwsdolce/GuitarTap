@@ -92,12 +92,15 @@ extension TapToneAnalyzer {
     ///   before the warm-up clock, and live suppresses detection during the warm-up, so no accepted
     /// tap can land in the first 0.5 s.
     // @parity state/tap-tone-analyzer
-    /// User-initiated arming (New Tap buttons, settings-apply re-arm). If Dump Capture Audio is on
-    /// and its folder can't be reached, sets ``dumpFolderUnreachable`` so the view prompts the user
-    /// (Change Location / Turn Off Saving / Cancel) and does **not** arm — the prompt's actions
-    /// retry. File-playback setup calls ``startTapSequence`` directly, bypassing this check.
-    /// On iOS the check is a no-op — the container folder is always reachable.
+    /// User-initiated arming (New Tap buttons, settings-apply re-arm). A file that is playing is
+    /// stopped first: a new sequence — for a changed measurement type, say — must not be fed the rest
+    /// of the file. If Dump Capture Audio is on and its folder can't be reached, sets
+    /// ``dumpFolderUnreachable`` so the view prompts the user (Change Location / Turn Off Saving /
+    /// Cancel) and does **not** arm — the prompt's actions retry. File-playback setup calls
+    /// ``startTapSequence`` directly, bypassing this check. On iOS the check is a no-op — the
+    /// container folder is always reachable.
     func requestStartTapSequence() {
+        fftAnalyzer.stopFilePlayback()
         #if os(macOS)
         if TapDisplaySettings.dumpCaptureAudio && !WavDumpFolder.isReachable {
             dumpFolderUnreachable = true
@@ -142,6 +145,8 @@ extension TapToneAnalyzer {
         // (startFromFile) this is harmless because the playback setup
         // re-assigns playingFileName immediately after startTapSequence returns.
         fftAnalyzer.playingFileName = nil
+        // A new sequence listens to the input until playFile says otherwise.
+        resultProvenance = nil
         // Clear the loaded-settings warning — the user is explicitly starting
         // a new sequence so the loaded threshold/tap-count are now theirs.
         showLoadedSettingsWarning = false
@@ -313,12 +318,10 @@ extension TapToneAnalyzer {
     ///
     /// Cancel is a **restart**: it returns the analyzer to the exact state that New
     /// Tap produces — a fresh, re-armed sequence waiting for the first tap — rather
-    /// than completing the measurement.  (Previously this set
-    /// `isMeasurementComplete = true` purely to re-enable the New Tap button; that
-    /// button-gating hack is gone now that the button rule keys off whether a
-    /// multi-step sequence is active.)  Cancel is only offered while a multi-step
-    /// (multi-tap or multi-phase) sequence is in progress; re-arming there returns
-    /// to tap 0 of that sequence.
+    /// than completing the measurement.  Cancel is offered while a multi-step
+    /// (multi-tap or multi-phase) sequence is in progress, and throughout a file
+    /// playback. During a playback it stops the file first, so the fresh sequence
+    /// listens to the microphone and the partial result is discarded.
     ///
     /// Runs fully synchronously, matching Python's `cancel_tap_sequence`.  All call
     /// sites are main-thread (Cancel button action).
@@ -328,6 +331,7 @@ extension TapToneAnalyzer {
         // not fire into the fresh one.
         captureTimer?.invalidate()
         captureTimer = nil
+        fftAnalyzer.stopFilePlayback()
         // Re-arm a fresh sequence — identical to pressing New Tap. startTapSequence
         // clears captured taps / counts / frozen spectrum, resets the material phase,
         // restarts session recording, and sets detectionState = .listening with the correct
@@ -383,6 +387,10 @@ extension TapToneAnalyzer {
                 fftAnalyzer.setTemporaryCalibration(previousCalibration)
                 completion?()
             }
+            // The result comes from the file: its calibration, its sample rate, an unknown microphone.
+            resultProvenance = ResultProvenance(microphoneName: nil, microphoneUID: nil,
+                                                calibrationName: playbackCalibration?.name,
+                                                sampleRate: fftAnalyzer.actualSampleRate)
         } catch {
             fftAnalyzer.setTemporaryCalibration(previousCalibration)
             throw error

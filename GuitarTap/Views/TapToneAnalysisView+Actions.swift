@@ -186,22 +186,11 @@ extension TapToneAnalysisView {
 
         isSavingMeasurement = true
 
-        // Pass only view-layer state: axis range floats, device identity, and
-        // effective peak role IDs. The model builds all SpectrumSnapshot objects
-        // internally from its own state (frozen/live FFT, longitudinalSpectrum etc.)
-        // using makePhaseSnapshot. Mirrors Python TapToneAnalysisView.save_measurement().
+        // Pass only the view's own state: the name, the notes and the displayed axis range. The model
+        // reads everything else from itself. Mirrors Python TapToneAnalysisView.save_measurement().
         tapToneAnalyzer.saveMeasurement(
             measurementName: TapToneMeasurement.normalizedName(measurementName),
             notes: TapToneMeasurement.normalizedNotes(notes),
-            includeSpectrum: true,
-            annotationOffsets: tap.peakAnnotationOffsets,
-            selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
-            selectedCrossPeakID: tap.effectiveCrossPeakID,
-            selectedFlcPeakID: tap.effectiveFlcPeakID,
-            microphoneName: fft.selectedInputDevice?.name,
-            microphoneUID: fft.selectedInputDevice?.uid,
-            calibrationName: fft.activeCalibration?.name,
-            sampleRate: fft.actualSampleRate > 0 ? fft.actualSampleRate : nil,
             minFreq: minFreq,
             maxFreq: maxFreq,
             minDB: minDB,

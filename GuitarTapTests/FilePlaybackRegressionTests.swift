@@ -705,6 +705,128 @@ struct FilePlaybackRegressionTests {
         #expect(sessions.isEmpty, "no session WAV with the setting off, got \(sessions.map(\.label))")
     }
 
+    // MARK: - Stopping a playback
+    //
+    // Cancel during a playback stops the file and restarts the sequence on live input; a measurement-type
+    // change stops it before arming the new type. Nothing from the rest of the file reaches the new
+    // sequence, and the playback's completion runs (the input's calibration returns).
+
+    /// Start "Recording" (8 guitar taps) with the input calibration set, wait for the first tap, then run
+    /// `stop` on the analyzer. Returns the analyzer and whether the playback's completion ran.
+    private func stopPlaybackAfterFirstTap(_ stop: (TapToneAnalyzer) -> Void) async throws
+        -> (sut: TapToneAnalyzer, completed: Bool, input: MicrophoneCalibration) {
+        let url = try #require(testBundle.url(forResource: "Recording", withExtension: "wav"))
+        let calURL = try #require(testBundle.url(forResource: "7108913", withExtension: "txt"))
+        let input = try CalibrationFileParser.parse(url: calURL)
+        let sut = TapToneAnalyzer.forTesting()
+        sut.peakMinThreshold = -76
+        sut.tapDetectionThreshold = -40
+        sut.fftAnalyzer.setTemporaryCalibration(input)
+        TapDisplaySettings.measurementType = .generic
+        sut.numberOfTaps = 8
+        var completed = false
+        try sut.playFile(url: url) { completed = true }
+        let deadline = Date(timeIntervalSinceNow: 20)
+        while sut.currentTapCount < 1 && Date() < deadline {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        #expect(sut.currentTapCount >= 1, "precondition: a tap before the stop")
+        stop(sut)
+        return (sut, completed, input)
+    }
+
+    @Test func cancel_duringPlayback_stopsTheFile_andRestartsOnLiveInput() async throws {
+        let (sut, completed, input) = try await stopPlaybackAfterFirstTap { $0.cancelTapSequence() }
+        #expect(!sut.fftAnalyzer.isPlayingFile, "the file is stopped")
+        #expect(sut.fftAnalyzer.playingFileName == nil, "the chart no longer names the file")
+        #expect(completed, "the playback's completion ran")
+        #expect(sut.fftAnalyzer.activeCalibration == input, "the input's calibration is back")
+        #expect(sut.detectionState == .listening, "a fresh sequence is armed")
+        #expect(sut.currentTapCount == 0 && sut.capturedTaps.isEmpty, "the partial result is discarded")
+        // The rest of the file must not reach the fresh sequence.
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        #expect(sut.currentTapCount == 0 && sut.capturedTaps.isEmpty && !sut.isMeasurementComplete,
+                "no tap from the abandoned file, got \(sut.currentTapCount)")
+    }
+
+    @Test func measurementTypeChange_duringPlayback_stopsTheFile_beforeArmingTheNewType() async throws {
+        let (sut, completed, _) = try await stopPlaybackAfterFirstTap { sut in
+            TapDisplaySettings.measurementType = .plate
+            sut.requestStartTapSequence()   // what the settings Apply does for a changed type
+        }
+        defer { TapDisplaySettings.measurementType = .generic }
+        #expect(!sut.fftAnalyzer.isPlayingFile, "the file is stopped")
+        #expect(completed, "the playback's completion ran")
+        #expect(sut.materialTapPhase == .capturingLongitudinal, "the plate sequence is armed")
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        #expect(sut.longitudinalSpectrum == nil && sut.materialCapturedTaps.isEmpty,
+                "no guitar tap from the abandoned file reaches the plate measurement")
+    }
+
+    // MARK: - Provenance of a played file
+    //
+    // A result made from a played file is saved with the file's provenance: the calibration it was played
+    // with (or none), the file's sample rate, and no microphone — the microphone that recorded a file is
+    // unknown. A new sequence listens to the input again, and saves the input's.
+
+    @Test func save_afterPlayback_recordsTheFilesProvenance_andAnUnknownMicrophone() async throws {
+        let url = try #require(testBundle.url(forResource: "brace-umik-1-swift-mac-1778816093", withExtension: "wav"))
+        let calURL = try #require(testBundle.url(forResource: "7108913", withExtension: "txt"))
+        let fileCalibration = try CalibrationFileParser.parse(url: calURL)
+        let sut = TapToneAnalyzer.forTesting()
+        sut.tapDetectionThreshold = braceTapThreshold
+        try await sut.playFileAndWait(url: url, measurementType: .brace, calibrationURL: calURL)
+        #expect(sut.isMeasurementComplete, "precondition: the brace completed")
+        let fileRate = try AVAudioFile(forReading: url).fileFormat.sampleRate
+
+        sut.saveMeasurement()
+        let saved = try #require(sut.savedMeasurements.last)
+        #expect(saved.microphoneName == nil && saved.microphoneUID == nil, "the microphone is unknown")
+        #expect(saved.calibrationName == fileCalibration.name, "the file's calibration")
+        #expect(saved.sampleRate == fileRate, "the file's sample rate")
+        #expect(saved.selectedLongitudinalPeakID == sut.selectedLongitudinalPeak?.id, "fL's role, read by the save")
+    }
+
+    @Test func aNewSequence_afterPlayback_savesTheInputsProvenance() async throws {
+        let url = try #require(testBundle.url(forResource: "Recording 5", withExtension: "wav"))
+        let calURL = try #require(testBundle.url(forResource: "7108913", withExtension: "txt"))
+        let input = try CalibrationFileParser.parse(url: calURL)
+        let sut = TapToneAnalyzer.forTesting()
+        sut.peakMinThreshold = -76
+        sut.tapDetectionThreshold = -40
+        sut.fftAnalyzer.setTemporaryCalibration(input)
+        try await sut.playFileAndWait(url: url, measurementType: .generic, numberOfTaps: 1)
+        #expect(sut.captureCalibrationName == nil, "precondition: the file played uncalibrated")
+
+        sut.startTapSequence()
+        #expect(sut.captureCalibrationName == input.name, "the input's calibration again")
+    }
+
+    @Test func aLoadedMeasurement_reportsItsRecordedProvenance_andAReSaveKeepsIt() async throws {
+        // A played-file result saved with an unknown microphone and the file's calibration and rate.
+        let url = try #require(testBundle.url(forResource: "brace-umik-1-swift-mac-1778816093", withExtension: "wav"))
+        let calURL = try #require(testBundle.url(forResource: "7108913", withExtension: "txt"))
+        let source = TapToneAnalyzer.forTesting()
+        source.tapDetectionThreshold = braceTapThreshold
+        try await source.playFileAndWait(url: url, measurementType: .brace, calibrationURL: calURL)
+        source.saveMeasurement()
+        let saved = try #require(source.savedMeasurements.last)
+
+        // Loaded by an analyzer whose input has a different calibration: the loaded result reports the file's.
+        let sut = TapToneAnalyzer.forTesting()
+        sut.fftAnalyzer.setTemporaryCalibration(nil)
+        sut.loadMeasurement(saved)
+        #expect(sut.captureMicrophoneName == nil && sut.resultProvenance != nil, "the microphone is unknown")
+        #expect(sut.captureCalibrationName == saved.calibrationName, "the recorded calibration")
+        #expect(sut.captureSampleRate == saved.sampleRate, "the recorded sample rate")
+
+        sut.saveMeasurement()
+        let reSaved = try #require(sut.savedMeasurements.last)
+        #expect(reSaved.microphoneName == nil, "a re-save keeps the unknown microphone")
+        #expect(reSaved.calibrationName == saved.calibrationName, "and the recorded calibration")
+        #expect(reSaved.sampleRate == saved.sampleRate, "and the recorded sample rate")
+    }
+
     // MARK: - Playback calibration
     //
     // A file plays with the calibration given for it, or with none: the microphone it was recorded with

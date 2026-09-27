@@ -212,7 +212,8 @@ struct TapToneAnalysisView: View {
                     displayMode: tapToneAnalyzer.displayMode,
                     measurementType: TapDisplaySettings.measurementType,
                     materialTapPhase: tapToneAnalyzer.materialTapPhase,
-                    numberOfTaps: tapToneAnalyzer.numberOfTaps)
+                    numberOfTaps: tapToneAnalyzer.numberOfTaps,
+                    isPlayingFile: fft.isPlayingFile)
     }
 
     /// The tap-count control is locked once a tap has been captured, so the total cannot change

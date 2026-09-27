@@ -205,4 +205,47 @@ struct ButtonEnablementTests {
             newTapDisabled: false,
             cancelEnabled: false))
     }
+
+    // B14–B16: During a file playback Cancel (stop the file) is enabled; Pause and New Tap are
+    // disabled — whatever the detector is doing.
+
+    // B14: Guitar single-tap playback, listening — Cancel is enabled even though a single-tap
+    // sequence offers no Cancel live.
+    @Test func playback_guitarListening_cancelOnly() {
+        let s = ButtonState(detectionState: .listening,
+                            isMeasurementComplete: false,
+                            displayMode: .live,
+                            isPlayingFile: true)
+        #expect(buttonRule(s) == ButtonOutput(
+            pauseEnabled: false,
+            newTapDisabled: true,
+            cancelEnabled: true))
+    }
+
+    // B15: Guitar multi-tap playback between taps — the detector idle while it rests and re-arms.
+    @Test func playback_guitarBetweenTaps_cancelOnly() {
+        let s = ButtonState(detectionState: .idle,
+                            isMeasurementComplete: false,
+                            displayMode: .live,
+                            numberOfTaps: 8,
+                            isPlayingFile: true)
+        #expect(buttonRule(s) == ButtonOutput(
+            pauseEnabled: false,
+            newTapDisabled: true,
+            cancelEnabled: true))
+    }
+
+    // B16: Plate playback complete while the file still plays — Cancel still stops the file.
+    @Test func playback_plateCompleteFileStillPlaying_cancelOnly() {
+        let s = ButtonState(detectionState: .idle,
+                            isMeasurementComplete: true,
+                            displayMode: .live,
+                            measurementType: .plate,
+                            materialTapPhase: .complete,
+                            isPlayingFile: true)
+        #expect(buttonRule(s) == ButtonOutput(
+            pauseEnabled: false,
+            newTapDisabled: true,
+            cancelEnabled: true))
+    }
 }
