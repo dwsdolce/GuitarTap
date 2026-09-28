@@ -593,8 +593,8 @@ struct TapDisplaySettings {
 
     // MARK: - Audio Input Device (Persisted)
 
-    /// UID of the input device the user chose, restored at launch whenever it is present.
-    /// Written only by ``RealtimeFFTAnalyzer/chooseInputDevice(_:)``.
+    /// UID of the selected input device, restored at launch whenever it is present.
+    /// Written by `RealtimeFFTAnalyzer.selectedInputDevice`'s didSet.
     static var selectedInputDeviceUID: String? {
         get { defaults.string(forKey: selectedInputDeviceUIDKey) }
         set { defaults.set(newValue, forKey: selectedInputDeviceUIDKey) }

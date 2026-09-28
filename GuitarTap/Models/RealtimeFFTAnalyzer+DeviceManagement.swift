@@ -229,7 +229,7 @@ extension RealtimeFFTAnalyzer {
         gtLog("🎤 Found \(devices.count) audio input device(s) total")
     }
 
-    /// The input device to use from `devices`: the saved choice when it is present, otherwise
+    /// The input device to use from `devices`: the saved device when it is present, otherwise
     /// the system default input, otherwise the first device. Nil when there are no devices.
     static func inputDeviceToUse(in devices: [AVAudioDevice], savedUID: String?,
                                  systemDefaultUID: String?) -> AVAudioDevice? {
@@ -245,21 +245,20 @@ extension RealtimeFFTAnalyzer {
     /// Applies a freshly enumerated device list to `availableInputDevices` and the selection.
     ///
     /// - The first list: selects ``inputDeviceToUse(in:savedUID:systemDefaultUID:)``.
-    /// - A new device that `isAutoSelectable` accepts: ``chooseInputDevice(_:)`` — the user
-    ///   plugged it in, so it is switched to and saved.
-    /// - The selected device is gone: selects ``inputDeviceToUse(in:savedUID:systemDefaultUID:)``.
+    /// - A new device that `isAutoSelectable` accepts: selects it.
+    /// - The selected device is gone: selects the system default, otherwise the first device.
     ///
-    /// The startup selection and a fallback are not saved, so a microphone that drops out is
-    /// still the saved choice when it returns. `CADefaultDeviceAggregate` devices — transient
-    /// macOS routing devices, never a user selection — are dropped first.
+    /// Every selection is saved (`selectedInputDevice.didSet`), so what Settings shows is what the
+    /// next launch uses. `CADefaultDeviceAggregate` devices — transient macOS routing devices, never
+    /// a user selection — are dropped first.
     func applyInputDeviceList(_ enumerated: [AVAudioDevice], systemDefaultUID: String?,
                               isAutoSelectable: (AVAudioDevice) -> Bool = { _ in true }) {
         let previousDevices = availableInputDevices
         let devices = enumerated.filter { !$0.uid.contains("CADefaultDeviceAggregate") }
         availableInputDevices = devices
-        let savedUID = TapDisplaySettings.selectedInputDeviceUID
 
         if previousDevices.isEmpty {
+            let savedUID = TapDisplaySettings.selectedInputDeviceUID
             guard let device = Self.inputDeviceToUse(in: devices, savedUID: savedUID,
                                                      systemDefaultUID: systemDefaultUID) else { return }
             selectedInputDevice = device
@@ -275,11 +274,11 @@ extension RealtimeFFTAnalyzer {
             !previousDevices.contains(where: { $0.uid == device.uid })
         }
         if let firstNew = newlyConnected.first(where: isAutoSelectable) {
-            chooseInputDevice(firstNew)
+            selectedInputDevice = firstNew
             gtLog("🎤 New device connected, selected: \(firstNew.name)")
         } else if let current = selectedInputDevice,
                   !devices.contains(where: { $0.uid == current.uid }) {
-            selectedInputDevice = Self.inputDeviceToUse(in: devices, savedUID: savedUID,
+            selectedInputDevice = Self.inputDeviceToUse(in: devices, savedUID: nil,
                                                         systemDefaultUID: systemDefaultUID)
             gtLog("🎤 '\(current.name)' disconnected, switched to: \(selectedInputDevice?.name ?? "none")")
         }
@@ -673,8 +672,8 @@ extension RealtimeFFTAnalyzer {
         isLoadingDeviceCalibration = false
     }
 
-    /// Switches the input to `device` for this session; it is not saved (a loaded
-    /// measurement's microphone). A choice that is saved goes through ``chooseInputDevice(_:)``.
+    /// Switches the input to `device` (a loaded measurement's microphone); it is saved, as every
+    /// selection is.
     ///
     /// **iOS:** Calls `AVAudioSession.setPreferredInput(_:)` with the device's `port`. The
     /// engine does not need to restart.

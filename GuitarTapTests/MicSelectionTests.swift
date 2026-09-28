@@ -2,21 +2,22 @@
 //  MicSelectionTests.swift
 //  GuitarTapTests
 //
-//  Tests for which input device the engine uses and which it saves: the rule
-//  inputDeviceToUse (MS1–MS5), the engine driven through applyInputDeviceList,
-//  chooseInputDevice and setInputDevice (MS6–MS11), and a measurement load switching to its
-//  recorded microphone (MS14–MS17), and choosing a calibration for the selected device
-//  (MS18–MS20). MS12–MS13 are Python only.
+//  Tests for which input device the engine uses and what it saves: the launch rule
+//  inputDeviceToUse (MS1–MS5), the engine driven through applyInputDeviceList, a Settings
+//  selection and setInputDevice (MS6–MS11), a measurement load switching to its recorded
+//  microphone (MS14–MS17), choosing a calibration for the selected device (MS18–MS20), and the
+//  thresholds a load restores, saved as a setting (MS21–MS22).
+//  MS12–MS13 are Python only.
 //
-//  The rule: the saved choice when it is present, otherwise the system default input,
-//  otherwise the first device. Only a choice — picked in Settings, or plugged in while the
-//  app runs — is saved; the startup selection, a fallback and a loaded measurement's
-//  microphone are not.
+//  The rules: at launch, the saved device when it is present, otherwise the system default
+//  input, otherwise the first device; a device connected while running is selected; the device
+//  in use disappearing selects the system default, otherwise the first device. Every selection
+//  is saved, so what Settings shows is what the next launch uses.
 //
-//  The saved choice and the calibration store live in TapDisplaySettings.defaults, an isolated
+//  The saved device and the calibration store live in TapDisplaySettings.defaults, an isolated
 //  suite under test.
 //
-//  Test plan coverage: MS1–MS11, MS14–MS20 — the same list, ids and devices as Python
+//  Test plan coverage: MS1–MS11, MS14–MS22 — the same list, ids and devices as Python
 //  test_mic_selection.py and web test/mic-selection.test.ts.
 //
 // @parity test/mic-selection
@@ -37,19 +38,13 @@ private func device(_ name: String, _ id: UInt32) -> AVAudioDevice {
 private let builtIn = device("MacBook Pro Microphone", 1)
 private let blackHole = device("BlackHole 2ch", 2)
 private let umik = device("UMIK-1", 3)
+private let usb2 = device("USB Mic 2", 4)
 
 /// A fresh engine with `saved` as the saved choice (nil: nothing saved).
 @MainActor
 private func makeSUT(saved: AVAudioDevice?) -> RealtimeFFTAnalyzer {
     TapDisplaySettings.selectedInputDeviceUID = saved?.uid
     return RealtimeFFTAnalyzer.forTesting()
-}
-
-/// Waits for work the engine dispatched to the main queue.
-private func drainMainQueue() async {
-    await withCheckedContinuation { continuation in
-        DispatchQueue.main.async { continuation.resume() }
-    }
 }
 
 @Suite("MicSelection", .serialized)
@@ -95,25 +90,23 @@ struct MicSelectionTests {
 
     // MARK: - The engine: what is selected, and what is saved
 
-    // MS6: The startup selection is not saved: nothing saved, the default is selected, and
-    //      nothing is saved afterwards.
-    @Test func MS6_startupSelection_isNotSaved() {
+    // MS6: The launch selection is saved: nothing saved, the default is selected and saved.
+    @Test func MS6_launchSelection_isSaved() {
         let sut = makeSUT(saved: nil)
         sut.applyInputDeviceList([blackHole, builtIn], systemDefaultUID: builtIn.uid)
         #expect(sut.selectedInputDevice == builtIn)
-        #expect(TapDisplaySettings.selectedInputDeviceUID == nil)
+        #expect(TapDisplaySettings.selectedInputDeviceUID == builtIn.uid)
     }
 
-    // MS7: A device the user chooses is selected and saved.
-    @Test func MS7_choice_isSaved() {
+    // MS7: A device selected in Settings is selected and saved.
+    @Test func MS7_settingsSelection_isSaved() {
         let sut = makeSUT(saved: builtIn)
         sut.applyInputDeviceList([builtIn, umik], systemDefaultUID: builtIn.uid)
-        sut.chooseInputDevice(umik)
-        #expect(sut.selectedInputDevice == umik)
+        sut.selectedInputDevice = umik
         #expect(TapDisplaySettings.selectedInputDeviceUID == umik.uid)
     }
 
-    // MS8: A device plugged in while running is switched to and saved.
+    // MS8: A device plugged in while running is selected and saved.
     @Test func MS8_pluggedIn_isSelectedAndSaved() {
         let sut = makeSUT(saved: builtIn)
         sut.applyInputDeviceList([builtIn], systemDefaultUID: builtIn.uid)
@@ -122,36 +115,35 @@ struct MicSelectionTests {
         #expect(TapDisplaySettings.selectedInputDeviceUID == umik.uid)
     }
 
-    // MS9: The saved device unplugged — the system default for the session; the saved choice
-    //      is still the unplugged device, so it comes back at the next launch.
-    @Test func MS9_savedUnplugged_fallsBack_withoutSaving() {
+    // MS9: The device in use unplugged (or dropping out) — the system default, selected and
+    //      saved, so the next launch is on what Settings shows.
+    @Test func MS9_inUseUnplugged_fallsBackAndSaves() {
         let sut = makeSUT(saved: umik)
         sut.applyInputDeviceList([builtIn, umik], systemDefaultUID: builtIn.uid)
         #expect(sut.selectedInputDevice == umik)
         sut.applyInputDeviceList([builtIn], systemDefaultUID: builtIn.uid)
         #expect(sut.selectedInputDevice == builtIn)
-        #expect(TapDisplaySettings.selectedInputDeviceUID == umik.uid)
+        #expect(TapDisplaySettings.selectedInputDeviceUID == builtIn.uid)
     }
 
-    // MS10: A device used for the session only (not the saved one) unplugged — back to the
-    //       saved device, which is present.
-    @Test func MS10_sessionDeviceUnplugged_returnsToSaved() {
-        let sut = makeSUT(saved: builtIn)
-        sut.applyInputDeviceList([builtIn, blackHole, umik], systemDefaultUID: blackHole.uid)
-        sut.selectedInputDevice = umik
-        sut.applyInputDeviceList([builtIn, blackHole], systemDefaultUID: blackHole.uid)
+    // MS10: The device in use unplugged falls to the system default, not to another connected
+    //       USB mic.
+    @Test func MS10_inUseUnplugged_fallsToTheDefault_notAnotherUSBMic() {
+        let sut = makeSUT(saved: usb2)
+        sut.applyInputDeviceList([builtIn, umik, usb2], systemDefaultUID: builtIn.uid)
+        #expect(sut.selectedInputDevice == usb2)
+        sut.applyInputDeviceList([builtIn, umik], systemDefaultUID: builtIn.uid)
         #expect(sut.selectedInputDevice == builtIn)
         #expect(TapDisplaySettings.selectedInputDeviceUID == builtIn.uid)
     }
 
-    // MS11: The switch a measurement load makes to its recorded microphone is not saved.
-    @Test func MS11_loadSwitch_isNotSaved() async throws {
+    // MS11: The switch a measurement load makes to its recorded microphone is saved.
+    @Test func MS11_loadSwitch_isSaved() throws {
         let sut = makeSUT(saved: builtIn)
         sut.applyInputDeviceList([builtIn, umik], systemDefaultUID: builtIn.uid)
         try sut.setInputDevice(umik)
-        await drainMainQueue()
         #expect(sut.selectedInputDevice == umik)
-        #expect(TapDisplaySettings.selectedInputDeviceUID == builtIn.uid)
+        #expect(TapDisplaySettings.selectedInputDeviceUID == umik.uid)
     }
 
     // MARK: - Loading a measurement recorded with another connected microphone
@@ -172,10 +164,11 @@ struct MicSelectionTests {
 
     private func loadRecordedWithUSBMic() -> TapToneAnalyzer { load(recordedWith: umik) }
 
-    // MS14: The load has switched to the recorded microphone by the time it returns.
+    // MS14: The load has switched to the recorded microphone, and saved it, by the time it returns.
     @Test func MS14_loadSwitch_isInPlaceWhenTheLoadReturns() {
         let sut = loadRecordedWithUSBMic()
         #expect(sut.fftAnalyzer.selectedInputDevice == umik)
+        #expect(TapDisplaySettings.selectedInputDeviceUID == umik.uid)
     }
 
     // MS15: The calibration check compares the recorded microphone's calibration (none) — not
@@ -224,9 +217,9 @@ struct MicSelectionTests {
         sut.activeCalibration = room
         #expect(CalibrationStorage.shared.calibration(forDeviceUID: builtIn.uid)?.id == room.id)
         #expect(CalibrationStorage.shared.activeCalibrationID == room.id)
-        sut.chooseInputDevice(umik)
+        sut.selectedInputDevice = umik
         #expect(sut.activeCalibration == nil)
-        sut.chooseInputDevice(builtIn)
+        sut.selectedInputDevice = builtIn
         #expect(sut.activeCalibration?.id == room.id)
     }
 
@@ -237,9 +230,31 @@ struct MicSelectionTests {
         sut.activeCalibration = nil
         #expect(CalibrationStorage.shared.calibration(forDeviceUID: builtIn.uid) == nil)
         #expect(CalibrationStorage.shared.activeCalibrationID == nil)
-        sut.chooseInputDevice(umik)
-        sut.chooseInputDevice(builtIn)
+        sut.selectedInputDevice = umik
+        sut.selectedInputDevice = builtIn
         #expect(sut.activeCalibration == nil)
+    }
+
+    // MARK: - A load restores settings as the user setting them would
+
+    // MS21: A load saves the thresholds it restores, so they are the settings at the next launch.
+    @Test func MS21_load_savesTheThresholdsItRestores() {
+        TapDisplaySettings.tapDetectionThreshold = -40
+        TapDisplaySettings.peakMinThreshold = -60
+        let sut = TapToneAnalyzer.forTesting()
+        sut.loadMeasurement(TapToneMeasurement(peaks: [], measurementName: "Loaded",
+                                               tapDetectionThreshold: -30, peakMinThreshold: -50))
+        #expect(TapDisplaySettings.tapDetectionThreshold == -30)
+        #expect(TapDisplaySettings.peakMinThreshold == -50)
+    }
+
+    // MS22: Setting a threshold on the analyzer saves it.
+    @Test func MS22_settingAThreshold_savesIt() {
+        let sut = TapToneAnalyzer.forTesting()
+        sut.tapDetectionThreshold = -35
+        sut.peakMinThreshold = -45
+        #expect(TapDisplaySettings.tapDetectionThreshold == -35)
+        #expect(TapDisplaySettings.peakMinThreshold == -45)
     }
 
     // MS20: A file playback's calibration (temporary) is applied but saves nothing.
