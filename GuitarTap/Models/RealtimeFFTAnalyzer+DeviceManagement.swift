@@ -709,33 +709,48 @@ extension RealtimeFFTAnalyzer {
             gtLog("⚠️ Failed to set preferred input: \(error)")
             throw error
         }
+        // The session accepted it, so it is open; select it.
+        try switchInputDevice(to: device) {}
         #else
-        // macOS: Need to restart the engine with new device
+        // macOS: restart the engine on the new device; if it cannot be opened the previous one is
+        // selected and restarted again, and the error is thrown.
         let wasRunning = audioEngine.isRunning
-        
         if wasRunning {
             stop()
         }
-        #endif
-        
-        // Select the device now, before the restart below opens it and before the caller reads
-        // its calibration — set the guard flag so didSet does not trigger a second engine
-        // restart (setInputDevice manages restart itself).
-        isApplyingDeviceSwitch = true
-        selectedInputDevice = device
-        isApplyingDeviceSwitch = false
-        
-        #if os(macOS)
-        // If it was running, restart with the new device
-        if wasRunning {
-            // Give the system a moment to clean up
-            Thread.sleep(forTimeInterval: 0.1)
-            try start()
+        try switchInputDevice(to: device) {
+            if wasRunning {
+                // Give the system a moment to clean up
+                Thread.sleep(forTimeInterval: 0.1)
+                try self.start()
+            }
         }
-        #else
+        #endif
+
+        #if os(iOS)
         // On iOS, just reload device list to refresh current state
         loadAvailableInputDevices()
         #endif
+    }
+
+    /// Selects `device` and opens it with `open`. If opening fails, the previous device is selected
+    /// again and `open` is tried once more for it, so a device that cannot be used is never left
+    /// selected or saved; the error is rethrown for the caller to report.
+    func switchInputDevice(to device: AVAudioDevice, open: () throws -> Void) throws {
+        let previous = selectedInputDevice
+        isApplyingDeviceSwitch = true
+        selectedInputDevice = device
+        isApplyingDeviceSwitch = false
+        do {
+            try open()
+        } catch {
+            gtLog("❌ Could not open '\(device.name)' (\(error)) — keeping '\(previous?.name ?? "none")'")
+            isApplyingDeviceSwitch = true
+            selectedInputDevice = previous
+            isApplyingDeviceSwitch = false
+            try? open()
+            throw error
+        }
     }
 
 

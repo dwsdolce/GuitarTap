@@ -150,6 +150,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             // which is guaranteed to precede any audio-tap callback dispatched from
             // the new engine session.
             self.routeChangeRestartCount += 1
+            let failed = selectedInputDevice
+            let previous = oldValue
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 guard let self = self else { return }
                 do {
@@ -157,6 +159,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                     gtLog("✅ Engine restarted with new device: \(self.selectedInputDevice?.name ?? "unknown") (restart #\(self.routeChangeRestartCount))")
                 } catch {
                     gtLog("❌ Failed to restart engine after device change: \(error)")
+                    self.revertFailedInputSwitch(from: failed, to: previous)
+                    try? self.start()
                 }
                 self.isApplyingDeviceSwitch = false
             }
@@ -166,6 +170,26 @@ final class RealtimeFFTAnalyzer: ObservableObject {
 
     /// Guards against re-entrant engine restarts when selectedInputDevice is set programmatically
     var isApplyingDeviceSwitch = false
+
+    /// The message for an input device that was switched to while running — a Settings choice, a
+    /// device plugged in, or a fallback — but could not be opened. The previous device is selected
+    /// again; the view shows this in an alert and clears it.
+    @Published var inputDeviceOpenFailure: String?
+
+    /// The message shown when `device` cannot be opened.
+    static func failedOpenMessage(for device: AVAudioDevice?) -> String {
+        "Could not open the microphone '\(device?.name ?? "unknown")'. The previous input is still in use — please check the microphone."
+    }
+
+    /// Selects `previous` again after `failed` could not be opened, so a device that cannot be used is
+    /// never left selected or saved, and publishes the failure for the view.
+    func revertFailedInputSwitch(from failed: AVAudioDevice?, to previous: AVAudioDevice?) {
+        let wasApplying = isApplyingDeviceSwitch
+        isApplyingDeviceSwitch = true
+        selectedInputDevice = previous
+        isApplyingDeviceSwitch = wasApplying
+        inputDeviceOpenFailure = Self.failedOpenMessage(for: failed)
+    }
     
     /// List of available audio input devices
     @Published var availableInputDevices: [AVAudioDevice] = []

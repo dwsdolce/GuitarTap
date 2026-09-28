@@ -751,23 +751,32 @@ extension TapToneAnalyzer {
                 : nil
             if let match = matchByUID ?? matchByName {
                 // Device is connected — switch to it; its paired calibration loads automatically.
+                // If it cannot be opened the current input is kept and the load says so.
+                var switchFailed = false
                 if fftAnalyzer.selectedInputDevice?.uid != match.uid {
-                    try? fftAnalyzer.setInputDevice(match)
-                    gtLog("🎤 Auto-selected microphone '\(name)' for loaded measurement")
+                    do {
+                        try fftAnalyzer.setInputDevice(match)
+                        gtLog("🎤 Auto-selected microphone '\(name)' for loaded measurement")
+                    } catch {
+                        microphoneWarning = RealtimeFFTAnalyzer.failedOpenMessage(for: match)
+                        switchFailed = true
+                    }
                 }
-                // Same microphone — but flag a calibration or sample-rate difference,
-                // since a newly captured tap would then not match this saved measurement.
-                var diffs: [String] = []
-                if measurement.calibrationName != fftAnalyzer.activeCalibration?.name {
-                    diffs.append("calibration")
+                if !switchFailed {
+                    // Same microphone — but flag a calibration or sample-rate difference,
+                    // since a newly captured tap would then not match this saved measurement.
+                    var diffs: [String] = []
+                    if measurement.calibrationName != fftAnalyzer.activeCalibration?.name {
+                        diffs.append("calibration")
+                    }
+                    if let recordedRate = measurement.sampleRate,
+                       Int(recordedRate.rounded()) != Int(fftAnalyzer.actualSampleRate.rounded()) {
+                        diffs.append("sample rate")
+                    }
+                    microphoneWarning = diffs.isEmpty
+                        ? nil
+                        : "This measurement was recorded with a different \(diffs.joined(separator: " and ")). A newly captured tap may not match the saved result."
                 }
-                if let recordedRate = measurement.sampleRate,
-                   Int(recordedRate.rounded()) != Int(fftAnalyzer.actualSampleRate.rounded()) {
-                    diffs.append("sample rate")
-                }
-                microphoneWarning = diffs.isEmpty
-                    ? nil
-                    : "This measurement was recorded with a different \(diffs.joined(separator: " and ")). A newly captured tap may not match the saved result."
             } else {
                 // Report UNKNOWN, not "unplugged": a no-match can equally mean the device is attached
                 // under a different name on this platform (the same UMIK-1 is "Umik-1  Gain: 18dB" here

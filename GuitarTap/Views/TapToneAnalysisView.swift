@@ -715,6 +715,16 @@ private struct LifecycleModifier: ViewModifier {
             } message: {
                 Text(tap.microphoneWarning ?? "")
             }
+            // A microphone switched to while running (plugged in, or a fallback) that cannot be
+            // opened — the previous one is kept. Settings shows its own while the sheet is open.
+            .alert("Microphone Unavailable", isPresented: Binding(
+                get: { fft.inputDeviceOpenFailure != nil },
+                set: { if !$0 { fft.inputDeviceOpenFailure = nil } }
+            )) {
+                Button("OK") { fft.inputDeviceOpenFailure = nil }
+            } message: {
+                Text(fft.inputDeviceOpenFailure ?? "")
+            }
     }
 }
 

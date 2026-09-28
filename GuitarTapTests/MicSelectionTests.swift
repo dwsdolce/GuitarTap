@@ -6,7 +6,9 @@
 //  inputDeviceToUse (MS1–MS5), the engine driven through applyInputDeviceList, a Settings
 //  selection and setInputDevice (MS6–MS11), a measurement load switching to its recorded
 //  microphone (MS14–MS17), choosing a calibration for the selected device (MS18–MS20), and the
-//  thresholds a load restores, saved as a setting (MS21–MS22).
+//  thresholds a load restores, saved as a setting (MS21–MS22), and a device that cannot be opened
+//  (MS23–MS24; MS25, a load whose switch fails, needs a device that really fails to open and is
+//  tested in Python and the web).
 //  MS12–MS13 are Python only.
 //
 //  The rules: at launch, the saved device when it is present, otherwise the system default
@@ -17,7 +19,7 @@
 //  The saved device and the calibration store live in TapDisplaySettings.defaults, an isolated
 //  suite under test.
 //
-//  Test plan coverage: MS1–MS11, MS14–MS22 — the same list, ids and devices as Python
+//  Test plan coverage: MS1–MS11, MS14–MS24 — the same list, ids and devices as Python
 //  test_mic_selection.py and web test/mic-selection.test.ts.
 //
 // @parity test/mic-selection
@@ -144,6 +146,37 @@ struct MicSelectionTests {
         try sut.setInputDevice(umik)
         #expect(sut.selectedInputDevice == umik)
         #expect(TapDisplaySettings.selectedInputDeviceUID == umik.uid)
+    }
+
+    // MARK: - A device that cannot be opened
+
+    private struct OpenFailed: Error {}
+
+    // MS23: A switch whose device cannot be opened leaves the previous device selected and saved,
+    //       and the failure is reported to the caller.
+    @Test func MS23_failedOpen_keepsThePreviousDevice() {
+        let sut = makeSUT(saved: builtIn)
+        sut.applyInputDeviceList([builtIn, umik], systemDefaultUID: builtIn.uid)
+        #expect(throws: OpenFailed.self) {
+            try sut.switchInputDevice(to: umik) {
+                if sut.selectedInputDevice == umik { throw OpenFailed() }
+            }
+        }
+        #expect(sut.selectedInputDevice == builtIn)
+        #expect(TapDisplaySettings.selectedInputDeviceUID == builtIn.uid)
+    }
+
+    // MS24: A device switched to while running (a Settings choice, a plug-in, a fallback) that
+    //       cannot be opened is reverted, and the failed-open message is published for the alert.
+    @Test func MS24_failedSwitchWhileRunning_revertsAndReports() {
+        let sut = makeSUT(saved: builtIn)
+        sut.applyInputDeviceList([builtIn], systemDefaultUID: builtIn.uid)
+        sut.applyInputDeviceList([builtIn, umik], systemDefaultUID: builtIn.uid)
+        #expect(sut.selectedInputDevice == umik)
+        sut.revertFailedInputSwitch(from: umik, to: builtIn)
+        #expect(sut.selectedInputDevice == builtIn)
+        #expect(TapDisplaySettings.selectedInputDeviceUID == builtIn.uid)
+        #expect(sut.inputDeviceOpenFailure == RealtimeFFTAnalyzer.failedOpenMessage(for: umik))
     }
 
     // MARK: - Loading a measurement recorded with another connected microphone

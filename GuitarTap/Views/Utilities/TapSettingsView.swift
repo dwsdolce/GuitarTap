@@ -227,6 +227,15 @@ struct TapSettingsView: View {
                     .fontWeight(.semibold)
                 }
             }
+            // A microphone chosen here that cannot be opened — the previous one is kept.
+            .alert("Microphone Unavailable", isPresented: Binding(
+                get: { fftAnalyzer.inputDeviceOpenFailure != nil },
+                set: { if !$0 { fftAnalyzer.inputDeviceOpenFailure = nil } }
+            )) {
+                Button("OK") { fftAnalyzer.inputDeviceOpenFailure = nil }
+            } message: {
+                Text(fftAnalyzer.inputDeviceOpenFailure ?? "")
+            }
             .alert("Invalid Settings", isPresented: $showValidationError) {
                 Button("OK", role: .cancel) { }
             } message: {
