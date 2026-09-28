@@ -30,21 +30,12 @@ extension RealtimeFFTAnalyzer {
     }
     
     #if os(macOS)
-    /// Enumerates CoreAudio input devices and updates `availableInputDevices`.
+    /// Enumerates CoreAudio input devices and applies them with
+    /// ``applyInputDeviceList(_:systemDefaultUID:isAutoSelectable:)``.
     ///
     /// Queries `kAudioHardwarePropertyDevices`, filters for devices with at least
     /// one input channel (`kAudioDevicePropertyStreamConfiguration`), and reads each
     /// device's display name, UID, and nominal sample rate.
-    ///
-    /// ## Auto-selection Policy (initial load)
-    /// 1. Previously persisted device UID (`UserDefaults` key `selectedInputDeviceUID`)
-    /// 2. Built-in microphone (UID contains `"BuiltInMicrophone"`)
-    /// 3. System default input device (`kAudioHardwarePropertyDefaultInputDevice`)
-    /// 4. First device in the enumerated list
-    ///
-    /// On subsequent calls (device connect/disconnect): newly appeared real devices
-    /// are auto-selected; aggregate devices matching `"CADefaultDeviceAggregate"` are
-    /// ignored; if the current device disappeared, falls back to built-in or first.
     func loadAvailableInputDevicesMacOS() {
         var devices: [AVAudioDevice] = []
         
@@ -217,127 +208,96 @@ extension RealtimeFFTAnalyzer {
             gtLog("🎤 Found input device: \(name) @ \(sampleRate) Hz (UID: \(uid))")
         }
         
+        let systemDefaultUID = Self.systemDefaultInputDeviceID().flatMap { defaultID in
+            devices.first(where: { $0.deviceID == defaultID })?.uid
+        }
         DispatchQueue.main.async {
-            let previousDevices = self.availableInputDevices
-            // Strip internal macOS aggregate devices before exposing the list to the UI.
-            // CADefaultDeviceAggregate is a transient system-internal device that appears
-            // during audio routing transitions — it is never a meaningful user selection.
-            self.availableInputDevices = devices.filter { !$0.uid.contains("CADefaultDeviceAggregate") }
-
-            if previousDevices.isEmpty {
-                // ── Initial load: priority-based auto-selection ──────────────────
-                guard !devices.isEmpty else { return }
-
-                // Priority 0: Restore previously selected device (persisted across launches)
-                if let savedUID = UserDefaults.standard.string(forKey: "selectedInputDeviceUID"),
-                   let savedDevice = devices.first(where: { $0.uid == savedUID }) {
-                    self.selectedInputDevice = savedDevice
-                    gtLog("🎤 Restored previously selected mic: \(savedDevice.name)")
-                } else
-                // Priority 1: Any external (non-built-in) microphone.
-                // Prefer high-quality external measurement mics (UMIK-1, USB,
-                // Bluetooth) over the built-in mic when no preference is saved.
-                // Mirrors Python `_is_builtin_mic` deny-list heuristic.
-                if let externalMic = devices.first(where: { !self.isBuiltInMic($0) }) {
-                    self.selectedInputDevice = externalMic
-                    gtLog("🎤 Auto-selected external mic: \(externalMic.name)")
-                } else {
-                    // Priority 2: System default input device
-                    var defaultDeviceID: AudioDeviceID = 0
-                    var defaultDeviceIDSize = UInt32(MemoryLayout<AudioDeviceID>.size)
-                    var defaultDeviceAddress = AudioObjectPropertyAddress(
-                        mSelector: kAudioHardwarePropertyDefaultInputDevice,
-                        mScope: kAudioObjectPropertyScopeGlobal,
-                        mElement: kAudioObjectPropertyElementMain
-                    )
-                    let status = AudioObjectGetPropertyData(
-                        AudioObjectID(kAudioObjectSystemObject),
-                        &defaultDeviceAddress,
-                        0,
-                        nil,
-                        &defaultDeviceIDSize,
-                        &defaultDeviceID
-                    )
-                    if status == noErr, defaultDeviceID != 0,
-                       let defaultDevice = devices.first(where: { $0.deviceID == defaultDeviceID }) {
-                        self.selectedInputDevice = defaultDevice
-                        gtLog("🎤 Auto-selected system default: \(defaultDevice.name) (ID: \(defaultDeviceID))")
-                    } else {
-                        // Priority 3: First available device
-                        self.selectedInputDevice = devices.first
-                        gtLog("🎤 Auto-selected first device: \(devices.first!.name)")
-                    }
-                }
-            } else {
-                // ── Device list changed (connect or disconnect) ──────────────────
-                let newlyConnected = devices.filter { newDev in
-                    !previousDevices.contains(where: { $0.uid == newDev.uid })
-                }
-
-                // Ignore transient aggregate devices that macOS creates internally during
-                // audio session setup (e.g. after a permission revocation restart).
-                // These have UIDs matching "CADefaultDeviceAggregate" and are not real
-                // user-facing microphones.
-                let realNewDevices = newlyConnected.filter { !$0.uid.contains("CADefaultDeviceAggregate") }
-
-                // Only auto-select deliberate connections (USB, Bluetooth, built-in, etc.).
+            self.applyInputDeviceList(devices, systemDefaultUID: systemDefaultUID) { device in
                 // Continuity Camera/Audio devices appear autonomously whenever an iPhone is
                 // nearby — switching the mic without user action mid-session is dangerous.
-                // We still add them to availableInputDevices so the user can pick them manually.
-                let autoSelectableNewDevices = realNewDevices.filter { device in
-                    let transport = self.transportType(for: device.deviceID)
-                    let isContinuity = transport == kAudioDeviceTransportTypeContinuityCaptureWired
-                                   || transport == kAudioDeviceTransportTypeContinuityCaptureWireless
-                    if isContinuity {
-                        gtLog("🎤 Continuity Audio device appeared (not auto-selected): \(device.name)")
-                    }
-                    return !isContinuity
+                // They stay listed so the user can pick them manually.
+                let transport = self.transportType(for: device.deviceID)
+                let isContinuity = transport == kAudioDeviceTransportTypeContinuityCaptureWired
+                               || transport == kAudioDeviceTransportTypeContinuityCaptureWireless
+                if isContinuity {
+                    gtLog("🎤 Continuity Audio device appeared (not auto-selected): \(device.name)")
                 }
-
-                if let firstNew = autoSelectableNewDevices.first {
-                    // New real device plugged in deliberately — switch to it automatically
-                    self.selectedInputDevice = firstNew
-                    gtLog("🎤 New device connected, auto-selected: \(firstNew.name)")
-                } else if let current = self.selectedInputDevice,
-                          !devices.contains(where: { $0.uid == current.uid }) {
-                    // Currently selected device was unplugged — fall back.
-                    // Prefer another external mic over the built-in (mirrors
-                    // Python initial-load priority: external before built-in
-                    // before first available).
-                    if let externalMic = devices.first(where: { !self.isBuiltInMic($0) }) {
-                        self.selectedInputDevice = externalMic
-                        gtLog("🎤 '\(current.name)' disconnected, switched to external: \(externalMic.name)")
-                    } else {
-                        self.selectedInputDevice = devices.first
-                        gtLog("🎤 '\(current.name)' disconnected, switched to: \(devices.first?.name ?? "none")")
-                    }
-                }
-                // If selected device is still present, no change needed
+                return !isContinuity
             }
         }
         
         gtLog("🎤 Found \(devices.count) audio input device(s) total")
     }
 
-    /// Returns `true` when the given device is the laptop's built-in mic.
-    ///
-    /// Uses CoreAudio's `kAudioDevicePropertyTransportType` as the primary
-    /// signal (the canonical source of truth on macOS — robust against UID
-    /// renames in future macOS versions).  Falls back to the legacy
-    /// UID-substring heuristic if the transport-type query fails (e.g. for
-    /// virtual / aggregate devices that don't report a transport).
-    ///
-    /// Mirrors Python `_is_builtin_mic(name)` — same logical role, but the
-    /// Python port has no API equivalent of CoreAudio transport types and
-    /// relies on a name-substring deny-list instead.
-    func isBuiltInMic(_ device: AVAudioDevice) -> Bool {
-        let transport = transportType(for: device.deviceID)
-        if transport == kAudioDeviceTransportTypeBuiltIn {
-            return true
+    /// The input device to use from `devices`: the saved choice when it is present, otherwise
+    /// the system default input, otherwise the first device. Nil when there are no devices.
+    static func inputDeviceToUse(in devices: [AVAudioDevice], savedUID: String?,
+                                 systemDefaultUID: String?) -> AVAudioDevice? {
+        if let savedUID, let saved = devices.first(where: { $0.uid == savedUID }) {
+            return saved
         }
-        // Fallback: legacy UID heuristic for cases where transport reads as
-        // Unknown (older macOS, virtual devices, etc.).
-        return device.uid.contains("BuiltInMicrophone")
+        if let systemDefaultUID, let systemDefault = devices.first(where: { $0.uid == systemDefaultUID }) {
+            return systemDefault
+        }
+        return devices.first
+    }
+
+    /// Applies a freshly enumerated device list to `availableInputDevices` and the selection.
+    ///
+    /// - The first list: selects ``inputDeviceToUse(in:savedUID:systemDefaultUID:)``.
+    /// - A new device that `isAutoSelectable` accepts: ``chooseInputDevice(_:)`` — the user
+    ///   plugged it in, so it is switched to and saved.
+    /// - The selected device is gone: selects ``inputDeviceToUse(in:savedUID:systemDefaultUID:)``.
+    ///
+    /// The startup selection and a fallback are not saved, so a microphone that drops out is
+    /// still the saved choice when it returns. `CADefaultDeviceAggregate` devices — transient
+    /// macOS routing devices, never a user selection — are dropped first.
+    func applyInputDeviceList(_ enumerated: [AVAudioDevice], systemDefaultUID: String?,
+                              isAutoSelectable: (AVAudioDevice) -> Bool = { _ in true }) {
+        let previousDevices = availableInputDevices
+        let devices = enumerated.filter { !$0.uid.contains("CADefaultDeviceAggregate") }
+        availableInputDevices = devices
+        let savedUID = TapDisplaySettings.selectedInputDeviceUID
+
+        if previousDevices.isEmpty {
+            guard let device = Self.inputDeviceToUse(in: devices, savedUID: savedUID,
+                                                     systemDefaultUID: systemDefaultUID) else { return }
+            selectedInputDevice = device
+            if device.uid == savedUID {
+                gtLog("🎤 Restored previously selected mic: \(device.name)")
+            } else {
+                gtLog("🎤 Saved mic not connected — selected: \(device.name)")
+            }
+            return
+        }
+
+        let newlyConnected = devices.filter { device in
+            !previousDevices.contains(where: { $0.uid == device.uid })
+        }
+        if let firstNew = newlyConnected.first(where: isAutoSelectable) {
+            chooseInputDevice(firstNew)
+            gtLog("🎤 New device connected, selected: \(firstNew.name)")
+        } else if let current = selectedInputDevice,
+                  !devices.contains(where: { $0.uid == current.uid }) {
+            selectedInputDevice = Self.inputDeviceToUse(in: devices, savedUID: savedUID,
+                                                        systemDefaultUID: systemDefaultUID)
+            gtLog("🎤 '\(current.name)' disconnected, switched to: \(selectedInputDevice?.name ?? "none")")
+        }
+    }
+
+    /// The CoreAudio system default input device, or nil if it cannot be read.
+    static func systemDefaultInputDeviceID() -> AudioDeviceID? {
+        var defaultDeviceID: AudioDeviceID = 0
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &defaultDeviceID
+        )
+        return status == noErr && defaultDeviceID != 0 ? defaultDeviceID : nil
     }
 
     /// Returns the CoreAudio transport type for the given device, or
@@ -701,9 +661,6 @@ extension RealtimeFFTAnalyzer {
     }
     #endif
     
-    /// Switches the audio input to the given device.
-    ///
-    /// **iOS:** Calls `AVAudioSession.setPreferredInput(_:)` with the device's
     /// Applies a calibration without persisting a device→calibration mapping.
     ///
     /// Used by `selectedInputDevice.didSet` when auto-loading a device-specific
@@ -716,11 +673,14 @@ extension RealtimeFFTAnalyzer {
         isLoadingDeviceCalibration = false
     }
 
-    /// `port`. The engine does not need to restart.
+    /// Switches the input to `device` for this session; it is not saved (a loaded
+    /// measurement's microphone). A choice that is saved goes through ``chooseInputDevice(_:)``.
     ///
-    /// **macOS:** Stops the engine if running, sets `selectedInputDevice`
-    /// (which will be applied to the AUHAL unit on the next `start()` call),
-    /// and restarts the engine.
+    /// **iOS:** Calls `AVAudioSession.setPreferredInput(_:)` with the device's `port`. The
+    /// engine does not need to restart.
+    ///
+    /// **macOS:** Stops the engine if running, sets `selectedInputDevice` — before returning,
+    /// so the restart opens it and the caller reads its calibration — and restarts the engine.
     ///
     /// The `isApplyingDeviceSwitch` guard prevents `selectedInputDevice.didSet`
     /// from triggering a second redundant restart.
@@ -759,13 +719,12 @@ extension RealtimeFFTAnalyzer {
         }
         #endif
         
-        // Update the selected device — set the guard flag so didSet does not
-        // trigger a second engine restart (setInputDevice manages restart itself).
-        DispatchQueue.main.async {
-            self.isApplyingDeviceSwitch = true
-            self.selectedInputDevice = device
-            self.isApplyingDeviceSwitch = false
-        }
+        // Select the device now, before the restart below opens it and before the caller reads
+        // its calibration — set the guard flag so didSet does not trigger a second engine
+        // restart (setInputDevice manages restart itself).
+        isApplyingDeviceSwitch = true
+        selectedInputDevice = device
+        isApplyingDeviceSwitch = false
         
         #if os(macOS)
         // If it was running, restart with the new device

@@ -147,6 +147,7 @@ struct TapDisplaySettings {
     private static let measureFlcKey = "measureFlc"
     private static let annotationVisibilityModeKey = "annotationVisibilityMode"
     private static let dumpCaptureAudioKey = "dumpCaptureAudio"
+    private static let selectedInputDeviceUIDKey = "selectedInputDeviceUID"
 
     // MARK: - Measurement Type Setting
     
@@ -588,6 +589,15 @@ struct TapDisplaySettings {
     static var dumpCaptureAudio: Bool {
         get { defaults.bool(forKey: dumpCaptureAudioKey) }
         set { defaults.set(newValue, forKey: dumpCaptureAudioKey) }
+    }
+
+    // MARK: - Audio Input Device (Persisted)
+
+    /// UID of the input device the user chose, restored at launch whenever it is present.
+    /// Written only by ``RealtimeFFTAnalyzer/chooseInputDevice(_:)``.
+    static var selectedInputDeviceUID: String? {
+        get { defaults.string(forKey: selectedInputDeviceUIDKey) }
+        set { defaults.set(newValue, forKey: selectedInputDeviceUIDKey) }
     }
 
     // MARK: - Validation

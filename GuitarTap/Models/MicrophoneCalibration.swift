@@ -378,18 +378,13 @@ struct CalibrationFileParser {
 
 // MARK: - CalibrationStorage
 
-/// Persists and retrieves ``MicrophoneCalibration`` profiles using `UserDefaults`.
+/// Persists and retrieves ``MicrophoneCalibration`` profiles in `TapDisplaySettings.defaults`
+/// (the standard defaults; an isolated suite under test).
 ///
-/// Calibrations can be associated with specific audio input devices by their UID, allowing
-/// ``RealtimeFFTAnalyzer`` to automatically apply the correct profile when the user selects
-/// a measurement microphone.
-///
-/// ## Lookup Priority
-///
-/// When ``RealtimeFFTAnalyzer`` needs a calibration for the active device, it follows this order:
-/// 1. A device-specific mapping set via ``setCalibration(_:forDeviceUID:)``.
-/// 2. The global ``activeCalibration`` (the last manually-selected calibration).
-/// 3. No correction (flat 0 dB offset applied to all bins).
+/// Calibrations are associated with audio input devices by their UID, so
+/// ``RealtimeFFTAnalyzer`` applies a device's profile whenever that device is selected: its
+/// mapping (``setCalibration(_:forDeviceUID:)``), or no correction when it has none. The
+/// global ``activeCalibrationID`` records the last calibration chosen.
 class CalibrationStorage {
 
     // MARK: - Singleton
@@ -423,7 +418,7 @@ class CalibrationStorage {
         calibrations.append(calibration)
 
         if let encoded = try? JSONEncoder().encode(calibrations) {
-            UserDefaults.standard.set(encoded, forKey: storageKey)
+            TapDisplaySettings.defaults.set(encoded, forKey: storageKey)
         }
     }
 
@@ -431,7 +426,7 @@ class CalibrationStorage {
     ///
     /// Returns an empty array if no calibrations have been saved or if decoding fails.
     func loadAll() -> [MicrophoneCalibration] {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+        guard let data = TapDisplaySettings.defaults.data(forKey: storageKey),
               let calibrations = try? JSONDecoder().decode([MicrophoneCalibration].self, from: data) else {
             return []
         }
@@ -448,7 +443,7 @@ class CalibrationStorage {
         calibrations.removeAll { $0.id == calibration.id }
 
         if let encoded = try? JSONEncoder().encode(calibrations) {
-            UserDefaults.standard.set(encoded, forKey: storageKey)
+            TapDisplaySettings.defaults.set(encoded, forKey: storageKey)
         }
 
         // Clear the global active calibration if we just deleted it.
@@ -465,16 +460,16 @@ class CalibrationStorage {
     /// the currently selected input device.  Set to `nil` to disable global correction.
     var activeCalibrationID: UUID? {
         get {
-            guard let uuidString = UserDefaults.standard.string(forKey: activeCalibrationKey) else {
+            guard let uuidString = TapDisplaySettings.defaults.string(forKey: activeCalibrationKey) else {
                 return nil
             }
             return UUID(uuidString: uuidString)
         }
         set {
             if let id = newValue {
-                UserDefaults.standard.set(id.uuidString, forKey: activeCalibrationKey)
+                TapDisplaySettings.defaults.set(id.uuidString, forKey: activeCalibrationKey)
             } else {
-                UserDefaults.standard.removeObject(forKey: activeCalibrationKey)
+                TapDisplaySettings.defaults.removeObject(forKey: activeCalibrationKey)
             }
         }
     }
@@ -511,7 +506,7 @@ class CalibrationStorage {
         }
 
         if let encoded = try? JSONEncoder().encode(mapping) {
-            UserDefaults.standard.set(encoded, forKey: deviceCalibrationMapKey)
+            TapDisplaySettings.defaults.set(encoded, forKey: deviceCalibrationMapKey)
         }
     }
 
@@ -537,7 +532,7 @@ class CalibrationStorage {
 
     /// Loads the raw `[deviceUID: calibrationUUIDString]` dictionary from `UserDefaults`.
     private func loadDeviceCalibrationMap() -> [String: String] {
-        guard let data = UserDefaults.standard.data(forKey: deviceCalibrationMapKey),
+        guard let data = TapDisplaySettings.defaults.data(forKey: deviceCalibrationMapKey),
               let mapping = try? JSONDecoder().decode([String: String].self, from: data) else {
             return [:]
         }

@@ -498,7 +498,11 @@ extension TapSettingsView {
         if !fftAnalyzer.availableInputDevices.isEmpty {
             Section {
                 // Device picker
-                Picker("Audio Input Device", selection: $fftAnalyzer.selectedInputDevice) {
+                // A pick here is the user's choice, so it goes through chooseInputDevice and is saved.
+                Picker("Audio Input Device", selection: Binding(
+                    get: { fftAnalyzer.selectedInputDevice },
+                    set: { fftAnalyzer.chooseInputDevice($0) }
+                )) {
                     ForEach(fftAnalyzer.availableInputDevices) { device in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(device.name)

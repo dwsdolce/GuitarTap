@@ -110,14 +110,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Not accessed until start() to avoid triggering the audio hardware before permission is confirmed.
     var inputNode: AVAudioInputNode!
     
-    /// The currently selected audio input device
+    /// The currently selected audio input device.
+    ///
+    /// Assigning it switches the input for this session; it is not saved. A choice that is
+    /// remembered across launches goes through ``chooseInputDevice(_:)``.
     @Published var selectedInputDevice: AVAudioDevice? {
         didSet {
-            // Persist the selected device UID so it can be restored on next launch
-            if let deviceUID = selectedInputDevice?.uid {
-                UserDefaults.standard.set(deviceUID, forKey: "selectedInputDeviceUID")
-            }
-
             // Automatically load device-specific calibration when device changes
             if let deviceUID = selectedInputDevice?.uid {
                 if let deviceCalibration = CalibrationStorage.shared.calibration(forDeviceUID: deviceUID) {
@@ -162,6 +160,16 @@ final class RealtimeFFTAnalyzer: ObservableObject {
 
     /// Guards against re-entrant engine restarts when selectedInputDevice is set programmatically
     var isApplyingDeviceSwitch = false
+
+    /// Selects `device` as the user's choice and saves it, so it is restored at launch whenever
+    /// it is present. Used for a device picked in Settings and a device plugged in while the app
+    /// runs; the startup selection, a fallback and a loaded measurement's microphone are not saved.
+    func chooseInputDevice(_ device: AVAudioDevice?) {
+        selectedInputDevice = device
+        if let uid = device?.uid {
+            TapDisplaySettings.selectedInputDeviceUID = uid
+        }
+    }
     
     /// List of available audio input devices
     @Published var availableInputDevices: [AVAudioDevice] = []

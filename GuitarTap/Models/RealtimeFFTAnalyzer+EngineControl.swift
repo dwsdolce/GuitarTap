@@ -172,7 +172,7 @@ extension RealtimeFFTAnalyzer {
             if let device = selectedInputDevice {
                 targetDeviceID = device.deviceID
                 targetDeviceName = device.name
-            } else if let savedUID = UserDefaults.standard.string(forKey: "selectedInputDeviceUID") {
+            } else if let savedUID = TapDisplaySettings.selectedInputDeviceUID {
                 // Look up the AudioDeviceID for the persisted UID synchronously.
                 targetDeviceID = Self.audioDeviceID(forUID: savedUID) ?? 0
                 if targetDeviceID != 0 {
