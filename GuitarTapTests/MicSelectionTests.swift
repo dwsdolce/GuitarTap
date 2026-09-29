@@ -9,7 +9,8 @@
 //  thresholds a load restores, saved as a setting (MS21–MS22), and a device that cannot be opened
 //  (MS23–MS24; MS25, a load whose switch fails, needs a device that really fails to open and is
 //  tested in Python and the web).
-//  MS12–MS13 are Python only.
+//  MS12–MS13 are Python only; MS29–MS31 are Swift only (its device lists are applied on the main
+//  queue after being read elsewhere, and its engine stays stopped after a failed start).
 //
 //  The rules: at launch, the saved device when it is present, otherwise the system default
 //  input, otherwise the first device; a device connected while running is selected; the device
@@ -230,6 +231,44 @@ struct MicSelectionTests {
             "This measurement was made with a different setup from the current one:\n"
             + "• Calibration: recorded with 'Other'; the current microphone uses 'Built-in room'.\n\n"
             + "A tap captured now may not match the saved result. The sample rate is set outside Guitar Tap: in Audio MIDI Setup on a Mac, or Sound settings on Windows.")
+    }
+
+    // MARK: - Swift only: device lists applied late, and a failed start
+
+    // MS29: A device list whose enumeration was superseded by a newer one is not applied — it can
+    //       name a device that is already gone. The newer list is.
+    @Test func MS29_supersededDeviceList_isNotApplied() {
+        let sut = makeSUT(saved: builtIn)
+        sut.applyInputDeviceList([builtIn], systemDefaultUID: builtIn.uid)
+        let older = sut.beginDeviceListEnumeration()     // the USB mic plugged in…
+        let newer = sut.beginDeviceListEnumeration()     // …and out again, before the first is applied
+        sut.applyEnumeratedInputDevices([builtIn, umik], generation: older, systemDefaultUID: builtIn.uid)
+        #expect(sut.selectedInputDevice == builtIn, "the stale list selected a device that is gone")
+        sut.applyEnumeratedInputDevices([builtIn], generation: newer, systemDefaultUID: builtIn.uid)
+        #expect(sut.selectedInputDevice == builtIn)
+        #expect(sut.availableInputDevices == [builtIn])
+    }
+
+    // MS30: The fallback after a failed open is decided when the failure happens: the device the
+    //       engine last opened, if still listed; otherwise the system default — never the device
+    //       that failed.
+    @Test func MS30_fallbackAfterFailedOpen_isDecidedAtTheFailure() {
+        let sut = makeSUT(saved: builtIn)
+        sut.applyInputDeviceList([builtIn, blackHole, umik], systemDefaultUID: blackHole.uid)
+        sut.lastOpenedInputDevice = builtIn
+        #expect(sut.fallbackAfterFailedOpen(of: umik, systemDefaultUID: blackHole.uid) == builtIn)
+        sut.lastOpenedInputDevice = usb2                 // no longer listed
+        #expect(sut.fallbackAfterFailedOpen(of: umik, systemDefaultUID: blackHole.uid) == blackHole)
+        sut.lastOpenedInputDevice = umik                 // the one that failed
+        #expect(sut.fallbackAfterFailedOpen(of: umik, systemDefaultUID: nil) == builtIn)
+    }
+
+    // MS31: A selection change restarts the engine when it is running — and when its last start
+    //       failed, so an engine stopped by a failure is started by the next selection.
+    @Test func MS31_aFailedStart_letsTheNextSelectionRestart() {
+        #expect(RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: true, startFailed: false))
+        #expect(RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: false, startFailed: true))
+        #expect(!RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: false, startFailed: false))
     }
 
     // MARK: - Choosing a calibration

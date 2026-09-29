@@ -137,9 +137,12 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             }
 
             #if os(macOS)
-            // On macOS, if the engine is running and this change came from the user
-            // (not from setInputDevice's own assignment), restart the engine with the new device.
-            guard !isApplyingDeviceSwitch, isRunning, selectedInputDevice?.uid != oldValue?.uid else { return }
+            // On macOS, if the engine is running — or its last start failed, so it is stopped but
+            // should not be — and this change did not come from setInputDevice's own assignment,
+            // restart the engine with the new device.
+            guard !isApplyingDeviceSwitch,
+                  Self.restartsOnSelectionChange(isRunning: isRunning, startFailed: engineStartFailed),
+                  selectedInputDevice?.uid != oldValue?.uid else { return }
             gtLog("🔄 Device changed while running — restarting engine for: \(selectedInputDevice?.name ?? "unknown")")
             isApplyingDeviceSwitch = true
             stop()
@@ -150,8 +153,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             // which is guaranteed to precede any audio-tap callback dispatched from
             // the new engine session.
             self.routeChangeRestartCount += 1
-            let failed = selectedInputDevice
-            let previous = oldValue
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 guard let self = self else { return }
                 do {
@@ -159,8 +160,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
                     gtLog("✅ Engine restarted with new device: \(self.selectedInputDevice?.name ?? "unknown") (restart #\(self.routeChangeRestartCount))")
                 } catch {
                     gtLog("❌ Failed to restart engine after device change: \(error)")
-                    self.revertFailedInputSwitch(from: failed, to: previous)
-                    try? self.start()
+                    self.recoverFromFailedStart()
                 }
                 self.isApplyingDeviceSwitch = false
             }
@@ -170,6 +170,39 @@ final class RealtimeFFTAnalyzer: ObservableObject {
 
     /// Guards against re-entrant engine restarts when selectedInputDevice is set programmatically
     var isApplyingDeviceSwitch = false
+
+    /// True when the engine's last start failed, so it is stopped although it should be running;
+    /// cleared by the next successful start. A selection change then starts it
+    /// (``restartsOnSelectionChange(isRunning:startFailed:)``) — otherwise nothing would.
+    var engineStartFailed = false
+
+    /// The device the engine last opened successfully — the fallback when a switch to another
+    /// device fails to open.
+    var lastOpenedInputDevice: AVAudioDevice?
+
+    /// Whether a change of the selected device restarts the engine: when it is running, or when
+    /// its last start failed.
+    static func restartsOnSelectionChange(isRunning: Bool, startFailed: Bool) -> Bool {
+        isRunning || startFailed
+    }
+
+    /// The device list enumerations begun, so one that arrives on the main queue after a newer
+    /// one has been read is not applied (``isCurrentDeviceListGeneration(_:)``).
+    private var deviceListGeneration = 0
+    private let deviceListGenerationLock = NSLock()
+
+    /// Numbers a device-list enumeration as it begins (any thread).
+    func beginDeviceListEnumeration() -> Int {
+        deviceListGenerationLock.lock(); defer { deviceListGenerationLock.unlock() }
+        deviceListGeneration += 1
+        return deviceListGeneration
+    }
+
+    /// Whether `generation` is the newest enumeration begun.
+    func isCurrentDeviceListGeneration(_ generation: Int) -> Bool {
+        deviceListGenerationLock.lock(); defer { deviceListGenerationLock.unlock() }
+        return generation == deviceListGeneration
+    }
 
     /// The message for an input device that was switched to while running — a Settings choice, a
     /// device plugged in, or a fallback — but could not be opened. The previous device is selected

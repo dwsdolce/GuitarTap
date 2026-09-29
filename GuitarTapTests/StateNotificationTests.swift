@@ -208,13 +208,11 @@ struct StateNotificationTests {
                 "REGRESSION: the advance and the derivation drifted apart — one source, or the settle and the resume reword what the advance said")
     }
 
-    // N13: a route change DURING a settle must not capture the transient as the pre-settle status.
-    // The burst is what a user does — unplug and replug faster than `fftSettleTime` — and the
-    // second capture then stored "Audio device changed - reinitializing..." AS the real status.
-    // Every state whose status is not re-derivable (N4's completed measurement, N9's material phase
-    // instruction) had the transient put back on top of itself, where it stayed until the next tap
-    // wrote over it. Found in the #24 run-review on Windows, brace mode: the transient sat in the
-    // status bar for minutes across a dozen replug cycles.
+    // N13: a route change during a settle must not capture the transient as the pre-settle status.
+    // A user unplugging and replugging faster than `fftSettleTime` makes that burst. Were the
+    // transient captured, every state whose status is not re-derivable (N4's completed measurement,
+    // N9's material phase instruction) would have it put back on top of itself, where it would stay
+    // until the next tap wrote over it.
     @Test func aSettleDuringASettle_doesNotCaptureTheTransient() {
         let sut = makeSUT()
         TapDisplaySettings.measurementType = .brace   // makeSUT() sets .generic — set it AFTER
@@ -235,7 +233,9 @@ struct StateNotificationTests {
         #expect(sut.statusBeforeSettle == "Ready for fL tap",
                 "REGRESSION: the second route change captured the transient as the real status, so the settle puts the transient back on top of itself")
         // The consequence, in the state the report came from: a material phase prompt is not
-        // re-derivable, so the settle restores what it captured.
+        // re-derivable, so the settle restores what it captured. The settle's completion puts
+        // detection back to listening before it asks what to restore; do the same here.
+        sut.detectionState = .listening
         #expect(sut.restoredStatus(before: sut.statusBeforeSettle ?? "Ready") == "Ready for fL tap",
                 "REGRESSION: the settle would restore the transient instead of the prompt")
         TapDisplaySettings.measurementType = .generic

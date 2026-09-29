@@ -1837,14 +1837,13 @@ final class TapToneAnalyzer: ObservableObject {
         // put it back as though the analyzer had set it. The override layer re-resolves on its own
         // from the real status, so the real status is what has to survive the settle.
         //
-        // GUARDED so a route change DURING a settle cannot capture the transient itself. Unplug and
-        // replug faster than `fftSettleTime` and the second capture stored `routeChangeStatus` as
-        // the real status; `restoredStatus(before:)` then put THAT back for every state whose
-        // status is not re-derivable — a completed measurement, a material phase prompt — and the
-        // transient stayed up until the next tap wrote over it. Web guards the same capture
-        // (`if (this.statusBeforeSettle === null)`); it can test for null because its device-change
-        // timer is coalesced, while here every route change leaves its own restore behind, so the
-        // test is "is this already the transient".
+        // Guarded so a route change during a settle does not capture the transient itself: a
+        // captured `routeChangeStatus` would be put back by `restoredStatus(before:)` for every
+        // state whose status is not re-derivable — a completed measurement, a material phase
+        // prompt — and stay up until something else writes a status. Every route change leaves its
+        // own restore behind, so the test is "is this already the transient". (Web tests
+        // `statusBeforeSettle === null`: its device-change timer is coalesced, so only one restore
+        // is ever pending.)
         if latestRealStatus != Self.routeChangeStatus {
             statusBeforeSettle = latestRealStatus
         }

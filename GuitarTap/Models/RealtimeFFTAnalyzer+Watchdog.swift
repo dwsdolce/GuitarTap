@@ -185,7 +185,7 @@ extension RealtimeFFTAnalyzer {
     /// One recovery cycle: bounded by `watchdogMaxAttempts`, backed off, and
     /// self-driving (recurses on a thrown restart so a transiently-unavailable
     /// device keeps getting retried without a busy loop).
-    private func attemptWatchdogRecovery() {
+    func attemptWatchdogRecovery() {
         watchdogRecoveryAttempts += 1
         guard watchdogRecoveryAttempts <= watchdogMaxAttempts else {
             // Stop RESTARTING, but keep WATCHING: the timer keeps running so that a user
@@ -211,6 +211,7 @@ extension RealtimeFFTAnalyzer {
                 self.isRecoveringEngine = false
             } catch {
                 gtLog("⚠️ Buffer watchdog: restart failed (\(error)) — retrying")
+                self.engineStartFailed = true
                 self.attemptWatchdogRecovery()  // bounded retry
             }
         }

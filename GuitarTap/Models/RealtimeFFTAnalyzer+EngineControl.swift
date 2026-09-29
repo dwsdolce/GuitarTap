@@ -444,6 +444,8 @@ extension RealtimeFFTAnalyzer {
         // it must not hold the engine alive for its 3-second timeout.
         DispatchQueue.main.async { [self] in
             self.isRunning = true
+            self.engineStartFailed = false
+            self.lastOpenedInputDevice = self.selectedInputDevice
             self.engineStartTime = Date()  // Track start time
             // Prime the watchdog clock so it doesn't fire during the start-up grace
             // window, then (re)start the buffer-delivery watchdog. Not armed during

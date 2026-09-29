@@ -37,6 +37,7 @@ extension RealtimeFFTAnalyzer {
     /// one input channel (`kAudioDevicePropertyStreamConfiguration`), and reads each
     /// device's display name, UID, and nominal sample rate.
     func loadAvailableInputDevicesMacOS() {
+        let generation = beginDeviceListEnumeration()
         var devices: [AVAudioDevice] = []
         
         // Use Core Audio to enumerate audio devices
@@ -212,7 +213,8 @@ extension RealtimeFFTAnalyzer {
             devices.first(where: { $0.deviceID == defaultID })?.uid
         }
         DispatchQueue.main.async {
-            self.applyInputDeviceList(devices, systemDefaultUID: systemDefaultUID) { device in
+            self.applyEnumeratedInputDevices(devices, generation: generation,
+                                             systemDefaultUID: systemDefaultUID) { device in
                 // Continuity Camera/Audio devices appear autonomously whenever an iPhone is
                 // nearby — switching the mic without user action mid-session is dangerous.
                 // They stay listed so the user can pick them manually.
@@ -281,6 +283,53 @@ extension RealtimeFFTAnalyzer {
             selectedInputDevice = Self.inputDeviceToUse(in: devices, savedUID: nil,
                                                         systemDefaultUID: systemDefaultUID)
             gtLog("🎤 '\(current.name)' disconnected, switched to: \(selectedInputDevice?.name ?? "none")")
+        }
+    }
+
+    /// Applies an enumerated device list — unless a newer enumeration has begun since, in which
+    /// case this list is stale (a device in it may already be gone) and the newer one will be
+    /// applied instead. Enumerations run off the main queue and are applied on it, so two quick
+    /// hot-plug events can apply an older list after a newer one was read.
+    func applyEnumeratedInputDevices(_ devices: [AVAudioDevice], generation: Int,
+                                     systemDefaultUID: String?,
+                                     isAutoSelectable: (AVAudioDevice) -> Bool = { _ in true }) {
+        guard isCurrentDeviceListGeneration(generation) else {
+            gtLog("🎤 Device list superseded by a newer enumeration — not applied")
+            return
+        }
+        applyInputDeviceList(devices, systemDefaultUID: systemDefaultUID, isAutoSelectable: isAutoSelectable)
+    }
+
+    /// The device to fall back to when `failed` could not be opened, decided when the failure
+    /// happens: the device the engine last opened, if it is still listed; otherwise the system
+    /// default, otherwise the first listed device — never `failed` itself.
+    func fallbackAfterFailedOpen(of failed: AVAudioDevice?, systemDefaultUID: String?) -> AVAudioDevice? {
+        let candidates = availableInputDevices.filter { $0.uid != failed?.uid }
+        if let last = lastOpenedInputDevice,
+           let listed = candidates.first(where: { $0.uid == last.uid }) {
+            return listed
+        }
+        return Self.inputDeviceToUse(in: candidates, savedUID: nil, systemDefaultUID: systemDefaultUID)
+    }
+
+    /// A restart after a selection change failed: select the fallback (reported by
+    /// `revertFailedInputSwitch`), and start the engine on it — through the watchdog's bounded
+    /// retries if that start fails too. The engine is marked as failed until a start succeeds,
+    /// so a later selection starts it (``restartsOnSelectionChange(isRunning:startFailed:)``).
+    func recoverFromFailedStart() {
+        engineStartFailed = true
+        let failed = selectedInputDevice
+        let systemDefaultUID = Self.systemDefaultInputDeviceID().flatMap { defaultID in
+            availableInputDevices.first(where: { $0.deviceID == defaultID })?.uid
+        }
+        revertFailedInputSwitch(from: failed,
+                                to: fallbackAfterFailedOpen(of: failed, systemDefaultUID: systemDefaultUID))
+        do {
+            try start()
+        } catch {
+            gtLog("❌ Could not start on '\(selectedInputDevice?.name ?? "none")' either (\(error)) — retrying")
+            isRecoveringEngine = true
+            attemptWatchdogRecovery()
         }
     }
 
