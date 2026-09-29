@@ -1026,9 +1026,12 @@ final class TapToneAnalyzer: ObservableObject {
     /// completed, when the user manually changes threshold or tap count, or on reset.
     @Published var showLoadedSettingsWarning: Bool = false
 
-    /// Warning message shown when the microphone used for a loaded measurement is unavailable
-    /// on the current device.
+    /// Warning message shown after a load when the measurement's microphone is not found, its
+    /// setup (calibration, sample rate) differs from the current one, or it cannot be opened.
     @Published var microphoneWarning: String?
+
+    /// The title of the alert that shows `microphoneWarning`; set with it.
+    @Published var microphoneWarningTitle: String = "Microphone Not Found"
 
     /// Peak selection IDs loaded from a saved plate/brace measurement.
     @Published var loadedSelectedLongitudinalPeakID: UUID?

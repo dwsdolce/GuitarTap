@@ -216,15 +216,20 @@ struct MicSelectionTests {
     @Test func MS16_noMatch_warnsAndKeepsTheInput() {
         let sut = load(recordedWith: device("Absent Mic", 9))
         #expect(sut.fftAnalyzer.selectedInputDevice == builtIn)
-        #expect(sut.microphoneWarning?.hasPrefix(
-            "Recorded with 'Absent Mic'. No connected microphone matches that name") == true)
+        #expect(sut.microphoneWarningTitle == "Microphone Not Found")
+        #expect(sut.microphoneWarning == TapToneAnalyzer.microphoneNotFoundMessage(
+            recorded: "Absent Mic", current: builtIn.name))
+        #expect(sut.microphoneWarning?.contains("you are still using 'MacBook Pro Microphone'") == true)
     }
 
     // MS17: The recorded microphone is the current one but its calibration differs — the warning.
     @Test func MS17_sameMicrophone_differentCalibration_warns() {
         let sut = load(recordedWith: builtIn, calibrationName: "Other")
+        #expect(sut.microphoneWarningTitle == "Recording Setup Differs")
         #expect(sut.microphoneWarning ==
-            "This measurement was recorded with a different calibration. A newly captured tap may not match the saved result.")
+            "This measurement was made with a different setup from the current one:\n"
+            + "• Calibration: recorded with 'Other'; the current microphone uses 'Built-in room'.\n\n"
+            + "A tap captured now may not match the saved result. The sample rate is set outside Guitar Tap: in Audio MIDI Setup on a Mac, or Sound settings on Windows.")
     }
 
     // MARK: - Choosing a calibration

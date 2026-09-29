@@ -229,7 +229,7 @@ struct ImportMessageTests {
     func singleImport_carriesTheLoadsWarning() throws {
         let sut = makeSUT()
         let message = try sut.importAndLoadMeasurements(from: fileData([measurement(mic: Self.absentMic)]))
-        #expect(message.hasPrefix("Successfully imported and loaded 1 measurement\n\n⚠️ Recorded with '\(Self.absentMic)'"))
+        #expect(message.hasPrefix("Successfully imported and loaded 1 measurement\n\n⚠️ This measurement was recorded with a microphone named '\(Self.absentMic)'"))
         #expect(sut.microphoneWarning == nil, "folded into the message, so the main view's alert does not show it again")
     }
 

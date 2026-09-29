@@ -758,6 +758,7 @@ extension TapToneAnalyzer {
                         try fftAnalyzer.setInputDevice(match)
                         gtLog("🎤 Auto-selected microphone '\(name)' for loaded measurement")
                     } catch {
+                        microphoneWarningTitle = "Microphone Unavailable"
                         microphoneWarning = RealtimeFFTAnalyzer.failedOpenMessage(for: match)
                         switchFailed = true
                     }
@@ -765,17 +766,17 @@ extension TapToneAnalyzer {
                 if !switchFailed {
                     // Same microphone — but flag a calibration or sample-rate difference,
                     // since a newly captured tap would then not match this saved measurement.
-                    var diffs: [String] = []
-                    if measurement.calibrationName != fftAnalyzer.activeCalibration?.name {
-                        diffs.append("calibration")
-                    }
-                    if let recordedRate = measurement.sampleRate,
-                       Int(recordedRate.rounded()) != Int(fftAnalyzer.actualSampleRate.rounded()) {
-                        diffs.append("sample rate")
-                    }
-                    microphoneWarning = diffs.isEmpty
-                        ? nil
-                        : "This measurement was recorded with a different \(diffs.joined(separator: " and ")). A newly captured tap may not match the saved result."
+                    let calibrationDiffers = measurement.calibrationName != fftAnalyzer.activeCalibration?.name
+                    let currentRate = Int(fftAnalyzer.actualSampleRate.rounded())
+                    let recordedRate = measurement.sampleRate.map { Int($0.rounded()) }
+                    let rateDiffers = recordedRate.map { $0 != currentRate } ?? false
+                    microphoneWarningTitle = "Recording Setup Differs"
+                    microphoneWarning = (calibrationDiffers || rateDiffers)
+                        ? Self.setupDiffersMessage(
+                            calibration: calibrationDiffers
+                                ? (measurement.calibrationName, fftAnalyzer.activeCalibration?.name) : nil,
+                            sampleRate: rateDiffers ? (recordedRate ?? 0, currentRate) : nil)
+                        : nil
                 }
             } else {
                 // Report UNKNOWN, not "unplugged": a no-match can equally mean the device is attached
@@ -783,7 +784,9 @@ extension TapToneAnalyzer {
                 // and "Microphone (Umik-1  Gain: 18dB)" on Windows). Impact stated so the reader can
                 // judge — frequencies are essentially mic-independent; levels, trigger and faint peaks
                 // are not. Mirrors the Python + web wording.
-                microphoneWarning = "Recorded with '\(name)'. No connected microphone matches that name — it may be unplugged, or attached under a different name on this platform. Peak frequencies should still be comparable; input levels, the tap threshold, and faint peaks (such as FLC) may differ."
+                microphoneWarningTitle = "Microphone Not Found"
+                microphoneWarning = Self.microphoneNotFoundMessage(
+                    recorded: name, current: fftAnalyzer.selectedInputDevice?.name)
             }
         }
 
@@ -811,6 +814,30 @@ extension TapToneAnalyzer {
         if !tapEntries.isEmpty {
             gtLog("  📋 Restored \(tapEntries.count) per-tap entries for multi-tap comparison")
         }
+    }
+
+    /// The load's warning when no connected microphone has the recorded name. Names both
+    /// microphones — the recorded one and the one in use — and says why a measurement from another
+    /// computer usually cannot find its microphone.
+    static func microphoneNotFoundMessage(recorded: String, current: String?) -> String {
+        "This measurement was recorded with a microphone named '\(recorded)'. No connected microphone has exactly that name, so the input has not been changed — you are still using '\(current ?? "no microphone")'.\n\n"
+            + "Each computer names microphones its own way. A measurement made on another computer — especially one running a different operating system — will usually not find its microphone even when the same one is connected. If it is, choose it in Settings.\n\n"
+            + "Peak frequencies are still comparable; input levels, the tap threshold, and faint peaks (such as FLC) may differ."
+    }
+
+    /// The load's warning when the recorded microphone is in use but the calibration and/or the
+    /// sample rate differs — one line for each that differs, with both values.
+    static func setupDiffersMessage(calibration: (recorded: String?, current: String?)?,
+                                    sampleRate: (recorded: Int, current: Int)?) -> String {
+        var lines = ["This measurement was made with a different setup from the current one:"]
+        if let calibration {
+            lines.append("• Calibration: recorded with \(calibration.recorded.map { "'\($0)'" } ?? "none"); the current microphone uses \(calibration.current.map { "'\($0)'" } ?? "none").")
+        }
+        if let sampleRate {
+            lines.append("• Sample rate: recorded at \(sampleRate.recorded) Hz; audio is now captured at \(sampleRate.current) Hz.")
+        }
+        return lines.joined(separator: "\n")
+            + "\n\nA tap captured now may not match the saved result. The sample rate is set outside Guitar Tap: in Audio MIDI Setup on a Mac, or Sound settings on Windows."
     }
 
     /// Encodes a single measurement as a pretty-printed JSON string and
