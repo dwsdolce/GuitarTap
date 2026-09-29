@@ -504,8 +504,19 @@ final class TapToneAnalyzer: ObservableObject {
     /// Mirrors Python `_latest_real_status`.
     var latestRealStatus: String = "Tap the guitar to begin"
 
+    /// The device-change transient. Named because two places must agree on it: the write in
+    /// `handleRouteChangeRestart()`, and the guard that keeps a SECOND route change from capturing
+    /// it as the pre-settle status. Mirrors Python `ROUTE_CHANGE_STATUS`.
+    static let routeChangeStatus = "Audio device changed - reinitializing..."
+
     /// What the status said before a device-change settle replaced it with the "reinitializing…"
-    /// transient, or `nil` when no settle is in flight.
+    /// transient.
+    ///
+    /// It is NOT cleared when a settle ends. Each route change schedules its own restore, so a
+    /// burst — unplug and replug faster than `fftSettleTime` — leaves several of them behind, and
+    /// clearing on the first would hand every later one `"Ready"` in place of the prompt it should
+    /// put back. The capture guard keeps the value fresh instead: the next route change that
+    /// arrives with a REAL status on screen overwrites it.
     ///
     /// A stored property rather than a local, matching Python `_status_before_settle` and web
     /// `statusBeforeSettle`, so the capture is observable and all three editions can pin it.
@@ -1825,8 +1836,19 @@ final class TapToneAnalyzer: ObservableObject {
         // route change while the input is clipping or dead would preserve the warning sentinel and
         // put it back as though the analyzer had set it. The override layer re-resolves on its own
         // from the real status, so the real status is what has to survive the settle.
-        statusBeforeSettle = latestRealStatus
-        statusMessage = "Audio device changed - reinitializing..."
+        //
+        // GUARDED so a route change DURING a settle cannot capture the transient itself. Unplug and
+        // replug faster than `fftSettleTime` and the second capture stored `routeChangeStatus` as
+        // the real status; `restoredStatus(before:)` then put THAT back for every state whose
+        // status is not re-derivable — a completed measurement, a material phase prompt — and the
+        // transient stayed up until the next tap wrote over it. Web guards the same capture
+        // (`if (this.statusBeforeSettle === null)`); it can test for null because its device-change
+        // timer is coalesced, while here every route change leaves its own restore behind, so the
+        // test is "is this already the transient".
+        if latestRealStatus != Self.routeChangeStatus {
+            statusBeforeSettle = latestRealStatus
+        }
+        statusMessage = Self.routeChangeStatus
 
         // Wait for the FFT pipeline to fill with valid post-restart data (~1.36 s for
         // 65 536 samples at 48 kHz).  Use 3 s: the extra margin covers the HALC
@@ -1864,7 +1886,6 @@ final class TapToneAnalyzer: ObservableObject {
                     // Derive the status from the state we are now in; where that is a result
                     // announcement rather than a prompt, put back what was there before the settle.
                     self.statusMessage = self.restoredStatus(before: self.statusBeforeSettle ?? "Ready")
-                    self.statusBeforeSettle = nil
                     gtLog("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
                 }
                 .store(in: &self.cancellables)
