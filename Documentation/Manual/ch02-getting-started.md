@@ -75,6 +75,10 @@ section to pick your microphone.
   per-device calibration (§2.4).
 - The currently selected input is shown in the analysis screen so
   you always know what is being captured.
+- **Linux only:** the device list is built when Guitar Tap starts. A
+  microphone connected or disconnected while the app is running is not
+  detected automatically — open Settings and select it, or restart Guitar
+  Tap. On iOS, macOS and Windows the switch is automatic.
 
 ## 2.4 Importing a Microphone Calibration File
 
