@@ -2,9 +2,9 @@
 //  WavDumpFolderTests.swift
 //  GuitarTapTests
 //
-//  Pins the shared WAV-dump-folder logic: default folder, no-custom reachability, and the
-//  acquire/release write helper. The macOS bookmark round-trip and the picker are checked by hand,
-//  not here. Two-way with Python
+//  Pins the shared WAV-dump-folder logic: default folder, reachability, the acquire/release write
+//  helper, and a custom folder that is in place, renamed, or deleted. The custom folder is stored in
+//  the isolated test settings. The folder picker is checked by hand. Two-way with Python
 //  test_wav_dump_folder.py (the web has no counterpart — a page can only download to Downloads).
 //
 // @parity test/wav-dump-folder
@@ -34,7 +34,6 @@ struct WavDumpFolderTests {
 
     #if os(macOS)
     @Test func hasCustomFolder_falseByDefault() {
-        WavDumpFolder.useDefaultFolder()
         #expect(WavDumpFolder.hasCustomFolder == false)
     }
     #endif
@@ -45,5 +44,212 @@ struct WavDumpFolderTests {
         #expect(acquired != nil)
         #expect(acquired?.folder.lastPathComponent == "GuitarTap")
         acquired?.release()
+    }
+
+    #if os(macOS)
+    /// A fresh folder in the test's temp area, removed with `cleanUp`.
+    private func makeFolder() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(TestSandbox.name("com.guitartap.tests"))
+            .appendingPathComponent("Captures-\(UUID().uuidString)", isDirectory: true)
+            .resolvingSymlinksInPath()
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    private func cleanUp(_ urls: URL...) {
+        WavDumpFolder.useDefaultFolder()
+        for url in urls { try? FileManager.default.removeItem(at: url) }
+    }
+
+    @Test func customFolder_isReachable_andIsCurrentAndAcquired() throws {
+        let folder = try makeFolder()
+        defer { cleanUp(folder) }
+        #expect(WavDumpFolder.setCustomFolder(folder))
+        #expect(WavDumpFolder.hasCustomFolder)
+        #expect(WavDumpFolder.isReachable)
+        #expect(WavDumpFolder.currentFolder.path == folder.path)
+        let acquired = WavDumpFolder.acquireDumpFolder()
+        #expect(acquired?.folder.path == folder.path)
+        acquired?.release()
+    }
+
+    @Test func renamedCustomFolder_isUnreachable_andAcquireSkips() throws {
+        // The folder must stay where the user put it: a renamed folder is not followed.
+        let folder = try makeFolder()
+        let renamed = folder.deletingLastPathComponent().appendingPathComponent("Renamed-\(UUID().uuidString)")
+        defer { cleanUp(folder, renamed) }
+        #expect(WavDumpFolder.setCustomFolder(folder))
+        try FileManager.default.moveItem(at: folder, to: renamed)
+        #expect(WavDumpFolder.hasCustomFolder)
+        #expect(WavDumpFolder.isReachable == false)
+        #expect(WavDumpFolder.acquireDumpFolder() == nil)
+        #expect(WavDumpFolder.currentFolder.path == folder.path)
+    }
+
+    @Test func deletedCustomFolder_isUnreachable_andAcquireSkips() throws {
+        let folder = try makeFolder()
+        defer { cleanUp(folder) }
+        #expect(WavDumpFolder.setCustomFolder(folder))
+        try FileManager.default.removeItem(at: folder)
+        #expect(WavDumpFolder.isReachable == false)
+        #expect(WavDumpFolder.acquireDumpFolder() == nil)
+    }
+
+    @Test func openFolder_withARenamedCustomFolder_opensTheDefault_notANewOne() throws {
+        let folder = try makeFolder()
+        let renamed = folder.deletingLastPathComponent().appendingPathComponent("Renamed-\(UUID().uuidString)")
+        defer { cleanUp(folder, renamed) }
+        #expect(WavDumpFolder.setCustomFolder(folder))
+        try FileManager.default.moveItem(at: folder, to: renamed)
+        let (opened, release) = WavDumpFolder.folderToOpen()
+        release()
+        #expect(opened.path == WavDumpFolder.defaultFolder.path)
+        #expect(FileManager.default.fileExists(atPath: folder.path) == false)
+    }
+
+    // Arming with Dump Capture Audio on checks the folder first: an unreachable folder is flagged
+    // for the prompt and nothing is armed.
+
+    @Test func requestStart_withAnUnreachableFolder_flagsIt_andDoesNotArm() throws {
+        let folder = try makeFolder()
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump; cleanUp(folder) }
+        #expect(WavDumpFolder.setCustomFolder(folder))
+        try FileManager.default.removeItem(at: folder)
+        TapDisplaySettings.dumpCaptureAudio = true
+        let sut = TapToneAnalyzer.forTesting()
+        sut.requestStartTapSequence()
+        #expect(sut.dumpFolderUnreachable)
+        #expect(sut.isDetecting == false)
+    }
+
+    @Test func requestStart_withAReachableFolder_arms() throws {
+        let folder = try makeFolder()
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump; cleanUp(folder) }
+        #expect(WavDumpFolder.setCustomFolder(folder))
+        TapDisplaySettings.dumpCaptureAudio = true
+        let sut = TapToneAnalyzer.forTesting()
+        sut.requestStartTapSequence()
+        #expect(sut.dumpFolderUnreachable == false)
+        #expect(sut.isDetecting)
+    }
+
+    @Test func useDefaultFolder_forgetsTheCustomFolder() throws {
+        let folder = try makeFolder()
+        defer { cleanUp(folder) }
+        #expect(WavDumpFolder.setCustomFolder(folder))
+        WavDumpFolder.useDefaultFolder()
+        #expect(WavDumpFolder.hasCustomFolder == false)
+        #expect(WavDumpFolder.currentFolder.path == WavDumpFolder.defaultFolder.path)
+    }
+
+    // A recording that can't be written when its measurement finishes is held, not dropped: the
+    // user is asked, and choosing a folder saves it.
+
+    /// The WAVs with `label` in `folder`.
+    private func wavs(labelled label: String, in folder: URL) -> [String] {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        return names.filter { $0.hasPrefix("swift_\(label)_") && $0.hasSuffix(".wav") }
+    }
+
+    @Test func unwritableRecording_isHeld_andFlagged() throws {
+        let folder = try makeFolder()
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump; cleanUp(folder) }
+        #expect(WavDumpFolder.setCustomFolder(folder))
+        try FileManager.default.removeItem(at: folder)
+        TapDisplaySettings.dumpCaptureAudio = true
+        let sut = TapToneAnalyzer.forTesting()
+        sut.dumpCaptureWAV(samples: [0.1, -0.1, 0.2], sampleRate: 48000, label: "held")
+        #expect(sut.heldCaptureRecordings.count == 1)
+        #expect(sut.captureRecordingHeld)
+    }
+
+    @Test func heldRecording_isSavedToTheFolderTheUserChooses() throws {
+        let gone = try makeFolder()
+        let chosen = try makeFolder()
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump; cleanUp(gone, chosen) }
+        #expect(WavDumpFolder.setCustomFolder(gone))
+        try FileManager.default.removeItem(at: gone)
+        TapDisplaySettings.dumpCaptureAudio = true
+        let sut = TapToneAnalyzer.forTesting()
+        sut.dumpCaptureWAV(samples: [0.1, -0.1, 0.2], sampleRate: 48000, label: "held")
+        #expect(WavDumpFolder.setCustomFolder(chosen))
+        sut.saveHeldCaptureRecordings()
+        #expect(sut.heldCaptureRecordings.isEmpty)
+        #expect(wavs(labelled: "held", in: chosen).count == 1)
+        #expect(sut.captureAudioSaved?.hasPrefix("swift_held_") == true)
+    }
+
+    @Test func heldRecording_isDiscardedWhenTheUserLetsItGo() throws {
+        let gone = try makeFolder()
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump; cleanUp(gone) }
+        #expect(WavDumpFolder.setCustomFolder(gone))
+        try FileManager.default.removeItem(at: gone)
+        TapDisplaySettings.dumpCaptureAudio = true
+        let sut = TapToneAnalyzer.forTesting()
+        sut.dumpCaptureWAV(samples: [0.1, -0.1, 0.2], sampleRate: 48000, label: "held")
+        sut.discardHeldCaptureRecordings()
+        #expect(sut.heldCaptureRecordings.isEmpty)
+        #expect(wavs(labelled: "held", in: WavDumpFolder.defaultFolder).isEmpty)
+    }
+    #endif
+
+    // Saving turned on after a sequence has started applies to that sequence: the recording is made
+    // regardless, and the setting is read when it is written.
+
+    @Test func savingTurnedOnAfterArming_savesThatSequencesRecording() {
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump }
+        TapDisplaySettings.dumpCaptureAudio = false
+        let sut = TapToneAnalyzer.forTesting()
+        sut.startTapSequence()
+        sut.maintainSessionRecording(appending: [Float](repeating: 0.1, count: 1024))
+        TapDisplaySettings.dumpCaptureAudio = true
+        let folder = WavDumpFolder.defaultFolder
+        let before = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [])
+        sut.finishSessionRecording(label: "Guitar_1tap")
+        let after = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [])
+        let written = after.subtracting(before).filter { $0.hasPrefix("swift_session_Guitar_1tap_") }
+        #expect(written.count == 1)
+        for name in written { try? FileManager.default.removeItem(at: folder.appendingPathComponent(name)) }
+    }
+
+    // A save is shown: the analyzer names the file it wrote, until dismissed or a new sequence starts.
+
+    @Test func savedNotice_namesTheFile_untilDismissedOrANewSequence() {
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump }
+        TapDisplaySettings.dumpCaptureAudio = true
+        let folder = WavDumpFolder.defaultFolder
+        defer {
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+            for name in names where name.hasPrefix("swift_notice_") {
+                try? FileManager.default.removeItem(at: folder.appendingPathComponent(name))
+            }
+        }
+        let sut = TapToneAnalyzer.forTesting()
+        sut.dumpCaptureWAV(samples: [0.1, -0.1, 0.2], sampleRate: 48000, label: "notice")
+        #expect(sut.captureAudioSaved?.hasPrefix("swift_notice_") == true)
+        sut.dismissCaptureAudioSaved()
+        #expect(sut.captureAudioSaved == nil)
+
+        sut.dumpCaptureWAV(samples: [0.1, -0.1, 0.2], sampleRate: 48000, label: "notice")
+        #expect(sut.captureAudioSaved != nil)
+        sut.startTapSequence()
+        #expect(sut.captureAudioSaved == nil)
+    }
+
+    @Test func savedNotice_notShownWhenSavingIsOff() {
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump }
+        TapDisplaySettings.dumpCaptureAudio = false
+        let sut = TapToneAnalyzer.forTesting()
+        sut.dumpCaptureWAV(samples: [0.1, -0.1, 0.2], sampleRate: 48000, label: "notice")
+        #expect(sut.captureAudioSaved == nil)
     }
 }

@@ -141,6 +141,23 @@ extension TapToneAnalysisView {
         } message: {
             Text("The folder you chose for saving captured audio isn't there:\n\(WavDumpFolder.currentFolder.path)\n\nIt may have been renamed, moved, or removed. Choose the folder again, or turn off audio saving, before starting the measurement.")
         }
+        // Write-time guard: a measurement finished but its captured audio couldn't be written. The
+        // recording is held; choosing a folder saves it, the other choices let it go.
+        .alert("Capture Audio Folder Unavailable", isPresented: $tapToneAnalyzer.captureRecordingHeld) {
+            Button("Change Location…") {
+                _ = WavDumpFolder.chooseFolder()
+                tapToneAnalyzer.saveHeldCaptureRecordings()     // asks again if still not written
+            }
+            Button("Turn Off Saving") {
+                TapDisplaySettings.dumpCaptureAudio = false
+                tapToneAnalyzer.discardHeldCaptureRecordings()
+            }
+            Button("Cancel", role: .cancel) {
+                tapToneAnalyzer.discardHeldCaptureRecordings()
+            }
+        } message: {
+            Text("The captured audio of this measurement couldn't be saved to:\n\(WavDumpFolder.currentFolder.path)\n\nThe folder may have been renamed, moved, or removed. Choose a folder to save it, or turn off audio saving.")
+        }
     }
 
     /// Left pane of the macOS split view: spectrum chart and decay info.

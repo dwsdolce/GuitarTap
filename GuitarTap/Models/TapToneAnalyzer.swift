@@ -498,6 +498,33 @@ final class TapToneAnalyzer: ObservableObject {
     /// Turn Off Saving / Cancel — and the sequence does not arm until it is resolved. macOS only.
     @Published var dumpFolderUnreachable: Bool = false
 
+    /// A capture's audio waiting to be saved by Dump Capture Audio.
+    struct CaptureRecording {
+        let samples: [Float]
+        let sampleRate: Double
+        let label: String
+        /// When it was captured — names the file, whenever it is written.
+        let date: Date
+    }
+
+    /// Recordings that could not be written when their measurement finished (the chosen folder was
+    /// no longer at its path, or the write failed). Held until the user chooses a folder or lets them
+    /// go. macOS only.
+    var heldCaptureRecordings: [CaptureRecording] = []
+
+    /// Set true when a recording is held; the view asks the user to choose a folder, turn off saving,
+    /// or cancel. macOS only.
+    @Published var captureRecordingHeld: Bool = false
+
+    /// The file name of the last capture audio Dump Capture Audio wrote, for the "saved" notice; `nil`
+    /// when none is shown. A new sequence clears it.
+    @Published var captureAudioSaved: String? = nil
+
+    /// The user dismissed the "Capture audio saved" notice.
+    func dismissCaptureAudioSaved() {
+        captureAudioSaved = nil
+    }
+
     /// The most recent analyzer-set status message, preserved while the
     /// clipping override is active so it can be restored when clipping clears.
     /// Updated by a Combine sink on `$statusMessage` (see setupSubscriptions).

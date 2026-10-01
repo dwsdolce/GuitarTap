@@ -135,12 +135,14 @@ extension TapToneAnalyzer {
 
     // MARK: - WAV Dump Helper
 
-    /// Writes raw PCM samples to a mono 32-bit float WAV file in the app's `Documents/GuitarTap/`
+    /// Saves raw PCM samples as a mono 32-bit float WAV file in the dump folder (`WavDumpFolder`)
     /// when `TapDisplaySettings.dumpCaptureAudio` is enabled.  Shared by guitar, plate, and brace
     /// capture paths.
     ///
-    /// Under App Sandbox that is the **container's** Documents, not the user's `~/Documents`.
-    /// The folder is user-settable.
+    /// A recording that can't be written — the chosen folder is no longer at its path, or the write
+    /// fails — is held rather than dropped (macOS): ``captureRecordingHeld`` is set so the view asks
+    /// the user to choose a folder (``saveHeldCaptureRecordings()``) or let it go
+    /// (``discardHeldCaptureRecordings()``). It is never written anywhere the user didn't choose.
     ///
     /// - Parameters:
     ///   - samples: Raw Float32 PCM samples to dump.
@@ -149,23 +151,48 @@ extension TapToneAnalyzer {
     ///     "session_Plate_LCF").
     func dumpCaptureWAV(samples: [Float], sampleRate: Double, label: String) {
         guard TapDisplaySettings.dumpCaptureAudio else { return }
-        // The user-settable dump folder: the custom folder (security scope held) or the
-        // default container. Reachability was checked at arm time, so this normally succeeds; if the
-        // custom folder vanished mid-measurement, skip rather than silently write elsewhere.
+        let recording = CaptureRecording(samples: samples, sampleRate: sampleRate, label: label, date: Date())
+        guard !writeCaptureRecording(recording) else { return }
+        #if os(macOS)
+        heldCaptureRecordings.append(recording)
+        captureRecordingHeld = true
+        #endif
+    }
+
+    /// Write every held recording to the dump folder — after the user has chosen one. Recordings that
+    /// still can't be written stay held and the prompt is raised again.
+    func saveHeldCaptureRecordings() {
+        heldCaptureRecordings = heldCaptureRecordings.filter { !writeCaptureRecording($0) }
+        if !heldCaptureRecordings.isEmpty {
+            // After the alert that called this has finished dismissing.
+            DispatchQueue.main.async { [weak self] in self?.captureRecordingHeld = true }
+        }
+    }
+
+    /// Let the held recordings go — the user turned saving off or cancelled.
+    func discardHeldCaptureRecordings() {
+        guard !heldCaptureRecordings.isEmpty else { return }
+        gtLog("⚠️ WAV dump discarded by the user — \(heldCaptureRecordings.count) recording(s) not saved")
+        heldCaptureRecordings = []
+    }
+
+    /// Write one recording to the dump folder. Returns `false` if the chosen folder is no longer at its
+    /// path or the write fails. The file is named for when it was captured.
+    func writeCaptureRecording(_ recording: CaptureRecording) -> Bool {
         guard let (dumpDir, releaseFolder) = WavDumpFolder.acquireDumpFolder() else {
-            gtLog("⚠️ WAV dump skipped — the chosen folder is no longer reachable")
-            return
+            gtLog("⚠️ WAV dump not written — the chosen folder is no longer reachable")
+            return false
         }
         defer { releaseFolder() }
         do {
             try FileManager.default.createDirectory(at: dumpDir, withIntermediateDirectories: true)
-            let ts = ISO8601DateFormatter().string(from: Date())
+            let ts = ISO8601DateFormatter().string(from: recording.date)
                 .replacingOccurrences(of: ":", with: "-")
-            let name = "swift_\(label)_\(ts).wav"
+            let name = "swift_\(recording.label)_\(ts).wav"
             let url = dumpDir.appendingPathComponent(name)
 
-            let sr = Int(sampleRate)
-            let numSamples = samples.count
+            let sr = Int(recording.sampleRate)
+            let numSamples = recording.samples.count
             let bytesPerSample = 4  // Float32
             let dataSize = numSamples * bytesPerSample
             var header = Data(capacity: 44 + dataSize)
@@ -195,11 +222,14 @@ extension TapToneAnalyzer {
             var dataSizeLE = UInt32(dataSize).littleEndian
             header.append(Data(bytes: &dataSizeLE, count: 4))
             // Sample data
-            header.append(samples.withUnsafeBufferPointer { Data(buffer: $0) })
+            header.append(recording.samples.withUnsafeBufferPointer { Data(buffer: $0) })
             try header.write(to: url)
             gtLog("📦 WAV dump: \(url.path) (\(numSamples) samples, \(sr) Hz)")
+            captureAudioSaved = name
+            return true
         } catch {
             gtLog("⚠️ WAV dump failed: \(error.localizedDescription)")
+            return false
         }
     }
 

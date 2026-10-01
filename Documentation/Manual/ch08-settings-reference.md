@@ -168,15 +168,16 @@ SCREENSHOT:
 
   When enabled, a **folder row** appears beneath the setting showing
   where the files are saved, with buttons to work with that folder:
-    - **macOS:** *Show in Finder* opens the folder; *Change…* lets you
-      pick any folder (the app remembers your choice across launches);
-      *Use Default* returns to the app's own storage. The default is
-      inside the app's container; use *Change…* to send dumps to, for
-      example, `~/Documents/GuitarTap`.
-    - **Desktop (Python build — macOS / Windows / Linux):** the same
-      *Open Folder* / *Change…* / *Use Default* controls. The default
-      is your **Documents** folder + `GuitarTap` (your real Documents
-      location, including a redirected or OneDrive Documents).
+    - **Desktop (macOS / Windows / Linux):** *Open Folder* opens the
+      folder; *Change…* lets you pick any folder (the app remembers your
+      choice across launches); *Use Default* returns to the default
+      folder. If the folder you chose has been renamed, moved or deleted,
+      *Open Folder* opens the default instead. The default is your
+      **Documents** folder + `GuitarTap` (your real Documents location,
+      including a redirected or OneDrive Documents) — except in the macOS
+      native build, where it is inside the app's container; use
+      *Change…* there to send dumps to, for example,
+      `~/Documents/GuitarTap`.
     - **iPhone / iPad:** the app's Documents directory (not settable),
       reachable via **Files → On My iPhone/iPad → Guitar Tap**.
     - **Browser (web build):** files download to your browser's

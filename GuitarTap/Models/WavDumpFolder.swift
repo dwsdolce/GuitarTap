@@ -7,7 +7,7 @@
 // @parity model/wav-dump-folder tests=test/wav-dump-folder
 //
 // Shared capability with Python (models/wav_dump_folder.py): default folder, current folder,
-// has-custom, reachability check, choose, use-default, reveal. The STORAGE differs by platform —
+// has-custom, reachability check, choose, use-default, open. The STORAGE differs by platform —
 // a security-scoped bookmark here (App Sandbox), a plain stored path in Python (not sandboxed) —
 // but the interface and method names match. The web has no counterpart (a browser page can only
 // download to its Downloads folder), so this slug is Swift + Python only.
@@ -50,23 +50,26 @@ enum WavDumpFolder {
     private static let bookmarkKey = "GuitarTap.wavDumpFolderBookmark"
     private static let pathKey = "GuitarTap.wavDumpFolderPath"
 
-    /// Whether the user has chosen a custom folder (a bookmark is stored). Never under test: the stored
-    /// bookmark is the real app's, and a test must not write into the user's chosen folder.
+    /// The app's settings store — an isolated suite under test, so a test never sees or changes the
+    /// folder chosen in the real app.
+    private static var store: UserDefaults { TapDisplaySettings.defaults }
+
+    /// Whether the user has chosen a custom folder (a bookmark is stored).
     static var hasCustomFolder: Bool {
-        !TestSandbox.isActive && UserDefaults.standard.data(forKey: bookmarkKey) != nil
+        store.data(forKey: bookmarkKey) != nil
     }
 
     /// The path the user chose — the "name" they care about. Shown in Settings and the dialog, so it
     /// can be named even when the folder is gone. Reading it does **not** resolve the bookmark, so
     /// the display is instant (no slow resolve of a dead bookmark on the main thread).
-    static var chosenPath: String { UserDefaults.standard.string(forKey: pathKey) ?? "" }
+    static var chosenPath: String { store.string(forKey: pathKey) ?? "" }
 
     /// Resolve the bookmark to an access-held URL — **only if the folder is still at the chosen
     /// path**. Returns `nil` if the bookmark can't resolve (deleted) or resolves elsewhere (renamed
     /// / moved / trashed). Caller must `stopAccessingSecurityScopedResource()` on the returned URL.
     /// Re-mints a benign-stale bookmark that still points at the chosen path.
     private static func resolveAtChosenPath() -> URL? {
-        guard let data = UserDefaults.standard.data(forKey: bookmarkKey) else { return nil }
+        guard let data = store.data(forKey: bookmarkKey) else { return nil }
         var isStale = false
         guard let url = try? URL(resolvingBookmarkData: data,
                                  options: .withSecurityScope,
@@ -76,7 +79,7 @@ enum WavDumpFolder {
         guard url.startAccessingSecurityScopedResource() else { return nil }
         if isStale, let fresh = try? url.bookmarkData(options: .withSecurityScope,
                                                       includingResourceValuesForKeys: nil, relativeTo: nil) {
-            UserDefaults.standard.set(fresh, forKey: bookmarkKey)
+            store.set(fresh, forKey: bookmarkKey)
         }
         return url   // access held — caller releases
     }
@@ -105,10 +108,11 @@ enum WavDumpFolder {
         return (defaultFolder, {})
     }
 
-    /// Whether the configured dump folder can be written to **right now** — checked at New Tap / at
+    /// Whether the configured dump folder is still where the user put it — checked at New Tap / at
     /// launch auto-arm. No custom folder → true (the default is always reachable).
-    /// A custom folder is reachable only if the bookmark resolves **to the chosen path** and is
-    /// writable; a rename / move / trash / delete makes it false, and the user must fix it.
+    /// A custom folder is reachable only if the bookmark resolves **to the chosen path** and access to
+    /// it is granted; a rename / move / trash / delete makes it false, and the user must fix it.
+    /// Write permission is not checked — a write that fails is logged by the capture.
     static var isReachable: Bool {
         #if os(macOS)
         guard hasCustomFolder else { return true }
@@ -133,32 +137,42 @@ enum WavDumpFolder {
         panel.prompt = "Choose"
         panel.message = "Choose the folder Guitar Tap saves captured audio (WAV files) to"
         panel.directoryURL = MeasurementFileExporter.startDirectory
-        guard panel.runModal() == .OK, let url = panel.url,
-              let data = try? url.bookmarkData(options: .withSecurityScope,
+        guard panel.runModal() == .OK, let url = panel.url
+        else { return false }
+        return setCustomFolder(url)
+    }
+
+    /// Store `url` as the custom folder: its security-scoped bookmark and its path. Returns `false`
+    /// (nothing stored) if the bookmark cannot be made.
+    @discardableResult
+    static func setCustomFolder(_ url: URL) -> Bool {
+        guard let data = try? url.bookmarkData(options: .withSecurityScope,
                                                includingResourceValuesForKeys: nil, relativeTo: nil)
         else { return false }
-        UserDefaults.standard.set(data, forKey: bookmarkKey)
-        UserDefaults.standard.set(url.path, forKey: pathKey)
+        store.set(data, forKey: bookmarkKey)
+        store.set(url.path, forKey: pathKey)
         return true
     }
 
     /// Forget the custom folder — revert to the default container folder.
     static func useDefaultFolder() {
-        UserDefaults.standard.removeObject(forKey: bookmarkKey)
-        UserDefaults.standard.removeObject(forKey: pathKey)
+        store.removeObject(forKey: bookmarkKey)
+        store.removeObject(forKey: pathKey)
     }
 
-    /// Reveal the current dump folder in Finder (the custom folder if reachable, else the default).
-    @MainActor static func revealInFinder() {
-        if let (folder, release) = acquireDumpFolder() {
-            defer { release() }
-            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            NSWorkspace.shared.activateFileViewerSelecting([folder])
-        } else {
-            // Custom folder is set but unreachable — nothing to reveal there; show the default.
-            try? FileManager.default.createDirectory(at: defaultFolder, withIntermediateDirectories: true)
-            NSWorkspace.shared.activateFileViewerSelecting([defaultFolder])
-        }
+    /// Open the dump folder in Finder: the custom folder if reachable, else the default.
+    @MainActor static func openFolder() {
+        let (folder, release) = folderToOpen()
+        defer { release() }
+        NSWorkspace.shared.open(folder)
+    }
+
+    /// The folder Open Folder opens, created if missing, plus a `release` closure: the custom folder if
+    /// reachable, else the default. A custom folder that is not at its chosen path is never re-created.
+    static func folderToOpen() -> (folder: URL, release: () -> Void) {
+        let (folder, release) = acquireDumpFolder() ?? (defaultFolder, {})
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return (folder, release)
     }
     #endif
 }

@@ -486,6 +486,26 @@ extension TapToneAnalysisView {
                 .background(Color.orange.opacity(0.12))
                 .cornerRadius(6)
             }
+            // Dump Capture Audio wrote this measurement's WAV — shown so a setting left on is noticed.
+            if let saved = tap.captureAudioSaved {
+                HStack(spacing: 8) {
+                    Text("Capture audio saved: \(saved) (\(WavDumpFolder.currentFolder.lastPathComponent))")
+                        .font(.subheadline)
+                        .foregroundColor(.accentColor)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer()
+                    Button { tap.dismissCaptureAudioSaved() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Dismiss")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.accentColor.opacity(0.12))
+                .cornerRadius(6)
+            }
             if tap.displayMode == .comparison {
                 // Comparison mode: show comparison info below the warning (if any)
                 HStack(spacing: 12) {

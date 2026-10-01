@@ -452,7 +452,7 @@ extension TapSettingsView {
                         .truncationMode(.middle)
                         .textSelection(.enabled)
                     HStack(spacing: 8) {
-                        Button("Show in Finder") { WavDumpFolder.revealInFinder() }
+                        Button("Open Folder") { WavDumpFolder.openFolder() }
                         Button("Change…") {
                             if WavDumpFolder.chooseFolder() {
                                 dumpFolderDisplayPath = WavDumpFolder.currentFolder.path
