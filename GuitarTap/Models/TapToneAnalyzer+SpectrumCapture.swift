@@ -1291,7 +1291,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
             materialTapPhase = .reviewingLongitudinal
             detectionState = .idle
-            statusMessage = "fL: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
+            statusMessage = "fL: \(FieldPrecision.string(avgPeak.frequency, FieldPrecision.peakFrequencyHz)) Hz — Accept to continue or Redo to re-tap"
         }
     }
 
@@ -1368,7 +1368,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
             materialTapPhase = .reviewingCross
             detectionState = .idle
-            statusMessage = "fC: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to continue or Redo to re-tap"
+            statusMessage = "fC: \(FieldPrecision.string(avgPeak.frequency, FieldPrecision.peakFrequencyHz)) Hz — Accept to continue or Redo to re-tap"
         }
     }
 
@@ -1425,7 +1425,7 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: avgFreqs, magnitudes: avgMags)
             materialTapPhase = .reviewingFlc
             detectionState = .idle
-            statusMessage = "fLC: \(String(format: "%.1f", avgPeak.frequency)) Hz — Accept to complete or Redo to re-tap"
+            statusMessage = "fLC: \(FieldPrecision.string(avgPeak.frequency, FieldPrecision.peakFrequencyHz)) Hz — Accept to complete or Redo to re-tap"
         }
         gtLog("📊 FLC review: L=\(selectedLongitudinalPeak?.frequency ?? 0) C=\(selectedCrossPeak?.frequency ?? 0) FLC=\(avgPeak.frequency) Hz")
     }

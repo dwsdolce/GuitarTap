@@ -554,7 +554,7 @@ private struct PeakAnnotationLabel: View {
                 .fontWeight(.medium)
                 .foregroundColor(.primary)
 
-            Text("\(peak.magnitude, specifier: "%.1f") dB")
+            Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }

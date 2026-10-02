@@ -121,10 +121,10 @@ struct TapToneAnalysisView: View {
     @State var maxFreq: Float = TapDisplaySettings.maxFrequency
     @State var minDB: Float = TapDisplaySettings.minMagnitude
     @State var maxDB: Float = TapDisplaySettings.maxMagnitude
-    @State var minFreqInput: String = String(format: "%.0f", TapDisplaySettings.minFrequency)
-    @State var maxFreqInput: String = String(format: "%.0f", TapDisplaySettings.maxFrequency)
-    @State var minDBInput: String = String(format: "%.0f", TapDisplaySettings.minMagnitude)
-    @State var maxDBInput: String = String(format: "%.0f", TapDisplaySettings.maxMagnitude)
+    @State var minFreqInput: String = FieldPrecision.string(TapDisplaySettings.minFrequency, FieldPrecision.frequencyHz)
+    @State var maxFreqInput: String = FieldPrecision.string(TapDisplaySettings.maxFrequency, FieldPrecision.frequencyHz)
+    @State var minDBInput: String = FieldPrecision.string(TapDisplaySettings.minMagnitude, FieldPrecision.magnitudeDB)
+    @State var maxDBInput: String = FieldPrecision.string(TapDisplaySettings.maxMagnitude, FieldPrecision.magnitudeDB)
     /// The range a loaded measurement put on the chart (as widened onto its peaks), while the chart is
     /// still showing it; `nil` when no load is in view. A new measurement returns to the saved range
     /// only if the user has not moved the chart since the load.
@@ -426,10 +426,10 @@ private struct LoadedSettingsModifier: ViewModifier {
                     maxFreq = range.maxFreq
                     minDB   = range.minDB
                     maxDB   = range.maxDB
-                    minFreqInput = String(format: "%.0f", range.minFreq)
-                    maxFreqInput = String(format: "%.0f", range.maxFreq)
-                    minDBInput   = String(format: "%.0f", range.minDB)
-                    maxDBInput   = String(format: "%.0f", range.maxDB)
+                    minFreqInput = FieldPrecision.string(range.minFreq, FieldPrecision.frequencyHz)
+                    maxFreqInput = FieldPrecision.string(range.maxFreq, FieldPrecision.frequencyHz)
+                    minDBInput   = FieldPrecision.string(range.minDB, FieldPrecision.magnitudeDB)
+                    maxDBInput   = FieldPrecision.string(range.maxDB, FieldPrecision.magnitudeDB)
                     loadedChartRange = DisplayRange.ChartRange(minFreq: range.minFreq, maxFreq: range.maxFreq,
                                                                minDB: range.minDB, maxDB: range.maxDB)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {

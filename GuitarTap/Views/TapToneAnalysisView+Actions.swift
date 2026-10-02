@@ -206,8 +206,8 @@ extension TapToneAnalysisView {
     // MARK: - Spectrum Display Helpers
 
     func updateFrequencyInputFields() {
-        minFreqInput = String(format: "%.0f", minFreq)
-        maxFreqInput = String(format: "%.0f", maxFreq)
+        minFreqInput = FieldPrecision.string(minFreq, FieldPrecision.frequencyHz)
+        maxFreqInput = FieldPrecision.string(maxFreq, FieldPrecision.frequencyHz)
     }
 
     /// Apply all four axis values atomically — called by ``SpectrumView``'s
@@ -240,10 +240,10 @@ extension TapToneAnalysisView {
         self.maxFreq    = maxFreq
         self.minDB      = minDB
         self.maxDB      = maxDB
-        self.minFreqInput = String(format: "%.0f", minFreq)
-        self.maxFreqInput = String(format: "%.0f", maxFreq)
-        self.minDBInput   = String(format: "%.0f", minDB)
-        self.maxDBInput   = String(format: "%.0f", maxDB)
+        self.minFreqInput = FieldPrecision.string(minFreq, FieldPrecision.frequencyHz)
+        self.maxFreqInput = FieldPrecision.string(maxFreq, FieldPrecision.frequencyHz)
+        self.minDBInput   = FieldPrecision.string(minDB, FieldPrecision.magnitudeDB)
+        self.maxDBInput   = FieldPrecision.string(maxDB, FieldPrecision.magnitudeDB)
     }
 
     /// Apply ``DisplayRange/widened(onto:for:min:max:)`` to the chart's range when a plate or brace
@@ -257,19 +257,11 @@ extension TapToneAnalysisView {
                                            min: minFreq, max: maxFreq)
         if widened.max != maxFreq {
             maxFreq = widened.max
-            maxFreqInput = String(format: "%.0f", maxFreq)
+            maxFreqInput = FieldPrecision.string(maxFreq, FieldPrecision.frequencyHz)
         }
         if widened.min != minFreq {
             minFreq = widened.min
-            minFreqInput = String(format: "%.0f", minFreq)
-        }
-    }
-
-    func formatFrequency(_ freq: Float) -> String {
-        if freq >= 1000 {
-            return String(format: "%.1fk Hz", freq / 1000)
-        } else {
-            return String(format: "%.0f Hz", freq)
+            minFreqInput = FieldPrecision.string(minFreq, FieldPrecision.frequencyHz)
         }
     }
 
@@ -309,8 +301,8 @@ extension TapToneAnalysisView {
         }
 
         // Update input fields
-        minDBInput = String(format: "%.0f", minDB)
-        maxDBInput = String(format: "%.0f", maxDB)
+        minDBInput = FieldPrecision.string(minDB, FieldPrecision.magnitudeDB)
+        maxDBInput = FieldPrecision.string(maxDB, FieldPrecision.magnitudeDB)
 
         gtLog("📏 Auto-scaled dB range: \(String(format: "%.1f", minDB)) to \(String(format: "%.1f", maxDB)) dB (signal range: \(String(format: "%.1f", minMag)) to \(String(format: "%.1f", maxMag)) dB)")
     }
@@ -334,8 +326,8 @@ extension TapToneAnalysisView {
     func resetDBToDefaults() {
         minDB = TapDisplaySettings.minMagnitude
         maxDB = TapDisplaySettings.maxMagnitude
-        minDBInput = String(format: "%.0f", minDB)
-        maxDBInput = String(format: "%.0f", maxDB)
+        minDBInput = FieldPrecision.string(minDB, FieldPrecision.magnitudeDB)
+        maxDBInput = FieldPrecision.string(maxDB, FieldPrecision.magnitudeDB)
         gtLog("↩️ Reset dB range to defaults: \(minDB) to \(maxDB) dB")
     }
 

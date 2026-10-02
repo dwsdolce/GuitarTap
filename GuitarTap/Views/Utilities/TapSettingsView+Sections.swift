@@ -144,7 +144,7 @@ extension TapSettingsView {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "%.3f g/cm³", dims.densityGPerCm3))
+                        Text("\(FieldPrecision.string(dims.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
@@ -287,7 +287,7 @@ extension TapSettingsView {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "%.3f g/cm³", dims.densityGPerCm3))
+                        Text("\(FieldPrecision.string(dims.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
@@ -503,7 +503,7 @@ extension TapSettingsView {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(device.name)
                                 .font(.body)
-                            Text("Sample Rate: \(String(format: "%.0f", device.sampleRate / 1000)) kHz")
+                            Text("Sample Rate: \(formattedAsWholeHertz(device.sampleRate))")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -526,7 +526,7 @@ extension TapSettingsView {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text("\(String(format: "%.0f", selectedDevice.sampleRate)) Hz")
+                        Text(formattedAsWholeHertz(selectedDevice.sampleRate))
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }

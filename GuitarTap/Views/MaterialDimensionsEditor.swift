@@ -44,7 +44,7 @@ struct MaterialDimensionsEditor: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Spacer()
-                Text(String(format: "%.3f g/cm³", inputs.dimensions.densityGPerCm3))
+                Text("\(FieldPrecision.string(inputs.dimensions.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
                     .font(.subheadline)
                     .fontWeight(.medium)
             }

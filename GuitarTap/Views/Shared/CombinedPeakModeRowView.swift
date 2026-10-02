@@ -120,7 +120,7 @@ struct CombinedPeakModeRowView: View {
 
                     Spacer()
 
-                    Text("\(peak.frequency, specifier: "%.1f") Hz")
+                    Text("\(FieldPrecision.string(peak.frequency, FieldPrecision.peakFrequencyHz)) Hz")
                         .font(.headline)
                         .foregroundColor(.primary)
                 }
@@ -145,7 +145,7 @@ struct CombinedPeakModeRowView: View {
                         Text("Q:")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("\(peak.quality, specifier: "%.1f")")
+                        Text(FieldPrecision.string(peak.quality, FieldPrecision.qFactor))
                             .font(.caption)
                             .fontWeight(.medium)
                     }
@@ -154,7 +154,7 @@ struct CombinedPeakModeRowView: View {
                         Text("BW:")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("\(peak.bandwidth, specifier: "%.1f") Hz")
+                        Text("\(FieldPrecision.string(peak.bandwidth, FieldPrecision.bandwidthHz)) Hz")
                             .font(.caption)
                             .fontWeight(.medium)
                             .fixedSize()
@@ -163,7 +163,7 @@ struct CombinedPeakModeRowView: View {
                     Spacer()
 
                     // Magnitude with color coding
-                    Text("\(peak.magnitude, specifier: "%.1f") dB")
+                    Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(magnitudeColor(peak.magnitude))

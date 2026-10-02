@@ -2,11 +2,12 @@
 //  FrequencyFormatTests.swift
 //  GuitarTapTests
 //
-//  A frequency for display (one decimal, kHz from 1000 Hz) and the range line above the guitar peak
-//  list built from it.
+//  A frequency for display (one decimal, kHz from 1000 Hz), the range line above the guitar peak
+//  list built from it, and a sample rate or bandwidth in whole hertz grouped by the locale.
 //
 // @parity test/frequency-format
 
+import Foundation
 import Testing
 @testable import GuitarTap
 
@@ -34,5 +35,16 @@ struct FrequencyFormatTests {
 
     @Test func rangeLabel_crossingOneKilohertz_mixesUnits() {
         #expect(displayRangeLabel(minFreq: 800, maxFreq: 1200) == "Showing 800.0 Hz - 1.2 kHz")
+    }
+
+    @Test func wholeHertz_groupsByTheLocale() {
+        let us = Locale(identifier: "en_US")
+        #expect(formattedAsWholeHertz(48000, locale: us) == "48,000 Hz")
+        #expect(formattedAsWholeHertz(22050, locale: us) == "22,050 Hz")
+        #expect(formattedAsWholeHertz(48000, locale: Locale(identifier: "de_DE")) == "48.000 Hz")
+    }
+
+    @Test func wholeHertz_roundsToTheNearestHertz() {
+        #expect(formattedAsWholeHertz(44100.4, locale: Locale(identifier: "en_US")) == "44,100 Hz")
     }
 }

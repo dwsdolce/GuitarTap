@@ -42,20 +42,15 @@ extension Comparable {
 
 // MARK: - Float Extensions
 
-// @parity view/frequency-format tests=test/frequency-format — formattedAsFrequency and the range label
+// @parity view/frequency-format tests=test/frequency-format — formattedAsFrequency, the range label, whole hertz
 extension Float {
-    /// Formats a frequency value as a human-readable string.
-    ///
-    /// Values ≥ 1000 Hz are shown as kHz with one decimal place (e.g.
-    /// `"2.5 kHz"`); lower values are shown as Hz with one decimal place
-    /// (e.g. `"440.0 Hz"`).
-    ///
-    /// - Returns: A formatted frequency string with a unit suffix.
+    /// A frequency for display: in kHz from 1000 Hz, with ``FieldPrecision/peakFrequencyHz``'s decimals
+    /// (`"440.0 Hz"`, `"2.5 kHz"`).
     func formattedAsFrequency() -> String {
         if self >= 1000 {
-            return String(format: "%.1f kHz", self / 1000)
+            return "\(FieldPrecision.string(self / 1000, FieldPrecision.peakFrequencyHz)) kHz"
         } else {
-            return String(format: "%.1f Hz", self)
+            return "\(FieldPrecision.string(self, FieldPrecision.peakFrequencyHz)) Hz"
         }
     }
     
@@ -181,6 +176,12 @@ extension Float {
 /// `formattedAsFrequency` (e.g. `"Showing 25.0 Hz - 45.0 Hz"`).
 func displayRangeLabel(minFreq: Float, maxFreq: Float) -> String {
     "Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())"
+}
+
+/// A sample rate or bandwidth for display: whole hertz, grouped by the locale's separator
+/// (`"48,000 Hz"`; `"48.000 Hz"` in German).
+func formattedAsWholeHertz(_ hz: Double, locale: Locale = .current) -> String {
+    "\(Int(FieldPrecision.rounded(Float(hz), 0)).formatted(.number.locale(locale))) Hz"
 }
 
 // MARK: - View Extensions

@@ -52,14 +52,14 @@ struct MeasurementRowView<MenuItems: View>: View {
     
     private var ratioText: String? {
         if let ratio = measurement.tapToneRatio {
-            return "Ratio: \(String(format: "%.2f", ratio))"
+            return "Ratio: \(FieldPrecision.string(ratio, FieldPrecision.decayRatio))"
         }
         return nil
     }
     
     private var decayText: String? {
         if let decay = measurement.decayTime {
-            return "Decay: \(String(format: "%.2f", decay))s"
+            return "Decay: \(FieldPrecision.string(decay, FieldPrecision.decayTimeS))s"
         }
         return nil
     }

@@ -903,7 +903,7 @@ struct SpectrumView: View {
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .foregroundColor(snap.curveColor)  // Colored to match the tracked curve
-            Text(String(format: "%.1f dB", snap.magnitude))
+            Text("\(FieldPrecision.string(Float(snap.magnitude), FieldPrecision.peakMagnitudeDB)) dB")
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
@@ -969,7 +969,7 @@ struct SpectrumView: View {
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .foregroundColor(snap.curveColor)  // Colored to match the tracked curve
-            Text(String(format: "%.1f dB", snap.magnitude))
+            Text("\(FieldPrecision.string(Float(snap.magnitude), FieldPrecision.peakMagnitudeDB)) dB")
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }

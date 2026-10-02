@@ -396,7 +396,7 @@ extension TapToneAnalysisView {
                     .foregroundColor(tap.isMeasurementComplete ? .green : .secondary)
                     .lineLimit(1)
 
-                Text("\(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, specifier: "%.0f") dB")
+                Text("\(FieldPrecision.string(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, FieldPrecision.peakMagnitudeDB)) dB")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -434,7 +434,7 @@ extension TapToneAnalysisView {
                 Spacer()
 
                 if fft.isRunning {
-                    Text("Peak: \(fft.peakMagnitude, specifier: "%.1f") dB @ \(fft.peakFrequency, specifier: "%.1f") Hz")
+                    Text("Peak: \(FieldPrecision.string(fft.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB @ \(FieldPrecision.string(fft.peakFrequency, FieldPrecision.peakFrequencyHz)) Hz")
                         .font(.caption)
                         .foregroundColor(.blue)
                         .lineLimit(1)
@@ -550,7 +550,7 @@ extension TapToneAnalysisView {
                     Text("•")
                         .foregroundColor(.secondary)
 
-                    Text("\(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, specifier: "%.1f") dB")
+                    Text("\(FieldPrecision.string(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, FieldPrecision.peakMagnitudeDB)) dB")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
@@ -570,7 +570,7 @@ extension TapToneAnalysisView {
                     }
 
                     if fft.isRunning {
-                        Text("Peak: \(fft.peakMagnitude, specifier: "%.1f") dB @ \(fft.peakFrequency, specifier: "%.1f") Hz")
+                        Text("Peak: \(FieldPrecision.string(fft.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB @ \(FieldPrecision.string(fft.peakFrequency, FieldPrecision.peakFrequencyHz)) Hz")
                             .font(.caption)
                             .foregroundColor(.blue)
                     } else {

@@ -428,7 +428,7 @@ struct ExportableSpectrumChart: View {
                                             .font(.system(size: 14, weight: .medium))
                                             .foregroundColor(.primary)
 
-                                        Text("\(peak.magnitude, specifier: "%.1f") dB")
+                                        Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
                                             .font(.system(size: 13))
                                             .foregroundColor(.secondary)
                                     }
@@ -668,14 +668,14 @@ func makeExportableSpectrumView(
                                ?? (assigned != nil ? GuitarMode.userDefinedColor : autoMode.color))
                             : roleColor(peak)
                         VStack(spacing: 4) {
-                            Text("\(peak.frequency, specifier: "%.1f") Hz")
+                            Text("\(FieldPrecision.string(peak.frequency, FieldPrecision.peakFrequencyHz)) Hz")
                                 .font(.caption)
                                 .fontWeight(.bold)
                             Text(chipLabel)
                                 .font(.caption2)
                                 .italic(ovr)
                                 .foregroundColor(chipColor)
-                            Text("\(peak.magnitude, specifier: "%.1f") dB")
+                            Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }

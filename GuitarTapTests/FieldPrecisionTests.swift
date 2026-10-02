@@ -33,6 +33,14 @@ struct FieldPrecisionTests {
         #expect(FieldPrecision.speedOfSoundMS == 0)
         #expect(FieldPrecision.densityGPerCm3 == 3)
         #expect(FieldPrecision.decayRatio == 2)
+        #expect(FieldPrecision.bandwidthHz == 1)
+        #expect(FieldPrecision.shearModulusGPa == 3)
+        #expect(FieldPrecision.specificModulus == 1)
+        #expect(FieldPrecision.radiationRatio == 1)
+        #expect(FieldPrecision.crossLongRatio == 3)
+        #expect(FieldPrecision.longCrossRatio == 1)
+        #expect(FieldPrecision.goreThicknessMM == 2)
+        #expect(FieldPrecision.decayTimeS == 2)
     }
 
     // MARK: - decimalsWithin (restrict-on-entry predicate)
@@ -87,13 +95,13 @@ struct FieldPrecisionTests {
     }
 
     @Test func rounded_roundsToPrecision() {
-        #expect(abs(FieldPrecision.rounded(29.356, 2) - 29.36) < 0.001)
-        #expect(abs(FieldPrecision.rounded(29.354, 2) - 29.35) < 0.001)
-        #expect(abs(FieldPrecision.rounded(29.35, 2) - 29.35) < 0.001)
+        #expect(abs(FieldPrecision.rounded(29.356, 2) - 29.36) < 1e-5)
+        #expect(abs(FieldPrecision.rounded(29.354, 2) - 29.35) < 1e-5)
+        #expect(abs(FieldPrecision.rounded(29.35, 2) - 29.35) < 1e-5)
     }
 
     @Test func rounded_negativeRoundsAwayFromZero() {
-        #expect(abs(FieldPrecision.rounded(-29.356, 2) - (-29.36)) < 0.001)
+        #expect(abs(FieldPrecision.rounded(-29.356, 2) - (-29.36)) < 1e-5)
     }
 
     // MARK: - string (display formatting)
@@ -107,6 +115,17 @@ struct FieldPrecisionTests {
 
     @Test func string_roundsForDisplay() {
         #expect(FieldPrecision.string(2.678, 2) == "2.68")
+    }
+
+    /// An exact tie rounds to even, as C's `%.Nf` does: 2.5 → "2", 0.125 → "0.12".
+    @Test func string_roundsAnExactTieToEven() {
+        #expect(FieldPrecision.string(2.5, 0) == "2")
+        #expect(FieldPrecision.string(0.125, 2) == "0.12")
+    }
+
+    /// The value is shown as a 32-bit `Float`: 0.15 is 0.150000006 there, so it reads "0.2".
+    @Test func string_formatsThe32BitValue() {
+        #expect(FieldPrecision.string(0.15, 1) == "0.2")
     }
 
     /// A silent input's peak is -∞ dB. It reads "-∞" — the glyph SwiftUI's `specifier:` draws on the

@@ -35,7 +35,7 @@ struct FFTAnalysisMetricsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     MetricRow(
                         label: "Frequency Resolution",
-                        value: formatFrequency(analyzer.frequencyResolution),
+                        value: analyzer.frequencyResolution.formattedAsFrequency(),
                         subtitle: "Hz per bin"
                     )
 
@@ -52,7 +52,7 @@ struct FFTAnalysisMetricsView: View {
                     MetricRow(
                         label: "Sample Rate",
                         value: analyzer.actualSampleRate > 0
-                            ? "\(Int(analyzer.actualSampleRate).formatted()) Hz"
+                            ? formattedAsWholeHertz(analyzer.actualSampleRate)
                             : "—",
                         subtitle: "Hardware capture rate"
                     )
@@ -61,7 +61,7 @@ struct FFTAnalysisMetricsView: View {
 
                     MetricRow(
                         label: "Bandwidth",
-                        value: formatFrequency(analyzer.bandwidth),
+                        value: formattedAsWholeHertz(Double(analyzer.bandwidth)),
                         subtitle: "0 Hz to Nyquist"
                     )
                     
@@ -77,7 +77,7 @@ struct FFTAnalysisMetricsView: View {
                     
                     MetricRow(
                         label: "Frame Rate",
-                        value: String(format: "%.1f Hz", analyzer.frameRate),
+                        value: analyzer.frameRate.formattedAsFrequency(),
                         subtitle: "FFT calculations/sec"
                     )
                 }
@@ -124,7 +124,7 @@ struct FFTAnalysisMetricsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     MetricRow(
                         label: "Peak Frequency",
-                        value: formatFrequency(analyzer.peakFrequency),
+                        value: analyzer.peakFrequency.formattedAsFrequency(),
                         subtitle: "Dominant frequency"
                     )
                     
@@ -154,15 +154,6 @@ struct FFTAnalysisMetricsView: View {
     }
     
     // MARK: - Helper Functions
-    
-    /// Formats a frequency value with appropriate units (Hz or kHz)
-    private func formatFrequency(_ frequency: Float) -> String {
-        if frequency >= 1000 {
-            return String(format: "%.2f kHz", frequency / 1000)
-        } else {
-            return String(format: "%.1f Hz", frequency)
-        }
-    }
     
     /// Returns a color indicating processing time health
     /// - Green: Fast processing (< 50% of frame time)

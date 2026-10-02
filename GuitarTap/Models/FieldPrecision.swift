@@ -3,10 +3,11 @@
 //  FieldPrecision.swift
 //  GuitarTap
 //
-//  Single source of truth for numeric precision (decimal places) per field. One `P` per field
-//  governs input (round-on-commit), storage, and display, so a value reads identically in the
-//  input field, Settings, the saved measurement, and the PDF — and identically across the Swift,
-//  Python, and web editions. Replaces the scattered ad-hoc `String(format: "%.Nf", …)` literals.
+//  Single source of truth for numeric precision (decimal places) per value. An input field's `P`
+//  limits what can be typed and rounds what is committed; a computed value's `P` is the decimals it
+//  is shown with, on screen, in exports and in the PDF. Every display of a number formats it through
+//  `string` with its entry, so a value reads identically everywhere and across the Swift, Python and
+//  web editions. The saved display range is stored exactly, not rounded to `frequencyHz` / `magnitudeDB`.
 //
 //  This table MUST stay identical across the Swift, Python, and web mirrors.
 //
@@ -21,10 +22,11 @@
 //      stiffness           0   custom plate stiffness (f_vs)            1  (unitless)
 //
 //    COMPUTED / DISPLAYED
-//      peakFrequencyHz     1        youngsModulusGPa    2
-//      peakMagnitudeDB     1        speedOfSoundMS      0
-//      qFactor             1        densityGPerCm3      3
-//                                   decayRatio          2
+//      peakFrequencyHz     1        youngsModulusGPa    2        radiationRatio      1
+//      peakMagnitudeDB     1        shearModulusGPa     3        crossLongRatio      3
+//      qFactor             1        specificModulus     1        longCrossRatio      1
+//      bandwidthHz         1        speedOfSoundMS      0        decayTimeS          2
+//      goreThicknessMM     2        densityGPerCm3      3        decayRatio          2
 
 import Foundation
 
@@ -37,7 +39,7 @@ enum FieldPrecision {
     static let massG = 1
     /// Guitar body length/width — 1 mm (feeds only the Gore target).
     static let bodyDimensionMM = 0
-    /// Display frequency range + tap/peak thresholds — 1 Hz (finer than the FFT bin).
+    /// Display frequency range — 1 Hz (finer than the FFT bin).
     static let frequencyHz = 0
     /// Display magnitude range + thresholds — 1 dB.
     static let magnitudeDB = 0
@@ -49,14 +51,30 @@ enum FieldPrecision {
     static let peakFrequencyHz = 1
     static let peakMagnitudeDB = 1
     static let qFactor = 1
+    /// A peak's bandwidth (frequency / Q).
+    static let bandwidthHz = 1
     static let youngsModulusGPa = 2
+    /// The plate's GLC shear modulus.
+    static let shearModulusGPa = 3
+    /// E / ρ, in GPa per g/cm³.
+    static let specificModulus = 1
     static let speedOfSoundMS = 0
     static let densityGPerCm3 = 3
+    static let radiationRatio = 1
+    /// fC / fL stiffness ratio.
+    static let crossLongRatio = 3
+    /// fL / fC stiffness ratio.
+    static let longCrossRatio = 1
+    static let goreThicknessMM = 2
+    /// Ring-out (decay) time, in seconds.
+    static let decayTimeS = 2
+    /// The tap-tone ratio (f_Top / f_Air).
     static let decayRatio = 2
 
     // MARK: - Helpers
 
-    /// Format a value for display at the given precision.
+    /// Format a value for display at the given precision: the `Float`, rounded as C does — to the
+    /// nearest, an exact tie to even.
     ///
     /// Infinity reads as "-∞" / "∞" — what SwiftUI's `specifier:` shows — not the C formatter's
     /// "-inf". A silent input's peak is -∞ dB, and it must not look different from one screen to

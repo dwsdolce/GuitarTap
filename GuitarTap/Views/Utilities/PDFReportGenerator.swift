@@ -524,9 +524,9 @@ private struct PDFReportContentView: View {
         }()
 
         return HStack(spacing: 0) {
-            Text(String(format: "%.1f Hz", peak.frequency))
+            Text("\(FieldPrecision.string(peak.frequency, FieldPrecision.peakFrequencyHz)) Hz")
                 .frame(width: 90, alignment: .leading)
-            Text(String(format: "%.1f dB", peak.magnitude))
+            Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
                 .frame(width: 80, alignment: .leading)
             Text(peak.pitchNote ?? "–")
                 .frame(width: 80, alignment: .leading)
@@ -538,7 +538,7 @@ private struct PDFReportContentView: View {
                     .foregroundColor(effectiveColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Text(String(format: "%.1f", peak.quality))
+                Text(FieldPrecision.string(peak.quality, FieldPrecision.qFactor))
                     .frame(width: 70, alignment: .leading)
                 peakRoleCell(for: peak)
             }
@@ -711,7 +711,7 @@ private struct PDFReportContentView: View {
                 if let decay = data.decayTime {
                     analysisBox(
                         title: "Ring-Out Time",
-                        value: String(format: "%.2f s", decay),
+                        value: "\(FieldPrecision.string(decay, FieldPrecision.decayTimeS)) s",
                         subtitle: "Time to decay 15 dB",
                         detail: decay.decayQuality,
                         detailSubtitle: "Sustain quality",
@@ -723,7 +723,7 @@ private struct PDFReportContentView: View {
                 if let ratio = data.tapToneRatio {
                     analysisBox(
                         title: "Tap Tone Ratio",
-                        value: String(format: "%.2f : 1", ratio),
+                        value: "\(FieldPrecision.string(ratio, FieldPrecision.decayRatio)) : 1",
                         subtitle: "Top / Air",
                         detail: ratio.tapToneRatioQuality,
                         detailColor: ratio.tapToneRatioQualityColor,
@@ -787,13 +787,13 @@ private struct PDFReportContentView: View {
                 // Left column
                 VStack(alignment: .leading, spacing: 6) {
                     platePropRow("Speed of Sound (L)",
-                                   String(format: "%.0f m/s", props.speedOfSoundLong))
+                                   "\(FieldPrecision.string(props.speedOfSoundLong, FieldPrecision.speedOfSoundMS)) m/s")
                     platePropRow("Speed of Sound (C)",
-                                   String(format: "%.0f m/s", props.speedOfSoundCross))
+                                   "\(FieldPrecision.string(props.speedOfSoundCross, FieldPrecision.speedOfSoundMS)) m/s")
                     platePropRow("Young's Modulus (L)",
-                                   String(format: "%.2f GPa", props.youngsModulusLongGPa))
+                                   "\(FieldPrecision.string(props.youngsModulusLongGPa, FieldPrecision.youngsModulusGPa)) GPa")
                     platePropRow("Young's Modulus (C)",
-                                   String(format: "%.2f GPa", props.youngsModulusCrossGPa))
+                                   "\(FieldPrecision.string(props.youngsModulusCrossGPa, FieldPrecision.youngsModulusGPa)) GPa")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -806,9 +806,9 @@ private struct PDFReportContentView: View {
                                       value: props.specificModulusCross,
                                       quality: props.spruceQualityCross)
                     platePropRow("Radiation Ratio (L)",
-                                   String(format: "%.1f", props.radiationRatioLong))
+                                   FieldPrecision.string(props.radiationRatioLong, FieldPrecision.radiationRatio))
                     platePropRow("Radiation Ratio (C)",
-                                   String(format: "%.1f", props.radiationRatioCross))
+                                   FieldPrecision.string(props.radiationRatioCross, FieldPrecision.radiationRatio))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -816,7 +816,7 @@ private struct PDFReportContentView: View {
             // GLC shear modulus (if the Diagonal fLC tap was performed)
             if let glc = props.goreShearModulus {
                 platePropRow("GLC (Shear Modulus)",
-                               String(format: "%.3f GPa", glc / 1.0e9))
+                               "\(FieldPrecision.string(glc / 1.0e9, FieldPrecision.shearModulusGPa)) GPa")
             } else {
                 Text("GLC assumed 0 — fLC tap not performed")
                     .font(.system(size: 10))
@@ -828,7 +828,7 @@ private struct PDFReportContentView: View {
             HStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 2) {
                     platePropRow("Cross/Long Ratio",
-                                   String(format: "%.3f", props.crossLongRatio))
+                                   FieldPrecision.string(props.crossLongRatio, FieldPrecision.crossLongRatio))
                     Text("typical: 0.04–0.08")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
@@ -837,7 +837,7 @@ private struct PDFReportContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .leading, spacing: 2) {
                     platePropRow("Long/Cross Ratio",
-                                   String(format: "%.1f", props.longCrossRatio))
+                                   FieldPrecision.string(props.longCrossRatio, FieldPrecision.longCrossRatio))
                     Text("typical: 12–25")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
@@ -872,9 +872,9 @@ private struct PDFReportContentView: View {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
                     platePropRow("Speed of Sound",
-                                   String(format: "%.0f m/s", props.speedOfSoundLong))
+                                   "\(FieldPrecision.string(props.speedOfSoundLong, FieldPrecision.speedOfSoundMS)) m/s")
                     platePropRow("Young's Modulus (E)",
-                                   String(format: "%.2f GPa", props.youngsModulusLongGPa))
+                                   "\(FieldPrecision.string(props.youngsModulusLongGPa, FieldPrecision.youngsModulusGPa)) GPa")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -883,7 +883,7 @@ private struct PDFReportContentView: View {
                                       value: props.specificModulusLong,
                                       quality: props.spruceQuality)
                     platePropRow("Radiation Ratio",
-                                   String(format: "%.1f", props.radiationRatioLong))
+                                   FieldPrecision.string(props.radiationRatioLong, FieldPrecision.radiationRatio))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -923,7 +923,7 @@ private struct PDFReportContentView: View {
             HStack(spacing: 0) {
                 platePropRow("Mass", FieldPrecision.string(dims.mass * 1000, FieldPrecision.massG) + " g")
                     .frame(maxWidth: .infinity, alignment: .leading)
-                platePropRow("Density", String(format: "%.3f g/cm³", dims.densityGPerCm3))
+                platePropRow("Density", "\(FieldPrecision.string(dims.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Spacer()
                     .frame(maxWidth: .infinity)
@@ -978,7 +978,7 @@ private struct PDFReportContentView: View {
                     .foregroundColor(.secondary)
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(String(format: "%.2f mm", hd))
+                    Text("\(FieldPrecision.string(hd, FieldPrecision.goreThicknessMM)) mm")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(Color(red: 0.15, green: 0.35, blue: 0.75))
                     Spacer()
@@ -1005,7 +1005,7 @@ private struct PDFReportContentView: View {
             Text(label + ":")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
-            Text(String(format: "%.1f", value))
+            Text(FieldPrecision.string(value, FieldPrecision.specificModulus))
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(quality.color)
             Text("(\(quality.rawValue))")
@@ -1330,7 +1330,7 @@ private struct ComparisonPDFReportContentView: View {
                         // convention page 1's peak table uses for an overridden mode label — so it is
                         // not read as the averaged spectrum's auto-detected peak.
                         let isOverride = row.overrideModes.contains(col.mode)
-                        Text((freq.map { String(format: "%.1f Hz", $0) } ?? "—") + (isOverride ? " *" : ""))
+                        Text((freq.map { "\(FieldPrecision.string($0, FieldPrecision.peakFrequencyHz)) Hz" } ?? "—") + (isOverride ? " *" : ""))
                             .font(isOverride ? .system(size: 10).italic() : .system(size: 10))
                             .foregroundColor(freq != nil ? .primary : .secondary)
                             .frame(width: 90, alignment: .trailing)

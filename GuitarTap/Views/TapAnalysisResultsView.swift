@@ -560,7 +560,7 @@ struct TapAnalysisResultsView: View {
                     .foregroundColor(.secondary)
                 if let decayTime = analyzer.currentDecayTime {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(String(format: "%.2fs", decayTime))
+                        Text("\(FieldPrecision.string(decayTime, FieldPrecision.decayTimeS))s")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                         Text(decayTime.decayQuality)
@@ -588,7 +588,7 @@ struct TapAnalysisResultsView: View {
                     .foregroundColor(.secondary)
                 if let ratio = analyzer.calculateTapToneRatio() {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(String(format: "%.2f:1", ratio))
+                        Text("\(FieldPrecision.string(ratio, FieldPrecision.decayRatio)):1")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                         Text(ratio.tapToneRatioQuality)
@@ -654,8 +654,8 @@ struct TapAnalysisResultsView: View {
                     // (fL / fC / fLC are inputs, shown in the peak list above — not repeated here.)
                     propertyRow(
                         title: "Speed of Sound",
-                        longValue: String(format: "%.0f m/s", props.speedOfSoundLong),
-                        crossValue: String(format: "%.0f m/s", props.speedOfSoundCross)
+                        longValue: "\(FieldPrecision.string(props.speedOfSoundLong, FieldPrecision.speedOfSoundMS)) m/s",
+                        crossValue: "\(FieldPrecision.string(props.speedOfSoundCross, FieldPrecision.speedOfSoundMS)) m/s"
                     )
                     
                     // Young's Modulus (E_L and E_C) plus shear modulus GLC if available
@@ -664,16 +664,16 @@ struct TapAnalysisResultsView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                         HStack {
-                            Text("L: \(String(format: "%.2f GPa", props.youngsModulusLongGPa))")
+                            Text("L: \(FieldPrecision.string(props.youngsModulusLongGPa, FieldPrecision.youngsModulusGPa)) GPa")
                                 .font(.caption)
                             Spacer()
-                            Text("C: \(String(format: "%.2f GPa", props.youngsModulusCrossGPa))")
+                            Text("C: \(FieldPrecision.string(props.youngsModulusCrossGPa, FieldPrecision.youngsModulusGPa)) GPa")
                                 .font(.caption)
                         }
                         .foregroundColor(.secondary)
                         if let glc = props.goreShearModulus {
                             HStack {
-                                Text("GLC (Shear): \(String(format: "%.3f GPa", glc / 1.0e9))")
+                                Text("GLC (Shear): \(FieldPrecision.string(glc / 1.0e9, FieldPrecision.shearModulusGPa)) GPa")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Spacer()
@@ -693,7 +693,7 @@ struct TapAnalysisResultsView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                    Text(String(format: "%.1f", props.specificModulusLong))
+                                    Text(FieldPrecision.string(props.specificModulusLong, FieldPrecision.specificModulus))
                                         .font(.title2)
                                         .fontWeight(.bold)
                                         .foregroundColor(props.spruceQualityLong.color)
@@ -714,7 +714,7 @@ struct TapAnalysisResultsView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                    Text(String(format: "%.1f", props.specificModulusCross))
+                                    Text(FieldPrecision.string(props.specificModulusCross, FieldPrecision.specificModulus))
                                         .font(.title2)
                                         .fontWeight(.bold)
                                         .foregroundColor(props.spruceQualityCross.color)
@@ -737,8 +737,8 @@ struct TapAnalysisResultsView: View {
                     // Radiation Ratio
                     propertyRow(
                         title: "Radiation Ratio (R)",
-                        longValue: String(format: "%.1f", props.radiationRatioLong),
-                        crossValue: String(format: "%.1f", props.radiationRatioCross)
+                        longValue: FieldPrecision.string(props.radiationRatioLong, FieldPrecision.radiationRatio),
+                        crossValue: FieldPrecision.string(props.radiationRatioCross, FieldPrecision.radiationRatio)
                     )
                     
                     // Cross/Long Ratio
@@ -746,7 +746,7 @@ struct TapAnalysisResultsView: View {
                         Text("Cross/Long Ratio:")
                             .font(.subheadline)
                         Spacer()
-                        Text(String(format: "%.3f", props.crossLongRatio))
+                        Text(FieldPrecision.string(props.crossLongRatio, FieldPrecision.crossLongRatio))
                             .font(.subheadline)
                             .fontWeight(.medium)
                         Text("(typical: 0.04–0.08)")
@@ -759,7 +759,7 @@ struct TapAnalysisResultsView: View {
                         Text("Long/Cross Ratio:")
                             .font(.subheadline)
                         Spacer()
-                        Text(String(format: "%.1f", props.longCrossRatio))
+                        Text(FieldPrecision.string(props.longCrossRatio, FieldPrecision.longCrossRatio))
                             .font(.subheadline)
                             .fontWeight(.medium)
                         Text("(typical: 12–25)")
@@ -883,7 +883,7 @@ struct TapAnalysisResultsView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                         Spacer()
-                        Text(String(format: "%.0f m/s", props.speedOfSoundLong))
+                        Text("\(FieldPrecision.string(props.speedOfSoundLong, FieldPrecision.speedOfSoundMS)) m/s")
                             .font(.subheadline)
                     }
                     
@@ -893,7 +893,7 @@ struct TapAnalysisResultsView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                         Spacer()
-                        Text(String(format: "%.2f GPa", props.youngsModulusLongGPa))
+                        Text("\(FieldPrecision.string(props.youngsModulusLongGPa, FieldPrecision.youngsModulusGPa)) GPa")
                             .font(.subheadline)
                     }
                     
@@ -904,7 +904,7 @@ struct TapAnalysisResultsView: View {
                             .fontWeight(.medium)
                         
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text(String(format: "%.1f", props.specificModulusLong))
+                            Text(FieldPrecision.string(props.specificModulusLong, FieldPrecision.specificModulus))
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(props.spruceQuality.color)
@@ -928,7 +928,7 @@ struct TapAnalysisResultsView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                         Spacer()
-                        Text(String(format: "%.1f", props.radiationRatioLong))
+                        Text(FieldPrecision.string(props.radiationRatioLong, FieldPrecision.radiationRatio))
                             .font(.subheadline)
                     }
                 }
@@ -966,7 +966,7 @@ struct TapAnalysisResultsView: View {
 
             // Prominent thickness result — the sole content of this box.
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(String(format: "%.2f", hd))
+                Text(FieldPrecision.string(hd, FieldPrecision.goreThicknessMM))
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundColor(.accentColor)
                 Text("mm")
@@ -1174,7 +1174,7 @@ struct MaterialPeakRowView: View {
                     .fontWeight(.semibold)
                     .foregroundColor(peak == nil ? .secondary : .primary)
 
-                Text(peak.map { String(format: "%.1f dB", Double($0.magnitude)) } ?? "—")
+                Text(peak.map { "\(FieldPrecision.string($0.magnitude, FieldPrecision.peakMagnitudeDB)) dB" } ?? "—")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

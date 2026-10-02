@@ -110,6 +110,6 @@ struct ComparisonResultsView: View {
 
     private func frequencyText(_ frequency: Float?) -> String {
         guard let f = frequency else { return "—" }
-        return String(format: "%.1f Hz", f)
+        return "\(FieldPrecision.string(f, FieldPrecision.peakFrequencyHz)) Hz"
     }
 }
