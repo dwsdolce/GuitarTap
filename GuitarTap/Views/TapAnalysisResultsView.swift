@@ -218,7 +218,7 @@ struct TapAnalysisResultsView: View {
                     }
 
                     HStack {
-                        Text("Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())")
+                        Text(displayRangeLabel(minFreq: minFreq, maxFreq: maxFreq))
                             .font(.caption)
                             .foregroundColor(.secondary)
 

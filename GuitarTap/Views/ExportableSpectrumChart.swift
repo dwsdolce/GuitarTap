@@ -111,9 +111,7 @@ struct ExportableSpectrumChart: View {
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
 
     private var chartData: [SpectrumDataPoint] {
-        zip(frequencies, magnitudes)
-            .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-            .map { SpectrumDataPoint(sourceEpoch: 0, frequency: $0.0, magnitude: $0.1) }
+        seriesData(frequencies: frequencies, magnitudes: magnitudes)
     }
 
     private var visibleModeBoundaries: [(frequency: Float, mode: GuitarMode)] {
@@ -242,11 +240,12 @@ struct ExportableSpectrumChart: View {
         return abs(frequency - mode.modeRange.lowerBound) < 0.1
     }
 
-    /// Build filtered chart data for a single plate/brace spectrum series
+    /// The points of one spectrum to draw: those inside the range and the one beyond each edge
+    /// (``DisplayRange/drawnIndices(of:min:max:)``); the plot area clips what crosses an edge.
     private func seriesData(frequencies: [Float], magnitudes: [Float]) -> [SpectrumDataPoint] {
-        zip(frequencies, magnitudes)
-            .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-            .map { SpectrumDataPoint(sourceEpoch: 0, frequency: $0.0, magnitude: $0.1) }
+        let count = min(frequencies.count, magnitudes.count)
+        return DisplayRange.drawnIndices(of: Array(frequencies.prefix(count)), min: minFreq, max: maxFreq)
+            .map { SpectrumDataPoint(sourceEpoch: 0, frequency: frequencies[$0], magnitude: magnitudes[$0]) }
     }
 
     /// Title shown above the chart. Defaults to "FFT Peaks" to match the live view.
@@ -267,10 +266,9 @@ struct ExportableSpectrumChart: View {
                         ForEach(Array(materialSpectra.enumerated()), id: \.offset) { index, series in
                             let data = seriesData(frequencies: series.frequencies, magnitudes: series.magnitudes)
                             ForEach(data) { dataPoint in
-                                let clamped = max(minDB, min(maxDB, dataPoint.magnitude))
                                 LineMark(
                                     x: .value("Frequency", dataPoint.frequency),
-                                    y: .value("Magnitude", clamped)
+                                    y: .value("Magnitude", dataPoint.magnitude)
                                 )
                                 .foregroundStyle(by: .value("Series", series.label))
                                 .lineStyle(StrokeStyle(lineWidth: 2))
@@ -279,10 +277,9 @@ struct ExportableSpectrumChart: View {
                     } else {
                         // Spectrum line
                         ForEach(chartData) { dataPoint in
-                            let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
                             LineMark(
                                 x: .value("Frequency", dataPoint.frequency),
-                                y: .value("Magnitude", clampedMagnitude)
+                                y: .value("Magnitude", dataPoint.magnitude)
                             )
                             .foregroundStyle(.red)
                             .lineStyle(StrokeStyle(lineWidth: 2))
@@ -337,7 +334,8 @@ struct ExportableSpectrumChart: View {
                 )
                 .chartLegend(.hidden)
                 .chartPlotStyle { plotArea in
-                    plotArea.border(Color.gray, width: 1)
+                    // Clipped: the spectrum is drawn through the chart's edges and cut off by them.
+                    plotArea.border(Color.gray, width: 1).clipped()
                 }
                 .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: .linear)
                 .chartYScale(domain: Double(minDB)...Double(maxDB))

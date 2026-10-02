@@ -520,6 +520,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// when none is shown. A new sequence clears it.
     @Published var captureAudioSaved: String? = nil
 
+    /// Whether the plate / brace peaks were restored by a load rather than identified by a capture. A
+    /// load shows the range it was saved with, so its peaks do not widen the chart. Set by a load before it
+    /// writes the peaks; cleared when a sequence starts, so every captured peak is not from a load.
+    var materialPeaksFromLoad = false
+
     /// The user dismissed the "Capture audio saved" notice.
     func dismissCaptureAudioSaved() {
         captureAudioSaved = nil

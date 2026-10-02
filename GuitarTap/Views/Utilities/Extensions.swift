@@ -42,6 +42,7 @@ extension Comparable {
 
 // MARK: - Float Extensions
 
+// @parity view/frequency-format tests=test/frequency-format — formattedAsFrequency and the range label
 extension Float {
     /// Formats a frequency value as a human-readable string.
     ///
@@ -174,6 +175,12 @@ extension Float {
             return .gray
         }
     }
+}
+
+/// The line above the guitar peak list: the chart's frequency range, each bound as
+/// `formattedAsFrequency` (e.g. `"Showing 25.0 Hz - 45.0 Hz"`).
+func displayRangeLabel(minFreq: Float, maxFreq: Float) -> String {
+    "Showing \(minFreq.formattedAsFrequency()) - \(maxFreq.formattedAsFrequency())"
 }
 
 // MARK: - View Extensions

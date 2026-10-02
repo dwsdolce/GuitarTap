@@ -39,9 +39,9 @@
 /// ## Axis ranges
 ///
 /// Both axes are expressed as `@Binding<Float>` so parent views can persist the
-/// visible range across taps.  The legal ranges are:
-/// - Frequency: 20 Hz – 20 kHz
-/// - Magnitude: −120 dB – +20 dB
+/// visible range across taps.  The legal ranges are ``DisplayRange``'s chart limits:
+/// - Frequency: 1 Hz – 5 kHz; minimum visible span 10 Hz
+/// - Magnitude: −120 dB – +20 dB; minimum visible span 10 dB
 ///
 /// - SeeAlso: `TapToneAnalysisView`, `PeakAnnotations`, `AxisTickGenerator`
 //
@@ -358,9 +358,9 @@ struct SpectrumView: View {
     /// as one continuous path and produce the vertical spike artifact.
     var chartData: [SpectrumDataPoint] {
         let epoch = isMeasurementComplete ? 1 : 0
-        return zip(frequencies, magnitudes)
-            .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-            .map { SpectrumDataPoint(sourceEpoch: epoch, frequency: $0.0, magnitude: $0.1) }
+        let count = Swift.min(frequencies.count, magnitudes.count)
+        return DisplayRange.drawnIndices(of: Array(frequencies.prefix(count)), min: minFreq, max: maxFreq)
+            .map { SpectrumDataPoint(sourceEpoch: epoch, frequency: frequencies[$0], magnitude: magnitudes[$0]) }
     }
 
     /// Returns the mode boundaries that are visible in the current frequency range
@@ -853,15 +853,6 @@ struct SpectrumView: View {
     }
 
     #if os(macOS)
-    /// Formats a frequency value for the cursor readout
-    private func formatCursorFrequency(_ hz: Double) -> String {
-        if hz >= 1000 {
-            return String(format: "%.2f kHz", hz / 1000)
-        } else {
-            return String(format: "%.1f Hz", hz)
-        }
-    }
-
     /// Cursor readout label + crosshair lines showing frequency and dB values at the current position
     @ViewBuilder
     private func cursorReadout(snap: CursorSnapState, plotFrame: CGRect, proxy: ChartProxy) -> some View {
@@ -908,7 +899,7 @@ struct SpectrumView: View {
         }()
 
         VStack(alignment: .leading, spacing: 2) {
-            Text(formatCursorFrequency(snap.frequency))
+            Text(Float(snap.frequency).formattedAsFrequency())
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .foregroundColor(snap.curveColor)  // Colored to match the tracked curve
@@ -927,15 +918,6 @@ struct SpectrumView: View {
     #endif
 
     #if !os(macOS)
-    /// Formats a frequency value for the crosshair readout
-    private func formatCrosshairFrequency(_ hz: Double) -> String {
-        if hz >= 1000 {
-            return String(format: "%.2f kHz", hz / 1000)
-        } else {
-            return String(format: "%.1f Hz", hz)
-        }
-    }
-
     /// Crosshair readout label + crosshair lines showing frequency and dB at the tracked position
     @ViewBuilder
     private func crosshairReadout(snap: CursorSnapState, plotFrame: CGRect, proxy: ChartProxy) -> some View {
@@ -983,7 +965,7 @@ struct SpectrumView: View {
         }()
 
         VStack(alignment: .leading, spacing: 2) {
-            Text(formatCrosshairFrequency(snap.frequency))
+            Text(Float(snap.frequency).formattedAsFrequency())
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .foregroundColor(snap.curveColor)  // Colored to match the tracked curve
@@ -1028,9 +1010,11 @@ struct SpectrumView: View {
         )
         .chartLegend(.hidden)
         .chartPlotStyle { plotArea in
+            // Clipped: the spectrum is drawn through the chart's edges and cut off by them.
             plotArea
                 .border(Color.gray, width: 1)
                 .contentShape(Rectangle())
+                .clipped()
 
         }
         // Single chartOverlay on both platforms: annotations, cursor/crosshair readout, and

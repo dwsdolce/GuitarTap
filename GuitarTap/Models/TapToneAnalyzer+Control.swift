@@ -137,6 +137,7 @@ extension TapToneAnalyzer {
         loadedNotes = nil
         sourceMeasurementTimestamp = nil
         captureAudioSaved = nil
+        materialPeaksFromLoad = false
         // Clear the played-file name so the chart title reverts to "New" when
         // the user starts a fresh tap sequence (e.g. by changing measurement
         // type across the guitar/material boundary).  Without this, chartTitle

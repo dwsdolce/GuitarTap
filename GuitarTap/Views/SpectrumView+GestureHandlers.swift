@@ -38,8 +38,8 @@
 ///
 /// ## Axis bounds
 ///
-/// Both axes are clamped to prevent invalid states:
-/// - Frequency: 0 Hz – 5 kHz; minimum visible span 50 Hz
+/// Both axes are clamped to ``DisplayRange``'s chart limits:
+/// - Frequency: 1 Hz – 5 kHz; minimum visible span 10 Hz
 /// - Magnitude: −120 dB – +20 dB; minimum visible span 10 dB
 ///
 /// - SeeAlso: `SpectrumScrollWheel`, `SpectrumView+SnapInterpolation`
@@ -58,12 +58,6 @@ import Charts
 import AppKit
 #endif
 
-// MARK: - Frequency Axis Bounds
-
-/// Upper bound for the frequency axis across all zoom and pan operations.
-/// Anything above this is noise for tap-tone work, and allowing the full
-/// 20 kHz range makes panning and zooming impractically slow.
-let maxDisplayFrequency: Float = 5000
 
 // MARK: - Pointer Region
 
@@ -220,15 +214,15 @@ extension SpectrumView {
     }
 #endif
 
-    /// Applies a frequency-axis zoom about `anchorFreq` (the value kept fixed).
-    /// Clamps to 0 Hz…5 kHz with a minimum visible span of 50 Hz and notifies via
-    /// `onFrequencyRangeChanged`.
+    /// Applies a frequency-axis zoom about `anchorFreq` (the value kept fixed), within
+    /// ``DisplayRange/frequencyBounds`` and no narrower than ``DisplayRange/minFrequencySpan``, and notifies
+    /// via `onFrequencyRangeChanged`.
     func applyFrequencyZoom(scale: CGFloat, anchorFreq: Float) {
         var newMinFreq = anchorFreq - (anchorFreq - minFreq) / Float(scale)
         var newMaxFreq = anchorFreq + (maxFreq - anchorFreq) / Float(scale)
-        newMinFreq = max(0, newMinFreq)
-        newMaxFreq = min(maxDisplayFrequency, newMaxFreq)
-        if newMaxFreq > newMinFreq + 50 {
+        newMinFreq = max(DisplayRange.frequencyBounds.lowerBound, newMinFreq)
+        newMaxFreq = min(DisplayRange.frequencyBounds.upperBound, newMaxFreq)
+        if newMaxFreq - newMinFreq >= DisplayRange.minFrequencySpan {
             minFreq = newMinFreq
             maxFreq = newMaxFreq
             onFrequencyRangeChanged?()
@@ -254,14 +248,14 @@ extension SpectrumView {
     }
 #endif
 
-    /// Applies a magnitude-axis zoom about `anchorDB` (the value kept fixed),
-    /// clamped to −120…+20 dB with a minimum visible span of 10 dB.
+    /// Applies a magnitude-axis zoom about `anchorDB` (the value kept fixed), within
+    /// ``DisplayRange/magnitudeBounds`` and no narrower than ``DisplayRange/minMagnitudeSpan``.
     func applyMagnitudeZoom(scale: CGFloat, anchorDB: Float) {
         var newMinDB = anchorDB - (anchorDB - minDB) / Float(scale)
         var newMaxDB = anchorDB + (maxDB - anchorDB) / Float(scale)
-        newMinDB = max(-120, newMinDB)
-        newMaxDB = min(20, newMaxDB)
-        if newMaxDB > newMinDB + 10 {
+        newMinDB = max(DisplayRange.magnitudeBounds.lowerBound, newMinDB)
+        newMaxDB = min(DisplayRange.magnitudeBounds.upperBound, newMaxDB)
+        if newMaxDB - newMinDB >= DisplayRange.minMagnitudeSpan {
             minDB = newMinDB
             maxDB = newMaxDB
         }
@@ -275,9 +269,8 @@ extension SpectrumView {
     ///
     /// Falls back to range-midpoint zoom when no anchor is resolvable.
     ///
-    /// - Note: Zoom ranges are clamped to reasonable limits:
-    ///   - Frequency: 20 Hz to 20 kHz with minimum visible range
-    ///   - dB: -120 dB to +20 dB with minimum 10 dB range
+    /// - Note: Zoom stays within the chart's limits (``DisplayRange/frequencyBounds``,
+    ///   ``DisplayRange/magnitudeBounds``, the minimum spans).
     func handleZoom(scale: CGFloat,
                     pinchAnchor: UnitPoint? = nil,
                     cursorPosition: CGPoint? = nil,
@@ -349,19 +342,20 @@ extension SpectrumView {
         var newMaxFreq = maxFreq - freqShift
 
         // Clamp to boundaries
-        if newMinFreq < 0 {
-            let shift = -newMinFreq
-            newMinFreq = 0
+        let freqBounds = DisplayRange.frequencyBounds
+        if newMinFreq < freqBounds.lowerBound {
+            let shift = freqBounds.lowerBound - newMinFreq
+            newMinFreq = freqBounds.lowerBound
             newMaxFreq += shift
         }
-        if newMaxFreq > maxDisplayFrequency {
-            let shift = newMaxFreq - maxDisplayFrequency
-            newMaxFreq = maxDisplayFrequency
+        if newMaxFreq > freqBounds.upperBound {
+            let shift = newMaxFreq - freqBounds.upperBound
+            newMaxFreq = freqBounds.upperBound
             newMinFreq -= shift
         }
 
-        minFreq = max(0, newMinFreq)
-        maxFreq = min(maxDisplayFrequency, newMaxFreq)
+        minFreq = max(freqBounds.lowerBound, newMinFreq)
+        maxFreq = min(freqBounds.upperBound, newMaxFreq)
         onFrequencyRangeChanged?()
 
         // Pan on dB axis (always linear)
@@ -373,19 +367,20 @@ extension SpectrumView {
         var newMaxDB = maxDB + dbShift
 
         // Clamp to boundaries
-        if newMinDB < -120 {
-            let shift = -120 - newMinDB
-            newMinDB = -120
+        let dbBounds = DisplayRange.magnitudeBounds
+        if newMinDB < dbBounds.lowerBound {
+            let shift = dbBounds.lowerBound - newMinDB
+            newMinDB = dbBounds.lowerBound
             newMaxDB += shift
         }
-        if newMaxDB > 20 {
-            let shift = newMaxDB - 20
-            newMaxDB = 20
+        if newMaxDB > dbBounds.upperBound {
+            let shift = newMaxDB - dbBounds.upperBound
+            newMaxDB = dbBounds.upperBound
             newMinDB -= shift
         }
 
-        minDB = max(-120, newMinDB)
-        maxDB = min(20, newMaxDB)
+        minDB = max(dbBounds.lowerBound, newMinDB)
+        maxDB = min(dbBounds.upperBound, newMaxDB)
     }
 
     // MARK: - Axis Reset Helpers

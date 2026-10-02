@@ -101,9 +101,12 @@ extension TapSettingsView {
             }
         }
 
-        // Parse and validate display frequency range
-        guard let newMinFreq = Float(minFreqInput),
-              let newMaxFreq = Float(maxFreqInput) else {
+        // Parse and validate display frequency range — a field left as it was keeps the exact stored value
+        let previouslySaved = savedRange(for: selectedMeasurementType)
+        guard let newMinFreq = DisplayRange.enteredValue(minFreqInput, stored: previouslySaved.minFreq,
+                                                         decimals: FieldPrecision.frequencyHz),
+              let newMaxFreq = DisplayRange.enteredValue(maxFreqInput, stored: previouslySaved.maxFreq,
+                                                         decimals: FieldPrecision.frequencyHz) else {
             showError("Invalid display frequency values. Please enter valid numbers.")
             return
         }
@@ -114,8 +117,10 @@ extension TapSettingsView {
         )
 
         // Parse and validate display magnitude range
-        guard let newMinDB = Float(minDBInput),
-              let newMaxDB = Float(maxDBInput) else {
+        guard let newMinDB = DisplayRange.enteredValue(minDBInput, stored: previouslySaved.minDB,
+                                                       decimals: FieldPrecision.magnitudeDB),
+              let newMaxDB = DisplayRange.enteredValue(maxDBInput, stored: previouslySaved.maxDB,
+                                                       decimals: FieldPrecision.magnitudeDB) else {
             showError("Invalid display magnitude values. Please enter valid numbers.")
             return
         }
@@ -134,11 +139,6 @@ extension TapSettingsView {
         // Clamp peak threshold to reasonable range
         let clampedThreshold = max(-120, min(newPeakThreshold, 0))
 
-        // Apply validated values to bindings
-        minFreq = validatedFreq.min
-        maxFreq = validatedFreq.max
-        minDB = validatedDB.min
-        maxDB = validatedDB.max
         peakMinThreshold = clampedThreshold
 
         // Persist all settings to UserDefaults (frequency range is stored per measurement type)
@@ -147,6 +147,15 @@ extension TapSettingsView {
         TapDisplaySettings.minMagnitude = validatedDB.min
         TapDisplaySettings.maxMagnitude = validatedDB.max
         TapDisplaySettings.peakMinThreshold = clampedThreshold
+
+        // The chart moves only if the saved range changed or the measurement type did.
+        if let r = DisplayRange.onSettingsDone(saved: savedRange(for: selectedMeasurementType),
+                                              previouslySaved: previouslySaved, typeChanged: typeChanged) {
+            minFreq = r.minFreq
+            maxFreq = r.maxFreq
+            minDB = r.minDB
+            maxDB = r.maxDB
+        }
 
         // Update input fields with validated values (in case they were clamped)
         minFreqInput = FieldPrecision.string(validatedFreq.min, FieldPrecision.frequencyHz)
@@ -157,6 +166,13 @@ extension TapSettingsView {
 
         onApply?(measurementChanged, guitarTypeChanged)
         dismiss()
+    }
+
+    /// The saved view for `type`.
+    private func savedRange(for type: MeasurementType) -> DisplayRange.ChartRange {
+        DisplayRange.ChartRange(minFreq: TapDisplaySettings.minFrequency(for: type),
+                                maxFreq: TapDisplaySettings.maxFrequency(for: type),
+                                minDB: TapDisplaySettings.minMagnitude, maxDB: TapDisplaySettings.maxMagnitude)
     }
 
     func saveCurrentView() {

@@ -216,6 +216,25 @@ extension TapToneAnalysisView {
     /// render pass, preventing the transient `minDB > maxDB` state that
     /// causes the clamping artifact when individual `@Binding` writes arrive
     /// in separate update cycles.
+    /// The chart's current four bounds.
+    var chartRange: DisplayRange.ChartRange {
+        DisplayRange.ChartRange(minFreq: minFreq, maxFreq: maxFreq, minDB: minDB, maxDB: maxDB)
+    }
+
+    /// The saved view for the current measurement type.
+    var savedChartRange: DisplayRange.ChartRange {
+        DisplayRange.ChartRange(minFreq: TapDisplaySettings.minFrequency, maxFreq: TapDisplaySettings.maxFrequency,
+                                minDB: TapDisplaySettings.minMagnitude, maxDB: TapDisplaySettings.maxMagnitude)
+    }
+
+    /// A new measurement started: apply ``DisplayRange/onNewMeasurement(current:loaded:saved:)``.
+    func applyNewMeasurementRange() {
+        if let r = DisplayRange.onNewMeasurement(current: chartRange, loaded: loadedChartRange, saved: savedChartRange) {
+            applyAxisRange(minFreq: r.minFreq, maxFreq: r.maxFreq, minDB: r.minDB, maxDB: r.maxDB)
+        }
+        loadedChartRange = nil
+    }
+
     func applyAxisRange(minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float) {
         self.minFreq    = minFreq
         self.maxFreq    = maxFreq
@@ -227,14 +246,15 @@ extension TapToneAnalysisView {
         self.maxDBInput   = String(format: "%.0f", maxDB)
     }
 
-    /// Expand the frequency display range to ensure the given frequency is visible.
-    /// Adds 10% padding above/below. Used when plate/brace peaks are auto-selected
-    /// to ensure they're always in view even if outside the persisted default range.
+    /// Apply ``DisplayRange/widened(onto:for:min:max:)`` to the chart's range when a plate or brace
+    /// peak is identified, so it is in view even if outside the saved range. The saved range is not
+    /// changed.
     func expandFreqRangeToInclude(_ frequency: Float) {
-        // Material only: a guitar range is the user's analysis window and is not widened for them.
-        guard !TapDisplaySettings.measurementType.isGuitar else { return }
-        // The RULE lives in DisplayRange so Python and web share it and all three can test it.
-        let widened = DisplayRange.expanded(toInclude: frequency, min: minFreq, max: maxFreq)
+        let before = chartRange
+        defer { loadedChartRange = DisplayRange.loadedAfterWidening(loaded: loadedChartRange, before: before, after: chartRange) }
+        let widened = DisplayRange.widened(onto: frequency, for: TapDisplaySettings.measurementType,
+                                           fromLoad: tapToneAnalyzer.materialPeaksFromLoad,
+                                           min: minFreq, max: maxFreq)
         if widened.max != maxFreq {
             maxFreq = widened.max
             maxFreqInput = String(format: "%.0f", maxFreq)

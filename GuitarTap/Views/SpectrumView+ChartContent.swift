@@ -34,21 +34,15 @@ extension SpectrumView {
 
     // MARK: - Chart Content Builders
 
-    /// Primary spectrum curve: a red `LineMark` for each point in `chartData`.
-    ///
-    /// Magnitudes are clamped to `[minDB, maxDB]` so points outside the
-    /// visible dB range are rendered at the chart boundary rather than
-    /// outside the plot area.
+    /// Primary spectrum curve: a red `LineMark` for each point in `chartData`. The line runs through
+    /// the chart's edges and the plot area clips it, so it reaches every edge with its true shape.
     @ChartContentBuilder
     var spectrumLineContent: some ChartContent {
         ForEach(chartData) { dataPoint in
-            // Clamp the magnitude to the currently displayed min and max DB values
-            let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
-
             // Line mark shows the precise spectrum shape
             LineMark(
                 x: .value("Frequency", dataPoint.frequency),
-                y: .value("Magnitude", clampedMagnitude)
+                y: .value("Magnitude", dataPoint.magnitude)
             )
             .foregroundStyle(.red)
             .lineStyle(StrokeStyle(lineWidth: 1))
@@ -166,14 +160,14 @@ extension SpectrumView {
     @ChartContentBuilder
     var materialSpectraContent: some ChartContent {
         ForEach(Array(materialSpectra.enumerated()), id: \.offset) { seriesIndex, series in
-            let dataPoints: [SpectrumDataPoint] = zip(series.frequencies, series.magnitudes)
-                .filter { $0.0 >= minFreq && $0.0 <= maxFreq }
-                .map { SpectrumDataPoint(sourceEpoch: 0, frequency: $0.0, magnitude: $0.1) }
+            let count = min(series.frequencies.count, series.magnitudes.count)
+            let dataPoints: [SpectrumDataPoint] = DisplayRange
+                .drawnIndices(of: Array(series.frequencies.prefix(count)), min: minFreq, max: maxFreq)
+                .map { SpectrumDataPoint(sourceEpoch: 0, frequency: series.frequencies[$0], magnitude: series.magnitudes[$0]) }
             ForEach(dataPoints) { dataPoint in
-                let clampedMagnitude = max(minDB, min(maxDB, dataPoint.magnitude))
                 LineMark(
                     x: .value("Frequency", dataPoint.frequency),
-                    y: .value("Magnitude", clampedMagnitude)
+                    y: .value("Magnitude", dataPoint.magnitude)
                 )
                 .foregroundStyle(by: .value("Series", series.label))
                 .lineStyle(StrokeStyle(lineWidth: 1.5))

@@ -125,6 +125,10 @@ struct TapToneAnalysisView: View {
     @State var maxFreqInput: String = String(format: "%.0f", TapDisplaySettings.maxFrequency)
     @State var minDBInput: String = String(format: "%.0f", TapDisplaySettings.minMagnitude)
     @State var maxDBInput: String = String(format: "%.0f", TapDisplaySettings.maxMagnitude)
+    /// The range a loaded measurement put on the chart (as widened onto its peaks), while the chart is
+    /// still showing it; `nil` when no load is in view. A new measurement returns to the saved range
+    /// only if the user has not moved the chart since the load.
+    @State var loadedChartRange: DisplayRange.ChartRange? = nil
 
     // Auto-scale dB state
     @State var isAutoScaleEnabled = false
@@ -267,7 +271,15 @@ struct TapToneAnalysisView: View {
                                             selectedLongitudinalPeakID: $selectedLongitudinalPeakID,
                                             selectedCrossPeakID: $selectedCrossPeakID,
                                             selectedFlcPeakID: $selectedFlcPeakID,
+                                            loadedChartRange: $loadedChartRange,
                                             expandFreqRange: expandFreqRangeToInclude))
+            // A new sequence (New Tap, Play File, Cancel, a re-arm) after a load or a comparison returns
+            // the chart to the saved range, unless the user has moved it since. startTapSequence is the
+            // only place isMeasurementComplete is set false, and @Published announces every assignment,
+            // so each false is a sequence start (onChange would see only a change from true).
+            .onReceive(tapToneAnalyzer.$isMeasurementComplete) { isComplete in
+                if !isComplete { applyNewMeasurementRange() }
+            }
             .modifier(AutoScaleModifier(fft: fftAnalyzer, tap: tapToneAnalyzer,
                                         isAutoScaleEnabled: $isAutoScaleEnabled,
                                         autoScaleAction: autoScaleDB))
@@ -398,6 +410,7 @@ private struct LoadedSettingsModifier: ViewModifier {
     @Binding var selectedLongitudinalPeakID: UUID?
     @Binding var selectedCrossPeakID: UUID?
     @Binding var selectedFlcPeakID: UUID?
+    @Binding var loadedChartRange: DisplayRange.ChartRange?
     let expandFreqRange: (Float) -> Void
 
     func body(content: Content) -> some View {
@@ -417,6 +430,8 @@ private struct LoadedSettingsModifier: ViewModifier {
                     maxFreqInput = String(format: "%.0f", range.maxFreq)
                     minDBInput   = String(format: "%.0f", range.minDB)
                     maxDBInput   = String(format: "%.0f", range.maxDB)
+                    loadedChartRange = DisplayRange.ChartRange(minFreq: range.minFreq, maxFreq: range.maxFreq,
+                                                               minDB: range.minDB, maxDB: range.maxDB)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         tap.loadedAxisRange = nil
                         tap.loadedMinFreq = nil

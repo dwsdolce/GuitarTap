@@ -120,14 +120,24 @@ changes only the default for the next new measurement.
 
 Tap **Advanced** to reveal these.
 
-- **Frequency Range** — min and max Hz shown on the spectrum
-  chart. Defaults are wide enough to cover guitar / plate /
-  brace ranges; narrow them when you want a closer look at a
-  specific band.
-- **Magnitude Range** — min and max dB shown on the chart.
-- **Save Current View** — saves the *current* chart axes
-  (frequency and magnitude ranges) as your default. Reset to
-  Saved in the chart's **…** menu (§6.2) returns to this view.
+- **Frequency Range** — the saved min and max Hz for the current
+  measurement type (each type has its own). Entered in whole Hz; a
+  range saved with Save Current View is kept exactly and shown
+  rounded. The chart moves to it when you change it here; closing
+  Settings without changing it leaves the chart where it is (§6.8).
+- **Magnitude Range** — the saved min and max dB, shared by all
+  measurement types.
+
+  Both ranges stay within the chart's limits — 1–5000 Hz and
+  −120 to +20 dB, at least 10 Hz and 10 dB wide — the same limits
+  zooming and panning keep to. A value beyond a limit is brought to
+  that limit; a range narrower than the minimum, or with the
+  minimum above the maximum, is not accepted, and the saved range
+  is kept.
+- **Save Current View** — saves the *current* chart axes as the
+  saved view: the frequency range for the current measurement
+  type and the magnitude range. Reset to Saved in the chart's
+  **…** menu (§6.2) returns to this view.
 - **Reset to Defaults** — restores the built-in starting ranges.
 
 ## 8.5 Advanced — Analysis Settings

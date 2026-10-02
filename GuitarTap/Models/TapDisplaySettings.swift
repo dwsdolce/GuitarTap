@@ -34,8 +34,8 @@
 /// ## UserDefaults key naming
 ///
 /// Display frequency keys are per-measurement-type:
-/// `"displayMinFreq_<MeasurementType.rawValue>"`.  A shared fallback key
-/// `"displayMinFreq"` (no suffix) is retained for legacy data.
+/// `"displayMinFreq_<MeasurementType.rawValue>"` / `"displayMaxFreq_<MeasurementType.rawValue>"`;
+/// a type with none stored reads its default.
 ///
 /// - SeeAlso: `TapSettingsView`, `TapToneAnalyzer`, `PDFReportData`
 //
@@ -44,7 +44,7 @@
 //
 //  Created on 2/12/26.
 //
-// @parity state/settings-store tests=test/display-range
+// @parity state/settings-store tests=test/settings-store
 import Foundation
 
 /// Global, `UserDefaults`-backed settings for spectrum display and analysis
@@ -126,8 +126,6 @@ struct TapDisplaySettings {
     private static let braceWidthKey = "braceWidth"
     private static let braceThicknessKey = "braceThickness"
     private static let braceMassKey = "braceMass"
-    private static let displayMinFreqKey = "displayMinFreq"   // legacy / shared fallback
-    private static let displayMaxFreqKey = "displayMaxFreq"   // legacy / shared fallback
     private static let displayMinDBKey = "displayMinDB"
     private static let displayMaxDBKey = "displayMaxDB"
     
@@ -433,34 +431,26 @@ struct TapDisplaySettings {
     /// Default maximum magnitude for spectrum display (dB)
     static let defaultMaxMagnitude: Float = 0
     
-    /// Persisted minimum frequency for display for a specific measurement type (Hz)
+    /// Persisted minimum frequency for display for a specific measurement type (Hz), or the type's
+    /// default when none is stored.
     static func minFrequency(for type: MeasurementType) -> Float {
-        let key = displayMinFreqKey(for: type)
-        let value = defaults.float(forKey: key)
-        if value != 0 { return value }
-        // Migrate legacy single-key value if present
-        let legacy = defaults.float(forKey: displayMinFreqKey)
-        return legacy != 0 ? legacy : defaultMinFrequency(for: type)
+        let value = defaults.float(forKey: displayMinFreqKey(for: type))
+        return value != 0 ? value : defaultMinFrequency(for: type)
     }
     
+    /// Stored exactly as given — Save Current View's range comes back as it was saved.
     static func setMinFrequency(_ value: Float, for type: MeasurementType) {
         defaults.set(value, forKey: displayMinFreqKey(for: type))
     }
     
-    /// Persisted maximum frequency for display for a specific measurement type (Hz)
+    /// Persisted maximum frequency for display for a specific measurement type (Hz), or the type's
+    /// default when none is stored.
     static func maxFrequency(for type: MeasurementType) -> Float {
-        let key = displayMaxFreqKey(for: type)
-        let value = defaults.float(forKey: key)
-        if value != 0 { return value }
-        // Migrate legacy single-key value if present, but only for non-brace types
-        // (brace has a different default and shouldn't inherit an old guitar setting)
-        if type != .brace {
-            let legacy = defaults.float(forKey: displayMaxFreqKey)
-            if legacy != 0 { return legacy }
-        }
-        return defaultMaxFrequency(for: type)
+        let value = defaults.float(forKey: displayMaxFreqKey(for: type))
+        return value != 0 ? value : defaultMaxFrequency(for: type)
     }
     
+    /// Stored exactly as given — Save Current View's range comes back as it was saved.
     static func setMaxFrequency(_ value: Float, for type: MeasurementType) {
         defaults.set(value, forKey: displayMaxFreqKey(for: type))
     }
@@ -608,11 +598,12 @@ struct TapDisplaySettings {
     ///   - maxFreq: Maximum frequency to validate
     /// - Returns: Tuple of validated (min, max) frequencies
     static func validateFrequencyRange(minFreq: Float, maxFreq: Float) -> (min: Float, max: Float) {
-        let clampedMin = max(20, min(minFreq, 20000))
-        let clampedMax = max(20, min(maxFreq, 20000))
-        
-        // Ensure minimum separation of 10 Hz
-        if clampedMin < clampedMax && (clampedMax - clampedMin) >= 10 {
+        let bounds = DisplayRange.frequencyBounds
+        let clampedMin = max(bounds.lowerBound, min(minFreq, bounds.upperBound))
+        let clampedMax = max(bounds.lowerBound, min(maxFreq, bounds.upperBound))
+
+        // The chart's limits — the same as zoom and pan
+        if clampedMin < clampedMax && (clampedMax - clampedMin) >= DisplayRange.minFrequencySpan {
             return (clampedMin, clampedMax)
         }
         
@@ -626,11 +617,12 @@ struct TapDisplaySettings {
     ///   - maxDB: Maximum magnitude to validate
     /// - Returns: Tuple of validated (min, max) magnitudes
     static func validateMagnitudeRange(minDB: Float, maxDB: Float) -> (min: Float, max: Float) {
-        let clampedMin = max(-120, min(minDB, 20))
-        let clampedMax = max(-120, min(maxDB, 20))
-        
-        // Ensure minimum separation of 10 dB
-        if clampedMin < clampedMax && (clampedMax - clampedMin) >= 10 {
+        let bounds = DisplayRange.magnitudeBounds
+        let clampedMin = max(bounds.lowerBound, min(minDB, bounds.upperBound))
+        let clampedMax = max(bounds.lowerBound, min(maxDB, bounds.upperBound))
+
+        // The chart's limits — the same as zoom and pan
+        if clampedMin < clampedMax && (clampedMax - clampedMin) >= DisplayRange.minMagnitudeSpan {
             return (clampedMin, clampedMax)
         }
         

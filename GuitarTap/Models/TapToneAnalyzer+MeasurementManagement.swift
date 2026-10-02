@@ -640,6 +640,7 @@ extension TapToneAnalyzer {
         
         // Restore the plate/brace identified peaks — the only material peak state — by id from the
         // saved peaks: which peak is L / C / FLC is a fact about the measurement.
+        materialPeaksFromLoad = true
         selectedLongitudinalPeak = measurement.selectedLongitudinalPeakID
             .flatMap { id in measurement.peaks.first(where: { $0.id == id }) }
         selectedCrossPeak = measurement.selectedCrossPeakID

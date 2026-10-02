@@ -188,19 +188,50 @@ Annotation mode applies to the current view only — it is not
 saved with the measurement, and does not affect which peaks
 contribute to derived values (selection does that, see §3.6).
 
-## 6.8 Saving the Current View as Default
+## 6.8 The Chart's Range and Your Saved View
 
-Once you have zoomed and panned to a view you want as your
-starting point for every new measurement, save it:
+Each measurement type — each guitar type, plate and brace — has
+its own **saved frequency range**: its home view. The magnitude
+(dB) range is saved once for all types. The chart starts at the
+saved view when Guitar Tap opens and when you switch measurement
+type, and **Reset to Saved** (§6.2, §6.3) returns to it.
+
+The saved view is a starting point, not a limit — zoom and pan
+freely. The chart moves only when:
+
+- **you move it** — zooming, panning, a reset, or a new range
+  entered in Settings;
+- **a measurement is loaded** — the chart shows the range that
+  measurement was saved with;
+- **a plate or brace peak lands outside it** — when fL, fC or fFLC
+  is identified off the edge of the chart, the chart widens just
+  enough to show it. A guitar's view is never widened: it is the
+  window you chose to analyse;
+- **you switch measurement type** — the chart moves to that type's
+  saved view.
+
+Nothing else moves it. **New Tap**, **Play File** and closing
+Settings without changing the range leave the chart where it is,
+so a view you zoomed to stays while you repeat a tap. The one
+exception follows a load: the loaded range belonged to that
+measurement, so New Tap or Play File returns to your saved view —
+unless you have zoomed or panned since the load, in which case
+the chart stays where you put it.
+
+A widened chart and a loaded range never change the saved view.
+Only two things do: the range fields in Settings (§8.4), and
+**Save Current View**.
+
+### Saving the current view
+
+Once you have zoomed and panned to a view you want as the home
+view for the current measurement type, save it:
 
 **Settings → Advanced → Display Settings → Save Current View**
 
-What is saved: the **frequency range** (low and high Hz) and the
-**magnitude range** (low and high dB) of the current chart. The
-saved view becomes the target of **Reset to Saved** (§6.2) and
-of right-click → Reset Axes (§6.3) on subsequent launches.
+What is saved: the **frequency range** (low and high Hz) for the
+current measurement type, and the **magnitude range** (low and high
+dB) for all types — exactly as shown, so **Reset to Saved** brings
+back the same view, with a peak at the chart's edge still on the same
+side of it.
 
-The default view is a single global setting, not per measurement
-mode. If you work in plate mode and guitar mode at different
-ranges, pick the view that suits the work you do most often and
-zoom from there for the other.
