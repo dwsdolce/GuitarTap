@@ -96,8 +96,8 @@ extension Float {
     
     /// Color corresponding to `decayQuality` for the currently selected guitar type.
     ///
-    /// Colors progress from `.gray` (very short) → `.orange` → `.yellow` →
-    /// `.green` → `.blue` (excellent).
+    /// Colors progress from gray (very short) → orange → yellow → green → blue (excellent), from
+    /// ``Palette``.
     var decayQualityColor: Color {
         return decayQualityColor(for: TapDisplaySettings.guitarType)
     }
@@ -105,22 +105,23 @@ extension Float {
     /// Color corresponding to `decayQuality(for:)` for the specified guitar type.
     ///
     /// - Parameter guitarType: The guitar type whose thresholds define the ranges.
-    /// - Returns: A `Color` ranging from `.gray` (very short) to `.blue` (excellent).
+    /// - Returns: A ``Palette`` colour ranging from gray (very short) to blue (excellent); gray for a
+    ///   value outside every band (negative or NaN).
     func decayQualityColor(for guitarType: GuitarType) -> Color {
         let thresholds = guitarType.decayThresholds
         switch self {
         case 0..<thresholds.veryShort:
-            return .gray
+            return Palette.gray
         case thresholds.veryShort..<thresholds.short:
-            return .orange
+            return Palette.orange
         case thresholds.short..<thresholds.moderate:
-            return .yellow
+            return Palette.yellow
         case thresholds.moderate..<thresholds.good:
-            return .green
+            return Palette.green
         case thresholds.good...:
-            return .blue
+            return Palette.blue
         default:
-            return .gray
+            return Palette.gray
         }
     }
     
@@ -152,22 +153,22 @@ extension Float {
     
     /// Color corresponding to `tapToneRatioQuality`.
     ///
-    /// `.green` for the ideal range, `.orange` for near-ideal deviations,
-    /// `.red` for out-of-range values.
+    /// Green for the ideal range, orange for near-ideal deviations, red for out-of-range values, from
+    /// ``Palette``; gray for a value outside every band (negative or NaN).
     var tapToneRatioQualityColor: Color {
         switch self {
         case 0..<1.7:
-            return .red
+            return Palette.red
         case 1.7..<1.9:
-            return .orange
+            return Palette.orange
         case 1.9...2.1:
-            return .green
+            return Palette.green
         case 2.1..<2.3:
-            return .orange
+            return Palette.orange
         case 2.3...:
-            return .red
+            return Palette.red
         default:
-            return .gray
+            return Palette.gray
         }
     }
 }

@@ -149,8 +149,8 @@ struct PDFReportData {
     static func from(measurement: TapToneMeasurement, spectrumImageData: Data? = nil) -> PDFReportData {
         let snapshot = measurement.spectrumSnapshot
         let anySnapshot = snapshot ?? measurement.longitudinalSnapshot ?? measurement.crossSnapshot
-        let measurementType = anySnapshot?.measurementType ?? .classical
-        let guitarType = anySnapshot?.guitarType ?? .classical
+        let measurementType = anySnapshot?.measurementType ?? .generic
+        let guitarType = anySnapshot?.guitarType ?? .generic
 
         // Compute material properties if applicable
         var plateProps: PlateProperties? = nil
@@ -269,7 +269,8 @@ struct PDFReportGenerator {
     @MainActor
     static func generate(data: PDFReportData) -> Data? {
         let contentView = PDFReportContentView(data: data)
-        let renderer = ImageRenderer(content: contentView)
+        // Printed on white: the light appearance, whatever the screen's.
+        let renderer = ImageRenderer(content: contentView.environment(\.colorScheme, .light))
 
         let mutableData = NSMutableData()
 
@@ -713,9 +714,9 @@ private struct PDFReportContentView: View {
                         title: "Ring-Out Time",
                         value: "\(FieldPrecision.string(decay, FieldPrecision.decayTimeS)) s",
                         subtitle: "Time to decay 15 dB",
-                        detail: decay.decayQuality,
+                        detail: decay.decayQuality(for: data.guitarType),
                         detailSubtitle: "Sustain quality",
-                        detailColor: decay.decayQualityColor
+                        detailColor: decay.decayQualityColor(for: data.guitarType)
                     )
                 }
 
@@ -1080,7 +1081,7 @@ extension PDFReportGenerator {
         let mutableData = NSMutableData()
 
         // Page 1 — averaged result
-        let avgRenderer = ImageRenderer(content: PDFReportContentView(data: averaged))
+        let avgRenderer = ImageRenderer(content: PDFReportContentView(data: averaged).environment(\.colorScheme, .light))
         var contextCreated = false
         var pdfContext: CGContext?
 
@@ -1098,7 +1099,7 @@ extension PDFReportGenerator {
         guard contextCreated, let context = pdfContext else { return nil }
 
         // Page 2 — per-tap comparison
-        let cmpRenderer = ImageRenderer(content: ComparisonPDFReportContentView(data: comparison))
+        let cmpRenderer = ImageRenderer(content: ComparisonPDFReportContentView(data: comparison).environment(\.colorScheme, .light))
         cmpRenderer.render { size, draw in
             var mediaBox = CGRect(origin: .zero, size: size)
             withUnsafeBytes(of: &mediaBox) { ptr in
@@ -1121,7 +1122,8 @@ extension PDFReportGenerator {
     @MainActor
     static func generateComparison(data: ComparisonPDFReportData) -> Data? {
         let contentView = ComparisonPDFReportContentView(data: data)
-        let renderer = ImageRenderer(content: contentView)
+        // Printed on white: the light appearance, whatever the screen's.
+        let renderer = ImageRenderer(content: contentView.environment(\.colorScheme, .light))
 
         let mutableData = NSMutableData()
 

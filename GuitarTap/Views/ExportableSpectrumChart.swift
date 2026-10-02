@@ -86,7 +86,7 @@ struct ExportableSpectrumChart: View {
 
     // Plate/brace measurement mode support
     /// Measurement type determining color coding and boundary visibility.
-    var measurementType: MeasurementType = .acoustic
+    var measurementType: MeasurementType = .generic
     /// ID of the peak selected as the longitudinal (L) mode.
     var selectedLongitudinalPeakID: UUID?
     /// ID of the peak selected as the cross-grain (C) mode.
@@ -491,7 +491,7 @@ func makeExportableSpectrumView(
     peaks: [ResonantPeak],
     annotationOffsets: [UUID: CGPoint] = [:],
     showUnknownModes: Bool? = nil,
-    measurementType: MeasurementType = .acoustic,
+    measurementType: MeasurementType = .generic,
     selectedLongitudinalPeakID: UUID? = nil,
     selectedCrossPeakID: UUID? = nil,
     selectedFlcPeakID: UUID? = nil,
@@ -758,7 +758,7 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
         materialSpectra.append((flcSnap.magnitudes, flcSnap.frequencies, .purple, "Diagonal (fLC)"))
     }
 
-    let measurementType = snap.measurementType ?? .classical
+    let measurementType = snap.measurementType ?? .generic
 
     // Mirror TapToneAnalyzer.visiblePeaks: filter by annotationVisibilityMode and selectedPeakIDs
     let allPeaks = measurement.peaks
@@ -851,7 +851,7 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? 
         minDB:   snaps.map(\.minDB).min()   ?? -100,
         maxDB:   snaps.map(\.maxDB).max()   ?? 0,
         peaks: [],
-        measurementType: .classical,
+        measurementType: .generic,
         materialSpectra: spectra,
         dateLabel: DateDisplay.string(measurement.timestamp),
         chartTitle: "Tap Comparison — \(measurement.measurementName ?? "Multi-Tap")"
@@ -902,7 +902,7 @@ func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) -> Data
         minDB:   snaps.map(\.minDB).min()   ?? -100,
         maxDB:   snaps.map(\.maxDB).max()   ?? 0,
         peaks: [],
-        measurementType: .classical,
+        measurementType: .generic,
         materialSpectra: comparisonSpectra,
         dateLabel: DateDisplay.string(measurement.timestamp),
         chartTitle: "Comparison — \(measurement.measurementName ?? "Comparison")"

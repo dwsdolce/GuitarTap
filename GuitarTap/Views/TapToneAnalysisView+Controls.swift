@@ -414,7 +414,7 @@ extension TapToneAnalysisView {
                     Text(phaseLabel)
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Palette.blue)
                         .lineLimit(1)
                 }
 
@@ -427,7 +427,7 @@ extension TapToneAnalysisView {
                 if tap.currentTapCount > 0 {
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
-                        .tint(.blue) // systemBlue — see note on the fullStatusBar bar
+                        .tint(Palette.blue) // see the note on the fullStatusBar bar
                         .frame(width: 50)
                 }
 
@@ -436,7 +436,7 @@ extension TapToneAnalysisView {
                 if fft.isRunning {
                     Text("Peak: \(FieldPrecision.string(fft.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB @ \(FieldPrecision.string(fft.peakFrequency, FieldPrecision.peakFrequencyHz)) Hz")
                         .font(.caption)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Palette.blue)
                         .lineLimit(1)
                 }
 
@@ -526,16 +526,13 @@ extension TapToneAnalysisView {
             } else {
                 // Normal tap detection state
                 if tap.currentTapCount > 0 {
-                    // Tinted systemBlue EXPLICITLY rather than left to inherit the accent colour.
-                    // Untinted, a ProgressView takes the user's macOS accent (AccentColor.colorset is
-                    // empty), so the bar drifted with a System Settings preference while the phase
-                    // label beside it is a hard `.blue` — and neither Python (Qt `palette(highlight)`)
-                    // nor the web (its own `--accent`) could ever agree with it. All three now pin
-                    // systemBlue, which is itself light/dark adaptive (#007AFF / #0A84FF).
-                    // This is the colour token the Light/Dark/System theme work will own.
+                    // Tinted EXPLICITLY rather than left to inherit the accent colour: untinted, a
+                    // ProgressView takes the user's macOS accent (AccentColor.colorset is empty), so
+                    // the bar would follow a System Settings preference. The bar and its labels use
+                    // the pinned Palette.blue (#007AFF / #0A84FF), as Python and the web do.
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
-                        .tint(.blue)
+                        .tint(Palette.blue)
                 }
 
                 HStack(spacing: 12) {
@@ -572,7 +569,7 @@ extension TapToneAnalysisView {
                     if fft.isRunning {
                         Text("Peak: \(FieldPrecision.string(fft.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB @ \(FieldPrecision.string(fft.peakFrequency, FieldPrecision.peakFrequencyHz)) Hz")
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Palette.blue)
                     } else {
                         Text("Starting...")
                             .font(.caption)
@@ -600,7 +597,7 @@ extension TapToneAnalysisView {
                         Text(phaseLabel)
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Palette.blue)
                     }
                 }
             }
