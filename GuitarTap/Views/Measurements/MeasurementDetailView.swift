@@ -6,28 +6,17 @@
 
 /// # MeasurementDetailView
 ///
-/// Detail panel for a single saved `TapToneMeasurement`.
+/// Detail panel for a single saved `TapToneMeasurement`. Read-only: Load, Edit, Export and the PDF
+/// report are on the measurement row's menu in `MeasurementsListView`.
 ///
 /// ## Platform Differences
 ///
 /// - **macOS**: Rendered bare (`contentView` without a `NavigationView`),
 ///   presented in a dedicated `NSWindowController` opened from
-///   `MeasurementsListView`. Toolbar items provide Load, Export, and PDF
-///   Report actions. Loading closes the detail window by calling
-///   `NSApplication.shared.keyWindow?.close()`.
-/// - **iOS**: Wrapped in a `NavigationView` with nav-bar toolbar items.
+///   `MeasurementsListView`.
+/// - **iOS**: Wrapped in a `NavigationView`.
 ///
-/// ## Load Flow
-///
-/// Tapping Load shows a confirmation alert ("replace current analysis?") then
-/// calls `analyzer.loadMeasurement(_:)`.
-///
-/// ## Export Flow
-///
-/// The PDF report flow uses `PDFReportGenerator` with an off-screen
-/// `ExportableSpectrumChart` rendered by `ImageRenderer`.
-///
-/// - SeeAlso: `MeasurementsListView`, `PDFReportGenerator`
+/// - SeeAlso: `MeasurementsListView`
 
 import SwiftUI
 
@@ -36,10 +25,7 @@ struct MeasurementDetailView: View {
     @State var measurement: TapToneMeasurement
     @ObservedObject var analyzer: TapToneAnalyzer
     @Environment(\.dismiss) var dismiss
-    @State private var isExporting = false
-    @State private var isGeneratingReport = false
     @State private var chartImage: Image?
-    @State private var showingLoadConfirmation = false
     @State private var showingEdit = false
     
     var body: some View {
@@ -215,115 +201,5 @@ struct MeasurementDetailView: View {
                 }
                 .padding()
             }
-    }
-    
-    private func loadMeasurement() {
-        showingLoadConfirmation = true
-    }
-    
-    private func exportMeasurement() {
-        isExporting = true
-        analyzer.exportMeasurement(measurement) { json, measurement in
-            MeasurementFileExporter.exportJSON(json: json, measurement: measurement) {
-                self.isExporting = false
-            }
-        }
-    }
-
-    @MainActor
-    private func generatePDFReport() {
-        if measurement.tapEntries?.isEmpty == false {
-            generateMultiTapPDFReport()
-        } else {
-            generateSinglePDFReport()
-        }
-    }
-
-    @MainActor
-    private func generateSinglePDFReport() {
-        isGeneratingReport = true
-        let spectrumImageData = renderSpectrumImageForMeasurement(measurement)
-        let reportData = PDFReportData.from(measurement: measurement, spectrumImageData: spectrumImageData)
-        guard let pdfData = PDFReportGenerator.generate(data: reportData) else {
-            gtLog("❌ Failed to generate PDF report")
-            isGeneratingReport = false
-            return
-        }
-        MeasurementFileExporter.exportPDF(data: pdfData, basename: reportData.baseFilename) {
-            self.isGeneratingReport = false
-        }
-    }
-
-    @MainActor
-    private func generateMultiTapPDFReport() {
-        guard let tapEntries = measurement.tapEntries, !tapEntries.isEmpty else { return }
-        isGeneratingReport = true
-
-        let avgImageData = renderSpectrumImageForMeasurement(measurement)
-        let avgReportData = PDFReportData.from(measurement: measurement, spectrumImageData: avgImageData)
-        let cmpImageData = renderSpectrumImageForMultiTap(measurement)
-
-        let palette: [Color] = [.blue, .orange, .green, .purple, .teal]
-        let avgColor = TapToneAnalyzer.multiTapAvgColor
-
-        var cmpEntries: [ComparisonEntry] = tapEntries.enumerated().map { index, entry in
-            let color = palette[index % palette.count]
-            let cgColor = color.cgColor ?? color.resolve(in: .init()).cgColor
-            let comps: [Double]
-            if let c = cgColor.components, c.count >= 3 {
-                comps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
-            } else { comps = [0.0, 0.0, 1.0, 1.0] }
-            let selectedIDs = Set(entry.selectedPeakIDs)
-            return ComparisonEntry(id: UUID(), label: "Tap \(entry.tapIndex)",
-                colorComponents: comps, snapshot: entry.snapshot,
-                peaks: entry.peaks.filter { selectedIDs.contains($0.id) },
-                guitarType: entry.snapshot.guitarType, sourceMeasurementID: nil)
-        }
-        if let avgSnap = measurement.spectrumSnapshot {
-            let avgCGColor = avgColor.cgColor ?? avgColor.resolve(in: .init()).cgColor
-            let avgComps: [Double]
-            if let c = avgCGColor.components, c.count >= 3 {
-                avgComps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
-            } else { avgComps = [1.0, 0.85, 0.0, 1.0] }
-            let selectedIDs = measurement.effectiveSelectedPeakIDs
-            cmpEntries.append(ComparisonEntry(id: UUID(), label: "Averaged",
-                colorComponents: avgComps, snapshot: avgSnap,
-                peaks: measurement.peaks.filter { selectedIDs.contains($0.id) },
-                guitarType: measurement.spectrumSnapshot?.guitarType, sourceMeasurementID: nil))
-        }
-
-        // Per-tap rows = each tap's own auto; Averaged row = the definitive (override-aware) modes,
-        // tagged where overridden.
-        let avgInfo = measurement.definitiveModeInfo()
-        let modeFrequencies = cmpEntries.map { entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
-            let c = entry.colorComponents
-            let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
-            if entry.label == "Averaged" {
-                return (entry.label, color, avgInfo[.air]?.frequency, avgInfo[.top]?.frequency,
-                        avgInfo[.back]?.frequency, Set(avgInfo.filter { $0.value.isOverride }.keys))
-            }
-            let modePeaks = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
-            return (entry.label, color, modePeaks[.air]?.frequency, modePeaks[.top]?.frequency,
-                    modePeaks[.back]?.frequency, [])
-        }
-
-        let cmpReportData = ComparisonPDFReportData(
-            timestamp: measurement.timestamp,
-            comparisonLabel: measurement.measurementName,
-            notes: measurement.notes,
-            spectrumImageData: cmpImageData,
-            entries: cmpEntries,
-            modeFrequencies: modeFrequencies
-        )
-
-        guard let pdfData = PDFReportGenerator.generateMultiTapReport(
-            averaged: avgReportData, comparison: cmpReportData) else {
-            gtLog("❌ Failed to generate multi-tap PDF report")
-            isGeneratingReport = false
-            return
-        }
-        MeasurementFileExporter.exportPDF(data: pdfData, basename: avgReportData.baseFilename) {
-            self.isGeneratingReport = false
-        }
     }
 }

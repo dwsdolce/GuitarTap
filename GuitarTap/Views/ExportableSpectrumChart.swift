@@ -2,6 +2,8 @@
 //  ExportableSpectrumChart.swift
 //  GuitarTap
 //
+// @parity view/spectrum-export tests=test/spectrum-export
+//
 
 /// # ExportableSpectrumChart
 ///
