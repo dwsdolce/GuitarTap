@@ -54,20 +54,18 @@ struct GatedFFTParityTests {
         }
     }
 
-    // GFFT1: a single tone.
-    @Test("GFFT1 — single tone matches the oracle")
-    func gfft1_singleTone() { check("GFFT1") }
+    // Every oracle case with tones, by its id — the list is the oracle's, shared by the three editions.
+    // The oracle's tone cases: GFFT1, a single tone; GFFT2, two tones at the plate-C capture
+    // frequencies that once exposed a discrepancy; GFFT3, two tones at exact bin centres (bins 46 and 80 at 32768
+    // points) — being bin centres does NOT remove leakage here: the window spans the padded 32768 samples and the
+    // signal only the first 19200, so no tone is periodic in the window, and the 67 Hz tone reads differently here
+    // from GFFT5, where it is alone; GFFT5, one bin-centred tone, which pins the window's normalisation (Swift's
+    // HANN_NORM instead of HANN_DENORM would read about 4.26 dB high).
+    nonisolated static let toneCases: [String] = ParityOracle.shared.gatedFft
+        .filter { !$0.value.toneList.isEmpty }.keys.sorted()
 
-    // GFFT2: two tones at the plate-C capture frequencies that once exposed a discrepancy.
-    @Test("GFFT2 — two tones match the oracle")
-    func gfft2_twoTones() { check("GFFT2") }
-
-    // GFFT3: two tones whose frequencies are exact bin centres (bins 46 and 80 at 32768 points).
-    // Being bin centres does NOT remove leakage here: the window spans the padded 32768 samples and the
-    // signal only the first 19200, so no tone is periodic in the window. The 67 Hz tone reads
-    // differently here from GFFT5, where it is alone — that difference is leakage from the 117 Hz tone.
-    @Test("GFFT3 — bin-centred two tones match the oracle")
-    func gfft3_binCentredTwoTones() { check("GFFT3") }
+    @Test("every oracle tone case matches the oracle", arguments: toneCases)
+    func toneCase(_ name: String) { check(name) }
 
     // GFFT4: silence reads exactly the oracle's value — −∞ in every bin. The oracle stores it as the
     // string "-Infinity", which every edition's reader decodes.
@@ -81,11 +79,6 @@ struct GatedFFTParityTests {
         #expect(expected != nil, "the oracle records GFFT4's exact value")
         #expect(maxMag == expected, "silence must read \(String(describing: expected)) dB, got \(String(describing: maxMag))")
     }
-
-    // GFFT5: one bin-centred tone. Pins the window's normalisation: HANN_NORM instead of HANN_DENORM
-    // would read about 4.26 dB high.
-    @Test("GFFT5 — bin-centred single tone matches the oracle")
-    func gfft5_binCentredSingleTone() { check("GFFT5") }
 
     // The window is the PERIODIC Hann, 0.5·(1 − cos 2πn/N). A constant input fills the padded length,
     // so the windowed signal IS the window, and a periodic Hann's spectrum is exactly bins 0 and 1:

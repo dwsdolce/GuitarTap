@@ -104,14 +104,15 @@ private func loadExpected() throws -> [String: ExpectedFixture] {
 @Suite("FindPeaks — fixture regression")
 struct PeakFixtureRegressionTests {
 
+    // The fixtures are the shared expected file's keys, so the three editions run the same list.
     // nonisolated so the @Test(arguments:) macro can read it from a nonisolated context — the test
     // target defaults to @MainActor (SWIFT_DEFAULT_ACTOR_ISOLATION), which otherwise makes this an
     // error under the Swift 6 language mode. It is an immutable Sendable [String], so this is safe.
-    nonisolated static let fixtures = [
-        "dws-2024-umik-1-swift-mac-1784225155.guitartap",
-        "dws-2024-umik-1-python-mac-1784225140.guitartap",
-        "dws-2024-umik-1-web-mac-1784225174.guitartap",
-    ]
+    nonisolated static let fixtures: [String] = {
+        let url = Bundle(for: FixtureAnchor.self).url(forResource: "peak-baseline-expected", withExtension: "json")!
+        let json = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        return json.keys.sorted()
+    }()
 
     // D3 — no real capture may produce two peaks for one spectral feature.
     @Test(arguments: fixtures)

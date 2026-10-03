@@ -19,12 +19,12 @@ private final class SpectrumExportTestsAnchor {}
 @MainActor
 struct SpectrumExportTests {
 
-    /// Each fixture and the image it exports: pixels wide and high, and pixels per inch.
-    static let cases: [(fixture: String, width: Int, height: Int, ppi: Int)] = [
-        ("plate-umik-1-3-tap-swift-ipad-1784314709", 2928, 2376, 144),
-        ("dws-2024-umik-1-swift-mac-1785359434", 2928, 2376, 144),
-        ("5-guitar-comparison-1776708138", 2928, 2138, 144),
-    ]
+    /// The shared cases: each fixture and the image it exports — pixels wide and high, and pixels per inch.
+    static let cases: [(fixture: String, width: Int, height: Int, ppi: Int)] = {
+        let url = Bundle(for: SpectrumExportTestsAnchor.self).url(forResource: "spectrum-export", withExtension: "json")!
+        let data = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        return (data["cases"] as! [[Any]]).map { ($0[0] as! String, $0[1] as! Int, $0[2] as! Int, $0[3] as! Int) }
+    }()
 
     @Test(arguments: cases)
     func export_sizeAndPixelsPerInch(_ c: (fixture: String, width: Int, height: Int, ppi: Int)) throws {

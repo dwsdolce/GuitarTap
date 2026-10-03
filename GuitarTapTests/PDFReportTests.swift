@@ -23,27 +23,12 @@ private final class PDFReportTestsAnchor {}
 @MainActor
 struct PDFReportTests {
 
-    /// Each fixture, through the report its kind uses.
-    static let fixtures = [
-        "5-guitar-comparison-1776708138",
-        "annotation-override-1790037028",
-        "annotation-override-python-1790037332",
-        "brace-umik-1-3-tap-swift-mac-1785359380",
-        "brace-umik-1-python-mac-1785442624",
-        "brace-umik-1-swift-mac-1785359411",
-        "comparison-long-name-1776708138",
-        "contreras-classical-1774731564",
-        "dws-2024-umik-1-3-tap-swift-mac-1785359425",
-        "dws-2024-umik-1-3-tap-web-mac-1785440737",
-        "dws-2024-umik-1-python-mac-1784225140",
-        "dws-2024-umik-1-swift-mac-1784225155",
-        "dws-2024-umik-1-swift-mac-1785359434",
-        "dws-2024-umik-1-web-mac-1784225174",
-        "plate-umik-1-3-tap-swift-ipad-1784314709",
-        "plate-umik-1-3-tap-swift-mac-1785359465",
-        "plate-umik-1-swift-mac-1785359486",
-        "plate-umik-1-web-mac-1785440769",
-    ]
+    /// The shared cases: each fixture, through the report its kind uses, and the baseline tolerance.
+    static let data: [String: Any] = {
+        let url = Bundle(for: PDFReportTestsAnchor.self).url(forResource: "pdf-report", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
+    static let fixtures = data["fixtures"] as! [String]
 
     @Test(arguments: fixtures)
     func report_matchesTheExpectedLines(_ fixture: String) throws {
@@ -68,7 +53,7 @@ struct PDFReportTests {
             + "\n--- expected\n\(expected.map(\.description).joined(separator: "\n"))"
         try #require(actual.count == expected.count, "line count \(actual.count) ≠ \(expected.count)\n\(listing)")
         for (a, e) in zip(actual, expected) {
-            #expect(a.page == e.page && abs(a.baseline - e.baseline) <= 1
+            #expect(a.page == e.page && abs(a.baseline - e.baseline) <= (Self.data["baselineTolerance"] as! Double)
                         && Self.squeezed([a.text]) == Self.squeezed([e.text]),
                     "\(a) ≠ expected \(e)\n\(listing)")
         }
