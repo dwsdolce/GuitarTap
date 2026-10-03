@@ -40,14 +40,6 @@ struct ModeColorsTests {
                 "Upper Modes and Unknown must stay distinguishable")
     }
 
-    // Legacy cases collapse to their canonical equivalent's colour, via `normalized`.
-    @Test func legacyCasesShareTheirCanonicalColour() {
-        #expect(GuitarMode.helmholtz.hex  == GuitarMode.air.hex)
-        #expect(GuitarMode.crossGrain.hex == GuitarMode.air.hex)
-        #expect(GuitarMode.longGrain.hex  == GuitarMode.top.hex)
-        #expect(GuitarMode.monopole.hex   == GuitarMode.back.hex)
-    }
-
     // `color` is derived from `hex`, so what is drawn cannot diverge from the pinned value.
     @Test func colorIsBuiltFromTheHex() {
         for m in GuitarMode.currentCases {

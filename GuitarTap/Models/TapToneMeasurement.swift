@@ -563,7 +563,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             .filter {
                 selected.contains($0.id)
                     && GuitarMode.effectiveMode(override: peakModeOverrides?[$0.id],
-                                                auto: autoMap[$0.id] ?? .unknown).normalized == mode.normalized
+                                                auto: autoMap[$0.id] ?? .unknown) == mode
             }
             .max(by: { $0.magnitude < $1.magnitude })
     }
@@ -782,7 +782,7 @@ struct TapToneMeasurement: Identifiable, Codable {
                 // No saved selection: establish the auto set — the strongest peak per effective mode.
                 var chosen: [GuitarMode: ResonantPeak] = [:]
                 for p in decodedPeaks {
-                    let m = effMode(p).normalized
+                    let m = effMode(p)
                     guard m != .unknown else { continue }
                     if let cur = chosen[m], p.magnitude <= cur.magnitude { continue }
                     chosen[m] = p
@@ -795,7 +795,7 @@ struct TapToneMeasurement: Identifiable, Codable {
                 let selectedSet = Set(decodedSelectedPeakIDs!)
                 var strongestByMode: [GuitarMode: ResonantPeak] = [:]
                 for p in decodedPeaks where selectedSet.contains(p.id) {
-                    let m = effMode(p).normalized
+                    let m = effMode(p)
                     guard singleHolder.contains(m) else { continue }
                     if let cur = strongestByMode[m], p.magnitude <= cur.magnitude { continue }
                     strongestByMode[m] = p
@@ -803,7 +803,7 @@ struct TapToneMeasurement: Identifiable, Codable {
                 let winners = Set(strongestByMode.values.map { $0.id })
                 let pruned = decodedSelectedPeakIDs!.filter { id in
                     guard let p = decodedPeaks.first(where: { $0.id == id }) else { return false }
-                    let m = effMode(p).normalized
+                    let m = effMode(p)
                     return !singleHolder.contains(m) || winners.contains(id)
                 }
                 if pruned.count != decodedSelectedPeakIDs!.count {

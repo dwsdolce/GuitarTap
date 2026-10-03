@@ -395,8 +395,8 @@ struct FindPeaksDuplicateTests {
         let peaks = sut.findPeaks(magnitudes: mags, frequencies: freqs)
         let modeMap = GuitarMode.classifyAll(peaks)
 
-        let topPeak = peaks.first { modeMap[$0.id]?.normalized == .top }
-        let backPeak = peaks.first { modeMap[$0.id]?.normalized == .back }
+        let topPeak = peaks.first { modeMap[$0.id] == .top }
+        let backPeak = peaks.first { modeMap[$0.id] == .back }
 
         #expect(topPeak != nil, "no Top peak identified")
         #expect(backPeak != nil, "no Back peak identified")
@@ -443,7 +443,7 @@ struct FindPeaksDuplicateTests {
         // third peak that was never detected.
         var selectedPerMode: [GuitarMode: Int] = [:]
         for p in peaks where selected.contains(p.id) {
-            guard let m = modeMap[p.id]?.normalized, m != .unknown else { continue }
+            guard let m = modeMap[p.id], m != .unknown else { continue }
             selectedPerMode[m, default: 0] += 1
         }
         for (mode, count) in selectedPerMode {
@@ -451,8 +451,8 @@ struct FindPeaksDuplicateTests {
         }
 
         // Back must be strictly above Top.
-        let topFreq = peaks.first { modeMap[$0.id]?.normalized == .top }?.frequency
-        let backFreq = peaks.first { modeMap[$0.id]?.normalized == .back }?.frequency
+        let topFreq = peaks.first { modeMap[$0.id] == .top }?.frequency
+        let backFreq = peaks.first { modeMap[$0.id] == .back }?.frequency
         if let t = topFreq, let b = backFreq {
             #expect(b > t, "Back (\(b) Hz) must be above Top (\(t) Hz)")
         }

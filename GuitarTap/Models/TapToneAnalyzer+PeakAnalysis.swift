@@ -20,8 +20,8 @@
 /// 2. **Peak finding** — ``findPeaks(magnitudes:frequencies:minHz:maxHz:)``
 ///    first guarantees a slot for the strongest peak in each known guitar mode
 ///    range, then fills remaining slots by magnitude.
-/// 3. **Mode classification** — each peak is mapped to a ``GuitarMode`` via
-///    ``GuitarMode/classify(frequency:)``.
+/// 3. **Mode classification** — the peaks are mapped to ``GuitarMode``s together by
+///    ``GuitarMode/classifyAll(_:guitarType:)``.
 ///
 /// ## Parabolic Interpolation
 /// All peak frequencies and magnitudes are refined with sub-bin accuracy using

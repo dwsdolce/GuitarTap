@@ -187,7 +187,7 @@ struct DotLayerVsAnnotationListTests {
         sut.setModeOverride("My Custom Label", for: p.id)
 
         // The assigned mode is now .unknown (freeform labels have no GuitarMode)…
-        #expect(sut.peakMode(for: p).normalized == .unknown,
+        #expect(sut.peakMode(for: p) == .unknown,
                 "A freeform override should report .unknown as the assigned mode")
 
         // …but the peak keeps its dot.

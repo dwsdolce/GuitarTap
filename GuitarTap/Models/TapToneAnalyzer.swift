@@ -736,7 +736,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// differ only under a user override — which is exactly the case this predicate exists to fix.
     ///
     func isUnknown(_ peak: ResonantPeak) -> Bool {
-        peakMode(for: peak).normalized == .unknown && !hasManualOverride(for: peak.id)
+        peakMode(for: peak) == .unknown && !hasManualOverride(for: peak.id)
     }
 
     // MARK: - Peak Selection Helpers
@@ -791,13 +791,13 @@ final class TapToneAnalyzer: ObservableObject {
         // Resolve through `peakMode(for:)` — the OVERRIDE-AWARE path. `identifiedModes` is built from
         // classifyAll alone and never consults overrides, so using it here would silently ignore a
         // mode the user assigned by hand.
-        let mode = peakMode(for: winner).normalized
+        let mode = peakMode(for: winner)
         guard Self.singleHolderModes.contains(mode) else { return }
 
         for other in allPeaks
         where other.id != peakID
             && selectedPeakIDs.contains(other.id)
-            && peakMode(for: other).normalized == mode {
+            && peakMode(for: other) == mode {
             selectedPeakIDs.remove(other.id)
         }
     }

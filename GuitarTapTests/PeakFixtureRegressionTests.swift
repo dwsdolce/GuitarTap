@@ -32,7 +32,7 @@ private let kMaxHz: Float = 2000
 
 /// Canonical mode token, shared verbatim with the Python and web expectations.
 private func modeToken(_ mode: GuitarMode?) -> String {
-    switch (mode ?? .unknown).normalized {
+    switch (mode ?? .unknown) {
     case .air: return "air"
     case .top: return "top"
     case .back: return "back"

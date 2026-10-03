@@ -257,13 +257,13 @@ struct ModeOverrideTests {
         let air = makePeak(frequency: 100)     // classifies Air for acoustic
         sut.allPeaks = [air]
         sut.reclassifyPeaks()
-        #expect(sut.autoDetectedMode(for: air).normalized == .air, "precondition: auto-detects Air")
+        #expect(sut.autoDetectedMode(for: air) == .air, "precondition: auto-detects Air")
 
         sut.setModeOverride(GuitarMode.top.displayName, for: air.id)
 
         #expect(sut.effectiveModeLabel(for: air) == GuitarMode.top.displayName,
                 "the visible label follows the override")
-        #expect(sut.autoDetectedMode(for: air).normalized == .air,
+        #expect(sut.autoDetectedMode(for: air) == .air,
                 "…but the reset target is still the auto-detected Air, not the override")
     }
 
@@ -473,7 +473,7 @@ struct DefinitiveModeUniquenessTests {
 
         #expect(sut.selectedPeakIDs == [topB.id],
                 "only one definitive Top — selecting B must displace A")
-        #expect(sut.peakMode(for: topA).normalized == .top,
+        #expect(sut.peakMode(for: topA) == .top,
                 "the displaced peak is STILL a Top peak; deselecting does not relabel it")
     }
 
@@ -487,7 +487,7 @@ struct DefinitiveModeUniquenessTests {
         let d2 = makePeak(frequency: 400, magnitude: -25)
         sut.allPeaks = [d1, d2]
         sut.reclassifyPeaks()
-        #expect(sut.peakMode(for: d1).normalized == .dipole, "fixture precondition")
+        #expect(sut.peakMode(for: d1) == .dipole, "fixture precondition")
 
         sut.togglePeakSelection(d1.id)
         sut.togglePeakSelection(d2.id)
@@ -514,7 +514,7 @@ struct DefinitiveModeUniquenessTests {
 
         #expect(sut.selectedPeakIDs == [air.id],
                 "the relabelled peak becomes the definitive Top; the previous holder is displaced")
-        #expect(sut.peakMode(for: top).normalized == .top,
+        #expect(sut.peakMode(for: top) == .top,
                 "the displaced peak keeps its Top classification")
     }
 
@@ -534,7 +534,7 @@ struct DefinitiveModeUniquenessTests {
 
         #expect(sut.selectedPeakIDs == [top.id],
                 "overriding an unselected peak must not touch selection")
-        #expect(sut.peakMode(for: air).normalized == .top, "…though it IS now a Top candidate")
+        #expect(sut.peakMode(for: air) == .top, "…though it IS now a Top candidate")
     }
 
     // D15: overriding the definitive Top AWAY from Top leaves Top with no definitive peak.
@@ -552,7 +552,7 @@ struct DefinitiveModeUniquenessTests {
 
         sut.setModeOverride("Wolf note", for: topA.id)
 
-        #expect(sut.peakMode(for: topA).normalized == .unknown, "freeform label, so no longer Top")
+        #expect(sut.peakMode(for: topA) == .unknown, "freeform label, so no longer Top")
         #expect(!sut.selectedPeakIDs.contains(topB.id),
                 "topB must NOT be auto-promoted to definitive Top")
         #expect(sut.selectedPeakIDs == [topA.id],
@@ -574,8 +574,8 @@ struct DefinitiveModeUniquenessTests {
         sut.selectNoPeaks()
 
         #expect(sut.selectedPeakIDs.isEmpty, "no definitive peaks is a legitimate state")
-        #expect(sut.peakMode(for: top).normalized == .top)
-        #expect(sut.peakMode(for: air).normalized == .air)
+        #expect(sut.peakMode(for: top) == .top)
+        #expect(sut.peakMode(for: air) == .air)
     }
 }
 

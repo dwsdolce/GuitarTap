@@ -28,19 +28,11 @@
 /// | Upper Modes | 880+ Hz | 820+ Hz | 850+ Hz | 880+ Hz | Cluster of higher-order modes |
 ///
 /// Exact boundaries are defined in ``GuitarType/modeRanges``.
-///
-/// ## Legacy Cases
-///
-/// Four legacy raw values are retained for backward compatibility with measurements saved
-/// under older naming conventions.  They are mapped to their modern equivalents by
-/// ``normalized`` and ``displayName``.
 import SwiftUI
 
 /// A resonance mode classification for a completed guitar body.
 ///
-/// Use ``classifyAll(_:guitarType:)`` to map detected peaks to the appropriate modes.  The
-/// ``normalized`` property converts any legacy
-/// case to its modern equivalent for programmatic comparisons.
+/// Use ``classifyAll(_:guitarType:)`` to map detected peaks to the appropriate modes.
 ///
 /// - SeeAlso: ``GuitarType`` for the frequency-band definitions used during classification.
 /// - SeeAlso: ``UserAssignedMode`` for overriding the displayed label without changing the mode.
@@ -75,35 +67,10 @@ enum GuitarMode: String, Codable {
     /// Frequency falls outside all defined mode ranges.
     case unknown = "Unknown"
 
-    // MARK: - Legacy Cases (Backward Compatibility)
+    // MARK: - Case Enumeration
 
-    /// Legacy name for the ``air`` mode.
-    ///
-    /// - Warning: This case exists only for decoding measurements saved under the old naming
-    ///   convention.  Use ``air`` for all new code.  ``normalized`` maps this to `.air`.
-    case helmholtz = "Helmholtz (Air)"
-
-    /// Legacy name for the ``air`` mode (cross-grain coupling variant).
-    ///
-    /// - Warning: Retained for backward compatibility only.  ``normalized`` maps this to `.air`.
-    case crossGrain = "Cross-Grain"
-
-    /// Legacy name for the ``top`` mode.
-    ///
-    /// - Warning: Retained for backward compatibility only.  ``normalized`` maps this to `.top`.
-    case longGrain = "Long-Grain"
-
-    /// Legacy name for the ``back`` mode.
-    ///
-    /// - Warning: Retained for backward compatibility only.  ``normalized`` maps this to `.back`.
-    case monopole = "Monopole"
-
-    // MARK: - Current Case Enumeration
-
-    /// All current (non-legacy) cases in display order.
-    ///
-    /// Use this instead of `CaseIterable` to exclude the legacy backward-compatibility cases
-    /// from pickers, suggestion lists, and anywhere the full canonical set is needed.
+    /// Every case, in display order — for pickers, suggestion lists, and anywhere the full set is
+    /// needed.
     static let currentCases: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes, .unknown]
 
     /// Extended mode label strings using acoustical physics (T(m,n)) notation.
@@ -307,11 +274,10 @@ enum GuitarMode: String, Codable {
     /// The classification frequency range for this mode for a specific guitar type.
     ///
     /// - Parameter guitarType: The guitar type whose ``GuitarType/modeRanges`` table is consulted.
-    /// - Returns: A closed range in Hz.  Returns `0...20000` for ``unknown`` and for
-    ///   any unrecognised future cases.
+    /// - Returns: A closed range in Hz; `0...20000` for ``unknown``, which no band names.
     func modeRange(for guitarType: GuitarType) -> ClosedRange<Float> {
         let ranges = guitarType.modeRanges
-        switch self.normalized {
+        switch self {
         case .air:        return ranges.air
         case .top:        return ranges.top
         case .back:       return ranges.back
@@ -319,43 +285,21 @@ enum GuitarMode: String, Codable {
         case .ringMode:   return ranges.ringMode
         case .upperModes: return ranges.upperModes
         case .unknown:    return 0...20000
-        default:          return 0...20000
         }
     }
 
     // MARK: - Display
 
     /// The human-readable mode name shown in the UI.
-    ///
-    /// All legacy cases are mapped to their modern display string so that measurements
-    /// saved under the old naming convention render correctly after an upgrade.
     var displayName: String {
         switch self {
-        case .air, .helmholtz, .crossGrain: return "Air (Helmholtz)"
-        case .top, .longGrain:              return "Top"
-        case .back, .monopole:              return "Back"
-        case .dipole:                       return "Dipole"
-        case .ringMode:                     return "Ring Mode"
-        case .upperModes:                   return "Upper Modes"
-        case .unknown:                      return "Unknown"
-        }
-    }
-
-    // MARK: - Normalisation
-
-    /// Converts any legacy case to its current equivalent for programmatic comparisons.
-    ///
-    /// Use this property whenever you need to compare two `GuitarMode` values for semantic
-    /// equality, since e.g. `.helmholtz == .air` is `false` as raw-value enums but
-    /// `.helmholtz.normalized == .air.normalized` is `true`.
-    ///
-    /// Current cases are returned unchanged.
-    var normalized: GuitarMode {
-        switch self {
-        case .helmholtz, .crossGrain: return .air
-        case .longGrain:              return .top
-        case .monopole:               return .back
-        default:                      return self
+        case .air:        return "Air (Helmholtz)"
+        case .top:        return "Top"
+        case .back:       return "Back"
+        case .dipole:     return "Dipole"
+        case .ringMode:   return "Ring Mode"
+        case .upperModes: return "Upper Modes"
+        case .unknown:    return "Unknown"
         }
     }
 }
@@ -363,10 +307,7 @@ enum GuitarMode: String, Codable {
 
 extension GuitarMode {
 
-    /// Display colour for a guitar mode, as an absolute sRGB hex, derived from `self.normalized`.
-    ///
-    /// Legacy enum cases are collapsed to their canonical equivalents via `normalized` first, so
-    /// all historical variants of e.g. `.air` share one colour.
+    /// Display colour for a guitar mode, as an absolute sRGB hex.
     ///
     /// ## Why absolute, and not `.cyan` / `.green` / `.orange` / …
     ///
@@ -379,7 +320,7 @@ extension GuitarMode {
     /// them (Top, Back, Dipole, and the two greys) and follows these values where the background
     /// makes no difference (Air, Ring).
     var hex: String {
-        switch self.normalized {
+        switch self {
         case .air:        return "#00C0E8"
         case .top:        return "#34C759"
         case .back:       return "#FF8D28"
@@ -387,7 +328,6 @@ extension GuitarMode {
         case .ringMode:   return "#CB30E0"
         case .upperModes: return "#8E8E93"
         case .unknown:    return "#808080"
-        default:          return "#808080"
         }
     }
 
@@ -399,7 +339,7 @@ extension GuitarMode {
 
     /// Short mode abbreviation for compact UI display (e.g., "Air", "DP").
     var abbreviation: String {
-        switch self.normalized {
+        switch self {
         case .air:        return "Air"
         case .top:        return "Top"
         case .back:       return "Back"
@@ -407,13 +347,12 @@ extension GuitarMode {
         case .ringMode:   return "Ring"
         case .upperModes: return "Upper"
         case .unknown:    return "?"
-        default:          return "?"
         }
     }
 
     /// Human-readable description of the acoustic mode, suitable for tooltips and detail views.
     var description: String {
-        switch self.normalized {
+        switch self {
         case .air:        return "Air resonance (Helmholtz) - the 'breathing' of the guitar body"
         case .top:        return "Main top plate resonance"
         case .back:       return "Back plate resonance"
@@ -421,13 +360,12 @@ extension GuitarMode {
         case .ringMode:   return "Higher frequency body resonances"
         case .upperModes: return "Upper harmonic modes"
         case .unknown:    return "Unclassified frequency"
-        default:          return "Unclassified frequency"
         }
     }
 
     /// SF Symbols name representing this guitar mode visually.
     var icon: String {
-        switch self.normalized {
+        switch self {
         case .air:        return "wind"
         case .top:        return "arrow.up.and.down"
         case .back:       return "square.fill"
@@ -435,7 +373,6 @@ extension GuitarMode {
         case .ringMode:   return "circle.dashed"
         case .upperModes: return "waveform"
         case .unknown:    return "questionmark.circle"
-        default:          return "questionmark.circle"
         }
     }
 

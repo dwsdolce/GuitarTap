@@ -81,7 +81,7 @@ extension TapToneAnalyzer {
     /// Mode comparison uses ``GuitarMode/normalized`` so legacy case names resolve first.
     func getPeak(for mode: GuitarMode) -> ResonantPeak? {
         allPeaks
-            .filter { selectedPeakIDs.contains($0.id) && peakMode(for: $0).normalized == mode.normalized }
+            .filter { selectedPeakIDs.contains($0.id) && peakMode(for: $0) == mode }
             .max(by: { $0.magnitude < $1.magnitude })
     }
 

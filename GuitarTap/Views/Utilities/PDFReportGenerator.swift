@@ -596,7 +596,7 @@ private struct PDFReportContentView: View {
     }
 
     private func modeColor(_ mode: GuitarMode) -> Color {
-        switch mode.normalized {
+        switch mode {
         case .air: return Color(red: 0.0, green: 0.5, blue: 0.8)
         case .top: return Color(red: 0.2, green: 0.65, blue: 0.2)
         case .back: return Color(red: 0.8, green: 0.4, blue: 0.0)
