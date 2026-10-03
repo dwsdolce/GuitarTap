@@ -2,278 +2,96 @@
 //  PitchTests.swift
 //  GuitarTapTests
 //
-//  Tests for the Pitch class — note identification, cents calculation,
-//  nearest-note frequency, semitone bounds, and in-tune detection.
-//  All computations are pure math, requiring no hardware.
-//
-//  Pitch is deliberately a GENERAL package, not only what GuitarTap calls: pitchRange,
-//  formattedNote and isInTune have no call site in the app. They are still tested, because
-//  the package's API is the contract, not the subset the app happens to use today. The web
-//  edition carries only the subset it uses, which is why test/pitch reads 22/22/6 — that
-//  spread is a difference in surface, not a gap in coverage.
+//  Equal-temperament pitch against the shared case file, `pitch.json` — the same cases the Python and web
+//  suites run. Pitch is a general package: pitchRange, formattedNote and isInTune have no call site in the
+//  app, and are tested because the package's API is the contract.
 //
 // @parity test/pitch
 
-import Testing
 import Foundation
+import Testing
 @testable import GuitarTap
+
+private final class PitchTestsAnchor {}
 
 @Suite("Pitch")
 struct PitchTests {
 
-    // MARK: - Semitone bounds (pitchRange)
-    //
-    // pitchRange branches on the sign of the cents offset and crosses the two octave boundaries
-    // (B→C going up, C→B going down); the cases below pin each.
+    static let data: [String: Any] = {
+        let url = Bundle(for: PitchTestsAnchor.self).url(forResource: "pitch", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
 
-    // Exactly on the note (cents == 0) takes the >= 0 branch: the note itself is the lower
-    // bound and the next semitone up is the upper.
-    @Test func pitchRange_exactlyOnNote_spansUpToTheNextSemitone() {
-        let p = Pitch(a4: 440)
-        let r = p.pitchRange(frequency: 440)
-        #expect(abs(r.lower - 440.0) < 1e-4, "lower should be A4 itself, got \(r.lower)")
-        #expect(abs(r.upper - 466.1638) < 1e-3, "upper should be A#4, got \(r.upper)")
-    }
+    static func rows(_ key: String) -> [[String: Any]] { data[key] as! [[String: Any]] }
+    static func row(_ key: String, _ id: String) -> [String: Any] { rows(key).first { $0["id"] as! String == id }! }
+    static let tolerance = data["tolerance"] as! Double
 
-    // Sharp of the note: same branch as exact.
-    @Test func pitchRange_sharpOfNote_spansNoteToNextSemitone() {
-        let p = Pitch(a4: 440)
-        let r = p.pitchRange(frequency: 442)
-        #expect(abs(r.lower - 440.0) < 1e-4)
-        #expect(abs(r.upper - 466.1638) < 1e-3)
-    }
-
-    // Flat of the note takes the other branch: the note becomes the UPPER bound and the
-    // semitone below becomes the lower.
-    @Test func pitchRange_flatOfNote_spansPreviousSemitoneToNote() {
-        let p = Pitch(a4: 440)
-        let r = p.pitchRange(frequency: 438)
-        #expect(abs(r.upper - 440.0) < 1e-4, "upper should be A4 itself, got \(r.upper)")
-        #expect(abs(r.lower - 415.3047) < 1e-3, "lower should be G#4, got \(r.lower)")
-    }
-
-    // B sharp: the upper bound has to cross into the next octave (note == 11 → C, octave + 1).
-    @Test func pitchRange_sharpOfB_upperCrossesIntoTheNextOctave() {
-        let p = Pitch(a4: 440)
-        let b4 = p.freq(note: 11, octave: 4)
-        let r = p.pitchRange(frequency: b4 * 1.01)
-        #expect(abs(r.lower - 493.8833) < 1e-3, "lower should be B4, got \(r.lower)")
-        #expect(abs(r.upper - 523.2511) < 1e-3, "upper should be C5, got \(r.upper)")
-    }
-
-    // C flat: the lower bound has to cross into the previous octave (note == 0 → B, octave - 1).
-    @Test func pitchRange_flatOfC_lowerCrossesIntoThePreviousOctave() {
-        let p = Pitch(a4: 440)
-        let c5 = p.freq(note: 0, octave: 5)
-        let r = p.pitchRange(frequency: c5 * 0.99)
-        #expect(abs(r.upper - 523.2511) < 1e-3, "upper should be C5, got \(r.upper)")
-        #expect(abs(r.lower - 493.8833) < 1e-3, "lower should be B4, got \(r.lower)")
-    }
-
-    // The bounds are always one semitone apart, whichever branch was taken.
-    @Test func pitchRange_boundsAreAlwaysOneSemitoneApart() {
-        let p = Pitch(a4: 440)
-        for f in [440.0, 442.0, 438.0, 82.41, 1046.5, 65.406] {
-            let r = p.pitchRange(frequency: f)
-            let ratio = r.upper / r.lower
-            #expect(abs(ratio - pow(2.0, 1.0/12.0)) < 1e-6,
-                    "\(f) Hz: bounds should be a semitone apart, ratio was \(ratio)")
+    /// A number from the file: NaN and the infinities are written as strings.
+    static func number(_ value: Any) -> Double {
+        switch value as? String {
+        case "NaN": return .nan
+        case "Infinity": return .infinity
+        case "-Infinity": return -.infinity
+        default: return (value as! NSNumber).doubleValue
         }
     }
 
-    // MARK: - Note identification
-
-    // A4 at exactly 440 Hz should return the note string "A4".
-    @Test func a4_exactFrequency_returnsA4() {
-        let p = Pitch(a4: 440)
-        #expect(p.note(frequency: 440) == "A4")
+    static func close(_ actual: Double, _ expected: Any) -> Bool {
+        abs(actual - number(expected)) <= tolerance
     }
 
-    // Middle C (C4) at ~261.63 Hz.
-    @Test func middleC_returnsC4() {
-        let p = Pitch(a4: 440)
-        // C4 = A4 * 2^(-9/12) ≈ 261.626
-        let c4 = 440.0 * pow(2.0, -9.0/12.0)
-        #expect(p.note(frequency: c4) == "C4")
+    @Test(arguments: rows("frequencies").map { $0["id"] as! String })
+    func frequency(_ id: String) {
+        let row = Self.row("frequencies", id)
+        let e = row["expect"] as! [String: Any]
+        let p = Pitch(a4: Self.number(row["a4"]!))
+        let f = Self.number(row["frequency"]!)
+        let pitch = p.pitch(frequency: f)
+        let expectedPitch = e["pitch"] as! [String: Int]
+        let range = p.pitchRange(frequency: f)
+        let expectedRange = e["pitchRange"] as! [String: Any]
+        #expect(p.hasPitch(f) == e["hasPitch"] as! Bool, "\(id): hasPitch")
+        #expect(pitch.note == expectedPitch["note"] && pitch.octave == expectedPitch["octave"], "\(id): pitch \(pitch)")
+        #expect(p.note(frequency: f) == e["note"] as! String, "\(id): note")
+        #expect(Self.close(p.cents(frequency: f), e["cents"]!), "\(id): cents \(p.cents(frequency: f))")
+        #expect(Self.close(p.freq0(frequency: f), e["freq0"]!), "\(id): freq0 \(p.freq0(frequency: f))")
+        #expect(Self.close(range.upper, expectedRange["upper"]!), "\(id): pitchRange upper \(range.upper)")
+        #expect(Self.close(range.lower, expectedRange["lower"]!), "\(id): pitchRange lower \(range.lower)")
+        #expect(p.formattedNote(frequency: f) == e["formattedNote"] as! String, "\(id): formattedNote")
+        #expect(p.isInTune(frequency: f) == e["isInTune"] as! Bool, "\(id): isInTune")
     }
 
-    // An octave above A4 (880 Hz) should return "A5".
-    @Test func a5_returnsA5() {
-        let p = Pitch(a4: 440)
-        #expect(p.note(frequency: 880) == "A5")
+    @Test(arguments: rows("isInTune").map { $0["id"] as! String })
+    func isInTune(_ id: String) {
+        let row = Self.row("isInTune", id)
+        let p = Pitch(a4: Self.number(row["a4"]!))
+        let inTune = p.isInTune(frequency: Self.number(row["frequency"]!), threshold: Self.number(row["threshold"]!))
+        #expect(inTune == row["expect"] as! Bool, "\(id)")
     }
 
-    // An octave below A4 (220 Hz) should return "A3".
-    @Test func a3_returnsA3() {
-        let p = Pitch(a4: 440)
-        #expect(p.note(frequency: 220) == "A3")
+    @Test(arguments: rows("isInTuneAtOwnCents").map { $0["id"] as! String })
+    func isInTuneAtOwnCents(_ id: String) {
+        let row = Self.row("isInTuneAtOwnCents", id)
+        let p = Pitch(a4: Self.number(row["a4"]!))
+        let f = Self.number(row["frequency"]!)
+        let cents = p.cents(frequency: f)
+        #expect(Self.close(cents, row["cents"]!), "\(id): cents \(cents)")
+        #expect(p.isInTune(frequency: f, threshold: cents) == row["expectAtCents"] as! Bool, "\(id): at its cents")
+        #expect(p.isInTune(frequency: f, threshold: cents - 1e-9) == row["expectJustUnder"] as! Bool, "\(id): just under")
     }
 
-    // MARK: - Cents calculation
-
-    // Exact pitch → 0 cents offset.
-    @Test func exactPitch_zeroConts() {
-        let p = Pitch(a4: 440)
-        let cents = p.cents(frequency: 440)
-        #expect(abs(cents) < 0.5, "Expected ~0 cents for exact A4, got \(cents)")
+    @Test(arguments: rows("freq").map { $0["id"] as! String })
+    func freq(_ id: String) {
+        let row = Self.row("freq", id)
+        let p = Pitch(a4: Self.number(row["a4"]!))
+        let f = p.freq(note: row["note"] as! Int, octave: row["octave"] as! Int)
+        #expect(Self.close(f, row["expect"]!), "\(id): \(f)")
     }
 
-    // One semitone above A4 = A#4 ≈ 466.16 Hz → cents should be near 0 for A#4.
-    @Test func oneSmitoneAbove_centsNearZero() {
-        let p = Pitch(a4: 440)
-        let asharp4 = 440.0 * pow(2.0, 1.0/12.0)
-        let cents = p.cents(frequency: asharp4)
-        #expect(abs(cents) < 0.5, "Expected ~0 cents for exact A#4, got \(cents)")
-    }
-
-    // A frequency halfway between two notes → ±50 cents.
-    @Test func halfSemitoneOffset_isAbout50Cents() {
-        let p = Pitch(a4: 440)
-        // Geometric midpoint between A4 and A#4 in cents = +50 cents from A4
-        let midFreq = 440.0 * pow(2.0, 0.5/12.0)
-        let cents = p.cents(frequency: midFreq)
-        #expect(abs(abs(cents) - 50) < 1, "Expected ≈ ±50 cents at midpoint, got \(cents)")
-    }
-
-    // MARK: - Nearest note frequency
-
-    // freq0 for 440 Hz should return 440 Hz.
-    @Test func freq0_a4_returns440() {
-        let p = Pitch(a4: 440)
-        let f0 = p.freq0(frequency: 440)
-        #expect(abs(f0 - 440) < 0.01)
-    }
-
-    // freq0 for 444 Hz (slightly sharp A4) should also return 440 Hz.
-    @Test func freq0_slightlySharp_returnsExactNote() {
-        let p = Pitch(a4: 440)
-        let f0 = p.freq0(frequency: 444)
-        #expect(abs(f0 - 440) < 0.01, "Nearest note to 444 Hz is A4 = 440 Hz, got \(f0)")
-    }
-
-    // MARK: - In-tune detection
-
-    // Exact pitch at default 10-cent threshold → in tune.
-    @Test func exactPitch_isInTune() {
-        let p = Pitch(a4: 440)
-        #expect(p.isInTune(frequency: 440))
-    }
-
-    // 15 cents sharp at default 10-cent threshold → out of tune.
-    @Test func fifteenCentsSharp_isNotInTune() {
-        let p = Pitch(a4: 440)
-        let sharpFreq = 440.0 * pow(2.0, 15.0/1200.0)  // +15 cents
-        #expect(!p.isInTune(frequency: sharpFreq))
-    }
-
-    // 8 cents flat at 10-cent threshold → in tune.
-    @Test func eightCentsFlat_isInTune() {
-        let p = Pitch(a4: 440)
-        let flatFreq = 440.0 * pow(2.0, -8.0/1200.0)   // -8 cents
-        #expect(p.isInTune(frequency: flatFreq))
-    }
-
-    // MARK: - A4 tuning reference change
-
-    // Changing A4 to 432 Hz should shift note identifications accordingly.
-    @Test func a4Tuning432_shiftsNoteNames() {
-        let p432 = Pitch(a4: 432)
-        // 432 Hz is A4 in this tuning
-        #expect(p432.note(frequency: 432) == "A4")
-        // 440 Hz should now be slightly sharp — still A4 but not exactly
-        let cents = p432.cents(frequency: 440)
-        #expect(cents > 0, "440 Hz should be sharp relative to 432 Hz A4 tuning")
-    }
-
-    // MARK: - formattedNote
-
-    // Formatted note for exact A4 should contain "A4" and "+0" or "0" cents.
-    @Test func formattedNote_a4_containsA4() {
-        let p = Pitch(a4: 440)
-        let formatted = p.formattedNote(frequency: 440)
-        #expect(formatted.contains("A4"), "Formatted note should contain 'A4': \(formatted)")
-    }
-
-    // A sharp frequency shows '+' and a flat frequency shows '-' in the formatted output.
-    @Test func formattedNote_includesSign() {
-        let p = Pitch(a4: 440)
-        let sharp = p.formattedNote(frequency: 442)
-        #expect(sharp.contains("+"), "Sharp note should show '+' in formatted output: \(sharp)")
-        let flat = p.formattedNote(frequency: 438)
-        #expect(flat.contains("-"), "Flat note should show '-' in formatted output: \(flat)")
-    }
-
-    // MARK: - Cents sign
-
-    // Frequency below the nearest note → negative cents.
-    @Test func cents_negativeWhenFlat() {
-        let p = Pitch(a4: 440)
-        let c = p.cents(frequency: 438)   // just below A4
-        #expect(c < 0, "Flat frequency should give negative cents; got \(c)")
-    }
-
-    // Frequency above the nearest note → positive cents.
-    @Test func cents_positiveWhenSharp() {
-        let p = Pitch(a4: 440)
-        let c = p.cents(frequency: 442)   // just above A4
-        #expect(c > 0, "Sharp frequency should give positive cents; got \(c)")
-    }
-
-    // MARK: - In-tune boundary cases
-
-    // 9.9 cents sharp (just inside default 10-cent threshold) → in tune.
-    @Test func justUnder10CentsSharp_isInTune() {
-        let p = Pitch(a4: 440)
-        let freq = 440.0 * pow(2.0, 9.9 / 1200.0)
-        #expect(p.isInTune(frequency: freq), "9.9 cents sharp should be in tune")
-    }
-
-    // 11 cents sharp (outside default 10-cent threshold) → out of tune.
-    @Test func elevenCentsSharp_isNotInTune() {
-        let p = Pitch(a4: 440)
-        let freq = 440.0 * pow(2.0, 11.0 / 1200.0)
-        #expect(!p.isInTune(frequency: freq), "11 cents sharp should NOT be in tune")
-    }
-
-    // 15 cents flat (outside default 10-cent threshold) → out of tune.
-    @Test func fifteenCentsFlat_isNotInTune() {
-        let p = Pitch(a4: 440)
-        let freq = 440.0 * pow(2.0, -15.0 / 1200.0)
-        #expect(!p.isInTune(frequency: freq), "15 cents flat should NOT be in tune")
-    }
-
-    // Custom threshold parameter is respected.
-    @Test func customThreshold_isRespected() {
-        let p = Pitch(a4: 440)
-        let fiveCentsSharp = 440.0 * pow(2.0, 5.0 / 1200.0)
-        #expect(p.isInTune(frequency: fiveCentsSharp, threshold: 10), "5 cents is in tune at 10-cent threshold")
-        #expect(!p.isInTune(frequency: fiveCentsSharp, threshold: 4),  "5 cents is NOT in tune at 4-cent threshold")
-    }
-
-    // MARK: - A4 reference at 432 Hz
-
-    // freq0 for A4 under a 432 Hz reference should return 432, not 440.
-    @Test func a4Tuning432_changesNoteFrequency() {
-        let p432 = Pitch(a4: 432)
-        #expect(p432.note(frequency: 432) == "A4")
-        let f0 = p432.freq0(frequency: 432)
-        #expect(abs(f0 - 432) < 0.01, "freq0 should return 432 Hz under 432 Hz A4 reference, got \(f0)")
-    }
-
-    // MARK: - No pitch
-
-    // A frequency with no pitch — 0 Hz, negative, NaN, infinite — gets "no pitch" from every function,
-    // and none of them traps. Paired with Python TestNoPitch and the web's "no pitch" cases.
-    @Test(arguments: [0.0, -5.0, Double.nan, Double.infinity])
-    func aFrequencyWithNoPitch_getsNoPitch(frequency: Double) {
-        let p = Pitch(a4: 440)
-        #expect(!p.hasPitch(frequency))
-        #expect(p.note(frequency: frequency) == "")
-        #expect(p.cents(frequency: frequency) == 0)
-        #expect(p.freq0(frequency: frequency) == 0)
-        let range = p.pitchRange(frequency: frequency)
-        #expect(range.upper == 0 && range.lower == 0)
-        #expect(p.formattedNote(frequency: frequency) == "")
-        #expect(!p.isInTune(frequency: frequency))
+    @Test func formatCents() {
+        for row in Self.rows("formatCents") {
+            let cents = Self.number(row["cents"]!)
+            #expect(Pitch.formatCents(cents) == row["expect"] as! String, "\(cents)")
+        }
     }
 }

@@ -20,7 +20,8 @@
 ///    `f_C0 = f_A4 × 2^(−4.75)`.
 /// 2. **Half-steps from C0** — Any frequency maps to a half-step count via
 ///    `h = round(12 × log₂(f / f_C0))`.
-/// 3. **Note and octave** — `octave = h / 12`, `note = h % 12` (0 = C, 1 = C#, … 11 = B).
+/// 3. **Note and octave** — `octave = ⌊h / 12⌋`, `note = h mod 12` (0 = C, 1 = C#, … 11 = B), both floored,
+///    so a frequency below C0 is a note of octave −1 (or lower).
 /// 4. **Frequency of a note** — `f(note, octave) = f_C0 × 2^(note/12) × 2^octave`.
 /// 5. **Cents deviation** — `cents = 1200 × log₂(f_measured / f_nearest_note)`.
 ///
@@ -88,8 +89,10 @@ class Pitch {
         guard hasPitch(frequency) else { return (0, 0) }
         // Count half-steps above C0; rounding snaps to the nearest semitone.
         let halfSteps = Int(round(12 * log2(frequency / c0)))
-        let octave = halfSteps / 12
-        let note = halfSteps % 12
+        // Floored, not truncated: below C0 the half-step count is negative, and truncating would give
+        // a negative note index.
+        let octave = Int((Double(halfSteps) / 12).rounded(.down))
+        let note = ((halfSteps % 12) + 12) % 12
         return (note, octave)
     }
 
@@ -184,10 +187,18 @@ extension Pitch {
     /// - Returns: A human-readable pitch-and-deviation string; empty for a frequency with no pitch.
     func formattedNote(frequency: Double) -> String {
         guard hasPitch(frequency) else { return "" }
-        let noteName = note(frequency: frequency)
-        let centsOffset = cents(frequency: frequency)
-        let sign = centsOffset >= 0 ? "+" : ""
-        return "\(noteName) (\(sign)\(String(format: "%.0f", centsOffset)) cents)"
+        return "\(note(frequency: frequency)) (\(Pitch.formatCents(cents(frequency: frequency))) cents)"
+    }
+
+    /// Returns a cents offset as a signed whole number: `"+23"`, `"-5"`, `"+0"`.
+    ///
+    /// A half rounds to the even neighbour (`2.5` → `"+2"`), as C's `%.0f` does.
+    ///
+    /// - Parameter cents: The cents offset.
+    /// - Returns: The offset rounded to a whole number, with `+` when it is zero or positive.
+    static func formatCents(_ cents: Double) -> String {
+        let sign = cents >= 0 ? "+" : ""
+        return "\(sign)\(String(format: "%.0f", cents))"
     }
 
     /// Returns whether the given frequency is within a specified cents tolerance of a pure
