@@ -49,37 +49,34 @@ private func measure(_ entries: [(time: Double, magnitude: Float)], tapTime: Dou
 
 private let exact: Float = 1e-6
 
+private final class DecayTrackingTestsAnchor {}
+
 @Suite("DecayTracking")
 @MainActor
 struct DecayTrackingTests {
 
-    // MARK: - measureDecayTime
+    // MARK: - measureDecayTime — the shared cases in `decay-tracking.json` (DK1–DK5, DK8–DK10)
 
-    // DK1: An empty history measures nothing.
-    @Test func DK1_emptyHistory_returnsNil() {
-        #expect(measure([], tapTime: 0) == nil)
+    static let data: [String: Any] = {
+        let url = Bundle(for: DecayTrackingTestsAnchor.self).url(forResource: "decay-tracking", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
+
+    @Test func defaultThreshold() {
+        #expect(makeSUT().decayThreshold == Float(Self.data["defaultThreshold"] as! Double))
     }
 
-    // DK2: Every entry before the tap — nothing to measure after it.
-    @Test func DK2_allSamplesBeforeTap_returnsNil() {
-        #expect(measure(history([-20, -25, -30, -35, -40, -50], start: -1.0), tapTime: 0) == nil)
-    }
-
-    // DK3: The level never drops by the threshold (30 dB here; it falls 5 dB).
-    @Test func DK3_signalNeverDecays_returnsNil() {
-        #expect(measure(history([-20, -22, -24, -25, -25, -25, -25]), tapTime: 0, threshold: 30) == nil)
-    }
-
-    // DK4: Peak −10 at 0 s; target −30 (20 dB); the first entry below it is −31 at 0.5 s.
-    @Test func DK4_normalDecay_isTimedFromPeakToCrossing() throws {
-        let t = try #require(measure(history([-10, -15, -20, -24, -28, -31, -35]), tapTime: 0, threshold: 20))
-        #expect(abs(t - 0.5) < exact, "expected 0.5 s, got \(t)")
-    }
-
-    // DK5: Peak −10 at 0 s; target −20 (10 dB); the very next entry, −21 at 0.1 s, crosses.
-    @Test func DK5_immediateDecay_isTheNextEntry() throws {
-        let t = try #require(measure(history([-10, -21, -30, -40]), tapTime: 0, threshold: 10))
-        #expect(abs(t - 0.1) < exact, "expected 0.1 s, got \(t)")
+    @Test(arguments: (data["measureDecayTime"] as! [[String: Any]]).map { $0["id"] as! String })
+    func measureDecayTime(_ id: String) {
+        let row = (Self.data["measureDecayTime"] as! [[String: Any]]).first { $0["id"] as! String == id }!
+        let entries = history((row["magnitudes"] as! [Double]).map { Float($0) },
+                              interval: row["interval"] as! Double, start: row["start"] as! Double)
+        let t = measure(entries, tapTime: row["tapTime"] as! Double, threshold: (row["threshold"] as? Double).map { Float($0) })
+        if let expected = row["expect"] as? Double {
+            #expect(t.map { abs(Double($0) - expected) < (Self.data["tolerance"] as! Double) } == true, "\(id): got \(String(describing: t))")
+        } else {
+            #expect(t == nil, "\(id)")
+        }
     }
 
     // MARK: - Tracking, driven through production
@@ -106,29 +103,6 @@ struct DecayTrackingTests {
         }
         #expect(!sut.isTrackingDecay, "a new sequence stops the ring-out tracking")
         #expect(sut.currentDecayTime == nil, "no ring-out is measured from the previous tap")
-    }
-
-    // MARK: - measureDecayTime, continued
-
-    // DK8: The threshold is 15 dB unless set: peak −10 at 0 s; target −25; −26 at 0.3 s crosses.
-    @Test func DK8_defaultThreshold_is15dB() throws {
-        #expect(makeSUT().decayThreshold == 15)
-        let t = try #require(measure(history([-10, -12, -20, -26, -40]), tapTime: 0))
-        #expect(abs(t - 0.3) < exact, "expected 0.3 s, got \(t)")
-    }
-
-    // DK9: Timed from the post-tap PEAK, not the tap: the level rises to −8 at 0.1 s; target −23;
-    //      −24 at 0.3 s crosses → 0.2 s.
-    @Test func DK9_risingTransient_isTimedFromThePeak() throws {
-        let t = try #require(measure(history([-12, -8, -15, -24, -40]), tapTime: 0))
-        #expect(abs(t - 0.2) < exact, "expected 0.2 s, got \(t)")
-    }
-
-    // DK10: An entry before the tap is ignored even when it is loudest: −30 at −0.1 s is skipped; peak
-    //       −10 at 0 s; −26 at 0.2 s crosses.
-    @Test func DK10_preTapEntries_areIgnored() throws {
-        let t = try #require(measure(history([-30, -10, -20, -26], start: -0.1), tapTime: 0))
-        #expect(abs(t - 0.2) < exact, "expected 0.2 s, got \(t)")
     }
 
     // MARK: - Tracking, continued

@@ -5,16 +5,20 @@
 //  The per-measurement-type display frequency range store: each type has its own default and its
 //  own stored minimum and maximum, a bound never stored reads the default, a stored bound keeps its exact
 //  value (Save Current View comes back as saved; an untouched Settings field never rounds it), and an
-//  entered range is validated before it is stored. Mirrors Python
-//  tests/test_settings_store.py and web test/settings-store.test.ts.
+//  entered range is validated before it is stored. Mirrors Python tests/test_settings_store.py and web
+//  test/settings-store.test.ts.
 //
-//  The store is the isolated test suite (TapDisplaySettings.defaults under test). Serialized:
-//  the cases write plate and brace and restore them.
+//  The defaults, the entered value and the validation run the shared case file `settings-store.json`; the
+//  store's read and write cases stay here, as each edition persists differently. Serialized: the cases write
+//  settings and restore them.
 //
 // @parity test/settings-store
 
+import Foundation
 import Testing
 @testable import GuitarTap
+
+private final class SettingsStoreTestsAnchor {}
 
 @Suite("SettingsStore", .serialized)
 struct SettingsStoreTests {
@@ -33,16 +37,61 @@ struct SettingsStoreTests {
         body()
     }
 
-    @Test func perTypeDefaults_matchCanonicalValues() {
-        for type in [MeasurementType.generic, .acoustic, .classical, .flamenco] {
-            #expect(TapDisplaySettings.defaultMinFrequency(for: type) == 75)
-            #expect(TapDisplaySettings.defaultMaxFrequency(for: type) == 350)
+    // MARK: - The shared cases in `settings-store.json`
+
+    static let data: [String: Any] = {
+        let url = Bundle(for: SettingsStoreTestsAnchor.self).url(forResource: "settings-store", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
+
+    static func type(_ name: String) -> MeasurementType { MeasurementType.allCases.first { "\($0)" == name }! }
+    static func f(_ v: Any) -> Float { Float(v as! Double) }
+
+    @Test func perTypeDefaults() {
+        for row in Self.data["defaults"] as! [[Any]] {
+            let t = Self.type(row[0] as! String)
+            #expect(TapDisplaySettings.defaultMinFrequency(for: t) == Self.f(row[1]), "\(row[0])")
+            #expect(TapDisplaySettings.defaultMaxFrequency(for: t) == Self.f(row[2]), "\(row[0])")
         }
-        #expect(TapDisplaySettings.defaultMinFrequency(for: .plate) == 20)
-        #expect(TapDisplaySettings.defaultMaxFrequency(for: .plate) == 200)
-        #expect(TapDisplaySettings.defaultMinFrequency(for: .brace) == 30)
-        #expect(TapDisplaySettings.defaultMaxFrequency(for: .brace) == 1000)
     }
+
+    /// A Settings range field: untouched keeps the exact stored value, edited is the number typed.
+    @Test func enteredValue() {
+        for row in Self.data["enteredValue"] as! [[Any]] {
+            let value = DisplayRange.enteredValue(row[0] as! String, stored: Self.f(row[1]), decimals: row[2] as! Int)
+            #expect(value == (row[3] is NSNull ? nil : Self.f(row[3])), "\(row)")
+        }
+    }
+
+    @Test func validateFrequencyRange() {
+        for row in Self.data["validateFrequencyRange"] as! [[String: Any]] {
+            restoringSavedRange {
+                if let saved = row["saved"] as? [Double] {
+                    TapDisplaySettings.minFrequency = Float(saved[0])
+                    TapDisplaySettings.maxFrequency = Float(saved[1])
+                }
+                let input = row["input"] as! [Double], expect = row["expect"] as! [Double]
+                let r = TapDisplaySettings.validateFrequencyRange(minFreq: Float(input[0]), maxFreq: Float(input[1]))
+                #expect(r.min == Float(expect[0]) && r.max == Float(expect[1]), "\(input)")
+            }
+        }
+    }
+
+    @Test func validateMagnitudeRange() {
+        for row in Self.data["validateMagnitudeRange"] as! [[String: Any]] {
+            restoringSavedRange {
+                if let saved = row["saved"] as? [Double] {
+                    TapDisplaySettings.minMagnitude = Float(saved[0])
+                    TapDisplaySettings.maxMagnitude = Float(saved[1])
+                }
+                let input = row["input"] as! [Double], expect = row["expect"] as! [Double]
+                let r = TapDisplaySettings.validateMagnitudeRange(minDB: Float(input[0]), maxDB: Float(input[1]))
+                #expect(r.min == Float(expect[0]) && r.max == Float(expect[1]), "\(input)")
+            }
+        }
+    }
+
+    // MARK: - The store: each edition's own persistence
 
     @Test func aTypeWithNothingStored_readsItsDefault() {
         #expect(TapDisplaySettings.minFrequency(for: .flamenco) == 75)
@@ -85,24 +134,6 @@ struct SettingsStoreTests {
         }
     }
 
-    // MARK: - A Settings range field: untouched keeps the exact stored value
-
-    @Test func enteredValue_untouchedField_keepsTheExactStoredValue() {
-        let stored: Float = 23.37
-        let shown = FieldPrecision.string(stored, FieldPrecision.frequencyHz)   // "23"
-        #expect(DisplayRange.enteredValue(shown, stored: stored, decimals: FieldPrecision.frequencyHz) == 23.37)
-    }
-
-    @Test func enteredValue_editedField_isTheNumberTyped() {
-        #expect(DisplayRange.enteredValue("30", stored: 23.37, decimals: FieldPrecision.frequencyHz) == 30)
-    }
-
-    @Test func enteredValue_notANumber_isNil() {
-        #expect(DisplayRange.enteredValue("abc", stored: 23.37, decimals: FieldPrecision.frequencyHz) == nil)
-    }
-
-    // MARK: - Validation of an entered range: each bound clamped, at least 10 apart, else the saved range
-
     /// Run `body`, then put the current type's saved range and the magnitude range back.
     private func restoringSavedRange(_ body: () -> Void) {
         let saved = (TapDisplaySettings.minFrequency, TapDisplaySettings.maxFrequency,
@@ -115,81 +146,4 @@ struct SettingsStoreTests {
         }
         body()
     }
-
-    @Test func frequencyRange_valid_isUnchanged() {
-        let r = TapDisplaySettings.validateFrequencyRange(minFreq: 200, maxFreq: 3000)
-        #expect(r.min == 200 && r.max == 3000)
-    }
-
-    @Test func frequencyRange_below1Hz_isClamped() {
-        let r = TapDisplaySettings.validateFrequencyRange(minFreq: 0, maxFreq: 3000)
-        #expect(r.min == 1 && r.max == 3000)
-    }
-
-    @Test func frequencyRange_above5kHz_isClamped() {
-        let r = TapDisplaySettings.validateFrequencyRange(minFreq: 200, maxFreq: 6000)
-        #expect(r.min == 200 && r.max == 5000)
-    }
-
-    @Test func frequencyRange_inverted_readsTheSavedRange() {
-        restoringSavedRange {
-            TapDisplaySettings.minFrequency = 100
-            TapDisplaySettings.maxFrequency = 8000
-            let r = TapDisplaySettings.validateFrequencyRange(minFreq: 5000, maxFreq: 200)
-            #expect(r.min == 100 && r.max == 8000)
-        }
-    }
-
-    @Test func frequencyRange_tooNarrow_readsTheSavedRange() {
-        restoringSavedRange {
-            TapDisplaySettings.minFrequency = 100
-            TapDisplaySettings.maxFrequency = 8000
-            let r = TapDisplaySettings.validateFrequencyRange(minFreq: 1000, maxFreq: 1005)
-            #expect(r.min == 100 && r.max == 8000)
-        }
-    }
-
-    @Test func frequencyRange_exactly10HzApart_isAccepted() {
-        let r = TapDisplaySettings.validateFrequencyRange(minFreq: 100, maxFreq: 110)
-        #expect(r.min == 100 && r.max == 110)
-    }
-
-    @Test func magnitudeRange_valid_isUnchanged() {
-        let r = TapDisplaySettings.validateMagnitudeRange(minDB: -80, maxDB: -20)
-        #expect(r.min == -80 && r.max == -20)
-    }
-
-    @Test func magnitudeRange_belowMinus120dB_isClamped() {
-        let r = TapDisplaySettings.validateMagnitudeRange(minDB: -150, maxDB: -20)
-        #expect(r.min == -120 && r.max == -20)
-    }
-
-    @Test func magnitudeRange_above20dB_isClamped() {
-        let r = TapDisplaySettings.validateMagnitudeRange(minDB: -80, maxDB: 50)
-        #expect(r.min == -80 && r.max == 20)
-    }
-
-    @Test func magnitudeRange_inverted_readsTheSavedRange() {
-        restoringSavedRange {
-            TapDisplaySettings.minMagnitude = -100
-            TapDisplaySettings.maxMagnitude = -10
-            let r = TapDisplaySettings.validateMagnitudeRange(minDB: -20, maxDB: -80)
-            #expect(r.min == -100 && r.max == -10)
-        }
-    }
-
-    @Test func magnitudeRange_tooNarrow_readsTheSavedRange() {
-        restoringSavedRange {
-            TapDisplaySettings.minMagnitude = -100
-            TapDisplaySettings.maxMagnitude = -10
-            let r = TapDisplaySettings.validateMagnitudeRange(minDB: -50, maxDB: -45)
-            #expect(r.min == -100 && r.max == -10)
-        }
-    }
-
-    @Test func magnitudeRange_exactly10dBApart_isAccepted() {
-        let r = TapDisplaySettings.validateMagnitudeRange(minDB: -60, maxDB: -50)
-        #expect(r.min == -60 && r.max == -50)
-    }
 }
-

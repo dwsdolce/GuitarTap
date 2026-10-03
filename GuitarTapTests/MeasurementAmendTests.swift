@@ -20,46 +20,32 @@ import Testing
 import Foundation
 @testable import GuitarTap
 
+private final class MeasurementAmendTestsAnchor {}
+
 @Suite("MeasurementAmend")
 struct MeasurementAmendTests {
 
-    // MARK: - isAmended: the gate on Save
+    // MARK: - isAmended: the gate on Save — the shared cases in `measurement-amend.json`
 
-    @Test func isAmended_isFalseWhenNothingDiffers() {
-        let m = TapToneMeasurement(peaks: [], measurementName: "Bridge", notes: "Some notes")
-        #expect(m.isAmended(measurementName: "Bridge", notes: "Some notes") == false)
-    }
+    static let isAmendedCases: [[String: Any]] = {
+        let url = Bundle(for: MeasurementAmendTestsAnchor.self).url(forResource: "measurement-amend", withExtension: "json")!
+        let data = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        return data["isAmended"] as! [[String: Any]]
+    }()
 
-    @Test func isAmended_isTrueWhenTheNameDiffers() {
-        let m = TapToneMeasurement(peaks: [], measurementName: "Bridge", notes: "Some notes")
-        #expect(m.isAmended(measurementName: "Neck", notes: "Some notes"))
-    }
-
-    @Test func isAmended_isTrueWhenTheNotesDiffer() {
-        let m = TapToneMeasurement(peaks: [], measurementName: "Bridge", notes: "Some notes")
-        #expect(m.isAmended(measurementName: "Bridge", notes: "Edited"))
-    }
-
-    @Test func isAmended_isTrueWhenAFieldIsCleared() {
-        let m = TapToneMeasurement(peaks: [], measurementName: "Bridge", notes: "Some notes")
-        #expect(m.isAmended(measurementName: "Bridge", notes: nil))
-        #expect(m.isAmended(measurementName: nil, notes: "Some notes"))
-    }
-
-    // Whitespace-only retyping is NOT an edit, because both fields normalize the same way. This is
-    // the case that made the rule worth sharing: the edit sheet normalizes, so it must compare
-    // against normalized values or Save lights up for a change that would never be stored.
-    @Test func isAmended_isFalseForWhitespaceOnlyDifferences() {
-        let m = TapToneMeasurement(peaks: [], measurementName: "Bridge", notes: "Some notes")
-        let name  = TapToneMeasurement.normalizedName("  Bridge  ")
-        let notes = TapToneMeasurement.normalizedNotes("\n Some notes \n")
-        #expect(m.isAmended(measurementName: name, notes: notes) == false)
-    }
-
-    @Test func isAmended_handlesAMeasurementWithNoNameOrNotes() {
-        let m = TapToneMeasurement(peaks: [])
-        #expect(m.isAmended(measurementName: nil, notes: nil) == false)
-        #expect(m.isAmended(measurementName: "Named", notes: nil))
+    @Test func isAmended() {
+        for row in Self.isAmendedCases {
+            let stored = row["stored"] as! [String: Any]
+            let candidate = row["candidate"] as! [String: Any]
+            let m = TapToneMeasurement(peaks: [], measurementName: stored["name"] as? String, notes: stored["notes"] as? String)
+            var name = candidate["name"] as? String
+            var notes = candidate["notes"] as? String
+            if row["normalize"] as? Bool == true {
+                name = name.flatMap(TapToneMeasurement.normalizedName)
+                notes = notes.flatMap(TapToneMeasurement.normalizedNotes)
+            }
+            #expect(m.isAmended(measurementName: name, notes: notes) == (row["expect"] as! Bool), "\(row)")
+        }
     }
 
     // MARK: - with(): the amend itself
