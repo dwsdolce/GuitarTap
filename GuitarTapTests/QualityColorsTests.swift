@@ -2,62 +2,55 @@
 //  QualityColorsTests.swift
 //  GuitarTapTests
 //
-//  Locks WoodQuality's display colour (+ the raw label) against silent drift.
-//
-//  An assertion like `WoodQuality.excellent.color == .green` stays true no matter what hue the OS
-//  resolves `.green` to, so it cannot detect drift. The colours are absolute (see
-//  `WoodQuality.hex`) and this suite pins the hex, which is the same thing Python's
-//  test_quality_colors.py and web's quality-colors.test.ts pin. All three editions compare the
-//  same values, so a drift in any one of them fails a test.
+//  The wood-quality grades — label and absolute colour — against the shared case file `quality-colors.json`,
+//  the same cases the Python and web suites run; and what the data cannot express here: that the drawn
+//  colour is built from the pinned hex rather than a system colour the OS resolves (and revises).
 //
 // @parity test/quality-colors
 
-import Testing
+import Foundation
 import SwiftUI
+import Testing
 @testable import GuitarTap
+
+private final class QualityColorsTestsAnchor {}
 
 @Suite("QualityColors")
 struct QualityColorsTests {
 
-    // The canonical table. Python's `WoodQuality.color` and web's `WOOD_QUALITY_COLOR.light`
-    // carry exactly these five values.
-    @Test func perQualityHex() {
-        #expect(WoodQuality.excellent.hex == "#34C759")
-        #expect(WoodQuality.veryGood.hex  == "#00C7BE")
-        #expect(WoodQuality.good.hex      == "#007AFF")
-        #expect(WoodQuality.fair.hex      == "#FF9500")
-        #expect(WoodQuality.poor.hex      == "#FF3B30")
+    static let grades: [[String]] = {
+        let url = Bundle(for: QualityColorsTestsAnchor.self).url(forResource: "quality-colors", withExtension: "json")!
+        let data = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        return data["grades"] as! [[String]]
+    }()
+
+    static func grade(_ name: String) -> WoodQuality { WoodQuality.allCases.first { "\($0)" == name }! }
+
+    @Test func labelAndHex() {
+        for row in Self.grades {
+            let q = Self.grade(row[0])
+            #expect(q.rawValue == row[1], "\(row[0])")
+            #expect(q.hex == row[2], "\(row[0])")
+        }
     }
 
-    // Five grades must be five distinguishable colours — the only thing the hue has to do.
+    /// The file names every grade, and five grades are five distinguishable colours.
     @Test func everyGradeHasItsOwnColour() {
-        let hexes = WoodQuality.allCases.map(\.hex)
-        #expect(Set(hexes).count == WoodQuality.allCases.count,
-                "each quality grade needs its own colour, got \(hexes)")
+        #expect(Self.grades.count == WoodQuality.allCases.count)
+        #expect(Set(WoodQuality.allCases.map(\.hex)).count == WoodQuality.allCases.count)
     }
 
     // `color` is derived from `hex`, so the drawn colour cannot diverge from the pinned value.
     @Test func colorIsBuiltFromTheHex() {
         for q in WoodQuality.allCases {
-            #expect(q.color == Color(sRGBHex: q.hex),
-                    "\(q.rawValue): color should be built from hex \(q.hex)")
+            #expect(q.color == Color(sRGBHex: q.hex), "\(q.rawValue): color should be built from hex \(q.hex)")
         }
     }
 
-    // A colour built from hex must not be a semantic system colour — that is the regression this
-    // suite exists to prevent, and the one the old `== .green` assertion could not see.
+    // A colour built from hex must not be a semantic system colour — the regression an `== .green`
+    // assertion cannot see.
     @Test func coloursAreAbsolute_notSemantic() {
-        #expect(WoodQuality.good.color != .blue,
-                "Good must be an absolute #007AFF, not the OS's .blue, which moved in macOS 26")
-        #expect(WoodQuality.fair.color != .orange,
-                "Fair must be an absolute #FF9500, not the OS's .orange")
-    }
-
-    @Test func rawLabel() {
-        #expect(WoodQuality.excellent.rawValue == "Excellent")
-        #expect(WoodQuality.veryGood.rawValue  == "Very Good")
-        #expect(WoodQuality.good.rawValue      == "Good")
-        #expect(WoodQuality.fair.rawValue      == "Fair")
-        #expect(WoodQuality.poor.rawValue      == "Poor")
+        #expect(WoodQuality.good.color != .blue, "Good must be an absolute #007AFF, not the OS's .blue, which moved in macOS 26")
+        #expect(WoodQuality.fair.color != .orange, "Fair must be an absolute #FF9500, not the OS's .orange")
     }
 }

@@ -2,71 +2,42 @@
 //  MeasurementNameTests.swift
 //  GuitarTapTests
 //
-//  Pins the required-name rule: a measurement name must be
-//  non-empty after trimming before Save is allowed, and the stored name is trimmed. The Save
-//  button binds to isValidName; the save path stores normalizedName. Three-way with Python
-//  test_measurement_name.py and web measurement-name.test.ts.
+//  The required-name rule — what enables Save (isValidName) and what is stored for the name and the notes
+//  (normalizedName, normalizedNotes) — against the shared case file `measurement-name.json`, the same cases
+//  the Python and web suites run.
 //
 // @parity test/measurement-name
 
-import Testing
 import Foundation
+import Testing
 @testable import GuitarTap
+
+private final class MeasurementNameTestsAnchor {}
 
 @Suite("MeasurementName")
 struct MeasurementNameTests {
 
-    // MARK: - isValidName — what enables Save
+    static let data: [String: [[Any]]] = {
+        let url = Bundle(for: MeasurementNameTestsAnchor.self).url(forResource: "measurement-name", withExtension: "json")!
+        let json = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        return json.compactMapValues { $0 as? [[Any]] }
+    }()
 
-    @Test func emptyAndWhitespace_areInvalid() {
-        #expect(TapToneMeasurement.isValidName("") == false)
-        #expect(TapToneMeasurement.isValidName("   ") == false)
-        #expect(TapToneMeasurement.isValidName("\t\n ") == false)
-    }
-
-    @Test func anyRealText_isValid() {
-        #expect(TapToneMeasurement.isValidName("x") == true)
-        #expect(TapToneMeasurement.isValidName("Martin 000-28") == true)
-        #expect(TapToneMeasurement.isValidName("  padded  ") == true)  // trims to non-empty
-    }
-
-    // MARK: - normalizedName — what gets stored
-
-    @Test func normalized_trimsAndBlanksToNil() {
-        #expect(TapToneMeasurement.normalizedName("  Martin 000-28  ") == "Martin 000-28")
-        #expect(TapToneMeasurement.normalizedName("Ramírez") == "Ramírez")
-        #expect(TapToneMeasurement.normalizedName("") == nil)
-        #expect(TapToneMeasurement.normalizedName("   ") == nil)
-    }
-
-    // MARK: - normalizedNotes — the other user-entered field, normalized the same way
-
-    // Notes trim exactly as the name does, as in both ports. It matters because "has this been
-    // edited" compares stored values: if one path trims and another does not, reopening an
-    // untouched measurement reads as an edit.
-    @Test func normalizedNotes_trimsAndBlanksToNil() {
-        #expect(TapToneMeasurement.normalizedNotes("  Tapped cold  ") == "Tapped cold")
-        #expect(TapToneMeasurement.normalizedNotes("line one\nline two") == "line one\nline two")
-        #expect(TapToneMeasurement.normalizedNotes("") == nil)
-        #expect(TapToneMeasurement.normalizedNotes("   \n  ") == nil)
-    }
-
-    // The two fields must agree, or a round trip through one of them looks like an edit.
-    @Test func bothFieldsNormalizeIdentically() {
-        for candidate in ["", "  ", "\n", "a", "  a  ", "Spruce Top", " multi word \n"] {
-            #expect(TapToneMeasurement.normalizedName(candidate) == TapToneMeasurement.normalizedNotes(candidate),
-                    "name and notes must normalize identically for \(candidate.debugDescription)")
+    @Test func isValidName() {
+        for row in Self.data["isValidName"]! {
+            #expect(TapToneMeasurement.isValidName(row[0] as! String) == (row[1] as! Bool), "\((row[0] as! String).debugDescription)")
         }
     }
 
-    // MARK: - The rule is consistent: valid ⇒ stores non-nil; invalid ⇒ nil
+    @Test func normalizedName() {
+        for row in Self.data["normalizedName"]! {
+            #expect(TapToneMeasurement.normalizedName(row[0] as! String) == row[1] as? String, "\((row[0] as! String).debugDescription)")
+        }
+    }
 
-    @Test func validityMatchesStorage() {
-        for candidate in ["", "  ", "\n", "a", "  a  ", "Spruce Top"] {
-            let valid = TapToneMeasurement.isValidName(candidate)
-            let stored = TapToneMeasurement.normalizedName(candidate)
-            #expect(valid == (stored != nil),
-                    "isValidName(\(candidate.debugDescription)) must agree with normalizedName != nil")
+    @Test func normalizedNotes() {
+        for row in Self.data["normalizedNotes"]! {
+            #expect(TapToneMeasurement.normalizedNotes(row[0] as! String) == row[1] as? String, "\((row[0] as! String).debugDescription)")
         }
     }
 }
