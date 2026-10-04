@@ -325,6 +325,10 @@ extension RealtimeFFTAnalyzer {
                 vDSP_vsmul(splitComplex.realp, 1, &scale, splitComplex.realp, 1, vDSP_Length(fftSize / 2))
                 vDSP_vsmul(splitComplex.imagp, 1, &scale, splitComplex.imagp, 1, vDSP_Length(fftSize / 2))
                 vDSP_zvabs(&splitComplex, 1, &mags, 1, vDSP_Length(fftSize / 2))
+                // vDSP's real DFT packs DC into realp[0] and Nyquist into imagp[0], each doubled like the
+                // interior bins. Bin 0 is DC alone, not doubled (a one-sided spectrum doubles only the
+                // interior); the Nyquist value is dropped, as the spectrum stops at the last bin below it.
+                mags[0] = abs(splitComplex.realp[0]) * 0.5
             }
         }
 
