@@ -44,15 +44,24 @@ See §2.3 and §2.4 for the workflow.
 ### Capture sample rate
 
 GuitarTap captures at whatever sample rate the operating system provides
-for the selected input device — it does not override it. The rate is set
-outside the app:
+— it does not override it. Where that rate comes from depends on the build:
+
+- **iOS / iPadOS, macOS, and the Python desktop build** — the rate of the
+  **input** device (the microphone).
+- **Web build** — the rate of the **default output** device. The browser
+  runs all its audio at the output device's rate and converts the
+  microphone to it, so set the microphone and the default output device to
+  the same rate (e.g. 48 000 Hz).
+
+The rate is set outside the app:
 
 - **macOS:** *Audio MIDI Setup* (in `/Applications/Utilities`). Select the
-  input device and choose a Format rate. Because the app's audio context
-  follows the default **output** device, set both the input and the output
-  device to the same rate (e.g. 48 000 Hz) to avoid resampling.
+  microphone and choose a Format rate; for the web build, do the same for
+  the default output device.
 - **Windows:** *Sound settings → Device properties → Advanced* (Default
-  Format). **Linux:** your audio server's configuration (e.g. PipeWire/JACK).
+  Format), for the microphone and, for the web build, the default output
+  device.
+- **Linux:** your audio server's configuration (e.g. PipeWire/JACK).
 
 Why it matters: the analysis frequency resolution and the captured spectrum
 are tied to the rate, so the same instrument measured at a different rate
