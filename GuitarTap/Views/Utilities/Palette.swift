@@ -319,6 +319,24 @@ enum Palette {
     /// The colour of a freeform (user-defined) mode label.
     static let userDefined = color(.modeUserDefined)
 
+    /// The multi-tap and comparison series, by slot; a slot past the last starts again at the first.
+    static let seriesRoles: [Role] = [
+        .series1, .series2, .series3, .series4, .series5, .series6, .series7, .series8, .series9, .series10,
+    ]
+
+    /// The colour of series slot `index` (0-based).
+    static func series(_ index: Int) -> Color { color(seriesRoles[index % seriesRoles.count]) }
+
+    /// The colour of the averaged spectrum among the series.
+    static let seriesAverage = color(.seriesAverage)
+
+    /// The light scheme's environment: a colour that is stored (a saved comparison's) is its light value.
+    static var lightEnvironment: EnvironmentValues {
+        var environment = EnvironmentValues()
+        environment.colorScheme = .light
+        return environment
+    }
+
     static let gray = color(.qualityGray)
     static let orange = color(.qualityOrange)
     static let yellow = color(.qualityYellow)

@@ -219,13 +219,13 @@ struct DraggablePeakAnnotation: View {
         } else {
             // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {
-                return .blue      // Longitudinal = blue
+                return Palette.color(.materialLongitudinal)
             } else if peak.id == selectedCrossPeakID {
-                return .orange    // Cross-grain = orange
+                return Palette.color(.materialCross)
             } else if peak.id == selectedFlcPeakID {
-                return .purple    // FLC = purple
+                return Palette.color(.materialFlc)
             } else {
-                return .secondary // Unselected = gray
+                return Palette.color(.materialUnselected)
             }
         }
     }
@@ -455,7 +455,8 @@ private struct ConnectionLine: View {
                 path.move(to: from)
                 path.addLine(to: to)
             }
-            .stroke(color.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+            .stroke(color.opacity(ChartStyle.screen.leaderOpacity),
+                    style: StrokeStyle(lineWidth: ChartStyle.screen.leaderWidth, dash: ChartStyle.screen.leaderDash))
         }
     }
 }
@@ -537,35 +538,35 @@ private struct PeakAnnotationLabel: View {
                 HStack(spacing: 2) {
                     Image(systemName: "music.note")
                         .font(.system(size: 8))
-                        .foregroundColor(.purple)
+                        .foregroundColor(Palette.color(.peakPitch))
                     Text(pitchNote)
                         .font(.caption2)
                         .fontWeight(.bold)
-                        .foregroundColor(.purple)
+                        .foregroundColor(Palette.color(.peakPitch))
                     Text("\(sign)\(Int(round(pitchCents))) ¢")
                         .font(.caption2)
-                        .foregroundColor(.purple.opacity(0.8))
+                        .foregroundColor(Palette.color(.peakPitch).opacity(0.8))
                 }
             }
 
             Text(peak.frequency.formattedAsFrequency())
                 .font(.caption2)
                 .fontWeight(.medium)
-                .foregroundColor(.primary)
+                .foregroundColor(Palette.color(.chartTitle))
 
             Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.chartAxis))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(.background.secondary)
+                .fill(Palette.color(.chartReadoutBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(modeColor, lineWidth: isDragging ? 2.5 : (isHovering ? 2 : 1.5))
+                .stroke(modeColor, lineWidth: isDragging ? 2.5 : (isHovering ? 2 : ChartStyle.screen.labelBorderWidth))
         )
         .shadow(color: .black.opacity(0.15), radius: 4)
         .contentShape(Rectangle())

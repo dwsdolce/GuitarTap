@@ -216,7 +216,7 @@ extension TapToneAnalysisView {
             entries: tap.comparisonSnapshots.enumerated().map { index, snap in
                 // Reconstruct a minimal ComparisonEntry just for the metadata section
                 let entry = tap.comparisonSpectra[index]
-                let cgColor: CGColor = entry.color.cgColor ?? entry.color.resolve(in: .init()).cgColor
+                let cgColor: CGColor = entry.color.resolve(in: Palette.lightEnvironment).cgColor
                 let comps: [Double]
                 if let c = cgColor.components, c.count >= 3 {
                     comps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
@@ -350,12 +350,11 @@ extension TapToneAnalysisView {
         #endif
 
         // ── Page 2: build ComparisonPDFReportData ─────────────────────────────
-        let palette: [Color] = [.blue, .orange, .green, .purple, .teal]
-        let avgColor = TapToneAnalyzer.multiTapAvgColor
+        let avgColor = Palette.seriesAverage
 
         var cmpEntries: [ComparisonEntry] = tap.tapEntries.enumerated().map { index, entry in
-            let color = palette[index % palette.count]
-            let cgColor = color.cgColor ?? color.resolve(in: .init()).cgColor
+            let color = Palette.series(index)
+            let cgColor = color.resolve(in: Palette.lightEnvironment).cgColor
             let comps: [Double]
             if let c = cgColor.components, c.count >= 3 {
                 comps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
@@ -367,7 +366,7 @@ extension TapToneAnalysisView {
                 guitarType: entry.snapshot.guitarType, sourceMeasurementID: nil)
         }
         // Averaged entry
-        let avgCGColor = avgColor.cgColor ?? avgColor.resolve(in: .init()).cgColor
+        let avgCGColor = avgColor.resolve(in: Palette.lightEnvironment).cgColor
         let avgComps: [Double]
         if let c = avgCGColor.components, c.count >= 3 {
             avgComps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
@@ -427,13 +426,12 @@ extension TapToneAnalysisView {
     /// Builds an off-screen spectrum view showing all per-tap overlays plus the averaged spectrum,
     /// mirroring the live multi-tap comparison chart.
     func createMultiTapComparisonSpectrumView() -> some View {
-        let palette: [Color] = [.blue, .orange, .green, .purple, .teal]
-        let avgColor = TapToneAnalyzer.multiTapAvgColor
+        let avgColor = Palette.seriesAverage
 
         var spectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] =
             tap.tapEntries.enumerated().map { index, entry in
                 (magnitudes: entry.snapshot.magnitudes, frequencies: entry.snapshot.frequencies,
-                 color: palette[index % palette.count], label: "Tap \(entry.tapIndex)")
+                 color: Palette.series(index), label: "Tap \(entry.tapIndex)")
             }
         spectra.append((magnitudes: tap.frozenMagnitudes, frequencies: tap.frozenFrequencies,
                         color: avgColor, label: "Averaged"))

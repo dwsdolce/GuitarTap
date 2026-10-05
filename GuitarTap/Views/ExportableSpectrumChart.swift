@@ -273,7 +273,7 @@ struct ExportableSpectrumChart: View {
                                     y: .value("Magnitude", dataPoint.magnitude)
                                 )
                                 .foregroundStyle(by: .value("Series", series.label))
-                                .lineStyle(StrokeStyle(lineWidth: 2))
+                                .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.overlayWidth))
                             }
                         }
                     } else {
@@ -283,8 +283,8 @@ struct ExportableSpectrumChart: View {
                                 x: .value("Frequency", dataPoint.frequency),
                                 y: .value("Magnitude", dataPoint.magnitude)
                             )
-                            .foregroundStyle(.red)
-                            .lineStyle(StrokeStyle(lineWidth: 2))
+                            .foregroundStyle(Palette.color(.chartSpectrum))
+                            .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.spectrumWidth))
                         }
                     }
 
@@ -292,8 +292,9 @@ struct ExportableSpectrumChart: View {
                     if showModeBoundaries {
                         ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
                             RuleMark(x: .value("Boundary", boundary.frequency))
-                                .foregroundStyle(Palette.color(boundary.mode).opacity(0.3))
-                                .lineStyle(StrokeStyle(lineWidth: 2, dash: [8, 8]))
+                                .foregroundStyle(Palette.color(boundary.mode).opacity(ChartStyle.export.modeBoundaryOpacity))
+                                .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.modeBoundaryWidth,
+                                                       dash: ChartStyle.export.modeBoundaryDash))
                                 .annotation(
                                     position: .top,
                                     alignment: .center,
@@ -322,7 +323,7 @@ struct ExportableSpectrumChart: View {
                             y: .value("Magnitude", clampedMag)
                         )
                         .foregroundStyle(peakColor(for: peak))
-                        .symbolSize(200)
+                        .symbolSize(ChartStyle.export.dotArea)
                     }
                 }
                 // Charts warns and falls back when handed an EMPTY scale, and this chart re-renders
@@ -337,7 +338,7 @@ struct ExportableSpectrumChart: View {
                 .chartLegend(.hidden)
                 .chartPlotStyle { plotArea in
                     // Clipped: the spectrum is drawn through the chart's edges and cut off by them.
-                    plotArea.border(Color.gray, width: 1).clipped()
+                    plotArea.border(Palette.color(.chartBorder), width: 1).clipped()
                 }
                 .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: .linear)
                 .chartYScale(domain: Double(minDB)...Double(maxDB))
@@ -349,7 +350,8 @@ struct ExportableSpectrumChart: View {
                                     .font(.system(size: 12))
                             }
                         }
-                        AxisGridLine()
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.export.gridWidth))
+                            .foregroundStyle(Palette.color(.chartGrid))
                     }
                 }
                 .chartXAxisLabel(alignment: .center) {
@@ -358,10 +360,11 @@ struct ExportableSpectrumChart: View {
                         .padding(8)
                 }
                 .chartYAxis {
-                    AxisMarks(position: .leading, values: .stride(by: 20)) { _ in
+                    AxisMarks(position: .leading, values: .stride(by: ChartStyle.export.magnitudeStride ?? 20)) { _ in
                         AxisValueLabel()
                             .font(.system(size: 12))
-                        AxisGridLine()
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.export.gridWidth))
+                            .foregroundStyle(Palette.color(.chartGrid))
                     }
                 }
                 .chartYAxisLabel(position: .leading, alignment: .center) {
@@ -386,7 +389,9 @@ struct ExportableSpectrumChart: View {
                                         from: CGPoint(x: annPos.x, y: annPos.y + 50),
                                         to: peakPosition
                                     )
-                                    .stroke(peakColor(for: peak).opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                                    .stroke(peakColor(for: peak).opacity(ChartStyle.export.leaderOpacity),
+                                            style: StrokeStyle(lineWidth: ChartStyle.export.leaderWidth,
+                                                               dash: ChartStyle.export.leaderDash))
                                 }
                             }
 
@@ -823,16 +828,13 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
 func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? {
     guard let entries = measurement.tapEntries, !entries.isEmpty else { return nil }
 
-    // Same palette used by the live UI (TapToneAnalyzer.multiTapPalette) and
-    // MultiTapComparisonResultsView.palette.
-    let palette: [Color] = [.blue, .orange, .green, .purple, .teal]
-    let avgColor = TapToneAnalyzer.multiTapAvgColor
+    let avgColor = Palette.seriesAverage
 
     var spectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] =
         entries.enumerated().map { index, entry in
             (magnitudes: entry.snapshot.magnitudes,
              frequencies: entry.snapshot.frequencies,
-             color: palette[index % palette.count],
+             color: Palette.series(index),
              label: "Tap \(entry.tapIndex)")
         }
 

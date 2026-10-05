@@ -16,6 +16,7 @@
 /// in the set are unique (preventing e.g. two ticks both labelled \"1.0 kHz\").
 ///
 /// - SeeAlso: `SpectrumView`, `ExportableSpectrumChart`
+// @parity view/axis-ticks tests=test/axis-ticks
 import Foundation
 
 // MARK: - AxisTickGenerator
@@ -39,6 +40,15 @@ struct AxisTickGenerator {
     ) -> [Double] {
         guard min < max else { return [min] }
         return generateLinearTicks(min: min, max: max, maxTicks: maxTicks)
+    }
+
+    /// The magnitude axis's tick spacing (dB) for a visible range of `range` dB: the smallest of 1, 2, 5, 10, 20
+    /// and 50 that gives no more than 8 ticks.
+    static func magnitudeStride(range: Double) -> Double {
+        for stride in [1.0, 2.0, 5.0, 10.0, 20.0, 50.0] where range / stride <= 8 {
+            return stride
+        }
+        return 50.0
     }
 
     // MARK: - Linear Scale

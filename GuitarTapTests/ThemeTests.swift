@@ -91,4 +91,17 @@ struct ThemeTests {
             #expect(Appearance(rawValue: row[0])!.resolved(os: os).rawValue == row[2], "\(row)")
         }
     }
+
+    /// The series are series.1 … series.10 in slot order, and slot 11 starts again at series.1.
+    @Test func seriesSlots() {
+        #expect(Palette.seriesRoles.map(\.rawValue) == (1...10).map { "series.\($0)" })
+        let light = { (index: Int) in Palette.series(index).resolve(in: Palette.lightEnvironment).description }
+        #expect(light(10) == light(0))
+    }
+
+    /// A stored colour (a saved comparison's) is the light value, whatever the scheme.
+    @Test func storedColourIsLight() {
+        let stored = Palette.series(1).resolve(in: Palette.lightEnvironment).description
+        #expect(stored == Palette.pair(.series2).light + "FF")
+    }
 }

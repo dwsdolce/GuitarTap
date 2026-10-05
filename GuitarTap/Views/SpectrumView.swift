@@ -211,7 +211,7 @@ struct SpectrumView: View {
 
     /// Color of the primary (single) spectrum line. Used to tint the cursor readout label
     /// so it matches the waveform. Only relevant when `materialSpectra` is empty.
-    var primaryCurveColor: Color = .red
+    var primaryCurveColor: Color = Palette.color(.chartSpectrum)
 
     /// The current measurement type (guitar vs plate/brace) - affects which annotations are shown
     var measurementType: MeasurementType = .acoustic
@@ -464,7 +464,7 @@ struct SpectrumView: View {
     /// ⋯ Chart Options button — shown on every platform (matches the web).
     private var chartOptionsButton: some View {
         Button { showingChartOptions = true } label: {
-            Image(systemName: "ellipsis.circle").font(.caption).foregroundColor(.secondary)
+            Image(systemName: "ellipsis.circle").font(.caption).foregroundColor(Palette.color(.textSecondary))
         }
         .buttonStyle(.plain)
         .help("Chart options")
@@ -485,7 +485,7 @@ struct SpectrumView: View {
     /// ? help button — shown on every platform.
     private var controlsHelpButton: some View {
         Button { showingControlsHelp.toggle() } label: {
-            Image(systemName: "info.circle").font(.caption).foregroundColor(.secondary)
+            Image(systemName: "info.circle").font(.caption).foregroundColor(Palette.color(.textSecondary))
         }
         .buttonStyle(.plain)
         .help("Zoom & Pan Controls")
@@ -495,27 +495,27 @@ struct SpectrumView: View {
                             .font(.headline)
                             .padding(.bottom, 2)
                         Group {
-                            Text("Scroll over plot") + Text(": Zoom both axes around cursor").foregroundColor(.secondary)
-                            Text("Scroll over freq axis") + Text(": Zoom frequency only").foregroundColor(.secondary)
-                            Text("Scroll over mag axis") + Text(": Zoom magnitude only").foregroundColor(.secondary)
-                            Text("⇧ + Scroll") + Text(": Pan frequency axis").foregroundColor(.secondary)
-                            Text("⌥ + Scroll") + Text(": Pan magnitude axis").foregroundColor(.secondary)
-                            Text("⌘/⌃ + Scroll") + Text(": Zoom both axes").foregroundColor(.secondary)
+                            Text("Scroll over plot") + Text(": Zoom both axes around cursor").foregroundColor(Palette.color(.textSecondary))
+                            Text("Scroll over freq axis") + Text(": Zoom frequency only").foregroundColor(Palette.color(.textSecondary))
+                            Text("Scroll over mag axis") + Text(": Zoom magnitude only").foregroundColor(Palette.color(.textSecondary))
+                            Text("⇧ + Scroll") + Text(": Pan frequency axis").foregroundColor(Palette.color(.textSecondary))
+                            Text("⌥ + Scroll") + Text(": Pan magnitude axis").foregroundColor(Palette.color(.textSecondary))
+                            Text("⌘/⌃ + Scroll") + Text(": Zoom both axes").foregroundColor(Palette.color(.textSecondary))
                         }
                         .font(.callout)
                         Divider()
                         Group {
-                            Text("Pinch over plot") + Text(": Zoom both axes").foregroundColor(.secondary)
-                            Text("Pinch over freq axis") + Text(": Zoom frequency only").foregroundColor(.secondary)
-                            Text("Pinch over mag axis") + Text(": Zoom magnitude only").foregroundColor(.secondary)
+                            Text("Pinch over plot") + Text(": Zoom both axes").foregroundColor(Palette.color(.textSecondary))
+                            Text("Pinch over freq axis") + Text(": Zoom frequency only").foregroundColor(Palette.color(.textSecondary))
+                            Text("Pinch over mag axis") + Text(": Zoom magnitude only").foregroundColor(Palette.color(.textSecondary))
                         }
                         .font(.callout)
                         Divider()
                         Group {
-                            Text("Drag over plot") + Text(": Pan both axes").foregroundColor(.secondary)
-                            Text("Drag over freq axis") + Text(": Pan frequency only").foregroundColor(.secondary)
-                            Text("Drag over mag axis") + Text(": Pan magnitude only").foregroundColor(.secondary)
-                            Text("Right-click") + Text(": Reset axes & labels").foregroundColor(.secondary)
+                            Text("Drag over plot") + Text(": Pan both axes").foregroundColor(Palette.color(.textSecondary))
+                            Text("Drag over freq axis") + Text(": Pan frequency only").foregroundColor(Palette.color(.textSecondary))
+                            Text("Drag over mag axis") + Text(": Pan magnitude only").foregroundColor(Palette.color(.textSecondary))
+                            Text("Right-click") + Text(": Reset axes & labels").foregroundColor(Palette.color(.textSecondary))
                         }
                         .font(.callout)
                     }
@@ -566,7 +566,7 @@ struct SpectrumView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+            .background(Palette.color(.chartReadoutBackground), in: RoundedRectangle(cornerRadius: 6))
         }
     }
 
@@ -871,7 +871,8 @@ struct SpectrumView: View {
             path.move(to: CGPoint(x: cursorX, y: plotFrame.minY))
             path.addLine(to: CGPoint(x: cursorX, y: plotFrame.maxY))
         }
-        .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        .stroke(Palette.color(.chartCrosshairLine),
+                style: StrokeStyle(lineWidth: ChartStyle.screen.crosshairWidth, dash: ChartStyle.screen.crosshairDash))
         .allowsHitTesting(false)
 
         // Horizontal crosshair line
@@ -879,7 +880,8 @@ struct SpectrumView: View {
             path.move(to: CGPoint(x: plotFrame.minX, y: cursorY))
             path.addLine(to: CGPoint(x: plotFrame.maxX, y: cursorY))
         }
-        .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        .stroke(Palette.color(.chartCrosshairLine),
+                style: StrokeStyle(lineWidth: ChartStyle.screen.crosshairWidth, dash: ChartStyle.screen.crosshairDash))
         .allowsHitTesting(false)
 
         let labelX: CGFloat = {
@@ -905,11 +907,11 @@ struct SpectrumView: View {
                 .foregroundColor(snap.curveColor)  // Colored to match the tracked curve
             Text("\(FieldPrecision.string(Float(snap.magnitude), FieldPrecision.peakMagnitudeDB)) dB")
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.chartAxis))
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .background(Palette.color(.chartReadoutBackground), in: RoundedRectangle(cornerRadius: 6))
         .shadow(radius: 2)
         .frame(width: labelWidth, height: labelHeight)
         .position(x: labelX + labelWidth / 2, y: labelY + labelHeight / 2)
@@ -936,7 +938,8 @@ struct SpectrumView: View {
             path.move(to: CGPoint(x: cursorX, y: plotFrame.minY))
             path.addLine(to: CGPoint(x: cursorX, y: plotFrame.maxY))
         }
-        .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        .stroke(Palette.color(.chartCrosshairLine),
+                style: StrokeStyle(lineWidth: ChartStyle.screen.crosshairWidth, dash: ChartStyle.screen.crosshairDash))
         .allowsHitTesting(false)
 
         // Horizontal crosshair line
@@ -944,7 +947,8 @@ struct SpectrumView: View {
             path.move(to: CGPoint(x: plotFrame.minX, y: cursorY))
             path.addLine(to: CGPoint(x: plotFrame.maxX, y: cursorY))
         }
-        .stroke(Color.primary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        .stroke(Palette.color(.chartCrosshairLine),
+                style: StrokeStyle(lineWidth: ChartStyle.screen.crosshairWidth, dash: ChartStyle.screen.crosshairDash))
         .allowsHitTesting(false)
 
         // Readout label — positioned to stay inside the plot
@@ -971,11 +975,11 @@ struct SpectrumView: View {
                 .foregroundColor(snap.curveColor)  // Colored to match the tracked curve
             Text("\(FieldPrecision.string(Float(snap.magnitude), FieldPrecision.peakMagnitudeDB)) dB")
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.chartAxis))
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .background(Palette.color(.chartReadoutBackground), in: RoundedRectangle(cornerRadius: 6))
         .shadow(radius: 2)
         .frame(width: labelWidth, height: labelHeight)
         .position(x: labelX + labelWidth / 2, y: labelY + labelHeight / 2)
@@ -1012,7 +1016,7 @@ struct SpectrumView: View {
         .chartPlotStyle { plotArea in
             // Clipped: the spectrum is drawn through the chart's edges and cut off by them.
             plotArea
-                .border(Color.gray, width: 1)
+                .border(Palette.color(.chartBorder), width: 1)
                 .contentShape(Rectangle())
                 .clipped()
 
@@ -1049,31 +1053,22 @@ struct SpectrumView: View {
             AxisValueLabel {
                 if let doubleValue = value.as(Double.self) {
                     Text(labels[doubleValue] ?? AxisTickGenerator.formatTickLabel(doubleValue))
+                        .foregroundStyle(Palette.color(.chartAxis))
                 }
             }
-            AxisGridLine()
+            AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.screen.gridWidth))
+                .foregroundStyle(Palette.color(.chartGrid))
         }
     }
 
     /// Y-axis content builder
     @AxisContentBuilder
     private var yAxisContent: some AxisContent {
-        AxisMarks(position: .leading, values: .stride(by: yAxisStride)) { value in
-            AxisValueLabel()
-            AxisGridLine()
+        AxisMarks(position: .leading, values: .stride(by: AxisTickGenerator.magnitudeStride(range: Double(maxDB - minDB)))) { value in
+            AxisValueLabel().foregroundStyle(Palette.color(.chartAxis))
+            AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.screen.gridWidth))
+                .foregroundStyle(Palette.color(.chartGrid))
         }
-    }
-
-    /// Computes a "nice" dB stride that yields roughly 4–6 ticks for the current visible range.
-    private var yAxisStride: Double {
-        let range = Double(maxDB - minDB)
-        // Pick the smallest stride from this set that produces no more than ~8 ticks.
-        for stride in [1.0, 2.0, 5.0, 10.0, 20.0, 50.0] {
-            if range / stride <= 8 {
-                return stride
-            }
-        }
-        return 50.0
     }
 
     /// Pinch gesture for zooming, anchored to the pinch midpoint.

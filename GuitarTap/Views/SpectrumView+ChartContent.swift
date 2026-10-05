@@ -44,8 +44,8 @@ extension SpectrumView {
                 x: .value("Frequency", dataPoint.frequency),
                 y: .value("Magnitude", dataPoint.magnitude)
             )
-            .foregroundStyle(.red)
-            .lineStyle(StrokeStyle(lineWidth: 1))
+            .foregroundStyle(Palette.color(.chartSpectrum))
+            .lineStyle(StrokeStyle(lineWidth: ChartStyle.screen.spectrumWidth))
         }
     }
 
@@ -61,8 +61,9 @@ extension SpectrumView {
         if showModeBoundaries && measurementType.isGuitar {
             ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
                 RuleMark(x: .value("Boundary", boundary.frequency))
-                    .foregroundStyle(Palette.color(boundary.mode).opacity(0.3))
-                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
+                    .foregroundStyle(Palette.color(boundary.mode).opacity(ChartStyle.screen.modeBoundaryOpacity))
+                    .lineStyle(StrokeStyle(lineWidth: ChartStyle.screen.modeBoundaryWidth,
+                                           dash: ChartStyle.screen.modeBoundaryDash))
                     .annotation(
                         position: .top,
                         alignment: .center,
@@ -106,13 +107,13 @@ extension SpectrumView {
                     x: .value("Frequency", peak.frequency),
                     y: .value("Magnitude", clampedMag)
                 )
-                .foregroundStyle(Color.red)
+                .foregroundStyle(Palette.color(.chartHighlightedPeak))
                 .symbol {
                     Image(systemName: "star.fill")
                         .font(.system(size: 10))
-                        .foregroundStyle(Color.red)
+                        .foregroundStyle(Palette.color(.chartHighlightedPeak))
                 }
-                .symbolSize(120)
+                .symbolSize(ChartStyle.screen.highlightedDotArea)
             } else {
                 PointMark(
                     x: .value("Frequency", peak.frequency),
@@ -120,7 +121,7 @@ extension SpectrumView {
                 )
                 .foregroundStyle(peakColor(for: peak))
                 .symbol(.circle)
-                .symbolSize(40)
+                .symbolSize(ChartStyle.screen.dotArea)
             }
             #else
             PointMark(
@@ -129,7 +130,7 @@ extension SpectrumView {
             )
             .foregroundStyle(peakColor(for: peak))
             .symbol(.circle)
-            .symbolSize(40)
+            .symbolSize(ChartStyle.screen.dotArea)
             #endif
         }
 
@@ -170,7 +171,7 @@ extension SpectrumView {
                     y: .value("Magnitude", dataPoint.magnitude)
                 )
                 .foregroundStyle(by: .value("Series", series.label))
-                .lineStyle(StrokeStyle(lineWidth: 1.5))
+                .lineStyle(StrokeStyle(lineWidth: ChartStyle.screen.overlayWidth))
             }
         }
     }
@@ -201,7 +202,7 @@ extension SpectrumView {
                                 .foregroundColor(threshold.color)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.9))
+                                .background(Palette.color(.chartReadoutBackground))
                                 .cornerRadius(4)
                         }
                 }
@@ -237,13 +238,13 @@ extension SpectrumView {
         } else {
             // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {
-                return .blue      // Longitudinal = blue
+                return Palette.color(.materialLongitudinal)
             } else if peak.id == selectedCrossPeakID {
-                return .orange    // Cross-grain = orange
+                return Palette.color(.materialCross)
             } else if peak.id == selectedFlcPeakID {
-                return .purple    // FLC = purple
+                return Palette.color(.materialFlc)
             } else {
-                return .secondary // Unselected = gray
+                return Palette.color(.materialUnselected)
             }
         }
     }

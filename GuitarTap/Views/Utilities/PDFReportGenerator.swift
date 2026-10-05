@@ -1401,12 +1401,11 @@ extension PDFReportGenerator {
     @MainActor
     static func multiTapComparisonData(for measurement: TapToneMeasurement) -> ComparisonPDFReportData? {
         guard let tapEntries = measurement.tapEntries, !tapEntries.isEmpty else { return nil }
-        let palette: [Color] = [.blue, .orange, .green, .purple, .teal]
-        let avgColor = TapToneAnalyzer.multiTapAvgColor
+        let avgColor = Palette.seriesAverage
 
         var cmpEntries: [ComparisonEntry] = tapEntries.enumerated().map { index, entry in
-            let color = palette[index % palette.count]
-            let cgColor = color.cgColor ?? color.resolve(in: .init()).cgColor
+            let color = Palette.series(index)
+            let cgColor = color.resolve(in: Palette.lightEnvironment).cgColor
             let comps: [Double]
             if let c = cgColor.components, c.count >= 3 {
                 comps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
@@ -1418,7 +1417,7 @@ extension PDFReportGenerator {
                 guitarType: entry.snapshot.guitarType, sourceMeasurementID: nil)
         }
         if let avgSnap = measurement.spectrumSnapshot {
-            let avgCGColor = avgColor.cgColor ?? avgColor.resolve(in: .init()).cgColor
+            let avgCGColor = avgColor.resolve(in: Palette.lightEnvironment).cgColor
             let avgComps: [Double]
             if let c = avgCGColor.components, c.count >= 3 {
                 avgComps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]

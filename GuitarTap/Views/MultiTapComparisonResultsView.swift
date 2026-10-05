@@ -34,9 +34,6 @@ struct MultiTapComparisonResultsView: View {
     /// Guitar type active for mode classification.
     let guitarType: GuitarType?
 
-    /// Colors drawn from the same fixed comparison palette used for saved-measurement comparisons.
-    /// Must stay in sync with `TapToneAnalyzer.multiTapPalette` (private to that type).
-    private let palette: [Color] = [.blue, .orange, .green, .purple, .teal]
 
     /// Columns shown in the table (Air, Top, Back).
     private let columns: [GuitarMode] = [.air, .top, .back]
@@ -48,7 +45,7 @@ struct MultiTapComparisonResultsView: View {
 
             // Per-tap rows — each tap's OWN auto-classification (its own spectrum, its own peaks).
             ForEach(Array(tapEntries.enumerated()), id: \.offset) { index, entry in
-                let color = palette[index % palette.count]
+                let color = Palette.series(index)
                 let modeFreqs = entry.resolvedModePeaks(guitarType: guitarType)
                     .mapValues { $0.frequency }
                 dataRow(
@@ -63,7 +60,7 @@ struct MultiTapComparisonResultsView: View {
             }
 
             // Averaged row — the DEFINITIVE Air/Top/Back (override-aware), tagged where overridden.
-            let avgColor = TapToneAnalyzer.multiTapAvgColor
+            let avgColor = Palette.seriesAverage
             dataRow(
                 color: avgColor,
                 label: "Averaged",

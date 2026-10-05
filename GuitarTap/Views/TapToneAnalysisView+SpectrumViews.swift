@@ -108,13 +108,13 @@ extension TapToneAnalysisView {
         }
         var result: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
         if let spec = tap.longitudinalSpectrum {
-            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .blue, label: "Longitudinal (fL)"))
+            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: Palette.color(.materialLongitudinal), label: "Longitudinal (fL)"))
         }
         if measurementType == .plate, let spec = tap.crossSpectrum {
-            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .orange, label: "Cross-grain (fC)"))
+            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: Palette.color(.materialCross), label: "Cross-grain (fC)"))
         }
         if measurementType == .plate, let spec = tap.flcSpectrum {
-            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: .purple, label: "Diagonal (fLC)"))
+            result.append((magnitudes: spec.magnitudes, frequencies: spec.frequencies, color: Palette.color(.materialFlc), label: "Diagonal (fLC)"))
         }
         return result
     }
@@ -151,9 +151,9 @@ extension TapToneAnalysisView {
                         lines.append((
                             peakMinThreshold,
                             "Peak: \(Int(peakMinThreshold)) dB",
-                            .green.opacity(0.7),
-                            1.5,
-                            [8, 3]
+                            Palette.color(.chartPeakMin).opacity(ChartStyle.screen.peakMinOpacity),
+                            ChartStyle.screen.peakMinWidth,
+                            ChartStyle.screen.peakMinDash
                         ))
                     }
                 }
@@ -175,7 +175,7 @@ extension TapToneAnalysisView {
             #else
             .padding()
             #endif
-            .background(Color.gray.opacity(0.05))
+            .background(Palette.color(.chartBackground))
             .cornerRadius(10)
             .overlay(
                 Group {
@@ -183,17 +183,17 @@ extension TapToneAnalysisView {
                         VStack {
                             Image(systemName: "waveform")
                                 .font(.system(size: 48))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Palette.color(.textSecondary))
                             Text("Starting...")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Palette.color(.textSecondary))
                         }
                     } else if fft.frequencies.isEmpty {
                         VStack {
                             ProgressView()
                             Text("Loading...")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Palette.color(.textSecondary))
                         }
                     } else {
                         Color.clear
@@ -231,7 +231,7 @@ extension TapToneAnalysisView {
             hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
             isMeasurementComplete: tap.isMeasurementComplete,
             isReviewingMaterialPhase: tap.materialTapPhase.isReviewing,
-            primaryCurveColor: .red,
+            primaryCurveColor: Palette.color(.chartSpectrum),
             measurementType: TapDisplaySettings.measurementType,
             selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
             selectedCrossPeakID: tap.effectiveCrossPeakID,
@@ -262,7 +262,7 @@ extension TapToneAnalysisView {
             hasLabelsToReset: !tap.peakAnnotationOffsets.isEmpty,
             isMeasurementComplete: tap.isMeasurementComplete,
             isReviewingMaterialPhase: tap.materialTapPhase.isReviewing,
-            primaryCurveColor: .red,
+            primaryCurveColor: Palette.color(.chartSpectrum),
             measurementType: TapDisplaySettings.measurementType,
             selectedLongitudinalPeakID: tap.effectiveLongitudinalPeakID,
             selectedCrossPeakID: tap.effectiveCrossPeakID,

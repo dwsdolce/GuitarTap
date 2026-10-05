@@ -901,10 +901,6 @@ extension TapToneAnalyzer {
 
     // MARK: - Comparison Overlay
 
-    /// Color palette for comparison overlays (cycles if more than 5 measurements).
-    private static let multiTapPalette: [Color] = [.blue, .orange, .green, .purple, .teal]
-    /// Averaged row color for multi-tap comparison charts and PDF exports.
-    static let multiTapAvgColor: Color = Color(red: 1.0, green: 0.85, blue: 0.0)
 
     /// Short label for a measurement in the comparison legend.
     private func comparisonLabel(for measurement: TapToneMeasurement) -> String {
@@ -948,7 +944,7 @@ extension TapToneAnalyzer {
 
         let spectraAndSnapshots: [(entry: (magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID]), snapshot: SpectrumSnapshot)] = withSnapshots.enumerated().map { index, measurement in
             let snap = measurement.spectrumSnapshot!
-            let color = Self.multiTapPalette[index % Self.multiTapPalette.count]
+            let color = Palette.series(index)
             let selectedIDs = measurement.effectiveSelectedPeakIDs
             let selectedPeaks = measurement.peaks.filter { selectedIDs.contains($0.id) }
             // Resolve the definitive Air/Top/Back from the SOURCE measurement — its selection AND its
@@ -1008,7 +1004,7 @@ extension TapToneAnalyzer {
         let entries: [ComparisonEntry] = comparisonSpectra.enumerated().map { index, entry in
             // Resolve Color → RGBA components using CGColor.
             // The fixed 5-color palette (blue/orange/green/purple/teal) round-trips exactly.
-            let cgColor: CGColor = entry.color.cgColor ?? entry.color.resolve(in: .init()).cgColor
+            let cgColor: CGColor = entry.color.resolve(in: Palette.lightEnvironment).cgColor
             let comps: [Double]
             if let components = cgColor.components, components.count >= 3 {
                 comps = [Double(components[0]), Double(components[1]),
@@ -1083,7 +1079,7 @@ extension TapToneAnalyzer {
         var snapshots: [SpectrumSnapshot] = []
 
         for (index, entry) in tapEntries.enumerated() {
-            let color = Self.multiTapPalette[index % Self.multiTapPalette.count]
+            let color = Palette.series(index)
             let selectedIDs = Set(entry.selectedPeakIDs)
             let selectedPeaks = entry.peaks.filter { selectedIDs.contains($0.id) }
             entries.append((
@@ -1100,7 +1096,7 @@ extension TapToneAnalyzer {
 
         // Append the averaged result as the final overlay so it renders on top.
         // Use a bold yellow so it stands out against the per-tap palette (blue/orange/green/purple/teal).
-        let avgColor = Self.multiTapAvgColor
+        let avgColor = Palette.seriesAverage
         // The same rule the on-screen table and the PDF use — selection resolves over the durable
         // set, so the averaged overlay does not lose a selected peak when Peak Min rises above it.
         let avgSelectedPeaks = selectedPeaks
