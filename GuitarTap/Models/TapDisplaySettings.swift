@@ -108,6 +108,7 @@ struct TapDisplaySettings {
     private static let measurementTypeKey = "measurementType"
     private static let guitarTypeKey = "guitarType"
     private static let showUnknownModesKey = "showUnknownModes"
+    private static let appearanceKey = "appearance"
 
     // Plate measurement keys
     private static let plateLengthKey = "plateLength"
@@ -327,6 +328,21 @@ struct TapDisplaySettings {
         set { defaults.set(newValue, forKey: braceMassKey) }
     }
     
+    // MARK: - Appearance
+
+    /// The Appearance setting: follow the operating system (the default), or always Light, or always Dark.
+    static var appearance: Appearance {
+        get {
+            if let rawValue = defaults.string(forKey: appearanceKey), let appearance = Appearance(rawValue: rawValue) {
+                return appearance
+            }
+            return .system
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: appearanceKey)
+        }
+    }
+
     // MARK: - Unknown Mode Display Setting
     
     /// Whether to display/report peaks classified as "Unknown" mode (persisted in UserDefaults)

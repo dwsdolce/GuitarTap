@@ -260,6 +260,7 @@ struct GuitarTapApp: App {
             Color.clear
         } else {
             TapToneAnalysisView()
+                .onAppear { Palette.apply(TapDisplaySettings.appearance) }
         }
     }
 

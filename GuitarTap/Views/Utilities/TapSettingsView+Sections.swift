@@ -311,6 +311,17 @@ extension TapSettingsView {
 
     @ViewBuilder
     var displayRangeSectionContent: some View {
+        // Appearance
+        Picker("Appearance", selection: $selectedAppearance) {
+            ForEach(Appearance.allCases) { appearance in
+                Text(appearance.label)
+                    .tag(appearance)
+            }
+        }
+        Text("System follows the operating system's Light or Dark setting")
+            .font(.caption)
+            .foregroundColor(.secondary)
+
         // Frequency Range
         if isCompact {
             compactFrequencyRangeView(

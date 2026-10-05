@@ -265,6 +265,27 @@ enum Palette {
         }
     }
 
+    /// Draws the app — its windows, controls and the palette's colours — in the scheme `appearance` resolves to:
+    /// the operating system's own for System.
+    @MainActor static func apply(_ appearance: Appearance) {
+        #if os(macOS)
+        switch appearance {
+        case .system: NSApp.appearance = nil
+        case .light: NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+        #else
+        let style: UIUserInterfaceStyle = switch appearance {
+        case .system: .unspecified
+        case .light: .light
+        case .dark: .dark
+        }
+        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+            for window in scene.windows { window.overrideUserInterfaceStyle = style }
+        }
+        #endif
+    }
+
     static let gray = color(.qualityGray)
     static let orange = color(.qualityOrange)
     static let yellow = color(.qualityYellow)

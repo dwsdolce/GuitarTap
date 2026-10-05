@@ -5,7 +5,8 @@
 //  The palette against the shared case file `theme.json` — every colour role with its light and dark value, and
 //  the opacities applied to other roles — the same cases the Python and web suites run; and, what the data cannot
 //  express here, that each role's colour resolves to its light value in the light scheme and its dark value in the
-//  dark scheme.
+//  dark scheme; and the Appearance setting — its values, its default, and the scheme each setting resolves to for
+//  each scheme the operating system reports.
 //
 // @parity test/theme
 
@@ -72,5 +73,22 @@ struct ThemeTests {
         #expect(abs(Double(tint.resolve(in: dark).opacity) - 0.20) < 0.001)
         #expect(tint.resolve(in: light).description.prefix(7) == "#00B0DC")
         #expect(tint.resolve(in: dark).description.prefix(7) == "#64D2FF")
+    }
+
+    @Test func appearanceValuesAndDefault() {
+        let a = Self.data["appearance"] as! [String: Any]
+        #expect(Appearance.allCases.map { [$0.rawValue, $0.label] } == a["values"] as! [[String]])
+        TapDisplaySettings.defaults.removeObject(forKey: "appearance")
+        #expect(TapDisplaySettings.appearance.rawValue == a["default"] as! String)
+        TapDisplaySettings.appearance = .dark
+        #expect(TapDisplaySettings.appearance == .dark)
+        TapDisplaySettings.defaults.removeObject(forKey: "appearance")
+    }
+
+    @Test func resolvedScheme() {
+        for row in Self.data["resolve"] as! [[String]] {
+            let os: Scheme? = row[1] == "unknown" ? nil : Scheme(rawValue: row[1])!
+            #expect(Appearance(rawValue: row[0])!.resolved(os: os).rawValue == row[2], "\(row)")
+        }
     }
 }

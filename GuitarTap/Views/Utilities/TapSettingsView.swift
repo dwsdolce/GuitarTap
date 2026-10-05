@@ -78,6 +78,7 @@ struct TapSettingsView: View {
 
     // Measurement type setting
     @State var selectedMeasurementType: MeasurementType = TapDisplaySettings.measurementType
+    @State var selectedAppearance: Appearance = TapDisplaySettings.appearance
 
     // Unknown mode display setting
     @State var showUnknownModes: Bool = TapDisplaySettings.showUnknownModes

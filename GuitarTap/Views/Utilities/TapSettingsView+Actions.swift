@@ -40,6 +40,10 @@ extension TapSettingsView {
         TapDisplaySettings.showUnknownModes = showUnknownModes
         TapDisplaySettings.dumpCaptureAudio = dumpCaptureAudio
         TapDisplaySettings.measureFlc = measureFlc
+        if selectedAppearance != TapDisplaySettings.appearance {
+            TapDisplaySettings.appearance = selectedAppearance
+            Palette.apply(selectedAppearance)
+        }
 
         // Detect whether the measurement type or FLC toggle changed.
         // Switching between guitar types only (e.g. acoustic → generic) does NOT require
