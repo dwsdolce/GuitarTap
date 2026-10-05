@@ -2,7 +2,7 @@
 //  Palette.swift
 //  GuitarTap
 //
-// @parity view/palette tests=test/theme,test/analysis-quality
+// @parity view/palette tests=test/theme,test/analysis-quality,test/mode-colors,test/quality-colors
 //
 // Every colour the app draws itself, as a functional role: what the colour is for (secondary text, the fL curve,
 // the Peak Min line), with one light value and one dark value, chosen by the colour scheme it is drawn in. Two roles
@@ -285,6 +285,39 @@ enum Palette {
         }
         #endif
     }
+
+    /// The role of a guitar mode's colour.
+    static func role(_ mode: GuitarMode) -> Role {
+        switch mode {
+        case .air: return .modeAir
+        case .top: return .modeTop
+        case .back: return .modeBack
+        case .dipole: return .modeDipole
+        case .ringMode: return .modeRing
+        case .upperModes: return .modeUpper
+        case .unknown: return .modeUnknown
+        }
+    }
+
+    /// The role of a wood-quality grade's colour.
+    static func role(_ quality: WoodQuality) -> Role {
+        switch quality {
+        case .excellent: return .woodExcellent
+        case .veryGood: return .woodVeryGood
+        case .good: return .woodGood
+        case .fair: return .woodFair
+        case .poor: return .woodPoor
+        }
+    }
+
+    /// A guitar mode's colour.
+    static func color(_ mode: GuitarMode) -> Color { color(role(mode)) }
+
+    /// A wood-quality grade's colour.
+    static func color(_ quality: WoodQuality) -> Color { color(role(quality)) }
+
+    /// The colour of a freeform (user-defined) mode label.
+    static let userDefined = color(.modeUserDefined)
 
     static let gray = color(.qualityGray)
     static let orange = color(.qualityOrange)

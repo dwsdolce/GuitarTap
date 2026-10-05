@@ -6,7 +6,6 @@
 //
 // @parity dsp/guitar-modes tests=test/classify
 // @parity model/guitar-mode-classify tests=test/classify
-// @parity model/mode-colors tests=test/mode-colors
 
 /// # GuitarMode
 ///
@@ -307,36 +306,6 @@ enum GuitarMode: String, Codable {
 
 extension GuitarMode {
 
-    /// Display colour for a guitar mode, as an absolute sRGB hex.
-    ///
-    /// ## Why absolute, and not `.cyan` / `.green` / `.orange` / …
-    ///
-    /// For the same reason as `WoodQuality.hex`: a semantic colour is resolved by the OS, so what
-    /// GuitarTap draws would move whenever Apple revises the palette, and a port pinning hex could
-    /// not follow. The values below are fixed, and Python carries the same table.
-    ///
-    /// The hue is not meaningful — it only has to tell seven modes apart and be the same in every
-    /// edition. The web keeps its own brightened variants where its dark chart genuinely needs
-    /// them (Top, Back, Dipole, and the two greys) and follows these values where the background
-    /// makes no difference (Air, Ring).
-    var hex: String {
-        switch self {
-        case .air:        return "#00C0E8"
-        case .top:        return "#34C759"
-        case .back:       return "#FF8D28"
-        case .dipole:     return "#FF383C"
-        case .ringMode:   return "#CB30E0"
-        case .upperModes: return "#8E8E93"
-        case .unknown:    return "#808080"
-        }
-    }
-
-    /// Display colour for a guitar mode. Derived from ``hex`` so there is one place the value lives.
-    ///
-    /// `.unknown` was `.secondary` — black at 50% alpha, which composites to `#808080` on the
-    /// white chart. It is now that value outright, so it no longer changes with what is behind it.
-    var color: Color { Color(sRGBHex: hex) }
-
     /// Short mode abbreviation for compact UI display (e.g., "Air", "DP").
     var abbreviation: String {
         switch self {
@@ -377,10 +346,6 @@ extension GuitarMode {
     }
 
     // MARK: - User-Defined Mode Styling
-
-    /// Display color for peaks with a freeform user-defined mode label
-    /// that does not match any predefined ``GuitarMode``.
-    static let userDefinedColor: Color = .teal
 
     /// SF Symbols icon for peaks with a freeform user-defined mode label.
     static let userDefinedIcon: String = "tag.fill"

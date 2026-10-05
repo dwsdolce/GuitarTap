@@ -61,7 +61,7 @@ extension SpectrumView {
         if showModeBoundaries && measurementType.isGuitar {
             ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
                 RuleMark(x: .value("Boundary", boundary.frequency))
-                    .foregroundStyle(boundary.mode.color.opacity(0.3))
+                    .foregroundStyle(Palette.color(boundary.mode).opacity(0.3))
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
                     .annotation(
                         position: .top,
@@ -74,10 +74,10 @@ extension SpectrumView {
                             Text(boundary.mode.abbreviation)
                                 .font(.caption2)
                                 .fontWeight(.semibold)
-                                .foregroundColor(boundary.mode.color)
+                                .foregroundColor(Palette.color(boundary.mode))
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
-                                .background(boundary.mode.color.opacity(0.15))
+                                .background(Palette.color(boundary.mode).opacity(0.15))
                                 .cornerRadius(4)
                         }
                     }
@@ -233,7 +233,7 @@ extension SpectrumView {
         if measurementType.isGuitar {
             // Guitar mode: context-aware classification avoids duplicate mode labels
             // in overlapping ranges (e.g. classical Top/Back overlap at 190–230 Hz).
-            return (peakModeMap[peak.id] ?? .unknown).color
+            return Palette.color(peakModeMap[peak.id] ?? .unknown)
         } else {
             // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {

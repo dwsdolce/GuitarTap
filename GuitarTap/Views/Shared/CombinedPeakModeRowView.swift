@@ -71,7 +71,7 @@ struct CombinedPeakModeRowView: View {
     /// Effective display color: user-defined teal for freeform overrides,
     /// otherwise the mode's standard color.
     private var displayColor: Color {
-        isFreeformOverride ? GuitarMode.userDefinedColor : mode.color
+        isFreeformOverride ? Palette.userDefined : Palette.color(mode)
     }
 
     /// Effective display icon: tag for freeform overrides,

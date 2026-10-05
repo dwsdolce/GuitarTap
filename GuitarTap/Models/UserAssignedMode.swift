@@ -13,7 +13,7 @@
 /// When the override label matches a predefined ``GuitarMode/displayName``, the peak's
 /// colour, icon, and in-range indicator update to match the overridden mode.  When the
 /// label is freeform text that does not match any predefined mode, a distinct
-/// user-defined colour (``GuitarMode/userDefinedColor``) and icon
+/// user-defined colour (the palette's `mode.userDefined` role) and icon
 /// (``GuitarMode/userDefinedIcon``) are used instead.
 ///
 /// ## Persistence

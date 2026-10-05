@@ -182,9 +182,9 @@ struct ExportableSpectrumChart: View {
             // Override wins (like the label): a predefined label uses that mode's color; a freeform
             // label is user-defined teal. Otherwise the auto-classified mode's color.
             if let label = modeOverrides[peak.id] {
-                return GuitarMode.fromDisplayName(label)?.color ?? GuitarMode.userDefinedColor
+                return GuitarMode.fromDisplayName(label).map { Palette.color($0) } ?? Palette.userDefined
             }
-            return (peakModeMap[peak.id] ?? .unknown).color
+            return Palette.color(peakModeMap[peak.id] ?? .unknown)
         } else {
             // Plate/brace mode: color by L/C/FLC selection
             if peak.id == selectedLongitudinalPeakID {
@@ -292,7 +292,7 @@ struct ExportableSpectrumChart: View {
                     if showModeBoundaries {
                         ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
                             RuleMark(x: .value("Boundary", boundary.frequency))
-                                .foregroundStyle(boundary.mode.color.opacity(0.3))
+                                .foregroundStyle(Palette.color(boundary.mode).opacity(0.3))
                                 .lineStyle(StrokeStyle(lineWidth: 2, dash: [8, 8]))
                                 .annotation(
                                     position: .top,
@@ -303,10 +303,10 @@ struct ExportableSpectrumChart: View {
                                     if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
                                         Text(boundary.mode.abbreviation)
                                             .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(boundary.mode.color)
+                                            .foregroundColor(Palette.color(boundary.mode))
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 4)
-                                            .background(boundary.mode.color.opacity(0.15))
+                                            .background(Palette.color(boundary.mode).opacity(0.15))
                                             .cornerRadius(6)
                                     }
                                 }
@@ -666,8 +666,8 @@ func makeExportableSpectrumView(
                         let baseLabel = measurementType.isGuitar ? (assigned ?? autoMode.displayName) : roleLabel(peak)
                         let chipLabel = baseLabel + (ovr ? " *" : "")
                         let chipColor: Color = measurementType.isGuitar
-                            ? (assigned.flatMap { GuitarMode.fromDisplayName($0)?.color }
-                               ?? (assigned != nil ? GuitarMode.userDefinedColor : autoMode.color))
+                            ? (assigned.flatMap { GuitarMode.fromDisplayName($0) }.map { Palette.color($0) }
+                               ?? (assigned != nil ? Palette.userDefined : Palette.color(autoMode)))
                             : roleColor(peak)
                         VStack(spacing: 4) {
                             Text("\(FieldPrecision.string(peak.frequency, FieldPrecision.peakFrequencyHz)) Hz")
@@ -718,7 +718,7 @@ func makeExportableSpectrumView(
                 ForEach([GuitarMode.air, .top, .back, .dipole, .ringMode], id: \.self) { mode in
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(mode.color)
+                            .fill(Palette.color(mode))
                             .frame(width: 12, height: 12)
                         Text(mode.displayName)
                             .font(.caption)

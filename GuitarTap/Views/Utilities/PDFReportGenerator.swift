@@ -525,11 +525,11 @@ private struct PDFReportContentView: View {
         let effectiveColor: Color = {
             if let label = data.peakModeOverrides[peak.id] {
                 if let overriddenMode = GuitarMode.fromDisplayName(label) {
-                    return modeColor(overriddenMode)
+                    return Palette.color(overriddenMode)
                 }
-                return GuitarMode.userDefinedColor
+                return Palette.userDefined
             }
-            return modeColor(mode)
+            return Palette.color(mode)
         }()
 
         return HStack(spacing: 0) {
@@ -592,17 +592,6 @@ private struct PDFReportContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func modeColor(_ mode: GuitarMode) -> Color {
-        switch mode {
-        case .air: return Color(red: 0.0, green: 0.5, blue: 0.8)
-        case .top: return Color(red: 0.2, green: 0.65, blue: 0.2)
-        case .back: return Color(red: 0.8, green: 0.4, blue: 0.0)
-        case .dipole: return Color(red: 0.6, green: 0.0, blue: 0.8)
-        case .ringMode: return Color(red: 0.8, green: 0.0, blue: 0.4)
-        default: return .secondary
         }
     }
 
@@ -862,7 +851,7 @@ private struct PDFReportContentView: View {
                     .foregroundColor(.secondary)
                 Text(props.overallQuality.rawValue)
                     .font(pdfFont(13, bold: true))
-                    .foregroundColor(props.overallQuality.color)
+                    .foregroundColor(Palette.color(props.overallQuality))
                 Spacer()
             }
             .padding(8)
@@ -904,7 +893,7 @@ private struct PDFReportContentView: View {
                     .foregroundColor(.secondary)
                 Text(props.spruceQuality.rawValue)
                     .font(pdfFont(13, bold: true))
-                    .foregroundColor(props.spruceQuality.color)
+                    .foregroundColor(Palette.color(props.spruceQuality))
                 Spacer()
             }
             .padding(8)
@@ -1016,10 +1005,10 @@ private struct PDFReportContentView: View {
                 .foregroundColor(.secondary)
             Text(FieldPrecision.string(value, FieldPrecision.specificModulus))
                 .font(pdfFont(10, bold: true))
-                .foregroundColor(quality.color)
+                .foregroundColor(Palette.color(quality))
             Text("(\(quality.rawValue))")
                 .font(pdfFont(9))
-                .foregroundColor(quality.color)
+                .foregroundColor(Palette.color(quality))
         }
     }
 

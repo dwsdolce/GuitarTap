@@ -212,11 +212,10 @@ struct DraggablePeakAnnotation: View {
             // Freeform user-defined label → teal.
             if let label = modeOverrides[peak.id],
                GuitarMode.fromDisplayName(label) == nil {
-                return GuitarMode.userDefinedColor
+                return Palette.userDefined
             }
             // Use context-aware classification if provided; fall back to per-frequency lookup.
-            // Color resolves from the single canonical map (GuitarMode.color), not a local copy.
-            return (classifiedMode ?? .unknown).color
+            return Palette.color(classifiedMode ?? .unknown)
         } else {
             // Plate/brace mode: color by L/C selection
             if peak.id == selectedLongitudinalPeakID {

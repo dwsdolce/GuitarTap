@@ -524,11 +524,11 @@ struct TapAnalysisResultsView: View {
                         #if os(macOS)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(item.mode.color, lineWidth: analyzer.highlightedPeakID == item.peak.id ? 2 : 0)
+                                .strokeBorder(Palette.color(item.mode), lineWidth: analyzer.highlightedPeakID == item.peak.id ? 2 : 0)
                         )
                         .background(
                             analyzer.highlightedPeakID == item.peak.id
-                                ? item.mode.color.opacity(0.12)
+                                ? Palette.color(item.mode).opacity(0.12)
                                 : Color.clear,
                             in: RoundedRectangle(cornerRadius: 8)
                         )
@@ -696,7 +696,7 @@ struct TapAnalysisResultsView: View {
                                     Text(FieldPrecision.string(props.specificModulusLong, FieldPrecision.specificModulus))
                                         .font(.title2)
                                         .fontWeight(.bold)
-                                        .foregroundColor(props.spruceQualityLong.color)
+                                        .foregroundColor(Palette.color(props.spruceQualityLong))
                                     Text("GPa/(g/cm³)")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
@@ -704,7 +704,7 @@ struct TapAnalysisResultsView: View {
                                 Text(props.spruceQualityLong.rawValue)
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                    .foregroundColor(props.spruceQualityLong.color)
+                                    .foregroundColor(Palette.color(props.spruceQualityLong))
                             }
                             
                             Spacer()
@@ -717,7 +717,7 @@ struct TapAnalysisResultsView: View {
                                     Text(FieldPrecision.string(props.specificModulusCross, FieldPrecision.specificModulus))
                                         .font(.title2)
                                         .fontWeight(.bold)
-                                        .foregroundColor(props.spruceQualityCross.color)
+                                        .foregroundColor(Palette.color(props.spruceQualityCross))
                                     Text("GPa/(g/cm³)")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
@@ -725,7 +725,7 @@ struct TapAnalysisResultsView: View {
                                 Text(props.spruceQualityCross.rawValue)
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                    .foregroundColor(props.spruceQualityCross.color)
+                                    .foregroundColor(Palette.color(props.spruceQualityCross))
                             }
                         }
                     }
@@ -778,7 +778,7 @@ struct TapAnalysisResultsView: View {
                         Text(props.overallQuality.rawValue)
                             .font(.headline)
                             .fontWeight(.bold)
-                            .foregroundColor(props.overallQuality.color)
+                            .foregroundColor(Palette.color(props.overallQuality))
                     }
                     .padding(.vertical, 4)
 
@@ -907,7 +907,7 @@ struct TapAnalysisResultsView: View {
                             Text(FieldPrecision.string(props.specificModulusLong, FieldPrecision.specificModulus))
                                 .font(.title2)
                                 .fontWeight(.bold)
-                                .foregroundColor(props.spruceQuality.color)
+                                .foregroundColor(Palette.color(props.spruceQuality))
                             Text("GPa/(g/cm³)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -915,7 +915,7 @@ struct TapAnalysisResultsView: View {
                         Text(props.spruceQuality.rawValue)
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(props.spruceQuality.color)
+                            .foregroundColor(Palette.color(props.spruceQuality))
                     }
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
