@@ -70,8 +70,11 @@ struct CombinedPeakModeRowView: View {
 
     /// Effective display color: user-defined teal for freeform overrides,
     /// otherwise the mode's standard color.
-    private var displayColor: Color {
-        isFreeformOverride ? Palette.userDefined : Palette.color(mode)
+    private var displayColor: Color { Palette.color(displayRole) }
+
+    /// The role of the effective display colour.
+    private var displayRole: Palette.Role {
+        isFreeformOverride ? .modeUserDefined : Palette.role(mode)
     }
 
     /// Effective display icon: tag for freeform overrides,
@@ -88,7 +91,7 @@ struct CombinedPeakModeRowView: View {
                     toggleAction()
                 } label: {
                     Image(systemName: isSelected ? "star.fill" : "star")
-                        .foregroundColor(isSelected ? .blue : .secondary)
+                        .foregroundColor(Palette.color(isSelected ? .peakSelectedStar : .peakUnselectedStar))
                         .font(.body)
                         .frame(width: 24, height: 24)
                 }
@@ -107,7 +110,7 @@ struct CombinedPeakModeRowView: View {
                 if mode != .unknown && mode != .upperModes {
                     let inRange = mode.modeRange.contains(peak.frequency)
                     Image(systemName: inRange ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundColor(inRange ? .green : .orange)
+                        .foregroundColor(Palette.color(inRange ? .peakInRange : .peakOutOfRange))
                         .font(.caption2)
                 }
             }
@@ -122,7 +125,7 @@ struct CombinedPeakModeRowView: View {
 
                     Text("\(FieldPrecision.string(peak.frequency, FieldPrecision.peakFrequencyHz)) Hz")
                         .font(.headline)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Palette.color(.textPrimary))
                 }
 
                 // Pitch information (prominent)
@@ -130,12 +133,12 @@ struct CombinedPeakModeRowView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "music.note")
                             .font(.caption2)
-                            .foregroundColor(.purple)
+                            .foregroundColor(Palette.color(.peakPitch))
 
                         Text(peak.formattedPitch)
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundColor(.purple)
+                            .foregroundColor(Palette.color(.peakPitch))
                     }
                 }
 
@@ -144,7 +147,7 @@ struct CombinedPeakModeRowView: View {
                     HStack(spacing: 4) {
                         Text("Q:")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                         Text(FieldPrecision.string(peak.quality, FieldPrecision.qFactor))
                             .font(.caption)
                             .fontWeight(.medium)
@@ -153,7 +156,7 @@ struct CombinedPeakModeRowView: View {
                     HStack(spacing: 4) {
                         Text("BW:")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                         Text("\(FieldPrecision.string(peak.bandwidth, FieldPrecision.bandwidthHz)) Hz")
                             .font(.caption)
                             .fontWeight(.medium)
@@ -166,14 +169,14 @@ struct CombinedPeakModeRowView: View {
                     Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(magnitudeColor(peak.magnitude))
+                        .foregroundColor(Palette.color(Palette.role(magnitude: peak.magnitude)))
                         .fixedSize()
                 }
             }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
-        .background(displayColor.opacity(0.05))
+        .background(Palette.color(displayRole, opacity: .peakRowTint))
         .cornerRadius(8)
     }
 
@@ -303,20 +306,6 @@ struct CombinedPeakModeRowView: View {
             #endif
         }
     }
-
-    // MARK: - Helpers
-
-    private func magnitudeColor(_ mag: Float) -> Color {
-        if mag >= -40.0 {
-            return .green
-        } else if mag >= -60.0 {
-            return .blue
-        } else if mag >= -80.0 {
-            return .orange
-        } else {
-            return .red
-        }
-    }
 }
 
 // MARK: - Mode Picker Sheet (iOS only)
@@ -355,11 +344,11 @@ private struct ModePickerSheet: View {
                         } label: {
                             HStack {
                                 Text(label)
-                                    .foregroundColor(.primary)
+                                    .foregroundColor(Palette.color(.textPrimary))
                                 Spacer()
                                 if label == currentLabel {
                                     Image(systemName: "checkmark")
-                                        .foregroundColor(.accentColor)
+                                        .foregroundColor(Palette.color(.accentText))
                                 }
                             }
                         }
@@ -374,11 +363,11 @@ private struct ModePickerSheet: View {
                         } label: {
                             HStack {
                                 Text(label)
-                                    .foregroundColor(.primary)
+                                    .foregroundColor(Palette.color(.textPrimary))
                                 Spacer()
                                 if label == currentLabel {
                                     Image(systemName: "checkmark")
-                                        .foregroundColor(.accentColor)
+                                        .foregroundColor(Palette.color(.accentText))
                                 }
                             }
                         }

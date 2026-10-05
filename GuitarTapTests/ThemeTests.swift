@@ -104,4 +104,12 @@ struct ThemeTests {
         let stored = Palette.series(1).resolve(in: Palette.lightEnvironment).description
         #expect(stored == Palette.pair(.series2).light + "FF")
     }
+
+    /// A peak's magnitude colour role, by its magnitude.
+    @Test func magnitudeRoles() {
+        for row in Self.data["magnitudeRoles"] as! [[Any]] {
+            let magnitude = Float((row[0] as! NSNumber).doubleValue)
+            #expect(Palette.role(magnitude: magnitude).rawValue == row[1] as! String, "\(row[0])")
+        }
+    }
 }

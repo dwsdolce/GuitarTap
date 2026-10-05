@@ -310,6 +310,15 @@ enum Palette {
         }
     }
 
+    /// The role of a peak's magnitude (dB) in a peak list: strong from −40 dB, moderate from −60, weak from −80,
+    /// faint below.
+    static func role(magnitude: Float) -> Role {
+        if magnitude >= -40 { return .peakMagnitudeStrong }
+        if magnitude >= -60 { return .peakMagnitudeModerate }
+        if magnitude >= -80 { return .peakMagnitudeWeak }
+        return .peakMagnitudeFaint
+    }
+
     /// A guitar mode's colour.
     static func color(_ mode: GuitarMode) -> Color { color(role(mode)) }
 
