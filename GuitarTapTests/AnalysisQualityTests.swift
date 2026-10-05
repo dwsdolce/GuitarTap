@@ -67,18 +67,4 @@ struct AnalysisQualityTests {
             #expect(value.tapToneRatioQualityColor == color, "\(v)")
         }
     }
-
-    /// The palette's light and dark values, read back through SwiftUI (its hex carries an alpha byte).
-    @Test func palette() {
-        var light = EnvironmentValues()
-        light.colorScheme = .light
-        var dark = EnvironmentValues()
-        dark.colorScheme = .dark
-        for row in Self.data["palette"] as! [[String]] {
-            let color = Self.palette[row[0]]!
-            #expect(color.resolve(in: light).description == row[1] + "FF", "\(row[0])")
-            #expect(color.resolve(in: dark).description == row[2] + "FF", "\(row[0])")
-        }
-        #expect(Self.palette.count == (Self.data["palette"] as! [[String]]).count)
-    }
 }

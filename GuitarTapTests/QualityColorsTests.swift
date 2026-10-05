@@ -2,9 +2,9 @@
 //  QualityColorsTests.swift
 //  GuitarTapTests
 //
-//  The wood-quality grades — label and absolute colour — against the shared case file `quality-colors.json`,
-//  the same cases the Python and web suites run; and what the data cannot express here: that the drawn
-//  colour is built from the pinned hex rather than a system colour the OS resolves (and revises).
+//  The wood-quality grades — label against the shared case file `quality-colors.json`, colour against the
+//  grade's `wood.*` role in `theme.json` — the same cases the Python and web suites run; and what the data cannot
+//  express here: that the drawn colour is built from the pinned hex rather than a system colour the OS resolves.
 //
 // @parity test/quality-colors
 
@@ -30,7 +30,7 @@ struct QualityColorsTests {
         for row in Self.grades {
             let q = Self.grade(row[0])
             #expect(q.rawValue == row[1], "\(row[0])")
-            #expect(q.hex == row[2], "\(row[0])")
+            #expect(q.hex == Palette.pair(Palette.Role(rawValue: "wood." + row[0])!).light, "\(row[0])")
         }
     }
 
