@@ -23,7 +23,7 @@ struct EmptyStateView: View {
         VStack(spacing: 20) {
             Image(systemName: icon)
                 .font(.system(size: 60))
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
             
             Text(title)
                 .font(.title2)
@@ -31,7 +31,7 @@ struct EmptyStateView: View {
             
             Text(message)
                 .font(.body)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }

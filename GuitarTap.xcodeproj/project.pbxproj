@@ -139,6 +139,7 @@
 			buildConfigurationList = 8965D5C72F061CE400243E14 /* Build configuration list for PBXNativeTarget "GuitarTap" */;
 			buildPhases = (
 				89C0FFEE2FA0000100A26408 /* Check Release Readiness */,
+				89C0FFEE2FA0000200A26408 /* Check Colours */,
 				8965D5B82F061CE300243E14 /* Sources */,
 				8965D5B92F061CE300243E14 /* Frameworks */,
 				8965D5BA2F061CE300243E14 /* Resources */,
@@ -331,6 +332,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Refuse to build a tree with a stale release identity: a version number\n# that still names an already-shipped release, or release notes never rolled\n# over after it. FIRST phase, so it fails before anything compiles. Same rule\n# and same script the packaging build runs u2014 see Tooling/check-release-ready.sh.\nbash \"${SRCROOT}/Tooling/check-release-ready.sh\"\n";
+		};
+		89C0FFEE2FA0000200A26408 /* Check Colours */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Check Colours";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Refuse to build with a colour written outside the palette (Palette.swift).\n# Before Sources, so it fails before anything compiles. See Tooling/check-colours.sh.\nbash \"${SRCROOT}/Tooling/check-colours.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

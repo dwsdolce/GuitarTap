@@ -51,7 +51,7 @@ extension TapSettingsView {
             // Show description for selected type
             Text(selectedMeasurementType.description)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
 
             // Show guitar-specific options for guitar types
             if selectedMeasurementType.isGuitar, let guitarType = selectedMeasurementType.guitarType {
@@ -60,7 +60,7 @@ extension TapSettingsView {
                     Text("Mode Frequency Ranges")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     let ranges = guitarType.modeRanges
                     HStack {
@@ -97,7 +97,7 @@ extension TapSettingsView {
                         .frame(width: 80)
                     Text("mm")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 HStack {
@@ -108,7 +108,7 @@ extension TapSettingsView {
                         .frame(width: 80)
                     Text("mm")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 HStack {
@@ -119,7 +119,7 @@ extension TapSettingsView {
                         .frame(width: 80)
                     Text("mm")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 HStack {
@@ -130,7 +130,7 @@ extension TapSettingsView {
                         .frame(width: 80)
                     Text("g")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 if let length = Float(plateLengthInput),
@@ -142,7 +142,7 @@ extension TapSettingsView {
                     HStack {
                         Text("Calculated Density:")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                         Spacer()
                         Text("\(FieldPrecision.string(dims.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
                             .font(.subheadline)
@@ -157,7 +157,7 @@ extension TapSettingsView {
                         Text("Measure Diagonal (fLC) Tap")
                         Text("Add a 3rd tap: hold plate at midpoint of one long edge, tap near opposite corner. Measures shear stiffness for Gore target thickness.")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
                 }
 
@@ -169,7 +169,7 @@ extension TapSettingsView {
 
                 Text("Finished guitar body dimensions used in Gore's Eq. 4.5-7 to calculate target plate thickness.")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
 
                 HStack {
                     Text("Body Length (a):")
@@ -179,7 +179,7 @@ extension TapSettingsView {
                         .frame(width: 80)
                     Text("mm")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 HStack {
@@ -190,7 +190,7 @@ extension TapSettingsView {
                         .frame(width: 80)
                     Text("mm")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 Divider()
@@ -235,7 +235,7 @@ extension TapSettingsView {
                         .frame(width: 80)
                     Text("mm")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 HStack {
@@ -246,7 +246,7 @@ extension TapSettingsView {
                         .frame(width: 80)
                     Text("mm")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 HStack {
@@ -255,14 +255,14 @@ extension TapSettingsView {
                             .font(.subheadline)
                         Text("Brace height when lying flat — this is the t dimension in the stiffness formula")
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
                     Spacer()
                     ValidatedNumberField(text: $braceThicknessInput, decimals: FieldPrecision.linearDimensionMM)
                         .frame(width: 80)
                     Text("mm")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 HStack {
@@ -273,7 +273,7 @@ extension TapSettingsView {
                         .frame(width: 80)
                     Text("g")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
                 if let length = Float(braceLengthInput),
@@ -285,7 +285,7 @@ extension TapSettingsView {
                     HStack {
                         Text("Calculated Density:")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                         Spacer()
                         Text("\(FieldPrecision.string(dims.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
                             .font(.subheadline)
@@ -320,7 +320,7 @@ extension TapSettingsView {
         }
         Text("System follows the operating system's Light or Dark setting")
             .font(.caption)
-            .foregroundColor(.secondary)
+            .foregroundColor(Palette.color(.textSecondary))
 
         // Frequency Range
         if isCompact {
@@ -400,7 +400,7 @@ extension TapSettingsView {
                     Text("Show Unknown Modes")
                     Text("Display peaks that don't fall within known mode ranges")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
             }
         }
@@ -421,13 +421,13 @@ extension TapSettingsView {
                         .frame(maxWidth: isCompact ? .infinity : 120)
 
                     Text("dB")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                         .font(.body)
                 }
 
                 Text("Minimum magnitude for peak detection. Typical range: -60 to -40 dB")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 4)
@@ -446,7 +446,7 @@ extension TapSettingsView {
                     // the per-tap dumps were dropped in favour of a single session recording.
                     Text("Save the captured audio of each measurement as a WAV file")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
             }
 
@@ -456,7 +456,7 @@ extension TapSettingsView {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Saved to")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                     Text(dumpFolderDisplayPath)
                         .font(.caption)
                         .lineLimit(2)
@@ -483,7 +483,7 @@ extension TapSettingsView {
                 #else
                 Text("Saved in the app's Documents folder — reach it in Files → On My iPhone/iPad → Guitar Tap.")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                     .padding(.leading, 4)
                 #endif
             }
@@ -516,7 +516,7 @@ extension TapSettingsView {
                                 .font(.body)
                             Text("Sample Rate: \(formattedAsWholeHertz(device.sampleRate))")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Palette.color(.textSecondary))
                         }
                         .tag(device as AVAudioDevice?)
                     }
@@ -535,7 +535,7 @@ extension TapSettingsView {
                     HStack {
                         Text("Sample Rate:")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                         Spacer()
                         Text(formattedAsWholeHertz(selectedDevice.sampleRate))
                             .font(.subheadline)
@@ -573,7 +573,7 @@ extension TapSettingsView {
                             .font(.subheadline)
                         Spacer()
                         Text("None")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
                 }
 
@@ -608,7 +608,7 @@ extension TapSettingsView {
                                 }
                             }
                         }
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                     }
                 }
 
@@ -642,13 +642,13 @@ extension TapSettingsView {
                 Text("Version")
                 Spacer()
                 Text(appVersion)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
 
             if let copyright = Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String {
                 Text(copyright)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
 
             NavigationLink {

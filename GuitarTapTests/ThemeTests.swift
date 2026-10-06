@@ -105,6 +105,15 @@ struct ThemeTests {
         #expect(stored == Palette.pair(.series2).light + "FF")
     }
 
+    /// A saved comparison's entry takes its series slot's colour, and the "Averaged" entry the average's — never the
+    /// colour stored with it.
+    @Test func savedComparisonDrawnBySlot() {
+        let light = { (color: Color) in color.resolve(in: Palette.lightEnvironment).description }
+        #expect(light(Palette.comparisonColor(index: 0, label: "Top plate")) == light(Palette.series(0)))
+        #expect(light(Palette.comparisonColor(index: 11, label: "Back")) == light(Palette.series(1)))
+        #expect(light(Palette.comparisonColor(index: 3, label: "Averaged")) == light(Palette.seriesAverage))
+    }
+
     /// A peak's magnitude colour role, by its magnitude.
     @Test func magnitudeRoles() {
         for row in Self.data["magnitudeRoles"] as! [[Any]] {

@@ -74,10 +74,10 @@ struct ThresholdSlider: View {
             ZStack(alignment: .leading) {
                 // ── Background groove ──────────────────────────────
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color(white: 0.92))
+                    .fill(Palette.color(.meterGroove))
                     .overlay(
                         RoundedRectangle(cornerRadius: 2)
-                            .stroke(Color.gray.opacity(0.6), lineWidth: 1)
+                            .stroke(Palette.color(.meterGrooveBorder), lineWidth: 1)
                     )
                     .frame(height: grooveHeight)
 
@@ -88,9 +88,9 @@ struct ThresholdSlider: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color(red: 0.4, green: 0.8, blue: 1.0),
-                                    Color(red: 0.0, green: 0.4, blue: 0.8),
-                                    Color(red: 0.0, green: 0.12, blue: 0.31),
+                                    Palette.color(.meterLevelTop),
+                                    Palette.color(.meterLevelMiddle),
+                                    Palette.color(.meterLevelBottom),
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
@@ -104,7 +104,7 @@ struct ThresholdSlider: View {
                 if isClipping {
                     let clipW = max(2, width * clipZoneFraction)
                     Rectangle()
-                        .fill(Color.red.opacity(0.85))
+                        .fill(Palette.color(.meterClip))
                         .frame(width: clipW, height: grooveHeight - 2)
                         .padding(.vertical, 1)
                         .offset(x: width - clipW)
@@ -113,7 +113,7 @@ struct ThresholdSlider: View {
                 // ── Tick marks every 10 dB ────────────────────────
                 ForEach(tickValues, id: \.self) { tick in
                     Rectangle()
-                        .fill(Color(red: 0.24, green: 0.55, blue: 0.24).opacity(0.7))
+                        .fill(Palette.color(.meterTicks))
                         .frame(width: 1, height: grooveHeight - 4)
                         .offset(x: dbToX(Float(tick), width: width) - 0.5)
                 }
@@ -121,8 +121,8 @@ struct ThresholdSlider: View {
                 // ── Peak-hold dot ─────────────────────────────────
                 if peakHoldDB > range.lowerBound {
                     Circle()
-                        .fill(Color(red: 1.0, green: 0.78, blue: 0.0))
-                        .overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1))
+                        .fill(Palette.color(.meterPeakHold))
+                        .overlay(Circle().stroke(Palette.color(.meterPeakHoldBorder), lineWidth: 1))
                         .frame(width: peakDotRadius * 2, height: peakDotRadius * 2)
                         .offset(
                             x: dbToX(peakHoldDB, width: width) - peakDotRadius,
@@ -132,8 +132,8 @@ struct ThresholdSlider: View {
 
                 // ── Threshold handle (draggable red bar) ──────────
                 Rectangle()
-                    .fill(Color.red)
-                    .overlay(Rectangle().stroke(Color(red: 0.5, green: 0, blue: 0), lineWidth: 1))
+                    .fill(Palette.color(.meterThresholdHandle))
+                    .overlay(Rectangle().stroke(Palette.color(.meterThresholdHandleBorder), lineWidth: 1))
                     .frame(width: handleWidth, height: handleHeight)
                     .offset(
                         x: dbToX(value, width: width) - handleWidth / 2,

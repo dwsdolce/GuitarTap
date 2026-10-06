@@ -90,7 +90,7 @@ struct MultiTapComparisonResultsView: View {
                     .padding(.vertical, 6)
             }
         }
-        .foregroundColor(.secondary)
+        .foregroundColor(Palette.color(.textSecondary))
     }
 
     private func dataRow(
@@ -129,7 +129,7 @@ struct MultiTapComparisonResultsView: View {
                 Text(frequencyText(modeFreqs[mode]) + (isOverride ? " *" : ""))
                     .fontWeight(bold ? .semibold : .regular)
                     .italic(isOverride)
-                    .foregroundColor(modeFreqs[mode] != nil ? .primary : .secondary)
+                    .foregroundColor(Palette.color(modeFreqs[mode] != nil ? .textPrimary : .textSecondary))
                     .frame(width: columnWidth, alignment: .center)
                     .padding(.trailing, 8)
                     .padding(.vertical, 5)

@@ -42,7 +42,7 @@ struct MaterialDimensionsEditor: View {
             HStack {
                 Text("Calculated Density:")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                 Spacer()
                 Text("\(FieldPrecision.string(inputs.dimensions.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
                     .font(.subheadline)
@@ -84,7 +84,7 @@ struct MaterialDimensionsEditor: View {
                 }
             Text(unit)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
         }
     }
 }

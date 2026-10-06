@@ -160,7 +160,7 @@ struct TapAnalysisResultsView: View {
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.mini)
-                            .tint(analyzer.showingMultiTapComparison ? .orange : .accentColor)
+                            .tint(Palette.color(analyzer.showingMultiTapComparison ? .resultsTapsActive : .accent))
                             .disabled(!multiTapUsable)
                             .help(analyzer.showingMultiTapComparison
                                   ? "Show averaged result only" : "Compare individual taps")
@@ -173,14 +173,14 @@ struct TapAnalysisResultsView: View {
                                 .font(.caption)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
-                                .background(Color.purple.opacity(0.2))
+                                .background(Palette.color(.badgeComparison))
                                 .cornerRadius(4)
                         } else {
                             Text(measurementType.shortName)
                                 .font(.caption)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
-                                .background(measurementType.isGuitar ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
+                                .background(Palette.color(measurementType.isGuitar ? .badgeGuitar : .badgeMaterial))
                                 .cornerRadius(4)
                         }
                     }
@@ -195,7 +195,7 @@ struct TapAnalysisResultsView: View {
                                 ?? (analyzer.resultProvenance != nil ? "unknown" : nil) {
                                 Text(deviceName)
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Palette.color(.textSecondary))
                             }
                             Spacer()
                             // Re-analyze: re-run findPeaks() on the frozen spectrum
@@ -220,7 +220,7 @@ struct TapAnalysisResultsView: View {
                     HStack {
                         Text(displayRangeLabel(minFreq: minFreq, maxFreq: maxFreq))
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
 
                         Spacer()
 
@@ -497,7 +497,7 @@ struct TapAnalysisResultsView: View {
                         .padding(.vertical, 4)
                 } else {
                     Text("No peaks detected in visible range")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                         .frame(maxWidth: .infinity)
                         .padding()
                 }
@@ -557,7 +557,7 @@ struct TapAnalysisResultsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Ring-Out")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                 if let decayTime = analyzer.currentDecayTime {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text("\(FieldPrecision.string(decayTime, FieldPrecision.decayTimeS))s")
@@ -569,11 +569,11 @@ struct TapAnalysisResultsView: View {
                     }
                     Text("–\(Int(analyzer.decayThreshold)) dB")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 } else {
                     Text("Waiting…")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -585,7 +585,7 @@ struct TapAnalysisResultsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Tap Ratio")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                 if let ratio = analyzer.calculateTapToneRatio() {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text("\(FieldPrecision.string(ratio, FieldPrecision.decayRatio)):1")
@@ -597,30 +597,30 @@ struct TapAnalysisResultsView: View {
                     }
                     Text("Ideal: 1.9–2.1")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 } else {
                     Text("Need Air & Top")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
-        .background(Color.secondary.opacity(0.07))
+        .background(Palette.color(.backgroundSubtle))
         .cornerRadius(8)
     }
 
     private var statusIndicator: some View {
         HStack {
             Circle()
-                .fill(fftAnalyzer.isRunning ? Color.green : Color.gray)
+                .fill(Palette.color(fftAnalyzer.isRunning ? .statusRunning : .statusStopped))
                 .frame(width: 8, height: 8)
             
             Text(fftAnalyzer.isRunning ? "Analyzing" : "Stopped")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
         }
     }
     
@@ -670,12 +670,12 @@ struct TapAnalysisResultsView: View {
                             Text("C: \(FieldPrecision.string(props.youngsModulusCrossGPa, FieldPrecision.youngsModulusGPa)) GPa")
                                 .font(.caption)
                         }
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                         if let glc = props.goreShearModulus {
                             HStack {
                                 Text("GLC (Shear): \(FieldPrecision.string(glc / 1.0e9, FieldPrecision.shearModulusGPa)) GPa")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Palette.color(.textSecondary))
                                 Spacer()
                             }
                         }
@@ -691,7 +691,7 @@ struct TapAnalysisResultsView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Longitudinal:")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Palette.color(.textSecondary))
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                                     Text(FieldPrecision.string(props.specificModulusLong, FieldPrecision.specificModulus))
                                         .font(.title2)
@@ -699,7 +699,7 @@ struct TapAnalysisResultsView: View {
                                         .foregroundColor(Palette.color(props.spruceQualityLong))
                                     Text("GPa/(g/cm³)")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Palette.color(.textSecondary))
                                 }
                                 Text(props.spruceQualityLong.rawValue)
                                     .font(.caption)
@@ -712,7 +712,7 @@ struct TapAnalysisResultsView: View {
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text("Cross-grain:")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Palette.color(.textSecondary))
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                                     Text(FieldPrecision.string(props.specificModulusCross, FieldPrecision.specificModulus))
                                         .font(.title2)
@@ -720,7 +720,7 @@ struct TapAnalysisResultsView: View {
                                         .foregroundColor(Palette.color(props.spruceQualityCross))
                                     Text("GPa/(g/cm³)")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Palette.color(.textSecondary))
                                 }
                                 Text(props.spruceQualityCross.rawValue)
                                     .font(.caption)
@@ -731,7 +731,7 @@ struct TapAnalysisResultsView: View {
                     }
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
-                    .background(Color.secondary.opacity(0.1))
+                    .background(Palette.color(.backgroundSubtle))
                     .cornerRadius(8)
                     
                     // Radiation Ratio
@@ -751,7 +751,7 @@ struct TapAnalysisResultsView: View {
                             .fontWeight(.medium)
                         Text("(typical: 0.04–0.08)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
 
                     // Long/Cross Ratio
@@ -764,7 +764,7 @@ struct TapAnalysisResultsView: View {
                             .fontWeight(.medium)
                         Text("(typical: 12–25)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
 
                     Divider()
@@ -787,18 +787,18 @@ struct TapAnalysisResultsView: View {
                 VStack(spacing: 12) {
                     if effectiveLongitudinalPeakID == nil && effectiveCrossPeakID == nil {
                         Text("Select peaks above to calculate properties")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     } else if effectiveLongitudinalPeakID == nil {
                         Text("Select a longitudinal (L) peak")
-                            .foregroundColor(.orange)
+                            .foregroundColor(Palette.color(.statusWarning))
                     } else {
                         Text("Select a cross-grain (C) peak")
-                            .foregroundColor(.orange)
+                            .foregroundColor(Palette.color(.statusWarning))
                     }
                     
                     Text("Tip: The longitudinal mode is typically the higher frequency peak")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -910,7 +910,7 @@ struct TapAnalysisResultsView: View {
                                 .foregroundColor(Palette.color(props.spruceQuality))
                             Text("GPa/(g/cm³)")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Palette.color(.textSecondary))
                         }
                         Text(props.spruceQuality.rawValue)
                             .font(.caption)
@@ -919,7 +919,7 @@ struct TapAnalysisResultsView: View {
                     }
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
-                    .background(Color.secondary.opacity(0.1))
+                    .background(Palette.color(.backgroundSubtle))
                     .cornerRadius(8)
                     
                     // Radiation Ratio
@@ -935,10 +935,10 @@ struct TapAnalysisResultsView: View {
             } else {
                 VStack(spacing: 12) {
                     Text("Select the fL (L) peak above to calculate properties")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                     Text("Tip: The dominant peak is auto-selected after tapping")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -968,15 +968,15 @@ struct TapAnalysisResultsView: View {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(FieldPrecision.string(hd, FieldPrecision.goreThicknessMM))
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Palette.color(.accentText))
                 Text("mm")
                     .font(.title3)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                 Spacer()
             }
             .padding(.vertical, 4)
             .padding(.horizontal, 8)
-            .background(Color.accentColor.opacity(0.08))
+            .background(Palette.color(.materialGoreBox))
             .cornerRadius(8)
         }
     }
@@ -998,7 +998,7 @@ struct TapAnalysisResultsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 6) {
                     Circle()
-                        .fill(Color.blue)
+                        .fill(Palette.color(.materialLongitudinal))
                         .frame(width: 8, height: 8)
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 2) {
@@ -1006,14 +1006,14 @@ struct TapAnalysisResultsView: View {
                             .font(.caption2)
                         Text("Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
                     .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                 }
 
                 HStack(alignment: .top, spacing: 6) {
                     Circle()
-                        .fill(Color.orange)
+                        .fill(Palette.color(.materialCross))
                         .frame(width: 8, height: 8)
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 2) {
@@ -1021,7 +1021,7 @@ struct TapAnalysisResultsView: View {
                             .font(.caption2)
                         Text("Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
                     .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                 }
@@ -1029,7 +1029,7 @@ struct TapAnalysisResultsView: View {
                 if includesFlcTap {
                     HStack(alignment: .top, spacing: 6) {
                         Circle()
-                            .fill(Color.purple)
+                            .fill(Palette.color(.materialFlc))
                             .frame(width: 8, height: 8)
                             .padding(.top, 2)
                         VStack(alignment: .leading, spacing: 2) {
@@ -1037,7 +1037,7 @@ struct TapAnalysisResultsView: View {
                                 .font(.caption2)
                             Text("Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
                                 .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Palette.color(.textSecondary))
                         }
                         .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                     }
@@ -1047,7 +1047,7 @@ struct TapAnalysisResultsView: View {
 
             Text("The strongest peak from each tap is auto-selected. Redo if needed.")
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
                 .italic()
                 .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                 .padding(.top, 2)
@@ -1069,7 +1069,7 @@ struct TapAnalysisResultsView: View {
 
             HStack(alignment: .top, spacing: 6) {
                 Circle()
-                    .fill(Color.blue)
+                    .fill(Palette.color(.materialLongitudinal))
                     .frame(width: 8, height: 8)
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 2) {
@@ -1077,14 +1077,14 @@ struct TapAnalysisResultsView: View {
                         .font(.caption2)
                     Text("Hold brace at 22% from one end along the length. Tap center.")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
                 .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
             }
 
             Text("The strongest peak is auto-selected. Redo if needed.")
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
                 .italic()
                 .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
                 .padding(.top, 2)
@@ -1121,7 +1121,7 @@ struct TapAnalysisResultsView: View {
                 Text("C: \(crossValue)")
                     .font(.caption)
             }
-            .foregroundColor(.secondary)
+            .foregroundColor(Palette.color(.textSecondary))
         }
     }
     
@@ -1154,7 +1154,7 @@ struct MaterialPeakRowView: View {
                     toggleAction()
                 } label: {
                     Image(systemName: isSelected ? "star.fill" : "star")
-                        .foregroundColor(isSelected ? .blue : .secondary)
+                        .foregroundColor(Palette.color(isSelected ? .peakSelectedStar : .peakUnselectedStar))
                         .font(.body)
                         .frame(width: 24, height: 24)
                 }
@@ -1162,7 +1162,7 @@ struct MaterialPeakRowView: View {
                 .help(isSelected ? "Deselect peak" : "Select peak")
             } else {
                 Image(systemName: isSelected ? "star.fill" : "star")
-                    .foregroundColor(isSelected ? .blue : .secondary)
+                    .foregroundColor(Palette.color(isSelected ? .peakSelectedStar : .peakUnselectedStar))
                     .font(.body)
                     .frame(width: 24, height: 24)
             }
@@ -1172,11 +1172,11 @@ struct MaterialPeakRowView: View {
                 Text(peak.map { $0.frequency.formattedAsFrequency() } ?? "—")
                     .font(.headline)
                     .fontWeight(.semibold)
-                    .foregroundColor(peak == nil ? .secondary : .primary)
+                    .foregroundColor(Palette.color(peak == nil ? .textSecondary : .textPrimary))
 
                 Text(peak.map { "\(FieldPrecision.string($0.magnitude, FieldPrecision.peakMagnitudeDB)) dB" } ?? "—")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
 
             Spacer()
@@ -1184,14 +1184,14 @@ struct MaterialPeakRowView: View {
             // Phase identification badges — display only, not interactive.
             // Colored when this peak was auto-identified for that phase.
             HStack(spacing: 8) {
-                phaseBadge("fL", active: isLongitudinal, color: .blue, width: 36)
+                phaseBadge("fL", active: isLongitudinal, color: Palette.color(.materialLongitudinal), width: 36)
 
                 if showCrossButton {
-                    phaseBadge("fC", active: isCross, color: .orange, width: 36)
+                    phaseBadge("fC", active: isCross, color: Palette.color(.materialCross), width: 36)
                 }
 
                 if showFlcButton {
-                    phaseBadge("fLC", active: isFlc, color: .purple, width: 42)
+                    phaseBadge("fLC", active: isFlc, color: Palette.color(.materialFlc), width: 42)
                 }
             }
         }
@@ -1204,8 +1204,8 @@ struct MaterialPeakRowView: View {
             .font(label.count <= 1 ? .headline : .subheadline)
             .fontWeight(.bold)
             .frame(width: width, height: 36)
-            .background(active ? color : Color.secondary.opacity(0.2))
-            .foregroundColor(active ? .white : .primary)
+            .background(active ? color : Palette.color(.materialPhaseInactive))
+            .foregroundColor(Palette.color(active ? .textOnColor : .textPrimary))
             .cornerRadius(8)
     }
 }

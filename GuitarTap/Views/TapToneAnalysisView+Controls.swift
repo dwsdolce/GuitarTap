@@ -50,14 +50,14 @@ extension TapToneAnalysisView {
                         Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                     }
                     .buttonStyle(.bordered)
-                    .tint(crosshairMode ? .blue : .gray)
+                    .tint(Palette.color(crosshairMode ? .accent : .toolbarInactive))
                     .accessibilityLabel("Crosshair")
 
                     Button(action: { tap.cycleAnnotationVisibility() }) {
                         Image(systemName: tap.annotationVisibilityMode.iconName)
                     }
                     .buttonStyle(.bordered)
-                    .tint(.blue)
+                    .tint(Palette.color(.accent))
                     .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
                     .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
@@ -127,7 +127,7 @@ extension TapToneAnalysisView {
                     Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
                 .buttonStyle(.bordered)
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                 // Crosshair mode toggle button (iPad)
@@ -135,14 +135,14 @@ extension TapToneAnalysisView {
                     Label("Crosshair", systemImage: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                 }
                 .buttonStyle(.bordered)
-                .tint(crosshairMode ? .blue : .gray)
+                .tint(Palette.color(crosshairMode ? .accent : .toolbarInactive))
 
                 // Annotation visibility cycling button (iPad)
                 Button(action: { tap.cycleAnnotationVisibility() }) {
                     Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
                 }
                 .buttonStyle(.bordered)
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
@@ -151,7 +151,7 @@ extension TapToneAnalysisView {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
                 .buttonStyle(.bordered)
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .disabled(!tap.isMeasurementComplete && tap.displayMode != .comparison)
                 .hint(HintText.save)
             }
@@ -167,7 +167,7 @@ extension TapToneAnalysisView {
                     }
                 }
                 .buttonStyle(.bordered)
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .hint(HintText.measurements)
 
                 // Metrics button
@@ -175,7 +175,7 @@ extension TapToneAnalysisView {
                     Label("Metrics", systemImage: "chart.bar")
                 }
                 .buttonStyle(.bordered)
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .hint(HintText.showMetrics)
 
                 // Settings button
@@ -183,7 +183,7 @@ extension TapToneAnalysisView {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .buttonStyle(.bordered)
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .hint(HintText.settings)
 
                 // Play File button
@@ -191,7 +191,7 @@ extension TapToneAnalysisView {
                     Label("Play File\u{2026}", systemImage: "waveform.badge.plus")
                 }
                 .buttonStyle(.bordered)
-                .tint(fft.isPlayingFile ? .orange : .blue)
+                .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
                 .help("Feed an audio file through the analysis pipeline")
 
                 Spacer()
@@ -253,7 +253,7 @@ extension TapToneAnalysisView {
             if iconOnly { Image(systemName: icon) } else { Label("Auto dB", systemImage: icon) }
         }
         .buttonStyle(.bordered)
-        .tint(.blue)
+        .tint(Palette.color(.accent))
         .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
     }
 
@@ -267,7 +267,7 @@ extension TapToneAnalysisView {
             }
         }
         .buttonStyle(.bordered)
-        .tint(.blue)
+        .tint(Palette.color(.accent))
         .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
         .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
     }
@@ -278,7 +278,7 @@ extension TapToneAnalysisView {
             if iconOnly { Image(systemName: "square.and.arrow.down") } else { Label("Save", systemImage: "square.and.arrow.down") }
         }
         .buttonStyle(.bordered)
-        .tint(.blue)
+        .tint(Palette.color(.accent))
         .disabled(!tap.isMeasurementComplete && tap.displayMode != .comparison)
         .hint(HintText.save)
     }
@@ -299,7 +299,7 @@ extension TapToneAnalysisView {
             }
         }
         .buttonStyle(.bordered)
-        .tint(.blue)
+        .tint(Palette.color(.accent))
         .hint(HintText.measurements)
     }
 
@@ -309,7 +309,7 @@ extension TapToneAnalysisView {
             if iconOnly { Image(systemName: "chart.bar") } else { Label("Metrics", systemImage: "chart.bar") }
         }
         .buttonStyle(.bordered)
-        .tint(.blue)
+        .tint(Palette.color(.accent))
         .hint(HintText.showMetrics)
     }
 
@@ -319,7 +319,7 @@ extension TapToneAnalysisView {
             if iconOnly { Image(systemName: "gearshape") } else { Label("Settings", systemImage: "gearshape") }
         }
         .buttonStyle(.bordered)
-        .tint(.blue)
+        .tint(Palette.color(.accent))
         .hint(HintText.settings)
     }
 
@@ -333,7 +333,7 @@ extension TapToneAnalysisView {
             }
         }
         .buttonStyle(.bordered)
-        .tint(fft.isPlayingFile ? .orange : .blue)
+        .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
         .help("Feed an audio file through the analysis pipeline (for cross-platform comparison)")
     }
     #endif
@@ -361,44 +361,44 @@ extension TapToneAnalysisView {
                 // Comparison mode: show count and clear affordance.
                 // Warning (if active) is shown in fullStatusBar above this row.
                 Image(systemName: "waveform.path")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Palette.color(.accentText))
                     .font(.caption)
                 Text(tap.showingMultiTapComparison
                      ? "Tap comparison — \(tap.tapEntries.count) taps + averaged"
                      : "Comparing \(tap.comparisonSpectra.count) measurements")
                     .font(.caption)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Palette.color(.textPrimary))
                     .lineLimit(1)
                 Spacer()
                 Text(tap.showingMultiTapComparison ? "Tap \u{2018}Taps\u{2019} to exit" : "\u{2018}New Tap\u{2019} for new measurement")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             } else if tap.showLoadedSettingsWarning {
                 // Warn that threshold and tap count came from a loaded measurement.
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
+                    .foregroundColor(Palette.color(.statusWarning))
                     .font(.caption)
                     .opacity(warningIconOpacity)
                 Text("Loaded settings — Threshold: \(Int(tap.tapDetectionThreshold)) dB · Taps: \(tap.numberOfTaps)")
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundColor(.orange)
+                    .foregroundColor(Palette.color(.statusWarning))
                     .lineLimit(1)
                 Spacer()
             } else {
                 // Normal tap detection state
                 Circle()
-                    .fill(tap.isMeasurementComplete ? Color.green : Color.gray.opacity(0.3))
+                    .fill(Palette.color(tap.isMeasurementComplete ? .statusComplete : .statusInactiveDot))
                     .frame(width: 10, height: 10)
 
                 Text(tap.isMeasurementComplete ? "Tap Detected!" : "Waiting for tap...")
                     .font(.caption)
-                    .foregroundColor(tap.isMeasurementComplete ? .green : .secondary)
+                    .foregroundColor(Palette.color(tap.isMeasurementComplete ? .statusTapDetected : .textSecondary))
                     .lineLimit(1)
 
                 Text("\(FieldPrecision.string(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, FieldPrecision.peakMagnitudeDB)) dB")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                     .lineLimit(1)
 
                 // For plate/brace: show step from phase 1 (consistent with all phases).
@@ -414,7 +414,7 @@ extension TapToneAnalysisView {
                     Text(phaseLabel)
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(Palette.blue)
+                        .foregroundColor(Palette.color(.statusTapCount))
                         .lineLimit(1)
                 }
 
@@ -427,7 +427,7 @@ extension TapToneAnalysisView {
                 if tap.currentTapCount > 0 {
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
-                        .tint(Palette.blue) // see the note on the fullStatusBar bar
+                        .tint(Palette.color(.statusProgress)) // see the note on the fullStatusBar bar
                         .frame(width: 50)
                 }
 
@@ -436,18 +436,18 @@ extension TapToneAnalysisView {
                 if fft.isRunning {
                     Text("Peak: \(FieldPrecision.string(fft.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB @ \(FieldPrecision.string(fft.peakFrequency, FieldPrecision.peakFrequencyHz)) Hz")
                         .font(.caption)
-                        .foregroundColor(Palette.blue)
+                        .foregroundColor(Palette.color(.statusPeakReadout))
                         .lineLimit(1)
                 }
 
                 if tap.isMeasurementComplete {
                     Image(systemName: "pause.circle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(Palette.color(.statusWarning))
                         .font(.caption)
                 }
 
                 Circle()
-                    .fill(fft.isRunning ? .green : .red)
+                    .fill(Palette.color(fft.isRunning ? .statusRunning : .statusError))
                     .frame(width: 8, height: 8)
             }
         }
@@ -455,7 +455,7 @@ extension TapToneAnalysisView {
         .padding(.vertical, 4)
         .frame(height: 28) // Fixed height
         .background {
-            Color.secondary.opacity(0.1)
+            Palette.color(.backgroundSubtle)
                 .ignoresSafeArea(edges: .bottom)
         }
     }
@@ -472,18 +472,18 @@ extension TapToneAnalysisView {
             if tap.showLoadedSettingsWarning && !isSavedComparison {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(Palette.color(.statusWarning))
                         .font(.subheadline)
                         .opacity(warningIconOpacity)
                     Text("Settings from loaded measurement — Threshold: \(Int(tap.tapDetectionThreshold)) dB · Taps: \(tap.numberOfTaps)")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.orange)
+                        .foregroundColor(Palette.color(.statusWarning))
                     Spacer()
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(Color.orange.opacity(0.12))
+                .background(Palette.color(.statusWarning, opacity: .statusMessageBackground))
                 .cornerRadius(6)
             }
             // Dump Capture Audio wrote this measurement's WAV — shown so a setting left on is noticed.
@@ -491,7 +491,7 @@ extension TapToneAnalysisView {
                 HStack(spacing: 8) {
                     Text("Capture audio saved: \(saved) (\(WavDumpFolder.currentFolder.lastPathComponent))")
                         .font(.subheadline)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(Palette.color(.statusSaved))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
@@ -503,14 +503,14 @@ extension TapToneAnalysisView {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(Color.accentColor.opacity(0.12))
+                .background(Palette.color(.statusSaved, opacity: .statusMessageBackground))
                 .cornerRadius(6)
             }
             if tap.displayMode == .comparison {
                 // Comparison mode: show comparison info below the warning (if any)
                 HStack(spacing: 12) {
                     Image(systemName: "waveform.path")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(Palette.color(.accentText))
                     Text(tap.showingMultiTapComparison
                          ? "Tap comparison — \(tap.tapEntries.count) taps + averaged"
                          : "Comparing \(tap.comparisonSpectra.count) measurements")
@@ -521,68 +521,66 @@ extension TapToneAnalysisView {
                          ? "Press \u{2018}Taps\u{2019} to return to averaged view, or \u{2018}New Tap\u{2019} for a new measurement"
                          : "Press \u{2018}New Tap\u{2019} for a new measurement")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                 }
             } else {
                 // Normal tap detection state
                 if tap.currentTapCount > 0 {
                     // Tinted EXPLICITLY rather than left to inherit the accent colour: untinted, a
-                    // ProgressView takes the user's macOS accent (AccentColor.colorset is empty), so
-                    // the bar would follow a System Settings preference. The bar and its labels use
-                    // the pinned Palette.blue (#007AFF / #0A84FF), as Python and the web do.
+                    // The bar and its labels take the status.progress role, as Python and the web do.
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
-                        .tint(Palette.blue)
+                        .tint(Palette.color(.statusProgress))
                 }
 
                 HStack(spacing: 12) {
                     Circle()
-                        .fill(tap.isMeasurementComplete ? Color.green : Color.gray.opacity(0.3))
+                        .fill(Palette.color(tap.isMeasurementComplete ? .statusComplete : .statusInactiveDot))
                         .frame(width: 10, height: 10)
 
                     Text(tap.isMeasurementComplete ? "Tap Detected!" : "Waiting for tap...")
                         .font(.subheadline)
-                        .foregroundColor(tap.isMeasurementComplete ? .green : .secondary)
+                        .foregroundColor(Palette.color(tap.isMeasurementComplete ? .statusTapDetected : .textSecondary))
 
                     Text("•")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     Text("\(FieldPrecision.string(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, FieldPrecision.peakMagnitudeDB)) dB")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     Spacer()
 
                     if tap.isMeasurementComplete {
                         HStack(spacing: 4) {
                             Image(systemName: "pause.circle.fill")
-                                .foregroundColor(.orange)
+                                .foregroundColor(Palette.color(.statusWarning))
                             Text("Complete")
                                 .font(.caption)
-                                .foregroundColor(.orange)
+                                .foregroundColor(Palette.color(.statusWarning))
                         }
                         Text("•")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
 
                     if fft.isRunning {
                         Text("Peak: \(FieldPrecision.string(fft.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB @ \(FieldPrecision.string(fft.peakFrequency, FieldPrecision.peakFrequencyHz)) Hz")
                             .font(.caption)
-                            .foregroundColor(Palette.blue)
+                            .foregroundColor(Palette.color(.statusPeakReadout))
                     } else {
                         Text("Starting...")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
 
                     Circle()
-                        .fill(tap.isDetecting ? .green : .orange)
+                        .fill(Palette.color(tap.isDetecting ? .statusRunning : .statusPaused))
                         .frame(width: 8, height: 8)
 
                     Text(tap.statusMessage)
                         .font(.caption)
-                        .foregroundColor(tap.isDetecting ? .primary : .orange)
+                        .foregroundColor(Palette.color(tap.isDetecting ? .textPrimary : .statusWarning))
 
                     // For plate/brace: show step from phase 1 (consistent with all phases).
                     // For guitar: keep existing currentTapCount > 0 guard (no phase concept).
@@ -597,14 +595,14 @@ extension TapToneAnalysisView {
                         Text(phaseLabel)
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundColor(Palette.blue)
+                            .foregroundColor(Palette.color(.statusTapCount))
                     }
                 }
             }
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color.secondary.opacity(0.1))
+        .background(Palette.color(.backgroundSubtle))
     }
 
     /// Reset button for the tap-detection threshold slider.
@@ -616,7 +614,7 @@ extension TapToneAnalysisView {
         }) {
             Image(systemName: "arrow.counterclockwise")
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
         }
         .buttonStyle(.plain)
         .help("Reset to default")
@@ -631,7 +629,7 @@ extension TapToneAnalysisView {
         }) {
             Image(systemName: "arrow.counterclockwise")
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
         }
         .buttonStyle(.plain)
         .help("Reset to default")
@@ -646,7 +644,7 @@ extension TapToneAnalysisView {
                 HStack {
                     Text("Taps:")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     Stepper("\(tap.numberOfTaps)",
                             value: $tapToneAnalyzer.numberOfTaps,
@@ -663,7 +661,7 @@ extension TapToneAnalysisView {
                 HStack(spacing: 6) {
                     Text("Threshold:")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                         .fixedSize()
                     ThresholdSlider(
                         value: $tapToneAnalyzer.tapDetectionThreshold,
@@ -678,7 +676,7 @@ extension TapToneAnalysisView {
                     Text("\(Int(tap.tapDetectionThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Palette.color(.accentText))
                         .fixedSize()
                     thresholdResetButton
                 }
@@ -686,7 +684,7 @@ extension TapToneAnalysisView {
                 HStack(spacing: 6) {
                     Text("Peak Min:")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                         .fixedSize()
                     Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
                         .accessibilityLabel("Peak detection minimum threshold")
@@ -695,7 +693,7 @@ extension TapToneAnalysisView {
                     Text("\(Int(tap.peakMinThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.green)
+                        .foregroundColor(Palette.color(.chartPeakMin))
                         .fixedSize()
                     peakMinResetButton
                 }
@@ -738,7 +736,7 @@ extension TapToneAnalysisView {
                     }
                 }
                 .buttonStyle(.bordered)
-                .tint(isInReviewPhase ? .green : nil)
+                .tint(isInReviewPhase ? Palette.color(.statusComplete) : nil)
                 .disabled(!pauseResumeButtonEnabled)
                 .hint(isInReviewPhase ? "Accept this tap and continue" :
                       tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
@@ -754,7 +752,7 @@ extension TapToneAnalysisView {
                     let (label, icon) = redoOrCancelLabel
                     Label(label, systemImage: icon)
                         .font(.subheadline)
-                        .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
+                        .foregroundStyle(Palette.color(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 }
                 .buttonStyle(.bordered)
                 .disabled(!cancelButtonEnabled)
@@ -762,7 +760,7 @@ extension TapToneAnalysisView {
             }
         }
         .padding(12)
-        .background(Color.secondary.opacity(0.1))
+        .background(Palette.color(.backgroundSubtle))
         .cornerRadius(8)
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -795,7 +793,7 @@ extension TapToneAnalysisView {
             #endif
         }
         .padding(12)
-        .background(Color.secondary.opacity(0.1))
+        .background(Palette.color(.backgroundSubtle))
         .cornerRadius(8)
     }
 
@@ -806,12 +804,12 @@ extension TapToneAnalysisView {
             HStack(spacing: 4) {
                 Text("Taps:")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
 
                 Text("\(tap.numberOfTaps)")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Palette.color(.textPrimary))
                     .frame(minWidth: 16)
 
                 Stepper("",
@@ -830,7 +828,7 @@ extension TapToneAnalysisView {
             HStack(spacing: 4) {
                 Text("Threshold:")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                     .fixedSize()
                 ThresholdSlider(
                     value: $tapToneAnalyzer.tapDetectionThreshold,
@@ -844,7 +842,7 @@ extension TapToneAnalysisView {
                 Text("\(Int(tap.tapDetectionThreshold)) dB")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(.blue)
+                    .foregroundColor(Palette.color(.accentText))
                     .fixedSize()
                 thresholdResetButton
             }
@@ -856,7 +854,7 @@ extension TapToneAnalysisView {
             HStack(spacing: 4) {
                 Text("Peak Min:")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                     .fixedSize()
                 Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
                     .frame(width: 80)
@@ -866,7 +864,7 @@ extension TapToneAnalysisView {
                 Text("\(Int(tap.peakMinThreshold)) dB")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(.green)
+                    .foregroundColor(Palette.color(.chartPeakMin))
                     .fixedSize()
                 peakMinResetButton
             }
@@ -905,7 +903,7 @@ extension TapToneAnalysisView {
                 }
             }
             .buttonStyle(.bordered)
-            .tint(isInReviewPhase ? .green : nil)
+            .tint(isInReviewPhase ? Palette.color(.statusComplete) : nil)
             .disabled(!pauseResumeButtonEnabled)
             .hint(isInReviewPhase ? "Accept this tap and continue" :
                   tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
@@ -920,7 +918,7 @@ extension TapToneAnalysisView {
             }) {
                 let (label, icon) = redoOrCancelLabel
                 Label(label, systemImage: icon)
-                    .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
+                    .foregroundStyle(Palette.color(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
             }
             .buttonStyle(.bordered)
             .disabled(!cancelButtonEnabled)
@@ -937,12 +935,12 @@ extension TapToneAnalysisView {
                 HStack(spacing: 4) {
                     Text("Taps:")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     Text("\(tap.numberOfTaps)")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Palette.color(.textPrimary))
                         .frame(minWidth: 16)
 
                     Stepper("",
@@ -961,7 +959,7 @@ extension TapToneAnalysisView {
                 HStack(spacing: 4) {
                     Text("Threshold:")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                         .fixedSize()
                     ThresholdSlider(
                         value: $tapToneAnalyzer.tapDetectionThreshold,
@@ -975,7 +973,7 @@ extension TapToneAnalysisView {
                     Text("\(Int(tap.tapDetectionThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Palette.color(.accentText))
                         .fixedSize()
                     thresholdResetButton
                 }
@@ -988,7 +986,7 @@ extension TapToneAnalysisView {
                 HStack(spacing: 4) {
                     Text("Peak Min:")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                         .fixedSize()
                     Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
                         .frame(width: 80)
@@ -997,7 +995,7 @@ extension TapToneAnalysisView {
                     Text("\(Int(tap.peakMinThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.green)
+                        .foregroundColor(Palette.color(.chartPeakMin))
                         .fixedSize()
                     peakMinResetButton
                 }
@@ -1041,7 +1039,7 @@ extension TapToneAnalysisView {
                     }
                 }
                 .buttonStyle(.bordered)
-                .tint(isInReviewPhase ? .green : nil)
+                .tint(isInReviewPhase ? Palette.color(.statusComplete) : nil)
                 .disabled(!pauseResumeButtonEnabled)
                 .hint(isInReviewPhase ? "Accept this tap and continue" :
                       tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
@@ -1056,7 +1054,7 @@ extension TapToneAnalysisView {
                 }) {
                     let (label, icon) = redoOrCancelLabel
                     Label(label, systemImage: icon)
-                        .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
+                        .foregroundStyle(Palette.color(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 }
                 .buttonStyle(.bordered)
                 .disabled(!cancelButtonEnabled)

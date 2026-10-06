@@ -516,7 +516,7 @@ Help menu:
                     ForEach(systemImages, id: \.self) { symbol in
                         Image(systemName: symbol)
                             .font(.subheadline)
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(Palette.color(.accentText))
                             .frame(width: 20)
                     }
                     Text(title)
@@ -526,7 +526,7 @@ Help menu:
             }
             Text(body)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 2)

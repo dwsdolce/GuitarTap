@@ -28,9 +28,12 @@ enum Palette {
         case separator = "separator"
         case textPrimary = "text.primary"
         case textSecondary = "text.secondary"
+        case textOnColor = "text.onColor"
         case accent = "accent"
         case accentText = "accent.text"
+        case toolbarInactive = "toolbar.inactive"
         case scrim = "scrim"
+        case overlayCard = "overlay.card"
         case chartBackground = "chart.background"
         case chartGrid = "chart.grid"
         case chartBorder = "chart.border"
@@ -54,6 +57,8 @@ enum Palette {
         case materialCross = "material.cross"
         case materialFlc = "material.flc"
         case materialUnselected = "material.unselected"
+        case materialPhaseInactive = "material.phaseInactive"
+        case materialGoreBox = "material.goreBox"
         case phaseNotStarted = "phase.notStarted"
         case phaseComplete = "phase.complete"
         case peakMagnitudeStrong = "peak.magnitude.strong"
@@ -76,6 +81,10 @@ enum Palette {
         case woodGood = "wood.good"
         case woodFair = "wood.fair"
         case woodPoor = "wood.poor"
+        case badgeGuitar = "badge.guitar"
+        case badgeMaterial = "badge.material"
+        case badgeComparison = "badge.comparison"
+        case resultsTapsActive = "results.tapsActive"
         case series1 = "series.1"
         case series2 = "series.2"
         case series3 = "series.3"
@@ -102,6 +111,7 @@ enum Palette {
         case statusTapCount = "status.tapCount"
         case statusPeakReadout = "status.peakReadout"
         case statusError = "status.error"
+        case statusInactiveDot = "status.inactiveDot"
         case meterGroove = "meter.groove"
         case meterGrooveBorder = "meter.grooveBorder"
         case meterLevelTop = "meter.levelTop"
@@ -110,6 +120,7 @@ enum Palette {
         case meterClip = "meter.clip"
         case meterTicks = "meter.ticks"
         case meterPeakHold = "meter.peakHold"
+        case meterPeakHoldBorder = "meter.peakHoldBorder"
         case meterThresholdHandle = "meter.thresholdHandle"
         case meterThresholdHandleBorder = "meter.thresholdHandleBorder"
         case metricGood = "metric.good"
@@ -146,9 +157,12 @@ enum Palette {
         .separator: Pair(light: "#D8DEE6", dark: "#222A33"),
         .textPrimary: Pair(light: "#1A2330", dark: "#E7EBF0"),
         .textSecondary: Pair(light: "#6B7785", dark: "#8A96A5"),
+        .textOnColor: Pair(light: "#FFFFFF", dark: "#FFFFFF"),
         .accent: Pair(light: "#007AFF", dark: "#0A84FF"),
         .accentText: Pair(light: "#007AFF", dark: "#409CFF"),
+        .toolbarInactive: Pair(light: "#8E8E93", dark: "#8E8E93"),
         .scrim: Pair(light: "#0000004D", dark: "#00000080"),
+        .overlayCard: Pair(light: "#3A3A3CCC", dark: "#3A3A3CCC"),
         .chartBackground: Pair(light: "#FFFFFF", dark: "#0E1116"),
         .chartGrid: Pair(light: "#E3E8EE", dark: "#1C242E"),
         .chartBorder: Pair(light: "#C2CAD4", dark: "#2A3543"),
@@ -172,6 +186,8 @@ enum Palette {
         .materialCross: Pair(light: "#FF9500", dark: "#FF9F0A"),
         .materialFlc: Pair(light: "#AF52DE", dark: "#BF5AF2"),
         .materialUnselected: Pair(light: "#6B7785", dark: "#8A96A5"),
+        .materialPhaseInactive: Pair(light: "#8E8E9333", dark: "#8E8E9333"),
+        .materialGoreBox: Pair(light: "#007AFF14", dark: "#0A84FF14"),
         .phaseNotStarted: Pair(light: "#8E8E93", dark: "#8E8E93"),
         .phaseComplete: Pair(light: "#34C759", dark: "#30D158"),
         .peakMagnitudeStrong: Pair(light: "#34C759", dark: "#30D158"),
@@ -194,6 +210,10 @@ enum Palette {
         .woodGood: Pair(light: "#007AFF", dark: "#0A84FF"),
         .woodFair: Pair(light: "#FF9500", dark: "#FF9F0A"),
         .woodPoor: Pair(light: "#FF3B30", dark: "#FF453A"),
+        .badgeGuitar: Pair(light: "#007AFF33", dark: "#0A84FF33"),
+        .badgeMaterial: Pair(light: "#FF950033", dark: "#FF9F0A33"),
+        .badgeComparison: Pair(light: "#AF52DE33", dark: "#BF5AF233"),
+        .resultsTapsActive: Pair(light: "#FF9500", dark: "#FF9F0A"),
         .series1: Pair(light: "#007AFF", dark: "#0A84FF"),
         .series2: Pair(light: "#E07800", dark: "#FF9F0A"),
         .series3: Pair(light: "#269342", dark: "#30D158"),
@@ -220,6 +240,7 @@ enum Palette {
         .statusTapCount: Pair(light: "#007AFF", dark: "#0A84FF"),
         .statusPeakReadout: Pair(light: "#007AFF", dark: "#0A84FF"),
         .statusError: Pair(light: "#FF3B30", dark: "#FF453A"),
+        .statusInactiveDot: Pair(light: "#8E8E934D", dark: "#8E8E934D"),
         .meterGroove: Pair(light: "#EBEBEB", dark: "#0A0D12"),
         .meterGrooveBorder: Pair(light: "#8E8E9399", dark: "#8E8E9373"),
         .meterLevelTop: Pair(light: "#66CCFF", dark: "#66CCFF"),
@@ -227,7 +248,8 @@ enum Palette {
         .meterLevelBottom: Pair(light: "#001E50", dark: "#001E50"),
         .meterClip: Pair(light: "#FF3B30D9", dark: "#FF453AD9"),
         .meterTicks: Pair(light: "#3D8C3DB3", dark: "#3D8C3DB3"),
-        .meterPeakHold: Pair(light: "#FFD900", dark: "#FFD900"),
+        .meterPeakHold: Pair(light: "#FFC700", dark: "#FFC700"),
+        .meterPeakHoldBorder: Pair(light: "#FFFFFFD9", dark: "#FFFFFFD9"),
         .meterThresholdHandle: Pair(light: "#FF3B30", dark: "#FF453A"),
         .meterThresholdHandleBorder: Pair(light: "#800000", dark: "#800000"),
         .metricGood: Pair(light: "#34C759", dark: "#30D158"),
@@ -338,6 +360,13 @@ enum Palette {
 
     /// The colour of the averaged spectrum among the series.
     static let seriesAverage = color(.seriesAverage)
+
+    /// A comparison entry's colour, drawn in the current scheme by its slot (its stored colour is the light value,
+    /// kept for files only): the multi-tap report's "Averaged" entry takes the average's colour, every other entry
+    /// its series slot.
+    static func comparisonColor(index: Int, label: String) -> Color {
+        label == "Averaged" ? seriesAverage : series(index)
+    }
 
     /// The light scheme's environment: a colour that is stored (a saved comparison's) is its light value.
     static var lightEnvironment: EnvironmentValues {

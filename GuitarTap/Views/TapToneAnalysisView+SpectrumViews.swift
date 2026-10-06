@@ -304,7 +304,7 @@ extension TapToneAnalysisView {
                         let total = TapDisplaySettings.measureFlc ? 3 : 2
                         Text("Phase \(materialPhaseStep)/\(total)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
                 }
 
@@ -324,7 +324,7 @@ extension TapToneAnalysisView {
 
                         Text(materialPhaseDescription)
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -336,11 +336,11 @@ extension TapToneAnalysisView {
     /// Color for current material measurement phase
     var materialPhaseColor: Color {
         switch tap.materialTapPhase {
-        case .notStarted: return .gray
-        case .capturingLongitudinal, .reviewingLongitudinal: return .blue
-        case .capturingCross, .reviewingCross: return .orange
-        case .waitingForFlcTap, .capturingFlc, .reviewingFlc: return .purple
-        case .complete: return .green
+        case .notStarted: return Palette.color(.phaseNotStarted)
+        case .capturingLongitudinal, .reviewingLongitudinal: return Palette.color(.materialLongitudinal)
+        case .capturingCross, .reviewingCross: return Palette.color(.materialCross)
+        case .waitingForFlcTap, .capturingFlc, .reviewingFlc: return Palette.color(.materialFlc)
+        case .complete: return Palette.color(.phaseComplete)
         }
     }
 

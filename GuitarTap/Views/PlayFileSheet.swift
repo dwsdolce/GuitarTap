@@ -108,7 +108,7 @@ struct PlayFileSheet: View {
                     .font(.headline)
                 HStack {
                     Text(audioURL?.lastPathComponent ?? "No file selected")
-                        .foregroundColor(audioURL == nil ? .secondary : .primary)
+                        .foregroundColor(Palette.color(audioURL == nil ? .textSecondary : .textPrimary))
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -131,7 +131,7 @@ struct PlayFileSheet: View {
                     .font(.headline)
                 HStack {
                     Text(calibrationURL?.lastPathComponent ?? "None")
-                        .foregroundColor(calibrationURL == nil ? .secondary : .primary)
+                        .foregroundColor(Palette.color(calibrationURL == nil ? .textSecondary : .textPrimary))
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -142,7 +142,7 @@ struct PlayFileSheet: View {
                 }
                 Text("Select the calibration file that was active when the recording was made")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
             .fileImporter(
                 isPresented: $showingCalibrationPicker,
@@ -162,7 +162,7 @@ struct PlayFileSheet: View {
             Section {
                 HStack {
                     Text(audioURL?.lastPathComponent ?? "No file selected")
-                        .foregroundColor(audioURL == nil ? .secondary : .primary)
+                        .foregroundColor(Palette.color(audioURL == nil ? .textSecondary : .textPrimary))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
@@ -185,7 +185,7 @@ struct PlayFileSheet: View {
             Section {
                 HStack {
                     Text(calibrationURL?.lastPathComponent ?? "None")
-                        .foregroundColor(calibrationURL == nil ? .secondary : .primary)
+                        .foregroundColor(Palette.color(calibrationURL == nil ? .textSecondary : .textPrimary))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
@@ -200,7 +200,7 @@ struct PlayFileSheet: View {
             } footer: {
                 Text("Select the calibration file that was active when the recording was made")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
             .fileImporter(
                 isPresented: $showingCalibrationPicker,

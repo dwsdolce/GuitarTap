@@ -472,12 +472,8 @@ extension TapToneAnalyzer {
         // Comparison records: restore the overlay spectra directly from the saved entries
         // and return early — no peak/spectrum restoration needed for the regular path.
         if let entries = measurement.comparisonEntries {
-            comparisonSpectra = entries.map { entry in
-                let c = entry.colorComponents
-                let color = Color(red: c.indices.contains(0) ? c[0] : 0,
-                                  green: c.indices.contains(1) ? c[1] : 0,
-                                  blue: c.indices.contains(2) ? c[2] : 1,
-                                  opacity: c.indices.contains(3) ? c[3] : 1)
+            comparisonSpectra = entries.enumerated().map { index, entry in
+                let color = Palette.comparisonColor(index: index, label: entry.label)
                 return (magnitudes: entry.snapshot.magnitudes,
                         frequencies: entry.snapshot.frequencies,
                         color: color, label: entry.label,

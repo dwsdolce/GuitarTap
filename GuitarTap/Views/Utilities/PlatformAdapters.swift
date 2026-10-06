@@ -460,7 +460,7 @@ struct FormDisclosureGroupStyle: DisclosureGroupStyle {
                 configuration.label
                 Spacer()
                 Image(systemName: configuration.isExpanded ? "chevron.up" : "chevron.down")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Palette.color(.textSecondary))
                     .font(.caption)
             }
             .contentShape(Rectangle())

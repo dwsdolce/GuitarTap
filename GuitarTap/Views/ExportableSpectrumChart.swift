@@ -188,13 +188,13 @@ struct ExportableSpectrumChart: View {
         } else {
             // Plate/brace mode: color by L/C/FLC selection
             if peak.id == selectedLongitudinalPeakID {
-                return .blue
+                return Palette.color(.materialLongitudinal)
             } else if peak.id == selectedCrossPeakID {
-                return .orange
+                return Palette.color(.materialCross)
             } else if peak.id == selectedFlcPeakID {
-                return .purple
+                return Palette.color(.materialFlc)
             } else {
-                return .secondary
+                return Palette.color(.materialUnselected)
             }
         }
     }
@@ -260,194 +260,189 @@ struct ExportableSpectrumChart: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.bottom, 16)
 
-            ZStack(alignment: .topLeading) {
-                // The chart
-                Chart {
-                    // Per-phase spectra overlay (plate/brace) or single spectrum (guitar)
-                    if !materialSpectra.isEmpty {
-                        ForEach(Array(materialSpectra.enumerated()), id: \.offset) { index, series in
-                            let data = seriesData(frequencies: series.frequencies, magnitudes: series.magnitudes)
-                            ForEach(data) { dataPoint in
-                                LineMark(
-                                    x: .value("Frequency", dataPoint.frequency),
-                                    y: .value("Magnitude", dataPoint.magnitude)
-                                )
-                                .foregroundStyle(by: .value("Series", series.label))
-                                .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.overlayWidth))
-                            }
-                        }
-                    } else {
-                        // Spectrum line
-                        ForEach(chartData) { dataPoint in
-                            LineMark(
-                                x: .value("Frequency", dataPoint.frequency),
-                                y: .value("Magnitude", dataPoint.magnitude)
-                            )
-                            .foregroundStyle(Palette.color(.chartSpectrum))
-                            .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.spectrumWidth))
-                        }
-                    }
-
-                    // Mode boundaries
-                    if showModeBoundaries {
-                        ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
-                            RuleMark(x: .value("Boundary", boundary.frequency))
-                                .foregroundStyle(Palette.color(boundary.mode).opacity(ChartStyle.export.modeBoundaryOpacity))
-                                .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.modeBoundaryWidth,
-                                                       dash: ChartStyle.export.modeBoundaryDash))
-                                .annotation(
-                                    position: .top,
-                                    alignment: .center,
-                                    spacing: 4,
-                                    overflowResolution: .init(x: .fit, y: .fit(to: .plot))
-                                ) {
-                                    if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
-                                        Text(boundary.mode.abbreviation)
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(Palette.color(boundary.mode))
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .background(Palette.color(boundary.mode).opacity(0.15))
-                                            .cornerRadius(6)
+            HStack(spacing: 8) {
+                ChartAxisTitle(text: "FFT Magnitude (dB)", font: .system(size: 16, weight: .medium), vertical: true)
+                VStack(spacing: 8) {
+                    ZStack(alignment: .topLeading) {
+                        // The chart
+                        Chart {
+                            // Per-phase spectra overlay (plate/brace) or single spectrum (guitar)
+                            if !materialSpectra.isEmpty {
+                                ForEach(Array(materialSpectra.enumerated()), id: \.offset) { index, series in
+                                    let data = seriesData(frequencies: series.frequencies, magnitudes: series.magnitudes)
+                                    ForEach(data) { dataPoint in
+                                        LineMark(
+                                            x: .value("Frequency", dataPoint.frequency),
+                                            y: .value("Magnitude", dataPoint.magnitude)
+                                        )
+                                        .foregroundStyle(by: .value("Series", series.label))
+                                        .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.overlayWidth))
                                     }
                                 }
-                        }
-                    }
-
-                    // Peak markers only (no inline annotations)
-                    // Peaks below minDB are hidden entirely — not clamped to the bottom.
-                    ForEach(visiblePeaks.filter { $0.magnitude >= minDB }) { peak in
-                        let clampedMag = min(maxDB, peak.magnitude)
-                        PointMark(
-                            x: .value("Frequency", peak.frequency),
-                            y: .value("Magnitude", clampedMag)
-                        )
-                        .foregroundStyle(peakColor(for: peak))
-                        .symbolSize(ChartStyle.export.dotArea)
-                    }
-                }
-                // Charts warns and falls back when handed an EMPTY scale, and this chart re-renders
-                // once per FFT frame — thousands of warnings in guitar mode, where materialSpectra is
-                // always []. The series content above is already guarded by `if !materialSpectra.isEmpty`;
-                // this modifier was not. A single placeholder keeps the scale non-empty and shows
-                // nothing, because the legend is hidden on the next line.
-                .chartForegroundStyleScale(
-                    domain: materialSpectra.isEmpty ? [""] : materialSpectra.map { $0.label },
-                    range: materialSpectra.isEmpty ? [Color.clear] : materialSpectra.map { $0.color }
-                )
-                .chartLegend(.hidden)
-                .chartPlotStyle { plotArea in
-                    // Clipped: the spectrum is drawn through the chart's edges and cut off by them.
-                    plotArea.border(Palette.color(.chartBorder), width: 1).clipped()
-                }
-                .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: .linear)
-                .chartYScale(domain: Double(minDB)...Double(maxDB))
-                .chartXAxis {
-                    AxisMarks(values: frequencyAxisValues) { value in
-                        AxisValueLabel {
-                            if let doubleValue = value.as(Double.self) {
-                                Text(AxisTickGenerator.formatTickLabel(doubleValue))
-                                    .font(.system(size: 12))
-                            }
-                        }
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.export.gridWidth))
-                            .foregroundStyle(Palette.color(.chartGrid))
-                    }
-                }
-                .chartXAxisLabel(alignment: .center) {
-                    Text("Frequency (Hz)")
-                        .font(.system(size: 16, weight: .medium))
-                        .padding(8)
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: .stride(by: ChartStyle.export.magnitudeStride ?? 20)) { _ in
-                        AxisValueLabel()
-                            .font(.system(size: 12))
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.export.gridWidth))
-                            .foregroundStyle(Palette.color(.chartGrid))
-                    }
-                }
-                .chartYAxisLabel(position: .leading, alignment: .center) {
-                    Text("FFT Magnitude (dB)")
-                        .font(.system(size: 16, weight: .medium))
-                        .rotationEffect(.degrees(180))
-                        .padding(8)
-                }
-                .chartOverlay { proxy in
-                    // Use ChartProxy for accurate positioning
-                    GeometryReader { geometry in
-                        if let plotFrame = proxy.plotFrame {
-                            let frame = geometry[plotFrame]
-
-                            // Connection lines layer
-                            ForEach(visiblePeaks) { peak in
-                                if let peakX = proxy.position(forX: peak.frequency),
-                                   let peakY = proxy.position(forY: Double(peak.magnitude)) {
-                                    let peakPosition = CGPoint(x: frame.minX + peakX, y: frame.minY + peakY)
-                                    let annPos = annotationPosition(for: peak, peakPosition: peakPosition, frame: frame)
-                                    ConnectionLineShape(
-                                        from: CGPoint(x: annPos.x, y: annPos.y + 50),
-                                        to: peakPosition
+                            } else {
+                                // Spectrum line
+                                ForEach(chartData) { dataPoint in
+                                    LineMark(
+                                        x: .value("Frequency", dataPoint.frequency),
+                                        y: .value("Magnitude", dataPoint.magnitude)
                                     )
-                                    .stroke(peakColor(for: peak).opacity(ChartStyle.export.leaderOpacity),
-                                            style: StrokeStyle(lineWidth: ChartStyle.export.leaderWidth,
-                                                               dash: ChartStyle.export.leaderDash))
+                                    .foregroundStyle(Palette.color(.chartSpectrum))
+                                    .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.spectrumWidth))
                                 }
                             }
 
-                            // Annotations layer
-                            ForEach(visiblePeaks) { peak in
-                                if let peakX = proxy.position(forX: peak.frequency),
-                                   let peakY = proxy.position(forY: Double(peak.magnitude)) {
-                                    let peakPosition = CGPoint(x: frame.minX + peakX, y: frame.minY + peakY)
-                                    let annPos = annotationPosition(for: peak, peakPosition: peakPosition, frame: frame)
-                                    let annotationX = annPos.x
-                                    let annotationY = annPos.y
-
-                                    VStack(spacing: 6) {
-                                        // A manual override is italic with a trailing " *" — the one
-                                        // convention used everywhere (list, live annotation, PDF, tables).
-                                        Text(peakModeLabel(for: peak) + (isManualOverride(peak) ? " *" : ""))
-                                            .font(.system(size: 16, weight: .bold))
-                                            .italic(isManualOverride(peak))
-                                            .foregroundColor(peakColor(for: peak))
-
-                                        // Only show pitch info for guitar mode
-                                        if measurementType.isGuitar, let pitchNote = peak.pitchNote {
-                                            let sign = (peak.pitchCents ?? 0) >= 0 ? "+" : ""
-                                            let centsStr = peak.pitchCents.map { "\(sign)\(Int($0.rounded())) ¢" } ?? ""
-                                            HStack(spacing: 4) {
-                                                Image(systemName: "music.note")
-                                                    .font(.system(size: 14))
-                                                    .foregroundColor(.purple)
-                                                Text(pitchNote)
-                                                    .font(.system(size: 16, weight: .bold))
-                                                    .foregroundColor(.purple)
-                                                if !centsStr.isEmpty {
-                                                    Text(centsStr)
-                                                        .font(.system(size: 14))
-                                                        .foregroundColor(.purple.opacity(0.8))
-                                                }
+                            // Mode boundaries
+                            if showModeBoundaries {
+                                ForEach(visibleModeBoundaries, id: \.frequency) { boundary in
+                                    RuleMark(x: .value("Boundary", boundary.frequency))
+                                        .foregroundStyle(Palette.color(boundary.mode).opacity(ChartStyle.export.modeBoundaryOpacity))
+                                        .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.modeBoundaryWidth,
+                                                               dash: ChartStyle.export.modeBoundaryDash))
+                                        .annotation(
+                                            position: .top,
+                                            alignment: .center,
+                                            spacing: 4,
+                                            overflowResolution: .init(x: .fit, y: .fit(to: .plot))
+                                        ) {
+                                            if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
+                                                Text(boundary.mode.abbreviation)
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .foregroundColor(Palette.color(boundary.mode))
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(Palette.color(boundary.mode).opacity(0.15))
+                                                    .cornerRadius(6)
                                             }
                                         }
+                                }
+                            }
 
-                                        Text(peak.frequency.formattedAsFrequency())
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(.primary)
-
-                                        Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.secondary)
+                            // Peak markers only (no inline annotations)
+                            // Peaks below minDB are hidden entirely — not clamped to the bottom.
+                            ForEach(visiblePeaks.filter { $0.magnitude >= minDB }) { peak in
+                                let clampedMag = min(maxDB, peak.magnitude)
+                                PointMark(
+                                    x: .value("Frequency", peak.frequency),
+                                    y: .value("Magnitude", clampedMag)
+                                )
+                                .foregroundStyle(peakColor(for: peak))
+                                .symbolSize(ChartStyle.export.dotArea)
+                            }
+                        }
+                        // Charts warns and falls back when handed an EMPTY scale, and this chart re-renders
+                        // once per FFT frame — thousands of warnings in guitar mode, where materialSpectra is
+                        // always []. The series content above is already guarded by `if !materialSpectra.isEmpty`;
+                        // this modifier was not. A single placeholder keeps the scale non-empty and shows
+                        // nothing, because the legend is hidden on the next line.
+                        .chartForegroundStyleScale(
+                            domain: materialSpectra.isEmpty ? [""] : materialSpectra.map { $0.label },
+                            range: materialSpectra.isEmpty ? [Color.clear] : materialSpectra.map { $0.color }
+                        )
+                        .chartLegend(.hidden)
+                        .chartPlotStyle { plotArea in
+                            // Clipped: the spectrum is drawn through the chart's edges and cut off by them.
+                            plotArea.border(Palette.color(.chartBorder), width: 1).clipped()
+                        }
+                        .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: .linear)
+                        .chartYScale(domain: Double(minDB)...Double(maxDB))
+                        .chartXAxis {
+                            AxisMarks(values: frequencyAxisValues) { value in
+                                AxisValueLabel {
+                                    if let doubleValue = value.as(Double.self) {
+                                        Text(AxisTickGenerator.formatTickLabel(doubleValue))
+                                            .font(.system(size: 12))
                                     }
-                                    .padding(10)
-                                    .background(Color.white.opacity(0.95))
-                                    .cornerRadius(10)
-                                    .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
-                                    .position(x: annotationX, y: annotationY)
+                                }
+                                AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.export.gridWidth))
+                                    .foregroundStyle(Palette.color(.chartGrid))
+                            }
+                        }
+                        .chartYAxis {
+                            AxisMarks(position: .leading, values: .stride(by: ChartStyle.export.magnitudeStride ?? 20)) { _ in
+                                AxisValueLabel()
+                                    .font(.system(size: 12))
+                                AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.export.gridWidth))
+                                    .foregroundStyle(Palette.color(.chartGrid))
+                            }
+                        }
+                        .chartOverlay { proxy in
+                            // Use ChartProxy for accurate positioning
+                            GeometryReader { geometry in
+                                if let plotFrame = proxy.plotFrame {
+                                    let frame = geometry[plotFrame]
+
+                                    // Connection lines layer
+                                    ForEach(visiblePeaks) { peak in
+                                        if let peakX = proxy.position(forX: peak.frequency),
+                                           let peakY = proxy.position(forY: Double(peak.magnitude)) {
+                                            let peakPosition = CGPoint(x: frame.minX + peakX, y: frame.minY + peakY)
+                                            let annPos = annotationPosition(for: peak, peakPosition: peakPosition, frame: frame)
+                                            ConnectionLineShape(
+                                                from: CGPoint(x: annPos.x, y: annPos.y + 50),
+                                                to: peakPosition
+                                            )
+                                            .stroke(peakColor(for: peak).opacity(ChartStyle.export.leaderOpacity),
+                                                    style: StrokeStyle(lineWidth: ChartStyle.export.leaderWidth,
+                                                                       dash: ChartStyle.export.leaderDash))
+                                        }
+                                    }
+
+                                    // Annotations layer
+                                    ForEach(visiblePeaks) { peak in
+                                        if let peakX = proxy.position(forX: peak.frequency),
+                                           let peakY = proxy.position(forY: Double(peak.magnitude)) {
+                                            let peakPosition = CGPoint(x: frame.minX + peakX, y: frame.minY + peakY)
+                                            let annPos = annotationPosition(for: peak, peakPosition: peakPosition, frame: frame)
+                                            let annotationX = annPos.x
+                                            let annotationY = annPos.y
+
+                                            VStack(spacing: 6) {
+                                                // A manual override is italic with a trailing " *" — the one
+                                                // convention used everywhere (list, live annotation, PDF, tables).
+                                                Text(peakModeLabel(for: peak) + (isManualOverride(peak) ? " *" : ""))
+                                                    .font(.system(size: 16, weight: .bold))
+                                                    .italic(isManualOverride(peak))
+                                                    .foregroundColor(peakColor(for: peak))
+
+                                                // Only show pitch info for guitar mode
+                                                if measurementType.isGuitar, let pitchNote = peak.pitchNote {
+                                                    let sign = (peak.pitchCents ?? 0) >= 0 ? "+" : ""
+                                                    let centsStr = peak.pitchCents.map { "\(sign)\(Int($0.rounded())) ¢" } ?? ""
+                                                    HStack(spacing: 4) {
+                                                        Image(systemName: "music.note")
+                                                            .font(.system(size: 14))
+                                                            .foregroundColor(Palette.color(.peakPitch))
+                                                        Text(pitchNote)
+                                                            .font(.system(size: 16, weight: .bold))
+                                                            .foregroundColor(Palette.color(.peakPitch))
+                                                        if !centsStr.isEmpty {
+                                                            Text(centsStr)
+                                                                .font(.system(size: 14))
+                                                                .foregroundColor(Palette.color(.peakPitch).opacity(0.8))
+                                                        }
+                                                    }
+                                                }
+
+                                                Text(peak.frequency.formattedAsFrequency())
+                                                    .font(.system(size: 14, weight: .medium))
+                                                    .foregroundColor(Palette.color(.textPrimary))
+
+                                                Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
+                                                    .font(.system(size: 13))
+                                                    .foregroundColor(Palette.color(.textSecondary))
+                                            }
+                                            .padding(10)
+                                            .background(Palette.color(.chartReadoutBackground))
+                                            .cornerRadius(10)
+                                            .shadow(color: Palette.color(.scrim).opacity(0.5), radius: 4, x: 0, y: 2)
+                                            .position(x: annotationX, y: annotationY)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
+                    ChartAxisTitle(text: "Frequency (Hz)", font: .system(size: 16, weight: .medium))
                 }
             }
         }
@@ -536,10 +531,10 @@ func makeExportableSpectrumView(
         return "Peak"
     }
     let roleColor: (ResonantPeak) -> Color = { peak in
-        if peak.id == selectedLongitudinalPeakID { return .blue }
-        if peak.id == selectedCrossPeakID { return .orange }
-        if peak.id == selectedFlcPeakID { return .purple }
-        return .secondary
+        if peak.id == selectedLongitudinalPeakID { return Palette.color(.materialLongitudinal) }
+        if peak.id == selectedCrossPeakID { return Palette.color(.materialCross) }
+        if peak.id == selectedFlcPeakID { return Palette.color(.materialFlc) }
+        return Palette.color(.materialUnselected)
     }
 
     return VStack(alignment: .leading, spacing: 16) {
@@ -552,7 +547,7 @@ func makeExportableSpectrumView(
             HStack {
                 Text("Date: \(dateLabel)")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
 
                 Spacer()
 
@@ -561,7 +556,7 @@ func makeExportableSpectrumView(
                     .fontWeight(.semibold)
 
                 Text("•")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
 
                 Text("\(Int(minDB)) to \(Int(maxDB)) dB")
                     .font(.subheadline)
@@ -573,20 +568,20 @@ func makeExportableSpectrumView(
                 HStack(spacing: 4) {
                     Text("Type:")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                     Text(measurementType.rawValue)
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
 
                 Text("•")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
 
                 // Platform
                 HStack(spacing: 4) {
                     Text("Platform:")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                     Text(platform)
                         .font(.subheadline)
                         .fontWeight(.medium)
@@ -594,13 +589,13 @@ func makeExportableSpectrumView(
 
                 if !softwareVersion.isEmpty {
                     Text("•")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     // Software version
                     HStack(spacing: 4) {
                         Text("GuitarTap")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                         Text("v\(softwareVersion)")
                             .font(.subheadline)
                             .fontWeight(.medium)
@@ -613,11 +608,11 @@ func makeExportableSpectrumView(
             if !materialSpectra.isEmpty {
                 Text("Comparing \(materialSpectra.count) measurements")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             } else if !peaks.isEmpty {
                 Text("Detected Peaks: \(peaks.count)")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
         }
         .padding()
@@ -684,7 +679,7 @@ func makeExportableSpectrumView(
                                 .foregroundColor(chipColor)
                             Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
                                 .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Palette.color(.textSecondary))
                         }
                         .padding(8)
                         .background(chipColor.opacity(0.1))
@@ -733,7 +728,7 @@ func makeExportableSpectrumView(
             .padding()
         }
     }
-    .background(Color.white)
+    .background(Palette.color(.chartBackground))
     .padding()
 }
 // MARK: - Render Spectrum Image for Measurement
@@ -756,13 +751,13 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
 
     var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
     if let longSnap = measurement.longitudinalSnapshot {
-        materialSpectra.append((longSnap.magnitudes, longSnap.frequencies, .blue, "Longitudinal (fL)"))
+        materialSpectra.append((longSnap.magnitudes, longSnap.frequencies, Palette.color(.materialLongitudinal), "Longitudinal (fL)"))
     }
     if let crossSnap = measurement.crossSnapshot {
-        materialSpectra.append((crossSnap.magnitudes, crossSnap.frequencies, .orange, "Cross-grain (fC)"))
+        materialSpectra.append((crossSnap.magnitudes, crossSnap.frequencies, Palette.color(.materialCross), "Cross-grain (fC)"))
     }
     if let flcSnap = measurement.flcSnapshot {
-        materialSpectra.append((flcSnap.magnitudes, flcSnap.frequencies, .purple, "Diagonal (fLC)"))
+        materialSpectra.append((flcSnap.magnitudes, flcSnap.frequencies, Palette.color(.materialFlc), "Diagonal (fLC)"))
     }
 
     let measurementType = snap.measurementType ?? .generic
@@ -799,7 +794,7 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
         chartTitle: "FFT Peaks — \(measurement.measurementName ?? "New")"
     )
 
-    let renderer = ImageRenderer(content: compositeView)
+    let renderer = ImageRenderer(content: compositeView.environment(\.colorScheme, .light))
     renderer.scale = 2.0
 
     #if os(iOS)
@@ -861,7 +856,7 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? 
         chartTitle: "Tap Comparison — \(measurement.measurementName ?? "Multi-Tap")"
     )
 
-    let renderer = ImageRenderer(content: compositeView)
+    let renderer = ImageRenderer(content: compositeView.environment(\.colorScheme, .light))
     renderer.scale = 2.0
 
     #if os(iOS)
@@ -891,9 +886,8 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? 
 func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) -> Data? {
     guard let entries = measurement.comparisonEntries else { return nil }
 
-    let comparisonSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = entries.map { entry in
-        let c = entry.colorComponents
-        let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
+    let comparisonSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = entries.enumerated().map { index, entry in
+        let color = Palette.comparisonColor(index: index, label: entry.label)
         return (magnitudes: entry.snapshot.magnitudes, frequencies: entry.snapshot.frequencies,
                 color: color, label: entry.label)
     }
@@ -912,7 +906,7 @@ func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) -> Data
         chartTitle: "Comparison — \(measurement.measurementName ?? "Comparison")"
     )
 
-    let renderer = ImageRenderer(content: compositeView)
+    let renderer = ImageRenderer(content: compositeView.environment(\.colorScheme, .light))
     renderer.scale = 2.0
 
     #if os(iOS)

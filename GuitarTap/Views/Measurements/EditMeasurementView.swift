@@ -106,14 +106,14 @@ struct EditMeasurementView: View {
                 TextEditor(text: $notes)
                     .font(.body)
                     .frame(minHeight: 80, idealHeight: 120)
-                    .background(Color(NSColor.textBackgroundColor))
+                    .background(Palette.color(.backgroundControl))
                     .overlay(
                         RoundedRectangle(cornerRadius: 4)
-                            .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                            .stroke(Palette.color(.separator), lineWidth: 0.5)
                     )
                 Text("Add any observations about this measurement")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
 
             Spacer()
@@ -139,7 +139,7 @@ struct EditMeasurementView: View {
             } footer: {
                 Text("Add any observations about this measurement")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
         }
         .formStyle(.grouped)

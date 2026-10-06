@@ -142,12 +142,12 @@ struct FFTAnalysisMetricsView: View {
             // Status indicator
             HStack {
                 Circle()
-                    .fill(analyzer.isRunning ? Color.green : Color.gray)
+                    .fill(Palette.color(analyzer.isRunning ? .statusRunning : .statusStopped))
                     .frame(width: 8, height: 8)
                 
                 Text(analyzer.isRunning ? "Analyzing" : "Stopped")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
         }
         .padding()
@@ -165,26 +165,26 @@ struct FFTAnalysisMetricsView: View {
         let ratio = timeMs / frameTimeMs
         
         if ratio < 0.5 {
-            return .green
+            return Palette.color(.metricGood)
         } else if ratio < 0.8 {
-            return .yellow
+            return Palette.color(.metricFair)
         } else if ratio < 0.95 {
-            return .orange
+            return Palette.color(.metricHigh)
         } else {
-            return .red
+            return Palette.color(.metricOverload)
         }
     }
     
     /// Returns a color indicating CPU usage level
     private func cpuUsageColor(_ usage: Float) -> Color {
         if usage < 50 {
-            return .green
+            return Palette.color(.metricGood)
         } else if usage < 80 {
-            return .yellow
+            return Palette.color(.metricFair)
         } else if usage < 95 {
-            return .orange
+            return Palette.color(.metricHigh)
         } else {
-            return .red
+            return Palette.color(.metricOverload)
         }
     }
 }
@@ -194,18 +194,18 @@ struct MetricRow: View {
     let label: String
     let value: String
     let subtitle: String
-    var valueColor: Color = .primary
+    var valueColor: Color = Palette.color(.textPrimary)
     
     var body: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.subheadline)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Palette.color(.textPrimary))
                 
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
             
             Spacer()

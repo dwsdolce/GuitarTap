@@ -65,7 +65,7 @@ struct MeasurementDetailView: View {
                                 HStack {
                                     Text("Measurement Name:")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Palette.color(.textSecondary))
                                     Text(measurementName)
                                         .font(.body)
                                         .fontWeight(.medium)
@@ -75,7 +75,7 @@ struct MeasurementDetailView: View {
                             HStack {
                                 Text("Date:")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Palette.color(.textSecondary))
                                 Text(DateDisplay.string(measurement.timestamp))
                                     .font(.body)
                             }
@@ -83,7 +83,7 @@ struct MeasurementDetailView: View {
                             HStack {
                                 Text("Measurement Type:")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Palette.color(.textSecondary))
                                 Text(measurement.measurementTypeShortName)
                                     .font(.body)
                             }
@@ -92,7 +92,7 @@ struct MeasurementDetailView: View {
                                 HStack {
                                     Text("Number of Taps:")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Palette.color(.textSecondary))
                                     Text("\(taps)")
                                         .font(.body)
                                 }
@@ -104,7 +104,7 @@ struct MeasurementDetailView: View {
                                 HStack {
                                     Text("Microphone:")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Palette.color(.textSecondary))
                                     Text(measurement.microphoneName ?? "unknown")
                                         .font(.body)
                                 }
@@ -114,7 +114,7 @@ struct MeasurementDetailView: View {
                                 HStack {
                                     Text("Calibration:")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Palette.color(.textSecondary))
                                     Text(cal)
                                         .font(.body)
                                 }
@@ -124,7 +124,7 @@ struct MeasurementDetailView: View {
                                 Divider()
                                 Text("Notes:")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Palette.color(.textSecondary))
                                 Text(notes)
                                     .font(.body)
                             }
@@ -136,14 +136,8 @@ struct MeasurementDetailView: View {
                     // else shows the identified (selected) peaks only.
                     if let entries = measurement.comparisonEntries {
                         GroupBox("Compared Spectra (\(entries.count))") {
-                            ComparisonResultsView(spectra: entries.map { entry in
-                                let c = entry.colorComponents
-                                let color = Color(
-                                    red: c.indices.contains(0) ? c[0] : 0,
-                                    green: c.indices.contains(1) ? c[1] : 0,
-                                    blue: c.indices.contains(2) ? c[2] : 1,
-                                    opacity: c.indices.contains(3) ? c[3] : 1
-                                )
+                            ComparisonResultsView(spectra: entries.enumerated().map { index, entry in
+                                let color = Palette.comparisonColor(index: index, label: entry.label)
                                 return (magnitudes: entry.snapshot.magnitudes,
                                         frequencies: entry.snapshot.frequencies,
                                         color: color,
@@ -168,7 +162,7 @@ struct MeasurementDetailView: View {
                         GroupBox("Identified Peaks") {
                             if shownPeaks.isEmpty {
                                 Text("No identified peaks")
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Palette.color(.textSecondary))
                                     .frame(maxWidth: .infinity)
                                     .padding()
                             } else {

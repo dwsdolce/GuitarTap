@@ -46,29 +46,29 @@ extension TapSettingsView {
                 HStack {
                     Text("Minimum:")
                         .frame(width: 80, alignment: .leading)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                     ValidatedNumberField(text: minBinding, decimals: decimals,
                                          placeholder: "Min", allowsNegative: unit == "dB")
                     Text(unit)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                         .frame(width: 30, alignment: .leading)
                 }
 
                 HStack {
                     Text("Maximum:")
                         .frame(width: 80, alignment: .leading)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                     ValidatedNumberField(text: maxBinding, decimals: decimals,
                                          placeholder: "Max", allowsNegative: unit == "dB")
                     Text(unit)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                         .frame(width: 30, alignment: .leading)
                 }
             }
 
             Text(description)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 4)
@@ -95,20 +95,20 @@ extension TapSettingsView {
                     .frame(maxWidth: 100)
 
                 Text("to")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
 
                 ValidatedNumberField(text: maxBinding, decimals: decimals,
                                      placeholder: "Max", allowsNegative: unit == "dB")
                     .frame(maxWidth: 100)
 
                 Text(unit)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                     .font(.body)
             }
 
             Text(description)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 4)
@@ -128,10 +128,10 @@ extension TapSettingsView {
     func modeRangeRow(_ label: String, range: ClosedRange<Float>) -> some View {
         HStack(spacing: 4) {
             Text(label)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
                 .frame(width: 50, alignment: .leading)
             Text("\(Int(range.lowerBound))-\(Int(range.upperBound)) Hz")
-                .foregroundColor(.primary)
+                .foregroundColor(Palette.color(.textPrimary))
         }
     }
 }

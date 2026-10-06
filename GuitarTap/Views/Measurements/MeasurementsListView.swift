@@ -192,7 +192,7 @@ struct MeasurementsListView: View {
                     Section {
                         Text("Total: \(analyzer.savedMeasurements.count) measurement\(analyzer.savedMeasurements.count == 1 ? "" : "s")")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.color(.textSecondary))
                     }
                     
                     ForEach(Array(analyzer.savedMeasurements.enumerated()), id: \.offset) { index, measurement in
@@ -586,7 +586,7 @@ struct MeasurementsListView: View {
                 let selected = selectedCompareIndices.contains(index)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundColor(selected ? .accentColor : (comparable ? .secondary : .secondary.opacity(0.4)))
+                    .foregroundColor(selected ? Palette.color(.accentText) : Palette.color(.textSecondary).opacity(comparable ? 1 : 0.4))
                 MeasurementRowView(measurement: measurement, isHovered: isHovered) { rowMenuContents(index: index, measurement: measurement) }
                     .opacity(comparable ? 1.0 : 0.4)
             }

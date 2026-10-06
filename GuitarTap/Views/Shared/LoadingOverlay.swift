@@ -21,7 +21,7 @@ struct LoadingOverlay: View {
     
     var body: some View {
         ZStack {
-            Color.black.opacity(0.3)
+            Palette.color(.scrim)
                 .ignoresSafeArea()
             
             VStack(spacing: 16) {
@@ -29,10 +29,10 @@ struct LoadingOverlay: View {
                     .scaleEffect(1.5)
                 Text(message)
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(Palette.color(.textOnColor))
             }
             .padding(30)
-            .background(Color.secondary.opacity(0.8))
+            .background(Palette.color(.overlayCard))
             .cornerRadius(12)
         }
     }

@@ -540,7 +540,13 @@ struct SpectrumView: View {
             .padding(.bottom, 8)
 
             ZStack(alignment: .topTrailing) {
-                chartView
+                HStack(spacing: 4) {
+                    ChartAxisTitle(text: "FFT Magnitude (dB)", font: .caption, vertical: true)
+                    VStack(spacing: 4) {
+                        chartView
+                        ChartAxisTitle(text: "Frequency (Hz)", font: .caption)
+                    }
+                }
                 materialSpectraLegend
                     .padding(.top, 8)
                     .padding(.trailing, 12)
@@ -574,14 +580,7 @@ struct SpectrumView: View {
     private var chartView: some View {
         baseChart
             .chartXAxis { xAxisContent }
-            .chartXAxisLabel(alignment: .center) {
-                Text("Frequency (Hz)")
-            }
             .chartYAxis { yAxisContent }
-            .chartYAxisLabel(position: .leading, alignment: .center) {
-                Text("FFT Magnitude (dB)")
-                    .rotationEffect(.degrees(180))
-            }
             // Only allow chart gestures when not dragging annotations and not in crosshair mode
             #if os(macOS)
             .simultaneousGesture(isAnnotationDragging ? nil : zoomGesture)
@@ -1281,7 +1280,7 @@ private struct ChartOptionsSheet: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Palette.color(.textSecondary))
             .padding(.horizontal, 16)
             .padding(.top, 4)
             .padding(.bottom, 2)

@@ -34,7 +34,7 @@ struct MeasurementRowView<MenuItems: View>: View {
         } label: {
             Image(systemName: "ellipsis.circle")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
@@ -88,15 +88,15 @@ struct MeasurementRowView<MenuItems: View>: View {
                 HStack(spacing: 6) {
                     Image(systemName: "chart.bar.doc.horizontal")
                         .font(.caption)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Palette.color(.accentText))
 
                     Text(DateDisplay.string(measurement.timestamp))
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     ellipsisMenu
                 }
@@ -104,12 +104,12 @@ struct MeasurementRowView<MenuItems: View>: View {
 
             Text("\(count) spectra compared")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.color(.textSecondary))
 
             if let notes = measurement.notes, !notes.isEmpty {
                 Text(notes)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                     .lineLimit(2)
             }
         }
@@ -136,17 +136,17 @@ struct MeasurementRowView<MenuItems: View>: View {
                     if measurement.spectrumSnapshot != nil {
                         Image(systemName: "waveform")
                             .font(.caption)
-                            .foregroundColor(.green)
+                            .foregroundColor(Palette.color(.statusComplete))
                     }
                     
                     Text(DateDisplay.string(measurement.timestamp))
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     // Disclosure chevron — standard affordance for a clickable detail row
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
 
                     ellipsisMenu
                 }
@@ -167,12 +167,12 @@ struct MeasurementRowView<MenuItems: View>: View {
                 }
             }
             .font(.caption)
-            .foregroundColor(.secondary)
+            .foregroundColor(Palette.color(.textSecondary))
             
             if let notes = measurement.notes, !notes.isEmpty {
                 Text(notes)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
                     .lineLimit(2)
             }
         }

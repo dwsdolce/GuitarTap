@@ -372,27 +372,27 @@ extension TapToneAnalysisView {
                 Button(action: { showingPlayFileSheet = true }) {
                     Image(systemName: "waveform.badge.plus")
                 }
-                .tint(fft.isPlayingFile ? .orange : .blue)
+                .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
                 .accessibilityLabel("Play File")
                 .help("Feed an audio file through the analysis pipeline")
 
                 Button(action: { toggleAutoScale() }) {
                     Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .accessibilityLabel("Auto dB")
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                 Button(action: { crosshairMode.toggle() }) {
                     Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                 }
-                .tint(crosshairMode ? .blue : nil)
+                .tint(crosshairMode ? Palette.color(.accent) : nil)
                 .accessibilityLabel("Crosshair")
 
                 Button(action: { tap.cycleAnnotationVisibility() }) {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
             }
@@ -448,7 +448,7 @@ extension TapToneAnalysisView {
                 .padding(8)
             }
             .frame(width: 200)
-            .background(Color.secondary.opacity(0.05))
+            .background(Palette.color(.backgroundSubtle))
 
             Divider()
 
@@ -471,7 +471,7 @@ extension TapToneAnalysisView {
             if showingResults {
                 ZStack(alignment: .trailing) {
                     // Dimming backdrop — tap anywhere off the panel to dismiss.
-                    Color.black.opacity(0.35)
+                    Palette.color(.scrim)
                         .ignoresSafeArea()
                         .onTapGesture { showingResults = false }
                         .transition(.opacity)
@@ -487,7 +487,7 @@ extension TapToneAnalysisView {
                     )
                     .frame(width: 420)
                     .frame(maxHeight: .infinity)
-                    .background(Color(.systemBackground))
+                    .background(Palette.color(.backgroundPanel))
                     .overlay(alignment: .leading) { Divider() }
                     .transition(.move(edge: .trailing))
                 }
@@ -508,26 +508,26 @@ extension TapToneAnalysisView {
                 Button(action: { showingPlayFileSheet = true }) {
                     Image(systemName: "waveform.badge.plus")
                 }
-                .tint(fft.isPlayingFile ? .orange : .blue)
+                .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
                 .accessibilityLabel("Play File")
 
                 Button(action: { toggleAutoScale() }) {
                     Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .accessibilityLabel("Auto dB")
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                 Button(action: { crosshairMode.toggle() }) {
                     Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                 }
-                .tint(crosshairMode ? .blue : nil)
+                .tint(crosshairMode ? Palette.color(.accent) : nil)
                 .accessibilityLabel("Crosshair")
 
                 Button(action: { tap.cycleAnnotationVisibility() }) {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
-                .tint(.blue)
+                .tint(Palette.color(.accent))
                 .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty)
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
             }
@@ -598,11 +598,11 @@ extension TapToneAnalysisView {
                 HStack(spacing: 4) {
                     Text("Threshold:")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                     Text("\(Int(tap.tapDetectionThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Palette.color(.accentText))
                     Spacer()
                     thresholdResetButton
                 }
@@ -623,11 +623,11 @@ extension TapToneAnalysisView {
                 HStack(spacing: 4) {
                     Text("Peak Min:")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Palette.color(.textSecondary))
                     Text("\(Int(tap.peakMinThreshold)) dB")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.green)
+                        .foregroundColor(Palette.color(.chartPeakMin))
                     Spacer()
                     peakMinResetButton
                 }
@@ -675,7 +675,7 @@ extension TapToneAnalysisView {
                     }
                 }
                 .buttonStyle(.bordered)
-                .tint(isInReviewPhase ? .green : nil)
+                .tint(isInReviewPhase ? Palette.color(.statusComplete) : nil)
                 .disabled(!pauseResumeButtonEnabled)
                 .hint(isInReviewPhase ? "Accept this tap and continue" :
                       tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
@@ -692,7 +692,7 @@ extension TapToneAnalysisView {
                     Label(label, systemImage: icon)
                         .font(.caption)
                         .frame(maxWidth: .infinity)
-                        .foregroundStyle(cancelButtonEnabled ? Color.orange : Color.gray)
+                        .foregroundStyle(Palette.color(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 }
                 .buttonStyle(.bordered)
                 .disabled(!cancelButtonEnabled)
@@ -714,7 +714,7 @@ extension TapToneAnalysisView {
                         .fontWeight(.semibold)
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
-                        .tint(Palette.blue) // see the note on the fullStatusBar bar
+                        .tint(Palette.color(.statusProgress))
                 }
             }
         }
@@ -784,13 +784,13 @@ extension TapToneAnalysisView {
                     Button(action: { showingPlayFileSheet = true }) {
                         Image(systemName: "waveform.badge.plus")
                     }
-                    .tint(fft.isPlayingFile ? .orange : .blue)
+                    .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
                     .accessibilityLabel("Play File")
 
                     Button(action: { toggleAutoScale() }) {
                         Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                     }
-                    .tint(.blue)
+                    .tint(Palette.color(.accent))
                     .accessibilityLabel("Auto dB")
                     .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
                 }
@@ -821,27 +821,27 @@ extension TapToneAnalysisView {
                     Button(action: { showingPlayFileSheet = true }) {
                         Image(systemName: "waveform.badge.plus")
                     }
-                    .tint(fft.isPlayingFile ? .orange : .blue)
+                    .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
                     .accessibilityLabel("Play File")
                     .help("Feed an audio file through the analysis pipeline")
 
                     Button(action: { toggleAutoScale() }) {
                         Image(systemName: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                     }
-                    .tint(.blue)
+                    .tint(Palette.color(.accent))
                     .accessibilityLabel("Auto dB")
                     .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                     Button(action: { crosshairMode.toggle() }) {
                         Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                     }
-                    .tint(crosshairMode ? .blue : nil)
+                    .tint(crosshairMode ? Palette.color(.accent) : nil)
                     .accessibilityLabel("Crosshair")
 
                     Button(action: { tap.cycleAnnotationVisibility() }) {
                         Image(systemName: tap.annotationVisibilityMode.iconName)
                     }
-                    .tint(.blue)
+                    .tint(Palette.color(.accent))
                     .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
                     .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
                 }

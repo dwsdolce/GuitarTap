@@ -64,7 +64,7 @@ extension TapToneAnalysisView {
 
         // Render current spectrum to PNG data (same technique as save/exportSpectrum)
         let spectrumView = createExportableSpectrumView()
-        let imageRenderer = ImageRenderer(content: spectrumView)
+        let imageRenderer = ImageRenderer(content: spectrumView.environment(\.colorScheme, .light))
         imageRenderer.scale = displayScale
 
         var spectrumImageData: Data?
@@ -176,7 +176,7 @@ extension TapToneAnalysisView {
 
         // Render the comparison overlay chart to PNG
         let spectrumView = createExportableSpectrumView()
-        let imageRenderer = ImageRenderer(content: spectrumView)
+        let imageRenderer = ImageRenderer(content: spectrumView.environment(\.colorScheme, .light))
         imageRenderer.scale = displayScale
 
         var spectrumImageData: Data?
@@ -262,7 +262,7 @@ extension TapToneAnalysisView {
         // ── Page 1: averaged spectrum image ──────────────────────────────────
         // Always rendered from the frozen averaged spectrum, independent of displayMode.
         let avgSpectrumView = createAveragedSpectrumView()
-        let avgRenderer = ImageRenderer(content: avgSpectrumView)
+        let avgRenderer = ImageRenderer(content: avgSpectrumView.environment(\.colorScheme, .light))
         avgRenderer.scale = displayScale
 
         var avgImageData: Data?
@@ -335,7 +335,7 @@ extension TapToneAnalysisView {
 
         // ── Page 2: comparison overlay spectrum image ─────────────────────────
         let cmpSpectrumView = createMultiTapComparisonSpectrumView()
-        let cmpRenderer = ImageRenderer(content: cmpSpectrumView)
+        let cmpRenderer = ImageRenderer(content: cmpSpectrumView.environment(\.colorScheme, .light))
         cmpRenderer.scale = displayScale
 
         var cmpImageData: Data?
@@ -389,9 +389,8 @@ extension TapToneAnalysisView {
         // Per-tap rows show each tap's OWN auto-classification; the Averaged row uses the DEFINITIVE
         // (override-aware) modes and tags any overridden value — the multi-tap taps table's rule.
         let avgInfo = tap.definitiveModeInfo()
-        let modeFrequencies = cmpEntries.map { entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
-            let c = entry.colorComponents
-            let color = Color(red: c[0], green: c[1], blue: c[2], opacity: c.count >= 4 ? c[3] : 1.0)
+        let modeFrequencies = cmpEntries.enumerated().map { index, entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
+            let color = Palette.comparisonColor(index: index, label: entry.label)
             if entry.label == "Averaged" {
                 return (entry.label, color, avgInfo[.air]?.frequency, avgInfo[.top]?.frequency,
                         avgInfo[.back]?.frequency, Set(avgInfo.filter { $0.value.isOverride }.keys))

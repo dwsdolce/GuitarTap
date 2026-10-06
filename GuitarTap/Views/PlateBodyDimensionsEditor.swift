@@ -87,7 +87,7 @@ struct PlateBodyDimensionsEditor: View {
             if !unit.isEmpty {
                 Text(unit)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Palette.color(.textSecondary))
             }
         }
     }
