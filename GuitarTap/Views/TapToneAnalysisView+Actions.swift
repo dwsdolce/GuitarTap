@@ -307,6 +307,12 @@ extension TapToneAnalysisView {
         gtLog("📏 Auto-scaled dB range: \(String(format: "%.1f", minDB)) to \(String(format: "%.1f", maxDB)) dB (signal range: \(String(format: "%.1f", minMag)) to \(String(format: "%.1f", maxMag)) dB)")
     }
 
+    /// Auto dB as a two-state toggle — on, the platform draws the button selected. Setting it runs
+    /// `toggleAutoScale()`, which scales (or resets) the range as it flips the state.
+    var autoScaleBinding: Binding<Bool> {
+        Binding(get: { isAutoScaleEnabled }, set: { _ in toggleAutoScale() })
+    }
+
     /// Toggles auto-scale mode on/off
     func toggleAutoScale() {
         isAutoScaleEnabled.toggle()

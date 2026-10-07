@@ -78,14 +78,16 @@ struct TapAnalysisResultsView: View {
     /// the portrait sheet are unchanged.
     var compactLandscape: Bool = false
 
-    /// Maximum width for instruction text blocks in plate/brace mode (macOS only).
-    /// Provides a finite width inside the .fixedSize panel so text wraps rather than
-    /// expanding the panel. Scales with the system font size. On iOS the sheet has
-    /// unconstrained width so no cap is needed.
+    /// The width the plate/brace instruction block asks for when the macOS panel sizes itself
+    /// (the panel is `.fixedSize`, so it takes its content's ideal width). Asking for only this
+    /// much keeps the instructions from widening the panel; once the panel's width is set, the
+    /// block fills its box and the text wraps at the box's edge. Scales with the system font size.
+    /// On iOS the sheet's width is not set by its content, so no ideal width is needed.
     #if os(macOS)
-    @ScaledMetric(relativeTo: .caption2) private var instructionTextMaxWidth: CGFloat = 240
+    @ScaledMetric(relativeTo: .caption2) private var instructionIdealWidthMac: CGFloat = 240
+    private var instructionIdealWidth: CGFloat? { instructionIdealWidthMac }
     #else
-    private var instructionTextMaxWidth: CGFloat { .infinity }
+    private var instructionIdealWidth: CGFloat? { nil }
     #endif
     
     // Current measurement type
@@ -129,6 +131,7 @@ struct TapAnalysisResultsView: View {
                         Text("Analysis Results")
                             .font(.headline)
                             .fontWeight(.bold)
+                            .foregroundColor(Palette.color(.textPrimary))
 
                         Spacer()
 
@@ -149,16 +152,20 @@ struct TapAnalysisResultsView: View {
                             let multiTapUsable = (analyzer.isMeasurementComplete
                                 && !analyzer.tapEntries.isEmpty)
                                 || analyzer.showingMultiTapComparison
-                            Button {
-                                let show = !analyzer.showingMultiTapComparison
-                                analyzer.showingMultiTapComparison = show
-                                analyzer.applyMultiTapComparisonOverlays(enabled: show)
-                            } label: {
+                            Toggle(isOn: Binding(
+                                get: { analyzer.showingMultiTapComparison },
+                                set: { show in
+                                    analyzer.showingMultiTapComparison = show
+                                    analyzer.applyMultiTapComparisonOverlays(enabled: show)
+                                })
+                            ) {
                                 Label("Taps", systemImage: analyzer.showingMultiTapComparison
                                       ? "waveform.path.badge.minus" : "waveform.path.badge.plus")
                                     .font(.caption)
                             }
+                            .toggleStyle(.button)
                             .buttonStyle(.bordered)
+                            .pointerHoverFill()
                             .controlSize(.mini)
                             .tint(Palette.color(analyzer.showingMultiTapComparison ? .resultsTapsActive : .accent))
                             .disabled(!multiTapUsable)
@@ -210,7 +217,7 @@ struct TapAnalysisResultsView: View {
                                 Image(systemName: "arrow.trianglehead.2.counterclockwise")
                                     .font(.caption)
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.tintedBordered)
                             .controlSize(.mini)
                             .disabled(!analyzer.canReanalyze)
                             .help("Re-analyze peaks from the spectrum using the current settings")
@@ -231,7 +238,9 @@ struct TapAnalysisResultsView: View {
                         // There is deliberately no "Select All": Air, Top and Back can each have only
                         // ONE definitive (selected) peak, so selecting everything is not a state the
                         // model can hold. Select None remains — no definitive peaks is legitimate.
-                        if !sortedPeaksWithModes.isEmpty && !analyzer.showingMultiTapComparison {
+                        // Never for a plate or brace, where peak selection has no purpose.
+                        if measurementType.isGuitar && !sortedPeaksWithModes.isEmpty
+                            && !analyzer.showingMultiTapComparison {
                             HStack(spacing: 8) {
                                 Button {
                                     analyzer.selectNoPeaks()
@@ -239,7 +248,7 @@ struct TapAnalysisResultsView: View {
                                     Image(systemName: "xmark.circle")
                                         .font(.caption)
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.tintedBordered)
                                 .controlSize(.mini)
                                 .disabled(!measurementType.isGuitar || analyzer.selectedPeakIDs.isEmpty)
                                 .help(measurementType.isGuitar ? "Deselect all peaks" : "Peak selection is fixed during plate/brace measurements")
@@ -251,7 +260,7 @@ struct TapAnalysisResultsView: View {
                                         Image(systemName: "wand.and.stars")
                                             .font(.caption)
                                     }
-                                    .buttonStyle(.bordered)
+                                    .buttonStyle(.tintedBordered)
                                     .controlSize(.mini)
                                     .disabled(!analyzer.userHasModifiedPeakSelection)
                                     .help("Reset to automatic mode selection")
@@ -262,14 +271,15 @@ struct TapAnalysisResultsView: View {
                         }
                     }
                 }
-                .padding([.horizontal, .top])
+                .padding(.horizontal)
+                .padding(.top, 8)
                 .padding(.bottom, 8)
 
-                Divider()
+                headerFooterDivider
 
                 // Scrollable peaks list (plus plate/brace properties which can be long)
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 12) {
                         peaksAndModesSection
 
                         // Plate/brace properties scroll with the peaks since they can be tall
@@ -277,45 +287,45 @@ struct TapAnalysisResultsView: View {
                             if measurementType == .plate && analyzer.isMeasurementComplete {
                                 // Sample dimensions first — the measurement's own L/W/T/M, editable
                                 // above the derived results; all plate calculations recompute from these.
-                                Divider()
+                                sectionDivider
                                 sampleDimensionsSection
 
                                 // Body dimensions + panel stiffness (f_vs) — the Gore-only inputs, kept
                                 // separate from the sample and shown just before the target they feed.
-                                Divider()
+                                sectionDivider
                                 plateBodyDimensionsSection
 
                                 // Gore Target Thickness — the end result of the body inputs above
-                                Divider()
+                                sectionDivider
                                 goreThicknessSectionView
 
                                 // Plate Properties and other calculations (GLC lives here, among the moduli)
-                                Divider()
+                                sectionDivider
                                 platePropertiesSection
 
                                 // Process instructions at the end — reference only after measurement
-                                Divider()
+                                sectionDivider
                                 plateProcessInstructionsSection
                             } else if measurementType == .brace && analyzer.isMeasurementComplete {
                                 // Sample dimensions first — editable inputs above the derived results.
-                                Divider()
+                                sectionDivider
                                 sampleDimensionsSection
 
-                                Divider()
+                                sectionDivider
                                 bracePropertiesSection
 
                                 // Process instructions at the end
-                                Divider()
+                                sectionDivider
                                 braceProcessInstructionsSection
                             } else if measurementType == .plate {
                                 // Live plate capture: Measurement Process always visible; the
                                 // Plate Properties stay hidden until all phases are complete.
-                                Divider()
+                                sectionDivider
                                 plateProcessInstructionsSection
                             } else if measurementType == .brace {
                                 // Live brace capture: Measurement Process always visible; brace
                                 // Properties stay hidden until fL is captured.
-                                Divider()
+                                sectionDivider
                                 braceProcessInstructionsSection
                             }
                         }
@@ -333,7 +343,7 @@ struct TapAnalysisResultsView: View {
                 }
                 #endif
 
-                Divider()
+                headerFooterDivider
 
                 // Fixed footer: compact analysis summary + export buttons
                 VStack(alignment: .leading, spacing: 8) {
@@ -359,7 +369,7 @@ struct TapAnalysisResultsView: View {
                                     Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
                                         .fixedSize()
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.tintedBordered)
                                 .controlSize(.small)
                                 .disabled(!analyzer.hasResultToSaveOrExport)
                             }
@@ -370,7 +380,7 @@ struct TapAnalysisResultsView: View {
                                     Label("Export PDF", systemImage: "doc.richtext")
                                         .fixedSize()
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.tintedBordered)
                                 .controlSize(.small)
                                 .disabled(!analyzer.hasResultToSaveOrExport)
                             }
@@ -431,7 +441,7 @@ struct TapAnalysisResultsView: View {
     @ViewBuilder
     private var materialSlotRows: some View {
         let lPeak = analyzer.selectedLongitudinalPeak
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 4) {
             if measurementType == .brace {
                 MaterialPeakRowView(peak: lPeak, isLongitudinal: lPeak != nil, isCross: false,
                                     showCrossButton: false, isSelected: lPeak != nil)
@@ -456,7 +466,7 @@ struct TapAnalysisResultsView: View {
     @ViewBuilder
     private var materialPeakRows: some View {
         if analyzer.isMeasurementComplete {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
                 ForEach(analyzer.materialIdentifiedPeaks.sorted { $0.frequency < $1.frequency }, id: \.id) { peak in
                     MaterialPeakRowView(
                         peak: peak,
@@ -475,7 +485,8 @@ struct TapAnalysisResultsView: View {
     }
 
     private var peaksAndModesSection: some View {
-        GroupBox {
+        // No box: the rows carry their own tints, as in the other editions.
+        VStack(alignment: .leading, spacing: 0) {
             // Multi-tap comparison view: shown when the toggle is active for a completed
             // guitar multi-tap sequence. Replaces the normal averaged peak list.
             // NOTE: displayMode may be .comparison here (needed for chart rendering) — we use
@@ -502,7 +513,7 @@ struct TapAnalysisResultsView: View {
                         .padding()
                 }
             } else {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
                     ForEach(sortedPeaksWithModes, id: \.peak.id) { item in
                         CombinedPeakModeRowView(
                             peak: item.peak,
@@ -563,6 +574,7 @@ struct TapAnalysisResultsView: View {
                         Text("\(FieldPrecision.string(decayTime, FieldPrecision.decayTimeS))s")
                             .font(.subheadline)
                             .fontWeight(.semibold)
+                            .foregroundColor(Palette.color(.textPrimary))
                         Text(decayTime.decayQuality)
                             .font(.caption)
                             .foregroundColor(decayTime.decayQualityColor)
@@ -591,6 +603,7 @@ struct TapAnalysisResultsView: View {
                         Text("\(FieldPrecision.string(ratio, FieldPrecision.decayRatio)):1")
                             .font(.subheadline)
                             .fontWeight(.semibold)
+                            .foregroundColor(Palette.color(.textPrimary))
                         Text(ratio.tapToneRatioQuality)
                             .font(.caption)
                             .foregroundColor(ratio.tapToneRatioQualityColor)
@@ -647,9 +660,9 @@ struct TapAnalysisResultsView: View {
     
     // @parity view/material-results
     private var platePropertiesSection: some View {
-        GroupBox("Plate Properties") {
+        materialSection("Plate Properties") {
             if let props = calculatedPlateProperties {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
                     // Speed of Sound
                     // (fL / fC / fLC are inputs, shown in the peak list above — not repeated here.)
                     propertyRow(
@@ -659,22 +672,21 @@ struct TapAnalysisResultsView: View {
                     )
                     
                     // Young's Modulus (E_L and E_C) plus shear modulus GLC if available
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Young's Modulus (E)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(MaterialType.bodyBold)
                         HStack {
                             Text("L: \(FieldPrecision.string(props.youngsModulusLongGPa, FieldPrecision.youngsModulusGPa)) GPa")
-                                .font(.caption)
+                                .font(MaterialType.body)
                             Spacer()
                             Text("C: \(FieldPrecision.string(props.youngsModulusCrossGPa, FieldPrecision.youngsModulusGPa)) GPa")
-                                .font(.caption)
+                                .font(MaterialType.body)
                         }
                         .foregroundColor(Palette.color(.textSecondary))
                         if let glc = props.goreShearModulus {
                             HStack {
                                 Text("GLC (Shear): \(FieldPrecision.string(glc / 1.0e9, FieldPrecision.shearModulusGPa)) GPa")
-                                    .font(.caption)
+                                    .font(MaterialType.body)
                                     .foregroundColor(Palette.color(.textSecondary))
                                 Spacer()
                             }
@@ -682,55 +694,54 @@ struct TapAnalysisResultsView: View {
                     }
                     
                     // Specific Modulus (E/ρ) - the key metric
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Specific Modulus (E/ρ)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(MaterialType.bodyBold)
                         
                         HStack {
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text("Longitudinal:")
-                                    .font(.caption)
+                                    .font(MaterialType.body)
                                     .foregroundColor(Palette.color(.textSecondary))
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                                     Text(FieldPrecision.string(props.specificModulusLong, FieldPrecision.specificModulus))
-                                        .font(.title2)
+                                        .font(MaterialType.value)
                                         .fontWeight(.bold)
                                         .foregroundColor(Palette.color(props.spruceQualityLong))
                                     Text("GPa/(g/cm³)")
-                                        .font(.caption)
+                                        .font(MaterialType.body)
                                         .foregroundColor(Palette.color(.textSecondary))
                                 }
                                 Text(props.spruceQualityLong.rawValue)
-                                    .font(.caption)
+                                    .font(MaterialType.body)
                                     .fontWeight(.medium)
                                     .foregroundColor(Palette.color(props.spruceQualityLong))
                             }
                             
                             Spacer()
                             
-                            VStack(alignment: .trailing, spacing: 4) {
+                            VStack(alignment: .trailing, spacing: 2) {
                                 Text("Cross-grain:")
-                                    .font(.caption)
+                                    .font(MaterialType.body)
                                     .foregroundColor(Palette.color(.textSecondary))
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                                     Text(FieldPrecision.string(props.specificModulusCross, FieldPrecision.specificModulus))
-                                        .font(.title2)
+                                        .font(MaterialType.value)
                                         .fontWeight(.bold)
                                         .foregroundColor(Palette.color(props.spruceQualityCross))
                                     Text("GPa/(g/cm³)")
-                                        .font(.caption)
+                                        .font(MaterialType.body)
                                         .foregroundColor(Palette.color(.textSecondary))
                                 }
                                 Text(props.spruceQualityCross.rawValue)
-                                    .font(.caption)
+                                    .font(MaterialType.body)
                                     .fontWeight(.medium)
                                     .foregroundColor(Palette.color(props.spruceQualityCross))
                             }
                         }
                     }
                     .padding(.vertical, 4)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 6)
                     .background(Palette.color(.backgroundSubtle))
                     .cornerRadius(8)
                     
@@ -744,43 +755,37 @@ struct TapAnalysisResultsView: View {
                     // Cross/Long Ratio
                     HStack {
                         Text("Cross/Long Ratio:")
-                            .font(.subheadline)
+                            .font(MaterialType.body)
                         Spacer()
                         Text(FieldPrecision.string(props.crossLongRatio, FieldPrecision.crossLongRatio))
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(MaterialType.bodyBold)
                         Text("(typical: 0.04–0.08)")
-                            .font(.caption)
+                            .font(MaterialType.body)
                             .foregroundColor(Palette.color(.textSecondary))
                     }
 
                     // Long/Cross Ratio
                     HStack {
                         Text("Long/Cross Ratio:")
-                            .font(.subheadline)
+                            .font(MaterialType.body)
                         Spacer()
                         Text(FieldPrecision.string(props.longCrossRatio, FieldPrecision.longCrossRatio))
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(MaterialType.bodyBold)
                         Text("(typical: 12–25)")
-                            .font(.caption)
+                            .font(MaterialType.body)
                             .foregroundColor(Palette.color(.textSecondary))
                     }
-
-                    Divider()
 
                     // Overall Quality Assessment
                     HStack {
                         Text("Overall Quality:")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(MaterialType.bodyBold)
                         Spacer()
                         Text(props.overallQuality.rawValue)
-                            .font(.headline)
+                            .font(MaterialType.bodyBold)
                             .fontWeight(.bold)
                             .foregroundColor(Palette.color(props.overallQuality))
                     }
-                    .padding(.vertical, 4)
 
                 }
             } else {
@@ -797,7 +802,7 @@ struct TapAnalysisResultsView: View {
                     }
                     
                     Text("Tip: The longitudinal mode is typically the higher frequency peak")
-                        .font(.caption)
+                        .font(MaterialType.body)
                         .foregroundColor(Palette.color(.textSecondary))
                 }
                 .frame(maxWidth: .infinity)
@@ -812,7 +817,7 @@ struct TapAnalysisResultsView: View {
     @ViewBuilder
     private var goreThicknessSectionView: some View {
         if let props = calculatedPlateProperties {
-            GroupBox("Gore Target Thickness") {
+            materialSection("Gore Target Thickness", boxed: false) {
                 goreThicknessView(for: props)
             }
         }
@@ -834,7 +839,7 @@ struct TapAnalysisResultsView: View {
     @ViewBuilder
     private var sampleDimensionsSection: some View {
         if analyzer.materialInputs != nil {
-            GroupBox("Sample Dimensions") {
+            materialSection("Sample Dimensions") {
                 MaterialDimensionsEditor(inputs: materialInputsBinding)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)
@@ -848,7 +853,7 @@ struct TapAnalysisResultsView: View {
     @ViewBuilder
     private var plateBodyDimensionsSection: some View {
         if analyzer.materialInputs != nil {
-            GroupBox("Body Dimensions") {
+            materialSection("Body Dimensions") {
                 PlateBodyDimensionsEditor(inputs: materialInputsBinding)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)
@@ -873,63 +878,60 @@ struct TapAnalysisResultsView: View {
     }
     
     private var bracePropertiesSection: some View {
-        GroupBox("Brace Properties") {
+        materialSection("Brace Properties") {
             if let props = calculatedBraceProperties {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
                     // Speed of Sound
                     // (fL is an input, shown in the peak list above — not repeated here.)
                     HStack {
                         Text("Speed of Sound:")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(MaterialType.body)
                         Spacer()
                         Text("\(FieldPrecision.string(props.speedOfSoundLong, FieldPrecision.speedOfSoundMS)) m/s")
-                            .font(.subheadline)
+                            .font(MaterialType.bodyBold)
                     }
                     
                     // Young's Modulus
                     HStack {
                         Text("Young's Modulus (E):")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(MaterialType.body)
                         Spacer()
                         Text("\(FieldPrecision.string(props.youngsModulusLongGPa, FieldPrecision.youngsModulusGPa)) GPa")
-                            .font(.subheadline)
+                            .font(MaterialType.bodyBold)
                     }
                     
                     // Specific Modulus — highlighted as the key metric
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Specific Modulus (E/ρ)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(MaterialType.bodyBold)
                         
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text(FieldPrecision.string(props.specificModulusLong, FieldPrecision.specificModulus))
-                                .font(.title2)
+                                .font(MaterialType.value)
                                 .fontWeight(.bold)
                                 .foregroundColor(Palette.color(props.spruceQuality))
                             Text("GPa/(g/cm³)")
-                                .font(.caption)
+                                .font(MaterialType.body)
                                 .foregroundColor(Palette.color(.textSecondary))
                         }
                         Text(props.spruceQuality.rawValue)
-                            .font(.caption)
+                            .font(MaterialType.body)
                             .fontWeight(.medium)
                             .foregroundColor(Palette.color(props.spruceQuality))
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 6)
                     .background(Palette.color(.backgroundSubtle))
                     .cornerRadius(8)
                     
                     // Radiation Ratio
                     HStack {
                         Text("Radiation Ratio (R):")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(MaterialType.body)
                         Spacer()
                         Text(FieldPrecision.string(props.radiationRatioLong, FieldPrecision.radiationRatio))
-                            .font(.subheadline)
+                            .font(MaterialType.bodyBold)
                     }
                 }
             } else {
@@ -937,7 +939,7 @@ struct TapAnalysisResultsView: View {
                     Text("Select the fL (L) peak above to calculate properties")
                         .foregroundColor(Palette.color(.textSecondary))
                     Text("Tip: The dominant peak is auto-selected after tapping")
-                        .font(.caption)
+                        .font(MaterialType.body)
                         .foregroundColor(Palette.color(.textSecondary))
                 }
                 .frame(maxWidth: .infinity)
@@ -970,12 +972,12 @@ struct TapAnalysisResultsView: View {
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundColor(Palette.color(.accentText))
                 Text("mm")
-                    .font(.title3)
+                    .font(.system(size: 12))
                     .foregroundColor(Palette.color(.textSecondary))
                 Spacer()
             }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
             .background(Palette.color(.materialGoreBox))
             .cornerRadius(8)
         }
@@ -988,12 +990,8 @@ struct TapAnalysisResultsView: View {
     @ViewBuilder
     private var plateMeasurementInstructions: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Divider()
-                .padding(.vertical, 4)
-
             Text(includesFlcTap ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
-                .font(.caption)
-                .fontWeight(.semibold)
+                .font(MaterialType.smallBold)
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 6) {
@@ -1003,12 +1001,12 @@ struct TapAnalysisResultsView: View {
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("**1. Longitudinal (fL) Tap**")
-                            .font(.caption2)
+                            .font(MaterialType.small)
                         Text("Hold plate at 22% from one end along the length, near one long edge (not at the width node). Tap center.")
-                            .font(.caption2)
+                            .font(MaterialType.small)
                             .foregroundColor(Palette.color(.textSecondary))
                     }
-                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 HStack(alignment: .top, spacing: 6) {
@@ -1018,12 +1016,12 @@ struct TapAnalysisResultsView: View {
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("**2. Cross-grain (fC) Tap**")
-                            .font(.caption2)
+                            .font(MaterialType.small)
                         Text("Rotate 90°. Hold plate at 22% from one end along the width, near one short edge (not at the length node). Tap center.")
-                            .font(.caption2)
+                            .font(MaterialType.small)
                             .foregroundColor(Palette.color(.textSecondary))
                     }
-                    .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 if includesFlcTap {
@@ -1034,25 +1032,25 @@ struct TapAnalysisResultsView: View {
                             .padding(.top, 2)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("**3. Diagonal (fLC) Tap**")
-                                .font(.caption2)
+                                .font(MaterialType.small)
                             Text("Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
-                                .font(.caption2)
+                                .font(MaterialType.small)
                                 .foregroundColor(Palette.color(.textSecondary))
                         }
-                        .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
-            .frame(maxWidth: instructionTextMaxWidth)
+            .frame(minWidth: 0, idealWidth: instructionIdealWidth, maxWidth: .infinity, alignment: .leading)
 
             Text("The strongest peak from each tap is auto-selected. Redo if needed.")
-                .font(.caption2)
+                .font(MaterialType.small)
                 .foregroundColor(Palette.color(.textSecondary))
                 .italic()
-                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 2)
         }
-        .frame(maxWidth: instructionTextMaxWidth)
+        .frame(minWidth: 0, idealWidth: instructionIdealWidth, maxWidth: .infinity, alignment: .leading)
         .padding(.top, 4)
     }
 
@@ -1060,12 +1058,8 @@ struct TapAnalysisResultsView: View {
     @ViewBuilder
     private var braceMeasurementInstructions: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Divider()
-                .padding(.vertical, 4)
-
             Text("Single-Tap Measurement (fL only):")
-                .font(.caption)
-                .fontWeight(.semibold)
+                .font(MaterialType.smallBold)
 
             HStack(alignment: .top, spacing: 6) {
                 Circle()
@@ -1074,52 +1068,101 @@ struct TapAnalysisResultsView: View {
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("**1. Longitudinal (fL) Tap**")
-                        .font(.caption2)
+                        .font(MaterialType.small)
                     Text("Hold brace at 22% from one end along the length. Tap center.")
-                        .font(.caption2)
+                        .font(MaterialType.small)
                         .foregroundColor(Palette.color(.textSecondary))
                 }
-                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Text("The strongest peak is auto-selected. Redo if needed.")
-                .font(.caption2)
+                .font(MaterialType.small)
                 .foregroundColor(Palette.color(.textSecondary))
                 .italic()
-                .frame(maxWidth: instructionTextMaxWidth, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 2)
         }
-        .frame(maxWidth: instructionTextMaxWidth)
+        .frame(minWidth: 0, idealWidth: instructionIdealWidth, maxWidth: .infinity, alignment: .leading)
         .padding(.top, 4)
     }
 
     /// Process instructions shown at the end of the scroll view after a plate measurement is complete.
     private var plateProcessInstructionsSection: some View {
-        GroupBox("Measurement Process") {
+        materialSection("Measurement Process") {
             plateMeasurementInstructions
         }
     }
 
     /// Process instructions shown at the end of the scroll view after a brace measurement is complete.
     private var braceProcessInstructionsSection: some View {
-        GroupBox("Measurement Process") {
+        materialSection("Measurement Process") {
             braceMeasurementInstructions
         }
     }
 
     // MARK: - Helper Views
 
-    private func propertyRow(title: String, longValue: String, crossValue: String) -> some View {
+    /// The plate / brace panel's type, the same in every edition: 10 pt for text and values, bold for
+    /// section and property titles, 14 pt bold for the specific modulus, 9 pt for the process steps.
+    private enum MaterialType {
+        static let body = Font.system(size: 10)
+        static let bodyBold = Font.system(size: 10, weight: .bold)
+        static let value = Font.system(size: 14, weight: .bold)
+        static let small = Font.system(size: 9)
+        static let smallBold = Font.system(size: 9, weight: .bold)
+    }
+
+    /// The line between the plate / brace panel's sections — divider.section, plain enough to group
+    /// the sections without competing with them.
+    private var sectionDivider: some View {
+        Rectangle()
+            .fill(Palette.color(.dividerSection))
+            .frame(height: 1)
+    }
+
+    /// The line under the header and above the footer — brighter than the section lines, so the
+    /// header, the scrolling body and the footer read as three parts. Inset to the panel's text, as
+    /// the section lines.
+    private var headerFooterDivider: some View {
+        Rectangle()
+            .fill(Palette.color(.dividerHeaderFooter))
+            .frame(height: 1)
+            .padding(.horizontal)
+    }
+
+    /// A plate / brace section: its title — bold, at the panel's text size, flush with the panel's
+    /// edge — over its content in a grey box, as the other editions draw it.
+    /// `boxed: false` for a section whose content is its own box (the Gore result).
+    private func materialSection<Content: View>(_ title: String, boxed: Bool = true,
+                                                @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(MaterialType.bodyBold)
+                .foregroundColor(Palette.color(.textPrimary))
+            if boxed {
+                content()
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Palette.color(.backgroundSubtle))
+                    .cornerRadius(8)
+            } else {
+                content()
+            }
+        }
+    }
+
+    private func propertyRow(title: String, longValue: String, crossValue: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(MaterialType.bodyBold)
             HStack {
                 Text("L: \(longValue)")
-                    .font(.caption)
+                    .font(MaterialType.body)
                 Spacer()
                 Text("C: \(crossValue)")
-                    .font(.caption)
+                    .font(MaterialType.body)
             }
             .foregroundColor(Palette.color(.textSecondary))
         }
@@ -1147,7 +1190,7 @@ struct MaterialPeakRowView: View {
     var onToggleSelection: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             // Selection toggle — interactive in guitar mode, informational in plate/brace.
             if let toggleAction = onToggleSelection {
                 Button {
@@ -1155,7 +1198,7 @@ struct MaterialPeakRowView: View {
                 } label: {
                     Image(systemName: isSelected ? "star.fill" : "star")
                         .foregroundColor(Palette.color(isSelected ? .peakSelectedStar : .peakUnselectedStar))
-                        .font(.body)
+                        .font(.system(size: 14))
                         .frame(width: 24, height: 24)
                 }
                 .buttonStyle(.plain)
@@ -1163,19 +1206,18 @@ struct MaterialPeakRowView: View {
             } else {
                 Image(systemName: isSelected ? "star.fill" : "star")
                     .foregroundColor(Palette.color(isSelected ? .peakSelectedStar : .peakUnselectedStar))
-                    .font(.body)
+                    .font(.system(size: 14))
                     .frame(width: 24, height: 24)
             }
 
             // Frequency and magnitude — dashes until this phase's peak is captured.
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(peak.map { $0.frequency.formattedAsFrequency() } ?? "—")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundColor(Palette.color(peak == nil ? .textSecondary : .textPrimary))
 
                 Text(peak.map { "\(FieldPrecision.string($0.magnitude, FieldPrecision.peakMagnitudeDB)) dB" } ?? "—")
-                    .font(.caption)
+                    .font(.system(size: 9))
                     .foregroundColor(Palette.color(.textSecondary))
             }
 
@@ -1195,17 +1237,16 @@ struct MaterialPeakRowView: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 
     @ViewBuilder
     private func phaseBadge(_ label: String, active: Bool, color: Color, width: CGFloat) -> some View {
         Text(label)
-            .font(label.count <= 1 ? .headline : .subheadline)
-            .fontWeight(.bold)
-            .frame(width: width, height: 36)
+            .font(.system(size: 8, weight: .bold))
+            .frame(width: width, height: 32)
             .background(active ? color : Palette.color(.materialPhaseInactive))
             .foregroundColor(Palette.color(active ? .textOnColor : .textPrimary))
-            .cornerRadius(8)
+            .cornerRadius(6)
     }
 }

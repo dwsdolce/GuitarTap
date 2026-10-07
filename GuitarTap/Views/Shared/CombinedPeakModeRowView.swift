@@ -83,8 +83,14 @@ struct CombinedPeakModeRowView: View {
         isFreeformOverride ? GuitarMode.userDefinedIcon : mode.icon
     }
 
+    // The row's type: 10 pt bold for the name, frequency and magnitude; 9 pt for the pitch and the
+    // Q / BW line — the same sizes in every edition.
+    private static let nameFont = Font.system(size: 10, weight: .bold)
+    private static let pitchFont = Font.system(size: 9, weight: .semibold)
+    private static let detailFont = Font.system(size: 9)
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 6) {
             // Selection toggle button
             if let toggleAction = onToggleSelection {
                 Button {
@@ -92,31 +98,33 @@ struct CombinedPeakModeRowView: View {
                 } label: {
                     Image(systemName: isSelected ? "star.fill" : "star")
                         .foregroundColor(Palette.color(isSelected ? .peakSelectedStar : .peakUnselectedStar))
-                        .font(.body)
+                        .font(.system(size: 14))
                         .frame(width: 24, height: 24)
                 }
                 .buttonStyle(.plain)
                 .help(isSelected ? "Deselect peak" : "Select peak")
             }
 
-            // Mode icon and color
-            VStack(spacing: 4) {
+            // Mode icon and color; the range indicator at the column's foot, on the Q / BW line.
+            VStack(spacing: 2) {
                 Image(systemName: displayIcon)
                     .foregroundColor(displayColor)
-                    .font(.title3)
-                    .frame(width: 30, height: 30)
+                    .font(.system(size: 18))
+                    .frame(width: 26, height: 26)
 
-                // Mode range indicator
+                Spacer(minLength: 0)
+
+                // Mode range indicator — a plain mark, not one in a circle
                 if mode != .unknown && mode != .upperModes {
                     let inRange = mode.modeRange.contains(peak.frequency)
-                    Image(systemName: inRange ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    Image(systemName: inRange ? "checkmark" : "exclamationmark.triangle")
                         .foregroundColor(Palette.color(inRange ? .peakInRange : .peakOutOfRange))
-                        .font(.caption2)
+                        .font(Self.detailFont.weight(.semibold))
                 }
             }
 
             // Peak and mode information
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 1) {
                 // Mode name and frequency
                 HStack {
                     modeLabelView
@@ -124,7 +132,7 @@ struct CombinedPeakModeRowView: View {
                     Spacer()
 
                     Text("\(FieldPrecision.string(peak.frequency, FieldPrecision.peakFrequencyHz)) Hz")
-                        .font(.headline)
+                        .font(Self.nameFont)
                         .foregroundColor(Palette.color(.textPrimary))
                 }
 
@@ -132,34 +140,37 @@ struct CombinedPeakModeRowView: View {
                 if peak.pitchNote != nil {
                     HStack(spacing: 4) {
                         Image(systemName: "music.note")
-                            .font(.caption2)
+                            .font(Self.detailFont)
                             .foregroundColor(Palette.color(.peakPitch))
 
                         Text(peak.formattedPitch)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(Self.pitchFont)
                             .foregroundColor(Palette.color(.peakPitch))
                     }
                 }
 
                 // Peak details
-                HStack(spacing: 12) {
-                    HStack(spacing: 4) {
+                // Every piece keeps its width, so the line never wraps; only the Spacer gives way.
+                HStack(spacing: 8) {
+                    HStack(spacing: 3) {
                         Text("Q:")
-                            .font(.caption)
+                            .font(Self.detailFont)
                             .foregroundColor(Palette.color(.textSecondary))
+                            .fixedSize()
                         Text(FieldPrecision.string(peak.quality, FieldPrecision.qFactor))
-                            .font(.caption)
-                            .fontWeight(.medium)
+                            .font(Self.detailFont)
+                            .foregroundColor(Palette.color(.textSecondary))
+                            .fixedSize()
                     }
 
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Text("BW:")
-                            .font(.caption)
+                            .font(Self.detailFont)
                             .foregroundColor(Palette.color(.textSecondary))
+                            .fixedSize()
                         Text("\(FieldPrecision.string(peak.bandwidth, FieldPrecision.bandwidthHz)) Hz")
-                            .font(.caption)
-                            .fontWeight(.medium)
+                            .font(Self.detailFont)
+                            .foregroundColor(Palette.color(.textSecondary))
                             .fixedSize()
                     }
 
@@ -167,15 +178,16 @@ struct CombinedPeakModeRowView: View {
 
                     // Magnitude with color coding
                     Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(Self.nameFont)
                         .foregroundColor(Palette.color(Palette.role(magnitude: peak.magnitude)))
                         .fixedSize()
                 }
             }
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
+        // The icon column stretches to the row's height, so the range mark sits on the Q / BW line.
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.vertical, 5)
+        .padding(.horizontal, 6)
         .background(Palette.color(displayRole, opacity: .peakRowTint))
         .cornerRadius(8)
     }
@@ -213,7 +225,7 @@ struct CombinedPeakModeRowView: View {
         } else {
             // Read-only fallback (no callbacks provided)
             Text(effectiveModeLabel)
-                .font(.headline)
+                .font(Self.nameFont)
                 .foregroundColor(displayColor)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -287,19 +299,19 @@ struct CombinedPeakModeRowView: View {
             // the actual label on top without affecting the measured size, so custom
             // labels longer than the cap are clipped/truncated rather than expanding.
             Text(UserAssignedMode.longestPredefinedLabel)
-                .font(.headline)
+                .font(Self.nameFont)
                 .hidden()
                 .help(effectiveModeLabel)
                 .overlay(alignment: .leading) {
                     Text(effectiveModeLabel + (isManualOverride ? " *" : ""))
-                        .font(isManualOverride ? .headline.italic() : .headline)
+                        .font(isManualOverride ? Self.nameFont.italic() : Self.nameFont)
                         .foregroundColor(displayColor)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
             #else
             Text(effectiveModeLabel + (isManualOverride ? " *" : ""))
-                .font(isManualOverride ? .headline.italic() : .headline)
+                .font(isManualOverride ? Self.nameFont.italic() : Self.nameFont)
                 .foregroundColor(displayColor)
                 .lineLimit(1)
                 .truncationMode(.tail)

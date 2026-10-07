@@ -26,6 +26,8 @@ enum Palette {
         case backgroundControl = "background.control"
         case backgroundSubtle = "background.subtle"
         case separator = "separator"
+        case dividerSection = "divider.section"
+        case dividerHeaderFooter = "divider.headerFooter"
         case textPrimary = "text.primary"
         case textSecondary = "text.secondary"
         case textOnColor = "text.onColor"
@@ -155,6 +157,8 @@ enum Palette {
         .backgroundControl: Pair(light: "#FFFFFF", dark: "#11161D"),
         .backgroundSubtle: Pair(light: "#8E8E9314", dark: "#8E8E931A"),
         .separator: Pair(light: "#D8DEE6", dark: "#222A33"),
+        .dividerSection: Pair(light: "#1A233059", dark: "#FFFFFF59"),
+        .dividerHeaderFooter: Pair(light: "#1A2330", dark: "#E7EBF0"),
         .textPrimary: Pair(light: "#1A2330", dark: "#E7EBF0"),
         .textSecondary: Pair(light: "#6B7785", dark: "#8A96A5"),
         .textOnColor: Pair(light: "#FFFFFF", dark: "#FFFFFF"),

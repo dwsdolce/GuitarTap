@@ -674,7 +674,7 @@ extension TapToneAnalysisView {
                         .frame(maxWidth: .infinity)
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.tintedBordered)
                 .tint(isInReviewPhase ? Palette.color(.statusComplete) : nil)
                 .disabled(!pauseResumeButtonEnabled)
                 .hint(isInReviewPhase ? "Accept this tap and continue" :
@@ -694,7 +694,7 @@ extension TapToneAnalysisView {
                         .frame(maxWidth: .infinity)
                         .foregroundStyle(Palette.color(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.tintedBordered)
                 .disabled(!cancelButtonEnabled)
                 .hint(isInReviewPhase ? "Redo this tap phase" : HintText.cancel)
             }

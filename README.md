@@ -15,6 +15,12 @@ long-term parallel ports kept at numeric/behavioural parity with this app:
 Design and cross-platform project docs (specs, parity map, roadmap) are maintained in the
 project hub repo `guitar-tap-project`, not in this repo.
 
+## Fast test run
+
+`Tooling/test-fast.sh` runs the macOS test suite except the recording-playback regression
+(`FilePlaybackRegressionTests`), which is most of the suite's time — for use while working. Run the full
+suite before a commit. The same split: web `npm run test:fast`, Python `Tooling/test-fast.sh`.
+
 ## Soak / stress testing
 
 `Tooling/deinit-soak.sh` is an on-demand **dev tool** (not CI). It builds the test

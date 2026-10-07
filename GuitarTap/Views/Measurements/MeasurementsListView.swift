@@ -211,15 +211,19 @@ struct MeasurementsListView: View {
                         // sets @Published properties (including microphoneWarning).
                         // The load is deferred so the sheet teardown completes cleanly
                         // and the mic warning alert fires only on the main view.
-                        .onTapGesture(count: 2) {
-                            if !isComparing {
+                        // Off in compare mode: while a double-tap gesture is attached, SwiftUI holds
+                        // every single click for the double-click interval, which made the compare
+                        // checkmarks lag the click.
+                        .gesture(
+                            TapGesture(count: 2).onEnded {
                                 let m = measurement
                                 dismiss()
                                 DispatchQueue.main.async {
                                     analyzer.loadMeasurement(m)
                                 }
-                            }
-                        }
+                            },
+                            including: isComparing ? .subviews : .all
+                        )
                         #if os(macOS)
                         .onHover { inside in
                             hoveredMeasurementIndex = inside ? index : nil

@@ -31,14 +31,21 @@ struct ValidatedNumberField: UIViewRepresentable {
     var placeholder: String = ""
     /// Negative values (e.g. dB) need the minus key, which `.decimalPad` lacks.
     var allowsNegative: Bool = false
+    /// The text size in points, or `nil` for the platform's default (a SwiftUI `.font` does not reach
+    /// a wrapped native field).
+    var fontSize: CGFloat? = nil
 
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
         field.borderStyle = .roundedRect
         field.keyboardType = allowsNegative ? .numbersAndPunctuation : .decimalPad
         field.textAlignment = .right
-        field.font = UIFont.preferredFont(forTextStyle: .body)
-        field.adjustsFontForContentSizeCategory = true
+        if let fontSize {
+            field.font = .systemFont(ofSize: fontSize)
+        } else {
+            field.font = UIFont.preferredFont(forTextStyle: .body)
+            field.adjustsFontForContentSizeCategory = true
+        }
         field.placeholder = placeholder
         field.text = text
         field.delegate = context.coordinator
@@ -84,6 +91,9 @@ struct ValidatedNumberField: NSViewRepresentable {
     var placeholder: String = ""
     /// Accepted on macOS for call-site parity with iOS; the keyboard has no relevance here.
     var allowsNegative: Bool = false
+    /// The text size in points, or `nil` for the platform's default (a SwiftUI `.font` does not reach
+    /// a wrapped native field).
+    var fontSize: CGFloat? = nil
 
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField(string: text)
@@ -93,7 +103,8 @@ struct ValidatedNumberField: NSViewRepresentable {
         field.isSelectable = true
         field.drawsBackground = true
         field.alignment = .right
-        field.font = .systemFont(ofSize: NSFont.systemFontSize)
+        field.font = .systemFont(ofSize: fontSize ?? NSFont.systemFontSize)
+        if fontSize != nil { field.controlSize = .small }
         field.placeholderString = placeholder
         field.formatter = context.coordinator.formatter
         field.delegate = context.coordinator

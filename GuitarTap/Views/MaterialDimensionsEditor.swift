@@ -20,11 +20,7 @@ struct MaterialDimensionsEditor: View {
     @State private var massText = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Dimensions")
-                .font(.subheadline)
-                .fontWeight(.medium)
-
+        VStack(alignment: .leading, spacing: 4) {
             dimRow("Length", text: $lengthText, decimals: FieldPrecision.linearDimensionMM, unit: "mm") {
                 inputs.lengthMM = $0
             }
@@ -41,12 +37,11 @@ struct MaterialDimensionsEditor: View {
             // Derived, read-only — recomputes as the dimensions above change.
             HStack {
                 Text("Calculated Density:")
-                    .font(.subheadline)
+                    .font(.system(size: 10))
                     .foregroundColor(Palette.color(.textSecondary))
                 Spacer()
                 Text("\(FieldPrecision.string(inputs.dimensions.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.system(size: 10, weight: .medium))
             }
         }
         .onAppear(perform: seed)
@@ -73,18 +68,20 @@ struct MaterialDimensionsEditor: View {
                         commit: @escaping (Float) -> Void) -> some View {
         HStack {
             Text("\(label):")
-                .font(.subheadline)
+                .font(.system(size: 10))
             Spacer()
-            ValidatedNumberField(text: text, decimals: decimals)
-                .frame(width: 80)
+            ValidatedNumberField(text: text, decimals: decimals, fontSize: 10)
+                .frame(width: 70)
                 .onChange(of: text.wrappedValue) { _, newText in
                     if let v = Float(newText) {
                         commit(FieldPrecision.rounded(v, decimals))
                     }
                 }
+            // A fixed-width unit column, so "g" and "mm" leave the fields above one another.
             Text(unit)
-                .font(.caption)
+                .font(.system(size: 10))
                 .foregroundColor(Palette.color(.textSecondary))
+                .frame(width: 20, alignment: .leading)
         }
     }
 }

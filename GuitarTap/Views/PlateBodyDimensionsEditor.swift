@@ -20,7 +20,7 @@ struct PlateBodyDimensionsEditor: View {
     @State private var customStiffnessText = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             dimRow("Body Length (a)", text: $bodyLengthText,
                    decimals: FieldPrecision.bodyDimensionMM, unit: "mm") {
                 inputs.bodyLengthMM = $0
@@ -32,7 +32,7 @@ struct PlateBodyDimensionsEditor: View {
 
             HStack {
                 Text("Panel Stiffness (f_vs):")
-                    .font(.subheadline)
+                    .font(.system(size: 10))
                 Spacer()
                 Picker("", selection: $inputs.stiffnessPreset) {
                     ForEach(PlateStiffnessPreset.allCases) { preset in
@@ -40,6 +40,8 @@ struct PlateBodyDimensionsEditor: View {
                     }
                 }
                 .labelsHidden()
+                .font(.system(size: 10))
+                .controlSize(.small)
                 #if os(iOS)
                 .pickerStyle(.menu)
                 #endif
@@ -75,19 +77,21 @@ struct PlateBodyDimensionsEditor: View {
                         commit: @escaping (Float) -> Void) -> some View {
         HStack {
             Text("\(label):")
-                .font(.subheadline)
+                .font(.system(size: 10))
             Spacer()
-            ValidatedNumberField(text: text, decimals: decimals)
-                .frame(width: 80)
+            ValidatedNumberField(text: text, decimals: decimals, fontSize: 10)
+                .frame(width: 70)
                 .onChange(of: text.wrappedValue) { _, newText in
                     if let v = Float(newText) {
                         commit(FieldPrecision.rounded(v, decimals))
                     }
                 }
             if !unit.isEmpty {
+                // A fixed-width unit column, as the sample dimensions.
                 Text(unit)
-                    .font(.caption)
+                    .font(.system(size: 10))
                     .foregroundColor(Palette.color(.textSecondary))
+                    .frame(width: 20, alignment: .leading)
             }
         }
     }
