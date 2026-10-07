@@ -58,6 +58,9 @@ struct CombinedPeakModeRowView: View {
     var onSetModeOverride: ((String) -> Void)? = nil
     /// Called when the user resets back to auto-detection
     var onResetModeOverride: (() -> Void)? = nil
+    /// A plate or brace peak's role — its badge and colour in place of the guitar mode's icon and
+    /// colour, and no guitar range mark.
+    var materialRole: MaterialPeakRole? = nil
 
     @State private var showCustomLabelPopover = false
     @State private var customLabelDraft = ""
@@ -74,7 +77,8 @@ struct CombinedPeakModeRowView: View {
 
     /// The role of the effective display colour.
     private var displayRole: Palette.Role {
-        isFreeformOverride ? .modeUserDefined : Palette.role(mode)
+        if let materialRole { return materialRole.paletteRole }
+        return isFreeformOverride ? .modeUserDefined : Palette.role(mode)
     }
 
     /// Effective display icon: tag for freeform overrides,
@@ -107,15 +111,19 @@ struct CombinedPeakModeRowView: View {
 
             // Mode icon and color; the range indicator at the column's foot, on the Q / BW line.
             VStack(spacing: 2) {
-                Image(systemName: displayIcon)
-                    .foregroundColor(displayColor)
-                    .font(.system(size: 18))
-                    .frame(width: 26, height: 26)
+                if let materialRole {
+                    MaterialPhaseBadge(role: materialRole)
+                } else {
+                    Image(systemName: displayIcon)
+                        .foregroundColor(displayColor)
+                        .font(.system(size: 18))
+                        .frame(width: 26, height: 26)
+                }
 
                 Spacer(minLength: 0)
 
                 // Mode range indicator — a plain mark, not one in a circle
-                if mode != .unknown && mode != .upperModes {
+                if materialRole == nil && mode != .unknown && mode != .upperModes {
                     let inRange = mode.modeRange.contains(peak.frequency)
                     Image(systemName: inRange ? "checkmark" : "exclamationmark.triangle")
                         .foregroundColor(Palette.color(inRange ? .peakInRange : .peakOutOfRange))

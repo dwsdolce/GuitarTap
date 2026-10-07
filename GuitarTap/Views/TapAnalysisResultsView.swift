@@ -1226,27 +1226,17 @@ struct MaterialPeakRowView: View {
             // Phase identification badges — display only, not interactive.
             // Colored when this peak was auto-identified for that phase.
             HStack(spacing: 8) {
-                phaseBadge("fL", active: isLongitudinal, color: Palette.color(.materialLongitudinal), width: 36)
+                MaterialPhaseBadge(role: .longitudinal, active: isLongitudinal)
 
                 if showCrossButton {
-                    phaseBadge("fC", active: isCross, color: Palette.color(.materialCross), width: 36)
+                    MaterialPhaseBadge(role: .cross, active: isCross)
                 }
 
                 if showFlcButton {
-                    phaseBadge("fLC", active: isFlc, color: Palette.color(.materialFlc), width: 42)
+                    MaterialPhaseBadge(role: .flc, active: isFlc)
                 }
             }
         }
         .padding(.vertical, 2)
-    }
-
-    @ViewBuilder
-    private func phaseBadge(_ label: String, active: Bool, color: Color, width: CGFloat) -> some View {
-        Text(label)
-            .font(.system(size: 8, weight: .bold))
-            .frame(width: width, height: 32)
-            .background(active ? color : Palette.color(.materialPhaseInactive))
-            .foregroundColor(Palette.color(active ? .textOnColor : .textPrimary))
-            .cornerRadius(6)
     }
 }

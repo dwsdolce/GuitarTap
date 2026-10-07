@@ -808,6 +808,7 @@ final class TapToneAnalyzer: ObservableObject {
         userHasModifiedPeakSelection = true
     }
 
+    // @parity state/visible-peaks tests=test/annotation-state
     /// Advances ``annotationVisibilityMode`` to the next state in the cycle:
     /// `all → selected → none → all`, and persists the new value to UserDefaults.
     func cycleAnnotationVisibility() {

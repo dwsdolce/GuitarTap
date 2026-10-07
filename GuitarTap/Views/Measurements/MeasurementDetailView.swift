@@ -169,13 +169,15 @@ struct MeasurementDetailView: View {
                                 VStack(alignment: .leading, spacing: 12) {
                                     ForEach(shownPeaks) { peak in
                                         let mode = modeMap[peak.id] ?? .unknown
+                                        let materialRole: MaterialPeakRole? = {
+                                            guard isMaterialMeasurement else { return nil }
+                                            if peak.id == measurement.selectedLongitudinalPeakID { return .longitudinal }
+                                            if peak.id == measurement.selectedCrossPeakID { return .cross }
+                                            if peak.id == measurement.selectedFlcPeakID { return .flc }
+                                            return nil
+                                        }()
                                         let effectiveLabel: String = {
-                                            if isMaterialMeasurement {
-                                                if peak.id == measurement.selectedLongitudinalPeakID { return "Longitudinal" }
-                                                if peak.id == measurement.selectedCrossPeakID { return "Cross-grain" }
-                                                if peak.id == measurement.selectedFlcPeakID { return "Diagonal" }
-                                                return "Peak"
-                                            }
+                                            if isMaterialMeasurement { return materialRole?.displayName ?? "Peak" }
                                             return measurement.peakModeOverrides?[peak.id] ?? mode.displayName
                                         }()
                                         let isOverridden = !isMaterialMeasurement
@@ -185,7 +187,8 @@ struct MeasurementDetailView: View {
                                             mode: mode,
                                             effectiveModeLabel: effectiveLabel,
                                             isManualOverride: isOverridden,
-                                            isSelected: true
+                                            isSelected: true,
+                                            materialRole: materialRole
                                         )
                                     }
                                 }
