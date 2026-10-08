@@ -133,6 +133,18 @@ extension TapToneAnalyzer {
         dumpCaptureWAV(samples: samples, sampleRate: sampleRate, label: "session_\(label)")
     }
 
+    /// Ends the session without writing — a loaded measurement or comparison has replaced the
+    /// sequence, which can no longer finish. Without this the buffer would keep every sample from
+    /// then until the next New Tap.
+    func cancelSessionRecording() {
+        mpmLock.lock()
+        isSessionRecording = false
+        isSessionRecordingEnabled = false
+        sessionRecordingBuffer = []
+        sessionCheckpoints = []
+        mpmLock.unlock()
+    }
+
     // MARK: - WAV Dump Helper
 
     /// Saves raw PCM samples as a mono 32-bit float WAV file in the dump folder (`WavDumpFolder`)

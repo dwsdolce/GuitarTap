@@ -498,7 +498,8 @@ extension TapToneAnalysisView {
             peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
             materialSpectra: materialSpectra,
             dateLabel: DateDisplay.string(Date()),
-            chartTitle: chartTitle
+            chartTitle: chartTitle,
+            typeLabel: isComparing ? "Comparison" : nil
         )
     }
 }

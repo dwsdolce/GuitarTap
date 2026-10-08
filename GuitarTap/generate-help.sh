@@ -248,7 +248,7 @@ with open(symbols_file, 'w') as sf:
 # ---------------------------------------------------------------------------
 
 out = []
-out.append("# GuitarTap Quick-Start Guide")
+out.append("# GuitarTap Quick Start Guide")
 out.append("")
 
 for section_title, section_symbol, rows in sections:

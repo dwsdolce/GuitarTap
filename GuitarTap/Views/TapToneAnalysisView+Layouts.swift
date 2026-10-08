@@ -115,7 +115,8 @@ extension TapToneAnalysisView {
                 }
                 .navigationTitle("FFT Analysis Metrics")
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
+                    // Done only closes: a plain button (.cancellationAction), as every closing Done.
+                    ToolbarItem(placement: .cancellationAction) {
                         Button("Done") {
                             showingMetrics = false
                         }
@@ -276,7 +277,7 @@ extension TapToneAnalysisView {
             NavigationStack {
                 HelpView()
                     .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
+                        ToolbarItem(placement: .cancellationAction) {
                             Button("Done") { showingHelp = false }
                         }
                     }

@@ -346,8 +346,10 @@ struct ExportableSpectrumChart: View {
                         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: .linear)
                         .chartYScale(domain: Double(minDB)...Double(maxDB))
                         .chartXAxis {
-                            AxisMarks(values: frequencyAxisValues) { value in
-                                AxisValueLabel {
+                            // .aligned centres each label under its grid line; the default preset starts the
+                            // label at the line (and overrides a label's own anchor).
+                            AxisMarks(preset: .aligned, values: frequencyAxisValues) { value in
+                                AxisValueLabel(anchor: .top) {
                                     if let doubleValue = value.as(Double.self) {
                                         Text(AxisTickGenerator.formatTickLabel(doubleValue))
                                             .font(.system(size: 12))
@@ -502,6 +504,9 @@ func makeExportableSpectrumView(
     materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = [],
     dateLabel: String,
     chartTitle: String = "FFT Peaks",
+    /// The header's Type, when it is not the measurement type's name: "Comparison" for an overlay of
+    /// saved measurements, which may be of different guitar types.
+    typeLabel: String? = nil,
     softwareVersion: String = {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
@@ -569,7 +574,7 @@ func makeExportableSpectrumView(
                     Text("Type:")
                         .font(.subheadline)
                         .foregroundColor(Palette.color(.textSecondary))
-                    Text(measurementType.rawValue)
+                    Text(typeLabel ?? measurementType.rawValue)
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
@@ -903,7 +908,9 @@ func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) -> Data
         measurementType: .generic,
         materialSpectra: comparisonSpectra,
         dateLabel: DateDisplay.string(measurement.timestamp),
-        chartTitle: "Comparison — \(measurement.measurementName ?? "Comparison")"
+        // The live chart's title, so the image reads the same from the list as from the main view.
+        chartTitle: "FFT Peaks — \(measurement.measurementName ?? "New")",
+        typeLabel: "Comparison"
     )
 
     let renderer = ImageRenderer(content: compositeView.environment(\.colorScheme, .light))

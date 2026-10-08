@@ -39,6 +39,7 @@ struct PlayFileSheet: View {
         #if os(macOS)
         formContent
             .frame(minWidth: 450, idealWidth: 500, minHeight: 200, idealHeight: 250)
+            .sheetTitle("Play Audio File")
             .navigationTitle("Play Audio File")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -97,11 +98,6 @@ struct PlayFileSheet: View {
     private var formContent: some View {
         #if os(macOS)
         VStack(alignment: .leading, spacing: 16) {
-            Text("Play Audio File")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .frame(maxWidth: .infinity, alignment: .center)
-
             // Audio file row
             VStack(alignment: .leading, spacing: 6) {
                 Text("Audio File")

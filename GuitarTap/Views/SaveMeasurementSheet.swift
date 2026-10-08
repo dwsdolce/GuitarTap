@@ -52,6 +52,7 @@ struct SaveMeasurementSheet: View {
         // macOS layout without NavigationView wrapper
         formContent
             .frame(minWidth: 450, idealWidth: 500, minHeight: 250, idealHeight: 350)
+            .sheetTitle("Save Measurement")
             .navigationTitle("Save Measurement")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -92,11 +93,6 @@ struct SaveMeasurementSheet: View {
         // Plain VStack layout — matches the iOS grouped form appearance
         // without macOS Form's label/value column behaviour.
         VStack(alignment: .leading, spacing: 16) {
-            Text("Save Measurement")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .frame(maxWidth: .infinity, alignment: .center)
-
             VStack(alignment: .leading, spacing: 6) {
                 Text("Measurement Name")
                     .font(.headline)

@@ -34,10 +34,23 @@ struct MeasurementDetailView: View {
         // Measurements list (MeasurementsListView), so no duplicate
         // controls are presented here.
         #if os(macOS)
-        // On macOS in a separate window — the window's own close button
-        // dismisses the view; no in-view Close control is needed.
+        // On macOS in a separate window. A Done at the bottom right closes it, as every form has —
+        // a plain button, since it only closes (the one rule); Esc does the same.
         contentView
             .frame(minWidth: 600, minHeight: 500)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    Divider()
+                    HStack {
+                        Spacer()
+                        Button("Done") { NSApp.keyWindow?.performClose(nil) }
+                            .keyboardShortcut(.cancelAction)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                }
+                .background(Palette.color(.backgroundPanel))
+            }
         #else
         // On iOS, NavigationLink provides the navigation context.  Keep
         // only the Done button as the cancellation action.

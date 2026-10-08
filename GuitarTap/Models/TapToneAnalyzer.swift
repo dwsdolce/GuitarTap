@@ -1287,9 +1287,15 @@ final class TapToneAnalyzer: ObservableObject {
     var sessionRecordingBuffer: [Float] = []
 
     /// Whether the session recording is actively accumulating samples.
-    /// Set to `true` when a tap sequence starts and detection is active.
-    /// Set to `false` during pause, on cancel, or when the measurement completes.
+    /// Set to `true` when a tap sequence starts with Dump Capture Audio on.
+    /// Set to `false` during pause, when a loaded measurement or comparison ends the sequence, or
+    /// when the measurement completes.
     var isSessionRecording = false
+
+    /// Whether this sequence is being recorded at all — decided when it starts, from Dump Capture
+    /// Audio. Resuming after a pause records again only when it is; turning the setting on
+    /// mid-sequence takes effect from the next sequence.
+    var isSessionRecordingEnabled = false
 
     /// Checkpoint offsets (sample counts in `sessionRecordingBuffer`) for
     /// accepted plate phases.  When a phase is redone, the buffer is truncated

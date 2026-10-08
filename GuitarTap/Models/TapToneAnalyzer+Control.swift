@@ -202,15 +202,16 @@ extension TapToneAnalyzer {
         // Mirrors the reset in postEngineStopHandler / reEnableDetectionForNextPlateTap.
         gatedCaptureID = 0
         lastLevelCrossingCaptureID = -1
-        // Session recording: clear the buffer and begin recording.  The
-        // buffer accumulates raw audio while detection is active, producing
-        // a single WAV per measurement for replay.  Seed with checkpoint 0
+        // Session recording: clear the buffer and, when Dump Capture Audio is on, begin recording.
+        // The buffer accumulates raw audio while detection is active, producing a single WAV per
+        // measurement for replay; with the setting off nothing is kept. Seed with checkpoint 0
         // so the first phase has a truncation anchor — without it, redoing
         // the first phase (or the same phase repeatedly) would leave the
         // rejected tap's audio in the saved WAV.
         sessionRecordingBuffer = []
         sessionCheckpoints = [0]
-        isSessionRecording = true
+        isSessionRecordingEnabled = TapDisplaySettings.dumpCaptureAudio
+        isSessionRecording = isSessionRecordingEnabled
         sessionPreRollActive = true   // bound the pre-first-tap audio to ~2 s
         sessionRecordingSampleRate = mpmSampleRate > 0 ? mpmSampleRate : 48000
         mpmLock.unlock()
@@ -306,7 +307,7 @@ extension TapToneAnalyzer {
         // after it, or a single loud chunk could fire one.
         detectTapConsecutiveAbove = 0
 
-        isSessionRecording = true  // Resume accumulating audio after pause
+        isSessionRecording = isSessionRecordingEnabled  // Resume accumulating audio after pause
         detectionState = .listening
 
         // Restore a context-appropriate prompt. The same derivation the device-change settle uses.

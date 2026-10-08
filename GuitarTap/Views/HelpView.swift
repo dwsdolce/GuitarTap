@@ -235,48 +235,6 @@ The Results panel is where you turn the captured frequencies into properties. En
                     body: "Shown in the results panel header next to the microphone name. Re-runs peak detection on the frozen spectrum of any completed guitar measurement — live or loaded — re-classifies the modes from scratch, and returns peak selection to automatic. Custom mode names you have assigned are kept, though the peak carrying one may end up deselected. Useful for trying a different guitar type without re-tapping, or for a clean classification after manual changes. It no longer disables itself after one press, and does not apply to Plate or Brace measurements.",
                     systemImages: ["arrow.trianglehead.2.counterclockwise"]
                 )
-                #if os(iOS)
-                helpRow(
-                    title: "Toolbar Layout (iPhone)",
-                    body: "On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Auto dB; trailing (right) side — Metrics, Settings. In landscape orientation, the leading side also includes Crosshair and Annotations, and the trailing side adds Save, Measurements, and Help (?)."
-                )
-                helpRow(
-                    title: "Toolbar Layout (iPad)",
-                    body: "On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings, Help (?). The tap controls (taps, threshold, peak min) remain below the toolbar."
-                )
-                #elseif os(macOS)
-                helpRow(
-                    title: "Menu Bar",
-                    body: """
-The menu bar has five menus:
-
-GuitarTap menu:
-• Settings… — ⌘, — opens the Settings sheet
-
-File menu:
-• Play Audio File… — ⌘⌥O — feeds a WAV or audio file through the FFT pipeline instead of the microphone
-• Save Measurement… — ⌘S
-• Export Spectrum Image… — ⌘E
-• Export PDF Report… — ⇧⌘E
-Save and Export items are disabled until a measurement is complete.
-
-View menu:
-• Auto dB — ⌘0 — toggles auto-scaling of the dB axis
-• Cycle Annotations — ⌘` — cycles Selected → None → All
-• Show Metrics — ⌘M — opens the FFT diagnostics panel
-• Show Measurements — ⌘L — opens the saved measurements browser
-
-Help menu:
-• Quick Start Guide — ⌘? — opens this window
-• User Manual — opens the full User Manual at dolcesfogato.com in your default browser
-"""
-                )
-                #endif
-                helpRow(
-                    title: "User Manual (online)",
-                    body: "For a complete reference — every measurement mode walked through in detail, full settings and controls reference, troubleshooting, glossary, and file-format specs — see the User Manual, hosted at dolcesfogato.com. Open it from the Help menu (macOS) or the Settings → About & Help section. On iPhone and iPad, tap the Help (?) button in the toolbar and choose User Manual.",
-                    systemImages: ["book.closed"]
-                )
                 helpRow(
                     title: "Auto dB",
                     body: "Scales the magnitude axis to fit the current signal. Tap it after each measurement to keep peaks visible.",
@@ -315,6 +273,48 @@ Help menu:
                     title: "Metrics",
                     body: "Shows FFT engine statistics: frame rate, bin width (Hz/bin), sample rate, and buffer size.",
                     systemImages: ["chart.bar"]
+                )
+                #if os(iOS)
+                helpRow(
+                    title: "Toolbar Layout (iPhone)",
+                    body: "On iPhone, the navigation bar toolbar shows: leading (left) side — Results, Auto dB; trailing (right) side — Metrics, Settings. In landscape orientation, the leading side also includes Crosshair and Annotations, and the trailing side adds Save, Measurements, and Help (?)."
+                )
+                helpRow(
+                    title: "Toolbar Layout (iPad)",
+                    body: "On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings, Help (?). The tap controls (taps, threshold, peak min) remain below the toolbar."
+                )
+                #elseif os(macOS)
+                helpRow(
+                    title: "Menu Bar",
+                    body: """
+The menu bar has four menus:
+
+GuitarTap menu:
+• Settings… — ⌘, — opens the Settings sheet
+
+File menu:
+• Play Audio File… — ⌘⌥O — feeds a WAV or audio file through the FFT pipeline instead of the microphone
+• Save Measurement… — ⌘S
+• Export Spectrum Image… — ⌘E
+• Export PDF Report… — ⇧⌘E
+Save and Export items are disabled until a measurement is complete.
+
+View menu:
+• Auto dB — ⌘0 — toggles auto-scaling of the dB axis
+• Cycle Annotations — ⌘` — cycles Selected → None → All
+• Show Metrics — ⌘M — opens the FFT diagnostics panel
+• Show Measurements — ⌘L — opens the saved measurements browser
+
+Help menu:
+• Quick Start Guide — ⌘? — opens this window
+• User Manual — opens the full User Manual at dolcesfogato.com in your default browser
+"""
+                )
+                #endif
+                helpRow(
+                    title: "User Manual (online)",
+                    body: "For a complete reference — every measurement mode walked through in detail, full settings and controls reference, troubleshooting, glossary, and file-format specs — see the User Manual, hosted at dolcesfogato.com. Open it from the Help menu (macOS) or the Settings → About & Help section. On iPhone and iPad, tap the Help (?) button in the toolbar and choose User Manual.",
+                    systemImages: ["book.closed"]
                 )
                 #if os(iOS)
                 helpRow(
@@ -494,7 +494,7 @@ Help menu:
                 Label("Glossary", systemImage: "text.book.closed")
             }
         }
-        .navigationTitle("Quick-Start Guide")
+        .navigationTitle("Quick Start Guide")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #else

@@ -226,7 +226,7 @@ The final section of the Settings sheet carries three items:
 - **Copyright** — the copyright line from the app's bundle
   metadata.
 - **Quick Start Guide** <img src="images/symbols/questionmark.circle.png" width="18" height="18" class="inline-icon" alt="questionmark.circle"> — opens the in-app
-  Quick-Start Guide. The content matches the printable Quick-Start
+  Quick Start Guide. The content matches the printable Quick Start
   PDF that ships with the app.
 - **User Manual** — opens the full User Manual (this document) in
   the system default browser. Requires an internet connection;

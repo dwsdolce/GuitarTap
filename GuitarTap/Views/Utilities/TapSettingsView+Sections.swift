@@ -5,21 +5,19 @@
 
 /// # TapSettingsView+Sections
 ///
-/// The six `Form` sections that make up the `TapSettingsView` body, extracted
-/// as `@ViewBuilder` computed properties.
+/// The sections of the `TapSettingsView` body, extracted as `@ViewBuilder` computed properties and
+/// drawn with the sheet's own layout (`TapSettingsView+LayoutHelpers`).
 ///
 /// ## Sections
 ///
 /// | Property | Section |
 /// |---|---|
-/// | `measurementTypeSection` | Measurement-type picker, guitar mode ranges, plate/brace dimensions, Gore thicknessing |
-/// | `displayRangeSection` | Display frequency range, magnitude range, Save Current View / Reset buttons |
-/// | `analysisSettingsSection` | Show-unknown-modes toggle, analysis frequency range, peak detection minimum, dump-capture-audio toggle |
-/// | `audioInputSection` | Audio-input device picker, calibration picker, import / delete calibration |
-/// | `aboutSection` | App version, copyright, Help navigation link |
-///
-/// The sections depend on the layout helpers in `TapSettingsView+LayoutHelpers`
-/// and call the action methods in `TapSettingsView+Actions`.
+/// | `audioInputSection` | Audio-input device picker, sample rate, calibration picker, import / delete all |
+/// | `measurementTypeSection` | Measurement-type picker, then a titled box per group: mode ranges, or plate / brace dimensions and Gore |
+/// | `advancedRow` | The Advanced disclosure row |
+/// | `displaySettingsSection` | Appearance, display frequency and magnitude range, Save Current View / Reset |
+/// | `analysisSettingsSection` | Show-unknown-modes, peak detection minimum, dump-capture-audio, Reset |
+/// | `aboutSection` | App version, copyright, Quick Start Guide, User Manual |
 ///
 /// - SeeAlso: `TapSettingsView`, `TapSettingsView+Actions`, `TapSettingsView+LayoutHelpers`
 
@@ -28,441 +26,311 @@ import AVFoundation
 
 extension TapSettingsView {
 
-    // MARK: - Measurement Type Section
+    // MARK: - Audio Input & Calibration Section
 
     @ViewBuilder
-    var measurementTypeSection: some View {
-        Section {
-            Picker("Measurement Type", selection: $selectedMeasurementType) {
-                ForEach(MeasurementType.allCases) { type in
-                    Text(type.rawValue)
-                        .tag(type)
-                }
-            }
-            #if os(iOS)
-            .pickerStyle(.navigationLink)
-            #endif
-            .onChange(of: selectedMeasurementType) { _, newType in
-                // Load the stored frequency range for the new type (falls back to type defaults)
-                minFreqInput = FieldPrecision.string(TapDisplaySettings.minFrequency(for: newType), FieldPrecision.frequencyHz)
-                maxFreqInput = FieldPrecision.string(TapDisplaySettings.maxFrequency(for: newType), FieldPrecision.frequencyHz)
-            }
-
-            // Show description for selected type
-            Text(selectedMeasurementType.description)
-                .font(.caption)
-                .foregroundColor(Palette.color(.textSecondary))
-
-            // Show guitar-specific options for guitar types
-            if selectedMeasurementType.isGuitar, let guitarType = selectedMeasurementType.guitarType {
-                // Show frequency ranges for selected guitar type
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Mode Frequency Ranges")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(Palette.color(.textSecondary))
-
-                    let ranges = guitarType.modeRanges
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            modeRangeRow("Air:", range: ranges.air)
-                            modeRangeRow("Top:", range: ranges.top)
-                            modeRangeRow("Back:", range: ranges.back)
-                        }
-                        Spacer()
-                        VStack(alignment: .leading, spacing: 4) {
-                            modeRangeRow("Dipole:", range: ranges.dipole)
-                            modeRangeRow("Ring:", range: ranges.ringMode)
+    var audioInputSection: some View {
+        if !fftAnalyzer.availableInputDevices.isEmpty {
+            settingsSection("Audio Input & Calibration", icon: "mic.fill",
+                            note: "Audio input and calibration changes take effect immediately and are not affected by Cancel. Calibrations are automatically associated with each device.") {
+                settingsRow("Audio Input Device") {
+                    Picker("Audio Input Device", selection: $fftAnalyzer.selectedInputDevice) {
+                        ForEach(fftAnalyzer.availableInputDevices) { device in
+                            Text(device.name)
+                                .tag(device as AVAudioDevice?)
                         }
                     }
-                    .font(.caption)
-                }
-                .padding(.vertical, 4)
-
-            }
-
-            // Show dimensions for plate mode
-            if selectedMeasurementType == .plate {
-                Divider()
-
-                Text("Sample Dimensions")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                HStack {
-                    Text("Length (along grain):")
-                        .font(.subheadline)
-                    Spacer()
-                    ValidatedNumberField(text: $plateLengthInput, decimals: FieldPrecision.linearDimensionMM)
-                        .frame(width: 80)
-                    Text("mm")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .onChange(of: fftAnalyzer.selectedInputDevice) { oldDevice, newDevice in
+                        guard let device = newDevice, device.uid != oldDevice?.uid else { return }
+                        gtLog("🔄 Device selection changed to: \(device.name)")
+                        // Update calibration picker to reflect device's calibration
+                        selectedCalibrationID = fftAnalyzer.activeCalibration?.id
+                    }
                 }
 
-                HStack {
-                    Text("Width (cross grain):")
-                        .font(.subheadline)
-                    Spacer()
-                    ValidatedNumberField(text: $plateWidthInput, decimals: FieldPrecision.linearDimensionMM)
-                        .frame(width: 80)
-                    Text("mm")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
+                if let selectedDevice = fftAnalyzer.selectedInputDevice {
+                    settingsRow("Sample Rate") {
+                        Text(formattedAsWholeHertz(selectedDevice.sampleRate))
+                    }
                 }
 
-                HStack {
-                    Text("Thickness:")
-                        .font(.subheadline)
-                    Spacer()
-                    ValidatedNumberField(text: $plateThicknessInput, decimals: FieldPrecision.linearDimensionMM)
-                        .frame(width: 80)
-                    Text("mm")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
+                settingsRow("Calibration") {
+                    Picker("Calibration", selection: $selectedCalibrationID) {
+                        Text("None (Uncalibrated)")
+                            .tag(nil as UUID?)
+                        ForEach(storedCalibrations) { calibration in
+                            Text(calibration.name)
+                                .tag(calibration.id as UUID?)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .onChange(of: selectedCalibrationID) { _, newID in
+                        if let id = newID {
+                            fftAnalyzer.activeCalibration = storedCalibrations.first { $0.id == id }
+                        } else {
+                            fftAnalyzer.activeCalibration = nil
+                        }
+                    }
                 }
 
-                HStack {
-                    Text("Mass:")
-                        .font(.subheadline)
-                    Spacer()
-                    ValidatedNumberField(text: $plateMassInput, decimals: FieldPrecision.massG)
-                        .frame(width: 80)
-                    Text("g")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
-
-                if let length = Float(plateLengthInput),
-                   let width = Float(plateWidthInput),
-                   let thickness = Float(plateThicknessInput),
-                   let mass = Float(plateMassInput),
-                   length > 0, width > 0, thickness > 0, mass > 0 {
-                    let dims = MaterialDimensions(lengthMM: length, widthMM: width, thicknessMM: thickness, massGrams: mass)
-                    HStack {
-                        Text("Calculated Density:")
-                            .font(.subheadline)
-                            .foregroundColor(Palette.color(.textSecondary))
+                // The active calibration's details
+                if let calibration = fftAnalyzer.activeCalibration {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            if let sens = calibration.sensitivityFactor {
+                                Text("Sensitivity: \(String(format: "%.2f", sens)) dB")
+                            }
+                            Text("Data points: \(calibration.correctionPoints.count)")
+                        }
                         Spacer()
-                        Text("\(FieldPrecision.string(dims.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                        if let first = calibration.correctionPoints.first,
+                           let last = calibration.correctionPoints.last {
+                            Text("\(String(format: "%.0f", first.frequency))-\(String(format: "%.0f", last.frequency)) Hz")
+                        }
                     }
-                }
-
-                Divider()
-
-                Toggle(isOn: $measureFlc) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Measure Diagonal (fLC) Tap")
-                        Text("Add a 3rd tap: hold plate at midpoint of one long edge, tap near opposite corner. Measures shear stiffness for Gore target thickness.")
-                            .font(.caption)
-                            .foregroundColor(Palette.color(.textSecondary))
-                    }
-                }
-
-                Divider()
-
-                Text("Gore Target Thickness — Body Dimensions")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Text("Finished guitar body dimensions used in Gore's Eq. 4.5-7 to calculate target plate thickness.")
-                    .font(.caption)
+                    .font(SettingsType.caption)
                     .foregroundColor(Palette.color(.textSecondary))
-
-                HStack {
-                    Text("Body Length (a):")
-                        .font(.subheadline)
-                    Spacer()
-                    ValidatedNumberField(text: $guitarBodyLengthInput, decimals: FieldPrecision.bodyDimensionMM)
-                        .frame(width: 80)
-                    Text("mm")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
                 }
 
-                HStack {
-                    Text("Lower Bout Width (b):")
-                        .font(.subheadline)
-                    Spacer()
-                    ValidatedNumberField(text: $guitarBodyWidthInput, decimals: FieldPrecision.bodyDimensionMM)
-                        .frame(width: 80)
-                    Text("mm")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
-
-                Divider()
-
-                Text("Plate Vibrational Stiffness (f_vs)")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Picker("Panel Type", selection: $plateStiffnessPreset) {
-                    ForEach(PlateStiffnessPreset.allCases) { preset in
-                        Text(preset.shortName).tag(preset)
+                settingsActionButtons {
+                    Button {
+                        showingCalibrationImporter = true
+                    } label: {
+                        Label("Import Calibration File…", systemImage: "doc.badge.plus")
+                    }
+                    if !storedCalibrations.isEmpty {
+                        Button {
+                            showingDeleteAllCalibrationsConfirmation = true
+                        } label: {
+                            Label("Delete All Calibrations", systemImage: "trash")
+                        }
                     }
                 }
-                #if os(iOS)
-                .pickerStyle(.navigationLink)
-                #endif
-
-                if plateStiffnessPreset == .custom {
-                    HStack {
-                        Text("Custom f_vs value:")
-                            .font(.subheadline)
-                        Spacer()
-                        ValidatedNumberField(text: $customPlateStiffnessInput, decimals: FieldPrecision.stiffness, placeholder: "value")
-                            .frame(width: 80)
-                    }
-                }
-            }
-
-            // Show dimensions for brace mode (both FFT and MPM variants)
-            if selectedMeasurementType == .brace {
-                Divider()
-
-                Text("Brace Dimensions")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                HStack {
-                    Text("Length (along grain):")
-                        .font(.subheadline)
-                    Spacer()
-                    ValidatedNumberField(text: $braceLengthInput, decimals: FieldPrecision.linearDimensionMM)
-                        .frame(width: 80)
-                    Text("mm")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
-
-                HStack {
-                    Text("Width (breadth):")
-                        .font(.subheadline)
-                    Spacer()
-                    ValidatedNumberField(text: $braceWidthInput, decimals: FieldPrecision.linearDimensionMM)
-                        .frame(width: 80)
-                    Text("mm")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Height (tap direction):")
-                            .font(.subheadline)
-                        Text("Brace height when lying flat — this is the t dimension in the stiffness formula")
-                            .font(.caption2)
-                            .foregroundColor(Palette.color(.textSecondary))
-                    }
-                    Spacer()
-                    ValidatedNumberField(text: $braceThicknessInput, decimals: FieldPrecision.linearDimensionMM)
-                        .frame(width: 80)
-                    Text("mm")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
-
-                HStack {
-                    Text("Mass:")
-                        .font(.subheadline)
-                    Spacer()
-                    ValidatedNumberField(text: $braceMassInput, decimals: FieldPrecision.massG)
-                        .frame(width: 80)
-                    Text("g")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
-
-                if let length = Float(braceLengthInput),
-                   let width = Float(braceWidthInput),
-                   let thickness = Float(braceThicknessInput),
-                   let mass = Float(braceMassInput),
-                   length > 0, width > 0, thickness > 0, mass > 0 {
-                    let dims = MaterialDimensions(lengthMM: length, widthMM: width, thicknessMM: thickness, massGrams: mass)
-                    HStack {
-                        Text("Calculated Density:")
-                            .font(.subheadline)
-                            .foregroundColor(Palette.color(.textSecondary))
-                        Spacer()
-                        Text("\(FieldPrecision.string(dims.densityGPerCm3, FieldPrecision.densityGPerCm3)) g/cm³")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                    }
-                }
-            }
-        } header: {
-            Label("Measurement Type", systemImage: selectedMeasurementType.isGuitar ? "guitars" : "square.3.layers.3d")
-                .font(.headline)
-        } footer: {
-            if selectedMeasurementType.isGuitar {
-                Text("Select your guitar type for accurate mode classification.")
-                    .font(.caption)
-            } else {
-                Text("Enter the dimensions and mass of your rectangular wood sample. The app will calculate stiffness, speed of sound, and radiation ratio from the tap frequencies.")
-                    .font(.caption)
             }
         }
     }
 
-    // MARK: - Display Range Section
+    // MARK: - Measurement Type Section
 
+    /// The measurement type, then one titled box per group of its settings — the guitar's mode
+    /// ranges, or a plate's or brace's dimensions.
     @ViewBuilder
-    var displayRangeSectionContent: some View {
-        // Appearance
-        Picker("Appearance", selection: $selectedAppearance) {
-            ForEach(Appearance.allCases) { appearance in
-                Text(appearance.label)
-                    .tag(appearance)
+    var measurementTypeSection: some View {
+        settingsSection("Measurement Type",
+                        icon: selectedMeasurementType.isGuitar ? "guitars" : "square.3.layers.3d",
+                        note: selectedMeasurementType.isGuitar
+                            ? "Select your guitar type for accurate mode classification."
+                            : "Enter the dimensions and mass of your rectangular wood sample. The app will calculate stiffness, speed of sound, and radiation ratio from the tap frequencies.") {
+            settingsRow("Measurement Type") {
+                Picker("Measurement Type", selection: $selectedMeasurementType) {
+                    ForEach(MeasurementType.allCases) { type in
+                        Text(type.rawValue)
+                            .tag(type)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+                .onChange(of: selectedMeasurementType) { _, newType in
+                    // Load the stored frequency range for the new type (falls back to type defaults)
+                    minFreqInput = FieldPrecision.string(TapDisplaySettings.minFrequency(for: newType), FieldPrecision.frequencyHz)
+                    maxFreqInput = FieldPrecision.string(TapDisplaySettings.maxFrequency(for: newType), FieldPrecision.frequencyHz)
+                }
             }
-        }
-        Text("System follows the operating system's Light or Dark setting")
-            .font(.caption)
-            .foregroundColor(Palette.color(.textSecondary))
-
-        // Frequency Range
-        if isCompact {
-            compactFrequencyRangeView(
-                title: "Frequency Range",
-                minBinding: $minFreqInput,
-                maxBinding: $maxFreqInput,
-                decimals: FieldPrecision.frequencyHz,
-                unit: "Hz",
-                description: "Frequency range shown in the spectrum chart"
-            )
-        } else {
-            regularFrequencyRangeView(
-                title: "Frequency Range",
-                minBinding: $minFreqInput,
-                maxBinding: $maxFreqInput,
-                decimals: FieldPrecision.frequencyHz,
-                unit: "Hz",
-                description: "Frequency range shown in the spectrum chart"
-            )
+            settingsDescription(selectedMeasurementType.description)
         }
 
-        // Magnitude Range
-        if isCompact {
-            compactFrequencyRangeView(
-                title: "Magnitude Range",
-                minBinding: $minDBInput,
-                maxBinding: $maxDBInput,
-                decimals: FieldPrecision.magnitudeDB,
-                unit: "dB",
-                description: "Magnitude range shown in the spectrum chart"
-            )
-        } else {
-            regularFrequencyRangeView(
-                title: "Magnitude Range",
-                minBinding: $minDBInput,
-                maxBinding: $maxDBInput,
-                decimals: FieldPrecision.magnitudeDB,
-                unit: "dB",
-                description: "Magnitude range shown in the spectrum chart"
-            )
+        // Guitar: the selected type's mode frequency ranges
+        if selectedMeasurementType.isGuitar, let guitarType = selectedMeasurementType.guitarType {
+            settingsGroup("Mode Frequency Ranges") {
+                let ranges = guitarType.modeRanges
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        modeRangeRow("Air:", range: ranges.air)
+                        modeRangeRow("Top:", range: ranges.top)
+                        modeRangeRow("Back:", range: ranges.back)
+                    }
+                    Spacer()
+                    VStack(alignment: .leading, spacing: 4) {
+                        modeRangeRow("Dipole:", range: ranges.dipole)
+                        modeRangeRow("Ring:", range: ranges.ringMode)
+                    }
+                }
+                .font(SettingsType.caption)
+                .padding(.vertical, 2)
+            }
         }
 
-        Button {
-            saveCurrentView()
-        } label: {
-            HStack {
-                Spacer()
-                Image(systemName: "square.and.arrow.down")
-                Text("Save Current View")
-                Spacer()
+        // Plate: its sample, the diagonal tap, and the Gore target's body and stiffness
+        if selectedMeasurementType == .plate {
+            settingsGroup("Sample Dimensions") {
+                dimensionRow("Length (along grain)", text: $plateLengthInput, decimals: FieldPrecision.linearDimensionMM, unit: "mm")
+                dimensionRow("Width (cross grain)", text: $plateWidthInput, decimals: FieldPrecision.linearDimensionMM, unit: "mm")
+                dimensionRow("Thickness", text: $plateThicknessInput, decimals: FieldPrecision.linearDimensionMM, unit: "mm")
+                dimensionRow("Mass", text: $plateMassInput, decimals: FieldPrecision.massG, unit: "g")
+                densityRow(length: plateLengthInput, width: plateWidthInput, thickness: plateThicknessInput, mass: plateMassInput)
+                settingsToggleRow("Measure Diagonal (fLC) Tap",
+                                  description: "Add a 3rd tap: hold plate at midpoint of one long edge, tap near opposite corner. Measures shear stiffness for Gore target thickness.",
+                                  isOn: $measureFlc)
             }
-            .font(.subheadline)
+
+            settingsGroup("Gore Target Thickness — Body Dimensions") {
+                settingsDescription("Finished guitar body dimensions used in Gore's Eq. 4.5-7 to calculate target plate thickness.")
+                dimensionRow("Body Length (a)", text: $guitarBodyLengthInput, decimals: FieldPrecision.bodyDimensionMM, unit: "mm")
+                dimensionRow("Lower Bout Width (b)", text: $guitarBodyWidthInput, decimals: FieldPrecision.bodyDimensionMM, unit: "mm")
+            }
+
+            settingsGroup("Plate Vibrational Stiffness (f_vs)") {
+                settingsRow("Panel Type") {
+                    Picker("Panel Type", selection: $plateStiffnessPreset) {
+                        ForEach(PlateStiffnessPreset.allCases) { preset in
+                            Text(preset.shortName).tag(preset)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
+                if plateStiffnessPreset == .custom {
+                    settingsRow("Custom f_vs value") {
+                        ValidatedNumberField(text: $customPlateStiffnessInput, decimals: FieldPrecision.stiffness, placeholder: "value")
+                            .frame(width: settingsFieldWidth)
+                        unitLabel("")
+                    }
+                }
+            }
         }
-        .padding(.top, 8)
-        Button(role: .destructive) {
-            resetDisplaySettingsToDefaults()
-        } label: {
-            HStack {
-                Spacer()
-                Image(systemName: "arrow.counterclockwise.circle")
-                Text("Reset to Defaults")
-                Spacer()
+
+        // Brace: its dimensions
+        if selectedMeasurementType == .brace {
+            settingsGroup("Brace Dimensions") {
+                dimensionRow("Length (along grain)", text: $braceLengthInput, decimals: FieldPrecision.linearDimensionMM, unit: "mm")
+                dimensionRow("Width (breadth)", text: $braceWidthInput, decimals: FieldPrecision.linearDimensionMM, unit: "mm")
+                dimensionRow("Height (tap direction)", text: $braceThicknessInput, decimals: FieldPrecision.linearDimensionMM, unit: "mm",
+                             note: "Brace height when lying flat — this is the t dimension in the stiffness formula")
+                dimensionRow("Mass", text: $braceMassInput, decimals: FieldPrecision.massG, unit: "g")
+                densityRow(length: braceLengthInput, width: braceWidthInput, thickness: braceThicknessInput, mass: braceMassInput)
             }
-            .font(.subheadline)
+        }
+    }
+
+    // MARK: - Advanced
+
+    /// The Advanced disclosure: a row in its own box — the icon and label, then the chevron at the
+    /// right edge (down when closed, up when open).
+    var advancedRow: some View {
+        settingsBox {
+            Button {
+                showingAdvanced.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Label("Advanced", systemImage: "gearshape.2")
+                        .font(SettingsType.title)
+                        .foregroundColor(Palette.color(.textPrimary))
+                    Spacer()
+                    Image(systemName: showingAdvanced ? "chevron.up" : "chevron.down")
+                        .font(SettingsType.caption)
+                        .foregroundColor(Palette.color(.textSecondary))
+                }
+                .frame(minHeight: 28)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Display Settings Section
+
+    var displaySettingsSection: some View {
+        settingsSection("Display Settings", icon: "chart.xyaxis.line") {
+            settingsRow("Appearance") {
+                Picker("Appearance", selection: $selectedAppearance) {
+                    ForEach(Appearance.allCases) { appearance in
+                        Text(appearance.label)
+                            .tag(appearance)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+            }
+            settingsDescription("System follows the operating system's Light or Dark setting")
+
+            rangeRow(title: "Frequency Range", minBinding: $minFreqInput, maxBinding: $maxFreqInput,
+                     decimals: FieldPrecision.frequencyHz, unit: "Hz",
+                     description: "Frequency range shown in the spectrum chart")
+            rangeRow(title: "Magnitude Range", minBinding: $minDBInput, maxBinding: $maxDBInput,
+                     decimals: FieldPrecision.magnitudeDB, unit: "dB",
+                     description: "Magnitude range shown in the spectrum chart")
+
+            settingsActionButtons {
+                Button {
+                    saveCurrentView()
+                } label: {
+                    Label("Save Current View", systemImage: "square.and.arrow.down")
+                }
+                Button {
+                    resetDisplaySettingsToDefaults()
+                } label: {
+                    Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+                }
+            }
         }
     }
 
     // MARK: - Analysis Settings Section
 
-    @ViewBuilder
-    var analysisSettingsSectionContent: some View {
-        // Show Unknown Modes (guitar only)
-        if selectedMeasurementType.isGuitar {
-            Toggle(isOn: $showUnknownModes) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Show Unknown Modes")
-                    Text("Display peaks that don't fall within known mode ranges")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
+    var analysisSettingsSection: some View {
+        settingsSection("Analysis Settings", icon: "waveform.path.ecg") {
+            // Show Unknown Modes (guitar only)
+            if selectedMeasurementType.isGuitar {
+                settingsToggleRow("Show Unknown Modes",
+                                  description: "Display peaks that don't fall within known mode ranges",
+                                  isOn: $showUnknownModes)
             }
-        }
 
             // The analysis frequency range (30–2000 Hz) is a fixed constant, not a user setting —
             // it bounds the useful modal region and never needs changing. See
             // TapDisplaySettings.analysisMinFrequency.
 
-            // Peak Threshold (guitar only — not used for plate/brace)
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Peak Detection Minimum")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                HStack(spacing: 12) {
+            // Peak Detection Minimum (guitar only — not used for plate/brace)
+            VStack(alignment: .leading, spacing: 0) {
+                settingsRow("Peak Detection Minimum") {
                     ValidatedNumberField(text: $peakMinThresholdInput, decimals: FieldPrecision.magnitudeDB,
                                          placeholder: "Min", allowsNegative: true)
-                        .frame(maxWidth: isCompact ? .infinity : 120)
-
-                    Text("dB")
-                        .foregroundColor(Palette.color(.textSecondary))
-                        .font(.body)
+                        .frame(width: settingsFieldWidth)
+                    unitLabel("dB")
                 }
-
-                Text("Minimum magnitude for peak detection. Typical range: -60 to -40 dB")
-                    .font(.caption)
-                    .foregroundColor(Palette.color(.textSecondary))
-                    .fixedSize(horizontal: false, vertical: true)
+                settingsDescription("Minimum magnitude for peak detection. Typical range: -60 to -40 dB")
             }
-            .padding(.vertical, 4)
             .disabled(!selectedMeasurementType.isGuitar)
             .opacity(selectedMeasurementType.isGuitar ? 1 : 0.4)
 
-            Divider()
-
-            // Dump Capture Audio (diagnostics)
-            Toggle(isOn: $dumpCaptureAudio) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Dump Capture Audio")
-                    // Names no folder: under the sandbox this is the app's own Documents, not the
-                    // user's — and the folder becomes a visible, settable field in its own right.
-                    // One WAV per measurement, not one per tap:
-                    // the per-tap dumps were dropped in favour of a single session recording.
-                    Text("Save the captured audio of each measurement as a WAV file")
-                        .font(.caption)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
-            }
+            // Dump Capture Audio (diagnostics). Names no folder: under the sandbox this is the app's
+            // own Documents, not the user's — the folder is its own field below. One WAV per
+            // measurement, not one per tap: the per-tap dumps were dropped for a single session recording.
+            settingsToggleRow("Dump Capture Audio",
+                              description: "Save the captured audio of each measurement as a WAV file",
+                              isOn: $dumpCaptureAudio)
 
             // WAV-dump folder: where the recordings go, with buttons to open / change it.
             if dumpCaptureAudio {
                 #if os(macOS)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Saved to")
-                        .font(.caption)
+                        .font(SettingsType.caption)
                         .foregroundColor(Palette.color(.textSecondary))
                     Text(dumpFolderDisplayPath)
-                        .font(.caption)
+                        .font(SettingsType.caption)
                         .lineLimit(2)
                         .truncationMode(.middle)
                         .textSelection(.enabled)
-                    HStack(spacing: 8) {
+                    settingsActionButtons {
                         Button("Open Folder") { WavDumpFolder.openFolder() }
                         Button("Change…") {
                             if WavDumpFolder.chooseFolder() {
@@ -477,194 +345,52 @@ extension TapSettingsView {
                         }
                         .disabled(!WavDumpFolder.hasCustomFolder)
                     }
-                    .controlSize(.small)
                 }
-                .padding(.leading, 4)
                 #else
-                Text("Saved in the app's Documents folder — reach it in Files → On My iPhone/iPad → Guitar Tap.")
-                    .font(.caption)
-                    .foregroundColor(Palette.color(.textSecondary))
-                    .padding(.leading, 4)
+                settingsDescription("Saved in the app's Documents folder — reach it in Files → On My iPhone/iPad → Guitar Tap.")
                 #endif
             }
 
-            Button {
-                resetAnalysisSettings()
-            } label: {
-                HStack {
-                    Spacer()
-                    Image(systemName: "arrow.counterclockwise")
-                    Text("Reset Analysis Settings")
-                    Spacer()
-                }
-                .font(.subheadline)
-            }
-            .padding(.top, 8)
-    }
-
-    // MARK: - Audio Input & Calibration Section
-
-    @ViewBuilder
-    var audioInputSection: some View {
-        if !fftAnalyzer.availableInputDevices.isEmpty {
-            Section {
-                // Device picker
-                Picker("Audio Input Device", selection: $fftAnalyzer.selectedInputDevice) {
-                    ForEach(fftAnalyzer.availableInputDevices) { device in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(device.name)
-                                .font(.body)
-                            Text("Sample Rate: \(formattedAsWholeHertz(device.sampleRate))")
-                                .font(.caption)
-                                .foregroundColor(Palette.color(.textSecondary))
-                        }
-                        .tag(device as AVAudioDevice?)
-                    }
-                }
-                #if os(iOS)
-                .pickerStyle(.navigationLink)
-                #endif
-                .onChange(of: fftAnalyzer.selectedInputDevice) { oldDevice, newDevice in
-                    guard let device = newDevice, device.uid != oldDevice?.uid else { return }
-                    gtLog("🔄 Device selection changed to: \(device.name)")
-                    // Update calibration picker to reflect device's calibration
-                    selectedCalibrationID = fftAnalyzer.activeCalibration?.id
-                }
-
-                if let selectedDevice = fftAnalyzer.selectedInputDevice {
-                    HStack {
-                        Text("Sample Rate:")
-                            .font(.subheadline)
-                            .foregroundColor(Palette.color(.textSecondary))
-                        Spacer()
-                        Text(formattedAsWholeHertz(selectedDevice.sampleRate))
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                    }
-                }
-
-                // Calibration subsection
-                Divider()
-
-                // Calibration picker (if any calibrations are stored)
-                if !storedCalibrations.isEmpty {
-                    Picker("Calibration", selection: $selectedCalibrationID) {
-                        Text("None (Uncalibrated)")
-                            .tag(nil as UUID?)
-
-                        ForEach(storedCalibrations) { calibration in
-                            Text(calibration.name)
-                                .tag(calibration.id as UUID?)
-                        }
-                    }
-                    #if os(iOS)
-                    .pickerStyle(.navigationLink)
-                    #endif
-                    .onChange(of: selectedCalibrationID) { _, newID in
-                        if let id = newID {
-                            fftAnalyzer.activeCalibration = storedCalibrations.first { $0.id == id }
-                        } else {
-                            fftAnalyzer.activeCalibration = nil
-                        }
-                    }
-                } else {
-                    HStack {
-                        Text("Calibration:")
-                            .font(.subheadline)
-                        Spacer()
-                        Text("None")
-                            .foregroundColor(Palette.color(.textSecondary))
-                    }
-                }
-
-                // Import button
+            settingsActionButtons {
                 Button {
-                    showingCalibrationImporter = true
+                    resetAnalysisSettings()
                 } label: {
-                    HStack {
-                        Image(systemName: "doc.badge.plus")
-                        Text("Import Calibration File...")
-                    }
+                    Label("Reset Analysis Settings", systemImage: "arrow.counterclockwise")
                 }
-
-                // Show calibration details if one is active
-                if let calibration = fftAnalyzer.activeCalibration {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                if let sens = calibration.sensitivityFactor {
-                                    Text("Sensitivity: \(String(format: "%.2f", sens)) dB")
-                                        .font(.caption)
-                                }
-                                Text("Data points: \(calibration.correctionPoints.count)")
-                                    .font(.caption)
-                            }
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 2) {
-                                if let first = calibration.correctionPoints.first,
-                                   let last = calibration.correctionPoints.last {
-                                    Text("\(String(format: "%.0f", first.frequency))-\(String(format: "%.0f", last.frequency)) Hz")
-                                        .font(.caption)
-                                }
-                            }
-                        }
-                        .foregroundColor(Palette.color(.textSecondary))
-                    }
-                }
-
-                // Delete calibrations (if any exist)
-                if !storedCalibrations.isEmpty {
-                    Button(role: .destructive) {
-                        showingDeleteAllCalibrationsConfirmation = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "trash")
-                            Text("Delete All Calibrations")
-                        }
-                    }
-                }
-            } header: {
-                Label("Audio Input & Calibration", systemImage: "mic.fill")
-                    .font(.headline)
-            } footer: {
-                Text("Audio input and calibration changes take effect immediately and are not affected by Cancel. Calibrations are automatically associated with each device.")
-                    .font(.caption)
             }
         }
     }
 
     // MARK: - About & Help Section
 
-    @ViewBuilder
     var aboutSection: some View {
-        Section {
-            HStack {
-                Text("Version")
-                Spacer()
+        settingsSection("About & Help", icon: "info.circle") {
+            settingsRow("Version") {
                 Text(appVersion)
                     .foregroundColor(Palette.color(.textSecondary))
             }
 
             if let copyright = Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String {
-                Text(copyright)
-                    .font(.caption)
-                    .foregroundColor(Palette.color(.textSecondary))
+                settingsDescription(copyright)
             }
 
             NavigationLink {
                 HelpView()
             } label: {
-                Label("Quick Start Guide", systemImage: "questionmark.circle")
+                settingsLinkRow("Quick Start Guide", icon: "questionmark.circle", trailingIcon: "chevron.right")
             }
+            .buttonStyle(.plain)
 
+            // A button rather than a Link, so the row is drawn like Quick Start Guide's (a Link is
+            // tinted throughout and keeps its colour in an inactive window).
             if let url = DocumentationLinks.userManual {
-                Link(destination: url) {
-                    Label("User Manual", systemImage: "book.closed")
+                Button {
+                    openURL(url)
+                } label: {
+                    settingsLinkRow("User Manual", icon: "book.closed", trailingIcon: "arrow.up.forward.square")
                 }
+                .buttonStyle(.plain)
             }
-        } header: {
-            Label("About & Help", systemImage: "info.circle")
-                .font(.headline)
         }
     }
 }

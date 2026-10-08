@@ -199,24 +199,62 @@ struct WavDumpFolderTests {
     }
     #endif
 
-    // Saving turned on after a sequence has started applies to that sequence: the recording is made
-    // regardless, and the setting is read when it is written.
+    // Recording is decided when a sequence starts, from the saving setting: with it off nothing is
+    // kept, and turning it on mid-sequence takes effect from the next sequence. A loaded measurement
+    // or comparison ends the sequence and its recording.
 
-    @Test func savingTurnedOnAfterArming_savesThatSequencesRecording() {
+    private let chunk = [Float](repeating: 0.1, count: 1024)
+
+    @Test func savingOff_recordsNothing() {
         let savedDump = TapDisplaySettings.dumpCaptureAudio
         defer { TapDisplaySettings.dumpCaptureAudio = savedDump }
         TapDisplaySettings.dumpCaptureAudio = false
         let sut = TapToneAnalyzer.forTesting()
         sut.startTapSequence()
-        sut.maintainSessionRecording(appending: [Float](repeating: 0.1, count: 1024))
+        sut.gatedCaptureActive = true
+        for _ in 0..<10 { sut.maintainSessionRecording(appending: chunk) }
+        #expect(!sut.isSessionRecording)
+        #expect(sut.sessionRecordingBuffer.isEmpty)
+    }
+
+    @Test func savingTurnedOnAfterArming_takesEffectFromTheNextSequence() {
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump }
+        TapDisplaySettings.dumpCaptureAudio = false
+        let sut = TapToneAnalyzer.forTesting()
+        sut.startTapSequence()
         TapDisplaySettings.dumpCaptureAudio = true
+        // A pause and resume does not start it either.
+        sut.pauseTapDetection()
+        sut.resumeTapDetection()
+        sut.maintainSessionRecording(appending: chunk)
+        #expect(!sut.isSessionRecording)
+        #expect(sut.sessionRecordingBuffer.isEmpty)
         let folder = WavDumpFolder.defaultFolder
         let before = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [])
         sut.finishSessionRecording(label: "Guitar_1tap")
         let after = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [])
-        let written = after.subtracting(before).filter { $0.hasPrefix("swift_session_Guitar_1tap_") }
-        #expect(written.count == 1)
-        for name in written { try? FileManager.default.removeItem(at: folder.appendingPathComponent(name)) }
+        #expect(after.subtracting(before).filter { $0.hasPrefix("swift_session_Guitar_1tap_") }.isEmpty)
+        // The next sequence records.
+        sut.startTapSequence()
+        #expect(sut.isSessionRecording)
+    }
+
+    @Test func loadingAMeasurement_endsTheRecording() {
+        let savedDump = TapDisplaySettings.dumpCaptureAudio
+        defer { TapDisplaySettings.dumpCaptureAudio = savedDump }
+        TapDisplaySettings.dumpCaptureAudio = true
+        let sut = TapToneAnalyzer.forTesting()
+        sut.startTapSequence()
+        sut.gatedCaptureActive = true
+        for _ in 0..<10 { sut.maintainSessionRecording(appending: chunk) }
+        #expect(!sut.sessionRecordingBuffer.isEmpty)
+        sut.loadMeasurement(TapToneMeasurement(peaks: []))
+        #expect(!sut.isSessionRecording)
+        #expect(sut.sessionRecordingBuffer.isEmpty)
+        // Audio after the load is not kept.
+        sut.maintainSessionRecording(appending: chunk)
+        #expect(sut.sessionRecordingBuffer.isEmpty)
     }
 
     // A save is shown: the analyzer names the file it wrote, until dismissed or a new sequence starts.

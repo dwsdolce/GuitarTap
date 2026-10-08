@@ -64,6 +64,8 @@ struct TapSettingsView: View {
 
     // Dismiss action
     @Environment(\.dismiss) var dismiss
+    // Opens the User Manual
+    @Environment(\.openURL) var openURL
 
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -121,7 +123,7 @@ struct TapSettingsView: View {
     @State var showingDeleteAllCalibrationsConfirmation = false
 
     // Advanced section expansion state
-    @State private var showingAdvanced = false
+    @State var showingAdvanced = false
 
     /// Whether the layout should use the compact (narrow iOS) form.
     var isCompact: Bool {
@@ -175,39 +177,24 @@ struct TapSettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                audioInputSection
-                measurementTypeSection
-                Section {
-                    DisclosureGroup(isExpanded: $showingAdvanced) {
-                        // Content intentionally empty — the two sub-sections
-                        // below render at Form top-level so their headers
-                        // appear outside the gray background.
-                    } label: {
-                        Label("Advanced", systemImage: "gearshape.2")
-                            .font(.headline)
+            // The sheet's own layout (TapSettingsView+LayoutHelpers), not a Form: a section's rows in a
+            // grey box with no lines between them, at the same spacing in every edition.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    audioInputSection
+                    measurementTypeSection
+                    advancedRow
+                    if showingAdvanced {
+                        displaySettingsSection
+                        analysisSettingsSection
                     }
-                    .disclosureGroupStyle(FormDisclosureGroupStyle())
+                    aboutSection
                 }
-                if showingAdvanced {
-                    Section {
-                        displayRangeSectionContent
-                    } header: {
-                        Label("Display Settings", systemImage: "chart.xyaxis.line")
-                            .font(.headline)
-                    }
-                    Section {
-                        analysisSettingsSectionContent
-                    } header: {
-                        Label("Analysis Settings", systemImage: "waveform.path.ecg")
-                            .font(.headline)
-                    }
-                }
-                aboutSection
+                .padding(16)
             }
+            .background(Palette.color(.backgroundPanel))
             .legacyScrollers()
             #if os(macOS)
-            .formStyle(.grouped)
             .frame(minWidth: 500, minHeight: 600)
             #endif
             .navigationTitle("Tap Settings")

@@ -1048,8 +1048,10 @@ struct SpectrumView: View {
     @AxisContentBuilder
     private var xAxisContent: some AxisContent {
         let labels = frequencyAxisLabels
-        AxisMarks(values: frequencyAxisValues) { value in
-            AxisValueLabel {
+        // .aligned centres each label under its grid line; the default preset starts the label at the line
+        // (and overrides a label's own anchor).
+        AxisMarks(preset: .aligned, values: frequencyAxisValues) { value in
+            AxisValueLabel(anchor: .top) {
                 if let doubleValue = value.as(Double.self) {
                     Text(labels[doubleValue] ?? AxisTickGenerator.formatTickLabel(doubleValue))
                         .foregroundStyle(Palette.color(.chartAxis))

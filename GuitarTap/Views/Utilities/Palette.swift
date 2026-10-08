@@ -25,6 +25,7 @@ enum Palette {
         case backgroundPanel = "background.panel"
         case backgroundControl = "background.control"
         case backgroundSubtle = "background.subtle"
+        case backgroundPicker = "background.picker"
         case separator = "separator"
         case dividerSection = "divider.section"
         case dividerHeaderFooter = "divider.headerFooter"
@@ -156,6 +157,7 @@ enum Palette {
         .backgroundPanel: Pair(light: "#FFFFFF", dark: "#141A22"),
         .backgroundControl: Pair(light: "#FFFFFF", dark: "#11161D"),
         .backgroundSubtle: Pair(light: "#8E8E9314", dark: "#8E8E931A"),
+        .backgroundPicker: Pair(light: "#00000014", dark: "#FFFFFF14"),
         .separator: Pair(light: "#D8DEE6", dark: "#222A33"),
         .dividerSection: Pair(light: "#1A233059", dark: "#FFFFFF59"),
         .dividerHeaderFooter: Pair(light: "#1A2330", dark: "#E7EBF0"),

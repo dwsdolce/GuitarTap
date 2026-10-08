@@ -81,16 +81,7 @@ struct MeasurementsListView: View {
         // macOS layout without NavigationView wrapper (sheet handles its own window)
         contentView
             .frame(minWidth: 600, minHeight: 400)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: 0) {
-                    Text("Saved Measurements")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal)
-                        .padding(.vertical, 10)
-                    Divider()
-                }
-            }
+            .sheetTitle("Saved Measurements")
             .fileImporter(
                 isPresented: $showingImportPicker,
                 allowedContentTypes: [.guitarTapMeasurement, .json],

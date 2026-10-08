@@ -652,6 +652,7 @@ extension TapToneAnalyzer {
         // loading, the analyzeMagnitudes loop would otherwise keep overwriting
         // peaksAbovePeakMin with fresh live-audio peaks on every FFT frame.
         detectionState = .idle
+        cancelSessionRecording()
         isMeasurementComplete = true
         currentTapCount = 0
         tapProgress = 0.0
@@ -981,6 +982,7 @@ extension TapToneAnalyzer {
         // Mirrors web `loadComparison`.
         if !comparisonSpectra.isEmpty {
             detectionState = .idle
+            cancelSessionRecording()
         }
     }
 

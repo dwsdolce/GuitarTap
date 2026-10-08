@@ -3,7 +3,7 @@
 #
 # Used by:
 #   - GuitarTap/generate-help.sh (Xcode build phase that produces the
-#     Quick-Start Guide)
+#     Quick Start Guide)
 #   - generate-manual.sh (User Manual build)
 #   - Manual editors adding new symbols by hand: see "Manual usage" below.
 #
