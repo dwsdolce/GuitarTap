@@ -371,7 +371,11 @@ Help menu:
                 )
                 helpRow(
                     title: "Advanced (collapsed section)",
-                    body: "Tap the Advanced row to expand Display Settings, Analysis Settings, and FFT Processing. These options rarely need changing after initial setup."
+                    body: "Tap the Advanced row to expand Display Settings and Analysis Settings. These options rarely need changing after initial setup."
+                )
+                helpRow(
+                    title: "Appearance",
+                    body: "Advanced → Display Settings, the first row. System (the default) follows the operating system's Light or Dark setting and changes when it does; Light and Dark keep the app in that scheme whatever the system does. Exported images and PDF reports are always drawn light, whatever the setting."
                 )
                 helpRow(
                     title: "Show Unknown Modes",

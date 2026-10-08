@@ -129,6 +129,14 @@ changes only the default for the next new measurement.
 
 Tap **Advanced** to reveal these.
 
+- **Appearance** — **System** (the default), **Light** or **Dark**.
+  System follows the operating system's appearance setting and
+  switches when it does; Light and Dark hold the app in that scheme
+  whatever the system does. Where the operating system reports no
+  preference (some Linux desktops), System shows Light. The chart,
+  the results and every panel follow the setting; exported images and
+  PDF reports are always drawn light, so they print the same whichever
+  scheme you work in.
 - **Frequency Range** — the saved min and max Hz for the current
   measurement type (each type has its own). Entered in whole Hz; a
   range saved with Save Current View is kept exactly and shown
@@ -161,7 +169,9 @@ SCREENSHOT:
            are visible. Captured in guitar mode so the
            Peak Detection Minimum field is enabled and the Show
            Unknown Modes toggle is shown.
-  Notes:   Crop to the settings sheet only.
+  Notes:   Crop to the settings sheet only. Recapture: the Settings
+           sheet was redesigned in 1.0.3 (grouped boxes, Appearance
+           first in Display Settings).
 -->
 
 ![Advanced section of Settings showing Display Settings and Analysis Settings sub-sections.](images/ch08-settings-advanced.png){: .screenshot-panel }
