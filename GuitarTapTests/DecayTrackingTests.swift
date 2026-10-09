@@ -57,7 +57,9 @@ struct DecayTrackingTests {
 
     // MARK: - measureDecayTime — the shared cases in `decay-tracking.json` (DK1–DK5, DK8–DK10)
 
-    static let data: [String: Any] = {
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
         let url = Bundle(for: DecayTrackingTestsAnchor.self).url(forResource: "decay-tracking", withExtension: "json")!
         return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     }()

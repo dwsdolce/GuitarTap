@@ -18,7 +18,9 @@ private final class ButtonEnablementTestsAnchor {}
 @MainActor
 struct ButtonEnablementTests {
 
-    static let cases: [[String: Any]] = {
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let cases: [[String: Any]] = {
         let url = Bundle(for: ButtonEnablementTestsAnchor.self).url(forResource: "button-enablement", withExtension: "json")!
         let data = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
         return data["buttonRule"] as! [[String: Any]]

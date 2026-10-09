@@ -350,6 +350,8 @@ extension TapToneAnalyzer {
         )
 
         savedMeasurements.append(measurement)
+        // The result on screen is now this saved measurement: its exports show its date and are named by it.
+        sourceMeasurementTimestamp = measurement.timestamp
         gtLog("💾 Saved measurement with \(savedPeaks.count) peaks, type: \(measurementType.shortName)")
 
         // Persist to disk
@@ -488,6 +490,8 @@ extension TapToneAnalyzer {
             }
             loadedMeasurementName = measurement.measurementName.flatMap { $0.isEmpty ? nil : $0 }
             loadedNotes = measurement.notes.flatMap { $0.isEmpty ? nil : $0 }
+            // The saved comparison's own date, which its exports show and are named by.
+            sourceMeasurementTimestamp = measurement.timestamp
             // Clear any per-tap entries from a previously loaded multi-tap measurement so
             // the PDF export routing doesn't misidentify this as a multi-tap measurement.
             tapEntries = []
@@ -918,6 +922,8 @@ extension TapToneAnalyzer {
     ///
     /// - Parameter measurements: The guitar measurements to overlay.
     func loadComparison(measurements: [TapToneMeasurement]) {
+        // An unsaved comparison has no date of its own: its exports use the time of export.
+        sourceMeasurementTimestamp = nil
         // Clear any active multi-tap comparison so the Taps button and per-tap table
         // are hidden when the saved-measurement comparison is displayed.
         tapEntries = []
@@ -1030,6 +1036,8 @@ extension TapToneAnalyzer {
             comparisonEntries: entries
         )
         savedMeasurements.append(record)
+        // The comparison on screen is now this saved one: its exports show its date and are named by it.
+        sourceMeasurementTimestamp = record.timestamp
         persistMeasurements()
     }
 

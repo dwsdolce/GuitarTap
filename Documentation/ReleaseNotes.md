@@ -5,6 +5,8 @@
 ## Version {{version}} · Build {{build}}
 ### What's New Since Build {{since}}
 
+<!-- Notes reviewed through commit b47f0aa (2026-10-07). The next update reads only `git log b47f0aa..HEAD`, then moves this line to the newest commit it covered. -->
+
 ---
 
 ## New Features

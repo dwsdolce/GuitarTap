@@ -21,11 +21,13 @@ private final class DSPTestsAnchor {}
 @Suite("DSP")
 struct DSPTests {
 
-    static let data: [String: Any] = {
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
         let url = Bundle(for: DSPTestsAnchor.self).url(forResource: "dsp", withExtension: "json")!
         return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     }()
-    static func rows(_ key: String) -> [[String: Any]] { data[key] as! [[String: Any]] }
+    nonisolated static func rows(_ key: String) -> [[String: Any]] { data[key] as! [[String: Any]] }
     static func row(_ key: String, _ id: String) -> [String: Any] { rows(key).first { $0["id"] as! String == id }! }
 
     /// A number from the file: NaN and the infinities are written as strings.

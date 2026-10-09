@@ -26,9 +26,13 @@ enum TestSandbox {
     /// The discriminator, or `nil` when running as the real app.
     ///
     /// `XCTestConfigurationFilePath` is set by the test runner and never on a normal launch — the
-    /// same signal `GuitarTapApp` uses to render nothing while hosting tests.
+    /// same signal `GuitarTapApp` uses to render nothing while hosting tests. A UI test launches the
+    /// app as a separate process without it, so it sets `GT_TEST_SANDBOX` in the launch environment
+    /// instead (the variable Python's tests use for the same purpose); the app then draws normally
+    /// but keeps its settings and library in a sandbox of its own, empty at every launch.
     nonisolated static let id: String? = {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil else {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["XCTestConfigurationFilePath"] != nil || environment["GT_TEST_SANDBOX"] != nil else {
             return nil
         }
         return String(ProcessInfo.processInfo.processIdentifier)

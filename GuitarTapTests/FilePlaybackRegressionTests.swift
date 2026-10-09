@@ -27,7 +27,7 @@ import AVFoundation
 
 // Used to anchor Bundle(for:) lookups to the GuitarTapTests bundle.
 private class TestBundleMarker: NSObject {}
-private var testBundle: Bundle { Bundle(for: TestBundleMarker.self) }
+nonisolated private var testBundle: Bundle { Bundle(for: TestBundleMarker.self) }
 
 /// REG-B1's tap threshold, for the provenance cases below.
 private let braceTapThreshold: Float = ParityOracle.playback("REG-B1").settings.tapDetectionThreshold
@@ -37,7 +37,7 @@ private let braceTapThreshold: Float = ParityOracle.playback("REG-B1").settings.
 // ---------------------------------------------------------------------------
 
 /// One case of `file-playback.json`: the oracle entry it plays (or a fixture of its own) and what it checks.
-private struct PlaybackCheckCase: Decodable, CustomTestStringConvertible {
+nonisolated private struct PlaybackCheckCase: Decodable, CustomTestStringConvertible {
     struct Check: Decodable {
         let kind: String
         let count: Int?
@@ -54,7 +54,8 @@ private struct PlaybackCheckCase: Decodable, CustomTestStringConvertible {
     var testDescription: String { id }
 }
 
-private let playbackCases: [PlaybackCheckCase] = {
+// nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default.
+nonisolated private let playbackCases: [PlaybackCheckCase] = {
     let url = testBundle.url(forResource: "file-playback", withExtension: "json")!
     struct File: Decodable { let cases: [PlaybackCheckCase] }
     return try! JSONDecoder().decode(File.self, from: Data(contentsOf: url)).cases

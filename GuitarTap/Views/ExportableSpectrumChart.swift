@@ -153,6 +153,14 @@ struct ExportableSpectrumChart: View {
         }
     }
 
+    /// The plot's width in the exported image, in points: the width its fixed layout gives it, which decides
+    /// which frequency labels fit before the chart is drawn. Stating it as the plot's frame instead widens the
+    /// plot; the export checker holds the plot's edges to Swift's measured ones, so a layout change fails there.
+    static let plotWidth: CGFloat = 1352
+
+    /// The frequency labels' size in the exported image, in points.
+    static let frequencyLabelSize: CGFloat = 12
+
     private var frequencyAxisValues: [Double] {
         let lo = Double(minFreq)
         let hi = Double(maxFreq)
@@ -346,13 +354,19 @@ struct ExportableSpectrumChart: View {
                         .chartXScale(domain: Double(minFreq)...Double(maxFreq), type: .linear)
                         .chartYScale(domain: Double(minDB)...Double(maxDB))
                         .chartXAxis {
+                            let labels = AxisTickGenerator.formatTickLabels(frequencyAxisValues)
+                            let labelled = AxisTickGenerator.ticksWithLabelRoom(
+                                labels, min: Double(minFreq), max: Double(maxFreq),
+                                plotWidth: Self.plotWidth, fontSize: Self.frequencyLabelSize)
                             // .aligned centres each label under its grid line; the default preset starts the
-                            // label at the line (and overrides a label's own anchor).
+                            // label at the line (and overrides a label's own anchor). A label that would reach
+                            // past the plot's edge is left out, as on screen.
                             AxisMarks(preset: .aligned, values: frequencyAxisValues) { value in
                                 AxisValueLabel(anchor: .top) {
-                                    if let doubleValue = value.as(Double.self) {
-                                        Text(AxisTickGenerator.formatTickLabel(doubleValue))
-                                            .font(.system(size: 12))
+                                    if let doubleValue = value.as(Double.self), labelled.contains(doubleValue),
+                                       let label = labels[doubleValue] {
+                                        Text(label)
+                                            .font(.system(size: Self.frequencyLabelSize))
                                     }
                                 }
                                 AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.export.gridWidth))
@@ -855,7 +869,8 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? 
         minDB:   snaps.map(\.minDB).min()   ?? -100,
         maxDB:   snaps.map(\.maxDB).max()   ?? 0,
         peaks: [],
-        measurementType: .generic,
+        // The measurement's own guitar type, as the main window's tap comparison has it.
+        measurementType: measurement.spectrumSnapshot?.measurementType ?? .generic,
         materialSpectra: spectra,
         dateLabel: DateDisplay.string(measurement.timestamp),
         chartTitle: "Tap Comparison — \(measurement.measurementName ?? "Multi-Tap")"

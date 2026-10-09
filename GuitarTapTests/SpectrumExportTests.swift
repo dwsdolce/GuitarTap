@@ -20,7 +20,8 @@ private final class SpectrumExportTestsAnchor {}
 struct SpectrumExportTests {
 
     /// The shared cases: each fixture and the image it exports — pixels wide and high, and pixels per inch.
-    static let cases: [(fixture: String, width: Int, height: Int, ppi: Int)] = {
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default.
+    nonisolated static let cases: [(fixture: String, width: Int, height: Int, ppi: Int)] = {
         let url = Bundle(for: SpectrumExportTestsAnchor.self).url(forResource: "spectrum-export", withExtension: "json")!
         let data = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
         return (data["cases"] as! [[Any]]).map { ($0[0] as! String, $0[1] as! Int, $0[2] as! Int, $0[3] as! Int) }

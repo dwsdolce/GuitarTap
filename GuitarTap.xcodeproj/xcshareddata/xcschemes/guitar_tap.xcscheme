@@ -47,6 +47,9 @@
             reference = "container:guitar_tap.xctestplan"
             default = "YES">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:GuitarTapUITests.xctestplan">
+         </TestPlanReference>
       </TestPlans>
       <Testables>
          <TestableReference
@@ -57,6 +60,16 @@
                BlueprintIdentifier = "84053B88C1088D72CB562C12"
                BuildableName = "GuitarTapTests.xctest"
                BlueprintName = "GuitarTapTests"
+               ReferencedContainer = "container:GuitarTap.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "89BEE67D30782DFE007E99A8"
+               BuildableName = "GuitarTapUITests.xctest"
                ReferencedContainer = "container:GuitarTap.xcodeproj">
             </BuildableReference>
          </TestableReference>

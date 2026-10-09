@@ -29,6 +29,13 @@ extension RealtimeFFTAnalyzer {
     func start() throws {
         gtLog("🎤 === Starting Audio Engine ===")
 
+        // An export UI test runs with no input device, as CI does and as the other editions' export tests do:
+        // the start fails as it does with none (codes 1 and 2 are permission), and the view reports it.
+        if TestSandbox.isActive, ProcessInfo.processInfo.environment["GT_NO_AUDIO_INPUT"] != nil {
+            throw NSError(domain: "RealtimeFFTAnalyzer", code: 3,
+                          userInfo: [NSLocalizedDescriptionKey: "No audio input device"])
+        }
+
         // Whether THIS start is a watchdog recovery restart, captured synchronously
         // here because it cannot be read later. `isRecoveringEngine` is cleared by the
         // recovery block as soon as start() returns, while the post-start permission

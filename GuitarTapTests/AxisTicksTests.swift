@@ -3,7 +3,8 @@
 //  GuitarTapTests
 //
 //  The chart's axis ticks — its grid lines — against the shared case file `axis-ticks.json`: the frequency ticks
-//  and their screen and export labels, and the magnitude tick spacing. The same cases the Python and web suites run.
+//  and their labels (the same on screen and in the export), and the magnitude tick spacing. The same cases the
+//  Python and web suites run.
 //
 // @parity test/axis-ticks
 
@@ -31,7 +32,6 @@ struct AxisTicksTests {
             let visible = ticks.filter { $0 >= range[0] && $0 <= range[1] }
             let labels = AxisTickGenerator.formatTickLabels(visible)
             #expect(visible.map { labels[$0]! } == row[2] as! [String], "\(range)")
-            #expect(visible.map { AxisTickGenerator.formatTickLabel($0) } == row[3] as! [String], "\(range)")
         }
     }
 

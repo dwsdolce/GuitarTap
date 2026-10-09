@@ -1,0 +1,30 @@
+{
+  "configurations" : [
+    {
+      "id" : "6F2C1A3E-9B4D-4E7A-8C21-5D3E9A7B1F40",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:GuitarTap.xcodeproj",
+      "identifier" : "8965D5BB2F061CE300243E14",
+      "name" : "GuitarTap"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:GuitarTap.xcodeproj",
+        "identifier" : "89BEE67D30782DFE007E99A8",
+        "name" : "GuitarTapUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

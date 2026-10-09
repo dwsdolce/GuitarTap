@@ -24,11 +24,13 @@ private final class PDFReportTestsAnchor {}
 struct PDFReportTests {
 
     /// The shared cases: each fixture, through the report its kind uses, and the baseline tolerance.
-    static let data: [String: Any] = {
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
         let url = Bundle(for: PDFReportTestsAnchor.self).url(forResource: "pdf-report", withExtension: "json")!
         return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     }()
-    static let fixtures = data["fixtures"] as! [String]
+    nonisolated static let fixtures = data["fixtures"] as! [String]
 
     @Test(arguments: fixtures)
     func report_matchesTheExpectedLines(_ fixture: String) throws {
@@ -81,9 +83,9 @@ struct PDFReportTests {
                 guard let text = selection.string?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
                       let attributed = selection.attributedString
                 else { return nil }
-                var largest: NSFont?
+                var largest: PlatformFont?
                 attributed.enumerateAttribute(.font, in: NSRange(location: 0, length: attributed.length)) { value, _, _ in
-                    if let font = value as? NSFont, font.pointSize > (largest?.pointSize ?? 0) { largest = font }
+                    if let font = value as? PlatformFont, font.pointSize > (largest?.pointSize ?? 0) { largest = font }
                 }
                 let bounds = selection.bounds(for: page)
                 return (Double(height - bounds.maxY + (largest?.ascender ?? 0)), Double(bounds.minX),

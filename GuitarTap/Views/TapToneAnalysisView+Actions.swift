@@ -371,7 +371,9 @@ extension TapToneAnalysisView {
 
             // Stem from the live name, else the loaded name, else "spectrum".
             let effectiveName = self.measurementName.isEmpty ? self.tap.loadedMeasurementName : self.measurementName
-            let filename = "\(ExportFilename.stem(name: effectiveName, timestamp: Date(), unnamed: "spectrum")).png"
+            // A loaded measurement's own timestamp, as its other exports; the time of export only for an unsaved result.
+            let stamp = tap.sourceMeasurementTimestamp ?? Date()
+            let filename = "\(ExportFilename.stem(name: effectiveName, timestamp: stamp, unnamed: "spectrum")).png"
             FileExportHelper.exportFile(data: pngData, filename: filename, contentType: .png) { success in
                 self.isExportingSpectrum = false
                 if !success {

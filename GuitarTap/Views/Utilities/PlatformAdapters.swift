@@ -42,6 +42,15 @@ typealias PlatformImage = NSImage
 typealias PlatformImage = UIImage
 #endif
 
+// MARK: - Platform-Agnostic Font Type
+
+/// Platform-unified font type: `NSFont` (macOS) or `UIFont` (iOS).
+#if os(macOS)
+typealias PlatformFont = NSFont
+#elseif os(iOS)
+typealias PlatformFont = UIFont
+#endif
+
 // MARK: - Image Rendering Helpers
 
 extension ImageRenderer {

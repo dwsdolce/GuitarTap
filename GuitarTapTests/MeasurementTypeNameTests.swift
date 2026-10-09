@@ -19,7 +19,9 @@ private final class MeasurementTypeNameTestsAnchor {}
 @MainActor
 struct MeasurementTypeNameTests {
 
-    static let data: [String: [[String: Any]]] = {
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: [[String: Any]]] = {
         let url = Bundle(for: MeasurementTypeNameTestsAnchor.self).url(forResource: "measurement-type-name", withExtension: "json")!
         let json = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
         return json.compactMapValues { $0 as? [[String: Any]] }
@@ -39,7 +41,7 @@ struct MeasurementTypeNameTests {
                            comparisonEntries: (row["isComparison"] as? Bool) == true ? [] : nil)
     }
 
-    static func applies(_ row: [String: Any]) -> Bool { (row["editions"] as? [String])?.contains("swift") ?? true }
+    nonisolated static func applies(_ row: [String: Any]) -> Bool { (row["editions"] as? [String])?.contains("swift") ?? true }
 
     @Test(arguments: data["shortName"]!.filter(applies).map { $0["id"] as! String })
     func shortName(_ id: String) {

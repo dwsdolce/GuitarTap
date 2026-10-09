@@ -14,8 +14,10 @@ import Testing
 @Suite("BraceProperties")
 struct BracePropertiesTests {
 
-    static let data = MaterialCases.load("brace")
-    static let rows = data["braces"] as! [[String: Any]]
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data = MaterialCases.load("brace")
+    nonisolated(unsafe) static let rows = data["braces"] as! [[String: Any]]
 
     @Test(arguments: rows.map { $0["id"] as! String })
     func brace(_ id: String) {

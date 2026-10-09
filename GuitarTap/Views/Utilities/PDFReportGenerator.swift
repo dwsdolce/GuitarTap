@@ -336,6 +336,8 @@ private struct PDFReportContentView: View {
             tapInstructionsSection
             footerSection
         }
+        // Text with no colour of its own is the report's text colour, not the system's black.
+        .foregroundStyle(Palette.color(.pdfText))
         .padding(margin)
         .frame(width: pageWidth)
         .background(Palette.color(.backgroundPanel))
@@ -1172,6 +1174,8 @@ private struct ComparisonPDFReportContentView: View {
             peakModeTableSection
             footerSection
         }
+        // Text with no colour of its own is the report's text colour, not the system's black.
+        .foregroundStyle(Palette.color(.pdfText))
         .padding(margin)
         .frame(width: pageWidth)
         .background(Palette.color(.backgroundPanel))

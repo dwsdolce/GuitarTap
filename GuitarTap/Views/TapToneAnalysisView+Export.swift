@@ -131,7 +131,7 @@ extension TapToneAnalysisView {
         let reportData = PDFReportData(
             timestamp: tap.sourceMeasurementTimestamp ?? Date(),
             measurementName: measurementName.isEmpty ? tap.loadedMeasurementName : measurementName,
-            notes: notes.isEmpty ? nil : notes,
+            notes: notes.isEmpty ? tap.loadedNotes : notes,
             measurementType: measurementType,
             guitarType: TapDisplaySettings.guitarType,
             peaks: rangeFilteredPeaks,
@@ -209,9 +209,9 @@ extension TapToneAnalysisView {
         }
 
         let reportData = ComparisonPDFReportData(
-            timestamp: Date(),
-            comparisonLabel: tap.loadedMeasurementName ?? (measurementName.isEmpty ? nil : measurementName),
-            notes: notes.isEmpty ? nil : notes,
+            timestamp: tap.sourceMeasurementTimestamp ?? Date(),
+            comparisonLabel: measurementName.isEmpty ? tap.loadedMeasurementName : measurementName,
+            notes: notes.isEmpty ? tap.loadedNotes : notes,
             spectrumImageData: spectrumImageData,
             entries: tap.comparisonSnapshots.enumerated().map { index, snap in
                 // Reconstruct a minimal ComparisonEntry just for the metadata section
@@ -238,7 +238,7 @@ extension TapToneAnalysisView {
 
         // A comparison report is just a report. Effective name: live name, else loaded name.
         let effectiveName = measurementName.isEmpty ? tap.loadedMeasurementName : measurementName
-        let basename = ExportFilename.stem(name: effectiveName, timestamp: Date(), unnamed: "report")
+        let basename = ExportFilename.stem(name: effectiveName, timestamp: reportData.timestamp, unnamed: "report")
 
         guard let pdfData = PDFReportGenerator.generateComparison(data: reportData) else {
             gtLog("❌ Failed to generate comparison PDF report")
@@ -310,7 +310,7 @@ extension TapToneAnalysisView {
         let avgReportData = PDFReportData(
             timestamp: tap.sourceMeasurementTimestamp ?? Date(),
             measurementName: measurementName.isEmpty ? tap.loadedMeasurementName : measurementName,
-            notes: notes.isEmpty ? nil : notes,
+            notes: notes.isEmpty ? tap.loadedNotes : notes,
             measurementType: measurementType,
             guitarType: TapDisplaySettings.guitarType,
             peaks: rangeFilteredPeaks,
@@ -402,8 +402,8 @@ extension TapToneAnalysisView {
 
         let cmpReportData = ComparisonPDFReportData(
             timestamp: tap.sourceMeasurementTimestamp ?? Date(),
-            comparisonLabel: measurementName.isEmpty ? nil : measurementName,
-            notes: notes.isEmpty ? nil : notes,
+            comparisonLabel: measurementName.isEmpty ? tap.loadedMeasurementName : measurementName,
+            notes: notes.isEmpty ? tap.loadedNotes : notes,
             spectrumImageData: cmpImageData,
             entries: cmpEntries,
             modeFrequencies: modeFrequencies
@@ -445,7 +445,7 @@ extension TapToneAnalysisView {
             maxDB:   snaps.map(\.maxDB).max()   ?? maxDB,
             peaks: [], measurementType: TapDisplaySettings.measurementType,
             materialSpectra: spectra,
-            dateLabel: DateDisplay.string(Date()),
+            dateLabel: DateDisplay.string(tap.sourceMeasurementTimestamp ?? Date()),
             chartTitle: "Tap Comparison — \(subtitle)"
         )
     }
@@ -471,7 +471,7 @@ extension TapToneAnalysisView {
             modeOverrides: tap.peakModeOverrides,
             peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
             materialSpectra: materialSpectra,
-            dateLabel: DateDisplay.string(Date()),
+            dateLabel: DateDisplay.string(tap.sourceMeasurementTimestamp ?? Date()),
             chartTitle: "FFT Peaks — \(subtitle)"
         )
     }
@@ -497,7 +497,7 @@ extension TapToneAnalysisView {
             modeOverrides: tap.peakModeOverrides,
             peakModes: Dictionary(uniqueKeysWithValues: tap.identifiedModes.map { ($0.peak.id, $0.mode) }),
             materialSpectra: materialSpectra,
-            dateLabel: DateDisplay.string(Date()),
+            dateLabel: DateDisplay.string(tap.sourceMeasurementTimestamp ?? Date()),
             chartTitle: chartTitle,
             typeLabel: isComparing ? "Comparison" : nil
         )

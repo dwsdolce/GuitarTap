@@ -17,7 +17,7 @@ private final class PlatePropertiesTestsAnchor {}
 
 /// Reading a material case file (`plate.json`, `brace.json`).
 enum MaterialCases {
-    static func load(_ name: String) -> [String: Any] {
+    nonisolated static func load(_ name: String) -> [String: Any] {
         let url = Bundle(for: PlatePropertiesTestsAnchor.self).url(forResource: name, withExtension: "json")!
         return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     }
@@ -41,8 +41,10 @@ enum MaterialCases {
 @Suite("PlateProperties")
 struct PlatePropertiesTests {
 
-    static let data = MaterialCases.load("plate")
-    static func rows(_ key: String) -> [[String: Any]] { data[key] as! [[String: Any]] }
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data = MaterialCases.load("plate")
+    nonisolated static func rows(_ key: String) -> [[String: Any]] { data[key] as! [[String: Any]] }
 
     @Test(arguments: rows("plates").map { $0["id"] as! String })
     func plate(_ id: String) {

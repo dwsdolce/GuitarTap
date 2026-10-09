@@ -16,12 +16,14 @@ private final class ClassifyCasesTestsAnchor {}
 @Suite("ClassifyCases")
 struct ClassifyCasesTests {
 
-    static let data: [String: Any] = {
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
         let url = Bundle(for: ClassifyCasesTestsAnchor.self).url(forResource: "classify", withExtension: "json")!
         return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     }()
 
-    static func rows(_ key: String) -> [[String: Any]] { data[key] as! [[String: Any]] }
+    nonisolated static func rows(_ key: String) -> [[String: Any]] { data[key] as! [[String: Any]] }
 
     static let modes: [String: GuitarMode] = [
         "air": .air, "top": .top, "back": .back, "dipole": .dipole, "ringMode": .ringMode,

@@ -17,12 +17,14 @@ private final class PitchTestsAnchor {}
 @Suite("Pitch")
 struct PitchTests {
 
-    static let data: [String: Any] = {
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
         let url = Bundle(for: PitchTestsAnchor.self).url(forResource: "pitch", withExtension: "json")!
         return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     }()
 
-    static func rows(_ key: String) -> [[String: Any]] { data[key] as! [[String: Any]] }
+    nonisolated static func rows(_ key: String) -> [[String: Any]] { data[key] as! [[String: Any]] }
     static func row(_ key: String, _ id: String) -> [String: Any] { rows(key).first { $0["id"] as! String == id }! }
     static let tolerance = data["tolerance"] as! Double
 

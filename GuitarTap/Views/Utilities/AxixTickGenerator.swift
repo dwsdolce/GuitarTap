@@ -18,6 +18,11 @@
 /// - SeeAlso: `SpectrumView`, `ExportableSpectrumChart`
 // @parity view/axis-ticks tests=test/axis-ticks
 import Foundation
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 // MARK: - AxisTickGenerator
 
@@ -142,88 +147,42 @@ struct AxisTickGenerator {
 
     // MARK: - Formatting
 
-    /// Formats a single tick value as a display string.
-    ///
-    /// - Parameters:
-    ///   - value: The tick value to format.
-    ///   - precision: Optional override for decimal places.
-    /// - Returns: A human-readable label string.
-    static func formatTickLabel(
-        _ value: Double,
-        precision: Int? = nil
-    ) -> String {
-        formatLinearLabel(value, precision: precision)
-    }
-
-    /// Formats a set of tick values together, automatically increasing precision
-    /// when the default formatting would produce duplicate labels (e.g. two ticks both
-    /// showing \"1.2 kHz\" in a narrow zoom window).
-    ///
-    /// - Parameters:
-    ///   - values: The tick values to format (Hz).
-    /// - Returns: A dictionary mapping each tick value to its label string.
+    /// The frequency ticks' labels — the same on screen and in the exported image: whole hertz below 1 kHz and
+    /// thousands with a k above (`1.2k`), the axis title carrying the unit, as charts conventionally do; with more
+    /// decimals until every label is different.
     static func formatTickLabels(_ values: [Double]) -> [Double: String] {
         guard !values.isEmpty else { return [:] }
-
-        // Try formatting with increasing decimal places until all labels are unique.
-        // For values < 1000 Hz we use plain Hz; for >= 1000 Hz we use kHz.
         for extraDecimals in 0...3 {
             var labels: [Double: String] = [:]
             for value in values {
-                labels[value] = formatFrequencyLabel(value, kHzDecimals: 1 + extraDecimals)
+                labels[value] = formatFrequencyLabel(value, thousandsDecimals: 1 + extraDecimals)
             }
-            let labelValues = Array(labels.values)
-            if Set(labelValues).count == labelValues.count {
+            if Set(labels.values).count == labels.count {
                 return labels
             }
         }
-
-        // Fallback: use raw Hz with full precision
+        // Fallback: tenths of a hertz
         var labels: [Double: String] = [:]
         for value in values {
-            labels[value] = String(format: "%.1f Hz", value)
+            labels[value] = String(format: "%.1f", value)
         }
         return labels
     }
 
-    /// Formats a single frequency value (Hz) with the specified number of decimal
-    /// places for the kHz representation (e.g. `kHzDecimals: 1` → \"1.2 kHz\").
-    /// Values below 1000 Hz are always shown in whole Hz.
-    private static func formatFrequencyLabel(_ value: Double, kHzDecimals: Int) -> String {
-        if value >= 1000 {
-            return String(format: "%.\(kHzDecimals)f kHz", value / 1000)
-        } else {
-            return String(format: "%.0f Hz", value)
-        }
+    private static func formatFrequencyLabel(_ value: Double, thousandsDecimals: Int) -> String {
+        value >= 1000 ? String(format: "%.\(thousandsDecimals)fk", value / 1000) : String(format: "%.0f", value)
     }
 
-    /// Formats a linear-scale tick value using compact notation.
-    ///
-    /// - Values ≥ 1000: shown as `"1.2k"` (one decimal, k suffix).
-    /// - Values ≥ 10: shown as whole numbers.
-    /// - Values ≥ 0.1: shown with one decimal place.
-    /// - Smaller values: shown with two decimal places.
-    ///
-    /// - Parameters:
-    ///   - value: The tick value.
-    ///   - precision: Optional override for decimal places.
-    /// - Returns: A compact label string.
-    private static func formatLinearLabel(_ value: Double, precision: Int?) -> String {
-        if let precision = precision {
-            return String(format: "%.\(precision)f", value)
-        }
-
-        let absValue = abs(value)
-        if absValue == 0 {
-            return "0"
-        } else if absValue >= 1000 {
-            return String(format: "%.1fk", value / 1000)
-        } else if absValue >= 10 {
-            return String(format: "%.0f", value)
-        } else if absValue >= 0.1 {
-            return String(format: "%.1f", value)
-        } else {
-            return String(format: "%.2f", value)
-        }
+    /// The ticks whose label fits inside the plot. Each label is centred on its tick; one that would reach past
+    /// the plot's left or right edge is left out, and its grid line stays. With no plot width yet, every label shows.
+    static func ticksWithLabelRoom(_ labels: [Double: String], min: Double, max: Double,
+                                   plotWidth: CGFloat, fontSize: CGFloat) -> Set<Double> {
+        guard plotWidth > 0, max > min else { return Set(labels.keys) }
+        let font = PlatformFont.systemFont(ofSize: fontSize)
+        return Set(labels.filter { tick, label in
+            let half = (label as NSString).size(withAttributes: [.font: font]).width / 2
+            let x = (tick - min) / (max - min) * plotWidth
+            return x - half >= 0 && x + half <= plotWidth
+        }.keys)
     }
 }

@@ -453,6 +453,9 @@ struct SpectrumView: View {
             .filter { $0 >= lo && $0 <= hi }
     }
 
+    /// The frequency labels' size: Swift Charts' own axis label size, stated so a label's width can be measured.
+    private static let frequencyLabelSize: CGFloat = 11
+
     /// Labels for frequency axis ticks, with precision automatically increased
     /// when the default formatting would produce duplicate labels.
     private var frequencyAxisLabels: [Double: String] {
@@ -1048,12 +1051,18 @@ struct SpectrumView: View {
     @AxisContentBuilder
     private var xAxisContent: some AxisContent {
         let labels = frequencyAxisLabels
+        let labelled = AxisTickGenerator.ticksWithLabelRoom(
+            labels, min: Double(minFreq), max: Double(maxFreq),
+            plotWidth: lastPlotFrame.width, fontSize: Self.frequencyLabelSize)
         // .aligned centres each label under its grid line; the default preset starts the label at the line
-        // (and overrides a label's own anchor).
+        // (and overrides a label's own anchor). A label that would reach past the plot's edge is left out, as in
+        // the exported image.
         AxisMarks(preset: .aligned, values: frequencyAxisValues) { value in
             AxisValueLabel(anchor: .top) {
-                if let doubleValue = value.as(Double.self) {
-                    Text(labels[doubleValue] ?? AxisTickGenerator.formatTickLabel(doubleValue))
+                if let doubleValue = value.as(Double.self), labelled.contains(doubleValue),
+                   let label = labels[doubleValue] {
+                    Text(label)
+                        .font(.system(size: Self.frequencyLabelSize))
                         .foregroundStyle(Palette.color(.chartAxis))
                 }
             }
