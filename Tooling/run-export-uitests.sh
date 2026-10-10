@@ -3,15 +3,24 @@
 #   <out>/<case>/<main|saved>/<file>   and   <out>/manifest.json
 # — and check them against Swift's expected values (Tooling/export-check/), with this repo's .venv.
 #
-# The UI tests drive the real app through Import and both export paths. The test runner is sandboxed, so
-# each export leaves the run as an attachment of the test result; this script extracts them.
+# The UI tests drive the real app through Import and both export paths. Each export leaves the run as an
+# attachment of the test result; this script extracts them.
 #
-# Usage: Tooling/run-export-uitests.sh [out-dir]   (default: build/export-uitests)
-# The tests take over the mouse and keyboard for about ten minutes.
+# Usage: Tooling/run-export-uitests.sh [--simulator <name or id>] [out-dir]   (default: build/export-uitests)
+#   On the Mac (the default) the tests take over the mouse and keyboard for about eight minutes.
+#   --simulator runs them on an iPad or iPhone simulator ("iPad Air 11-inch (M4)", "iPhone 17", or its id):
+#   the script boots it, grants the microphone (the state of a user who has allowed it — the app asks
+#   before it starts listening), and tells the test where the simulator keeps its own files, which the
+#   document picker and Save to Files use.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+simulator=""
+if [[ "${1:-}" == "--simulator" ]]; then
+    simulator="${2:?--simulator needs a simulator name or id}"
+    shift 2
+fi
 out="${1:-build/export-uitests}"
 # Python: this repo's own .venv (.venv/bin on macOS and Linux, .venv/Scripts on Windows); PYTHON names another.
 if [ -z "${PYTHON:-}" ]; then
@@ -28,9 +37,33 @@ trap 'rm -rf "$work"' EXIT
 rm -rf "$out"
 mkdir -p "$out"
 
+destination='platform=macOS'
+if [[ -n "$simulator" ]]; then
+    udid="$(xcrun simctl list devices available -j | "$PYTHON" -c '
+import json, sys
+want = sys.argv[1]
+for devices in json.load(sys.stdin)["devices"].values():
+    for d in devices:
+        if want in (d["name"], d["udid"]):
+            print(d["udid"]); sys.exit()
+sys.exit("no available simulator named " + want)' "$simulator")"
+    xcrun simctl boot "$udid" 2>/dev/null || true
+    xcrun simctl bootstatus "$udid" > /dev/null
+    xcrun simctl privacy "$udid" grant microphone com.dolcesfogato.GuitarTap
+    group="$(xcrun simctl get_app_container "$udid" com.apple.DocumentsApp groups \
+        | awk '$1 == "group.com.apple.FileProvider.LocalStorage" { $1 = ""; sub(/^ /, ""); print }')"
+    files="$group/File Provider Storage"
+    mkdir -p "$files"
+    # Earlier exports would make Save to Files ask to replace them.
+    find "$files" -maxdepth 1 \( -name '*.png' -o -name '*.pdf' \) -delete
+    destination="platform=iOS Simulator,id=$udid"
+    # The test reads GT_FILES_DIR; xcodebuild passes TEST_RUNNER_-prefixed variables to it.
+    export TEST_RUNNER_GT_FILES_DIR="$files"
+fi
+
 # The result bundle is kept beside the exports, so a failing run can be looked into.
 tests=0
-xcodebuild test -scheme guitar_tap -testPlan GuitarTapUITests -destination 'platform=macOS' \
+xcodebuild test -scheme guitar_tap -testPlan GuitarTapUITests -destination "$destination" \
     -derivedDataPath "$work/dd" -resultBundlePath "$out/result.xcresult" | tail -5 || tests=1
 
 xcrun xcresulttool export attachments --path "$out/result.xcresult" --output-path "$work/attachments" > /dev/null

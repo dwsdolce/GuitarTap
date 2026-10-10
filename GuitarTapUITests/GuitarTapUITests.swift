@@ -2,15 +2,18 @@
 //  GuitarTapUITests.swift
 //  GuitarTapUITests
 //
-//  Export regression: drive the real app as a user does. Each case is imported through Saved
-//  Measurements → Import, then exported as the spectrum image and the PDF report from both places the
-//  app offers them: the main window, with the import loaded, and the row's menu in Saved Measurements.
-//  Nothing is replaced — the open and save panels are the system's, given paths as a user types them
-//  (⇧⌘G), which also grants the sandboxed app access to them. The app runs in a test sandbox of its
-//  own (GT_TEST_SANDBOX), so its settings and library start empty and are never the user's.
+//  Export regression: drive the real app as a user does, on the Mac, the iPad and the iPhone. Each
+//  case is imported through Saved Measurements → Import, then exported as the spectrum image and the
+//  PDF report from both places the app offers them: the main window, with the import loaded, and the
+//  row's menu in Saved Measurements. Nothing is replaced — the open and save panels, the document
+//  picker and the share sheet are the system's, driven as a user drives them. The app runs in a test
+//  sandbox of its own (GT_TEST_SANDBOX), so its settings and library start empty and are never the
+//  user's. Each export is attached to the test result, which is how the files leave the run.
 //
 
+#if os(macOS)
 import AppKit
+#endif
 import XCTest
 
 final class GuitarTapUITests: XCTestCase {
@@ -23,11 +26,6 @@ final class GuitarTapUITests: XCTestCase {
         ("brace", "brace-umik-1-swift-mac-1785359411"),
         ("comparison", "5-guitar-comparison-1776708138"),
     ]
-
-    /// Where the exports are written: `<case>/main` and `<case>/saved`. The runner is sandboxed, so this
-    /// is its own temporary folder; the app reaches it through the save panel, as it would any folder a
-    /// user picks. Each export is also attached to the test result, which is how the files leave the run.
-    static let output = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("guitartap-uitest")
 
     /// The unit tests' fixtures, from the source tree.
     static let fixtures = URL(fileURLWithPath: #filePath)
@@ -46,20 +44,19 @@ final class GuitarTapUITests: XCTestCase {
                 let app = launch()
                 try importCase(c.fixture, app: app)
 
-                let main = try emptyFolder(c.name, "main")
-                app.buttons["Export Spectrum"].firstMatch.click()
-                try save(to: main, app: app, expecting: "png")
-                app.buttons["Export PDF"].firstMatch.click()
-                try save(to: main, app: app, expecting: "pdf")
+                openMainExports(app)
+                press(app.buttons["Export Spectrum"].firstMatch)
+                _ = try save(c.name, "main", app: app, expecting: "png")
+                press(app.buttons["Export PDF"].firstMatch)
+                _ = try save(c.name, "main", app: app, expecting: "pdf")
+                closeMainExports(app)
 
-                let saved = try emptyFolder(c.name, "saved")
-                rowMenu(app, choose: "Export Spectrum")
-                try save(to: saved, app: app, expecting: "png")
-                rowMenu(app, choose: "Export PDF Report")
-                try save(to: saved, app: app, expecting: "pdf")
+                rowMenu(app, fixture: c.fixture, choose: "Export Spectrum")
+                let png = try save(c.name, "saved", app: app, expecting: "png")
+                rowMenu(app, fixture: c.fixture, choose: "Export PDF Report")
+                let pdf = try save(c.name, "saved", app: app, expecting: "pdf")
                 // The saved export is named after the measurement, so it is the row that was imported.
-                let names = try FileManager.default.contentsOfDirectory(atPath: saved.path)
-                XCTAssertEqual(Set(names), ["\(c.fixture).png", "\(c.fixture).pdf"])
+                XCTAssertEqual([png, pdf], ["\(c.fixture).png", "\(c.fixture).pdf"])
                 app.terminate()
             }
         }
@@ -67,52 +64,101 @@ final class GuitarTapUITests: XCTestCase {
 
     // MARK: - Driving the app
 
-    /// Launch in a test sandbox of its own; with no microphone (as on CI) dismiss the engine error as a
-    /// user would.
+    /// Launch in a test sandbox of its own, with no input device (as on CI); dismiss the engine error as
+    /// a user would where the app reports one.
     @MainActor private func launch() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["GT_TEST_SANDBOX"] = "1"
         // Dates print in the local time zone; UTC, so an export's date is the same on any machine and the
         // export checker can compare it.
         app.launchEnvironment["TZ"] = "UTC"
-        // No input device, as on CI: the app is idle between steps instead of drawing a live meter, and the
-        // engine error below is the one CI sees.
+        // No input device, as on CI: the app is idle between steps instead of drawing a live meter.
         app.launchEnvironment["GT_NO_AUDIO_INPUT"] = "1"
         app.launch()
         let engineError = alert("Audio Engine Error", app)
         if engineError.waitForExistence(timeout: 5) {
-            engineError.buttons["OK"].click()
+            press(engineError.buttons["OK"].firstMatch)
         }
         return app
     }
 
-    /// Saved Measurements → Import → the fixture, through the open panel; then OK and Done.
+    /// Saved Measurements → Import → the fixture, through the open panel or the document picker; then OK
+    /// and Done.
     @MainActor private func importCase(_ fixture: String, app: XCUIApplication) throws {
         openList(app)
-        app.buttons["Import"].firstMatch.click()
-        let path = Self.fixtures.appendingPathComponent("\(fixture).guitartap").path
-        try goTo(path, app: app)
-        let open = panelButton("Open", app)
-        if open.waitForExistence(timeout: 2) && open.isEnabled { open.click() }
+        try pickFixture(fixture, app: app)
 
         let imported = alert("Import Successful", app)
         XCTAssertTrue(imported.waitForExistence(timeout: 10), "no Import Successful")
-        imported.buttons["OK"].click()
+        press(imported.buttons["OK"].firstMatch)
         // Loading a measurement recorded on a microphone that is not connected warns, as it would a user.
         let unavailable = alert("Microphone Unavailable", app)
-        if unavailable.waitForExistence(timeout: 1) { unavailable.buttons["OK"].click() }
-        app.buttons["Done"].firstMatch.click()
+        if unavailable.waitForExistence(timeout: 1) { press(unavailable.buttons["OK"].firstMatch) }
+        press(listDone(app))
     }
 
-    @MainActor private func openList(_ app: XCUIApplication) {
-        if !app.buttons["Done"].firstMatch.exists {
-            app.buttons["Measurements"].firstMatch.click()
+    /// Wait for a file `ext` that was not in `folder` before, attach it as `<case>--<path>--<file>` (an
+    /// attachment name cannot hold a "/"), and return its name. On iOS the file is then removed: both
+    /// export paths name it the same, and Save to Files would otherwise ask to replace it.
+    private func awaitExport(in folder: URL, before: Set<String>, name: String, path: String,
+                             ext: String, keep: Bool) throws -> String {
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            let new = Set(try FileManager.default.contentsOfDirectory(atPath: folder.path)).subtracting(before)
+            if let file = new.first(where: { $0.hasSuffix(".\(ext)") }) {
+                let url = folder.appendingPathComponent(file)
+                let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
+                if size > 0 {
+                    Thread.sleep(forTimeInterval: 0.3)   // let an atomic write finish
+                    let attachment = XCTAttachment(contentsOfFile: url)
+                    attachment.name = "\(name)--\(path)--\(file)"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                    if !keep { try FileManager.default.removeItem(at: url) }
+                    return file
+                }
+            }
+            Thread.sleep(forTimeInterval: 0.2)
         }
-        XCTAssertTrue(app.buttons["Done"].firstMatch.waitForExistence(timeout: 5), "Saved Measurements did not open")
+        XCTFail("no .\(ext) written to \(folder.path)")
+        return ""
+    }
+
+    // MARK: - The Mac
+
+    #if os(macOS)
+    /// Where the exports are written: `<case>/main` and `<case>/saved`. The runner is sandboxed, so this
+    /// is its own temporary folder; the app reaches it through the save panel, as it would any folder a
+    /// user picks.
+    static let output = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("guitartap-uitest")
+
+    @MainActor private func press(_ element: XCUIElement) { element.click() }
+
+    @MainActor private func openList(_ app: XCUIApplication) {
+        if !listDone(app).exists {
+            press(app.buttons["Measurements"].firstMatch)
+        }
+        XCTAssertTrue(listDone(app).waitForExistence(timeout: 5), "Saved Measurements did not open")
+    }
+
+    @MainActor private func listDone(_ app: XCUIApplication) -> XCUIElement {
+        app.buttons["Done"].firstMatch
+    }
+
+    /// The export buttons are always in the main window.
+    @MainActor private func openMainExports(_ app: XCUIApplication) {}
+    @MainActor private func closeMainExports(_ app: XCUIApplication) {}
+
+    @MainActor private func pickFixture(_ fixture: String, app: XCUIApplication) throws {
+        press(app.buttons["Import"].firstMatch)
+        let path = Self.fixtures.appendingPathComponent("\(fixture).guitartap").path
+        try goTo(path, app: app)
+        let open = panelButton("Open", app)
+        if open.waitForExistence(timeout: 2) && open.isEnabled { press(open) }
     }
 
     /// Right-click the only row and choose `item` from its menu.
-    @MainActor private func rowMenu(_ app: XCUIApplication, choose item: String) {
+    @MainActor private func rowMenu(_ app: XCUIApplication, fixture: String, choose item: String) {
         openList(app)
         // The list's rows are an empty header, the total, then each measurement as a button.
         let row = app.sheets.firstMatch.cells.buttons.firstMatch
@@ -120,7 +166,7 @@ final class GuitarTapUITests: XCTestCase {
         row.rightClick()
         let menuItem = app.menuItems[item].firstMatch
         XCTAssertTrue(menuItem.waitForExistence(timeout: 5), "no \(item) in the row's menu")
-        menuItem.click()
+        press(menuItem)
     }
 
     /// A SwiftUI alert, by its title: on macOS it is a sheet labelled "alert" holding the title as text.
@@ -153,10 +199,17 @@ final class GuitarTapUITests: XCTestCase {
         app.typeKey(.return, modifierFlags: [])
     }
 
-    /// In the save panel: go to `folder`, Save, and wait for the one new file. The panel is a window of
-    /// its own, run by the system's panel service, so it is driven from the keyboard as a user can: ⇧⌘G,
-    /// paste the folder, Return, then Return for Save. The file appearing is the check.
-    @MainActor private func save(to folder: URL, app: XCUIApplication, expecting ext: String) throws {
+    /// In the save panel: go to `<case>/<path>`, Save, and wait for the new file; returns its name. The
+    /// panel is a window of its own, run by the system's panel service, so it is driven from the keyboard
+    /// as a user can: ⇧⌘G, paste the folder, Return, then Return for Save. The file appearing is the
+    /// check. Each path's folder is emptied before its first export, the image.
+    @MainActor private func save(_ name: String, _ path: String, app: XCUIApplication,
+                                 expecting ext: String) throws -> String {
+        let folder = Self.output.appendingPathComponent(name).appendingPathComponent(path)
+        if ext == "png" {
+            try? FileManager.default.removeItem(at: folder)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
         let before = Set(try FileManager.default.contentsOfDirectory(atPath: folder.path))
         Thread.sleep(forTimeInterval: 1.0)   // the panel opens and takes the keyboard
         app.typeKey("g", modifierFlags: [.command, .shift])
@@ -164,32 +217,122 @@ final class GuitarTapUITests: XCTestCase {
         enterPath(folder.path, app: app)
         Thread.sleep(forTimeInterval: 0.5)
         app.typeKey(.return, modifierFlags: [])
+        return try awaitExport(in: folder, before: before, name: name, path: path, ext: ext, keep: true)
+    }
+    #endif
 
-        let deadline = Date().addingTimeInterval(20)
-        while Date() < deadline {
-            let new = Set(try FileManager.default.contentsOfDirectory(atPath: folder.path)).subtracting(before)
-            if let name = new.first(where: { $0.hasSuffix(".\(ext)") }) {
-                let file = folder.appendingPathComponent(name)
-                let size = try FileManager.default.attributesOfItem(atPath: file.path)[.size] as? Int ?? 0
-                if size > 0 {
-                    Thread.sleep(forTimeInterval: 0.3)   // let an atomic write finish
-                    let attachment = XCTAttachment(contentsOfFile: file)
-                    // <case>--<main|saved>--<file>: an attachment name cannot hold a "/".
-                    attachment.name = "\(folder.deletingLastPathComponent().lastPathComponent)--\(folder.lastPathComponent)--\(name)"
-                    attachment.lifetime = .keepAlways
-                    add(attachment)
-                    return
-                }
-            }
-            Thread.sleep(forTimeInterval: 0.2)
+    // MARK: - The iPad and the iPhone
+
+    #if os(iOS)
+    /// The simulator's own files ("On My iPad" / "On My iPhone"), where the document picker finds the
+    /// fixtures and Save to Files puts the exports. The run script passes its location.
+    private var files: URL {
+        get throws {
+            let path = try XCTUnwrap(ProcessInfo.processInfo.environment["GT_FILES_DIR"],
+                                     "GT_FILES_DIR is not set: run Tooling/run-export-uitests.sh --simulator <name>")
+            return URL(fileURLWithPath: path)
         }
-        XCTFail("no .\(ext) written to \(folder.path)")
     }
 
-    private func emptyFolder(_ name: String, _ path: String) throws -> URL {
-        let folder = Self.output.appendingPathComponent(name).appendingPathComponent(path)
-        try? FileManager.default.removeItem(at: folder)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder
+    private var local: String { UIDevice.current.userInterfaceIdiom == .pad ? "On My iPad" : "On My iPhone" }
+
+    @MainActor private func press(_ element: XCUIElement) { element.tap() }
+
+    @MainActor private func openList(_ app: XCUIApplication) {
+        if !listDone(app).exists {
+            press(app.buttons["Measurements"].firstMatch)
+        }
+        XCTAssertTrue(listDone(app).waitForExistence(timeout: 5), "Saved Measurements did not open")
     }
+
+    @MainActor private func listDone(_ app: XCUIApplication) -> XCUIElement {
+        app.navigationBars["Saved Measurements"].buttons["Done"].firstMatch
+    }
+
+    /// On the iPhone the export buttons are in the Results sheet; on the iPad, in the main window.
+    @MainActor private func openMainExports(_ app: XCUIApplication) {
+        if !app.buttons["Export Spectrum"].exists { press(app.buttons["Results"].firstMatch) }
+        XCTAssertTrue(app.buttons["Export Spectrum"].waitForExistence(timeout: 5), "no Export Spectrum")
+    }
+
+    @MainActor private func closeMainExports(_ app: XCUIApplication) {
+        let done = app.navigationBars["Analysis Results"].buttons["Done"].firstMatch
+        if done.exists { press(done) }
+    }
+
+    /// More → Import Measurement → the document picker: the local files, then the fixture. The fixture is
+    /// put there first, as a user would have it.
+    @MainActor private func pickFixture(_ fixture: String, app: XCUIApplication) throws {
+        let source = Self.fixtures.appendingPathComponent("\(fixture).guitartap")
+        let target = try files.appendingPathComponent(source.lastPathComponent)
+        try? FileManager.default.removeItem(at: target)
+        try FileManager.default.copyItem(at: source, to: target)
+
+        press(app.navigationBars["Saved Measurements"].buttons["More"].firstMatch)
+        let importItem = app.buttons["Import Measurement"].firstMatch
+        XCTAssertTrue(importItem.waitForExistence(timeout: 5), "no Import Measurement")
+        press(importItem)
+
+        let file = app.cells.containing(NSPredicate(format: "label BEGINSWITH %@", "\(fixture).guitartap")).firstMatch
+        if !file.waitForExistence(timeout: 5) {
+            goToLocalFiles(app)
+        }
+        XCTAssertTrue(file.waitForExistence(timeout: 10), "the picker does not show \(fixture)")
+        press(file)
+    }
+
+    /// The local files in the document picker or Save to Files: the sidebar on the iPad, Browse on the
+    /// iPhone.
+    @MainActor private func goToLocalFiles(_ app: XCUIApplication) {
+        let location = app.cells[local].firstMatch
+        if !location.exists, app.buttons["Browse"].exists { press(app.buttons["Browse"].firstMatch) }
+        if location.waitForExistence(timeout: 5) { press(location) }
+    }
+
+    /// Long-press the imported measurement's row and choose `item` from its menu.
+    @MainActor private func rowMenu(_ app: XCUIApplication, fixture: String, choose item: String) {
+        openList(app)
+        let row = app.cells.containing(NSPredicate(format: "label CONTAINS %@", measurementName(fixture))).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "no row for \(fixture)")
+        row.press(forDuration: 1.0)
+        let menuItem = app.collectionViews.buttons[item].firstMatch
+        XCTAssertTrue(menuItem.waitForExistence(timeout: 5), "no \(item) in the row's menu")
+        press(menuItem)
+    }
+
+    /// The name a fixture's row shows: its measurement's name.
+    private func measurementName(_ fixture: String) -> String {
+        let url = Self.fixtures.appendingPathComponent("\(fixture).guitartap")
+        let list = (try? JSONSerialization.jsonObject(with: Data(contentsOf: url))) as? [[String: Any]]
+        return list?.first?["measurementName"] as? String ?? fixture
+    }
+
+    @MainActor private func alert(_ title: String, _ app: XCUIApplication) -> XCUIElement {
+        app.alerts[title].firstMatch
+    }
+
+    /// The share sheet → Save to Files → the local files → Save; returns the saved file's name. The share
+    /// sheet lists Save to Files under View More until it has been used.
+    @MainActor private func save(_ name: String, _ path: String, app: XCUIApplication,
+                                 expecting ext: String) throws -> String {
+        let folder = try files
+        let before = Set(try FileManager.default.contentsOfDirectory(atPath: folder.path))
+
+        let saveToFiles = app.cells["Save to Files"].firstMatch
+        if !saveToFiles.waitForExistence(timeout: 5) {
+            let more = app.cells["View More"].firstMatch
+            XCTAssertTrue(more.waitForExistence(timeout: 5), "no share sheet")
+            press(more)
+        }
+        XCTAssertTrue(saveToFiles.waitForExistence(timeout: 5), "no Save to Files")
+        press(saveToFiles)
+
+        // The panel's Save, by the document picker's own identifier: the app has buttons labelled Save too.
+        let save = app.buttons["DOCPicker.actionButton"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 10), "no Save to Files panel")
+        if !app.staticTexts[local].firstMatch.exists { goToLocalFiles(app) }
+        press(save)
+        return try awaitExport(in: folder, before: before, name: name, path: path, ext: ext, keep: false)
+    }
+    #endif
 }
