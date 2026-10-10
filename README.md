@@ -15,6 +15,25 @@ long-term parallel ports kept at numeric/behavioural parity with this app:
 Design and cross-platform project docs (specs, parity map, roadmap) are maintained in the
 project hub repo `guitar-tap-project`, not in this repo.
 
+## Setting up on a new machine
+
+All commands run in **bash**: Terminal on macOS, a shell on Linux, Cygwin bash (or Git Bash) on Windows. Every
+repo has its own Python environment, `.venv`, made from its own requirements files; nothing uses another repo's
+Python or the system's. The repo's scripts find `.venv` themselves (`.venv/bin`, or `.venv/Scripts` on Windows) and
+stop if it is missing; `PYTHON=…` names another interpreter.
+
+1. **Prerequisites:** macOS, **Xcode 27**, Python 3.14, git. For the user manual and Quick Start Guide PDFs:
+   `brew install pango pandoc` and `brew install --cask basictex` (see `GuitarTap/generate-help.sh`).
+2. **Python environment** — the export checker (`requirements-dev.txt`) and the manual (`requirements-docs.txt`).
+   The Help build phase also runs with it, so a build needs it too:
+   ```bash
+   python3.14 -m venv .venv
+   .venv/bin/pip install -r requirements-dev.txt -r requirements-docs.txt
+   ```
+3. **Xcode:** open `GuitarTap.xcodeproj`; the scheme is `guitar_tap`.
+4. **VS Code** (for the Python and shell tooling): open the folder and select `.venv` as the Python interpreter.
+5. **Check it works:** `Tooling/test-fast.sh`.
+
 ## Fast test run
 
 `Tooling/test-fast.sh` runs the macOS test suite except the recording-playback regression

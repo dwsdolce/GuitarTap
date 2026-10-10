@@ -21,7 +21,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-VENV_PYTHON="$REPO_ROOT/.venv/bin/python3"
+# Python: this repo's own .venv (.venv/bin on macOS and Linux, .venv/Scripts on Windows); PYTHON names another.
+if [ -z "${PYTHON:-}" ]; then
+    for candidate in "$REPO_ROOT"/.venv/bin/python "$REPO_ROOT"/.venv/Scripts/python.exe "$REPO_ROOT"/.venv/Scripts/python; do
+        if [ -x "$candidate" ]; then PYTHON="$candidate"; break; fi
+    done
+fi
+if [ -z "${PYTHON:-}" ]; then
+    echo "No .venv: set it up as the README's \"Setting up on a new machine\" says." >&2
+    exit 1
+fi
+VENV_PYTHON="$PYTHON"
 OUTPUT_DIR="$SCRIPT_DIR"
 
 # Pull MARKETING_VERSION from the Xcode project so the manual filenames and
@@ -82,13 +92,6 @@ echo "Manual revised:    $MANUAL_REVISED"
 
 # macOS: ensure Homebrew libs are found by python.org Python
 export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
-
-# Verify venv exists
-if [[ ! -x "$VENV_PYTHON" ]]; then
-    echo "ERROR: Python venv not found at $VENV_PYTHON" >&2
-    echo "       Run: python3.14 -m venv .venv && .venv/bin/pip install -r requirements-docs.txt" >&2
-    exit 1
-fi
 
 # Chapter files in order (ch00 is handled separately as a raw HTML fragment)
 CHAPTERS=(

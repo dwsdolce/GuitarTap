@@ -1,8 +1,7 @@
 #!/bin/bash
 # Run the export UI tests (GuitarTapUITests.xctestplan), lay their exports out for the export checker —
 #   <out>/<case>/<main|saved>/<file>   and   <out>/manifest.json
-# — and check them against Swift's expected values (Tooling/export-check/; its requirements.txt lists the Python
-# packages it needs; PYTHON picks the interpreter).
+# — and check them against Swift's expected values (Tooling/export-check/), with this repo's .venv.
 #
 # The UI tests drive the real app through Import and both export paths. The test runner is sandboxed, so
 # each export leaves the run as an attachment of the test result; this script extracts them.
@@ -14,6 +13,16 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out="${1:-build/export-uitests}"
+# Python: this repo's own .venv (.venv/bin on macOS and Linux, .venv/Scripts on Windows); PYTHON names another.
+if [ -z "${PYTHON:-}" ]; then
+    for candidate in .venv/bin/python .venv/Scripts/python.exe .venv/Scripts/python; do
+        if [ -x "$candidate" ]; then PYTHON="$candidate"; break; fi
+    done
+fi
+if [ -z "${PYTHON:-}" ]; then
+    echo "No .venv: set it up as the README's \"Setting up on a new machine\" says." >&2
+    exit 1
+fi
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 rm -rf "$out"
@@ -25,7 +34,7 @@ xcodebuild test -scheme guitar_tap -testPlan GuitarTapUITests -destination 'plat
     -derivedDataPath "$work/dd" -resultBundlePath "$out/result.xcresult" | tail -5 || tests=1
 
 xcrun xcresulttool export attachments --path "$out/result.xcresult" --output-path "$work/attachments" > /dev/null
-python3 - "$work/attachments" "$out" <<'EOF'
+"$PYTHON" - "$work/attachments" "$out" <<'EOF'
 import json, os, shutil, sys
 
 attachments, out = sys.argv[1], sys.argv[2]
@@ -52,6 +61,6 @@ print(f"{len(files)} exports → {out}")
 EOF
 
 check=0
-"${PYTHON:-python3}" Tooling/export-check/check_exports.py check "$out" || check=1
+"$PYTHON" Tooling/export-check/check_exports.py check "$out" || check=1
 [[ $tests -eq 0 ]] || echo "The export UI tests failed — see $out/result.xcresult"
 exit $(( tests || check ))

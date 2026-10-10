@@ -12,6 +12,7 @@
 //
 // @parity test/pdf-report
 
+import CoreText
 import Foundation
 import PDFKit
 import Testing
@@ -70,8 +71,10 @@ struct PDFReportTests {
     }
 
     /// The pages' lines by position: PDFKit's line selections, grouped into lines by baseline (top to
-    /// bottom), each line left to right. A selection's baseline is its top plus the ascender of its
-    /// largest font (PDFKit merges text of different sizes on one line into one selection).
+    /// bottom), each line left to right. A selection's baseline is its top plus the ascent of its
+    /// largest font (PDFKit merges text of different sizes on one line into one selection) — Core Text's,
+    /// the font's own: UIKit reports Helvetica's ascender taller than the font has it, so iOS would read
+    /// every baseline low.
     static func lines(of document: PDFDocument) -> [Line] {
         typealias Run = (baseline: Double, x: Double, size: Double, text: String)
         var out: [Line] = []
@@ -88,7 +91,7 @@ struct PDFReportTests {
                     if let font = value as? PlatformFont, font.pointSize > (largest?.pointSize ?? 0) { largest = font }
                 }
                 let bounds = selection.bounds(for: page)
-                return (Double(height - bounds.maxY + (largest?.ascender ?? 0)), Double(bounds.minX),
+                return (Double(height - bounds.maxY + (largest.map { CTFontGetAscent($0 as CTFont) } ?? 0)), Double(bounds.minX),
                         Double(largest?.pointSize ?? 0), text)
             }.sorted { $0.baseline < $1.baseline }
             var rows: [[Run]] = []

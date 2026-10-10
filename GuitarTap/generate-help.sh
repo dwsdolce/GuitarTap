@@ -59,7 +59,18 @@ mkdir -p "$(dirname "$OUTPUT_MD")"
 # Step 1: Parse HelpView.swift → Markdown
 # ---------------------------------------------------------------------------
 
-python3 - "$SWIFT_SOURCE" "$SYMBOL_MD_PATH" "$SYMBOLS_LIST_FILE" > "$OUTPUT_MD" <<'PYEOF'
+# Python: this repo's own .venv (.venv/bin on macOS and Linux, .venv/Scripts on Windows); PYTHON names another.
+if [ -z "${PYTHON:-}" ]; then
+    for candidate in "$SCRIPT_DIR"/../.venv/bin/python "$SCRIPT_DIR"/../.venv/Scripts/python.exe "$SCRIPT_DIR"/../.venv/Scripts/python; do
+        if [ -x "$candidate" ]; then PYTHON="$candidate"; break; fi
+    done
+fi
+if [ -z "${PYTHON:-}" ]; then
+    echo "No .venv: set it up as the README's \"Setting up on a new machine\" says." >&2
+    exit 1
+fi
+
+"$PYTHON" - "$SWIFT_SOURCE" "$SYMBOL_MD_PATH" "$SYMBOLS_LIST_FILE" > "$OUTPUT_MD" <<'PYEOF'
 import sys
 import re
 
@@ -356,8 +367,7 @@ fi
 
 # ---------------------------------------------------------------------------
 # Step 3: Release notes — generate the stamped PDF from Documentation/ReleaseNotes.md on the
-# same macOS build (cheap: plain pandoc, the notes carry no icons). That script is best-effort
-# and skips gracefully on its own; `|| true` also shields this script's `set -e`, so a
-# release-notes hiccup never fails the build.
+# same macOS build. That script warns and skips what it cannot do here (no pandoc, no tag), and fails
+# the build if pandoc fails on the notes.
 # ---------------------------------------------------------------------------
-bash "$SCRIPT_DIR/../Documentation/generate-release-notes.sh" || true
+bash "$SCRIPT_DIR/../Documentation/generate-release-notes.sh"

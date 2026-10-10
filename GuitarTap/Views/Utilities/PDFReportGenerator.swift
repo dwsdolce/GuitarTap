@@ -293,8 +293,61 @@ struct PDFReportGenerator {
 
 /// The report's typeface: Helvetica, which every edition's PDF has, so the three editions lay the report
 /// out alike.
-private func pdfFont(_ size: CGFloat, bold: Bool = false, italic: Bool = false) -> Font {
-    .custom(italic ? "Helvetica-Oblique" : bold ? "Helvetica-Bold" : "Helvetica", fixedSize: size)
+private func pdfFontName(bold: Bool, italic: Bool) -> String {
+    italic ? "Helvetica-Oblique" : bold ? "Helvetica-Bold" : "Helvetica"
+}
+
+/// Report text, each line exactly `size` points tall with the text on its bottom: macOS sets Helvetica so, iOS
+/// sets every line taller (a taller ascender), and the report must be the same on every device. A text that may
+/// wrap gives `wrapWidth`: it is broken into lines there as SwiftUI breaks it (TextKit, the standard
+/// strategy, which avoids a lone word on the last line), and the lines are stacked at that height.
+private struct PDFText: View {
+    let string: String
+    let size: CGFloat
+    var bold = false
+    var italic = false
+    var wrapWidth: CGFloat?
+
+    init(_ string: String, _ size: CGFloat, bold: Bool = false, italic: Bool = false, wrapWidth: CGFloat? = nil) {
+        self.string = string
+        self.size = size
+        self.bold = bold
+        self.italic = italic
+        self.wrapWidth = wrapWidth
+    }
+
+    var body: some View {
+        let font = Font.custom(pdfFontName(bold: bold, italic: italic), fixedSize: size)
+        let lines = wrapWidth.map { Self.lines(of: string, font: pdfFontName(bold: bold, italic: italic),
+                                               size: size, width: $0) } ?? [string]
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                Text(line)
+                    .font(font)
+                    .frame(height: size, alignment: .bottomLeading)
+            }
+        }
+    }
+
+    /// `string` broken into lines in `font` at `size`, at `width`.
+    static func lines(of string: String, font: String, size: CGFloat, width: CGFloat) -> [String] {
+        let style = NSMutableParagraphStyle()
+        style.lineBreakStrategy = .standard
+        let storage = NSTextStorage(string: string, attributes: [
+            .font: CTFontCreateWithName(font as CFString, size, nil), .paragraphStyle: style])
+        let layout = NSLayoutManager()
+        let container = NSTextContainer(size: CGSize(width: width, height: .greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0
+        layout.addTextContainer(container)
+        storage.addLayoutManager(layout)
+        let characters = string as NSString
+        var lines: [String] = []
+        layout.enumerateLineFragments(forGlyphRange: layout.glyphRange(for: container)) { _, _, _, glyphs, _ in
+            let range = layout.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+            lines.append(characters.substring(with: range).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return lines.isEmpty ? [string] : lines
+    }
 }
 
 // MARK: - PDF Report Content View
@@ -348,17 +401,14 @@ private struct PDFReportContentView: View {
     private var headerSection: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("GuitarTap")
-                    .font(pdfFont(22, bold: true))
+                PDFText("GuitarTap", 22, bold: true)
                     .foregroundColor(Palette.color(.pdfAccent))
-                Text("Tap Tone Analysis Report")
-                    .font(pdfFont(13))
+                PDFText("Tap Tone Analysis Report", 13)
                     .foregroundColor(Palette.color(.pdfSecondary))
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(DateDisplay.string(data.timestamp))
-                    .font(pdfFont(11))
+                PDFText(DateDisplay.string(data.timestamp), 11)
                     .foregroundColor(Palette.color(.pdfSecondary))
             }
         }
@@ -393,12 +443,10 @@ private struct PDFReportContentView: View {
 
     private func metaRow(label: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 6) {
-            Text(label + ":")
-                .font(pdfFont(11, bold: true))
+            PDFText(label + ":", 11, bold: true)
                 .foregroundColor(Palette.color(.pdfSecondary))
                 .frame(width: 120, alignment: .leading)
-            Text(value)
-                .font(pdfFont(11))
+            PDFText(value, 11, wrapWidth: contentWidth - 120 - 6)
                 .foregroundColor(Palette.color(.pdfText))
         }
     }
@@ -408,8 +456,7 @@ private struct PDFReportContentView: View {
     @ViewBuilder
     private func spectrumSection(imageData: Data) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Frequency Spectrum")
-                .font(pdfFont(12, bold: true))
+            PDFText("Frequency Spectrum", 12, bold: true)
                 .foregroundColor(Palette.color(.pdfSecondary))
 
             reportImage(from: imageData)
@@ -448,12 +495,10 @@ private struct PDFReportContentView: View {
 
     private var peaksSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Detected Peaks")
-                .font(pdfFont(13, bold: true))
+            PDFText("Detected Peaks", 13, bold: true)
 
             if visibleSortedPeaks.isEmpty {
-                Text("No peaks detected in this measurement.")
-                    .font(pdfFont(11))
+                PDFText("No peaks detected in this measurement.", 11)
                     .foregroundColor(Palette.color(.pdfSecondary))
             } else {
                 // Table header
@@ -470,22 +515,21 @@ private struct PDFReportContentView: View {
 
     private var peakTableHeader: some View {
         HStack(spacing: 0) {
-            Text("Frequency")
+            PDFText("Frequency", 10, bold: true)
                 .frame(width: 90, alignment: .leading)
-            Text("Magnitude")
+            PDFText("Magnitude", 10, bold: true)
                 .frame(width: 80, alignment: .leading)
-            Text("Note")
+            PDFText("Note", 10, bold: true)
                 .frame(width: 80, alignment: .leading)
             if data.measurementType.isGuitar {
-                Text("Mode")
+                PDFText("Mode", 10, bold: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Text("Q Factor")
+                PDFText("Q Factor", 10, bold: true)
                     .frame(width: 70, alignment: .leading)
                 peakRoleHeader
             }
         }
-        .font(pdfFont(10, bold: true))
         .foregroundColor(Palette.color(.pdfSecondary))
         .padding(.vertical, 3)
         .padding(.horizontal, 6)
@@ -496,9 +540,8 @@ private struct PDFReportContentView: View {
     @ViewBuilder
     private var peakRoleHeader: some View {
         if data.measurementType == .plate || data.measurementType == .brace {
-            Text("Role")
+            PDFText("Role", 10, bold: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .font(pdfFont(10, bold: true))
                 .foregroundColor(Palette.color(.pdfSecondary))
         }
     }
@@ -535,26 +578,25 @@ private struct PDFReportContentView: View {
         }()
 
         return HStack(spacing: 0) {
-            Text("\(FieldPrecision.string(peak.frequency, FieldPrecision.peakFrequencyHz)) Hz")
+            PDFText("\(FieldPrecision.string(peak.frequency, FieldPrecision.peakFrequencyHz)) Hz", 10)
                 .frame(width: 90, alignment: .leading)
-            Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
+            PDFText("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB", 10)
                 .frame(width: 80, alignment: .leading)
-            Text(peak.pitchNote ?? "–")
+            PDFText(peak.pitchNote ?? "–", 10)
                 .frame(width: 80, alignment: .leading)
             if data.measurementType.isGuitar {
                 let label = modeInfo?.label ?? mode.displayName
                 let isOverridden = modeInfo?.isOverridden ?? false
-                Text(label)
-                    .font(isOverridden ? pdfFont(10, italic: true) : pdfFont(10))
+                // The Mode column: the content, less the row's padding and the columns before it.
+                PDFText(label, 10, italic: isOverridden, wrapWidth: contentWidth - 2 * 6 - (90 + 80 + 80))
                     .foregroundColor(effectiveColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Text(FieldPrecision.string(peak.quality, FieldPrecision.qFactor))
+                PDFText(FieldPrecision.string(peak.quality, FieldPrecision.qFactor), 10)
                     .frame(width: 70, alignment: .leading)
                 peakRoleCell(for: peak)
             }
         }
-        .font(pdfFont(10))
         .foregroundColor(Palette.color(.pdfText))
         .padding(.vertical, 2)
         .padding(.horizontal, 6)
@@ -568,16 +610,16 @@ private struct PDFReportContentView: View {
             let isFlc = peak.id == data.selectedFlcPeakID
             Group {
                 if isLong {
-                    Text("Longitudinal (fL)")
+                    PDFText("Longitudinal (fL)", 10)
                         .foregroundColor(Palette.color(.materialLongitudinal))
                 } else if isCross {
-                    Text("Cross-grain (fC)")
+                    PDFText("Cross-grain (fC)", 10)
                         .foregroundColor(Palette.color(.materialCross))
                 } else if isFlc {
-                    Text("Diagonal (fLC)")
+                    PDFText("Diagonal (fLC)", 10)
                         .foregroundColor(Palette.color(.materialFlc))
                 } else {
-                    Text("–")
+                    PDFText("–", 10)
                         .foregroundColor(Palette.color(.pdfSecondary))
                 }
             }
@@ -586,10 +628,10 @@ private struct PDFReportContentView: View {
             let isLong = peak.id == data.selectedLongitudinalPeakID
             Group {
                 if isLong {
-                    Text("Longitudinal (fL)")
+                    PDFText("Longitudinal (fL)", 10)
                         .foregroundColor(Palette.color(.materialLongitudinal))
                 } else {
-                    Text("–")
+                    PDFText("–", 10)
                         .foregroundColor(Palette.color(.pdfSecondary))
                 }
             }
@@ -606,8 +648,7 @@ private struct PDFReportContentView: View {
             VStack(alignment: .leading, spacing: 6) {
                 sectionDivider
                 Spacer().frame(height: 6)
-                Text(hasFlc ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:")
-                    .font(pdfFont(10, bold: true))
+                PDFText(hasFlc ? "Three-Tap Measurement Process:" : "Two-Tap Measurement Process:", 10, bold: true)
 
                 tapInstructionRow(color: Palette.color(.materialLongitudinal),
                                   title: "1. Longitudinal (fL) Tap",
@@ -620,26 +661,21 @@ private struct PDFReportContentView: View {
                                       title: "3. Diagonal (fLC) Tap",
                                       detail: "Hold plate at the midpoint of one long edge. Tap near the opposite corner (~22% from both the end and the side). Measures shear stiffness.")
                 }
-                Text("The strongest peak from each tap is auto-selected.")
-                    .font(pdfFont(9))
+                PDFText("The strongest peak from each tap is auto-selected.", 9, italic: true)
                     .foregroundColor(Palette.color(.pdfSecondary))
-                    .italic()
             }
             Spacer().frame(height: 14)
         } else if data.measurementType == .brace {
             VStack(alignment: .leading, spacing: 6) {
                 sectionDivider
                 Spacer().frame(height: 6)
-                Text("Single-Tap Measurement (fL only):")
-                    .font(pdfFont(10, bold: true))
+                PDFText("Single-Tap Measurement (fL only):", 10, bold: true)
 
                 tapInstructionRow(color: Palette.color(.materialLongitudinal),
                                   title: "1. Longitudinal (fL) Tap",
                                   detail: "Hold brace at 22% from one end along the length. Tap center.")
-                Text("The strongest peak is auto-selected.")
-                    .font(pdfFont(9))
+                PDFText("The strongest peak is auto-selected.", 9, italic: true)
                     .foregroundColor(Palette.color(.pdfSecondary))
-                    .italic()
             }
             Spacer().frame(height: 14)
         }
@@ -652,10 +688,9 @@ private struct PDFReportContentView: View {
                 .frame(width: 7, height: 7)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(pdfFont(10, bold: true))
-                Text(detail)
-                    .font(pdfFont(9))
+                // Beside the dot: the content, less the dot and the gap.
+                PDFText(title, 10, bold: true, wrapWidth: contentWidth - 7 - 6)
+                PDFText(detail, 9, wrapWidth: contentWidth - 7 - 6)
                     .foregroundColor(Palette.color(.pdfSecondary))
             }
         }
@@ -703,8 +738,7 @@ private struct PDFReportContentView: View {
 
     private var guitarAnalysisSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Analysis Results")
-                .font(pdfFont(13, bold: true))
+            PDFText("Analysis Results", 13, bold: true)
 
             HStack(alignment: .top, spacing: 16) {
                 // Ring-out time
@@ -739,32 +773,25 @@ private struct PDFReportContentView: View {
                              detailColor: Color, hint: String? = nil) -> some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(pdfFont(10, bold: true))
+                PDFText(title, 10, bold: true)
                     .foregroundColor(Palette.color(.pdfSecondary))
-                Text(value)
-                    .font(pdfFont(18, bold: true))
+                PDFText(value, 18, bold: true)
                 if let subtitle {
-                    Text(subtitle)
-                        .font(pdfFont(9))
+                    PDFText(subtitle, 9)
                         .foregroundColor(Palette.color(.pdfSecondary))
                 }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(detail)
-                    .font(pdfFont(10))
+                PDFText(detail, 10)
                     .foregroundColor(detailColor)
                 if let detailSubtitle {
-                    Text(detailSubtitle)
-                        .font(pdfFont(9))
+                    PDFText(detailSubtitle, 9)
                         .foregroundColor(Palette.color(.pdfSecondary))
                 }
                 if let hint {
-                    Text(hint)
-                        .font(pdfFont(9))
+                    PDFText(hint, 9, italic: true)
                         .foregroundColor(Palette.color(.pdfSecondary))
-                        .italic()
                 }
             }
         }
@@ -778,8 +805,7 @@ private struct PDFReportContentView: View {
 
     private func plateSection(_ props: PlateProperties) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Plate Properties")
-                .font(pdfFont(13, bold: true))
+            PDFText("Plate Properties", 13, bold: true)
 
             // (fL / fC / fLC are inputs, shown in the Detected Peaks table — not repeated here.)
 
@@ -818,10 +844,8 @@ private struct PDFReportContentView: View {
                 platePropRow("GLC (Shear Modulus)",
                                "\(FieldPrecision.string(glc / 1.0e9, FieldPrecision.shearModulusGPa)) GPa")
             } else {
-                Text("GLC assumed 0 — fLC tap not performed")
-                    .font(pdfFont(10))
+                PDFText("GLC assumed 0 — fLC tap not performed", 10, italic: true)
                     .foregroundColor(Palette.color(.pdfSecondary))
-                    .italic()
             }
 
             // Cross/Long ratio, Long/Cross ratio
@@ -829,30 +853,24 @@ private struct PDFReportContentView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     platePropRow("Cross/Long Ratio",
                                    FieldPrecision.string(props.crossLongRatio, FieldPrecision.crossLongRatio))
-                    Text("typical: 0.04–0.08")
-                        .font(pdfFont(9))
+                    PDFText("typical: 0.04–0.08", 9, italic: true)
                         .foregroundColor(Palette.color(.pdfSecondary))
-                        .italic()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .leading, spacing: 2) {
                     platePropRow("Long/Cross Ratio",
                                    FieldPrecision.string(props.longCrossRatio, FieldPrecision.longCrossRatio))
-                    Text("typical: 12–25")
-                        .font(pdfFont(9))
+                    PDFText("typical: 12–25", 9, italic: true)
                         .foregroundColor(Palette.color(.pdfSecondary))
-                        .italic()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             // Overall Quality — prominent row
             HStack {
-                Text("Overall Quality:")
-                    .font(pdfFont(10, bold: true))
+                PDFText("Overall Quality:", 10, bold: true)
                     .foregroundColor(Palette.color(.pdfSecondary))
-                Text(props.overallQuality.rawValue)
-                    .font(pdfFont(13, bold: true))
+                PDFText(props.overallQuality.rawValue, 13, bold: true)
                     .foregroundColor(Palette.color(props.overallQuality))
                 Spacer()
             }
@@ -864,8 +882,7 @@ private struct PDFReportContentView: View {
 
     private func braceSection(_ props: BraceProperties) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Brace Properties")
-                .font(pdfFont(13, bold: true))
+            PDFText("Brace Properties", 13, bold: true)
 
             // (fL is an input, shown in the Detected Peaks table — not repeated here.)
 
@@ -890,11 +907,9 @@ private struct PDFReportContentView: View {
 
             // Overall Quality — prominent row
             HStack {
-                Text("Overall Quality:")
-                    .font(pdfFont(10, bold: true))
+                PDFText("Overall Quality:", 10, bold: true)
                     .foregroundColor(Palette.color(.pdfSecondary))
-                Text(props.spruceQuality.rawValue)
-                    .font(pdfFont(13, bold: true))
+                PDFText(props.spruceQuality.rawValue, 13, bold: true)
                     .foregroundColor(Palette.color(props.spruceQuality))
                 Spacer()
             }
@@ -907,8 +922,7 @@ private struct PDFReportContentView: View {
     /// Renders a compact row of sample input dimensions.
     private func dimensionsSubsection(dims: MaterialDimensions) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Sample Dimensions")
-                .font(pdfFont(10, bold: true))
+            PDFText("Sample Dimensions", 10, bold: true)
                 .foregroundColor(Palette.color(.pdfSecondary))
             // Geometry on first line
             HStack(spacing: 0) {
@@ -938,8 +952,7 @@ private struct PDFReportContentView: View {
     /// stiffness (f_vs). Mirrors the Results panel's Body Dimensions section; feeds only the Gore target.
     private func plateBodyDimensionsPDFSection(_ props: PlateProperties) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Body Dimensions")
-                .font(pdfFont(10, bold: true))
+            PDFText("Body Dimensions", 10, bold: true)
                 .foregroundColor(Palette.color(.pdfSecondary))
 
             let presetLabel = data.plateStiffnessPreset == .custom
@@ -973,13 +986,11 @@ private struct PDFReportContentView: View {
             vibrationalStiffness: data.plateStiffness) {
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Gore Target Thickness")
-                    .font(pdfFont(10, bold: true))
+                PDFText("Gore Target Thickness", 10, bold: true)
                     .foregroundColor(Palette.color(.pdfSecondary))
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(FieldPrecision.string(hd, FieldPrecision.goreThicknessMM)) mm")
-                        .font(pdfFont(16, bold: true))
+                    PDFText("\(FieldPrecision.string(hd, FieldPrecision.goreThicknessMM)) mm", 16, bold: true)
                         .foregroundColor(Palette.color(.pdfAccent))
                     Spacer()
                 }
@@ -992,24 +1003,19 @@ private struct PDFReportContentView: View {
 
     private func platePropRow(_ label: String, _ value: String) -> some View {
         HStack(spacing: 6) {
-            Text(label + ":")
-                .font(pdfFont(10))
+            PDFText(label + ":", 10)
                 .foregroundColor(Palette.color(.pdfSecondary))
-            Text(value)
-                .font(pdfFont(10, bold: true))
+            PDFText(value, 10, bold: true)
         }
     }
 
     private func specificModulusRow(_ label: String, value: Float, quality: WoodQuality) -> some View {
         HStack(spacing: 6) {
-            Text(label + ":")
-                .font(pdfFont(10))
+            PDFText(label + ":", 10)
                 .foregroundColor(Palette.color(.pdfSecondary))
-            Text(FieldPrecision.string(value, FieldPrecision.specificModulus))
-                .font(pdfFont(10, bold: true))
+            PDFText(FieldPrecision.string(value, FieldPrecision.specificModulus), 10, bold: true)
                 .foregroundColor(Palette.color(quality))
-            Text("(\(quality.rawValue))")
-                .font(pdfFont(9))
+            PDFText("(\(quality.rawValue))", 9)
                 .foregroundColor(Palette.color(quality))
         }
     }
@@ -1026,12 +1032,10 @@ private struct PDFReportContentView: View {
             HStack {
                 let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–"
                 let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "–"
-                Text("Generated by GuitarTap Swift \(version) (\(build))")
-                    .font(pdfFont(9))
+                PDFText("Generated by GuitarTap Swift \(version) (\(build))", 9)
                     .foregroundColor(Palette.color(.pdfSecondary))
                 Spacer()
-                Text(DateDisplay.string(Date()))
-                    .font(pdfFont(9))
+                PDFText(DateDisplay.string(Date()), 9)
                     .foregroundColor(Palette.color(.pdfSecondary))
             }
         }
@@ -1186,17 +1190,14 @@ private struct ComparisonPDFReportContentView: View {
     private var headerSection: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("GuitarTap")
-                    .font(pdfFont(22, bold: true))
+                PDFText("GuitarTap", 22, bold: true)
                     .foregroundColor(Palette.color(.pdfAccent))
-                Text("Comparison Report")
-                    .font(pdfFont(13))
+                PDFText("Comparison Report", 13)
                     .foregroundColor(Palette.color(.pdfSecondary))
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(DateDisplay.string(data.timestamp))
-                    .font(pdfFont(11))
+                PDFText(DateDisplay.string(data.timestamp), 11)
                     .foregroundColor(Palette.color(.pdfSecondary))
             }
         }
@@ -1233,12 +1234,10 @@ private struct ComparisonPDFReportContentView: View {
 
     private func metaRow(label: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 6) {
-            Text(label + ":")
-                .font(pdfFont(11, bold: true))
+            PDFText(label + ":", 11, bold: true)
                 .foregroundColor(Palette.color(.pdfSecondary))
                 .frame(width: 100, alignment: .leading)
-            Text(value)
-                .font(pdfFont(11))
+            PDFText(value, 11, wrapWidth: contentWidth - 100 - 6)
                 .foregroundColor(Palette.color(.pdfText))
         }
     }
@@ -1248,8 +1247,7 @@ private struct ComparisonPDFReportContentView: View {
     @ViewBuilder
     private func spectrumSection(imageData: Data) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Frequency Spectrum")
-                .font(pdfFont(12, bold: true))
+            PDFText("Frequency Spectrum", 12, bold: true)
                 .foregroundColor(Palette.color(.pdfSecondary))
 
             reportImage(from: imageData)
@@ -1288,20 +1286,17 @@ private struct ComparisonPDFReportContentView: View {
 
     private var peakModeTableSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Peak Mode Comparison")
-                .font(pdfFont(13, bold: true))
+            PDFText("Peak Mode Comparison", 13, bold: true)
 
             // Table header
             HStack(spacing: 0) {
-                Text("Spectrum")
-                    .font(pdfFont(10, bold: true))
+                PDFText("Spectrum", 10, bold: true)
                     .foregroundColor(Palette.color(.pdfSecondary))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                 ForEach(modeColumns, id: \.label) { col in
-                    Text(col.label)
-                        .font(pdfFont(10, bold: true))
+                    PDFText(col.label, 10, bold: true)
                         .foregroundColor(Palette.color(.pdfSecondary))
                         .frame(width: 90, alignment: .trailing)
                         .padding(.trailing, 6)
@@ -1322,8 +1317,8 @@ private struct ComparisonPDFReportContentView: View {
                             .fill(row.color)
                             .frame(width: 8, height: 8)
                             .padding(.top, 1)
-                        Text(row.label)
-                            .fixedSize(horizontal: false, vertical: true)
+                        // The Spectrum column: the content, less the three value columns, the padding and the dot.
+                        PDFText(row.label, 10, wrapWidth: contentWidth - 3 * (90 + 6) - 2 * 6 - (8 + 5))
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .padding(.horizontal, 6)
@@ -1335,15 +1330,13 @@ private struct ComparisonPDFReportContentView: View {
                         // convention page 1's peak table uses for an overridden mode label — so it is
                         // not read as the averaged spectrum's auto-detected peak.
                         let isOverride = row.overrideModes.contains(col.mode)
-                        Text((freq.map { "\(FieldPrecision.string($0, FieldPrecision.peakFrequencyHz)) Hz" } ?? "—") + (isOverride ? " *" : ""))
-                            .font(isOverride ? pdfFont(10, italic: true) : pdfFont(10))
+                        PDFText((freq.map { "\(FieldPrecision.string($0, FieldPrecision.peakFrequencyHz)) Hz" } ?? "—") + (isOverride ? " *" : ""), 10, italic: isOverride)
                             .foregroundColor(Palette.color(freq != nil ? .pdfText : .pdfSecondary))
                             .frame(width: 90, alignment: .trailing)
                             .padding(.trailing, 6)
                             .padding(.vertical, 4)
                     }
                 }
-                .font(pdfFont(10))
             }
         }
     }
@@ -1360,12 +1353,10 @@ private struct ComparisonPDFReportContentView: View {
             HStack {
                 let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–"
                 let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "–"
-                Text("Generated by GuitarTap Swift \(version) (\(build))")
-                    .font(pdfFont(9))
+                PDFText("Generated by GuitarTap Swift \(version) (\(build))", 9)
                     .foregroundColor(Palette.color(.pdfSecondary))
                 Spacer()
-                Text(DateDisplay.string(Date()))
-                    .font(pdfFont(9))
+                PDFText(DateDisplay.string(Date()), 9)
                     .foregroundColor(Palette.color(.pdfSecondary))
             }
         }

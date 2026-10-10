@@ -556,68 +556,67 @@ func makeExportableSpectrumView(
         return Palette.color(.materialUnselected)
     }
 
+    // Text is set with exportFont — fixed sizes and line heights, not text styles (.title, .caption …), whose
+    // sizes differ between macOS and iOS: the exported image must be the same on every device.
     return VStack(alignment: .leading, spacing: 16) {
         // Header
         VStack(alignment: .leading, spacing: 8) {
             Text("Guitar Tap Tone Analysis - Frequency Response")
-                .font(.title)
-                .fontWeight(.bold)
+                .exportFont(22, .bold)
 
             HStack {
                 Text("Date: \(dateLabel)")
-                    .font(.subheadline)
+                    .exportFont(11)
                     .foregroundColor(Palette.color(.textSecondary))
 
                 Spacer()
 
                 Text("Range: \(formatFreq(minFreq)) - \(formatFreq(maxFreq))")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .exportFont(11, .semibold)
 
                 Text("•")
+                    .exportFont(13)
                     .foregroundColor(Palette.color(.textSecondary))
 
                 Text("\(Int(minDB)) to \(Int(maxDB)) dB")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .exportFont(11, .semibold)
             }
 
             HStack(spacing: 16) {
                 // Measurement type
                 HStack(spacing: 4) {
                     Text("Type:")
-                        .font(.subheadline)
+                        .exportFont(11)
                         .foregroundColor(Palette.color(.textSecondary))
                     Text(typeLabel ?? measurementType.rawValue)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .exportFont(11, .medium)
                 }
 
                 Text("•")
+                    .exportFont(13)
                     .foregroundColor(Palette.color(.textSecondary))
 
                 // Platform
                 HStack(spacing: 4) {
                     Text("Platform:")
-                        .font(.subheadline)
+                        .exportFont(11)
                         .foregroundColor(Palette.color(.textSecondary))
                     Text(platform)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .exportFont(11, .medium)
                 }
 
                 if !softwareVersion.isEmpty {
                     Text("•")
+                        .exportFont(13)
                         .foregroundColor(Palette.color(.textSecondary))
 
                     // Software version
                     HStack(spacing: 4) {
                         Text("GuitarTap")
-                            .font(.subheadline)
+                            .exportFont(11)
                             .foregroundColor(Palette.color(.textSecondary))
                         Text("v\(softwareVersion)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .exportFont(11, .medium)
                     }
                 }
 
@@ -626,11 +625,11 @@ func makeExportableSpectrumView(
 
             if !materialSpectra.isEmpty {
                 Text("Comparing \(materialSpectra.count) measurements")
-                    .font(.subheadline)
+                    .exportFont(11)
                     .foregroundColor(Palette.color(.textSecondary))
             } else if !peaks.isEmpty {
                 Text("Detected Peaks: \(peaks.count)")
-                    .font(.subheadline)
+                    .exportFont(11)
                     .foregroundColor(Palette.color(.textSecondary))
             }
         }
@@ -664,7 +663,7 @@ func makeExportableSpectrumView(
         if !peaks.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Detected Peaks Summary")
-                    .font(.headline)
+                    .exportFont(13, .bold)
                     .padding(.horizontal)
 
                 HStack(spacing: 20) {
@@ -690,14 +689,13 @@ func makeExportableSpectrumView(
                             : roleColor(peak)
                         VStack(spacing: 4) {
                             Text("\(FieldPrecision.string(peak.frequency, FieldPrecision.peakFrequencyHz)) Hz")
-                                .font(.caption)
-                                .fontWeight(.bold)
+                                .exportFont(10, .bold)
                             Text(chipLabel)
-                                .font(.caption2)
                                 .italic(ovr)
+                                .exportFont(10)
                                 .foregroundColor(chipColor)
                             Text("\(FieldPrecision.string(peak.magnitude, FieldPrecision.peakMagnitudeDB)) dB")
-                                .font(.caption2)
+                                .exportFont(10)
                                 .foregroundColor(Palette.color(.textSecondary))
                         }
                         .padding(8)
@@ -714,8 +712,7 @@ func makeExportableSpectrumView(
         if !materialSpectra.isEmpty {
             HStack(spacing: 20) {
                 Text("Measurements:")
-                    .font(.caption)
-                    .fontWeight(.semibold)
+                    .exportFont(10, .semibold)
 
                 ForEach(Array(materialSpectra.enumerated()), id: \.offset) { _, series in
                     HStack(spacing: 4) {
@@ -723,7 +720,7 @@ func makeExportableSpectrumView(
                             .fill(series.color)
                             .frame(width: 24, height: 4)
                         Text(series.label)
-                            .font(.caption)
+                            .exportFont(10)
                     }
                 }
             }
@@ -731,8 +728,7 @@ func makeExportableSpectrumView(
         } else {
             HStack(spacing: 20) {
                 Text("Guitar Modes:")
-                    .font(.caption)
-                    .fontWeight(.semibold)
+                    .exportFont(10, .semibold)
 
                 ForEach([GuitarMode.air, .top, .back, .dipole, .ringMode], id: \.self) { mode in
                     HStack(spacing: 4) {
@@ -740,7 +736,7 @@ func makeExportableSpectrumView(
                             .fill(Palette.color(mode))
                             .frame(width: 12, height: 12)
                         Text(mode.displayName)
-                            .font(.caption)
+                            .exportFont(10)
                     }
                 }
             }
@@ -750,6 +746,23 @@ func makeExportableSpectrumView(
     .background(Palette.color(.chartBackground))
     .padding()
 }
+private extension Text {
+    /// The exported image's text: the system font at `size`, each line the height macOS gives that size.
+    /// iOS sets the same font a little shorter; centred in macOS's height, its text sits within half a point
+    /// of macOS's.
+    func exportFont(_ size: CGFloat, _ weight: Font.Weight = .regular) -> some View {
+        let lineHeight: CGFloat
+        switch size {
+        case 10: lineHeight = 13
+        case 11: lineHeight = 14
+        case 13: lineHeight = 16
+        case 22: lineHeight = 26
+        default: preconditionFailure("no line height for \(size) pt export text")
+        }
+        return font(.system(size: size, weight: weight)).frame(height: lineHeight)
+    }
+}
+
 // MARK: - Render Spectrum Image for Measurement
 
 /// Renders the spectrum chart for a saved measurement to PNG data using `ImageRenderer`.
