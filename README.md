@@ -62,8 +62,6 @@ matching `Tooling/soak.sh`.
 
 ## License
 
-Copyright © 2026 Dolce Sfogato (David Smith). All rights reserved.
+Copyright © 2026 Dolce Sfogato (David Smith).
 
-<!-- When this repository is published as open source, add a LICENSE file
-     (GNU General Public License v3.0, matching guitar_tap / GuitarTapWeb) and
-     change this line to reference it. -->
+Licensed under the GNU General Public License v3.0 — see [LICENSE](LICENSE).
