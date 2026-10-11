@@ -355,11 +355,18 @@ final class GuitarTapUITests: XCTestCase {
             press(more)
         }
         XCTAssertTrue(saveToFiles.waitForExistence(timeout: 20), "no Save to Files")
-        press(saveToFiles)
-
         // The panel's Save, by the document picker's own identifier: the app has buttons labelled Save too.
         let save = app.buttons["DOCPicker.actionButton"].firstMatch
-        XCTAssertTrue(save.waitForExistence(timeout: 30), "no Save to Files panel")
+        // Tap once the list has settled; on a slow simulator a tap during the share sheet's animation can be
+        // lost, so tap again if the panel has not opened, as a user would.
+        for _ in 0..<2 where !save.exists {
+            let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"),
+                                                     object: saveToFiles)
+            _ = XCTWaiter.wait(for: [hittable], timeout: 10)
+            press(saveToFiles)
+            _ = save.waitForExistence(timeout: 30)
+        }
+        XCTAssertTrue(save.exists, "no Save to Files panel")
         if !app.staticTexts[local].firstMatch.exists { goToLocalFiles(app) }
         press(save)
         let file = try awaitExport(in: folder, before: before, name: name, path: path, ext: ext)
