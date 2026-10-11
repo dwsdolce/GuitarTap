@@ -138,10 +138,17 @@ final class GuitarTapUITests: XCTestCase {
     /// On a screen smaller than the window's default size (a CI runner's 1024 × 768), Window → Zoom, as a user
     /// would: otherwise the results panel, with the export buttons, runs off the screen's edge.
     @MainActor private func fitWindowToScreen(_ app: XCUIApplication) {
-        guard let screen = NSScreen.main?.visibleFrame, screen.width < 1200 || screen.height < 800 else { return }
+        // NSScreen.main is the screen with the key window, and the test runner has none: the first screen.
+        guard let screen = NSScreen.screens.first?.visibleFrame,
+              screen.width < 1200 || screen.height < 800 else { return }
         press(app.menuBars.menuBarItems["Window"].firstMatch)
         let zoom = app.menuBars.menuItems["Zoom"].firstMatch
-        if zoom.waitForExistence(timeout: 2) { press(zoom) }
+        XCTAssertTrue(zoom.waitForExistence(timeout: 5), "no Window → Zoom")
+        press(zoom)
+        Thread.sleep(forTimeInterval: 1.0)   // the zoom animates
+        let window = app.windows.firstMatch.frame
+        XCTAssertTrue(window.width <= screen.width + 1 && window.height <= screen.height + 1,
+                      "the window \(window.size) does not fit the screen \(screen.size) after Zoom")
     }
 
     @MainActor private func openList(_ app: XCUIApplication) {

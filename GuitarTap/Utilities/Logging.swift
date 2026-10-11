@@ -19,12 +19,9 @@ import QuartzCore
 // and to the unified log (Console.app, subsystem: com.dolcesfogato.guitar-tap)
 // during development.
 
-// TEMPORARILY ENABLED to diagnose the silent-input failure (buffers arriving with
-// no signal after wake-from-sleep / while idling between taps). The watchdogs now
-// recover automatically, but the log is what identifies WHICH trigger fired —
-// AVAudioEngineConfigurationChange, a device mismatch, or a dead-but-alive device.
-// Turn back off once the cause is confirmed; the file grows for the whole session.
-private let _gtLogEnabled = true
+// Off, as in Python: when on, every gtLog call is written to the debug log file, which
+// grows for the whole session. Turn it on to diagnose a problem, and off again after.
+private let _gtLogEnabled = false
 private let _tapDebugEnabled = false
 
 private let _logger = Logger(subsystem: "com.dolcesfogato.guitar-tap", category: "general")
