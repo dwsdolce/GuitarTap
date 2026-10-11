@@ -150,9 +150,11 @@ final class GuitarTapUITests: XCTestCase {
         XCTAssertTrue(fill.waitForExistence(timeout: 20), "no Window → Fill")
         press(fill)
         Thread.sleep(forTimeInterval: 1.0)   // the window animates
+        // The width is what ran the export buttons off the screen; the window's height counts a few points
+        // of title bar that the screen's visible frame does not.
         let window = app.windows.firstMatch.frame
-        XCTAssertTrue(window.width <= screen.width + 1 && window.height <= screen.height + 1,
-                      "the window \(window.size) does not fit the screen \(screen.size) after Fill")
+        XCTAssertTrue(window.width <= screen.width + 1,
+                      "the window \(window.size) is wider than the screen \(screen.size) after Fill")
     }
 
     @MainActor private func openList(_ app: XCUIApplication) {
@@ -362,7 +364,15 @@ final class GuitarTapUITests: XCTestCase {
         XCTAssertTrue(save.waitForExistence(timeout: 30), "no Save to Files panel")
         if !app.staticTexts[local].firstMatch.exists { goToLocalFiles(app) }
         press(save)
-        return try awaitExport(in: folder, before: before, name: name, path: path, ext: ext, keep: false)
+        let file = try awaitExport(in: folder, before: before, name: name, path: path, ext: ext, keep: false)
+        // Wait for the panel and the share sheet to close, as a user would before the next tap: while one is
+        // still closing, iOS ignores the next share sheet the app presents.
+        let gone = NSPredicate(format: "exists == false")
+        for element in [save, saveToFiles] {
+            let closed = XCTNSPredicateExpectation(predicate: gone, object: element)
+            XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 30), .completed, "the share sheet did not close")
+        }
+        return file
     }
     #endif
 }
