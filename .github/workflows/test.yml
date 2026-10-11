@@ -1,0 +1,103 @@
+# The Apple edition's tests on GitHub's Xcode 27 runner: the full unit-test plan on macOS, then the export UI
+# tests — the real app driven through Import and both export paths — on the Mac, an iPad, and an iPhone
+# simulator, each checked against the expected values (Tooling/run-export-uitests.sh). Set up as the README
+# says, in bash. CI has no signing certificates, so it signs ad hoc (an xcconfig override, not a project change).
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The whole history and its tags: the build number is the commit count, and the release guard
+      # compares the version with the last release's tag.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      # The Help build phase runs with this repo's .venv.
+      - name: Python environment
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements-dev.txt
+
+      - name: Sign ad hoc
+        run: |
+          printf 'CODE_SIGN_STYLE = Manual\nCODE_SIGN_IDENTITY = -\nDEVELOPMENT_TEAM =\nPROVISIONING_PROFILE_SPECIFIER =\n' > "$RUNNER_TEMP/ci.xcconfig"
+          echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/ci.xcconfig" >> "$GITHUB_ENV"
+
+      - name: Tests
+        run: xcodebuild test -scheme guitar_tap -testPlan guitar_tap -destination 'platform=macOS' -resultBundlePath build/unit.xcresult
+
+      - name: Result bundle (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-xcresult
+          path: build/unit.xcresult
+          if-no-files-found: ignore
+
+  export-ui:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [mac, "iPad Air 11-inch (M4)", "iPhone 17"]
+    runs-on: xcode-27
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Python environment (the export checker)
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements-dev.txt
+
+      - name: Sign ad hoc
+        run: |
+          printf 'CODE_SIGN_STYLE = Manual\nCODE_SIGN_IDENTITY = -\nDEVELOPMENT_TEAM =\nPROVISIONING_PROFILE_SPECIFIER =\n' > "$RUNNER_TEMP/ci.xcconfig"
+          echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/ci.xcconfig" >> "$GITHUB_ENV"
+
+      # On the Mac, UI tests drive the app through the system's automation mode.
+      - name: Automation mode (Mac)
+        if: matrix.target == 'mac'
+        run: sudo automationmodetool enable-automationmode-without-authentication
+
+      - name: Export UI tests
+        run: |
+          if [ "${{ matrix.target }}" = mac ]; then
+            Tooling/run-export-uitests.sh build/export-uitests
+          else
+            Tooling/run-export-uitests.sh --simulator "${{ matrix.target }}" build/export-uitests
+          fi
+
+      - name: Exports and result bundle (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: export-uitests-${{ strategy.job-index }}
+          path: build/export-uitests
+          if-no-files-found: ignore
