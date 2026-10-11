@@ -1,19 +1,51 @@
-# Guitar Tap
+<p align="center">
+  <img src="GuitarTap/Assets.xcassets/AppIcon.appiconset/256.png" width="120" alt="Guitar Tap icon">
+</p>
+
+<h1 align="center">Guitar Tap — Apple edition</h1>
+
+<p align="center">
+  <b>Tap-tone analysis for luthiers — capture a tap, run an FFT, and reveal a guitar's resonant modes and a tonewood's stiffness.</b>
+</p>
+
+<p align="center">
+  <a href="https://apps.apple.com/app/guitar-tap/id6759410596">App Store</a> ·
+  <a href="https://www.dolcesfogato.com/guitar_tap/">Website</a> ·
+  <a href="https://www.dolcesfogato.com/guitar_tap/manual/">User Manual</a>
+</p>
+
+---
 
 Tap-tone spectrum analysis for luthiers — the native **iPhone, iPad, and Mac** app.
 Tap a guitar, tonewood plate, or brace, run a high-resolution FFT, and read the
 resonant peaks and material properties (Young's modulus, specific modulus, a Gore
 target thickness) that guide bracing, mass, and plate thickness — the methodology
-from *Contemporary Acoustic Guitar Design and Build* by Trevor Gore and Gerard Gilet.
+from *Contemporary Acoustic Guitar Design and Build* by Trevor Gore and Gerard Gilet. One purchase on the
+[App Store](https://apps.apple.com/app/guitar-tap/id6759410596) covers iPhone, iPad, and Mac.
 
-This is the **canonical reference** for the Guitar Tap family. The other editions are
-long-term parallel ports kept at numeric/behavioural parity with this app:
+This is the **Apple edition** of Guitar Tap, and the **reference** for the family: the desktop edition
+(Windows, macOS, Linux) and the web edition are long-term parallel ports kept at numeric and behavioural
+parity with it (see [Parity](#parity) and [Related projects](#related-projects)). All three are open
+source under the GNU GPL v3.
 
-- **Python desktop** (Windows / macOS / Linux) — [guitar_tap](https://github.com/dwsdolce/guitar_tap)
-- **Browser (PWA)** — [GuitarTapWeb](https://github.com/dwsdolce/GuitarTapWeb)
+## Features
 
-Design and cross-platform project docs (specs, parity map, roadmap) are maintained in the
-project hub repo `guitar-tap-project`, not in this repo.
+- **Guitar mode** — identify Air (Helmholtz), Top, Back and other body resonances, each labelled with
+  frequency, pitch, and Q, plus the tap-tone ratio and ring-out time.
+- **Plate mode** — Young's modulus along and across the grain, speed of sound, specific modulus,
+  radiation ratio, a quality grade, and a Gore target thickness.
+- **Brace mode** — a fast single-tap measurement of a brace strip's stiffness, speed of sound, specific
+  modulus, and quality.
+- A live spectrum that freezes the instant a tap is detected; multi-tap averaging; comparison overlays of
+  saved measurements.
+- A saved measurement library; export of spectrum images, PDF reports, and `.guitartap` files, which open in
+  every edition.
+- Microphone calibration for measurement microphones (UMIK-1 and others).
+- Light and Dark appearance, following the system or set in Settings.
+
+<p align="center">
+  <img src="Documentation/AppStoreImages/macOS%20Classical.png" width="900" alt="Guitar Tap on the Mac analysing a classical guitar tap: an FFT spectrum with labelled Air, Top, and Back peaks beside the Analysis Results panel listing each peak's frequency, pitch, and Q">
+</p>
 
 ## Setting up on a new machine
 
@@ -34,11 +66,34 @@ stop if it is missing; `PYTHON=…` names another interpreter.
 4. **VS Code** (for the Python and shell tooling): open the folder and select `.venv` as the Python interpreter.
 5. **Check it works:** `Tooling/test-fast.sh`.
 
-## Fast test run
+## Building and running
 
-`Tooling/test-fast.sh` runs the macOS test suite except the recording-playback regression
-(`FilePlaybackRegressionTests`), which is most of the suite's time — for use while working. Run the full
-suite before a commit. The same split: web `npm run test:fast`, Python `Tooling/test-fast.sh`.
+Open `GuitarTap.xcodeproj` in Xcode, choose the `guitar_tap` scheme, and run on **My Mac**, an iPad or iPhone,
+or a simulator. The build checks the release identity (`Tooling/check-release-ready.sh`) and the colour table
+(`Tooling/check-colours.sh`), stamps the build number from the git commit count, and generates the Quick Start
+Guide and release notes (below).
+
+## Tests
+
+- **The full suite** — the `guitar_tap` test plan: Product → Test in Xcode, or
+  `xcodebuild test -scheme guitar_tap -testPlan guitar_tap -destination 'platform=macOS'`.
+
+- **The fast run** — `Tooling/test-fast.sh` runs the macOS suite except the recording-playback regression
+  (`FilePlaybackRegressionTests`), which is most of the suite's time — for use while working; run the full
+  suite before a commit. The same split: web `npm run test:fast`, Python `Tooling/test-fast.sh`.
+- **The export tests** — `Tooling/run-export-uitests.sh` drives the real app through Import and both export
+  paths (the main window and Saved Measurements) for five cases, then checks every PNG and PDF against the
+  expected values with the shared export checker (`Tooling/export-check/`). On the Mac they take over the
+  mouse and keyboard for about eight minutes; `--simulator "iPad Air 11-inch (M4)"` (or an iPhone, or a
+  simulator's id) runs them on a simulator instead.
+
+## Parity
+
+Behaviour is defined by this app. The contract the other editions are held to is the **oracle**
+(`GuitarTapTests/parity-oracle.json`), generated here and committed to every edition, so each suite is
+self-contained. Each mirrored module carries a `@parity` slug that keeps the Swift, Python, and web
+implementations in step. When an algorithm changes, it is designed once and applied to all three together,
+with the oracle regenerated (`Tooling/mint-oracle.sh`).
 
 ## Soak / stress testing
 
@@ -54,11 +109,30 @@ that a single run hides:
 A green soak is **confidence, not proof**. The Python and web editions carry a
 matching `Tooling/soak.sh`.
 
-## Links
+## Documentation
 
-- App Store: <https://apps.apple.com/app/guitar-tap/id6759410596>
-- User manual: <https://www.dolcesfogato.com/guitar_tap/manual/>
-- Website: <https://www.dolcesfogato.com/guitar_tap/>
+- **User manual** (shared across editions): <https://www.dolcesfogato.com/guitar_tap/manual/> — its source
+  is `Documentation/Manual/`, built by `Documentation/Manual/generate-manual.sh`.
+- **In-app Help and the Quick Start Guide** — written in `GuitarTap/Views/HelpView.swift`; the build turns
+  them into `Documentation/GuitarTap-Quick-Start-Guide.pdf` (`GuitarTap/generate-help.sh`).
+- **Release notes** — `Documentation/ReleaseNotes.md`; the build stamps them with the version and build
+  number and makes the PDF (`Documentation/generate-release-notes.sh`).
+- **Website**: <https://www.dolcesfogato.com/guitar_tap/>
+- Design and planning documents live in the project's own repository, which is private.
+
+## Related projects
+
+- **[guitar_tap](https://github.com/dwsdolce/guitar_tap)** — the desktop edition, for Windows, macOS, and
+  Linux (Python): [downloads](https://github.com/dwsdolce/guitar_tap/releases).
+- **[GuitarTapWeb](https://github.com/dwsdolce/GuitarTapWeb)** — the web edition, in any modern browser:
+  <https://www.dolcesfogato.com/guitar_tap/guitar_tap_web/>.
+
+## Contributing
+
+Issues and pull requests are welcome. Before opening a PR, please run the full test suite. Because the other
+editions are held to this app's behaviour, a change to the DSP or to behaviour must keep the oracle contract;
+if you're proposing an intentional behaviour change, please open an issue first so it can be coordinated
+across all three editions and the oracle regenerated.
 
 ## License
 
