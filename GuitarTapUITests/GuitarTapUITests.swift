@@ -79,6 +79,7 @@ final class GuitarTapUITests: XCTestCase {
         if engineError.waitForExistence(timeout: 5) {
             press(engineError.buttons["OK"].firstMatch)
         }
+        fitWindowToScreen(app)
         return app
     }
 
@@ -133,6 +134,15 @@ final class GuitarTapUITests: XCTestCase {
     static let output = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("guitartap-uitest")
 
     @MainActor private func press(_ element: XCUIElement) { element.click() }
+
+    /// On a screen smaller than the window's default size (a CI runner's 1024 × 768), Window → Zoom, as a user
+    /// would: otherwise the results panel, with the export buttons, runs off the screen's edge.
+    @MainActor private func fitWindowToScreen(_ app: XCUIApplication) {
+        guard let screen = NSScreen.main?.visibleFrame, screen.width < 1200 || screen.height < 800 else { return }
+        press(app.menuBars.menuBarItems["Window"].firstMatch)
+        let zoom = app.menuBars.menuItems["Zoom"].firstMatch
+        if zoom.waitForExistence(timeout: 2) { press(zoom) }
+    }
 
     @MainActor private func openList(_ app: XCUIApplication) {
         if !listDone(app).exists {
@@ -238,6 +248,9 @@ final class GuitarTapUITests: XCTestCase {
 
     @MainActor private func press(_ element: XCUIElement) { element.tap() }
 
+    /// The simulator's screen is the device's own; nothing to fit.
+    @MainActor private func fitWindowToScreen(_ app: XCUIApplication) {}
+
     @MainActor private func openList(_ app: XCUIApplication) {
         if !listDone(app).exists {
             press(app.buttons["Measurements"].firstMatch)
@@ -273,11 +286,17 @@ final class GuitarTapUITests: XCTestCase {
         XCTAssertTrue(importItem.waitForExistence(timeout: 5), "no Import Measurement")
         press(importItem)
 
+        // The picker is the system's: on a freshly started simulator its contents can take a while.
         let file = app.cells.containing(NSPredicate(format: "label BEGINSWITH %@", "\(fixture).guitartap")).firstMatch
-        if !file.waitForExistence(timeout: 5) {
+        let location = app.cells[local].firstMatch
+        let deadline = Date().addingTimeInterval(60)
+        while !file.exists && !location.exists && app.buttons["Browse"].exists == false && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        if !file.exists {
             goToLocalFiles(app)
         }
-        XCTAssertTrue(file.waitForExistence(timeout: 10), "the picker does not show \(fixture)")
+        XCTAssertTrue(file.waitForExistence(timeout: 30), "the picker does not show \(fixture)")
         press(file)
     }
 

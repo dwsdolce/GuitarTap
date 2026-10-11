@@ -54,6 +54,10 @@ sys.exit("no available simulator named " + want)' "$simulator")"
         | awk '$1 == "group.com.apple.FileProvider.LocalStorage" { $1 = ""; sub(/^ /, ""); print }')"
     files="$group/File Provider Storage"
     mkdir -p "$files"
+    # Start the Files service once before the tests: on a freshly booted simulator (as on CI) the document
+    # picker otherwise opens blank for longer than a test should wait.
+    xcrun simctl launch "$udid" com.apple.DocumentsApp > /dev/null && sleep 10
+    xcrun simctl terminate "$udid" com.apple.DocumentsApp > /dev/null 2>&1 || true
     # Earlier exports would make Save to Files ask to replace them.
     find "$files" -maxdepth 1 \( -name '*.png' -o -name '*.pdf' \) -delete
     destination="platform=iOS Simulator,id=$udid"

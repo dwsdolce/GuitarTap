@@ -349,8 +349,9 @@ extension TapToneAnalysisView {
             let spectrumView = self.createExportableSpectrumView()
             let renderer = ImageRenderer(content: spectrumView)
 
-            // Use display scale from environment
-            renderer.scale = self.displayScale
+            // The export's fixed scale, as from Saved Measurements — not the screen's: a 1× display
+            // would halve the image, an iPhone's 3× enlarge it.
+            renderer.scale = 2.0
 
             // Get PNG data using helper
             #if os(iOS)

@@ -65,7 +65,7 @@ extension TapToneAnalysisView {
         // Render current spectrum to PNG data (same technique as save/exportSpectrum)
         let spectrumView = createExportableSpectrumView()
         let imageRenderer = ImageRenderer(content: spectrumView.environment(\.colorScheme, .light))
-        imageRenderer.scale = displayScale
+        imageRenderer.scale = 2.0   // the export's fixed scale, as from Saved Measurements — not the screen's
 
         var spectrumImageData: Data?
         #if os(iOS)
@@ -177,7 +177,7 @@ extension TapToneAnalysisView {
         // Render the comparison overlay chart to PNG
         let spectrumView = createExportableSpectrumView()
         let imageRenderer = ImageRenderer(content: spectrumView.environment(\.colorScheme, .light))
-        imageRenderer.scale = displayScale
+        imageRenderer.scale = 2.0   // the export's fixed scale, as from Saved Measurements — not the screen's
 
         var spectrumImageData: Data?
         #if os(iOS)
@@ -263,7 +263,7 @@ extension TapToneAnalysisView {
         // Always rendered from the frozen averaged spectrum, independent of displayMode.
         let avgSpectrumView = createAveragedSpectrumView()
         let avgRenderer = ImageRenderer(content: avgSpectrumView.environment(\.colorScheme, .light))
-        avgRenderer.scale = displayScale
+        avgRenderer.scale = 2.0
 
         var avgImageData: Data?
         #if os(iOS)
@@ -336,7 +336,7 @@ extension TapToneAnalysisView {
         // ── Page 2: comparison overlay spectrum image ─────────────────────────
         let cmpSpectrumView = createMultiTapComparisonSpectrumView()
         let cmpRenderer = ImageRenderer(content: cmpSpectrumView.environment(\.colorScheme, .light))
-        cmpRenderer.scale = displayScale
+        cmpRenderer.scale = 2.0
 
         var cmpImageData: Data?
         #if os(iOS)

@@ -151,7 +151,6 @@ struct TapToneAnalysisView: View {
     // Environment
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.verticalSizeClass) var verticalSizeClass
-    @Environment(\.displayScale) var displayScale
     #if os(iOS)
     @Environment(\.scenePhase) var scenePhase
     #endif
