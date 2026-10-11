@@ -90,7 +90,7 @@ final class GuitarTapUITests: XCTestCase {
         try pickFixture(fixture, app: app)
 
         let imported = alert("Import Successful", app)
-        XCTAssertTrue(imported.waitForExistence(timeout: 10), "no Import Successful")
+        XCTAssertTrue(imported.waitForExistence(timeout: 60), "no Import Successful")
         press(imported.buttons["OK"].firstMatch)
         // Loading a measurement recorded on a microphone that is not connected warns, as it would a user.
         let unavailable = alert("Microphone Unavailable", app)
@@ -98,12 +98,15 @@ final class GuitarTapUITests: XCTestCase {
         press(listDone(app))
     }
 
+    /// The waits below are upper bounds for slow machines (CI's simulators especially); each returns as soon
+    /// as what it waits for is there.
+    ///
     /// Wait for a file `ext` that was not in `folder` before, attach it as `<case>--<path>--<file>` (an
     /// attachment name cannot hold a "/"), and return its name. On iOS the file is then removed: both
     /// export paths name it the same, and Save to Files would otherwise ask to replace it.
     private func awaitExport(in folder: URL, before: Set<String>, name: String, path: String,
                              ext: String, keep: Bool) throws -> String {
-        let deadline = Date().addingTimeInterval(20)
+        let deadline = Date().addingTimeInterval(90)
         while Date() < deadline {
             let new = Set(try FileManager.default.contentsOfDirectory(atPath: folder.path)).subtracting(before)
             if let file = new.first(where: { $0.hasSuffix(".\(ext)") }) {
@@ -135,27 +138,28 @@ final class GuitarTapUITests: XCTestCase {
 
     @MainActor private func press(_ element: XCUIElement) { element.click() }
 
-    /// On a screen smaller than the window's default size (a CI runner's 1024 × 768), Window → Zoom, as a user
-    /// would: otherwise the results panel, with the export buttons, runs off the screen's edge.
+    /// On a screen smaller than the window's default size (a CI runner's 1024 × 768), Window → Fill, as a user
+    /// would: otherwise the results panel, with the export buttons, runs off the screen's edge. Not Zoom — that
+    /// goes to the window's preferred size (its default 1200 wide), trimmed only to the screen's height.
     @MainActor private func fitWindowToScreen(_ app: XCUIApplication) {
         // NSScreen.main is the screen with the key window, and the test runner has none: the first screen.
         guard let screen = NSScreen.screens.first?.visibleFrame,
               screen.width < 1200 || screen.height < 800 else { return }
         press(app.menuBars.menuBarItems["Window"].firstMatch)
-        let zoom = app.menuBars.menuItems["Zoom"].firstMatch
-        XCTAssertTrue(zoom.waitForExistence(timeout: 5), "no Window → Zoom")
-        press(zoom)
-        Thread.sleep(forTimeInterval: 1.0)   // the zoom animates
+        let fill = app.menuBars.menuItems["Fill"].firstMatch
+        XCTAssertTrue(fill.waitForExistence(timeout: 20), "no Window → Fill")
+        press(fill)
+        Thread.sleep(forTimeInterval: 1.0)   // the window animates
         let window = app.windows.firstMatch.frame
         XCTAssertTrue(window.width <= screen.width + 1 && window.height <= screen.height + 1,
-                      "the window \(window.size) does not fit the screen \(screen.size) after Zoom")
+                      "the window \(window.size) does not fit the screen \(screen.size) after Fill")
     }
 
     @MainActor private func openList(_ app: XCUIApplication) {
         if !listDone(app).exists {
             press(app.buttons["Measurements"].firstMatch)
         }
-        XCTAssertTrue(listDone(app).waitForExistence(timeout: 5), "Saved Measurements did not open")
+        XCTAssertTrue(listDone(app).waitForExistence(timeout: 30), "Saved Measurements did not open")
     }
 
     @MainActor private func listDone(_ app: XCUIApplication) -> XCUIElement {
@@ -179,10 +183,10 @@ final class GuitarTapUITests: XCTestCase {
         openList(app)
         // The list's rows are an empty header, the total, then each measurement as a button.
         let row = app.sheets.firstMatch.cells.buttons.firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "no row")
+        XCTAssertTrue(row.waitForExistence(timeout: 20), "no row")
         row.rightClick()
         let menuItem = app.menuItems[item].firstMatch
-        XCTAssertTrue(menuItem.waitForExistence(timeout: 5), "no \(item) in the row's menu")
+        XCTAssertTrue(menuItem.waitForExistence(timeout: 20), "no \(item) in the row's menu")
         press(menuItem)
     }
 
@@ -200,7 +204,7 @@ final class GuitarTapUITests: XCTestCase {
     /// In the open or save panel: ⇧⌘G, type the path, Return — as a user goes to a location.
     @MainActor private func goTo(_ path: String, app: XCUIApplication) throws {
         let panel = app.sheets.firstMatch
-        XCTAssertTrue(panel.waitForExistence(timeout: 10), "no panel")
+        XCTAssertTrue(panel.waitForExistence(timeout: 30), "no panel")
         panel.typeKey("g", modifierFlags: [.command, .shift])
         Thread.sleep(forTimeInterval: 0.5)
         enterPath(path, app: app)
@@ -262,7 +266,7 @@ final class GuitarTapUITests: XCTestCase {
         if !listDone(app).exists {
             press(app.buttons["Measurements"].firstMatch)
         }
-        XCTAssertTrue(listDone(app).waitForExistence(timeout: 5), "Saved Measurements did not open")
+        XCTAssertTrue(listDone(app).waitForExistence(timeout: 30), "Saved Measurements did not open")
     }
 
     @MainActor private func listDone(_ app: XCUIApplication) -> XCUIElement {
@@ -272,7 +276,7 @@ final class GuitarTapUITests: XCTestCase {
     /// On the iPhone the export buttons are in the Results sheet; on the iPad, in the main window.
     @MainActor private func openMainExports(_ app: XCUIApplication) {
         if !app.buttons["Export Spectrum"].exists { press(app.buttons["Results"].firstMatch) }
-        XCTAssertTrue(app.buttons["Export Spectrum"].waitForExistence(timeout: 5), "no Export Spectrum")
+        XCTAssertTrue(app.buttons["Export Spectrum"].waitForExistence(timeout: 20), "no Export Spectrum")
     }
 
     @MainActor private func closeMainExports(_ app: XCUIApplication) {
@@ -290,7 +294,7 @@ final class GuitarTapUITests: XCTestCase {
 
         press(app.navigationBars["Saved Measurements"].buttons["More"].firstMatch)
         let importItem = app.buttons["Import Measurement"].firstMatch
-        XCTAssertTrue(importItem.waitForExistence(timeout: 5), "no Import Measurement")
+        XCTAssertTrue(importItem.waitForExistence(timeout: 20), "no Import Measurement")
         press(importItem)
 
         // The picker is the system's: on a freshly started simulator its contents can take a while.
@@ -303,7 +307,7 @@ final class GuitarTapUITests: XCTestCase {
         if !file.exists {
             goToLocalFiles(app)
         }
-        XCTAssertTrue(file.waitForExistence(timeout: 30), "the picker does not show \(fixture)")
+        XCTAssertTrue(file.waitForExistence(timeout: 60), "the picker does not show \(fixture)")
         press(file)
     }
 
@@ -312,17 +316,17 @@ final class GuitarTapUITests: XCTestCase {
     @MainActor private func goToLocalFiles(_ app: XCUIApplication) {
         let location = app.cells[local].firstMatch
         if !location.exists, app.buttons["Browse"].exists { press(app.buttons["Browse"].firstMatch) }
-        if location.waitForExistence(timeout: 5) { press(location) }
+        if location.waitForExistence(timeout: 20) { press(location) }
     }
 
     /// Long-press the imported measurement's row and choose `item` from its menu.
     @MainActor private func rowMenu(_ app: XCUIApplication, fixture: String, choose item: String) {
         openList(app)
         let row = app.cells.containing(NSPredicate(format: "label CONTAINS %@", measurementName(fixture))).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "no row for \(fixture)")
+        XCTAssertTrue(row.waitForExistence(timeout: 20), "no row for \(fixture)")
         row.press(forDuration: 1.0)
         let menuItem = app.collectionViews.buttons[item].firstMatch
-        XCTAssertTrue(menuItem.waitForExistence(timeout: 5), "no \(item) in the row's menu")
+        XCTAssertTrue(menuItem.waitForExistence(timeout: 20), "no \(item) in the row's menu")
         press(menuItem)
     }
 
@@ -347,15 +351,15 @@ final class GuitarTapUITests: XCTestCase {
         let saveToFiles = app.cells["Save to Files"].firstMatch
         if !saveToFiles.waitForExistence(timeout: 5) {
             let more = app.cells["View More"].firstMatch
-            XCTAssertTrue(more.waitForExistence(timeout: 5), "no share sheet")
+            XCTAssertTrue(more.waitForExistence(timeout: 30), "no share sheet")
             press(more)
         }
-        XCTAssertTrue(saveToFiles.waitForExistence(timeout: 5), "no Save to Files")
+        XCTAssertTrue(saveToFiles.waitForExistence(timeout: 20), "no Save to Files")
         press(saveToFiles)
 
         // The panel's Save, by the document picker's own identifier: the app has buttons labelled Save too.
         let save = app.buttons["DOCPicker.actionButton"].firstMatch
-        XCTAssertTrue(save.waitForExistence(timeout: 10), "no Save to Files panel")
+        XCTAssertTrue(save.waitForExistence(timeout: 30), "no Save to Files panel")
         if !app.staticTexts[local].firstMatch.exists { goToLocalFiles(app) }
         press(save)
         return try awaitExport(in: folder, before: before, name: name, path: path, ext: ext, keep: false)
