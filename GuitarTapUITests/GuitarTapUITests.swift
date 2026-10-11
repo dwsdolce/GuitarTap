@@ -102,10 +102,9 @@ final class GuitarTapUITests: XCTestCase {
     /// as what it waits for is there.
     ///
     /// Wait for a file `ext` that was not in `folder` before, attach it as `<case>--<path>--<file>` (an
-    /// attachment name cannot hold a "/"), and return its name. On iOS the file is then removed: both
-    /// export paths name it the same, and Save to Files would otherwise ask to replace it.
+    /// attachment name cannot hold a "/"), and return its name.
     private func awaitExport(in folder: URL, before: Set<String>, name: String, path: String,
-                             ext: String, keep: Bool) throws -> String {
+                             ext: String) throws -> String {
         let deadline = Date().addingTimeInterval(90)
         while Date() < deadline {
             let new = Set(try FileManager.default.contentsOfDirectory(atPath: folder.path)).subtracting(before)
@@ -118,7 +117,6 @@ final class GuitarTapUITests: XCTestCase {
                     attachment.name = "\(name)--\(path)--\(file)"
                     attachment.lifetime = .keepAlways
                     add(attachment)
-                    if !keep { try FileManager.default.removeItem(at: url) }
                     return file
                 }
             }
@@ -240,7 +238,7 @@ final class GuitarTapUITests: XCTestCase {
         enterPath(folder.path, app: app)
         Thread.sleep(forTimeInterval: 0.5)
         app.typeKey(.return, modifierFlags: [])
-        return try awaitExport(in: folder, before: before, name: name, path: path, ext: ext, keep: true)
+        return try awaitExport(in: folder, before: before, name: name, path: path, ext: ext)
     }
     #endif
 
@@ -364,14 +362,17 @@ final class GuitarTapUITests: XCTestCase {
         XCTAssertTrue(save.waitForExistence(timeout: 30), "no Save to Files panel")
         if !app.staticTexts[local].firstMatch.exists { goToLocalFiles(app) }
         press(save)
-        let file = try awaitExport(in: folder, before: before, name: name, path: path, ext: ext, keep: false)
+        let file = try awaitExport(in: folder, before: before, name: name, path: path, ext: ext)
         // Wait for the panel and the share sheet to close, as a user would before the next tap: while one is
-        // still closing, iOS ignores the next share sheet the app presents.
+        // still closing, iOS ignores the next share sheet the app presents. Only then remove the file — both
+        // export paths name it the same, and Save to Files would ask to replace it; Files may still be
+        // finishing the save after the file appears, and fails it if the file has gone.
         let gone = NSPredicate(format: "exists == false")
         for element in [save, saveToFiles] {
             let closed = XCTNSPredicateExpectation(predicate: gone, object: element)
-            XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 30), .completed, "the share sheet did not close")
+            XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 60), .completed, "the share sheet did not close")
         }
+        try FileManager.default.removeItem(at: folder.appendingPathComponent(file))
         return file
     }
     #endif
