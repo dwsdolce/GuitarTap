@@ -98,6 +98,8 @@ struct TapToneAnalysisView: View {
     @State var showingSaveSheet = false
     @State var showingMeasurements = false
     @State var showingMetrics = false
+    /// An export's chart could not be drawn, so nothing was written.
+    @State var exportFailed = false
     @State var showingResults = false
     @State var showingSettings = false
     @State var showingHelp = false
@@ -298,6 +300,11 @@ struct TapToneAnalysisView: View {
                 #endif
                 openAudioFile(audioURL, calibrationURL: calibrationURL)
             }
+        }
+        .alert("Export Failed", isPresented: $exportFailed) {
+            Button("OK") { }
+        } message: {
+            Text(ExportRenderError.message)
         }
         #if os(macOS)
             .focusedSceneValue(\.menuActions, menuActions)

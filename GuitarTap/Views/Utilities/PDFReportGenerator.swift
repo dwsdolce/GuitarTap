@@ -1370,23 +1370,24 @@ extension PDFReportGenerator {
     /// (the averaged result, then the per-tap comparison), a comparison's report, or the single report.
     /// What the measurement list and detail export.
     @MainActor
-    static func report(for measurement: TapToneMeasurement) -> (data: Data, basename: String)? {
+    /// - Throws: ``ExportRenderError`` when a chart could not be drawn — the report is not written without it.
+    static func report(for measurement: TapToneMeasurement) throws -> (data: Data, basename: String)? {
         if measurement.tapEntries?.isEmpty == false {
             let averaged = PDFReportData.from(measurement: measurement,
-                                              spectrumImageData: renderSpectrumImageForMeasurement(measurement))
-            guard let comparison = multiTapComparisonData(for: measurement),
+                                              spectrumImageData: try renderSpectrumImageForMeasurement(measurement))
+            guard let comparison = try multiTapComparisonData(for: measurement),
                   let data = generateMultiTapReport(averaged: averaged, comparison: comparison) else { return nil }
             return (data, averaged.baseFilename)
         }
         if measurement.isComparison {
-            guard let comparison = comparisonData(for: measurement),
+            guard let comparison = try comparisonData(for: measurement),
                   let data = generateComparison(data: comparison) else { return nil }
             // A comparison report is just a report: "report" default, not "measurement".
             return (data, ExportFilename.stem(name: measurement.measurementName, timestamp: measurement.timestamp,
                                               unnamed: "report"))
         }
         let single = PDFReportData.from(measurement: measurement,
-                                        spectrumImageData: renderSpectrumImageForMeasurement(measurement))
+                                        spectrumImageData: try renderSpectrumImageForMeasurement(measurement))
         guard let data = generate(data: single) else { return nil }
         return (data, single.baseFilename)
     }
@@ -1394,7 +1395,7 @@ extension PDFReportGenerator {
     /// A multi-tap measurement's per-tap comparison page: one row per tap (each tap's own modes) and the
     /// averaged row (the definitive, override-aware modes).
     @MainActor
-    static func multiTapComparisonData(for measurement: TapToneMeasurement) -> ComparisonPDFReportData? {
+    static func multiTapComparisonData(for measurement: TapToneMeasurement) throws -> ComparisonPDFReportData? {
         guard let tapEntries = measurement.tapEntries, !tapEntries.isEmpty else { return nil }
         let avgColor = Palette.seriesAverage
 
@@ -1440,7 +1441,7 @@ extension PDFReportGenerator {
             timestamp: measurement.timestamp,
             comparisonLabel: measurement.measurementName,
             notes: measurement.notes,
-            spectrumImageData: renderSpectrumImageForMultiTap(measurement),
+            spectrumImageData: try renderSpectrumImageForMultiTap(measurement),
             entries: cmpEntries,
             modeFrequencies: modeFrequencies
         )
@@ -1448,7 +1449,7 @@ extension PDFReportGenerator {
 
     /// A saved comparison's report: one row per compared measurement, from its stored definitive modes.
     @MainActor
-    static func comparisonData(for measurement: TapToneMeasurement) -> ComparisonPDFReportData? {
+    static func comparisonData(for measurement: TapToneMeasurement) throws -> ComparisonPDFReportData? {
         guard let entries = measurement.comparisonEntries else { return nil }
         let modeFrequencies = entries.enumerated().map { index, entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
             let color = Palette.comparisonColor(index: index, label: entry.label)
@@ -1459,7 +1460,7 @@ extension PDFReportGenerator {
             timestamp: measurement.timestamp,
             comparisonLabel: measurement.measurementName,
             notes: measurement.notes,
-            spectrumImageData: renderSpectrumImageForComparison(measurement),
+            spectrumImageData: try renderSpectrumImageForComparison(measurement),
             entries: entries,
             modeFrequencies: modeFrequencies
         )

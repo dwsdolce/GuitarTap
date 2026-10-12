@@ -346,29 +346,16 @@ extension TapToneAnalysisView {
         isExportingSpectrum = true
 
         DispatchQueue.main.async {
-            let spectrumView = self.createExportableSpectrumView()
-            let renderer = ImageRenderer(content: spectrumView)
-
-            // The export's fixed scale, as from Saved Measurements — not the screen's: a 1× display
+            // The export's fixed 2× scale, as from Saved Measurements — not the screen's: a 1× display
             // would halve the image, an iPhone's 3× enlarge it.
-            renderer.scale = 2.0
-
-            // Get PNG data using helper
-            #if os(iOS)
-            guard let uiImage = renderer.uiImage,
-                  let pngData = uiImage.pngData() else {
+            let pngData: Data
+            do {
+                pngData = try renderExportPNG(self.createExportableSpectrumView())
+            } catch {
                 self.isExportingSpectrum = false
+                self.exportFailed = true
                 return
             }
-            #elseif os(macOS)
-            guard let nsImage = renderer.nsImage,
-                  let tiffData = nsImage.tiffRepresentation,
-                  let bitmapImage = NSBitmapImageRep(data: tiffData),
-                  let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
-                self.isExportingSpectrum = false
-                return
-            }
-            #endif
 
             // Stem from the live name, else the loaded name, else "spectrum".
             let effectiveName = self.measurementName.isEmpty ? self.tap.loadedMeasurementName : self.measurementName

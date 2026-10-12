@@ -767,6 +767,38 @@ private extension Text {
 
 /// Renders the spectrum chart for a saved measurement to PNG data using `ImageRenderer`.
 ///
+/// An export's chart could not be drawn: SwiftUI's renderer returned no image, twice.
+struct ExportRenderError: Error {
+    /// What the user is told: nothing was written, and trying again usually works.
+    static let message = "The chart could not be drawn, so nothing was saved. Please try again."
+}
+
+/// Renders `view` to PNG for an export: in the light scheme, at the export's fixed 2× scale — never
+/// the screen's. SwiftUI's `ImageRenderer` occasionally returns no image on a busy device, so a second
+/// attempt is made before giving up; an export that cannot draw its chart is then refused rather than
+/// written without it.
+///
+/// - Throws: ``ExportRenderError`` when neither attempt produced an image.
+@MainActor
+func renderExportPNG<V: View>(_ view: V) throws -> Data {
+    for _ in 0..<2 {
+        let renderer = ImageRenderer(content: view.environment(\.colorScheme, .light))
+        renderer.scale = 2.0
+        #if os(iOS)
+        if let png = renderer.uiImage?.pngData() { return png }
+        #elseif os(macOS)
+        if let image = renderer.nsImage,
+           let tiff = image.tiffRepresentation,
+           let bitmap = NSBitmapImageRep(data: tiff),
+           let png = bitmap.representation(using: .png, properties: [:]) {
+            return png
+        }
+        #endif
+    }
+    gtLog("❌ Export: the chart could not be drawn")
+    throw ExportRenderError()
+}
+
 /// Builds the full composite export view (header + chart + peak summary + legend) from
 /// the measurement's stored snapshot data, producing output identical to the spectrum
 /// image exported from the live analysis view.
@@ -776,8 +808,9 @@ private extension Text {
 ///
 /// - Parameter measurement: The saved measurement to render a chart for.
 /// - Returns: PNG-encoded chart image, or `nil` if no snapshot is available.
+/// - Throws: ``ExportRenderError`` when the chart could not be drawn.
 @MainActor
-func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Data? {
+func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) throws -> Data? {
     let primarySnapshot = measurement.spectrumSnapshot ?? measurement.longitudinalSnapshot
     guard let snap = primarySnapshot else { return nil }
 
@@ -826,20 +859,7 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
         chartTitle: "FFT Peaks — \(measurement.measurementName ?? "New")"
     )
 
-    let renderer = ImageRenderer(content: compositeView.environment(\.colorScheme, .light))
-    renderer.scale = 2.0
-
-    #if os(iOS)
-    guard let uiImage = renderer.uiImage,
-          let pngData = uiImage.pngData() else { return nil }
-    return pngData
-    #elseif os(macOS)
-    guard let nsImage = renderer.nsImage,
-          let tiffData = nsImage.tiffRepresentation,
-          let bitmapImage = NSBitmapImageRep(data: tiffData),
-          let pngData = bitmapImage.representation(using: .png, properties: [:]) else { return nil }
-    return pngData
-    #endif
+    return try renderExportPNG(compositeView)
 }
 
 /// Renders the per-tap comparison overlay chart for a saved multi-tap `TapToneMeasurement`
@@ -851,8 +871,9 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) -> Dat
 ///
 /// - Parameter measurement: A saved multi-tap guitar record (must have non-nil `tapEntries`).
 /// - Returns: PNG-encoded chart image, or `nil` if `tapEntries` is absent or empty.
+/// - Throws: ``ExportRenderError`` when the chart could not be drawn.
 @MainActor
-func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? {
+func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) throws -> Data? {
     guard let entries = measurement.tapEntries, !entries.isEmpty else { return nil }
 
     let avgColor = Palette.seriesAverage
@@ -889,20 +910,7 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? 
         chartTitle: "Tap Comparison — \(measurement.measurementName ?? "Multi-Tap")"
     )
 
-    let renderer = ImageRenderer(content: compositeView.environment(\.colorScheme, .light))
-    renderer.scale = 2.0
-
-    #if os(iOS)
-    guard let uiImage = renderer.uiImage,
-          let pngData = uiImage.pngData() else { return nil }
-    return pngData
-    #elseif os(macOS)
-    guard let nsImage = renderer.nsImage,
-          let tiffData = nsImage.tiffRepresentation,
-          let bitmapImage = NSBitmapImageRep(data: tiffData),
-          let pngData = bitmapImage.representation(using: .png, properties: [:]) else { return nil }
-    return pngData
-    #endif
+    return try renderExportPNG(compositeView)
 }
 
 /// Renders the comparison overlay chart for a saved comparison `TapToneMeasurement`
@@ -915,8 +923,9 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) -> Data? 
 ///
 /// - Parameter measurement: A saved comparison record (must have non-nil `comparisonEntries`).
 /// - Returns: PNG-encoded chart image, or `nil` if `comparisonEntries` is absent.
+/// - Throws: ``ExportRenderError`` when the chart could not be drawn.
 @MainActor
-func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) -> Data? {
+func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) throws -> Data? {
     guard let entries = measurement.comparisonEntries else { return nil }
 
     let comparisonSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = entries.enumerated().map { index, entry in
@@ -941,18 +950,5 @@ func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) -> Data
         typeLabel: "Comparison"
     )
 
-    let renderer = ImageRenderer(content: compositeView.environment(\.colorScheme, .light))
-    renderer.scale = 2.0
-
-    #if os(iOS)
-    guard let uiImage = renderer.uiImage,
-          let pngData = uiImage.pngData() else { return nil }
-    return pngData
-    #elseif os(macOS)
-    guard let nsImage = renderer.nsImage,
-          let tiffData = nsImage.tiffRepresentation,
-          let bitmapImage = NSBitmapImageRep(data: tiffData),
-          let pngData = bitmapImage.representation(using: .png, properties: [:]) else { return nil }
-    return pngData
-    #endif
+    return try renderExportPNG(compositeView)
 }

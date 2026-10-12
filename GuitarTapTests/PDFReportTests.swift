@@ -39,7 +39,7 @@ struct PDFReportTests {
         let fileURL = try #require(bundle.url(forResource: fixture, withExtension: "guitartap"))
         let expectedURL = try #require(bundle.url(forResource: fixture + ".guitartap.pdf", withExtension: "txt"))
         let measurement = try #require(try TapToneAnalyzer.decodeMeasurements(Data(contentsOf: fileURL)).first)
-        let report = try #require(PDFReportGenerator.report(for: measurement))
+        let report = try #require(try PDFReportGenerator.report(for: measurement))
         let document = try #require(PDFDocument(data: report.data))
 
         let date = Self.squeezed([DateDisplay.string(measurement.timestamp)])

@@ -63,6 +63,8 @@ struct MeasurementsListView: View {
     private var isExportPanelInFlight: Bool { isExporting || isGeneratingReport }
     @State private var showingImportPicker = false
     @State private var importError: String?
+    /// An export's chart could not be drawn, so nothing was written.
+    @State private var exportFailed = false
     @State private var importSuccess: String?
     @State private var selectedDetailTarget: (index: Int, measurement: TapToneMeasurement)?
     // Compare mode state
@@ -104,6 +106,11 @@ struct MeasurementsListView: View {
             // macOS to persist its own directory preference for the panel, overriding
             // the lastUsedDirectory hint on subsequent launches.
             .fileDialogDefaultDirectory(MeasurementFileExporter.lastUsedDirectory)
+            .alert("Export Failed", isPresented: $exportFailed) {
+                Button("OK") { }
+            } message: {
+                Text(ExportRenderError.message)
+            }
             .alert("Import Error", isPresented: .constant(importError != nil)) {
                 Button("OK") { importError = nil }
             } message: {
@@ -141,6 +148,11 @@ struct MeasurementsListView: View {
                     DocumentPickerView { url in
                         importFromFile(url: url)
                     }
+                }
+                .alert("Export Failed", isPresented: $exportFailed) {
+                    Button("OK") { }
+                } message: {
+                    Text(ExportRenderError.message)
                 }
                 .alert("Import Error", isPresented: .constant(importError != nil)) {
                     Button("OK") { importError = nil }
@@ -418,9 +430,16 @@ struct MeasurementsListView: View {
         guard !isExportPanelInFlight else { return }
         isExporting = true
 
-        let imageData: Data? = measurement.isComparison
-            ? renderSpectrumImageForComparison(measurement)
-            : renderSpectrumImageForMeasurement(measurement)
+        let imageData: Data?
+        do {
+            imageData = measurement.isComparison
+                ? try renderSpectrumImageForComparison(measurement)
+                : try renderSpectrumImageForMeasurement(measurement)
+        } catch {
+            isExporting = false
+            exportFailed = true
+            return
+        }
 
         // PNG uses the "spectrum" default word, not baseFilename's "measurement".
         let stem = ExportFilename.stem(name: measurement.measurementName, timestamp: measurement.timestamp, unnamed: "spectrum")
@@ -433,7 +452,15 @@ struct MeasurementsListView: View {
     private func exportPDFReport(for measurement: TapToneMeasurement) {
         guard !isExportPanelInFlight else { return }
         isGeneratingReport = true
-        guard let report = PDFReportGenerator.report(for: measurement) else {
+        let report: (data: Data, basename: String)?
+        do {
+            report = try PDFReportGenerator.report(for: measurement)
+        } catch {
+            isGeneratingReport = false
+            exportFailed = true
+            return
+        }
+        guard let report else {
             gtLog("❌ Failed to generate PDF report")
             isGeneratingReport = false
             return

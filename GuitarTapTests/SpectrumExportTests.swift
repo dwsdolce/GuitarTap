@@ -34,8 +34,8 @@ struct SpectrumExportTests {
         let measurement = try #require(try TapToneAnalyzer.decodeMeasurements(Data(contentsOf: url)).first)
         // As the measurement list's Export Spectrum: a comparison through its own renderer.
         let png = try #require(measurement.isComparison
-            ? renderSpectrumImageForComparison(measurement)
-            : renderSpectrumImageForMeasurement(measurement))
+            ? try renderSpectrumImageForComparison(measurement)
+            : try renderSpectrumImageForMeasurement(measurement))
         let found = Self.sizeAndPixelsPerInch(png)
         #expect(found.width == c.width && found.height == c.height && found.ppi == c.ppi,
                 "\(c.fixture): \(found.width) × \(found.height) at \(String(describing: found.ppi)) ppi")

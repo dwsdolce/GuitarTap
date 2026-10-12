@@ -7,12 +7,13 @@
 /// ### Spectrum PNG export (`exportSpectrumImage()`)
 /// 1. Calls `createExportableSpectrumView()` to build an off-screen
 ///    `ExportableSpectrumChart` with current peaks, overlays, and axis range.
-/// 2. Renders it to PNG data using `ImageRenderer` at the device's display scale.
+/// 2. Renders it to PNG with `renderExportPNG` — light scheme, fixed 2× scale, a second attempt if
+///    the renderer returns nothing; if it still fails the export stops and "Export Failed" is shown.
 /// 3. Delegates to `MeasurementFileExporter.exportSpectrumImage(...)` to present
 ///    the platform share sheet / save panel.
 ///
 /// ### PDF report export (`exportPDFReport()`)
-/// 1. Renders the spectrum to PNG (same `ImageRenderer` path as above).
+/// 1. Renders the spectrum to PNG (`renderExportPNG`, as above).
 /// 2. Re-derives `PlateProperties` / `BraceProperties` from the current
 ///    analyzer state (peak IDs + `TapDisplaySettings` dimensions).
 /// 3. Builds a `PDFReportData` value and calls `PDFReportGenerator.generate(data:)`.
@@ -63,22 +64,14 @@ extension TapToneAnalysisView {
         isGeneratingReport = true
 
         // Render current spectrum to PNG data (same technique as save/exportSpectrum)
-        let spectrumView = createExportableSpectrumView()
-        let imageRenderer = ImageRenderer(content: spectrumView.environment(\.colorScheme, .light))
-        imageRenderer.scale = 2.0   // the export's fixed scale, as from Saved Measurements — not the screen's
-
-        var spectrumImageData: Data?
-        #if os(iOS)
-        if let uiImage = imageRenderer.uiImage {
-            spectrumImageData = uiImage.pngData()
+        let spectrumImageData: Data
+        do {
+            spectrumImageData = try renderExportPNG(createExportableSpectrumView())
+        } catch {
+            isGeneratingReport = false
+            exportFailed = true
+            return
         }
-        #elseif os(macOS)
-        if let nsImage = imageRenderer.nsImage,
-           let tiffData = nsImage.tiffRepresentation,
-           let bitmap = NSBitmapImageRep(data: tiffData) {
-            spectrumImageData = bitmap.representation(using: .png, properties: [:])
-        }
-        #endif
 
         // Compute material properties if applicable
         let measurementType = TapDisplaySettings.measurementType
@@ -175,22 +168,14 @@ extension TapToneAnalysisView {
         isGeneratingReport = true
 
         // Render the comparison overlay chart to PNG
-        let spectrumView = createExportableSpectrumView()
-        let imageRenderer = ImageRenderer(content: spectrumView.environment(\.colorScheme, .light))
-        imageRenderer.scale = 2.0   // the export's fixed scale, as from Saved Measurements — not the screen's
-
-        var spectrumImageData: Data?
-        #if os(iOS)
-        if let uiImage = imageRenderer.uiImage {
-            spectrumImageData = uiImage.pngData()
+        let spectrumImageData: Data
+        do {
+            spectrumImageData = try renderExportPNG(createExportableSpectrumView())
+        } catch {
+            isGeneratingReport = false
+            exportFailed = true
+            return
         }
-        #elseif os(macOS)
-        if let nsImage = imageRenderer.nsImage,
-           let tiffData = nsImage.tiffRepresentation,
-           let bitmap = NSBitmapImageRep(data: tiffData) {
-            spectrumImageData = bitmap.representation(using: .png, properties: [:])
-        }
-        #endif
 
         // Build per-entry mode frequency rows from the stored definitive modes (override-correct,
         // self-describing); fall back to a positional re-derive only for an entry without a map.
@@ -261,20 +246,14 @@ extension TapToneAnalysisView {
 
         // ── Page 1: averaged spectrum image ──────────────────────────────────
         // Always rendered from the frozen averaged spectrum, independent of displayMode.
-        let avgSpectrumView = createAveragedSpectrumView()
-        let avgRenderer = ImageRenderer(content: avgSpectrumView.environment(\.colorScheme, .light))
-        avgRenderer.scale = 2.0
-
-        var avgImageData: Data?
-        #if os(iOS)
-        if let uiImage = avgRenderer.uiImage { avgImageData = uiImage.pngData() }
-        #elseif os(macOS)
-        if let nsImage = avgRenderer.nsImage,
-           let tiff = nsImage.tiffRepresentation,
-           let bmp = NSBitmapImageRep(data: tiff) {
-            avgImageData = bmp.representation(using: .png, properties: [:])
+        let avgImageData: Data
+        do {
+            avgImageData = try renderExportPNG(createAveragedSpectrumView())
+        } catch {
+            isGeneratingReport = false
+            exportFailed = true
+            return
         }
-        #endif
 
         // ── Page 1: build PDFReportData (averaged) ────────────────────────────
         let measurementType = TapDisplaySettings.measurementType
@@ -334,20 +313,14 @@ extension TapToneAnalysisView {
         )
 
         // ── Page 2: comparison overlay spectrum image ─────────────────────────
-        let cmpSpectrumView = createMultiTapComparisonSpectrumView()
-        let cmpRenderer = ImageRenderer(content: cmpSpectrumView.environment(\.colorScheme, .light))
-        cmpRenderer.scale = 2.0
-
-        var cmpImageData: Data?
-        #if os(iOS)
-        if let uiImage = cmpRenderer.uiImage { cmpImageData = uiImage.pngData() }
-        #elseif os(macOS)
-        if let nsImage = cmpRenderer.nsImage,
-           let tiff = nsImage.tiffRepresentation,
-           let bmp = NSBitmapImageRep(data: tiff) {
-            cmpImageData = bmp.representation(using: .png, properties: [:])
+        let cmpImageData: Data
+        do {
+            cmpImageData = try renderExportPNG(createMultiTapComparisonSpectrumView())
+        } catch {
+            isGeneratingReport = false
+            exportFailed = true
+            return
         }
-        #endif
 
         // ── Page 2: build ComparisonPDFReportData ─────────────────────────────
         let avgColor = Palette.seriesAverage
