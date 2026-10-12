@@ -22,11 +22,11 @@ import SwiftUI
 /// and clipping indicator.
 ///
 /// - The level fill (cyan→blue gradient) spans from `range.lowerBound`
-///   to the current ``level`` (dB).
+///   to the current input level (dB).
 /// - A bright amber dot tracks the recent peak; it snaps up immediately to
 ///   any new high, holds for `peakHoldSeconds`, then decays at
 ///   `peakDecayDBPerSec`.
-/// - When ``isClipping`` is `true`, the rightmost `clipZoneFraction` of
+/// - While the input is clipping, the rightmost `clipZoneFraction` of
 ///   the groove is overlaid with red.
 /// - The threshold handle (red vertical bar) is draggable along the dB axis.
 struct ThresholdSlider: View {
@@ -37,14 +37,17 @@ struct ThresholdSlider: View {
     /// `tapDetectionThreshold`.
     @Binding var value: Float
 
-    /// Current input RMS level in dB (e.g. -80…0).  Updates at ~43 Hz from
-    /// `RealtimeFFTAnalyzer.inputLevelDB`.
-    var level: Float
+    /// The engine's input level, observed here alone: it is published on every audio buffer, so
+    /// only the slider is redrawn for it, not the view around it.
+    @ObservedObject var inputLevel: InputLevel
+
+    /// Current input RMS level in dB (e.g. -80…0).
+    private var level: Float { inputLevel.inputLevelDB }
 
     /// True while the input is clipping (any chunk in the last ~1.5 s
     /// reached full scale).  Drives the red clipping zone at the right
     /// edge of the groove.
-    var isClipping: Bool
+    private var isClipping: Bool { inputLevel.isClipping }
 
     /// dB range mapped onto the slider's pixel width.  Typically `-80...(-20)`.
     var range: ClosedRange<Float>

@@ -30,12 +30,15 @@ extension TapSettingsView {
 
     @ViewBuilder
     var audioInputSection: some View {
-        if !fftAnalyzer.availableInputDevices.isEmpty {
+        if !inputDevices.isEmpty {
             settingsSection("Audio Input & Calibration", icon: "mic.fill",
                             note: "Audio input and calibration changes take effect immediately and are not affected by Cancel. Calibrations are automatically associated with each device.") {
                 settingsRow("Audio Input Device") {
-                    Picker("Audio Input Device", selection: $fftAnalyzer.selectedInputDevice) {
-                        ForEach(fftAnalyzer.availableInputDevices) { device in
+                    Picker("Audio Input Device", selection: Binding(
+                        get: { selectedDevice },
+                        set: { fftAnalyzer.selectedInputDevice = $0 }
+                    )) {
+                        ForEach(inputDevices) { device in
                             Text(device.name)
                                 .tag(device as AVAudioDevice?)
                         }
@@ -43,7 +46,7 @@ extension TapSettingsView {
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .fixedSize()
-                    .onChange(of: fftAnalyzer.selectedInputDevice) { oldDevice, newDevice in
+                    .onChange(of: selectedDevice) { oldDevice, newDevice in
                         guard let device = newDevice, device.uid != oldDevice?.uid else { return }
                         gtLog("🔄 Device selection changed to: \(device.name)")
                         // Update calibration picker to reflect device's calibration
@@ -51,7 +54,7 @@ extension TapSettingsView {
                     }
                 }
 
-                if let selectedDevice = fftAnalyzer.selectedInputDevice {
+                if let selectedDevice {
                     settingsRow("Sample Rate") {
                         Text(formattedAsWholeHertz(selectedDevice.sampleRate))
                     }
@@ -79,7 +82,7 @@ extension TapSettingsView {
                 }
 
                 // The active calibration's details
-                if let calibration = fftAnalyzer.activeCalibration {
+                if let calibration = activeCalibration {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 2) {
                             if let sens = calibration.sensitivityFactor {

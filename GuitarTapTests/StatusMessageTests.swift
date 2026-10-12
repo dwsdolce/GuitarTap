@@ -41,7 +41,7 @@ private func makeSUT(numberOfTaps: Int = 1,
     sut.justExitedWarmup = false
     TapDisplaySettings.measurementType = measurementType
     // NOTE: unlike ScenarioStateTraceTests, keep `cancellables` intact — the
-    // clipping override + latestRealStatus tracking are Combine sinks we need.
+    // clipping override is a Combine sink we need.
     return sut
 }
 
@@ -93,14 +93,34 @@ struct StatusMessageTests {
         #expect(sut.statusMessage == "Tap the guitar 3 times...")
     }
 
-    // ── clipping override / restore (Combine sink, receive(on: .main)) ───────
+    // ── two writes in one pass settle on the second ─────────────────────────
+    // Arming straight after the analyzer is made writes the armed prompt in the same pass of the main
+    // queue as the initial status. The status must settle on the prompt and stay there — it once
+    // alternated between the two, hundreds of thousands of times a second, for good.
+    @Test func twoWritesInOnePass_settleOnTheSecondAndStay() async throws {
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())  // subscriptions kept
+        TapDisplaySettings.measurementType = .generic
+        sut.numberOfTaps = 1
+        sut.startTapSequence(skipWarmup: true)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(sut.statusMessage == "Tap the guitar...")
+
+        var writes = 0
+        let token = sut.$statusMessage.dropFirst().sink { _ in writes += 1 }
+        defer { token.cancel() }
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(sut.statusMessage == "Tap the guitar...")
+        #expect(writes == 0, "REGRESSION: the status kept changing with nothing happening — \(writes) writes in 50 ms")
+    }
+
+    // ── clipping override / restore (a Combine sink, receive(on: .main)) ─────
     @Test func clipping_overridesDisplayAndRestoresLatestRealStatus() async throws {
         let sut = makeSUT(numberOfTaps: 1)
         armAndSettle(sut)
         #expect(sut.statusMessage == "Tap the guitar...")
-        try await Task.sleep(for: .milliseconds(50)) // let $statusMessage cache latestRealStatus
 
-        sut.fftAnalyzer.isClipping = true
+        sut.fftAnalyzer.level.isClipping = true
         try await Task.sleep(for: .milliseconds(50))
         #expect(sut.statusMessage == TapToneAnalyzer.clippingWarningStatus)
 
@@ -110,7 +130,7 @@ struct StatusMessageTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(sut.statusMessage == TapToneAnalyzer.clippingWarningStatus)
 
-        sut.fftAnalyzer.isClipping = false
+        sut.fftAnalyzer.level.isClipping = false
         try await Task.sleep(for: .milliseconds(50))
         #expect(sut.statusMessage == "Tap the guitar 3 times...")
     }
@@ -241,11 +261,8 @@ struct StatusMessageTests {
 struct StatusMessageReArmTests {
     @Test func reArm_leavesStatusAsTheCaptureSetIt() async throws {
         let sut = makeSUT(numberOfTaps: 3)
-        // Drop the Combine sinks: the clipping / dead-input overrides re-resolve the status from
-        // `latestRealStatus`, which a SINK keeps current — asynchronously. In a busy full run an
-        // override delivery landed before that sink had caught up and restored the initial "Tap the
-        // guitar to begin". Neither override is in play here; without the sinks the status can only
-        // change by a direct write, which is exactly what this test is about.
+        // Drop the Combine sinks: neither input-condition override is in play here, and without
+        // them the status can only change by a direct write, which is exactly what this test is about.
         sut.cancellables.removeAll()
         sut.fftAnalyzer.actualSampleRate = 48000   // an unstarted analyzer has no frequency bins
         sut.fftAnalyzer.updateFrequencyBins()

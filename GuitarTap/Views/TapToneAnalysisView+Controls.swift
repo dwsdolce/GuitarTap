@@ -663,8 +663,7 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     ThresholdSlider(
                         value: $tapToneAnalyzer.tapDetectionThreshold,
-                        level: tap.fftAnalyzer.inputLevelDB,
-                        isClipping: tap.fftAnalyzer.isClipping,
+                        inputLevel: tap.fftAnalyzer.level,
                         range: -80...(-20)
                     )
                         .frame(minWidth: 160)
@@ -830,8 +829,7 @@ extension TapToneAnalysisView {
                     .fixedSize()
                 ThresholdSlider(
                     value: $tapToneAnalyzer.tapDetectionThreshold,
-                    level: tap.fftAnalyzer.inputLevelDB,
-                    isClipping: tap.fftAnalyzer.isClipping,
+                    inputLevel: tap.fftAnalyzer.level,
                     range: -80...(-20)
                 )
                     .frame(width: 160)
@@ -962,8 +960,7 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     ThresholdSlider(
                         value: $tapToneAnalyzer.tapDetectionThreshold,
-                        level: tap.fftAnalyzer.inputLevelDB,
-                        isClipping: tap.fftAnalyzer.isClipping,
+                        inputLevel: tap.fftAnalyzer.level,
                         range: -80...(-20)
                     )
                         .frame(width: 160)

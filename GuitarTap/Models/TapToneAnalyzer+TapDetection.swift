@@ -218,7 +218,7 @@ extension TapToneAnalyzer {
     ///
     /// - Parameters:
     ///   - level: Current RMS input level in dBFS used for threshold
-    ///     comparison (`fftAnalyzer.inputLevelDB`, sampled per audio chunk at
+    ///     comparison (`fftAnalyzer.level.inputLevelDB`, sampled per audio chunk at
     ///     ~43 Hz).
     ///
     ///     It is the broadband **RMS chunk level**, never an FFT peak-bin magnitude. (A genuine FFT
@@ -354,7 +354,7 @@ extension TapToneAnalyzer {
                     // Use recentPeakLevelDB, which holds the max level over the last
                     // `fftAnalyzer.peakHoldDuration` (2.0 s). This ensures we get the actual tap peak
                     // even though FFT detection is delayed.
-                    tapPeakLevel = fftAnalyzer.recentPeakLevelDB
+                    tapPeakLevel = fftAnalyzer.level.recentPeakLevelDB
 
                     // Handle tap in multi-tap sequence
                     handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now, audioTime: audioTime)

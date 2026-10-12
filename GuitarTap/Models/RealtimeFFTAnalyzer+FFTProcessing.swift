@@ -227,18 +227,18 @@ extension RealtimeFFTAnalyzer {
         // clipping indicator).  This is display-only — tap detection no
         // longer depends on this path.
         DispatchQueue.main.async {
-            self.inputLevelDB = levelDB
+            self.level.inputLevelDB = levelDB
             self.readoutLevelDB = rms > 0 ? levelDB : -.infinity
 
             // Track recent peak: update if current level is higher, or if peak has expired
-            if levelDB > self.recentPeakLevelDB || wallNow.timeIntervalSince(self.recentPeakTime) > self.peakHoldDuration {
-                self.recentPeakLevelDB = levelDB
+            if levelDB > self.level.recentPeakLevelDB || wallNow.timeIntervalSince(self.recentPeakTime) > self.peakHoldDuration {
+                self.level.recentPeakLevelDB = levelDB
                 self.recentPeakTime = wallNow
             }
 
             // Edge-triggered publish so SwiftUI re-renders only on transitions.
-            if newClipState != self.isClipping {
-                self.isClipping = newClipState
+            if newClipState != self.level.isClipping {
+                self.level.isClipping = newClipState
             }
         }
         

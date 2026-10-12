@@ -73,10 +73,6 @@ extension TapToneAnalyzer {
             return
         }
         
-        // Calculate average magnitude for tap detection; exclude below-noise-floor bins (-100 dB)
-        let validMags = magnitudes.filter { $0 > -100 }
-        averageMagnitude = validMags.isEmpty ? -100 : validMags.reduce(0, +) / Float(validMags.count)
-        
         // Analyze peaks if detection is enabled, paused (spectrum stays live), or in capture window.
         // Do not overwrite the peaks once a measurement is complete. Tap detection itself runs on the
         // fast inputLevelDB path (onRmsLevelChanged in +TapDetection.swift), not here.

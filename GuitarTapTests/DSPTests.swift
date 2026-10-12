@@ -144,7 +144,7 @@ struct DSPTests {
         case "processRawSamples":
             fft.processRawSamples(samples)
             await drainMain()
-            #expect(Self.close(fft.inputLevelDB, e["inputLevelDB"]), "\(id): inputLevelDB \(fft.inputLevelDB)")
+            #expect(Self.close(fft.level.inputLevelDB, e["inputLevelDB"]), "\(id): inputLevelDB \(fft.level.inputLevelDB)")
             #expect(Self.close(fft.readoutLevelDB, e["readoutLevelDB"]), "\(id): readoutLevelDB \(fft.readoutLevelDB)")
         default:
             Issue.record("\(id): unknown path \(row["path"]!)")

@@ -609,8 +609,7 @@ extension TapToneAnalysisView {
                 }
                 ThresholdSlider(
                     value: $tapToneAnalyzer.tapDetectionThreshold,
-                    level: tap.fftAnalyzer.inputLevelDB,
-                    isClipping: tap.fftAnalyzer.isClipping,
+                    inputLevel: tap.fftAnalyzer.level,
                     range: -80...(-20)
                 )
                     .accessibilityLabel("Tap detection threshold")

@@ -158,7 +158,7 @@ struct StateNotificationTests {
         let sut = makeSUT()
         sut.latestRealStatus = "Tap the guitar..."
 
-        sut.fftAnalyzer.isClipping = true
+        sut.fftAnalyzer.level.isClipping = true
         sut.applyStatusOverrides()
         #expect(sut.statusMessage == TapToneAnalyzer.clippingWarningStatus)
 
@@ -167,7 +167,7 @@ struct StateNotificationTests {
         #expect(sut.statusMessage == TapToneAnalyzer.deadInputStatus, "dead input outranks clipping")
 
         sut.fftAnalyzer.inputAppearsDead = false
-        sut.fftAnalyzer.isClipping = false
+        sut.fftAnalyzer.level.isClipping = false
         sut.applyStatusOverrides()
         #expect(sut.statusMessage == "Tap the guitar...",
                 "clearing both conditions restores the analyzer's own status")
@@ -180,7 +180,7 @@ struct StateNotificationTests {
         let sut = makeSUT()
         sut.detectionState = .listening
         sut.latestRealStatus = "Tap the guitar 3 times..."
-        sut.fftAnalyzer.isClipping = true
+        sut.fftAnalyzer.level.isClipping = true
         sut.applyStatusOverrides()
         #expect(sut.statusMessage == TapToneAnalyzer.clippingWarningStatus, "precondition: the warning is showing")
 
@@ -222,10 +222,9 @@ struct StateNotificationTests {
         sut.handleRouteChangeRestart()                              // unplug
 
         #expect(sut.statusMessage == TapToneAnalyzer.routeChangeStatus, "precondition: the transient shows")
-        // `latestRealStatus` normally follows `statusMessage` through the `$statusMessage` sink,
-        // which makeSUT() removes with the rest of the subscriptions — and which is asynchronous
-        // in any case. Set it by hand to reach the state a real second route change arrives in,
-        // seconds later, with the transient on screen.
+        // `latestRealStatus` follows `statusMessage` at the write (its `didSet`), so the transient is
+        // already the real status here; set it explicitly to state the precondition a real second
+        // route change arrives in, seconds later, with the transient on screen.
         sut.latestRealStatus = TapToneAnalyzer.routeChangeStatus
 
         sut.handleRouteChangeRestart()                              // replug, inside the settle

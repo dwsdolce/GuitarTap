@@ -227,7 +227,7 @@ extension TapToneAnalyzer {
         //     rising   = -100 + headroom             = threshold
         // i.e. the relative rule collapses onto the absolute one, silently disabling the very model
         // it is meant to implement.
-        noiseFloorEstimate = skipWarmup ? -100.0 : fftAnalyzer.inputLevelDB
+        noiseFloorEstimate = skipWarmup ? -100.0 : fftAnalyzer.level.inputLevelDB
 
         // For file playback (skipWarmup): start with isAboveThreshold = true
         // so the detector requires a falling edge (signal drops below
@@ -423,7 +423,7 @@ extension TapToneAnalyzer {
             gtLog("✅ Accepted L tap — advancing to cross-grain")
             materialTapPhase = .capturingCross
             setFrozenSpectrum(frequencies: [], magnitudes: [])
-            isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
+            isAboveThreshold = fftAnalyzer.level.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             detectionState = .listening
             statusMessage = materialArmPrompt()   // phase is .capturingCross — one source
@@ -533,7 +533,7 @@ extension TapToneAnalyzer {
             tapProgress = 0.0
             materialTapPhase = .capturingLongitudinal
             setFrozenSpectrum(frequencies: [], magnitudes: [])
-            isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
+            isAboveThreshold = fftAnalyzer.level.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             detectionState = .listening
             statusMessage = "Ready for fL tap — tap again"
@@ -548,7 +548,7 @@ extension TapToneAnalyzer {
             tapProgress = Float(lCount) / Float(totalPlateTaps)
             materialTapPhase = .capturingCross
             setFrozenSpectrum(frequencies: [], magnitudes: [])
-            isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
+            isAboveThreshold = fftAnalyzer.level.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             detectionState = .listening
             statusMessage = "Ready for fC tap — tap again"
@@ -563,7 +563,7 @@ extension TapToneAnalyzer {
             tapProgress = Float(lcCount) / Float(totalPlateTaps)
             materialTapPhase = .capturingFlc
             setFrozenSpectrum(frequencies: [], magnitudes: [])
-            isAboveThreshold = fftAnalyzer.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
+            isAboveThreshold = fftAnalyzer.level.inputLevelDB > (tapDetectionThreshold - hysteresisMargin)
             warmupStartAudioTime = fftAnalyzer.audioElapsed
             detectionState = .listening
             statusMessage = "Ready for fLC tap — tap again"

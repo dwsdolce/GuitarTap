@@ -59,8 +59,14 @@ struct TapSettingsView: View {
     // Analysis settings
     @Binding var peakMinThreshold: Float
 
-    // FFT Analyzer for audio device selection
-    @ObservedObject var fftAnalyzer: RealtimeFFTAnalyzer
+    // FFT Analyzer for audio device selection. Not observed: it publishes the spectrum and levels on
+    // every audio frame, which would rebuild the whole sheet — and any menu open in it — each time.
+    // The sheet keeps the four values it shows in its own state, refreshed when they change.
+    let fftAnalyzer: RealtimeFFTAnalyzer
+    @State var inputDevices: [AVAudioDevice]
+    @State var selectedDevice: AVAudioDevice?
+    @State var deviceOpenFailure: String?
+    @State var activeCalibration: MicrophoneCalibration?
 
     // Dismiss action
     @Environment(\.dismiss) var dismiss
@@ -165,6 +171,10 @@ struct TapSettingsView: View {
         self._maxDB = maxDB
         self._peakMinThreshold = peakMinThreshold
         self.fftAnalyzer = fftAnalyzer
+        self._inputDevices = State(initialValue: fftAnalyzer.availableInputDevices)
+        self._selectedDevice = State(initialValue: fftAnalyzer.selectedInputDevice)
+        self._deviceOpenFailure = State(initialValue: fftAnalyzer.inputDeviceOpenFailure)
+        self._activeCalibration = State(initialValue: fftAnalyzer.activeCalibration)
         self.onApply = onApply
 
         // Initialize display range inputs from persisted settings, not the current pan/zoomed session state
@@ -217,12 +227,12 @@ struct TapSettingsView: View {
             }
             // A microphone chosen here that cannot be opened — the previous one is kept.
             .alert("Microphone Unavailable", isPresented: Binding(
-                get: { fftAnalyzer.inputDeviceOpenFailure != nil },
+                get: { deviceOpenFailure != nil },
                 set: { if !$0 { fftAnalyzer.inputDeviceOpenFailure = nil } }
             )) {
                 Button("OK") { fftAnalyzer.inputDeviceOpenFailure = nil }
             } message: {
-                Text(fftAnalyzer.inputDeviceOpenFailure ?? "")
+                Text(deviceOpenFailure ?? "")
             }
             .alert("Invalid Settings", isPresented: $showValidationError) {
                 Button("OK", role: .cancel) { }
@@ -251,6 +261,10 @@ struct TapSettingsView: View {
                 loadStoredCalibrations()
                 selectedCalibrationID = fftAnalyzer.activeCalibration?.id
             }
+            .onReceive(fftAnalyzer.$availableInputDevices) { inputDevices = $0 }
+            .onReceive(fftAnalyzer.$selectedInputDevice) { selectedDevice = $0 }
+            .onReceive(fftAnalyzer.$inputDeviceOpenFailure) { deviceOpenFailure = $0 }
+            .onReceive(fftAnalyzer.$activeCalibration) { activeCalibration = $0 }
         }
     }
 }

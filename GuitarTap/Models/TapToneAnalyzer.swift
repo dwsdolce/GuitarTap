@@ -384,11 +384,6 @@ final class TapToneAnalyzer: ObservableObject {
 
     // MARK: - Published Detection State
 
-    /// Most recent average FFT magnitude, in dBFS.
-    ///
-    /// Used internally by the hysteresis detector and exposed for the level-meter view.
-    @Published var averageMagnitude: Float = -100
-
     /// Whether the detector is listening, paused mid-sequence, or neither.
     ///
     /// Setting this property automatically arms or disarms the audio-queue
@@ -490,8 +485,21 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var tapProgress: Float = 0.0
 
     /// Human-readable status string shown in the status bar and instructions area.
+    ///
+    /// Every write by the analyzer is its latest real status, recorded here at the write — as
+    /// Python's `_set_status_message` does — and then resolved against the input-condition
+    /// overrides, so a write while the input is clipping or dead keeps the warning. The overrides'
+    /// own writes (the warning strings) are not recorded. Re-assigning inside `didSet` does not
+    /// call it again.
     // @parity state/status-message
-    @Published var statusMessage: String = "Tap the guitar to begin"
+    @Published var statusMessage: String = "Tap the guitar to begin" {
+        didSet {
+            guard statusMessage != TapToneAnalyzer.clippingWarningStatus,
+                  statusMessage != TapToneAnalyzer.deadInputStatus else { return }
+            latestRealStatus = statusMessage
+            applyStatusOverrides()
+        }
+    }
 
     /// Set true when the user tries to start a tap sequence (New Tap) while Dump Capture Audio is on
     /// but its folder can't be reached. The view shows a prompt — Change Location /
@@ -532,7 +540,7 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// The most recent analyzer-set status message, preserved while the
     /// clipping override is active so it can be restored when clipping clears.
-    /// Updated by a Combine sink on `$statusMessage` (see setupSubscriptions).
+    /// Recorded by `statusMessage`'s `didSet`.
     /// Mirrors Python `_latest_real_status`.
     var latestRealStatus: String = "Tap the guitar to begin"
 
@@ -1443,7 +1451,7 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// The level (dBFS) of the chunk whose audio time is ``lastAudioTime``. A re-arm that falls due on
     /// a chunk re-anchors the hysteresis latch from THIS level — the published meter level
-    /// (`fftAnalyzer.inputLevelDB`) lags a chunk behind on the main thread.
+    /// (`fftAnalyzer.level.inputLevelDB`) lags a chunk behind on the main thread.
     var lastChunkLevelDB: Float = -100
 
     /// The WALL time (`ProcessInfo.systemUptime`) at which the latest chunk reached
@@ -1761,11 +1769,11 @@ final class TapToneAnalyzer: ObservableObject {
             .store(in: &cancellables)
 
         // ── Input-clipping override ──────────────────────────────────────
-        // When fftAnalyzer.isClipping toggles, swap the displayed
+        // When fftAnalyzer.level.isClipping toggles, swap the displayed
         // statusMessage between the analyzer's intended message
         // (preserved in latestRealStatus) and a remediation warning.
         // Mirrors Python `_set_clipping`.
-        fftAnalyzer.$isClipping
+        fftAnalyzer.level.$isClipping
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.applyStatusOverrides()
@@ -1780,25 +1788,6 @@ final class TapToneAnalyzer: ObservableObject {
                 self?.applyStatusOverrides()
             }
             .store(in: &cancellables)
-
-        // ── Track the latest analyzer-set status ─────────────────────────
-        // Every write to statusMessage triggers this sink.  Writes that match
-        // the clipping warning sentinel are self-writes from the override
-        // above and are ignored; all other writes are saved as the most
-        // recent "real" status so that toggling clipping off restores the
-        // correct message.  Mirrors Python `_set_status_message`.
-        $statusMessage
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] newValue in
-                guard let self = self else { return }
-                guard newValue != TapToneAnalyzer.clippingWarningStatus,
-                      newValue != TapToneAnalyzer.deadInputStatus else { return }
-                self.latestRealStatus = newValue
-                // If an override is currently active, immediately re-apply it so the
-                // analyzer's message doesn't briefly flash.
-                self.applyStatusOverrides()
-            }
-            .store(in: &cancellables)
     }
 
     /// Resolves the displayed status against the active input-condition overrides.
@@ -1810,7 +1799,7 @@ final class TapToneAnalyzer: ObservableObject {
         let resolved: String
         if fftAnalyzer.inputAppearsDead {
             resolved = TapToneAnalyzer.deadInputStatus
-        } else if fftAnalyzer.isClipping {
+        } else if fftAnalyzer.level.isClipping {
             resolved = TapToneAnalyzer.clippingWarningStatus
         } else {
             resolved = latestRealStatus

@@ -322,16 +322,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Initialize to -100 dB (very quiet) to prevent false "above threshold" detection on startup
     @Published var peakMagnitude: Float = -100
     
-    /// Fast input level in dB - updated on every audio buffer callback (~43Hz with 1024 buffer)
-    /// Use this for decay tracking instead of peakMagnitude which only updates per FFT frame
-    @Published var inputLevelDB: Float = -100
-
-    /// Edge-triggered clipping flag — `true` when any audio chunk in the last
-    /// ``clipHoldSeconds`` reached full scale (sample |x| ≥ 0.99) or RMS ≥ 0
-    /// dBFS, `false` otherwise.  Drives a remediation message in the status
-    /// bar (``TapToneAnalyzer`` swaps the displayed `statusMessage` when this toggles).  Mirrors Python
-    /// `_FftProcessingThread.clippingChanged` signal + `is_clipping` flag.
-    @Published var isClipping: Bool = false
+    /// The latest audio buffer's input level — `inputLevelDB`, `isClipping`, `recentPeakLevelDB` —
+    /// published once per buffer. An object of its own so that only the level meter observes it.
+    let level = InputLevel()
 
     /// Hold any clip-detected chunk for this many seconds before declaring the
     /// input "no longer clipping".  Without the hold, the indicator would
@@ -341,7 +334,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
 
     /// Wall-clock time of the most recent chunk that triggered the clipping
     /// detector.  Compared against `clipHoldSeconds` on every chunk to drive
-    /// the True→False transition of `isClipping`.
+    /// the True→False transition of `level.isClipping`.
     var lastClipTime: Date?
 
     /// Input level gated to the FFT publish rate for display purposes.
@@ -349,29 +342,20 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// so the status-bar level number refreshes at the same cadence as the graph.
     @Published var displayLevelDB: Float = -100
 
-    /// The latest chunk's level AS A READOUT: `inputLevelDB`, except that a chunk of true digital
+    /// The latest chunk's level AS A READOUT: `level.inputLevelDB`, except that a chunk of true digital
     /// silence (RMS exactly 0) is -∞ rather than -100. -100 dB is a real level — a quiet UMIK-1
     /// reaches it — so the readout must not show it for the absence of any signal. Detection and the
-    /// level meters keep reading `inputLevelDB`, whose -100 on silence is unchanged.
+    /// level meters keep reading `level.inputLevelDB`, whose -100 on silence is unchanged.
     /// Published at the frame rate as `displayLevelDB`.
     var readoutLevelDB: Float = -100
     
-    /// Maximum input level observed over the last `peakHoldDuration` seconds (dBFS).
-    ///
-    /// Updated on every audio buffer callback (~43 Hz). Because the continuous FFT
-    /// window is ~1.4 s, `peakMagnitude` lags the actual tap transient by up to that
-    /// amount. `recentPeakLevelDB` captures the true tap peak before the FFT result
-    /// arrives, and is used by ``TapToneAnalyzer`` as the `tapPeakLevel` reference for
-    /// decay tracking.
-    ///
-    /// - Note: The hold duration is 2 seconds — longer than the worst-case FFT
-    ///   processing latency (~1.5 s for 65 536 samples at 44.1 kHz).
-    @Published var recentPeakLevelDB: Float = -100
-
-    /// Timestamp of the most recent `recentPeakLevelDB` update; used to detect hold expiry.
+    /// Timestamp of the most recent `level.recentPeakLevelDB` update; used to detect hold expiry.
     var recentPeakTime: Date = Date.distantPast
 
-    /// Duration in seconds for which `recentPeakLevelDB` is held after a peak.
+    /// Duration in seconds for which `level.recentPeakLevelDB` is held after a peak.
+    ///
+    /// - Note: 2 seconds — longer than the worst-case FFT processing latency (~1.5 s for
+    ///   65 536 samples at 44.1 kHz).
     let peakHoldDuration: TimeInterval = 2.0
 
     /// Counter that increments each time the engine restarts due to an audio route change.

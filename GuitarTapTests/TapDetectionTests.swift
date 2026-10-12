@@ -276,7 +276,7 @@ struct TapDetectionTests {
         TapDisplaySettings.measurementType = .plate
         let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
         sut.cancellables.removeAll()
-        sut.fftAnalyzer.inputLevelDB = -50
+        sut.fftAnalyzer.level.inputLevelDB = -50
         sut.startTapSequence()
         #expect(sut.noiseFloorEstimate == -50)
 
