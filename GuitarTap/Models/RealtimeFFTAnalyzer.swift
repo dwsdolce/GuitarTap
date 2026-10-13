@@ -754,6 +754,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// An app that says "no audio input" beats an app that looks alive while deaf.
     @Published var inputAppearsDead: Bool = false
 
+    /// True while the engine's audio comes from a device other than the selected one and the
+    /// restarts that should bind it again have run out. Surfaced in the status line: audio from
+    /// another microphone looks healthy, so nothing else would tell the user.
+    @Published var inputIsNotSelectedDevice: Bool = false
+
     /// Observer token for `AVAudioEngineConfigurationChange`, held so it can be
     /// removed when the engine stops.
     var configurationChangeObserver: NSObjectProtocol?

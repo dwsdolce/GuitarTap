@@ -106,7 +106,8 @@ struct WatchdogDecisionTests {
     private func decide(
         buffersAgo: CFTimeInterval,
         signalAgo: CFTimeInterval,
-        exhausted: Bool = false
+        exhausted: Bool = false,
+        onSelectedDevice: Bool = true
     ) -> WatchdogDecision {
         watchdogDecision(
             now: now,
@@ -114,8 +115,34 @@ struct WatchdogDecisionTests {
             lastSignalTime: now - signalAgo,
             recoveryExhausted: exhausted,
             silenceThreshold: bufferDeliveryTimeout,
-            deadInputThreshold: deadInputDwell
+            deadInputThreshold: deadInputDwell,
+            onSelectedDevice: onSelectedDevice
         )
+    }
+
+    // The engine's audio coming from another device than the selected one. Healthy audio says
+    // nothing about where it comes from, so only this input can show it.
+
+    @Test func healthyAudioFromAnotherDevice_isWrongDevice() {
+        #expect(decide(buffersAgo: 0.02, signalAgo: 0.02, onSelectedDevice: false) == .wrongDevice)
+    }
+
+    @Test func anotherDeviceOutOfAttempts_keepsWarningWithoutRestarting() {
+        #expect(decide(buffersAgo: 0.02, signalAgo: 0.02, exhausted: true, onSelectedDevice: false)
+                == .wrongDeviceExhausted)
+    }
+
+    @Test func backOnTheSelectedDeviceAfterExhaustion_isHealthy() {
+        // The warning must clear without a relaunch once the engine is on the selected device.
+        #expect(decide(buffersAgo: 0.02, signalAgo: 0.02, exhausted: true, onSelectedDevice: true) == .healthy)
+    }
+
+    @Test func starvationAndDeadInput_outrankAnotherDevice() {
+        #expect(decide(buffersAgo: bufferDeliveryTimeout + 1, signalAgo: bufferDeliveryTimeout + 1,
+                       onSelectedDevice: false) == .starved)
+        #expect(decide(buffersAgo: 0.02, signalAgo: deadInputDwell + 1, onSelectedDevice: false) == .deadInput)
+        #expect(decide(buffersAgo: 0.02, signalAgo: deadInputDwell + 1, exhausted: true, onSelectedDevice: false)
+                == .deadInputExhausted)
     }
 
     @Test func signalFlowing_isHealthy() {

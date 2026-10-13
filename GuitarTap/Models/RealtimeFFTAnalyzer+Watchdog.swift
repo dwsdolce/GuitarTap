@@ -88,8 +88,20 @@ extension RealtimeFFTAnalyzer {
             lastSignalTime: lastSignalTime,
             recoveryExhausted: watchdogRecoveryExhausted,
             silenceThreshold: watchdogSilenceThreshold,
-            deadInputThreshold: watchdogDeadInputThreshold
+            deadInputThreshold: watchdogDeadInputThreshold,
+            onSelectedDevice: engineInputIsSelectedDevice()
         ) {
+        case .wrongDevice:
+            gtLog("🎤 Device watchdog: the engine's input is not the selected device — restarting on it")
+            logAudioRouteDiagnostics()
+            isRecoveringEngine = true
+            attemptWatchdogRecovery()
+
+        case .wrongDeviceExhausted:
+            // Out of restart attempts: say so, and keep watching, so the warning clears the moment
+            // the engine is on the selected device again.
+            if !inputIsNotSelectedDevice { inputIsNotSelectedDevice = true }
+
         case .starved:
             gtLog("⏱️ Buffer watchdog: no audio for \(String(format: "%.1f", now - lastBufferTime))s while running — I/O appears wedged")
             isRecoveringEngine = true
@@ -114,6 +126,7 @@ extension RealtimeFFTAnalyzer {
 
         case .healthy:
             if inputAppearsDead { inputAppearsDead = false }
+            if inputIsNotSelectedDevice { inputIsNotSelectedDevice = false }
 
             // Real audio falsifies any earlier "permission denied" determination.
             // Nothing else clears that flag — only dismissing the alert did — so a
@@ -129,6 +142,40 @@ extension RealtimeFFTAnalyzer {
             }
             if watchdogRecoveryAttempts != 0 { watchdogRecoveryAttempts = 0 }
         }
+    }
+
+    /// Whether the engine's input is the selected device, for the watchdog.
+    ///
+    /// macOS can move a running engine to the system's default input — when another application
+    /// opens the selected device, say — and keeps delivering healthy audio, so only asking the
+    /// engine's input unit shows it. `false` only when the unit reports a device, a device is
+    /// selected, and they differ; an aggregate device that contains the selected one counts as it.
+    /// Always `true` on iOS, where the system routes the input and the engine has no device of its
+    /// own.
+    func engineInputIsSelectedDevice() -> Bool {
+        #if os(macOS)
+        guard let audioUnit = inputNode?.audioUnit, let selected = selectedInputDevice else { return true }
+        var boundDevice = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioUnitGetProperty(audioUnit, kAudioOutputUnitProperty_CurrentDevice,
+                                   kAudioUnitScope_Global, 0, &boundDevice, &size) == noErr,
+              boundDevice != 0 else { return true }
+        if boundDevice == selected.deviceID { return true }
+
+        // An aggregate device's active sub-devices; empty for any other device.
+        var address = AudioObjectPropertyAddress(mSelector: kAudioAggregateDevicePropertyActiveSubDeviceList,
+                                                 mScope: kAudioObjectPropertyScopeGlobal,
+                                                 mElement: kAudioObjectPropertyElementMain)
+        var listSize: UInt32 = 0
+        guard AudioObjectHasProperty(boundDevice, &address),
+              AudioObjectGetPropertyDataSize(boundDevice, &address, 0, nil, &listSize) == noErr,
+              listSize > 0 else { return false }
+        var parts = [AudioObjectID](repeating: 0, count: Int(listSize) / MemoryLayout<AudioObjectID>.size)
+        guard AudioObjectGetPropertyData(boundDevice, &address, 0, nil, &listSize, &parts) == noErr else { return false }
+        return parts.contains(selected.deviceID)
+        #else
+        return true
+        #endif
     }
 
     /// Logs what the audio route actually looks like at the moment a wedge is

@@ -495,7 +495,8 @@ final class TapToneAnalyzer: ObservableObject {
     @Published var statusMessage: String = "Tap the guitar to begin" {
         didSet {
             guard statusMessage != TapToneAnalyzer.clippingWarningStatus,
-                  statusMessage != TapToneAnalyzer.deadInputStatus else { return }
+                  statusMessage != TapToneAnalyzer.deadInputStatus,
+                  statusMessage != TapToneAnalyzer.wrongDeviceStatus else { return }
             latestRealStatus = statusMessage
             applyStatusOverrides()
         }
@@ -572,6 +573,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// clipping warning: a dead input cannot also be clipping, and if both were
     /// somehow set, "no audio" is the more actionable message.
     static let deadInputStatus = "⚠ No audio input — check the microphone connection"
+
+    /// Shown while the audio comes from a device other than the selected microphone and
+    /// restarting has not brought the engine back to it. Ranks below a dead input and above
+    /// clipping: the level being read is another microphone's.
+    static let wrongDeviceStatus = "⚠ Input is not the selected microphone — choose it again in Settings"
 
     // MARK: - Published Frozen Spectrum
 
@@ -1788,17 +1794,27 @@ final class TapToneAnalyzer: ObservableObject {
                 self?.applyStatusOverrides()
             }
             .store(in: &cancellables)
+
+        // ── Wrong-device override ────────────────────────────────────────
+        fftAnalyzer.$inputIsNotSelectedDevice
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applyStatusOverrides()
+            }
+            .store(in: &cancellables)
     }
 
     /// Resolves the displayed status against the active input-condition overrides.
     ///
-    /// One place decides precedence — dead input, then clipping, then whatever the
-    /// analyzer last set — so the two override sinks cannot fight each other or leave
+    /// One place decides precedence — dead input, then the wrong device, then clipping, then
+    /// whatever the analyzer last set — so the override sinks cannot fight each other or leave
     /// a stale warning on screen after its condition clears.
     func applyStatusOverrides() {
         let resolved: String
         if fftAnalyzer.inputAppearsDead {
             resolved = TapToneAnalyzer.deadInputStatus
+        } else if fftAnalyzer.inputIsNotSelectedDevice {
+            resolved = TapToneAnalyzer.wrongDeviceStatus
         } else if fftAnalyzer.level.isClipping {
             resolved = TapToneAnalyzer.clippingWarningStatus
         } else {

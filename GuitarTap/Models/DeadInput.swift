@@ -58,6 +58,11 @@ enum WatchdogDecision: Equatable {
     /// Still dead and out of restart attempts: keep warning, attempt nothing. The tick
     /// must keep running so the warning clears the moment signal returns.
     case deadInputExhausted
+    /// Audio is flowing, but from a device other than the selected one — recover, so the
+    /// restart binds the engine to the selected device again.
+    case wrongDevice
+    /// Still on another device and out of restart attempts: warn, attempt nothing, keep watching.
+    case wrongDeviceExhausted
 }
 
 /// Decide what a watchdog tick should do.
@@ -69,24 +74,33 @@ enum WatchdogDecision: Equatable {
 ///   - recoveryExhausted: Whether restart attempts have been used up.
 ///   - silenceThreshold: Seconds with no buffers before the I/O counts as wedged.
 ///   - deadInputThreshold: Seconds with no signal before the input counts as dead.
+///   - onSelectedDevice: Whether the engine's input is the selected device. `false` only when the
+///     engine reports a device and it is another one (macOS, where the system can move the engine
+///     to its default input underneath the app); `true` wherever that cannot be told.
 func watchdogDecision(
     now: CFTimeInterval,
     lastBufferTime: CFTimeInterval,
     lastSignalTime: CFTimeInterval,
     recoveryExhausted: Bool,
     silenceThreshold: CFTimeInterval,
-    deadInputThreshold: CFTimeInterval
+    deadInputThreshold: CFTimeInterval,
+    onSelectedDevice: Bool = true
 ) -> WatchdogDecision {
     let dead = (now - lastSignalTime) > deadInputThreshold
 
     // Out of attempts: never restart, but still report the state so the warning holds
-    // while it is true and clears the instant signal returns.
-    if recoveryExhausted { return dead ? .deadInputExhausted : .healthy }
+    // while it is true and clears the instant the condition does.
+    if recoveryExhausted {
+        if dead { return .deadInputExhausted }
+        return onSelectedDevice ? .healthy : .wrongDeviceExhausted
+    }
 
     // Starvation first: no buffers at all is the more fundamental failure, and a
     // starved stream is trivially also signal-less.
     if (now - lastBufferTime) > silenceThreshold { return .starved }
-    return dead ? .deadInput : .healthy
+    if dead { return .deadInput }
+    // Last: audio that flows and carries signal says nothing about where it comes from.
+    return onSelectedDevice ? .healthy : .wrongDevice
 }
 
 // ---------------------------------------------------------------------------

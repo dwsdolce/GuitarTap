@@ -427,6 +427,9 @@ extension RealtimeFFTAnalyzer {
             }
         }
         gtLog("🎤 Audio tap installed")
+        #if os(macOS)
+        logEngineInputState("at start")
+        #endif
         
         // Update frequency bins based on effective sample rate
         // This ensures frequency labels are correct
@@ -522,6 +525,7 @@ extension RealtimeFFTAnalyzer {
                     && self.peakMagnitude < 0
                     && self.firstBufferReceived
                     && tccStatus != .notDetermined
+                self.logEngineInputState("3 s after start")
                 gtLog("🎤 3s TCC check — status: \(tccStatus.rawValue), peak: \(self.peakMagnitude) dB, perfectSilence: \(perfectSilence), buffersReceived: \(self.firstBufferReceived)")
                 // Silence is evidence of a PERMISSION problem only before the input has
                 // ever worked, and never during a watchdog recovery restart.
@@ -584,6 +588,66 @@ extension RealtimeFFTAnalyzer {
         isPlayingFile = true
         playingFileName = fileName
     }
+
+    #if os(macOS)
+    /// Diagnostic: logs where the engine's input is really coming from — the device its input unit
+    /// reports, beside the selected one; the input format; and every audio device's running state,
+    /// with an aggregate's active sub-devices. Inert unless debug logging is on.
+    ///
+    /// - Parameter label: When this is logged, e.g. "at start".
+    func logEngineInputState(_ label: String) {
+        func value<T>(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector, _ initial: T) -> T? {
+            var address = AudioObjectPropertyAddress(mSelector: selector,
+                                                     mScope: kAudioObjectPropertyScopeGlobal,
+                                                     mElement: kAudioObjectPropertyElementMain)
+            guard AudioObjectHasProperty(id, &address) else { return nil }
+            var result = initial
+            var size = UInt32(MemoryLayout<T>.size)
+            return AudioObjectGetPropertyData(id, &address, 0, nil, &size, &result) == noErr ? result : nil
+        }
+        func name(_ id: AudioObjectID) -> String {
+            guard let cf: Unmanaged<CFString>? = value(id, kAudioObjectPropertyName, nil), let cf else { return "?" }
+            return cf.takeRetainedValue() as String
+        }
+        func ids(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector) -> [AudioObjectID] {
+            var address = AudioObjectPropertyAddress(mSelector: selector,
+                                                     mScope: kAudioObjectPropertyScopeGlobal,
+                                                     mElement: kAudioObjectPropertyElementMain)
+            var size: UInt32 = 0
+            guard AudioObjectHasProperty(id, &address),
+                  AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr, size > 0 else { return [] }
+            var list = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+            guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &list) == noErr else { return [] }
+            return list
+        }
+
+        var unitDevice = AudioDeviceID(0)
+        var unitDeviceSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        if let unit = inputNode?.audioUnit {
+            AudioUnitGetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                                 &unitDevice, &unitDeviceSize)
+        }
+        let format = inputNode?.inputFormat(forBus: 0)
+        let selected = selectedInputDevice
+        let systemDefault = Self.systemDefaultInputDeviceID() ?? 0
+        // As the watchdog judges it: an aggregate device that contains the selected one is it.
+        let relation = unitDevice == selected?.deviceID ? "is the selected device"
+            : engineInputIsSelectedDevice() ? "an aggregate containing the selected device"
+            : "NOT the selected device"
+        gtLog("🔎 Engine input \(label): unit device \(unitDevice) '\(name(unitDevice))'"
+              + " | selected \(selected?.deviceID ?? 0) '\(selected?.name ?? "none")'"
+              + " | \(relation)"
+              + " | system default \(systemDefault) '\(name(systemDefault))'"
+              + " | format \(format?.channelCount ?? 0) ch \(format?.sampleRate ?? 0) Hz")
+        for device in ids(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices) {
+            let runningHere: UInt32 = value(device, kAudioDevicePropertyDeviceIsRunning, 0) ?? 0
+            let runningAnywhere: UInt32 = value(device, kAudioDevicePropertyDeviceIsRunningSomewhere, 0) ?? 0
+            let parts = ids(device, kAudioAggregateDevicePropertyActiveSubDeviceList)
+            let partNames = parts.isEmpty ? "" : " | sub-devices: " + parts.map { "\($0) '\(name($0))'" }.joined(separator: ", ")
+            gtLog("🔎   device \(device) '\(name(device))' running here \(runningHere) anywhere \(runningAnywhere)\(partNames)")
+        }
+    }
+    #endif
 
     /// Processes pre-read mono audio samples through the FFT pipeline.
     ///
