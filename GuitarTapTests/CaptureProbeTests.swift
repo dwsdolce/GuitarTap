@@ -122,28 +122,7 @@ struct CaptureProbeTests {
         #expect(records.count == taps,
                 "this analyzer should capture exactly one window per tap")
 
-        struct Document: Codable {
-            let edition: String
-            let os: String
-            let arch: String
-            let caseName: String
-            let records: [CaptureProbe.Record]
-        }
-        #if arch(arm64)
-        let arch = "arm64"
-        #else
-        let arch = "x86_64"
-        #endif
-        #if os(macOS)
-        let system = "darwin"
-        #else
-        let system = "ios"
-        #endif
-
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(Document(edition: "swift", os: system, arch: arch,
-                                               caseName: caseName, records: records))
+        let data = try CaptureProbe.encoded(caseName: caseName, records: records)
         try data.write(to: Self.outputURL)
         print("CAPTURE_PROBE_WROTE \(Self.outputURL.path)")
         for (index, record) in records.enumerated() {

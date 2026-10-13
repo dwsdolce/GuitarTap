@@ -1258,6 +1258,14 @@ final class TapToneAnalyzer: ObservableObject {
     /// the very beginning of the transient is captured.
     static let onsetBackupSamples: Int = 32
 
+    /// Samples left between the noise re-measured before the tap and the tap's first sample above
+    /// the threshold, so the measured stretch holds none of the tap's own rise.
+    static let onsetNoiseGuardSamples: Int = 256
+
+    /// How many times the onset may be found again from the noise just before it. It settles in
+    /// one or two.
+    static let onsetRefinementPasses: Int = 4
+
     /// Number of samples in one gated capture window at the current hardware sample rate.
     /// Target size of the gated-capture window, in samples.
     ///
@@ -1266,6 +1274,24 @@ final class TapToneAnalyzer: ObservableObject {
     /// guitar uses the full `fftSize` so the resulting spectrum has the same
     /// frequency resolution as the live FFT path.
     var gatedCaptureSamples: Int = 0
+
+    /// How many samples of a guitar tap's FFT window are audio; the rest of the window, to
+    /// `fftSize`, is always zeros.
+    ///
+    /// A guitar capture is `fftSize` samples beginning ``preRollSamples`` before the trigger, and
+    /// `alignCaptureToOnset` starts the window ``preOnsetDuration`` before the onset — so the
+    /// window starts up to (pre-roll − pre-onset) into the capture, depending on how long after
+    /// the onset the trigger's chunk boundary fell, and that many samples short of its end the
+    /// capture runs out. Ending the audio that margin before the window's end, always, makes the
+    /// window the same samples wherever the boundary fell: the same tap gives the same spectrum on
+    /// every run and in every edition. What is left out is the last tenth of a second of a
+    /// 1.4-second window.
+    ///
+    /// - Parameter sampleRate: The capture's sample rate in Hz.
+    func guitarWindowAudioSamples(sampleRate: Double) -> Int {
+        let margin = Int(sampleRate * TapToneAnalyzer.preRollDuration) - Int(sampleRate * TapToneAnalyzer.preOnsetDuration)
+        return fftAnalyzer.fftSize - max(0, margin)
+    }
 
     /// Callback invoked on the main thread when the gated capture window fills.
     ///

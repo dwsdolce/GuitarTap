@@ -238,6 +238,7 @@ extension TapToneAnalyzer {
             try header.write(to: url)
             gtLog("📦 WAV dump: \(url.path) (\(numSamples) samples, \(sr) Hz)")
             captureAudioSaved = name
+            CaptureProbe.writeLiveRecords(beside: url)   // diagnostic; inert in a released build
             return true
         } catch {
             gtLog("⚠️ WAV dump failed: \(error.localizedDescription)")
@@ -696,6 +697,13 @@ extension TapToneAnalyzer {
             chunk.append(contentsOf: Array(repeating: Float(0), count: fftSize - chunk.count))
         }
 
+        // The window's audio ends at a fixed length, and zeros follow: where the capture ran out
+        // depends on the trigger's chunk boundary, and the window must not.
+        let audioSamples = guitarWindowAudioSamples(sampleRate: sampleRate)
+        if audioSamples < chunk.count {
+            chunk.replaceSubrange(audioSamples..., with: repeatElement(Float(0), count: chunk.count - audioSamples))
+        }
+
         // Diagnostic for capture-window alignment: fingerprint the buffer on both
         // sides of the alignment step, so a cross-edition comparison can say whether the
         // editions captured the same samples, aligned them differently, or differ only in
@@ -831,31 +839,42 @@ extension TapToneAnalyzer {
             return leadingWindow()  // buffer too short for noise estimation
         }
 
-        // 1. Estimate noise floor from the first N samples (pre-onset silence).
-        let noiseRegion = Array(samples.prefix(TapToneAnalyzer.onsetNoiseEstimateSamples))
-        var noiseRMS: Float = 0
-        vDSP_rmsqv(noiseRegion, 1, &noiseRMS, vDSP_Length(noiseRegion.count))
-
-        // 2. Onset threshold: 10× noise RMS, floored at 0.001 for digital silence.
-        let threshold = max(
-            noiseRMS * TapToneAnalyzer.onsetThresholdMultiplier,
-            TapToneAnalyzer.onsetMinThreshold
-        )
-
-        // 3. Scan forward for the first sample exceeding the threshold.
-        var onsetIndex: Int? = nil
-        for i in 0..<samples.count {
-            if abs(samples[i]) > threshold {
-                onsetIndex = i
-                break
+        // The onset threshold for a stretch of noise: 10× its RMS, floored at 0.001 for digital
+        // silence.
+        func threshold(forNoiseAt start: Int) -> Float {
+            var noiseRMS: Float = 0
+            samples.withUnsafeBufferPointer { buffer in
+                vDSP_rmsqv(buffer.baseAddress! + start, 1, &noiseRMS,
+                           vDSP_Length(TapToneAnalyzer.onsetNoiseEstimateSamples))
             }
+            return max(noiseRMS * TapToneAnalyzer.onsetThresholdMultiplier, TapToneAnalyzer.onsetMinThreshold)
+        }
+        // The first sample exceeding a threshold.
+        func firstSample(above threshold: Float) -> Int? {
+            samples.firstIndex { abs($0) > threshold }
         }
 
-        guard var onset = onsetIndex else {
+        // 1–3. A first estimate: the noise at the start of the buffer (pre-onset silence), and the
+        // first sample above its threshold.
+        guard var crossing = firstSample(above: threshold(forNoiseAt: 0)) else {
             // No onset found (noise-only capture) — the start of the buffer, window-sized.
-            TAP_DEBUG("onsetAlign", "NO_ONSET | noiseRMS=\(String(format: "%.6f", noiseRMS)) threshold=\(String(format: "%.6f", threshold)) len=\(samples.count)")
+            TAP_DEBUG("onsetAlign", "NO_ONSET | len=\(samples.count)")
             return leadingWindow()
         }
+
+        // Then the noise is measured again just before the tap, and the onset found again, until it
+        // stops moving. Where the buffer starts depends on the chunk boundary the trigger fired on,
+        // so the noise at its start is a different stretch of audio from one capture of a tap to
+        // another, and its threshold can put the onset a sample or two apart. The noise just before
+        // the tap is the same stretch whichever capture it is.
+        for _ in 0..<TapToneAnalyzer.onsetRefinementPasses {
+            let noiseStart = crossing - TapToneAnalyzer.onsetNoiseGuardSamples - TapToneAnalyzer.onsetNoiseEstimateSamples
+            guard noiseStart >= 0,
+                  let refined = firstSample(above: threshold(forNoiseAt: noiseStart)),
+                  refined != crossing else { break }
+            crossing = refined
+        }
+        var onset = crossing
 
         // 4. Back up slightly to catch the very start of the transient.
         onset = max(0, onset - TapToneAnalyzer.onsetBackupSamples)
@@ -885,7 +904,7 @@ extension TapToneAnalyzer {
             result = Array(result.prefix(windowSize))
         }
 
-        TAP_DEBUG("onsetAlign", "ALIGNED | onset=\(onset) extractStart=\(extractStart) preOnset=\(preOnsetSamples) noiseRMS=\(String(format: "%.6f", noiseRMS)) threshold=\(String(format: "%.6f", threshold)) inLen=\(samples.count) outLen=\(result.count)")
+        TAP_DEBUG("onsetAlign", "ALIGNED | onset=\(onset) extractStart=\(extractStart) preOnset=\(preOnsetSamples) inLen=\(samples.count) outLen=\(result.count)")
 
         return result
     }

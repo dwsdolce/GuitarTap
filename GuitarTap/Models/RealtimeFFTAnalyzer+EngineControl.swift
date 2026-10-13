@@ -334,12 +334,15 @@ extension RealtimeFFTAnalyzer {
             )
         }
         
-        // CRITICAL FIX: Use smaller buffer size for large FFTs
-        // Using 1024 samples (~23ms at 44.1kHz) for faster level metering updates
-        // This improves decay measurement precision from ~100ms to ~23ms
-        // FFT accuracy is unaffected since samples are accumulated to fftSize regardless
-        let maxSafeBufferSize: AVAudioFrameCount = 1024
-        let requestedBufferSize = min(AVAudioFrameCount(fftSize), maxSafeBufferSize)
+        // Ask for buffers of one chunk. The size is only a hint — CoreAudio delivers the size it
+        // chooses — so the delivered buffers are cut into chunks in processDeliveredSamples.
+        let requestedBufferSize = AVAudioFrameCount(min(fftSize, Self.chunkSize))
+
+        // Start from an empty remainder. Queued ahead of the tap's first buffer.
+        audioProcessingQueue.async { [self] in
+            pendingSamples.removeAll()
+            deliveredBufferSizeLogged = false
+        }
         
         // Verify the audio unit is still running before installing the tap (macOS diagnostic).
         // It can stop between engine.start() and here if inputNode was accessed unexpectedly.
@@ -669,7 +672,7 @@ extension RealtimeFFTAnalyzer {
 
         let frameCount = samples.count
 
-        let chunkSize = 1024
+        let chunkSize = Self.chunkSize
         let fileDuration = Double(frameCount) / sampleRate
         let chunkDuration = Double(chunkSize) / sampleRate
         let myGeneration = filePlaybackGeneration

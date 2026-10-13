@@ -81,11 +81,8 @@ extension RealtimeFFTAnalyzer {
     
     /// Processes an incoming audio buffer from the microphone.
     ///
-    /// This method:
-    /// 1. Extracts float samples from the PCM buffer
-    /// 2. Accumulates samples in the input buffer (thread-safe)
-    /// 3. Processes complete FFT-size chunks
-    /// 4. Performs FFT on each chunk
+    /// Extracts the float samples of the first channel and hands them to
+    /// ``processDeliveredSamples(_:)``, which cuts them into fixed-size chunks for the pipeline.
     ///
     /// - Parameter buffer: The audio buffer captured from the microphone
     ///
@@ -101,18 +98,93 @@ extension RealtimeFFTAnalyzer {
         // Extract samples from the first channel
         let frameLength = Int(buffer.frameLength)
         let samples = Array(UnsafeBufferPointer(start: channelData[0], count: frameLength))
-        
-        processRawSamples(samples)
+
+        if !deliveredBufferSizeLogged {
+            deliveredBufferSizeLogged = true
+            gtLog("🎤 Audio buffers delivered: \(frameLength) frames; processed in chunks of \(Self.chunkSize)")
+        }
+
+        processDeliveredSamples(samples)
+    }
+
+    /// Cuts delivered samples into chunks of ``chunkSize`` and processes each in turn.
+    ///
+    /// A delivered buffer is whatever size CoreAudio chooses. Its samples are appended to the
+    /// remainder of the previous buffer, every whole chunk is passed to ``processRawSamples(_:)``,
+    /// and what is left over waits for the next buffer — no sample is dropped or reordered.
+    ///
+    /// - Parameter samples: The samples of one delivered buffer, of any length.
+    ///
+    /// - Note: Runs on the audioProcessingQueue.
+    func processDeliveredSamples(_ samples: [Float]) {
+        pendingSamples.append(contentsOf: samples)
+        var start = 0
+        var loudest: ChunkLevel?
+        while pendingSamples.count - start >= Self.chunkSize {
+            let level = processChunk(Array(pendingSamples[start..<(start + Self.chunkSize)]))
+            // The loudest chunk's level, with the newest chunk's time and clipping state.
+            loudest = ChunkLevel(levelDB: max(level.levelDB, loudest?.levelDB ?? level.levelDB),
+                                 isSilent: level.isSilent && (loudest?.isSilent ?? true),
+                                 time: level.time, isClipping: level.isClipping)
+            start += Self.chunkSize
+        }
+        pendingSamples.removeFirst(start)
+        if let loudest { announceLevel(loudest) }
+    }
+
+    /// The input level of one processed chunk, as the level meter is told it.
+    struct ChunkLevel {
+        /// RMS level in dBFS; -100 for a chunk of digital silence.
+        let levelDB: Float
+        /// `true` when the chunk held digital silence (RMS exactly 0).
+        let isSilent: Bool
+        /// Wall-clock time the chunk was processed, for the peak hold.
+        let time: Date
+        /// Whether the input counts as clipping at that time (a clipped chunk within the hold).
+        let isClipping: Bool
+    }
+
+    /// Announces a chunk's level on the main thread, for the level meter and the clipping indicator.
+    /// Display only — tap detection is fed by `rmsLevelHandler`.
+    ///
+    /// The live path announces once per DELIVERED buffer, not once per chunk: a buffer's chunks are
+    /// processed in the same instant, so announcing each would redraw the meter several times in one
+    /// frame to show only the last.
+    func announceLevel(_ chunk: ChunkLevel) {
+        DispatchQueue.main.async {
+            self.level.inputLevelDB = chunk.levelDB
+            self.readoutLevelDB = chunk.isSilent ? -.infinity : chunk.levelDB
+
+            // Track recent peak: update if current level is higher, or if peak has expired
+            if chunk.levelDB > self.level.recentPeakLevelDB || chunk.time.timeIntervalSince(self.recentPeakTime) > self.peakHoldDuration {
+                self.level.recentPeakLevelDB = chunk.levelDB
+                self.recentPeakTime = chunk.time
+            }
+
+            // Edge-triggered publish so SwiftUI re-renders only on transitions.
+            if chunk.isClipping != self.level.isClipping {
+                self.level.isClipping = chunk.isClipping
+            }
+        }
     }
 
     /// Process raw Float32 samples through the full audio pipeline: raw-sample
     /// delivery, RMS/clipping detection, level-crossing tap trigger, FFT
     /// accumulation and execution.
     ///
-    /// Called from `processAudioBuffer` (mic/engine path) and directly from the
+    /// Called from `processDeliveredSamples` (mic/engine path) and directly from the
     /// file-playback sample pump (direct-injection path that bypasses
     /// AVAudioEngine to avoid dithering noise).
     func processRawSamples(_ samples: [Float]) {
+        announceLevel(processChunk(samples))
+    }
+
+    /// Runs one chunk through the pipeline — everything ``processRawSamples(_:)`` does except
+    /// announcing the level for display — and returns that level for the caller to announce.
+    ///
+    /// - Parameter samples: The samples of one chunk.
+    /// - Returns: The chunk's level, for ``announceLevel(_:)``.
+    func processChunk(_ samples: [Float]) -> ChunkLevel {
         if !firstBufferReceived {
             firstBufferReceived = true
         }
@@ -223,25 +295,6 @@ extension RealtimeFFTAnalyzer {
         // proc_thread.rmsLevelChanged.connect(self._on_rms_level_changed).
         rmsLevelHandler?(levelDB, audioElapsed)
 
-        // Update @Published properties on main thread for UI (level meter,
-        // clipping indicator).  This is display-only — tap detection no
-        // longer depends on this path.
-        DispatchQueue.main.async {
-            self.level.inputLevelDB = levelDB
-            self.readoutLevelDB = rms > 0 ? levelDB : -.infinity
-
-            // Track recent peak: update if current level is higher, or if peak has expired
-            if levelDB > self.level.recentPeakLevelDB || wallNow.timeIntervalSince(self.recentPeakTime) > self.peakHoldDuration {
-                self.level.recentPeakLevelDB = levelDB
-                self.recentPeakTime = wallNow
-            }
-
-            // Edge-triggered publish so SwiftUI re-renders only on transitions.
-            if newClipState != self.level.isClipping {
-                self.level.isClipping = newClipState
-            }
-        }
-        
         // Thread-safe: Accumulate samples in input buffer using synchronized access
         bufferAccessQueue.sync {
             inputBuffer.append(contentsOf: samples)
@@ -273,6 +326,8 @@ extension RealtimeFFTAnalyzer {
                 performFFT(on: chunk)
             }
         }
+
+        return ChunkLevel(levelDB: levelDB, isSilent: rms <= 0, time: wallNow, isClipping: newClipState)
     }
     
     /// Performs the pure FFT computation on a block of audio samples and returns

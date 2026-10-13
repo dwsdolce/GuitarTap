@@ -18,6 +18,9 @@
 #      history entry in Documentation/ReleaseNotes.md, so the top {{placeholder}}
 #      section still holds that shipped release's notes.
 #
+# And, for a Release build only, a third: the capture probe's developer switch
+# (CaptureProbe.liveProbe) must be off. See the check itself, below.
+#
 # Both are gated on HEAD having moved past the last release, so at the tag itself
 # nothing fires: rebuilding, re-notarising or re-signing the release you just cut
 # is legitimate work. They fire together on the first commit after a release and
@@ -49,6 +52,21 @@ NOTES="$ROOT/$NOTES_REL"
 # XCODE_VERSION_ACTUAL is set only inside an Xcode build environment.
 IN_XCODE=0
 [ -n "${XCODE_VERSION_ACTUAL:-}" ] && IN_XCODE=1
+
+#===============================================
+# 0. Capture probe left on — release builds only.
+#===============================================
+# CaptureProbe.liveProbe makes the app write a diagnostic file beside every capture recording. It
+# is switched on in the source for a diagnostic build, which this must not block, so the check
+# applies to the Release configuration alone — the one the packaging build and an archive use.
+# It needs no git history, so it runs before the checks below can skip.
+PROBE_REL="GuitarTap/Models/CaptureProbe.swift"
+if [ "${CONFIGURATION:-}" = "Release" ] \
+    && grep -qE '^[[:space:]]*static let liveProbe[[:space:]]*=[[:space:]]*true' "$ROOT/$PROBE_REL" 2>/dev/null; then
+    LINE="$(grep -nE 'static let liveProbe' "$ROOT/$PROBE_REL" | head -1 | cut -d: -f1)"
+    echo "$ROOT/$PROBE_REL:${LINE:-1}: error: The capture probe is switched on (CaptureProbe.liveProbe = true). Set it to false before a release build."
+    exit 1
+fi
 
 # Not a git work tree — nothing to compare a version against. `git rev-parse`
 # rather than a .git directory test, so a git worktree (where .git is a file) is

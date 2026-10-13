@@ -8,7 +8,10 @@
 //      buffer same, window differs     -> the alignment picks a different onset
 //      both same, spectrum differs     -> the arithmetic differs, not the input
 //
-//  Inert unless `enabled` is set. Nothing in the app switches it on; the probe test does.
+//  Inert unless `enabled` is set. The probe test switches it on for a replay. The app switches it
+//  on only in a build made with `liveProbe` set, and then only while Dump Capture Audio is on: each
+//  measurement's records are written beside its session recording, where the first samples of each
+//  capture buffer place it in that recording.
 //  @parity models/capture-probe
 
 import Foundation
@@ -40,14 +43,34 @@ enum CaptureProbe {
         let bufferHead: [String]
     }
 
+    /// Whether the app itself records captures — a developer switch, `false` in every released
+    /// build (a release build refuses to compile the app with it on). Set it to `true` for a
+    /// diagnostic build; the probe then runs for each measurement made with Dump Capture Audio on.
+    static let liveProbe = false
+
+    /// A file of records: one edition's captures for one replayed case or one live measurement.
+    struct Document: Codable {
+        let edition: String
+        let os: String
+        let arch: String
+        /// The replayed case, or the name of the live measurement's session recording.
+        let caseName: String
+        let records: [Record]
+    }
+
     static var enabled = false
+    /// Whether a measurement in the app is recording captures (`beginLiveSession`). Separate from
+    /// `enabled`, which a test or tool owns: a session that begins must not switch that off.
+    static var liveSession = false
+    /// Whether captures are being recorded, for either reason.
+    static var isRecording: Bool { enabled || liveSession }
     static var records: [Record] = []
     /// Ordered event log — capture appends interleaved with capturedTaps resets, so the
     /// sequence can be read rather than reconstructed from counts.
     static var events: [String] = []
 
     static func note(_ text: String) {
-        guard enabled else { return }
+        guard isRecording else { return }
         events.append(text)
     }
 
@@ -56,10 +79,54 @@ enum CaptureProbe {
         events = []
     }
 
+    /// A measurement begins in the app: start a fresh set of records, when the app is recording
+    /// them at all. Does nothing unless `liveProbe`.
+    ///
+    /// - Parameter recording: Whether this measurement's audio is being recorded (Dump Capture Audio).
+    static func beginLiveSession(recording: Bool) {
+        guard liveProbe else { return }
+        liveSession = recording
+        if recording { reset() }
+    }
+
+    /// A measurement's session recording was written: write its records beside it, as
+    /// `<recording name>-capture-probe.json`. Does nothing unless `liveProbe` and a session is on.
+    ///
+    /// - Parameter wav: Where the session recording was written.
+    static func writeLiveRecords(beside wav: URL) {
+        guard liveProbe, liveSession else { return }
+        let name = wav.deletingPathExtension().lastPathComponent
+        let url = wav.deletingLastPathComponent().appendingPathComponent("\(name)-capture-probe.json")
+        do {
+            try encoded(caseName: name, records: records).write(to: url)
+            gtLog("📦 Capture probe: \(url.path) (\(records.count) captures)")
+        } catch {
+            gtLog("⚠️ Capture probe not written: \(error.localizedDescription)")
+        }
+    }
+
+    /// The records as a document for this edition and platform, in the form every edition writes.
+    static func encoded(caseName: String, records: [Record]) throws -> Data {
+        #if arch(arm64)
+        let arch = "arm64"
+        #else
+        let arch = "x86_64"
+        #endif
+        #if os(macOS)
+        let system = "darwin"
+        #else
+        let system = "ios"
+        #endif
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(Document(edition: "swift", os: system, arch: arch,
+                                           caseName: caseName, records: records))
+    }
+
     /// Mark the most recent capture as having been appended to capturedTaps. Anything left
     /// unmarked reached the FFT and was then discarded — which is the case worth explaining.
     static func markAccepted(_ index: Int, tapsAfter: Int) {
-        guard enabled, records.indices.contains(index) else { return }
+        guard isRecording, records.indices.contains(index) else { return }
         records[index].accepted = true
         records[index].tapsAfter = tapsAfter
         note("capture#\(index + 1) appended, capturedTaps=\(tapsAfter)")
@@ -67,7 +134,7 @@ enum CaptureProbe {
 
     @discardableResult
     static func record(buffer: [Float], window: [Float], tapsBefore: Int, instance: String) -> Int {
-        guard enabled else { return -1 }
+        guard isRecording else { return -1 }
         note("capture#\(records.count + 1) enters, analyzer=\(instance) capturedTaps=\(tapsBefore)")
         records.append(Record(bufferCount: buffer.count,
                               bufferHash: fingerprint(buffer),

@@ -20,9 +20,9 @@
 ///
 /// ## Architecture
 /// ```
-/// AVAudioInputNode tap (1 024-sample buffers, hardware rate)
+/// AVAudioInputNode tap (buffers of the size CoreAudio chooses, hardware rate)
 ///        │
-///        ├──► audioProcessingQueue
+///        ├──► audioProcessingQueue — cut into 1 024-sample chunks
 ///        │         ├─ RMS level → inputLevelDB / recentPeakLevelDB (main thread, ~43 Hz)
 ///        │         ├─ rawSampleHandler → TapToneAnalyzer pre-roll + gated capture
 ///        │         └─ inputBuffer accumulation
@@ -271,6 +271,23 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Accumulates incoming audio samples until there's enough data for FFT processing
     /// - Important: Access only on bufferAccessQueue to prevent race conditions
     var inputBuffer: [Float] = []
+
+    /// The size, in samples, of every chunk the pipeline processes, live or from a file.
+    ///
+    /// The tap's requested buffer size is only a hint: CoreAudio delivers the size it chooses (0.1 s
+    /// of audio — 4800 frames at 48 kHz — is usual). The level meter, the tap detector, ring-out
+    /// tracking and the session recording all advance once per chunk, so the delivered buffers are
+    /// cut to this fixed size first (`processDeliveredSamples`). Python and the web process chunks
+    /// of the same size.
+    static let chunkSize = 1024
+
+    /// Delivered samples that do not yet make a whole chunk, carried to the next buffer.
+    /// - Important: Access only on audioProcessingQueue.
+    var pendingSamples: [Float] = []
+
+    /// `true` once the size of the delivered buffers has been logged for this start.
+    /// - Important: Access only on audioProcessingQueue.
+    var deliveredBufferSizeLogged = false
 
     // MARK: - FILE_DEBUG instrumentation
 

@@ -215,6 +215,7 @@ extension TapToneAnalyzer {
         sessionPreRollActive = true   // bound the pre-first-tap audio to ~2 s
         sessionRecordingSampleRate = mpmSampleRate > 0 ? mpmSampleRate : 48000
         mpmLock.unlock()
+        CaptureProbe.beginLiveSession(recording: TapDisplaySettings.dumpCaptureAudio)   // diagnostic
 
         // Seed the noise-floor estimate so the first relative-threshold (plate/brace) calculation has a
         // reasonable baseline.  Seed from the current input level; the warm-up's EMA then converges it,
