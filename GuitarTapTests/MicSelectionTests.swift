@@ -3,10 +3,11 @@
 //  GuitarTapTests
 //
 //  Tests for which input device the engine uses and what it saves: the launch rule
-//  inputDeviceToUse (MS1–MS5), the engine driven through applyInputDeviceList, a Settings
-//  selection and setInputDevice (MS6–MS11), a measurement load switching to its recorded
-//  microphone (MS14–MS17), choosing a calibration for the selected device (MS18–MS20), and the
-//  thresholds a load restores, saved as a setting (MS21–MS22), and a device that cannot be opened
+//  inputDeviceToUse (MS1–MS5, the shared cases in `mic-selection.json`), the engine driven
+//  through applyInputDeviceList, a Settings selection and setInputDevice (MS6–MS11), a
+//  measurement load switching to its recorded microphone (MS14–MS17), choosing a calibration for
+//  the selected device (MS18–MS20), and the thresholds a load restores, saved as a setting
+//  (MS21–MS22), and a device that cannot be opened
 //  (MS23–MS24; MS25, a load whose switch fails, needs a device that really fails to open and is
 //  tested in Python and the web).
 //  MS12–MS13 are Python only; MS29–MS31 are Swift only (its device lists are applied on the main
@@ -43,6 +44,8 @@ private let blackHole = device("BlackHole 2ch", 2)
 private let umik = device("UMIK-1", 3)
 private let usb2 = device("USB Mic 2", 4)
 
+private final class MicSelectionAnchor {}
+
 /// A fresh engine with `saved` as the saved choice (nil: nothing saved).
 @MainActor
 private func makeSUT(saved: AVAudioDevice?) -> RealtimeFFTAnalyzer {
@@ -54,41 +57,30 @@ private func makeSUT(saved: AVAudioDevice?) -> RealtimeFFTAnalyzer {
 @MainActor
 struct MicSelectionTests {
 
-    // MARK: - The rule
+    // MARK: - The rule — the shared cases in `mic-selection.json` (MS1–MS5)
 
-    // MS1: The saved device wins when it is present — over the system default, and over any
-    //      other device (the built-in mic is kept although a USB mic and BlackHole are listed).
-    @Test func MS1_savedPresent_wins() {
-        let chosen = RealtimeFFTAnalyzer.inputDeviceToUse(
-            in: [blackHole, builtIn, umik], savedUID: builtIn.uid, systemDefaultUID: umik.uid)
-        #expect(chosen == builtIn)
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
+        let url = Bundle(for: MicSelectionAnchor.self).url(forResource: "mic-selection", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
+
+    nonisolated static func applies(_ row: [String: Any]) -> Bool { (row["editions"] as? [String])?.contains("swift") ?? true }
+
+    /// This file's device for a case file's device key.
+    static func caseDevice(_ key: Any?) -> AVAudioDevice? {
+        guard let key = key as? String else { return nil }
+        return ["builtIn": builtIn, "blackHole": blackHole, "umik": umik, "usb2": usb2][key]!
     }
 
-    // MS2: The saved device is not connected — the system default.
-    @Test func MS2_savedAbsent_usesSystemDefault() {
+    @Test(arguments: (data["inputDeviceToUse"] as! [[String: Any]]).filter(applies).map { $0["id"] as! String })
+    func inputDeviceToUse(_ id: String) {
+        let row = (Self.data["inputDeviceToUse"] as! [[String: Any]]).first { $0["id"] as! String == id }!
+        let devices = (row["devices"] as! [String]).map { Self.caseDevice($0)! }
         let chosen = RealtimeFFTAnalyzer.inputDeviceToUse(
-            in: [blackHole, builtIn], savedUID: umik.uid, systemDefaultUID: builtIn.uid)
-        #expect(chosen == builtIn)
-    }
-
-    // MS3: Nothing saved — the system default, not a device listed ahead of it (BlackHole).
-    @Test func MS3_nothingSaved_usesSystemDefault() {
-        let chosen = RealtimeFFTAnalyzer.inputDeviceToUse(
-            in: [blackHole, builtIn], savedUID: nil, systemDefaultUID: builtIn.uid)
-        #expect(chosen == builtIn)
-    }
-
-    // MS4: No usable system default — the first device.
-    @Test func MS4_noDefault_usesFirstDevice() {
-        let chosen = RealtimeFFTAnalyzer.inputDeviceToUse(
-            in: [umik, builtIn], savedUID: nil, systemDefaultUID: nil)
-        #expect(chosen == umik)
-    }
-
-    // MS5: No devices — nothing.
-    @Test func MS5_noDevices_selectsNothing() {
-        #expect(RealtimeFFTAnalyzer.inputDeviceToUse(in: [], savedUID: builtIn.uid,
-                                                     systemDefaultUID: builtIn.uid) == nil)
+            in: devices, savedUID: Self.caseDevice(row["saved"])?.uid, systemDefaultUID: Self.caseDevice(row["default"])?.uid)
+        #expect(chosen == Self.caseDevice(row["expect"]), "\(id): \(row["note"] as? String ?? "")")
     }
 
     // MARK: - The engine: what is selected, and what is saved
