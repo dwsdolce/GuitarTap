@@ -288,7 +288,7 @@ struct GenerateParityOracleTests {
         }
 
         // -------------------------------------------------------------- material cases
-        for name in ["REG-B1", "REG-P1", "REG-P2"] {
+        for name in ["REG-B1", "REG-B2", "REG-P1", "REG-P2"] {
             guard var caseDict = playback[name] as? [String: Any] else { continue }
             let set = settings(caseDict)
             let isBrace = (set["measurementType"] as? String)?.contains("Brace") == true
