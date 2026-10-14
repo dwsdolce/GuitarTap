@@ -89,20 +89,13 @@ extension TapToneAnalyzer {
 
     // MARK: - RMS-Level Entry Point
 
-    /// One chunk's level, on the main thread: detection, then ring-out tracking — the per-chunk entry.
+    /// One chunk's level, on the main thread — the per-chunk entry.
     ///
     /// The body of `rmsLevelHandler`'s hop to the main thread (``setupSubscriptions()``), named so that
     /// tests feed audio through exactly the path audio takes: Python `_on_chunk_level`, the web's
     /// `processAudioFrame`.
-    ///
-    /// Ring-out tracking rides the SAME carried `audioTime`, so it is stamped in audio time
-    /// (load-invariant). It runs after detection, so a tap confirmed on this chunk records the chunk into
-    /// its new ring-out, and OUTSIDE ``onRmsLevelChanged(_:audioTime:)``'s guards — the ring-out
-    /// continues past measurement completion, which is exactly the window it measures. It self-gates on
-    /// `isTrackingDecay`.
     func onChunkLevel(_ levelDB: Float, audioTime: Double) {
         onRmsLevelChanged(levelDB, audioTime: audioTime)
-        trackDecayFast(inputLevel: levelDB, audioTime: audioTime)
     }
 
     /// Receives the per-chunk RMS input level (~43 Hz) and runs the rising-edge
@@ -350,14 +343,8 @@ extension TapToneAnalyzer {
                     isAboveThreshold = true
                     detectTapConsecutiveAbove = 0
 
-                    // Capture the recent peak input level for decay tracking reference.
-                    // Use recentPeakLevelDB, which holds the max level over the last
-                    // `fftAnalyzer.peakHoldDuration` (2.0 s). This ensures we get the actual tap peak
-                    // even though FFT detection is delayed.
-                    tapPeakLevel = fftAnalyzer.level.recentPeakLevelDB
-
                     // Handle tap in multi-tap sequence
-                    handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now, audioTime: audioTime)
+                    handleTapDetection(magnitudes: magnitudes, frequencies: frequencies, time: now)
                 } else {
                     // Pending — waiting for more above-threshold chunks.
                     if fftAnalyzer.isPlayingFile && detectTapConsecutiveAbove == 1 {
@@ -376,9 +363,8 @@ extension TapToneAnalyzer {
     
     /// Dispatches a confirmed tap event to the appropriate capture handler.
     ///
-    /// For guitar mode: stores the current spectrum in `capturedTaps`, starts
-    /// decay tracking, and starts the capture-window timer. When all required
-    /// taps have been collected, schedules `processMultipleTaps()`.
+    /// For guitar mode: starts the gated capture of the tap, whose window gives
+    /// both its spectrum and its ring-out.
     ///
     /// For plate/brace mode: delegates to ``handlePlateTapDetection(magnitudes:frequencies:time:)``.
     ///
@@ -386,9 +372,7 @@ extension TapToneAnalyzer {
     ///   - magnitudes: Current FFT magnitude spectrum (dBFS).
     ///   - frequencies: Frequency axis matching `magnitudes`, in Hz.
     ///   - time: Wall-clock timestamp of the rising-edge tap detection event.
-    ///   - audioTime: Audio-clock time (seconds since engine start) of the same event, used to
-    ///     seed ring-out decay tracking so it is measured in audio time (load-invariant).
-    func handleTapDetection(magnitudes: [Float], frequencies: [Float], time: Date, audioTime: Double) {
+    func handleTapDetection(magnitudes: [Float], frequencies: [Float], time: Date) {
         // Stop detection temporarily
         detectionState = .idle
         
@@ -412,9 +396,6 @@ extension TapToneAnalyzer {
         // the window fills, then appended to capturedTaps.  This eliminates the
         // tap-position-within-FFT-frame variability that the legacy path had.
         TAP_DEBUG("handleTapDetection", "GUITAR — starting gated capture | capturedTaps=\(capturedTaps.count)/\(numberOfTaps)")
-
-        // Start decay tracking immediately (uses RMS level, independent of FFT capture).
-        startDecayTracking(tapAudioTime: audioTime)
 
         // Provisional status update — final status is emitted after the gated
         // capture completes and capturedTaps grows.  (currentTapCount == capturedTaps.count

@@ -37,7 +37,6 @@ final class InputLevel: ObservableObject {
     ///
     /// Because the continuous FFT window is ~1.4 s, the engine's `peakMagnitude` lags the actual tap
     /// transient by up to that amount. `recentPeakLevelDB` captures the true tap peak before the FFT
-    /// result arrives, and is used by ``TapToneAnalyzer`` as the `tapPeakLevel` reference for decay
-    /// tracking.
+    /// result arrives.
     @Published var recentPeakLevelDB: Float = -100
 }

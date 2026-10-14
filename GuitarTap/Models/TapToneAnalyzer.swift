@@ -374,9 +374,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// contains the peak.  Legacy mode names are normalised before comparison.
     @Published var identifiedModes: [(peak: ResonantPeak, mode: GuitarMode)] = []
 
-    /// Ring-out decay time from the most recent tap, in seconds.
+    /// Ring-out time of the most recent guitar tap, in seconds — measured from its FFT window
+    /// (``ringOutTime(_:from:to:sampleRate:threshold:)``).
     ///
-    /// `nil` when no tap has been completed or decay tracking is disabled.
+    /// `nil` before a tap is captured, or when its level did not fall by `decayThreshold` dB within the
+    /// window's audio.
     @Published var currentDecayTime: Float?
 
     /// All measurements saved during this session, ordered by save time.
@@ -1457,19 +1459,6 @@ final class TapToneAnalyzer: ObservableObject {
         cancellables.removeAll()
     }
 
-    /// History of (audioTime, inputLevelDB) samples used by the decay tracker.
-    ///
-    /// `time` is the **audio clock** (seconds since engine start), carried with each sample
-    /// from the audio thread — NOT wall-clock. The ring-out is therefore measured in audio
-    /// time and is invariant to main-thread scheduling jitter under load; stamping with
-    /// `Date()` at the consumer would make the decay number drift on a busy machine. The
-    /// timestamp travels with the sample.
-    var peakMagnitudeHistory: [(time: Double, magnitude: Float)] = []
-
-    /// Audio-clock time (seconds since engine start) of the tap that started the current
-    /// decay-tracking window — the time-zero reference for ``measureDecayTime(tapTime:)``.
-    var decayTapAudioTime: Double?
-
     /// The audio clock as the analyzer has seen it: the audio time of the latest chunk delivered to
     /// ``onRmsLevelChanged(_:audioTime:)``, recorded on every chunk before any guard.
     ///
@@ -1493,11 +1482,6 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Tap-lifecycle actions waiting on the audio clock — see ``afterAudio(_:releasedAtFileEnd:_:)``.
     var pendingAudioActions: [(due: Double, releasedAtFileEnd: Bool, action: () -> Void)] = []
-
-    /// Input level (dBFS) at the moment the most recent tap was detected.
-    ///
-    /// Used as the reference magnitude for ring-out time computation.
-    var tapPeakLevel: Float = -100
 
     /// The rest after a capture before detection re-arms, and the hold before the FLC phase arms, in
     /// seconds of AUDIO (see ``afterAudio(_:releasedAtFileEnd:_:)``).
@@ -1548,12 +1532,6 @@ final class TapToneAnalyzer: ObservableObject {
     /// apply the same confirmation logic or a bump that's rejected by the
     /// audio queue can still fire here and start a bogus gated capture.
     var detectTapConsecutiveAbove: Int = 0
-
-    /// How long after a tap the ring-out is tracked, in seconds of AUDIO.
-    let decayTrackingDuration: Double = 3.0
-
-    /// `true` while decay tracking is actively recording the post-tap signal envelope.
-    var isTrackingDecay: Bool = false
 
     /// `true` for the single FFT frame immediately after the warm-up period ends.
     ///
@@ -1619,11 +1597,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// The wiring is:
     /// 1. **FFT magnitudes + peakMagnitude** — drives ``analyzeMagnitudes(_:frequencies:peakMagnitude:)``
     ///    for peak *analysis* (~0.7 Hz). This is the only place a genuine FFT peak-bin magnitude is used.
-    /// 2. **rmsLevelHandler (fast, audio thread → main, ~43 Hz)** — the per-buffer RMS level *and its
-    ///    audio-clock timestamp*, hopped to the main queue. It drives BOTH `detectTap(...)` (the per-chunk
+    /// 2. **rmsLevelHandler (fast, audio thread → main, ~43 Hz)** — the per-chunk RMS level *and its
+    ///    audio-clock timestamp*, hopped to the main queue. It drives `detectTap(...)` (the per-chunk
     ///    rising-edge detector — guitar vs the ABSOLUTE threshold, plate/brace vs the noise-floor-RELATIVE
-    ///    threshold) and ``trackDecayFast(inputLevel:audioTime:)`` (ring-out tracking). Carrying the audio
-    ///    time with the sample keeps both invariant to main-queue scheduling under load. The long-window
+    ///    threshold). Carrying the audio time with the sample keeps it invariant to main-queue
+    ///    scheduling under load. The long-window
     ///    FFT is unreliable for short transient taps, so no mode detects from the FFT-rate path any more.
     /// 3. **routeChangeRestartCount** — triggers ``handleRouteChangeRestart()`` when the audio
     ///    engine restarts after a device/route change.

@@ -10,7 +10,8 @@
 //  the tap's onset, which takes that out of its start — but the capture is exactly as long as the
 //  window, so it runs out before the window's end, by an amount that depends on the boundary. The
 //  window's audio therefore ends at a fixed length, short of the window's end by the most that
-//  amount can be, and zeros follow: the same tap, the same window.
+//  amount can be, and zeros follow: the same tap, the same window — and, measured from that window,
+//  the same ring-out.
 //
 //  Mirrors: tests/test_guitar_capture_window.py · test/guitar-capture-window.test.ts
 //
@@ -66,8 +67,8 @@ struct GuitarCaptureWindowTests {
 
     /// Plays the recording with its first `dropped` samples removed — the same tap, its chunk
     /// boundaries `dropped` samples elsewhere — and returns the fingerprint of the window the
-    /// capture handed to the transform.
-    private func windowFingerprint(dropping dropped: Int) async throws -> String? {
+    /// capture handed to the transform, and the ring-out measured.
+    private func capture(dropping dropped: Int) async throws -> (window: String?, ringOut: Float?) {
         let url = try Self.writeWAV(Array(Self.recording().dropFirst(dropped)), name: "guitar-window-\(dropped).wav")
         defer { try? FileManager.default.removeItem(at: url) }
 
@@ -80,7 +81,7 @@ struct GuitarCaptureWindowTests {
         try await sut.playFileAndWait(url: url, measurementType: .generic, numberOfTaps: 1)
 
         let mine = String(UInt(bitPattern: ObjectIdentifier(sut).hashValue) % 10000)
-        return CaptureProbe.records.first { $0.instance == mine }?.windowHash
+        return (CaptureProbe.records.first { $0.instance == mine }?.windowHash, sut.currentDecayTime)
     }
 
     // GW1: the same tap, with its chunk boundaries at four different places, reaches the transform
@@ -88,12 +89,25 @@ struct GuitarCaptureWindowTests {
     @Test func sameTap_sameWindow_whereverTheChunkBoundariesFall() async throws {
         var seen: [Int: String] = [:]
         for dropped in [0, 300, 700, 1000] {
-            let fingerprint = try await windowFingerprint(dropping: dropped)
+            let fingerprint = try await capture(dropping: dropped).window
             #expect(fingerprint != nil, "no capture with the recording's first \(dropped) samples dropped")
             seen[dropped] = fingerprint
         }
         #expect(Set(seen.values).count == 1,
                 "REGRESSION: the window differs with the chunk boundary — \(seen.sorted { $0.key < $1.key })")
+    }
+
+    // GW3: the same tap, with its chunk boundaries at four different places, measures the same
+    // ring-out.
+    @Test func sameTap_sameRingOut_whereverTheChunkBoundariesFall() async throws {
+        var seen: [Int: Float] = [:]
+        for dropped in [0, 300, 700, 1000] {
+            let ringOut = try await capture(dropping: dropped).ringOut
+            #expect(ringOut != nil, "no ring-out with the recording's first \(dropped) samples dropped")
+            seen[dropped] = ringOut
+        }
+        #expect(Set(seen.values).count == 1,
+                "REGRESSION: the ring-out differs with the chunk boundary — \(seen.sorted { $0.key < $1.key })")
     }
 
     /// Noise whose level rises and falls, then a tap that grows from nothing: the noise measured at

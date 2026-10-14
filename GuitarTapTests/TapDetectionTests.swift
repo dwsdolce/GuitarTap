@@ -89,14 +89,6 @@ struct TapDetectionTests {
         #expect(sut.gatedCaptureActive, "a tap should start a capture after crossing the rising threshold")
     }
 
-    // T1b: the tap is stamped with the AUDIO time of the chunk that confirmed it.
-    @Test func t1b_theTapIsStampedWithTheConfirmingChunksAudioTime() {
-        let sut = armed(threshold: -40)
-        settled(sut)
-        chunks(sut, -35, confirm)
-        #expect(sut.decayTapAudioTime == sut.lastAudioTime, "the tap's time is the confirming chunk's audio time")
-    }
-
     // T1c–T1e: the detector uses the threshold the APPLICATION configured — `tapDetectionThreshold`, which
     // the slider writes — not a copy left behind in the engine's config, which would leave the slider dead
     // and detection at the -40 dB default.

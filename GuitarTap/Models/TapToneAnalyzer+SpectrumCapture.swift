@@ -731,6 +731,11 @@ extension TapToneAnalyzer {
 
         capturedTaps.append((magnitudes: magnitudes, frequencies: frequencies, captureTime: Date()))
         CaptureProbe.markAccepted(probeIndex, tapsAfter: capturedTaps.count)   // diagnostic
+
+        // The ring-out, from the window's audio: from the onset to where the audio ends.
+        currentDecayTime = Self.ringOutTime(chunk, from: Int(sampleRate * Self.preOnsetDuration),
+                                            to: min(audioSamples, chunk.count),
+                                            sampleRate: sampleRate, threshold: decayThreshold)
         let peakDb = magnitudes.max() ?? -100
         // DIAG: spectrum fingerprint — sum of first 100 magnitude bins
         let diagSpecHash: Float = magnitudes.count >= 100 ? magnitudes[0..<100].reduce(0, +) : 0

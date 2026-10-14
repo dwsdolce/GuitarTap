@@ -4,138 +4,82 @@
 //
 //  Created on 1/25/26.
 //
-// @parity dsp/decay tests=test/decay-tracking
+// @parity dsp/decay tests=test/decay-tracking,test/guitar-capture-window
 
 /// # TapToneAnalyzer+DecayTracking
 ///
-/// Measures the ring-out (decay) time of the guitar or plate after each tap
-/// by tracking the time-varying input level in the seconds following a tap
-/// detection event.
-///
-/// ## Architecture
-/// Because the continuous FFT operates on a long window (≈ 400 ms) it delivers
-/// only about 1 update per second — far too coarse for accurate decay timing.
-/// Instead, decay tracking uses the per-buffer 20·log10(rms) level delivered once per audio
-/// buffer (about 43 Hz at 44.1 kHz) through `RealtimeFFTAnalyzer.rmsLevelHandler` — the SAME
-/// audio-thread callback that drives tap detection, which carries each buffer's audio-clock
-/// timestamp across the hop to the main queue. `TapToneAnalyzer` forwards each `(level, audioTime)`
-/// pair to ``trackDecayFast(inputLevel:audioTime:)``, so the ring-out is timed in audio seconds
-/// and does not drift when the main queue is starved under load.
+/// Measures the ring-out (decay) time of a guitar tap from the samples of its FFT window.
 ///
 /// ## Ring-Out Definition
-/// Ring-out time is measured as the elapsed time from the post-tap peak level
-/// to when the signal first falls below `peak − decayThreshold` (in dB).
-/// A lower `decayThreshold` (e.g. 20 dB) measures the early decay rate; a
-/// higher value (e.g. 40 dB) captures the full sustain.
+/// The level is the mean square over a window of ``ringOutWindowSamples`` samples, taken at every
+/// sample from the tap's onset. Ring-out time is the time from the window where that level is
+/// highest to the first window after it whose level is `decayThreshold` dB lower, interpolated
+/// between samples.
 ///
-/// ## Tracking Window
-/// Tracking stops at the first chunk `decayTrackingDuration` (3 s) of audio after the tap, without
-/// recording it. If the signal has not decayed by `decayThreshold` dB within that window,
-/// `currentDecayTime` remains `nil` for the current measurement.
+/// ## Why from the window
+/// The guitar window starts a fixed distance before the tap's onset, and its audio ends a fixed
+/// distance after it, whichever chunk the trigger fired on. Measured on those samples, the ring-out
+/// depends on the tap alone — not on where the audio's chunk boundaries fell, which differs from one
+/// run, and one edition, to the next. Measured once per chunk, it could only come out in whole
+/// chunks, and the same tap read a chunk apart.
+///
+/// The window's audio lasts about 1.16 s after the onset; a ring-out longer than that is not measured.
 
 import Foundation
 
 extension TapToneAnalyzer {
 
-    // MARK: - Decay Tracking
+    // MARK: - Ring-Out
 
-    /// Initialises decay tracking immediately after a tap is detected.
-    ///
-    /// Clears the magnitude history and seeds it with `tapPeakLevel` as the
-    /// time-zero reference. Tracking stops once a chunk arrives 3 s of AUDIO
-    /// after the tap (see ``trackDecayFast(inputLevel:audioTime:)``).
-    ///
-    /// - Parameter tapAudioTime: The audio-clock time (seconds since engine start) of the tap
-    ///   onset — the time-zero reference for the ring-out measurement, carried from the audio
-    ///   thread so the decay is measured in audio time (load-invariant).
-    /// - Note: Call this from the main thread.
-    func startDecayTracking(tapAudioTime: Double) {
-        // Clear previous decay history and seed with the tap peak level at the tap's AUDIO time.
-        peakMagnitudeHistory = [(time: tapAudioTime, magnitude: tapPeakLevel)]
-        decayTapAudioTime = tapAudioTime
-        currentDecayTime = nil
+    /// The number of samples the ring-out level is measured over.
+    static let ringOutWindowSamples = 1024
 
-        // Enable decay tracking
-        isTrackingDecay = true
-    }
-    
-    /// Ends the decay-tracking window.
-    ///
-    /// Sets `isTrackingDecay` to `false` so that ``trackDecayFast(inputLevel:audioTime:)`` stops
-    /// recording. `currentDecayTime` keeps whatever value the window established (or `nil`).
-    func stopDecayTracking() {
-        isTrackingDecay = false
-        // No further action needed: trackDecayFast's guard will no longer
-        // append samples, and currentDecayTime retains whatever value was
-        // established during the window (or nil if none was).
-    }
-    
-    /// Fast-path decay tracker called once per audio buffer (~43 Hz at 44.1 kHz) from
-    /// ``onChunkLevel(_:audioTime:)``, after tap detection.
-    ///
-    /// Appends the current `inputLevel` to `peakMagnitudeHistory`. Once the history holds more than
-    /// 10 entries it calls ``measureDecayTime(tapTime:)`` to update `currentDecayTime`.
-    ///
-    /// - Parameters:
-    ///   - inputLevel: The current instantaneous input level in dBFS, one value per audio
-    ///     buffer (the `levelDB` passed to `rmsLevelHandler`).
-    ///   - audioTime: THIS buffer's audio-clock timestamp (seconds since engine start),
-    ///     carried from the audio thread. Stamping with this instead of `Date()` makes the
-    ///     ring-out measurement invariant to when the main queue actually runs.
-    ///
-    /// - Note: Returns immediately (no-op) when `isTrackingDecay` is `false`.
-    func trackDecayFast(inputLevel: Float, audioTime: Double) {
-        // Only track decay history if we're actively tracking after a tap
-        guard isTrackingDecay else { return }
-
-        // Stop 3 s of AUDIO after the tap, without applying this chunk — on the audio clock, so the
-        // same chunks get in on every run however slowly it plays.
-        if let tapTime = decayTapAudioTime, audioTime - tapTime >= decayTrackingDuration {
-            stopDecayTracking()
-            return
-        }
-
-        peakMagnitudeHistory.append((time: audioTime, magnitude: inputLevel))
-
-        // Calculate decay time if we have a tap and enough history
-        let minimumDecayHistoryCount = 10
-        if let tapTime = decayTapAudioTime, peakMagnitudeHistory.count > minimumDecayHistoryCount {
-            currentDecayTime = measureDecayTime(tapTime: tapTime)
-        }
-    }
-    
-    /// Measures the ring-out time from the post-tap peak to the first crossing
-    /// of `peak − decayThreshold`.
+    /// The ring-out time of the audio in `samples[start..<end]`.
     ///
     /// The algorithm:
-    /// 1. Finds the maximum magnitude sample that occurred at or after `tapTime`.
-    /// 2. Defines `decayTarget = peakMag − decayThreshold`.
-    /// 3. Finds the first sample *after* the peak where the level drops below
-    ///    `decayTarget`.
-    /// 4. Returns the elapsed time in seconds between the peak sample and the
-    ///    crossing sample.
+    /// 1. The energy of every ``ringOutWindowSamples``-sample window starting from `start` and ending
+    ///    by `end`, from a running sum of the squares (in `Double`, from `start`, one sample at a time).
+    /// 2. The peak is the first window with the most energy.
+    /// 3. The target is the peak's energy `threshold` dB lower; the crossing is the first window after
+    ///    the peak with less energy than the target.
+    /// 4. The crossing is interpolated in dB between the window before it and the crossing window.
     ///
-    /// - Parameter tapTime: The audio-clock time (seconds since engine start) of the tap
-    ///   onset (set by ``startDecayTracking(tapAudioTime:)``).
-    /// - Returns: Elapsed ring-out time in seconds, or `nil` if the signal
-    ///   did not decay by `decayThreshold` dB within the recorded history.
-    func measureDecayTime(tapTime: Double) -> Float? {
-        // Find peak magnitude after tap
-        let postTapHistory = peakMagnitudeHistory.filter { $0.time >= tapTime }
+    /// - Parameters:
+    ///   - samples: The audio — a guitar tap's FFT window.
+    ///   - start: The first sample measured — the tap's onset in the window.
+    ///   - end: One past the last sample measured — where the window's audio ends.
+    ///   - sampleRate: The sample rate in Hz.
+    ///   - threshold: How far below the peak the level must fall, in dB (`decayThreshold`).
+    /// - Returns: Seconds from the peak to the crossing, or `nil` if there is too little audio, it is
+    ///   silent, or its level does not fall by `threshold` before `end`.
+    static func ringOutTime(_ samples: [Float], from start: Int, to end: Int,
+                            sampleRate: Double, threshold: Float) -> Float? {
+        let window = ringOutWindowSamples
+        let end = min(end, samples.count)
+        guard start >= 0, sampleRate > 0, end - start > window else { return nil }
 
-        guard let peakEntry = postTapHistory.max(by: { $0.magnitude < $1.magnitude }) else {
-            return nil
+        var sums = [Double](repeating: 0, count: end - start + 1)
+        var total = 0.0
+        for k in start..<end {
+            let x = Double(samples[k])
+            total += x * x
+            sums[k - start + 1] = total
         }
+        let windows = end - start - window + 1
+        func energy(_ i: Int) -> Double { sums[i + window] - sums[i] }
 
-        let peakMag = peakEntry.magnitude
-        let decayTarget = peakMag - decayThreshold
+        var peak = 0
+        for i in 1..<windows where energy(i) > energy(peak) { peak = i }
+        let peakEnergy = energy(peak)
+        guard peakEnergy > 0 else { return nil }
 
-        // Find when it crossed the threshold
-        if let decayEntry = postTapHistory.first(where: { $0.magnitude < decayTarget && $0.time > peakEntry.time }) {
-            let decayTime = Float(decayEntry.time - peakEntry.time)
-            return decayTime
-        }
+        let target = peakEnergy * pow(10, -Double(threshold) / 10)
+        guard let crossing = (peak + 1..<windows).first(where: { energy($0) < target }) else { return nil }
 
-        return nil
+        let before = energy(crossing - 1), after = energy(crossing)
+        let fraction = after > 0
+            ? (log10(before) - log10(target)) / (log10(before) - log10(after))
+            : 0
+        return Float((Double(crossing - 1 - peak) + fraction) / sampleRate)
     }
 }

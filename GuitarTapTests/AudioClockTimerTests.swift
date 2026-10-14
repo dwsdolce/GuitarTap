@@ -60,7 +60,7 @@ struct AudioClockTimerTests {
         sut.tapDetectionThreshold = -90   // accept the synthetic tap
         sut.startTapSequence()
         // A detected tap, as detection delivers it: detection stops and the gated capture opens...
-        sut.handleTapDetection(magnitudes: [], frequencies: [], time: Date(), audioTime: sut.lastAudioTime)
+        sut.handleTapDetection(magnitudes: [], frequencies: [], time: Date())
         // ...and the capture completes through the real path.
         sut.finishGatedFFTCapture(samples: tapSamples(60, count: 24_000), sampleRate: 48000,
                                   phase: .capturingLongitudinal)
@@ -189,7 +189,7 @@ struct AudioClockTimerTests {
         sut.tapDetectionThreshold = -90   // accept the synthetic tap
         sut.startTapSequence()
         let warmupAnchor = sut.warmupStartAudioTime
-        sut.handleTapDetection(magnitudes: [], frequencies: [], time: Date(), audioTime: sut.lastAudioTime)
+        sut.handleTapDetection(magnitudes: [], frequencies: [], time: Date())
         sut.finishGatedFFTCapture(samples: tapSamples(60, count: 24_000), sampleRate: 48000,
                                   phase: .capturingLongitudinal)
 
@@ -197,22 +197,5 @@ struct AudioClockTimerTests {
         #expect(sut.isDetecting == true, "listening at once")
         #expect(sut.isAboveThreshold == true, "latched above: the ring-out must fall first")
         #expect(sut.warmupStartAudioTime == warmupAnchor, "the warm-up is not restarted")
-    }
-
-    // T7: ring-out tracking stops once a chunk arrives `decayTrackingDuration` of audio after the tap,
-    // and that chunk is not applied.
-    @Test("ring-out tracking stops on the audio clock")
-    func ringOutTrackingStopsOnAudioClock() {
-        let sut = makeSUT(.generic, numberOfTaps: 1)
-        sut.startDecayTracking(tapAudioTime: 10)
-        let end = 10 + sut.decayTrackingDuration
-
-        sut.trackDecayFast(inputLevel: -40, audioTime: end - 0.01)
-        #expect(sut.isTrackingDecay == true, "still inside the window")
-        let samplesBefore = sut.peakMagnitudeHistory.count
-
-        sut.trackDecayFast(inputLevel: -40, audioTime: end)
-        #expect(sut.isTrackingDecay == false, "stopped by the audio clock alone")
-        #expect(sut.peakMagnitudeHistory.count == samplesBefore, "the stopping chunk is not applied")
     }
 }

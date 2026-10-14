@@ -166,8 +166,6 @@ extension TapToneAnalyzer {
         // that a restart-while-listening is relying on staying armed.
 
         currentDecayTime    = nil
-        peakMagnitudeHistory = []
-        resetDecayTracking()
 
         // ===== Audio-thread-visible state (must precede detectionState = .listening) =====
         isMeasurementComplete = false
@@ -597,10 +595,5 @@ extension TapToneAnalyzer {
         selectedCrossPeak               = nil
         selectedFlcPeak                 = nil
         materialCapturedTaps            = []
-    }
-
-    /// Stops any active decay tracking.
-    private func resetDecayTracking() {
-        isTrackingDecay = false
     }
 }
