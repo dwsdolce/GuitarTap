@@ -18,112 +18,12 @@ import Foundation
 @testable import GuitarTap
 
 // ---------------------------------------------------------------------------
-// MARK: - SpectrumSnapshot binary round-trip
+// MARK: - SpectrumSnapshot binary size (the bytes themselves: MeasurementCodec, snapshotBytes)
 // ---------------------------------------------------------------------------
 
 @Suite("SpectrumSnapshotCodable")
 @MainActor
 struct SpectrumSnapshotCodableTests {
-
-    /// New saves must use compact Base64 binary keys (`frequenciesData` / `magnitudesData`).
-    @Test func snapshot_encodesAsCompactBinary() throws {
-        let snap = SpectrumSnapshot(
-            frequencies: [100.0, 200.0, 300.0],
-            magnitudes: [-20.0, -30.0, -40.0],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false
-        )
-        let data = try JSONEncoder().encode(snap)
-        let json = try #require(String(data: data, encoding: .utf8))
-        // New format must contain the binary keys, not the verbose array keys
-        #expect(json.contains("\"frequenciesData\""), "Should encode using compact binary key")
-        #expect(json.contains("\"magnitudesData\""),  "Should encode using compact binary key")
-        #expect(!json.contains("\"frequencies\":["),  "Should not write legacy array key")
-    }
-
-    /// Round-trip through the new binary format preserves float values exactly.
-    @Test func snapshot_binaryRoundTrip_preservesValues() throws {
-        let original = SpectrumSnapshot(
-            frequencies: [43.066, 86.132, 129.199, 172.266],
-            magnitudes: [-80.5, -45.2, -30.1, -22.7],
-            minFreq: 20, maxFreq: 1000, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let data = try JSONEncoder().encode(original)
-        let decoded = try JSONDecoder().decode(SpectrumSnapshot.self, from: data)
-
-        #expect(decoded.frequencies.count == original.frequencies.count)
-        #expect(decoded.magnitudes.count  == original.magnitudes.count)
-        for (a, b) in zip(decoded.frequencies, original.frequencies) {
-            #expect(a == b, "Frequency values must survive binary round-trip exactly")
-        }
-        for (a, b) in zip(decoded.magnitudes, original.magnitudes) {
-            #expect(a == b, "Magnitude values must survive binary round-trip exactly")
-        }
-        #expect(decoded.guitarType      == original.guitarType)
-        #expect(decoded.measurementType == original.measurementType)
-    }
-
-    /// Old files that contain `"frequencies"` / `"magnitudes"` JSON arrays still decode.
-    @Test func snapshot_legacyArrayFormat_decodesCorrectly() throws {
-        let legacyJSON = """
-        {
-          "frequencies": [100.0, 200.0, 300.0],
-          "magnitudes": [-20.0, -30.0, -40.0],
-          "minFreq": 50.0, "maxFreq": 500.0,
-          "minDB": -100.0, "maxDB": 0.0,
-          "isLogarithmic": false
-        }
-        """
-        let data = try #require(legacyJSON.data(using: .utf8))
-        let decoded = try JSONDecoder().decode(SpectrumSnapshot.self, from: data)
-        #expect(decoded.frequencies.count == 3)
-        #expect(abs(decoded.frequencies[1] - 200.0) < 0.001)
-        #expect(abs(decoded.magnitudes[2] - (-40.0)) < 0.001)
-    }
-
-    /// Old files that name the measurement with the pre-rename `"tapLocation"` key still decode
-    /// into `measurementName`.
-    ///
-    /// This was covered only by accident until 2026-07-21: the Python copy of the
-    /// `contreras-classical` fixture still carried `tapLocation` while the Swift and web copies had
-    /// been updated to `measurementName`, so the three platforms' "same" parity test silently
-    /// exercised different branches. The fixture is now byte-identical everywhere and the fallback
-    /// is pinned deliberately, here and in the Python/web twins.
-    @Test func measurement_legacyTapLocationKey_decodesAsMeasurementName() throws {
-        let legacyJSON = """
-        {
-          "id": "6B29FC40-CA47-1067-B31D-00DD010662DA",
-          "timestamp": 1774731564,
-          "peaks": [],
-          "tapLocation": "Contreras Classical"
-        }
-        """
-        let data = try #require(legacyJSON.data(using: .utf8))
-        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
-
-        #expect(decoded.measurementName == "Contreras Classical",
-                "Legacy tapLocation must populate measurementName")
-    }
-
-    /// The writer is minimal-canonical: it never emits the legacy key, even for a file that
-    /// arrived carrying it. (Reader is tolerant, writer is strict.)
-    @Test func measurement_legacyTapLocationKey_isNeverWrittenBack() throws {
-        let legacyJSON = """
-        {
-          "id": "6B29FC40-CA47-1067-B31D-00DD010662DA",
-          "timestamp": 1774731564,
-          "peaks": [],
-          "tapLocation": "Contreras Classical"
-        }
-        """
-        let data = try #require(legacyJSON.data(using: .utf8))
-        let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
-        let reencoded = try JSONEncoder().encode(decoded)
-        let json = try #require(String(data: reencoded, encoding: .utf8))
-
-        #expect(!json.contains("tapLocation"), "Writer must not emit the legacy key")
-        #expect(json.contains("measurementName"), "Writer must emit the canonical key")
-    }
 
     /// Compact binary encoding is significantly smaller than pretty-printed legacy encoding.
     @Test func snapshot_binaryEncoding_isSmallerThanPrettyPrintedLegacy() throws {
@@ -286,23 +186,6 @@ struct TapToneMeasurementCodableTests {
         #expect(decoded.selectedLongitudinalPeakID == original.selectedLongitudinalPeakID)
     }
 
-    // Empty (nil) peakAnnotationOffsets encodes to an empty marker and decodes to nil.
-    // A nil sampleRate is omitted from JSON, and a file with no sampleRate key
-    // (saved before the field existed) decodes to nil — backward compatible.
-    @Test func missingSampleRate_decodesAsNil() throws {
-        let original = TapToneMeasurement(peaks: [])  // sampleRate defaults to nil
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .secondsSince1970
-        let data = try encoder.encode(original)
-        let json = try #require(String(data: data, encoding: .utf8))
-        #expect(!json.contains("sampleRate"), "nil sampleRate must be omitted via encodeIfPresent")
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .secondsSince1970
-        let decoded = try decoder.decode(TapToneMeasurement.self, from: data)
-        #expect(decoded.sampleRate == nil)
-    }
-
     @Test func emptyAnnotationOffsets_roundTrip() throws {
         let measurement = TapToneMeasurement(peaks: [])
         let data = try JSONEncoder().encode(measurement)
@@ -407,15 +290,6 @@ struct AnnotationVisibilityModeCodableTests {
         }
     }
 
-    // D6: nil annotationVisibilityMode is absent from JSON.
-    @Test func nilVisibilityMode_notWrittenToJSON() throws {
-        let m = TapToneMeasurement(peaks: [], annotationVisibilityMode: nil)
-        let data = try JSONEncoder().encode(m)
-        let json = try #require(String(data: data, encoding: .utf8))
-        #expect(!json.contains("annotationVisibilityMode"),
-                "nil annotationVisibilityMode should not appear in JSON")
-    }
-
     // CI5: All three visibility mode values can be stored on a measurement.
     @Test func visibilityMode_cycle_allValuesStorable() {
         for mode: AnnotationVisibilityMode in [.all, .selected, .none] {
@@ -451,81 +325,6 @@ struct ModeOverridesCodableTests {
         #expect(decoded.peakModeOverrides?[peak.id] == "Dipole")
     }
 
-    // Empty peakModeOverrides: nil overrides produce no key in JSON.
-    @Test func nilOverrides_notWrittenToJSON() throws {
-        let m = TapToneMeasurement(peaks: [])
-        let data = try JSONEncoder().encode(m)
-        let json = try #require(String(data: data, encoding: .utf8))
-        #expect(!json.contains("\"peakModeOverrides\""),
-                "nil peakModeOverrides should not appear in JSON")
-    }
-
-    // An `auto` entry in a FILE carries no label and means "no override", so it is dropped on read.
-    // The app cannot produce one — overrides are label-only in memory, and clearing removes the key —
-    // but a hand-edited or legacy file can, and both ports drop it the same way.
-    @Test func autoOverrideEntry_isDroppedOnRead() throws {
-        let peakID = UUID(uuidString: "5E2A8C7D-1111-2222-3333-444455556666")!
-        let json = """
-        [{"id":"00000000-0000-0000-0000-0000000000AA","timestamp":"2026-01-01T00:00:00Z","peaks":[],
-          "peakModeOverrides":["\(peakID.uuidString)",{"type":"auto"}]}]
-        """
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let decoded = try decoder.decode([TapToneMeasurement].self, from: Data(json.utf8))
-        #expect(decoded.first?.peakModeOverrides?[peakID] == nil,
-                "an auto entry means no override, so it must not become one")
-    }
-
-    // The WIRE shape is `{"type":"assigned","label":…}` per entry, even though the label alone is
-    // what lives in memory. Pins write parity with Python `to_dict()` and web `encode.ts`,
-    // both of which emit the same wrapper — a silent change here would produce files the ports read
-    // as having no overrides at all.
-    @Test func overrides_areWrittenAsAssignedEntries() throws {
-        let peak = ResonantPeak(frequency: 200, magnitude: -20)
-        let m = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: "Top"])
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        let json = String(decoding: try encoder.encode(m), as: UTF8.self)
-        #expect(json.contains("\"type\":\"assigned\""), "each entry keeps its type tag")
-        #expect(json.contains("\"label\":\"Top\""),      "each entry keeps its label")
-    }
-
-    // D9: legacy {uuidString: mode} object form (written by GuitarTap Python 1.0.x)
-    // decodes into peakModeOverrides.  The canonical encoding is a flat array, but
-    // older Python files used a JSON object keyed by the lowercase peak UUID; those
-    // files must remain loadable rather than throwing a typeMismatch.
-    @Test func legacyObjectFormOverrides_decode() throws {
-        let peakID = UUID()
-        let json = """
-        [{
-          "id": "\(UUID().uuidString)",
-          "timestamp": "2026-01-01T00:00:00Z",
-          "peaks": [],
-          "peakModeOverrides": { "\(peakID.uuidString.lowercased())": { "type": "assigned", "label": "Back" } }
-        }]
-        """
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let decoded = try decoder.decode([TapToneMeasurement].self, from: Data(json.utf8))
-        #expect(decoded.first?.peakModeOverrides?[peakID] == "Back")
-    }
-
-    // D10: a file produced by the GuitarTap Python build (canonical flat-array
-    // overrides + "peakMinThreshold" key, lowercase peak UUID) decodes correctly.
-    // This is the exact payload emitted by tap_tone_measurement.to_dict(); it
-    // pins cross-implementation read parity.
-    @Test func pythonWrittenFile_decodes() throws {
-        let json = """
-        [{"id":"00000000-0000-0000-0000-0000000000CC","timestamp":"2026-01-01T00:00:00Z","peaks":[],"peakModeOverrides":["5e2a8c7d-1111-2222-3333-444455556666",{"type":"assigned","label":"Top"}],"peakMinThreshold":-60.0}]
-        """
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let decoded = try decoder.decode([TapToneMeasurement].self, from: Data(json.utf8))
-        let m = try #require(decoded.first)
-        let pid = try #require(UUID(uuidString: "5e2a8c7d-1111-2222-3333-444455556666"))
-        #expect(m.peakModeOverrides?[pid] == "Top")
-        #expect(m.peakMinThreshold == -60.0)
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -629,88 +428,6 @@ struct SpectrumSnapshotOnMeasurementTests {
 @Suite("FixtureLoading")
 @MainActor
 struct FixtureLoadingTests {
-
-    /// Reads a `.guitartap` fixture from the test bundle, falling back to the source tree.
-    private func fixtureURL(_ name: String) -> URL? {
-        Bundle.allBundles.lazy.compactMap { $0.url(forResource: name, withExtension: "guitartap") }.first
-            ?? {
-                let url = URL(fileURLWithPath: #file).deletingLastPathComponent()
-                    .appendingPathComponent("\(name).guitartap")
-                return FileManager.default.fileExists(atPath: url.path) ? url : nil
-            }()
-    }
-
-    // Mode overrides, read from files the APPS actually wrote — one saved by Swift, one by Python.
-    //
-    // The other override tests use hand-built fixtures; these two are real files. The Python-written
-    // one matters most: reading it proves cross-edition parity against bytes Swift did not produce.
-    @Test(arguments: [
-        ("annotation-override-1790037028", "Fred"),          // written by Swift
-        ("annotation-override-python-1790037332", "Fred2"),  // written by Python
-    ])
-    func realOverrideFixture_decodesItsLabel(fixture: String, expectedLabel: String) throws {
-        guard let url = fixtureURL(fixture) else {
-            withKnownIssue("Fixture \(fixture).guitartap not found in bundle or source tree") { }
-            return
-        }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let measurements = try decoder.decode([TapToneMeasurement].self, from: try Data(contentsOf: url))
-        let overrides = try #require(measurements.first?.peakModeOverrides,
-                                     "the fixture must carry peakModeOverrides")
-        #expect(overrides.count == 1)
-        #expect(overrides.values.first == expectedLabel,
-                "the label must survive the wire shape, in memory, as the label alone")
-        // And the peak it names must still be in the measurement.
-        let peakID = try #require(overrides.keys.first)
-        #expect(measurements.first?.peaks.contains { $0.id == peakID } == true,
-                "the override must key a peak the file still contains")
-    }
-
-    // R4: The real test fixture (contreras-classical-1774731564.guitartap) must decode without error.
-    // The fixture is a JSON array of TapToneMeasurement objects stored with the .guitartap extension.
-    @Test func realFixture_decodesWithoutError() throws {
-        // On device the test bundle is the only reliable source; on Mac the
-        // fixture may also live next to the source tree.  Try bundle first so
-        // this test works on both simulator/device and local Mac runs.
-        let fixtureName = "contreras-classical-1774731564"
-        let bundleURL = Bundle.allBundles
-            .lazy
-            .compactMap { $0.url(forResource: fixtureName, withExtension: "guitartap") }
-            .first
-
-        // Fall back to the source-relative path used during local development
-        let sourceRelativeURL: URL? = {
-            let thisFile = URL(fileURLWithPath: #file)
-            let url = thisFile
-                .deletingLastPathComponent()
-                .appendingPathComponent("\(fixtureName).guitartap")
-            return FileManager.default.fileExists(atPath: url.path) ? url : nil
-        }()
-
-        guard let fixtureURL = bundleURL ?? sourceRelativeURL else {
-            // File not available (CI without fixture, or device without bundle resource)
-            withKnownIssue("Fixture file not found in bundle or source tree") { }
-            return
-        }
-
-        let jsonData = try Data(contentsOf: fixtureURL)
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        // Fixture is an array of measurements — must not throw
-        let measurements = try decoder.decode([TapToneMeasurement].self, from: jsonData)
-
-        // Sanity checks on the decoded content
-        #expect(!measurements.isEmpty, "Fixture should contain at least one measurement")
-        // All peaks across all measurements must have valid frequencies
-        for measurement in measurements {
-            for peak in measurement.peaks {
-                #expect(peak.frequency > 0 && peak.frequency < 20000,
-                        "Peak frequency \(peak.frequency) Hz should be in valid audio range")
-            }
-        }
-    }
 
     /// Resolves the bundled or source-tree Contreras fixture URL, or nil when absent.
     private static func contrerasFixtureURL() -> URL? {
@@ -888,5 +605,161 @@ struct MeasurementLogicTests {
         #expect(read.wasHealed == row["expectHealed"] as! Bool, "\(id): healed — \(row["note"] as! String)")
         let expected = Set((row["expectSelected"] as! [String]).map { byName[$0]!.id })
         #expect(Set(read.selectedPeakIDs ?? []) == expected, "\(id): selection — \(row["note"] as! String)")
+    }
+}
+
+// MARK: - The file format — the shared cases in `measurement-codable.json`
+//
+// The spectrum's bytes (SB), what a file reads to (DC), what the writer emits (WR), and the real
+// fixtures every edition carries: the same cases as Python and the web.
+// ---------------------------------------------------------------------------
+
+@Suite("MeasurementCodec", .serialized)
+@MainActor
+struct MeasurementCodecTests {
+
+    nonisolated static func ids(_ table: String) -> [String] { MeasurementLogicTests.ids(table) }
+
+    nonisolated static func fixtureNames() -> [String] {
+        (MeasurementLogicTests.data["fixtures"] as! [[String: Any]]).map { $0["file"] as! String }
+    }
+
+    static func decoder() -> JSONDecoder {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }
+
+    /// The app's writer, compact, keys sorted.
+    static func write(_ measurements: [TapToneMeasurement]) throws -> String {
+        let e = JSONEncoder()
+        e.dateEncodingStrategy = .iso8601
+        e.outputFormatting = [.sortedKeys]
+        return String(decoding: try e.encode(measurements), as: UTF8.self)
+    }
+
+    static func read(_ file: Any) throws -> [TapToneMeasurement] {
+        try decoder().decode([TapToneMeasurement].self, from: JSONSerialization.data(withJSONObject: file))
+    }
+
+    /// Whether `key` appears anywhere in a JSON document.
+    static func hasKey(_ key: String, in value: Any) -> Bool {
+        if let d = value as? [String: Any] {
+            return d[key] != nil || d.values.contains { hasKey(key, in: $0) }
+        }
+        if let a = value as? [Any] { return a.contains { hasKey(key, in: $0) } }
+        return false
+    }
+
+    /// `peaks[].k` — the key on every peak of every measurement; otherwise the key anywhere.
+    static func present(_ path: String, in doc: Any) -> Bool {
+        if path.hasPrefix("peaks[].") {
+            let k = String(path.dropFirst("peaks[].".count))
+            let peaks = (doc as! [[String: Any]]).flatMap { $0["peaks"] as? [[String: Any]] ?? [] }
+            return !peaks.isEmpty && peaks.allSatisfy { $0[k] != nil }
+        }
+        return hasKey(path, in: doc)
+    }
+
+    @Test(arguments: ids("snapshotBytes"))
+    func snapshotBytes(_ id: String) throws {
+        let row = MeasurementLogicTests.row("snapshotBytes", id)
+        let freqs = (row["frequencies"] as! [Double]).map(Float.init)
+        let mags = (row["magnitudes"] as! [Double]).map(Float.init)
+        let snap = SpectrumSnapshot(frequencies: freqs, magnitudes: mags,
+                                    minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false)
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(snap)) as! [String: Any]
+        #expect(json["frequenciesData"] as? String == row["frequenciesData"] as? String, "\(id) frequenciesData")
+        #expect(json["magnitudesData"] as? String == row["magnitudesData"] as? String, "\(id) magnitudesData")
+        #expect(json["frequencies"] == nil && json["magnitudes"] == nil, "\(id): no plain arrays")
+        let back = try JSONDecoder().decode(SpectrumSnapshot.self, from: JSONEncoder().encode(snap))
+        #expect(back.frequencies == freqs && back.magnitudes == mags, "\(id) read back")
+    }
+
+    @Test(arguments: ids("decode"))
+    func decode(_ id: String) throws {
+        let row = MeasurementLogicTests.row("decode", id)
+        let m = try #require(try Self.read(row["file"]!).first)
+        for (field, want) in row["expect"] as! [String: Any] {
+            switch field {
+            case "measurementName":
+                #expect(m.measurementName == want as? String, "\(id) \(field)")
+            case "peakMinThreshold":
+                #expect(m.peakMinThreshold.map(Double.init) == want as? Double, "\(id) \(field)")
+            case "sampleRate":
+                #expect(m.sampleRate == want as? Double, "\(id) \(field)")
+            case "frequencies":
+                #expect(m.spectrumSnapshot?.frequencies == (want as! [Double]).map(Float.init), "\(id) \(field)")
+            case "magnitudes":
+                #expect(m.spectrumSnapshot?.magnitudes == (want as! [Double]).map(Float.init), "\(id) \(field)")
+            case "overrides":
+                let got = Dictionary(uniqueKeysWithValues: (m.peakModeOverrides ?? [:]).map { ($0.key.uuidString.lowercased(), $0.value) })
+                let expected = Dictionary(uniqueKeysWithValues: (want as! [String: String]).map { ($0.key.lowercased(), $0.value) })
+                #expect(got == expected, "\(id) \(field)")
+            case "peakCount":
+                #expect(m.peaks.count == want as? Int, "\(id) \(field)")
+            case "pitchNote":
+                #expect(m.peaks.first?.pitchNote == want as? String, "\(id) \(field)")
+            case "annotationVisibilityMode":
+                #expect(m.annotationVisibilityMode?.rawValue == want as? String, "\(id) \(field)")
+            default:
+                Issue.record("\(id): unknown field \(field)")
+            }
+        }
+    }
+
+    @Test(arguments: ids("write"))
+    func write(_ id: String) throws {
+        let row = MeasurementLogicTests.row("write", id)
+        let text = try Self.write(try Self.read(row["file"]!))
+        let doc = try JSONSerialization.jsonObject(with: Data(text.utf8))
+        for key in row["present"] as? [String] ?? [] { #expect(Self.present(key, in: doc), "\(id): \(key) written") }
+        for key in row["absent"] as? [String] ?? [] { #expect(!Self.hasKey(key, in: doc), "\(id): \(key) not written") }
+        for (key, number) in row["text"] as? [String: String] ?? [:] {
+            let token = text.range(of: "\"\(key)\":").map { r in
+                String(text[r.upperBound...].prefix { !",}]".contains($0) })
+            }
+            #expect(token == number, "\(id): \(key) written as \(number)")
+        }
+        for s in row["contains"] as? [String] ?? [] { #expect(text.contains(s), "\(id): contains \(s)") }
+    }
+
+    @Test(arguments: fixtureNames())
+    func fixture(_ file: String) throws {
+        let row = (MeasurementLogicTests.data["fixtures"] as! [[String: Any]]).first { $0["file"] as! String == file }!
+        let name = (file as NSString).deletingPathExtension
+        let url = try #require(Bundle(for: MeasurementLogicAnchor.self).url(forResource: name, withExtension: "guitartap"))
+        let ms = try Self.decoder().decode([TapToneMeasurement].self, from: Data(contentsOf: url))
+        #expect(ms.count == row["measurements"] as? Int, "\(file) measurements")
+        let m = try #require(ms.first)
+        #expect(m.measurementName == row["measurementName"] as? String, "\(file) name")
+        #expect(m.peaks.count == row["peakCount"] as? Int, "\(file) peaks")
+        #expect(m.sampleRate == row["sampleRate"] as? Double, "\(file) sampleRate")
+        #expect(m.isComparison == row["isComparison"] as? Bool, "\(file) isComparison")
+        #expect((m.peakModeOverrides ?? [:]).values.sorted() == (row["overrideLabels"] as! [String]).sorted(), "\(file) overrides")
+        for peakID in (m.peakModeOverrides ?? [:]).keys {
+            #expect(m.peaks.contains { $0.id == peakID }, "\(file): the override names a peak the file contains")
+        }
+
+        let text = try Self.write(ms)
+        let doc = try JSONSerialization.jsonObject(with: Data(text.utf8))
+        for legacy in ["tapLocation", "peakThreshold", "hysteresisMargin", "maxPeaks"] {
+            #expect(!Self.hasKey(legacy, in: doc), "\(file): \(legacy) not written")
+        }
+        let original = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [[String: Any]]
+        for (written, read) in zip(doc as! [[String: Any]], original) {
+            guard let readSnap = read["spectrumSnapshot"] as? [String: Any], readSnap["frequenciesData"] != nil else { continue }
+            let writtenSnap = written["spectrumSnapshot"] as? [String: Any]
+            for key in ["frequenciesData", "magnitudesData"] {
+                #expect(writtenSnap?[key] as? String == readSnap[key] as? String, "\(file): \(key) written as read")
+            }
+        }
+        let again = try Self.decoder().decode([TapToneMeasurement].self, from: Data(text.utf8))
+        #expect(again.count == ms.count, "\(file) read back")
+        for (a, b) in zip(again, ms) {
+            #expect(a.peaks.map(\.frequency) == b.peaks.map(\.frequency), "\(file) peaks read back")
+            #expect(a.spectrumSnapshot?.frequencies == b.spectrumSnapshot?.frequencies, "\(file) spectrum read back")
+            #expect(a.spectrumSnapshot?.magnitudes == b.spectrumSnapshot?.magnitudes, "\(file) spectrum read back")
+        }
     }
 }
