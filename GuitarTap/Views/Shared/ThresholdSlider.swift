@@ -66,8 +66,14 @@ struct ThresholdSlider: View {
     // MARK: - Internal peak-hold state
 
     @State private var peakHoldDB: Float = -120
-    @State private var peakSetTime: Date = .distantPast
-    @State private var lastUpdateTime: Date = Date()
+    /// When the peak was set and when it was last updated. Held by reference so that updating them
+    /// does not redraw the slider — only a change of the dot (`peakHoldDB`) does.
+    @State private var peakTiming = PeakTiming()
+
+    private final class PeakTiming {
+        var setTime: Date = .distantPast
+        var lastUpdate: Date = Date()
+    }
 
     // MARK: - View
 
@@ -161,16 +167,12 @@ struct ThresholdSlider: View {
             )
         }
         .frame(height: totalHeight)
-        // Drive peak-hold decay on every level update.  Mirrors Python's
-        // ThresholdSlider.set_level_db where decay is incremental over wall
-        // clock so the rate is independent of update frequency.
-        .onChange(of: level) {
-            updatePeakHold(newLevel: level)
-        }
-        // Also tick a periodic timer so the peak dot continues to decay
-        // even when the level signal is steady (no onChange fires).
-        .onReceive(Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()) { _ in
-            updatePeakHold(newLevel: level)
+        // Drive the peak-hold decay from every level the engine publishes — one per audio buffer,
+        // whether or not the value changed — as Python's set_level_db and the web's meter do. The
+        // decay is incremental over the wall clock, so its rate does not depend on how often levels
+        // arrive.
+        .onReceive(inputLevel.$inputLevelDB) { newLevel in
+            updatePeakHold(newLevel: newLevel)
         }
     }
 
@@ -204,17 +206,19 @@ struct ThresholdSlider: View {
     /// then decays at `peakDecayDBPerSec` toward `newLevel`.
     private func updatePeakHold(newLevel: Float) {
         let now = Date()
-        if now.timeIntervalSince(peakSetTime) > peakHoldSeconds {
-            let dt = max(0, now.timeIntervalSince(lastUpdateTime))
-            peakHoldDB -= peakDecayDBPerSec * Float(dt)
+        var peak = peakHoldDB
+        if now.timeIntervalSince(peakTiming.setTime) > peakHoldSeconds {
+            let dt = max(0, now.timeIntervalSince(peakTiming.lastUpdate))
+            peak -= peakDecayDBPerSec * Float(dt)
         }
-        if newLevel > peakHoldDB {
-            peakHoldDB = newLevel
-            peakSetTime = now
+        if newLevel > peak {
+            peak = newLevel
+            peakTiming.setTime = now
         }
-        if peakHoldDB < newLevel {
-            peakHoldDB = newLevel
+        if peak < newLevel {
+            peak = newLevel
         }
-        lastUpdateTime = now
+        peakTiming.lastUpdate = now
+        if peak != peakHoldDB { peakHoldDB = peak }
     }
 }

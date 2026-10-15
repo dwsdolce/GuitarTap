@@ -599,7 +599,7 @@ extension RealtimeFFTAnalyzer {
     ///
     /// - Parameter label: When this is logged, e.g. "at start".
     func logEngineInputState(_ label: String) {
-        func value<T>(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector, _ initial: T) -> T? {
+        func value<T: BitwiseCopyable>(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector, _ initial: T) -> T? {
             var address = AudioObjectPropertyAddress(mSelector: selector,
                                                      mScope: kAudioObjectPropertyScopeGlobal,
                                                      mElement: kAudioObjectPropertyElementMain)
