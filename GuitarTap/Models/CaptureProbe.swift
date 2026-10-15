@@ -46,7 +46,7 @@ enum CaptureProbe {
     /// Whether the app itself records captures — a developer switch, `false` in every released
     /// build (a release build refuses to compile the app with it on). Set it to `true` for a
     /// diagnostic build; the probe then runs for each measurement made with Dump Capture Audio on.
-    static let liveProbe = false
+    nonisolated static let liveProbe = false
 
     /// A file of records: one edition's captures for one replayed case or one live measurement.
     struct Document: Codable {

@@ -374,6 +374,13 @@ enum Palette {
         label == "Averaged" ? seriesAverage : series(index)
     }
 
+    /// A colour as a comparison entry stores it: its light value as `[r, g, b, a]`, each 0–1.
+    static func storedComponents(_ color: Color) -> [Double] {
+        let cgColor = color.resolve(in: lightEnvironment).cgColor
+        guard let c = cgColor.components, c.count >= 3 else { return [0, 0, 0, 1] }
+        return [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
+    }
+
     /// The light scheme's environment: a colour that is stored (a saved comparison's) is its light value.
     static var lightEnvironment: EnvironmentValues {
         var environment = EnvironmentValues()

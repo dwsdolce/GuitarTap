@@ -563,6 +563,25 @@ struct PeakMinDurabilityTests {
         #expect(sut.allPeaks.map(\.id) == saved.map(\.id), "the loaded peaks are the saved ones, by identity")
     }
 
+    /// PR46: a load classifies the saved peaks under the measurement's own guitar type, not the app's.
+    /// 88 Hz is Air for Generic (70–135 Hz) but outside Acoustic's Air band (90–120 Hz).
+    @Test func PR46_loadMeasurement_classifiesUnderTheMeasurementsOwnType() {
+        let savedType = TapDisplaySettings.measurementType
+        let savedGuitar = TapDisplaySettings.guitarType
+        TapDisplaySettings.measurementType = .acoustic
+        TapDisplaySettings.guitarType = .acoustic
+        defer { TapDisplaySettings.measurementType = savedType; TapDisplaySettings.guitarType = savedGuitar }
+
+        let sut = makeSUT()
+        let air = makePeak(frequency: 88, magnitude: -25)
+        let snap = SpectrumSnapshot(frequencies: [100, 200, 300, 400], magnitudes: [-40, -20, -50, -60],
+                                    minFreq: 80, maxFreq: 1200, minDB: -90, maxDB: 0, isLogarithmic: false,
+                                    guitarType: .generic, measurementType: .generic)
+        sut.loadMeasurement(TapToneMeasurement(peaks: [air], spectrum: snap))
+
+        #expect(sut.peakMode(for: air) == .air, "classified under the measurement's Generic bands")
+    }
+
     /// PR41: Re-analyze drops a loaded measurement's peaks and re-detects the frozen spectrum. The saved
     /// 777 Hz peak is absent from the spectrum, so it can only survive if the loaded peaks were kept.
     @Test func PR41_reanalyze_dropsTheLoadedPeaksAndReDetects() {

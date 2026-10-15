@@ -328,198 +328,6 @@ struct TapToneMeasurementCodableTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - tapToneRatio uses classifyAll
-// ---------------------------------------------------------------------------
-
-@Suite("TapToneRatio")
-@MainActor
-struct TapToneRatioTests {
-
-    // A peak in the classical Top/Back overlap zone (190–230 Hz) should be
-    // found as the Top peak for ratio calculation purposes, not missed because
-    // a naive per-frequency classify might label it differently when context
-    // is taken into account.
-    @Test func tapToneRatio_overlapZonePeaks_computesCorrectRatio() {
-        // Air at 95 Hz, Top at 210 Hz (inside classical overlap zone)
-        let airPeak = ResonantPeak(frequency: 95,  magnitude: -28)
-        let topPeak = ResonantPeak(frequency: 210, magnitude: -20)
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let measurement = TapToneMeasurement(peaks: [airPeak, topPeak], spectrum: snapshot)
-        let ratio = measurement.tapToneRatio
-        #expect(ratio != nil, "tapToneRatio should find air and top peaks")
-        // 210 / 95 ≈ 2.21 — verify to within 1%
-        let expected: Float = 210.0 / 95.0
-        #expect(abs((ratio ?? 0) - expected) < 0.01)
-    }
-
-    // A measurement with no peaks at all should return nil for the ratio.
-    @Test func tapToneRatio_noPeaks_returnsNil() {
-        let measurement = TapToneMeasurement(peaks: [])
-        #expect(measurement.tapToneRatio == nil, "No peaks → ratio must be nil")
-    }
-
-    // A measurement with a Top peak but no Air peak should return nil.
-    @Test func tapToneRatio_noAirPeak_returnsNil() {
-        // 250 Hz classifies as Back for classical, not Air — so no Air peak is present.
-        let backPeak = ResonantPeak(frequency: 250, magnitude: -20)
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let measurement = TapToneMeasurement(peaks: [backPeak], spectrum: snapshot)
-        #expect(measurement.tapToneRatio == nil, "No Air peak → ratio must be nil")
-    }
-
-    // When selectedPeakIDs is set, only those peaks contribute to the ratio.
-    @Test func tapToneRatio_usesSelectedPeaksWhenSet() {
-        let airPeak  = ResonantPeak(frequency: 95,  magnitude: -28)
-        let topPeak  = ResonantPeak(frequency: 200, magnitude: -20)
-        let noisePeak = ResonantPeak(frequency: 500, magnitude: -50)
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        // Select only air and top; noise peak is excluded.
-        let measurement = TapToneMeasurement(
-            peaks: [airPeak, topPeak, noisePeak],
-            spectrum: snapshot,
-            selectedPeakIDs: [airPeak.id, topPeak.id]
-        )
-        let ratio = measurement.tapToneRatio
-        #expect(ratio != nil, "Selected air + top peaks → ratio must be computable")
-        let expected: Float = 200.0 / 95.0
-        #expect(abs((ratio ?? 0) - expected) < 0.01,
-                "Ratio should use selected air (95 Hz) and top (200 Hz) only")
-    }
-
-    // Renaming the Top peak to a freeform label removes it as the definitive Top, so the ratio
-    // disappears - the on-screen and saved values agree that there is no Top.
-    @Test func tapToneRatio_freeformOverrideOnTop_returnsNil() {
-        let air = ResonantPeak(frequency: 95,  magnitude: -28)
-        let top = ResonantPeak(frequency: 210, magnitude: -20)
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let m = TapToneMeasurement(
-            peaks: [air, top], spectrum: snapshot,
-            selectedPeakIDs: [air.id, top.id],
-            peakModeOverrides: [top.id: "Wolf note"]
-        )
-        #expect(m.tapToneRatio == nil,
-                "a Top peak renamed to a freeform label is no longer the definitive Top")
-    }
-
-    // An override that RE-TARGETS a peak to Top makes it the definitive Top.
-    @Test func tapToneRatio_overrideRetargetsTop() {
-        let air   = ResonantPeak(frequency: 95,  magnitude: -28)
-        let far   = ResonantPeak(frequency: 400, magnitude: -20) // classical: not Top by position
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let m = TapToneMeasurement(
-            peaks: [air, far], spectrum: snapshot,
-            selectedPeakIDs: [air.id, far.id],
-            peakModeOverrides: [far.id: GuitarMode.top.displayName]
-        )
-        let ratio = m.tapToneRatio
-        #expect(ratio != nil, "the relabelled peak is now the definitive Top")
-        #expect(abs((ratio ?? 0) - 400.0 / 95.0) < 0.01)
-    }
-
-    // A Top peak that is DESELECTED is not the definitive Top, so no ratio.
-    @Test func tapToneRatio_deselectedTop_returnsNil() {
-        let air = ResonantPeak(frequency: 95,  magnitude: -28)
-        let top = ResonantPeak(frequency: 210, magnitude: -20)
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let m = TapToneMeasurement(
-            peaks: [air, top], spectrum: snapshot,
-            selectedPeakIDs: [air.id]   // Top present but not selected
-        )
-        #expect(m.tapToneRatio == nil, "a deselected Top is a candidate, not the definitive Top")
-    }
-
-    // When two peaks are in the overlap zone, only one should be claimed as Top.
-    // The ratio must use the stronger one (Top), not both.
-    @Test func tapToneRatio_twoOverlapPeaks_usesSingleTopPeak() {
-        let airPeak     = ResonantPeak(frequency: 95,  magnitude: -28)
-        let strongerTop = ResonantPeak(frequency: 205, magnitude: -18) // → Top
-        let weakerBack  = ResonantPeak(frequency: 220, magnitude: -25) // → Back
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let measurement = TapToneMeasurement(peaks: [airPeak, strongerTop, weakerBack], spectrum: snapshot)
-        let ratio = measurement.tapToneRatio
-        #expect(ratio != nil)
-        // Ratio must use strongerTop (205 Hz), not weakerBack (220 Hz)
-        let expected: Float = 205.0 / 95.0
-        #expect(abs((ratio ?? 0) - expected) < 0.01,
-                "Ratio should use the stronger Top peak (205 Hz), not Back (220 Hz)")
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - JSON export modeLabel uses classifyAll
-// ---------------------------------------------------------------------------
-
-@Suite("MeasurementExportModeLabel")
-@MainActor
-struct MeasurementExportModeLabelTests {
-
-    // Two peaks in the classical Top/Back overlap zone should produce different
-    // modeLabel values in the exported JSON — "Top" for the stronger and "Back"
-    // for the weaker.
-    @Test func exportedJSON_overlapZonePeaks_haveDistinctModeLabels() throws {
-        let strongerPeak = ResonantPeak(frequency: 210, magnitude: -18)
-        let weakerPeak   = ResonantPeak(frequency: 220, magnitude: -26)
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let measurement = TapToneMeasurement(peaks: [strongerPeak, weakerPeak], spectrum: snapshot)
-        let data = try JSONEncoder().encode(measurement)
-        let json = try #require(String(data: data, encoding: .utf8))
-        // Both mode labels must appear somewhere in the JSON
-        #expect(json.contains("\"Top\""),  "Stronger peak should be labeled Top in JSON export")
-        #expect(json.contains("\"Back\""), "Weaker peak should be labeled Back in JSON export")
-    }
-
-    // A user override must still take priority over classifyAll in the export.
-    @Test func exportedJSON_userOverrideTakesPriority() throws {
-        let peak = ResonantPeak(frequency: 210, magnitude: -20)
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let measurement = TapToneMeasurement(
-            peaks: [peak],
-            spectrum: snapshot,
-            peakModeOverrides: [peak.id: "Custom Label"]
-        )
-        let data = try JSONEncoder().encode(measurement)
-        let json = try #require(String(data: data, encoding: .utf8))
-        #expect(json.contains("\"Custom Label\""), "User override should appear in JSON export")
-    }
-}
-
-// ---------------------------------------------------------------------------
 // MARK: - Annotation offsets on TapToneMeasurement (D1)
 //
 // Mirrors Python TestAnnotationOffsets - D1 multi-peak case.
@@ -550,7 +358,7 @@ struct AnnotationOffsetsCodableTests {
 }
 
 // ---------------------------------------------------------------------------
-// MARK: - Peak selection on TapToneMeasurement (D3, D3b)
+// MARK: - Peak selection on TapToneMeasurement (D3)
 //
 // Mirrors Python TestPeakSelection.
 // ---------------------------------------------------------------------------
@@ -567,40 +375,6 @@ struct PeakSelectionOnMeasurementTests {
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
         #expect(decoded.selectedPeakIDs == [p1.id], "selectedPeakIDs should survive round-trip")
-    }
-
-    // D3b: tapToneRatio uses only selectedPeakIDs when set.
-    @Test func tapToneRatio_usesOnlySelectedPeaks() {
-        let airPeak   = ResonantPeak(frequency: 95,  magnitude: -25)
-        let topPeak   = ResonantPeak(frequency: 195, magnitude: -28)
-        let noisePeak = ResonantPeak(frequency: 500, magnitude: -50)
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 600, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let m = TapToneMeasurement(
-            peaks: [airPeak, topPeak, noisePeak],
-            spectrum: snapshot,
-            selectedPeakIDs: [airPeak.id, topPeak.id]
-        )
-        let ratio = m.tapToneRatio
-        #expect(ratio != nil, "ratio should be computable with air + top selected")
-        let expected: Float = 195.0 / 95.0
-        #expect(abs((ratio ?? 0) - expected) < 0.1)
-    }
-
-    // nil selectedPeakIDs means all peaks contribute.
-    @Test func selectedPeakIDs_nil_usesAllPeaks() {
-        let airPeak = ResonantPeak(frequency: 95,  magnitude: -25)
-        let topPeak = ResonantPeak(frequency: 195, magnitude: -28)
-        let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 400, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-        let m = TapToneMeasurement(peaks: [airPeak, topPeak], spectrum: snapshot, selectedPeakIDs: nil)
-        #expect(m.tapToneRatio != nil, "nil selectedPeakIDs should use all peaks")
     }
 }
 
@@ -816,8 +590,8 @@ struct PeakSelectionTrackingCodableTests {
         let original = TapToneMeasurement(peaks: [], selectedPeakIDs: [])
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
-        // An empty list may decode as nil (matching Python behaviour)
-        #expect(decoded.selectedPeakIDs == nil || decoded.selectedPeakIDs?.isEmpty == true)
+        // PS6: an empty selection is Select None — it reads back empty, not as "no selection saved".
+        #expect(decoded.selectedPeakIDs == [])
     }
 }
 
@@ -1005,81 +779,114 @@ struct FixtureLoadingTests {
     }
 }
 
-// ---------------------------------------------------------------------------
-// MARK: - Selection heal on decode
+// MARK: - The measurement's logic — the shared cases in `measurement-codable.json`
 //
-// A legacy file may break the definitive-selection rule: it may have no selection saved at all, or a
-// selection with several Air/Top/Back peaks. The decoder repairs both so the loaded state, the
-// saved-list ratio and the file agree, setting the same `wasHealed` flag as the duplicate-peak heal
-// (so the library re-saves identically). Guitar only.
+// The tap-tone ratio (TR), the mode label each peak is written with (ML), and the selection heal on
+// decode (SH): the same cases as Python and the web.
 // ---------------------------------------------------------------------------
 
-@Suite("SelectionHealOnDecode")
-@MainActor
-struct SelectionHealOnDecodeTests {
+private final class MeasurementLogicAnchor {}
 
-    private func classicalSnapshot() -> SpectrumSnapshot {
-        SpectrumSnapshot(
+@Suite("MeasurementLogic", .serialized)
+@MainActor
+struct MeasurementLogicTests {
+
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
+        let url = Bundle(for: MeasurementLogicAnchor.self).url(forResource: "measurement-codable", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
+
+    nonisolated static func ids(_ table: String) -> [String] {
+        (data[table] as! [[String: Any]]).map { $0["id"] as! String }
+    }
+
+    static func row(_ table: String, _ id: String) -> [String: Any] {
+        (data[table] as! [[String: Any]]).first { $0["id"] as! String == id }!
+    }
+
+    /// A case's measurement, and its peaks by the case's peak ids.
+    static func measurement(_ row: [String: Any]) -> (TapToneMeasurement, [String: ResonantPeak]) {
+        var byName: [String: ResonantPeak] = [:]
+        let peaks = (row["peaks"] as! [[String: Any]]).map { p -> ResonantPeak in
+            let peak = ResonantPeak(frequency: Float(p["frequency"] as! Double), magnitude: Float(p["magnitude"] as! Double))
+            byName[p["id"] as! String] = peak
+            return peak
+        }
+        let selected = (row["selected"] as? [String])?.map { byName[$0]!.id }
+        var overrides: [UUID: String] = [:]
+        for (name, label) in row["overrides"] as? [String: String] ?? [:] { overrides[byName[name]!.id] = label }
+        let snapshot = SpectrumSnapshot(
             frequencies: [], magnitudes: [],
             minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
             guitarType: .classical, measurementType: .classical
         )
-    }
-
-    private func roundTrip(_ m: TapToneMeasurement) throws -> TapToneMeasurement {
-        let data = try TapToneAnalyzer.encodeMeasurements([m])
-        return try TapToneAnalyzer.decodeMeasurements(data)[0]
-    }
-
-    // A guitar file with NO saved selection is healed to the definitive set (strongest per mode),
-    // and flagged so the library re-saves.
-    @Test func nilSelection_isHealedToDefinitiveSet() throws {
-        let air = ResonantPeak(frequency: 95,  magnitude: -28)
-        let top = ResonantPeak(frequency: 210, magnitude: -20)
-        let m = TapToneMeasurement(peaks: [air, top], spectrum: classicalSnapshot())  // nil selection
-
-        let decoded = try roundTrip(m)
-
-        #expect(decoded.wasHealed, "a healed selection must set wasHealed so the library re-saves")
-        #expect(decoded.selectedPeakIDs != nil, "nil selection is populated on read")
-        #expect(Set(decoded.selectedPeakIDs ?? []) == [air.id, top.id],
-                "the definitive Air and Top are selected")
-        #expect(decoded.tapToneRatio != nil, "and the ratio is now available")
-    }
-
-    // A guitar file whose selection holds TWO Tops is pruned to the stronger one; the invariant is
-    // restored and the untouched Air survives.
-    @Test func twoSelectedTops_prunedToTheStronger() throws {
-        let air     = ResonantPeak(frequency: 95,  magnitude: -28)
-        // Classical Top is 170–230, Back 190–280; 175 and 185 are both Top-only (below Back).
-        let weakTop = ResonantPeak(frequency: 175, magnitude: -30)
-        let loudTop = ResonantPeak(frequency: 185, magnitude: -18)   // stronger Top
+        let material = row["material"] as? Bool ?? false
         let m = TapToneMeasurement(
-            peaks: [air, weakTop, loudTop], spectrum: classicalSnapshot(),
-            selectedPeakIDs: [air.id, weakTop.id, loudTop.id]
+            peaks: peaks,
+            spectrum: material ? nil : snapshot,
+            longitudinalSnapshot: material ? snapshot : nil,
+            selectedPeakIDs: selected,
+            peakModeOverrides: overrides.isEmpty ? nil : overrides
         )
-
-        let decoded = try roundTrip(m)
-
-        #expect(decoded.wasHealed, "pruning a duplicate holder counts as a heal")
-        let sel = Set(decoded.selectedPeakIDs ?? [])
-        #expect(sel.contains(loudTop.id), "the stronger Top survives")
-        #expect(!sel.contains(weakTop.id), "the weaker Top is dropped from the selection")
-        #expect(sel.contains(air.id), "the Air selection is untouched")
+        return (m, byName)
     }
 
-    // A guitar file that already satisfies the invariant is NOT reflagged as healed.
-    @Test func validSelection_isNotHealed() throws {
-        let air = ResonantPeak(frequency: 95,  magnitude: -28)
-        let top = ResonantPeak(frequency: 210, magnitude: -20)
-        let m = TapToneMeasurement(
-            peaks: [air, top], spectrum: classicalSnapshot(),
-            selectedPeakIDs: [air.id, top.id]
-        )
+    @Test(arguments: ids("tapToneRatio"))
+    func tapToneRatio(_ id: String) {
+        let row = Self.row("tapToneRatio", id)
+        let (m, byName) = Self.measurement(row)
+        let tolerance = Self.data["ratioTolerance"] as! Double
+        let expected = row["expect"] as? Double
 
-        let decoded = try roundTrip(m)
+        func matches(_ ratio: Float?) -> Bool {
+            guard let expected else { return ratio == nil }
+            return ratio.map { abs(Double($0) - expected) <= tolerance } ?? false
+        }
+        #expect(matches(m.tapToneRatio), "\(id): saved ratio \(String(describing: m.tapToneRatio)) — \(row["note"] as! String)")
 
-        #expect(!decoded.wasHealed, "a valid selection must not trigger a needless re-save")
-        #expect(Set(decoded.selectedPeakIDs ?? []) == [air.id, top.id])
+        guard row["live"] as? Bool ?? false else { return }
+        let savedType = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = savedType }
+        TapDisplaySettings.measurementType = .classical
+        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
+        sut.cancellables.removeAll()
+        sut.allPeaks = m.peaks
+        sut.reclassifyPeaks()
+        sut.selectedPeakIDs = Set(m.selectedPeakIDs ?? [])
+        for (name, label) in row["overrides"] as? [String: String] ?? [:] { sut.setModeOverride(label, for: byName[name]!.id) }
+        #expect(matches(sut.calculateTapToneRatio()),
+                "\(id): live ratio \(String(describing: sut.calculateTapToneRatio())) — the saved and live ratios must agree")
+    }
+
+    @Test(arguments: ids("modeLabels"))
+    func modeLabels(_ id: String) throws {
+        let row = Self.row("modeLabels", id)
+        let (m, _) = Self.measurement(row)
+        // A file whose peaks already carry `storedLabels`: written, the labels set, read back.
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(m)) as? [String: Any])
+        var peaks = try #require(json["peaks"] as? [[String: Any]])
+        for (index, label) in (row["storedLabels"] as! [Any]).enumerated() {
+            if let label = label as? String { peaks[index]["modeLabel"] = label } else { peaks[index].removeValue(forKey: "modeLabel") }
+        }
+        json["peaks"] = peaks
+        let read = try JSONDecoder().decode(TapToneMeasurement.self, from: JSONSerialization.data(withJSONObject: json))
+        let written = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(read)) as? [String: Any])
+        let labels = (written["peaks"] as? [[String: Any]] ?? []).map { $0["modeLabel"] as? String }
+        let expected = (row["expect"] as! [String]).map { Optional($0) }
+        #expect(labels == expected, "\(id): written — \(row["note"] as! String)")
+        let shown = read.peakModeLabels
+        #expect(read.peaks.map { shown[$0.id] } == expected, "\(id): displayed — \(row["note"] as! String)")
+    }
+
+    @Test(arguments: ids("selectionHeal"))
+    func selectionHeal(_ id: String) throws {
+        let row = Self.row("selectionHeal", id)
+        let (m, byName) = Self.measurement(row)
+        let read = try TapToneAnalyzer.decodeMeasurements(TapToneAnalyzer.encodeMeasurements([m]))[0]
+        #expect(read.wasHealed == row["expectHealed"] as! Bool, "\(id): healed — \(row["note"] as! String)")
+        let expected = Set((row["expectSelected"] as! [String]).map { byName[$0]!.id })
+        #expect(Set(read.selectedPeakIDs ?? []) == expected, "\(id): selection — \(row["note"] as! String)")
     }
 }

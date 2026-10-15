@@ -93,7 +93,8 @@ extension TapToneAnalyzer {
     ///   never eats it; this just discards accumulated idle so an armed-but-idle app doesn't build
     ///   minutes of silence in RAM or the WAV.
     /// - **The first tap** (`gatedCaptureActive` true): freeze — the latch drops to `false` for the
-    ///   rest of the session.
+    ///   rest of the session. A sequence that is not being saved (Dump Capture Audio off) stops
+    ///   recording here and drops what it kept.
     /// - **Everything after** (subsequent taps, plate phases C/FLC, and the gaps between them):
     ///   completely live — the trim block is skipped, so every tap, phase and redo checkpoint is
     ///   preserved. Only ``redoCurrentPhase`` of the *first* phase re-arms the latch.
@@ -103,6 +104,10 @@ extension TapToneAnalyzer {
         guard sessionPreRollActive else { return }   // frozen after the first tap → fully live
         if gatedCaptureActive {
             sessionPreRollActive = false              // first tap started — freeze the pre-roll
+            if !isSessionRecordingEnabled {
+                isSessionRecording = false
+                sessionRecordingBuffer = []
+            }
         } else if sessionRecordingBuffer.count > sessionPreRollSamples {
             sessionRecordingBuffer.removeFirst(sessionRecordingBuffer.count - sessionPreRollSamples)
         }
@@ -122,14 +127,17 @@ extension TapToneAnalyzer {
     ///   (e.g. "Plate", "Guitar_8tap", "Brace").
     func finishSessionRecording(label: String) {
         mpmLock.lock()
+        let wasEnabled = isSessionRecordingEnabled
         isSessionRecording = false
+        isSessionRecordingEnabled = false
+        sessionPreRollActive = false
         let samples = sessionRecordingBuffer
         let sampleRate = sessionRecordingSampleRate
         sessionRecordingBuffer = []
         sessionCheckpoints = []
         mpmLock.unlock()
 
-        guard !samples.isEmpty else { return }
+        guard wasEnabled, !samples.isEmpty else { return }
         dumpCaptureWAV(samples: samples, sampleRate: sampleRate, label: "session_\(label)")
     }
 
@@ -140,8 +148,37 @@ extension TapToneAnalyzer {
         mpmLock.lock()
         isSessionRecording = false
         isSessionRecordingEnabled = false
+        sessionPreRollActive = false
         sessionRecordingBuffer = []
         sessionCheckpoints = []
+        mpmLock.unlock()
+    }
+
+    /// Applies a change of Dump Capture Audio to the sequence in progress. Called whenever the
+    /// setting is changed.
+    ///
+    /// - Turned **on before the first tap**: this sequence is saved. Only the pre-roll exists so far,
+    ///   and it has been kept, so the recording is the same as if the setting had been on when the
+    ///   sequence started.
+    /// - Turned **on after the first tap**: nothing changes; it takes effect when the next sequence
+    ///   starts (New Tap, Cancel, or anything else that starts one).
+    /// - Turned **off**: this sequence is not saved. After the first tap the recording stops and what
+    ///   it held is dropped; before it, the pre-roll is still kept in case it is turned on again.
+    func applyDumpCaptureAudioSetting() {
+        mpmLock.lock()
+        if TapDisplaySettings.dumpCaptureAudio {
+            if sessionPreRollActive && !isSessionRecordingEnabled {
+                isSessionRecordingEnabled = true
+                CaptureProbe.beginLiveSession(recording: true)   // diagnostic
+            }
+        } else {
+            isSessionRecordingEnabled = false
+            CaptureProbe.beginLiveSession(recording: false)      // diagnostic
+            if !sessionPreRollActive {
+                isSessionRecording = false
+                sessionRecordingBuffer = []
+            }
+        }
         mpmLock.unlock()
     }
 

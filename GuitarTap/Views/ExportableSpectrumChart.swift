@@ -853,7 +853,9 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) throws
         selectedCrossPeakID: measurement.selectedCrossPeakID,
         selectedFlcPeakID: measurement.selectedFlcPeakID,
         modeOverrides: measurement.peakModeOverrides ?? [:],
-        peakModes: GuitarMode.classifyAll(visiblePeaks),
+        // The measurement's own modes — classified among all its peaks, as the file, the Details pane
+        // and the live screen have them; never among the visible peaks or with the app's guitar type.
+        peakModes: measurement.autoModes,
         materialSpectra: materialSpectra,
         dateLabel: DateDisplay.string(measurement.timestamp),
         chartTitle: "FFT Peaks — \(measurement.measurementName ?? "New")"
@@ -874,27 +876,16 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) throws
 /// - Throws: ``ExportRenderError`` when the chart could not be drawn.
 @MainActor
 func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) throws -> Data? {
-    guard let entries = measurement.tapEntries, !entries.isEmpty else { return nil }
-
-    let avgColor = Palette.seriesAverage
-
-    var spectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] =
+    let entries = measurement.multiTapComparisonEntries
+    guard !entries.isEmpty else { return nil }
+    let spectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] =
         entries.enumerated().map { index, entry in
-            (magnitudes: entry.snapshot.magnitudes,
-             frequencies: entry.snapshot.frequencies,
-             color: Palette.series(index),
-             label: "Tap \(entry.tapIndex)")
+            (magnitudes: entry.snapshot.magnitudes, frequencies: entry.snapshot.frequencies,
+             color: Palette.comparisonColor(index: index, label: entry.label), label: entry.label)
         }
 
-    // Append the averaged spectrum (stored in spectrumSnapshot) as the final overlay.
-    if let avgSnap = measurement.spectrumSnapshot {
-        spectra.append((magnitudes: avgSnap.magnitudes,
-                        frequencies: avgSnap.frequencies,
-                        color: avgColor,
-                        label: "Averaged"))
-    }
-
-    let snaps = entries.map(\.snapshot)
+    // The chart's range spans the taps' spectra.
+    let snaps = (measurement.tapEntries ?? []).map(\.snapshot)
     let compositeView = makeExportableSpectrumView(
         frequencies: [],
         magnitudes: [],

@@ -164,13 +164,15 @@ struct MeasurementDetailView: View {
                     } else {
                         // Identified Peaks = the selected peaks only, sorted by frequency.
                         // Plate/brace skip guitar-mode classification.
-                        let isMaterialMeasurement = measurement.longitudinalSnapshot != nil || measurement.selectedLongitudinalPeakID != nil
+                        let isMaterialMeasurement = measurement.isMaterial
                         let selectedIDs = measurement.effectiveSelectedPeakIDs
                         let shownPeaks = measurement.peaks
                             .filter { selectedIDs.contains($0.id) }
                             .sorted(by: { $0.frequency < $1.frequency })
-                        // Context-aware mode map so overlapping ranges (e.g. classical Top/Back) show distinct labels.
-                        let modeMap: [UUID: GuitarMode] = isMaterialMeasurement ? [:] : GuitarMode.classifyAll(shownPeaks)
+                        // The measurement's own modes and labels — classified among all its peaks, as
+                        // the file is written and the live view showed them, not among the shown ones.
+                        let modeMap = measurement.autoModes
+                        let labels = measurement.peakModeLabels
 
                         GroupBox("Identified Peaks") {
                             if shownPeaks.isEmpty {
@@ -189,10 +191,7 @@ struct MeasurementDetailView: View {
                                             if peak.id == measurement.selectedFlcPeakID { return .flc }
                                             return nil
                                         }()
-                                        let effectiveLabel: String = {
-                                            if isMaterialMeasurement { return materialRole?.displayName ?? "Peak" }
-                                            return measurement.peakModeOverrides?[peak.id] ?? mode.displayName
-                                        }()
+                                        let effectiveLabel = labels[peak.id] ?? mode.displayName
                                         let isOverridden = !isMaterialMeasurement
                                             && measurement.peakModeOverrides?[peak.id] != nil
                                         CombinedPeakModeRowView(

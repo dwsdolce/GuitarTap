@@ -200,16 +200,17 @@ extension TapToneAnalyzer {
         // Mirrors the reset in postEngineStopHandler / reEnableDetectionForNextPlateTap.
         gatedCaptureID = 0
         lastLevelCrossingCaptureID = -1
-        // Session recording: clear the buffer and, when Dump Capture Audio is on, begin recording.
-        // The buffer accumulates raw audio while detection is active, producing a single WAV per
-        // measurement for replay; with the setting off nothing is kept. Seed with checkpoint 0
+        // Session recording: clear the buffer and begin recording. The buffer accumulates raw audio
+        // while detection is active, producing a single WAV per measurement for replay. With Dump
+        // Capture Audio off only the bounded pre-roll is kept, and it is dropped at the first tap
+        // unless the setting has been turned on by then. Seed with checkpoint 0
         // so the first phase has a truncation anchor — without it, redoing
         // the first phase (or the same phase repeatedly) would leave the
         // rejected tap's audio in the saved WAV.
         sessionRecordingBuffer = []
         sessionCheckpoints = [0]
         isSessionRecordingEnabled = TapDisplaySettings.dumpCaptureAudio
-        isSessionRecording = isSessionRecordingEnabled
+        isSessionRecording = true
         sessionPreRollActive = true   // bound the pre-first-tap audio to ~2 s
         sessionRecordingSampleRate = mpmSampleRate > 0 ? mpmSampleRate : 48000
         mpmLock.unlock()
@@ -306,7 +307,8 @@ extension TapToneAnalyzer {
         // after it, or a single loud chunk could fire one.
         detectTapConsecutiveAbove = 0
 
-        isSessionRecording = isSessionRecordingEnabled  // Resume accumulating audio after pause
+        // Resume accumulating audio after pause — the saved recording, or the pre-roll before the first tap.
+        isSessionRecording = isSessionRecordingEnabled || sessionPreRollActive
         detectionState = .listening
 
         // Restore a context-appropriate prompt. The same derivation the device-change settle uses.

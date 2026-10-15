@@ -96,6 +96,7 @@ extension TapToneAnalysisView {
                 peakMinThreshold: $tapToneAnalyzer.peakMinThreshold,
                 fftAnalyzer: fft,
                 onApply: { measurementChanged, guitarTypeChanged in
+                    tapToneAnalyzer.applyDumpCaptureAudioSetting()
                     if measurementChanged {
                         tapToneAnalyzer.requestStartTapSequence()
                     } else if guitarTypeChanged {
@@ -136,6 +137,7 @@ extension TapToneAnalysisView {
             }
             Button("Turn Off Saving") {
                 TapDisplaySettings.dumpCaptureAudio = false
+                tapToneAnalyzer.applyDumpCaptureAudioSetting()
                 tapToneAnalyzer.startTapSequence()              // dump now off → arm directly
             }
             Button("Cancel", role: .cancel) { }
@@ -151,6 +153,7 @@ extension TapToneAnalysisView {
             }
             Button("Turn Off Saving") {
                 TapDisplaySettings.dumpCaptureAudio = false
+                tapToneAnalyzer.applyDumpCaptureAudioSetting()
                 tapToneAnalyzer.discardHeldCaptureRecordings()
             }
             Button("Cancel", role: .cancel) {
@@ -262,6 +265,7 @@ extension TapToneAnalysisView {
                 peakMinThreshold: $tapToneAnalyzer.peakMinThreshold,
                 fftAnalyzer: fft,
                 onApply: { measurementChanged, guitarTypeChanged in
+                    tapToneAnalyzer.applyDumpCaptureAudioSetting()
                     if measurementChanged {
                         tapToneAnalyzer.requestStartTapSequence()
                     } else if guitarTypeChanged {

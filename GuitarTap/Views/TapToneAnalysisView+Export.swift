@@ -312,75 +312,26 @@ extension TapToneAnalysisView {
             plateStiffnessPreset: tap.materialInputs?.stiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset
         )
 
-        // ── Page 2: comparison overlay spectrum image ─────────────────────────
-        let cmpImageData: Data
+        // ── Page 2: the tap comparison — from the measurement this result would be saved as, by the
+        // same code as a saved measurement's report, so the two cannot differ.
+        let current = tap.makeMeasurement(
+            measurementName: measurementName.isEmpty ? tap.loadedMeasurementName : measurementName,
+            notes: notes.isEmpty ? tap.loadedNotes : notes,
+            minFreq: minFreq, maxFreq: maxFreq, minDB: minDB, maxDB: maxDB,
+            timestamp: tap.sourceMeasurementTimestamp ?? Date())
+        let cmpReportData: ComparisonPDFReportData
         do {
-            cmpImageData = try renderExportPNG(createMultiTapComparisonSpectrumView())
+            guard let data = try PDFReportGenerator.multiTapComparisonData(for: current) else {
+                isGeneratingReport = false
+                exportFailed = true
+                return
+            }
+            cmpReportData = data
         } catch {
             isGeneratingReport = false
             exportFailed = true
             return
         }
-
-        // ── Page 2: build ComparisonPDFReportData ─────────────────────────────
-        let avgColor = Palette.seriesAverage
-
-        var cmpEntries: [ComparisonEntry] = tap.tapEntries.enumerated().map { index, entry in
-            let color = Palette.series(index)
-            let cgColor = color.resolve(in: Palette.lightEnvironment).cgColor
-            let comps: [Double]
-            if let c = cgColor.components, c.count >= 3 {
-                comps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
-            } else { comps = [0.0, 0.0, 1.0, 1.0] }
-            let selectedIDs = Set(entry.selectedPeakIDs)
-            return ComparisonEntry(id: UUID(), label: "Tap \(entry.tapIndex)",
-                colorComponents: comps, snapshot: entry.snapshot,
-                peaks: entry.peaks.filter { selectedIDs.contains($0.id) },
-                guitarType: entry.snapshot.guitarType, sourceMeasurementID: nil)
-        }
-        // Averaged entry
-        let avgCGColor = avgColor.resolve(in: Palette.lightEnvironment).cgColor
-        let avgComps: [Double]
-        if let c = avgCGColor.components, c.count >= 3 {
-            avgComps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
-        } else { avgComps = [1.0, 0.85, 0.0, 1.0] }
-        let avgSnap = SpectrumSnapshot(
-            frequencies: tap.frozenFrequencies, magnitudes: tap.frozenMagnitudes,
-            minFreq: TapDisplaySettings.minFrequency, maxFreq: TapDisplaySettings.maxFrequency,
-            minDB: TapDisplaySettings.minMagnitude, maxDB: 0, isLogarithmic: false,
-            showUnknownModes: TapDisplaySettings.showUnknownModes,
-            guitarType: TapDisplaySettings.guitarType,
-            measurementType: TapDisplaySettings.measurementType)
-        // Same rule and the same property the on-screen table uses, so the PDF cannot disagree
-        // with it and neither changes with the Peak Min slider.
-        let avgSelectedPeaks = tap.selectedPeaks
-        cmpEntries.append(ComparisonEntry(id: UUID(), label: "Averaged",
-            colorComponents: avgComps, snapshot: avgSnap,
-            peaks: avgSelectedPeaks,
-            guitarType: TapDisplaySettings.guitarType, sourceMeasurementID: nil))
-
-        // Per-tap rows show each tap's OWN auto-classification; the Averaged row uses the DEFINITIVE
-        // (override-aware) modes and tags any overridden value — the multi-tap taps table's rule.
-        let avgInfo = tap.definitiveModeInfo()
-        let modeFrequencies = cmpEntries.enumerated().map { index, entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in
-            let color = Palette.comparisonColor(index: index, label: entry.label)
-            if entry.label == "Averaged" {
-                return (entry.label, color, avgInfo[.air]?.frequency, avgInfo[.top]?.frequency,
-                        avgInfo[.back]?.frequency, Set(avgInfo.filter { $0.value.isOverride }.keys))
-            }
-            let modePeaks = TapToneAnalyzer.resolvedModePeaks(peaks: entry.peaks, guitarType: entry.guitarType)
-            return (entry.label, color, modePeaks[.air]?.frequency, modePeaks[.top]?.frequency,
-                    modePeaks[.back]?.frequency, [])
-        }
-
-        let cmpReportData = ComparisonPDFReportData(
-            timestamp: tap.sourceMeasurementTimestamp ?? Date(),
-            comparisonLabel: measurementName.isEmpty ? tap.loadedMeasurementName : measurementName,
-            notes: notes.isEmpty ? tap.loadedNotes : notes,
-            spectrumImageData: cmpImageData,
-            entries: cmpEntries,
-            modeFrequencies: modeFrequencies
-        )
 
         // ── Generate and export ───────────────────────────────────────────────
         guard let pdfData = PDFReportGenerator.generateMultiTapReport(
@@ -393,34 +344,6 @@ extension TapToneAnalysisView {
         MeasurementFileExporter.exportPDF(data: pdfData, basename: avgReportData.baseFilename) {
             self.isGeneratingReport = false
         }
-    }
-
-    /// Builds an off-screen spectrum view showing all per-tap overlays plus the averaged spectrum,
-    /// mirroring the live multi-tap comparison chart.
-    func createMultiTapComparisonSpectrumView() -> some View {
-        let avgColor = Palette.seriesAverage
-
-        var spectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] =
-            tap.tapEntries.enumerated().map { index, entry in
-                (magnitudes: entry.snapshot.magnitudes, frequencies: entry.snapshot.frequencies,
-                 color: Palette.series(index), label: "Tap \(entry.tapIndex)")
-            }
-        spectra.append((magnitudes: tap.frozenMagnitudes, frequencies: tap.frozenFrequencies,
-                        color: avgColor, label: "Averaged"))
-
-        let snaps = tap.tapEntries.map(\.snapshot)
-        let subtitle = measurementName.isEmpty ? (tap.loadedMeasurementName ?? "Multi-Tap") : measurementName
-        return makeExportableSpectrumView(
-            frequencies: [], magnitudes: [],
-            minFreq: snaps.map(\.minFreq).min() ?? minFreq,
-            maxFreq: snaps.map(\.maxFreq).max() ?? maxFreq,
-            minDB:   snaps.map(\.minDB).min()   ?? minDB,
-            maxDB:   snaps.map(\.maxDB).max()   ?? maxDB,
-            peaks: [], measurementType: TapDisplaySettings.measurementType,
-            materialSpectra: spectra,
-            dateLabel: DateDisplay.string(tap.sourceMeasurementTimestamp ?? Date()),
-            chartTitle: "Tap Comparison — \(subtitle)"
-        )
     }
 
     /// Builds an off-screen spectrum view always showing the frozen averaged spectrum and its

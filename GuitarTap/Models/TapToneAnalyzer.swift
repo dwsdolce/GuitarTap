@@ -1329,14 +1329,16 @@ final class TapToneAnalyzer: ObservableObject {
     var sessionRecordingBuffer: [Float] = []
 
     /// Whether the session recording is actively accumulating samples.
-    /// Set to `true` when a tap sequence starts with Dump Capture Audio on.
-    /// Set to `false` during pause, when a loaded measurement or comparison ends the sequence, or
-    /// when the measurement completes.
+    /// Set to `true` when a tap sequence starts, whatever Dump Capture Audio says: the bounded
+    /// pre-roll is kept either way. Set to `false` during pause, at the first tap when the sequence is
+    /// not being saved, when Dump Capture Audio is turned off after the first tap, when a loaded
+    /// measurement or comparison ends the sequence, or when the measurement completes.
     var isSessionRecording = false
 
-    /// Whether this sequence is being recorded at all — decided when it starts, from Dump Capture
-    /// Audio. Resuming after a pause records again only when it is; turning the setting on
-    /// mid-sequence takes effect from the next sequence.
+    /// Whether this sequence's recording is saved — read from Dump Capture Audio when the sequence
+    /// starts, and again when the setting changes before the first tap (until then only the pre-roll
+    /// exists, so it is still the start). Turning the setting on after the first tap takes effect
+    /// from the next sequence; turning it off stops the recording at any point.
     var isSessionRecordingEnabled = false
 
     /// Checkpoint offsets (sample counts in `sessionRecordingBuffer`) for
@@ -1351,7 +1353,9 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// While armed and **before the first tap**, the session buffer keeps only the last
     /// ``sessionPreRollDuration`` of audio (trimmed on every chunk), so an app left armed for
-    /// minutes does not accumulate minutes of silence — in RAM or in the saved WAV. This latch is
+    /// minutes does not accumulate minutes of silence — in RAM or in the saved WAV. It is kept with
+    /// Dump Capture Audio off too, so turning the setting on before the first tap saves the same
+    /// recording as having it on from the start. This latch is
     /// `true` from `startTapSequence` until the first gated capture begins, then stays `false`:
     /// once real recording starts, the buffer grows straight through so every tap, phase and redo
     /// checkpoint is preserved. Guarantees ≥ 0.5 s before the first tap (detection is suppressed

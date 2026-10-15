@@ -199,9 +199,9 @@ struct WavDumpFolderTests {
     }
     #endif
 
-    // Recording is decided when a sequence starts, from the saving setting: with it off nothing is
-    // kept, and turning it on mid-sequence takes effect from the next sequence. A loaded measurement
-    // or comparison ends the sequence and its recording.
+    // Whether the recording is saved is read from the saving setting when a sequence starts, and
+    // again when the setting changes before the first tap (the shared cases in
+    // session-pre-roll.json). A loaded measurement or comparison ends the sequence and its recording.
 
     private let chunk = [Float](repeating: 0.1, count: 1024)
 
@@ -217,13 +217,16 @@ struct WavDumpFolderTests {
         #expect(sut.sessionRecordingBuffer.isEmpty)
     }
 
-    @Test func savingTurnedOnAfterArming_takesEffectFromTheNextSequence() {
+    @Test func savingTurnedOnAfterTheFirstTap_takesEffectFromTheNextSequence() {
         let savedDump = TapDisplaySettings.dumpCaptureAudio
         defer { TapDisplaySettings.dumpCaptureAudio = savedDump }
         TapDisplaySettings.dumpCaptureAudio = false
         let sut = TapToneAnalyzer.forTesting()
         sut.startTapSequence()
+        sut.gatedCaptureActive = true
+        sut.maintainSessionRecording(appending: chunk)
         TapDisplaySettings.dumpCaptureAudio = true
+        sut.applyDumpCaptureAudioSetting()
         // A pause and resume does not start it either.
         sut.pauseTapDetection()
         sut.resumeTapDetection()
@@ -237,6 +240,7 @@ struct WavDumpFolderTests {
         #expect(after.subtracting(before).filter { $0.hasPrefix("swift_session_Guitar_1tap_") }.isEmpty)
         // The next sequence records.
         sut.startTapSequence()
+        #expect(sut.isSessionRecordingEnabled)
         #expect(sut.isSessionRecording)
     }
 

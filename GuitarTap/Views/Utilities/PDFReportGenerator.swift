@@ -227,7 +227,9 @@ struct PDFReportData {
             selectedCrossPeakID: measurement.selectedCrossPeakID,
             selectedFlcPeakID: measurement.selectedFlcPeakID,
             peakModeOverrides: measurement.peakModeOverrides ?? [:],
-            peakModes: GuitarMode.classifyAll(rangeFilteredPeaks, guitarType: guitarType),
+            // The measurement's own modes — classified among all its peaks, as the file, the Details
+            // pane and the live screen have them; never among the peaks in range.
+            peakModes: measurement.autoModes,
             microphoneName: measurement.microphoneName,
             calibrationName: measurement.calibrationName,
             guitarBodyLength: anySnapshot?.guitarBodyLength ?? TapDisplaySettings.guitarBodyLength,
@@ -1396,34 +1398,8 @@ extension PDFReportGenerator {
     /// averaged row (the definitive, override-aware modes).
     @MainActor
     static func multiTapComparisonData(for measurement: TapToneMeasurement) throws -> ComparisonPDFReportData? {
-        guard let tapEntries = measurement.tapEntries, !tapEntries.isEmpty else { return nil }
-        let avgColor = Palette.seriesAverage
-
-        var cmpEntries: [ComparisonEntry] = tapEntries.enumerated().map { index, entry in
-            let color = Palette.series(index)
-            let cgColor = color.resolve(in: Palette.lightEnvironment).cgColor
-            let comps: [Double]
-            if let c = cgColor.components, c.count >= 3 {
-                comps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
-            } else { comps = [0.0, 0.0, 1.0, 1.0] }
-            let selectedIDs = Set(entry.selectedPeakIDs)
-            return ComparisonEntry(id: UUID(), label: "Tap \(entry.tapIndex)",
-                colorComponents: comps, snapshot: entry.snapshot,
-                peaks: entry.peaks.filter { selectedIDs.contains($0.id) },
-                guitarType: entry.snapshot.guitarType, sourceMeasurementID: nil)
-        }
-        if let avgSnap = measurement.spectrumSnapshot {
-            let avgCGColor = avgColor.resolve(in: Palette.lightEnvironment).cgColor
-            let avgComps: [Double]
-            if let c = avgCGColor.components, c.count >= 3 {
-                avgComps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
-            } else { avgComps = [1.0, 0.85, 0.0, 1.0] }
-            let selectedIDs = measurement.effectiveSelectedPeakIDs
-            cmpEntries.append(ComparisonEntry(id: UUID(), label: "Averaged",
-                colorComponents: avgComps, snapshot: avgSnap,
-                peaks: measurement.peaks.filter { selectedIDs.contains($0.id) },
-                guitarType: measurement.spectrumSnapshot?.guitarType, sourceMeasurementID: nil))
-        }
+        let cmpEntries = measurement.multiTapComparisonEntries
+        guard !cmpEntries.isEmpty else { return nil }
 
         let avgInfo = measurement.definitiveModeInfo()
         let modeFrequencies = cmpEntries.enumerated().map { index, entry -> (label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>) in

@@ -557,7 +557,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// Selection is unique per Air/Top/Back, so there is at most one definitive holder; `max` guards
     /// a legacy file that selected several.
     func definitivePeak(for mode: GuitarMode) -> ResonantPeak? {
-        let autoMap = GuitarMode.classifyAll(peaks, guitarType: spectrumSnapshot?.guitarType ?? .acoustic)
+        let autoMap = autoModes
         let selected = effectiveSelectedPeakIDs
         return peaks
             .filter {
@@ -566,6 +566,43 @@ struct TapToneMeasurement: Identifiable, Codable {
                                                 auto: autoMap[$0.id] ?? .unknown) == mode
             }
             .max(by: { $0.magnitude < $1.magnitude })
+    }
+
+    /// The guitar type this measurement's peaks are classified with: the type its snapshot records,
+    /// otherwise Generic — never the app's current setting, so a saved measurement's modes are the
+    /// same whatever the app is set to.
+    var classificationGuitarType: GuitarType {
+        spectrumSnapshot?.guitarType ?? longitudinalSnapshot?.guitarType ?? .generic
+    }
+
+    /// Each peak's automatic mode, classified among ALL of the measurement's peaks with
+    /// ``classificationGuitarType`` — the rule the live analyzer applies (`reclassifyPeaks`). The Top
+    /// and Back bands overlap and peaks compete for them, so classifying a subset (the selected
+    /// peaks, the peaks on screen) can turn a Back into a Top. Empty for a material measurement.
+    var autoModes: [UUID: GuitarMode] {
+        isMaterial ? [:] : GuitarMode.classifyAll(peaks, guitarType: classificationGuitarType)
+    }
+
+    /// The label each peak is shown and written with: for a guitar, its override, otherwise its
+    /// automatic mode (``autoModes``); for plate/brace, the role it fills. The one rule for the file's
+    /// `modeLabel` and the Details pane, so the two cannot disagree.
+    var peakModeLabels: [UUID: String] {
+        if isMaterial {
+            var labels: [UUID: String] = [:]
+            for peak in peaks {
+                if peak.id == selectedLongitudinalPeakID      { labels[peak.id] = "Longitudinal" }
+                else if peak.id == selectedCrossPeakID        { labels[peak.id] = "Cross-grain" }
+                else if peak.id == selectedFlcPeakID          { labels[peak.id] = "Diagonal" }
+                else                                          { labels[peak.id] = "Peak" }
+            }
+            return labels
+        }
+        let modes = autoModes
+        var labels: [UUID: String] = [:]
+        for peak in peaks {
+            labels[peak.id] = peakModeOverrides?[peak.id] ?? (modes[peak.id] ?? .unknown).displayName
+        }
+        return labels
     }
 
     /// The definitive Air / Top / Back for this measurement, each with a flag for whether it is the
@@ -580,6 +617,29 @@ struct TapToneMeasurement: Identifiable, Codable {
             out[mode] = (p.frequency, isOverride)
         }
         return out
+    }
+
+    /// A multi-tap measurement as a comparison: one entry per tap — "Tap N", the tap's own spectrum
+    /// and its selected peaks — and last "Averaged", the measurement's own spectrum and selected
+    /// peaks. Empty when the measurement has no taps. The one builder of these entries: the on-screen
+    /// tap comparison, its chart and the report's comparison page read it, live and saved alike.
+    var multiTapComparisonEntries: [ComparisonEntry] {
+        guard let tapEntries, !tapEntries.isEmpty else { return [] }
+        var entries: [ComparisonEntry] = tapEntries.enumerated().map { index, entry in
+            let selectedIDs = Set(entry.selectedPeakIDs)
+            return ComparisonEntry(id: UUID(), label: "Tap \(entry.tapIndex)",
+                colorComponents: Palette.storedComponents(Palette.series(index)), snapshot: entry.snapshot,
+                peaks: entry.peaks.filter { selectedIDs.contains($0.id) },
+                guitarType: entry.snapshot.guitarType, sourceMeasurementID: nil)
+        }
+        if let averaged = spectrumSnapshot {
+            let selectedIDs = effectiveSelectedPeakIDs
+            entries.append(ComparisonEntry(id: UUID(), label: "Averaged",
+                colorComponents: Palette.storedComponents(Palette.seriesAverage), snapshot: averaged,
+                peaks: peaks.filter { selectedIDs.contains($0.id) },
+                guitarType: averaged.guitarType, sourceMeasurementID: nil))
+        }
+        return entries
     }
 
     /// Base filename (without extension) derived from the measurementName and Unix timestamp.
@@ -770,9 +830,9 @@ struct TapToneMeasurement: Identifiable, Codable {
         let isMaterialAtDecode = (spectrumSnapshot?.measurementType ?? longitudinalSnapshot?.measurementType)
             .map { !$0.isGuitar } ?? (longitudinalSnapshot != nil || selectedLongitudinalPeakID != nil)
         if !isMaterialAtDecode {
-            let gt = spectrumSnapshot?.guitarType
-            let autoMap = gt.map { GuitarMode.classifyAll(decodedPeaks, guitarType: $0) }
-                ?? GuitarMode.classifyAll(decodedPeaks)
+            // The same guitar type as ``classificationGuitarType``: the snapshot's, otherwise Generic.
+            let gt = spectrumSnapshot?.guitarType ?? longitudinalSnapshot?.guitarType ?? .generic
+            let autoMap = GuitarMode.classifyAll(decodedPeaks, guitarType: gt)
             func effMode(_ p: ResonantPeak) -> GuitarMode {
                 GuitarMode.effectiveMode(override: decodedOverrides?[p.id], auto: autoMap[p.id] ?? .unknown)
             }
@@ -901,11 +961,8 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(resolvedMeasurementType, forKey: .measurementType)
         try container.encodeIfPresent(resolvedGuitarType,      forKey: .guitarType)
 
-        // Encode peaks with a resolved modeLabel injected into each peak entry
-        let mt = resolvedMeasurementType ?? TapDisplaySettings.measurementType
-        let gt = resolvedGuitarType ?? TapDisplaySettings.guitarType
-        // Compute context-aware mode map once so overlapping ranges resolve correctly
-        let exportModeMap: [UUID: GuitarMode] = mt.isGuitar ? GuitarMode.classifyAll(peaks, guitarType: gt) : [:]
+        // Encode peaks with their label (``peakModeLabels``) injected into each peak entry
+        let labels = peakModeLabels
         var peaksContainer = container.nestedUnkeyedContainer(forKey: .peaks)
         for peak in peaks {
             var peakContainer = peaksContainer.nestedContainer(keyedBy: PeakExportCodingKeys.self)
@@ -919,17 +976,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             try peakContainer.encodeIfPresent(peak.pitchCents,     forKey: .pitchCents)
             try peakContainer.encodeIfPresent(peak.pitchFrequency, forKey: .pitchFrequency)
 
-            // Resolve the mode label: user override > auto-classify > plate/brace role
-            let label: String
-            if mt.isGuitar {
-                label = peakModeOverrides?[peak.id] ?? (exportModeMap[peak.id] ?? .unknown).displayName
-            } else {
-                if peak.id == selectedLongitudinalPeakID      { label = "Longitudinal" }
-                else if peak.id == selectedCrossPeakID        { label = "Cross-grain" }
-                else if peak.id == selectedFlcPeakID          { label = "Diagonal" }
-                else                                          { label = "Peak" }
-            }
-            try peakContainer.encode(label, forKey: .modeLabel)
+            try peakContainer.encode(labels[peak.id] ?? GuitarMode.unknown.displayName, forKey: .modeLabel)
         }
     }
 }
@@ -965,7 +1012,8 @@ extension TapToneMeasurement {
     // @parity model/material-selection tests=test/material-selection
     /// The set of peak IDs to render, annotate, and export for this measurement.
     ///
-    /// - Guitar: the user's saved selection (``selectedPeakIDs``), or all ``peaks`` when none was saved.
+    /// - Guitar: the user's saved selection (``selectedPeakIDs``) — empty for Select None — or all
+    ///   ``peaks`` when a legacy file saved none.
     /// - Material: **always all of ``peaks``.** Plate/brace have no per-peak selection, and the saved
     ///   `selectedPeakIDs` aggregate can be corrupted by an intermittent phase-transition write
     ///   (an iPad-only Release glitch), so it is ignored on read. This heals existing corrupt files

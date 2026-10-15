@@ -249,6 +249,39 @@ extension TapToneAnalyzer {
         minDB: Float? = nil,
         maxDB: Float? = nil
     ) {
+        let measurement = makeMeasurement(measurementName: measurementName, notes: notes,
+                                          minFreq: minFreq, maxFreq: maxFreq, minDB: minDB, maxDB: maxDB)
+
+        savedMeasurements.append(measurement)
+        // The result on screen is now this saved measurement: its exports show its date and are named by it.
+        sourceMeasurementTimestamp = measurement.timestamp
+        gtLog("💾 Saved measurement with \(measurement.peaks.count) peaks, type: \(TapDisplaySettings.measurementType.shortName)")
+
+        // Persist to disk
+        persistMeasurements()
+    }
+
+    /// The measurement the analyzer holds — what ``saveMeasurement(measurementName:notes:minFreq:maxFreq:minDB:maxDB:)``
+    /// saves, built without saving it. A live export reads it too, so the live report and the report
+    /// of the saved measurement are built from the same measurement by the same code.
+    ///
+    /// - Parameters:
+    ///   - measurementName: The measurement's name, or `nil`.
+    ///   - notes: The measurement's notes, or `nil`.
+    ///   - minFreq: The chart's lower frequency, or `nil` for the setting.
+    ///   - maxFreq: The chart's upper frequency, or `nil` for the setting.
+    ///   - minDB: The chart's lower magnitude, or `nil` for the setting.
+    ///   - maxDB: The chart's upper magnitude, or `nil` for 0 dB.
+    ///   - timestamp: The measurement's time; now, by default.
+    func makeMeasurement(
+        measurementName: String? = nil,
+        notes: String? = nil,
+        minFreq: Float? = nil,
+        maxFreq: Float? = nil,
+        minDB: Float? = nil,
+        maxDB: Float? = nil,
+        timestamp: Date = Date()
+    ) -> TapToneMeasurement {
         let measurementType = TapDisplaySettings.measurementType
 
         // Resolve axis range — fall back to TapDisplaySettings when not passed by view.
@@ -313,7 +346,8 @@ extension TapToneAnalyzer {
             ? selectedPeakIDs
             : Set(savedPeaks.map { $0.id })
 
-        let measurement = TapToneMeasurement(
+        return TapToneMeasurement(
+            timestamp: timestamp,
             peaks: savedPeaks,
             decayTime: currentDecayTime,
             measurementName: measurementName,
@@ -330,12 +364,14 @@ extension TapToneAnalyzer {
             longitudinalSnapshot: !measurementType.isGuitar ? longitudinalSnapshot : nil,
             crossSnapshot: measurementType == .plate ? crossSnapshot : nil,
             flcSnapshot: measurementType == .plate ? flcSnapshot : nil,
-            selectedPeakIDs: persistedSelectedIDs.isEmpty ? nil : Array(persistedSelectedIDs),
+            // A guitar's selection is always written — empty when the user chose Select None, which must
+            // read back as nothing selected. An absent selection is a legacy file's, healed on read.
+            selectedPeakIDs: measurementType.isGuitar || !persistedSelectedIDs.isEmpty
+                ? Array(persistedSelectedIDs) : nil,
             // Resolved over the saved set: a selected peak sitting below Peak Min is still selected, and
             // its frequency must reach the file or the carry-forward cache is short on reload.
-            selectedPeakFrequencies: persistedSelectedIDs.isEmpty ? nil : savedPeaks
-                .filter { persistedSelectedIDs.contains($0.id) }
-                .map { $0.frequency },
+            selectedPeakFrequencies: measurementType.isGuitar || !persistedSelectedIDs.isEmpty
+                ? savedPeaks.filter { persistedSelectedIDs.contains($0.id) }.map { $0.frequency } : nil,
             // Persist whether the guitar selection was hand-modified, so a reloaded measurement
             // re-runs auto-selection on Peak Min change (like live) when it was automatic, or
             // carries the selection forward when it was manual. Guitar only.
@@ -348,14 +384,6 @@ extension TapToneAnalyzer {
             sampleRate: captureSampleRate,
             tapEntries: measurementType.isGuitar && !tapEntries.isEmpty ? tapEntries : nil
         )
-
-        savedMeasurements.append(measurement)
-        // The result on screen is now this saved measurement: its exports show its date and are named by it.
-        sourceMeasurementTimestamp = measurement.timestamp
-        gtLog("💾 Saved measurement with \(savedPeaks.count) peaks, type: \(measurementType.shortName)")
-
-        // Persist to disk
-        persistMeasurements()
     }
     
     /// Replaces the `measurementName` and `notes` fields of the measurement at a
@@ -1078,56 +1106,17 @@ extension TapToneAnalyzer {
         }
         guard !tapEntries.isEmpty else { return }
 
-        // This populates `comparisonSpectra` only to feed the CHART overlay (magnitudes/colour/label).
-        // The multi-tap Air/Top/Back table is MultiTapComparisonResultsView, not ComparisonResultsView,
-        // so the `modeIDs` element is unused here — `[:]` is correct.
-        var entries: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID])] = []
-        var snapshots: [SpectrumSnapshot] = []
-
-        for (index, entry) in tapEntries.enumerated() {
-            let color = Palette.series(index)
-            let selectedIDs = Set(entry.selectedPeakIDs)
-            let selectedPeaks = entry.peaks.filter { selectedIDs.contains($0.id) }
-            entries.append((
-                magnitudes: entry.snapshot.magnitudes,
-                frequencies: entry.snapshot.frequencies,
-                color: color,
-                label: "Tap \(entry.tapIndex)",
-                peaks: selectedPeaks,
-                guitarType: entry.snapshot.guitarType,
-                modeIDs: [:]
-            ))
-            snapshots.append(entry.snapshot)
-        }
-
-        // Append the averaged result as the final overlay so it renders on top.
-        // Use a bold yellow so it stands out against the per-tap palette (blue/orange/green/purple/teal).
-        let avgColor = Palette.seriesAverage
-        // The same rule the on-screen table and the PDF use — selection resolves over the durable
-        // set, so the averaged overlay does not lose a selected peak when Peak Min rises above it.
-        let avgSelectedPeaks = selectedPeaks
-        let avgSnap = SpectrumSnapshot(
-            frequencies: frozenFrequencies,
-            magnitudes: frozenMagnitudes,
-            minFreq: TapDisplaySettings.minFrequency,
-            maxFreq: TapDisplaySettings.maxFrequency,
-            minDB: TapDisplaySettings.minMagnitude,
-            maxDB: 0,
-            isLogarithmic: false,
-            showUnknownModes: TapDisplaySettings.showUnknownModes,
-            guitarType: TapDisplaySettings.guitarType,
-            measurementType: TapDisplaySettings.measurementType
-        )
-        entries.append((
-            magnitudes: frozenMagnitudes,
-            frequencies: frozenFrequencies,
-            color: avgColor,
-            label: "Averaged",
-            peaks: avgSelectedPeaks,
-            guitarType: TapDisplaySettings.guitarType,
-            modeIDs: [:]
-        ))
-        snapshots.append(avgSnap)
+        // The measurement's tap comparison — the same entries its report and its saved form show. This
+        // feeds the CHART overlay (magnitudes/colour/label); the multi-tap Air/Top/Back table is
+        // MultiTapComparisonResultsView, so the `modeIDs` element is unused here — `[:]` is correct.
+        let comparison = makeMeasurement().multiTapComparisonEntries
+        let entries: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID])] =
+            comparison.enumerated().map { index, entry in
+                (magnitudes: entry.snapshot.magnitudes, frequencies: entry.snapshot.frequencies,
+                 color: Palette.comparisonColor(index: index, label: entry.label), label: entry.label,
+                 peaks: entry.peaks, guitarType: entry.guitarType, modeIDs: [:])
+            }
+        let snapshots = comparison.map(\.snapshot)
 
         comparisonSpectra = entries
         comparisonSnapshots = snapshots
