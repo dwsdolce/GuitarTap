@@ -118,11 +118,8 @@ extension TapToneAnalyzer {
         // Skip during loadMeasurement: saved peaks are already correct, and the
         // guitar type stored in TapDisplaySettings may not match the measurement
         // yet (it's applied asynchronously via the view's onReceive handler).
-        // Also handle loaded measurements specially: the saved peaks are the
-        // authoritative analysis results and may not be reproducible by re-running
-        // findPeaks on the frozen spectrum (which is only stored for display).
-        // When loadedMeasurementPeaks is set, filter those peaks by the current
-        // threshold instead of re-analyzing the spectrum.
+        // A loaded measurement's saved peaks are never re-detected here: Re-analyze, the only
+        // caller, drops them first.
         guard !isLoadingMeasurement else { return }
         guard isMeasurementComplete,
               !frozenFrequencies.isEmpty,
@@ -134,14 +131,10 @@ extension TapToneAnalyzer {
         // --- Snapshot all frequency-keyed state BEFORE findPeaks() replaces UUIDs ---
 
         // Selected peak frequencies: use the stable cache (survives empty-peak passes).
-        // Fall back to deriving from loadedMeasurementPeaks on the very first pass
-        // after load (before selectedPeakFrequencies has been populated).
         let previouslySelectedFrequencies: [Float]
         if isGuitar && userHasModifiedPeakSelection {
             if !selectedPeakFrequencies.isEmpty {
                 previouslySelectedFrequencies = selectedPeakFrequencies
-            } else if let ref = loadedMeasurementPeaks {
-                previouslySelectedFrequencies = ref.filter { selectedPeakIDs.contains($0.id) }.map { $0.frequency }
             } else {
                 previouslySelectedFrequencies = selectedPeaks.map { $0.frequency }
             }
@@ -164,61 +157,6 @@ extension TapToneAnalyzer {
             return (peak.frequency, mode)
         }
 
-        // --- Loaded-measurement path ---
-        // When peaks come from a loaded file, the saved peaks are the authoritative
-        // analysis record and may not be reproducible by re-running findPeaks on the
-        // frozen spectrum (spectrum averaging, FFT windowing, and analysis settings can
-        // all differ between sessions). Filter the saved peaks by threshold instead.
-        //
-        // **Guitar only.** Peak Min is a guitar-mode control: plate/brace capture uses its own
-        // adaptive per-phase noise floor, and the identified L / C / FLC peaks ARE the material
-        // result — they must never be filtered out from under it. A loaded plate whose fL sits
-        // below the saved Peak Min (e.g. fL at -62.4 dB with Peak Min -60) would otherwise lose
-        // that peak from both the peak table and the chart annotations.
-        //
-        // We are immune here today only by ACCIDENT: the guard above requires a non-empty frozen
-        // spectrum, and loading a material measurement leaves it empty (MeasurementManagement
-        // `setFrozenSpectrum([], [])`), so this branch is never reached for material. Anything
-        // that later gives a loaded material measurement a frozen spectrum would re-arm the bug.
-        // State the intent instead of relying on that. Python mirrors this guard in
-        // `_emit_loaded_peaks_at_threshold`, where the same defect DID reach the user.
-        if let savedPeaks = loadedMeasurementPeaks {
-            // `allPeaks` is the DURABLE set and must never be assigned a filtered view — doing so
-            // would shrink it as Peak Min rises, and the save path would then write the shrunken
-            // set (silent data loss). Store the saved peaks whole; `peaksAbovePeakMin` is the Peak Min
-            // projection of them. The legacy remapping below still operates on the *displayed*
-            // set, exactly as it did before, so behaviour here is unchanged.
-            allPeaks = savedPeaks
-            // Classification and selection work on the DURABLE set — never the displayed one, or
-            // raising Peak Min above every peak would leave nothing to select or classify.
-            let peaks = allPeaks
-
-            guard !peaks.isEmpty else {
-                identifiedModes = []
-                return
-            }
-
-            // Restore mode assignments from identifiedModes cache, or reclassify.
-            var modesByFrequency: [(frequency: Float, mode: GuitarMode)] = identifiedModes.map {
-                ($0.peak.frequency, $0.mode)
-            }
-            if modesByFrequency.isEmpty {
-                let seedMap = GuitarMode.classifyAll(savedPeaks)
-                modesByFrequency = savedPeaks.map { ($0.frequency, seedMap[$0.id] ?? .unknown) }
-            }
-            applyFrozenPeakState(
-                peaks: peaks,
-                modesByFrequency: modesByFrequency,
-                offsetsByFrequency: offsetsByFrequency,
-                overridesByFrequency: overridesByFrequency,
-                previouslySelectedFrequencies: previouslySelectedFrequencies,
-                isGuitar: isGuitar,
-                tolerance: tolerance
-            )
-            return
-        }
-
-        // --- Live-tap path (no loaded measurement) ---
         // Mode assignments keyed by frequency. Stable across slider moves; cleared only
         // when peaks go to zero (identifiedModes = []).
         let modesByFrequency: [(frequency: Float, mode: GuitarMode)] = identifiedModes.map {
@@ -282,9 +220,6 @@ extension TapToneAnalyzer {
     /// the next freeze.
     func resetToAutoSelection() {
         userHasModifiedPeakSelection = false
-        // Do not nil loadedMeasurementPeaks: the threshold slider must continue
-        // to use the saved peaks as the source of truth rather than re-running
-        // findPeaks on the frozen spectrum (which may not reproduce every saved peak).
         selectedPeakFrequencies = []
         // Auto-selection runs over the DURABLE set, never the displayed one. Selection identifies
         // which peak IS each mode — a fact about the measurement, not about the current Peak Min.
@@ -346,8 +281,7 @@ extension TapToneAnalyzer {
               !frozenFrequencies.isEmpty,
               !frozenMagnitudes.isEmpty else { return }
 
-        // Clear loadedMeasurementPeaks so recalculateFrozenPeaksIfNeeded() falls
-        // through to the live-tap path, which calls findPeaks() on the frozen spectrum.
+        // The re-detected peaks replace the saved ones.
         loadedMeasurementPeaks = nil
         userHasModifiedPeakSelection = false
         selectedPeakFrequencies = []
