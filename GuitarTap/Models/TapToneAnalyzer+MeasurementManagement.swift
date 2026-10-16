@@ -68,6 +68,9 @@ extension TapToneAnalyzer {
         return documentsDirectory.appendingPathComponent("saved_measurements.json")
     }
     
+    /// The queue every library write runs on, in order.
+    nonisolated static let persistQueue = DispatchQueue(label: "com.guitartap.persistMeasurements", qos: .utility)
+
     // MARK: - Measurement Codec
 
     /// The single JSON encoding of the measurement library.
@@ -104,7 +107,7 @@ extension TapToneAnalyzer {
     /// Populates `savedMeasurements` on the main thread. No-ops silently if
     /// the file does not yet exist.
     func loadPersistedMeasurements() {
-        let fileURL = TapToneAnalyzer.measurementsFileURL
+        let fileURL = libraryFileURL
         
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             gtLog("📂 No persisted measurements file found")
@@ -141,11 +144,13 @@ extension TapToneAnalyzer {
     /// Called automatically after every `saveMeasurement`, `deleteMeasurement`,
     /// and `importMeasurements` operation.
     func persistMeasurements() {
-        let fileURL = TapToneAnalyzer.measurementsFileURL
+        let fileURL = libraryFileURL
         // Snapshot the array on the main thread; encoding + disk I/O run in background
-        // to avoid blocking the UI (spectrum data can be several MB).
+        // to avoid blocking the UI (spectrum data can be several MB). One serial queue, so the
+        // writes land in the order they were made: on a concurrent queue an earlier, slower write
+        // could finish last and leave an older library on disk.
         let snapshot = savedMeasurements
-        DispatchQueue.global(qos: .utility).async {
+        TapToneAnalyzer.persistQueue.async {
             do {
                 try FileManager.default.createDirectory(
                     at: fileURL.deletingLastPathComponent(),
@@ -420,6 +425,12 @@ extension TapToneAnalyzer {
     func deleteMeasurement(at index: Int) {
         guard savedMeasurements.indices.contains(index) else { return }
         savedMeasurements.remove(at: index)
+        persistMeasurements()
+    }
+
+    /// Removes every saved measurement and persists the empty library.
+    func deleteAllMeasurements() {
+        savedMeasurements.removeAll()
         persistMeasurements()
     }
     
@@ -895,29 +906,6 @@ extension TapToneAnalyzer {
         }
     }
     
-    /// Simple string-based JSON import for quick in-app sharing.
-    ///
-    /// Decodes a JSON string containing an array of ``TapToneMeasurement``
-    /// values and appends them to `savedMeasurements`. No image files are
-    /// loaded and no microphone warnings are generated.
-    ///
-    /// - Parameter json: UTF-8 JSON string representing `[TapToneMeasurement]`.
-    /// - Returns: `true` if decoding succeeded and measurements were appended;
-    ///   `false` otherwise.
-    ///
-    /// - SeeAlso: ``importMeasurements(from:)`` for the full import path with
-    ///   image loading and microphone warning support.
-    func importMeasurements(json: String) -> Bool {
-        guard let data = json.data(using: .utf8),
-              let measurements = try? TapToneAnalyzer.decodeMeasurements(data) else {
-            return false
-        }
-        
-        savedMeasurements.append(contentsOf: measurements)
-        persistMeasurements()
-        return true
-    }
-
     // MARK: - Comparison Overlay
 
 

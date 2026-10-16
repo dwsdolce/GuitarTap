@@ -471,7 +471,7 @@ struct MeasurementsListView: View {
     }
 
     private func deleteAll() {
-        analyzer.savedMeasurements.removeAll()
+        analyzer.deleteAllMeasurements()
     }
     
     private func showDetail(index: Int, measurement: TapToneMeasurement) {

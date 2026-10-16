@@ -384,6 +384,10 @@ final class TapToneAnalyzer: ObservableObject {
     /// All measurements saved during this session, ordered by save time.
     @Published var savedMeasurements: [TapToneMeasurement] = []
 
+    /// The file this analyzer reads its library from and writes it to — ``measurementsFileURL``. A test
+    /// gives an analyzer a file of its own, so suites running in parallel never write each other's.
+    var libraryFileURL: URL = TapToneAnalyzer.measurementsFileURL
+
     // MARK: - Published Detection State
 
     /// Whether the detector is listening, paused mid-sequence, or neither.
