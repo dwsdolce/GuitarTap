@@ -824,12 +824,13 @@ struct TapToneMeasurement: Identifiable, Codable {
         //   • an older selection  → can hold two selected Tops.
         // Repair both here, at the one initialiser every read path reaches, so the on-screen state,
         // the saved-list ratio and the file itself all agree. Guitar only — material has no per-peak
-        // selection (`effectiveSelectedPeakIDs` already returns all peaks for it). This sets the same
+        // selection (`effectiveSelectedPeakIDs` already returns all peaks for it) — and only with peaks: a
+        // record without any (a comparison) has nothing to select. This sets the same
         // `healed` flag as the duplicate-peak repair, so the library re-saves identically (and a
         // `.guitartap` opened from disk is healed in memory until the user saves).
         let isMaterialAtDecode = (spectrumSnapshot?.measurementType ?? longitudinalSnapshot?.measurementType)
             .map { !$0.isGuitar } ?? (longitudinalSnapshot != nil || selectedLongitudinalPeakID != nil)
-        if !isMaterialAtDecode {
+        if !isMaterialAtDecode && !decodedPeaks.isEmpty {
             // The same guitar type as ``classificationGuitarType``: the snapshot's, otherwise Generic.
             let gt = spectrumSnapshot?.guitarType ?? longitudinalSnapshot?.guitarType ?? .generic
             let autoMap = GuitarMode.classifyAll(decodedPeaks, guitarType: gt)

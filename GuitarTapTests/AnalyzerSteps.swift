@@ -21,11 +21,14 @@ private let materialPhases: [String: MaterialTapPhase] = [
 /// - `{"settings": {"type": saved name, "measureFlc": Bool}}` — as Settings writes them
 /// - `{"setTaps": n}` — the Taps control
 /// - `{"setThreshold": dB}` — the Threshold control
+/// - `{"setPeakMin": dB}` — the Peak Min control
 /// - `{"newTap": true}`, `{"pause": true}`, `{"resume": true}`, `{"cancel": true}`
 /// - `{"guitarTap": hz}` — a guitar capture finished on a synthetic tap one capture long
 /// - `{"materialTap": {"phase": "L" | "C" | "FLC", "hz": hz}}` — a material capture on a 0.5 s tap
 /// - `{"accept": true}`, `{"redo": true}` — the phase under review
-/// - `{"advance": "tapCooldown" | "captureWindow" | seconds, "fraction"?: f}` — quiet audio
+/// - `{"advance": "tapCooldown" | "captureWindow" | "warmupPeriod" | seconds, "fraction"?: f, "extra"?: s,
+///   "level"?: dB}` — that much audio (quiet unless `level` is given)
+/// - `{"audioChunks": n, "level": dB}` — n chunks of audio at that level (two loud ones are a tap)
 @MainActor
 func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
     if let settings = step["settings"] as? [String: Any] {
@@ -37,6 +40,8 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
         sut.numberOfTaps = n
     } else if let dB = step["setThreshold"] as? Double {
         sut.tapDetectionThreshold = Float(dB)
+    } else if let dB = step["setPeakMin"] as? Double {
+        sut.peakMinThreshold = Float(dB)
     } else if step["newTap"] as? Bool == true {
         sut.startTapSequence()
     } else if step["pause"] as? Bool == true {
@@ -61,9 +66,13 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
         switch advance as? String {
         case "tapCooldown": seconds = sut.tapCooldown
         case "captureWindow": seconds = sut.captureWindow
+        case "warmupPeriod": seconds = sut.warmupPeriod
         default: seconds = advance as! Double
         }
-        advanceAudio(sut, by: seconds * ((step["fraction"] as? Double) ?? 1))
+        let level = Float((step["level"] as? Double) ?? -90)
+        advanceAudio(sut, by: seconds * ((step["fraction"] as? Double) ?? 1) + ((step["extra"] as? Double) ?? 0), level: level)
+    } else if let n = step["audioChunks"] as? Int {
+        advanceAudio(sut, by: Double(n) * audioFeedChunkSeconds, level: Float(step["level"] as! Double))
     } else {
         return false
     }

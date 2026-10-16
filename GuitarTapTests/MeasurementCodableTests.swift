@@ -610,8 +610,8 @@ struct MeasurementLogicTests {
 
 // MARK: - The file format — the shared cases in `measurement-codable.json`
 //
-// The spectrum's bytes (SB), what a file reads to (DC), what the writer emits (WR), and the real
-// fixtures every edition carries: the same cases as Python and the web.
+// The spectrum's bytes (SB), what a file reads to (DC), what the writer emits (WR), a comparison
+// record (CR) and the real fixtures every edition carries: the same cases as Python and the web.
 // ---------------------------------------------------------------------------
 
 @Suite("MeasurementCodec", .serialized)
@@ -722,6 +722,61 @@ struct MeasurementCodecTests {
             #expect(token == number, "\(id): \(key) written as \(number)")
         }
         for s in row["contains"] as? [String] ?? [] { #expect(text.contains(s), "\(id): contains \(s)") }
+    }
+
+    @Test(arguments: ids("comparison"))
+    func comparison(_ id: String) throws {
+        let row = MeasurementLogicTests.row("comparison", id)
+        let first = try #require(try Self.read(row["file"]!).first)
+        var m = first
+        var doc: Any? = nil
+        if row["roundTrip"] as? Bool == true {
+            let text = try Self.write([first])
+            doc = try JSONSerialization.jsonObject(with: Data(text.utf8))
+            m = try #require(try Self.decoder().decode([TapToneMeasurement].self, from: Data(text.utf8)).first)
+        }
+        for (field, want) in row["expect"] as! [String: Any] {
+            switch field {
+            case "isComparison":
+                #expect(m.isComparison == want as? Bool, "\(id) \(field)")
+            case "healed":
+                #expect(first.wasHealed == want as? Bool, "\(id) \(field)")
+            case "entries":
+                guard let wanted = want as? [[String: Any]] else {
+                    #expect(m.comparisonEntries == nil, "\(id) \(field): none")
+                    continue
+                }
+                let entries = try #require(m.comparisonEntries, "\(id): entries")
+                #expect(entries.count == wanted.count, "\(id) \(field): count")
+                for (e, w) in zip(entries, wanted) {
+                    for (key, value) in w {
+                        switch key {
+                        case "id": #expect(e.id.uuidString.lowercased() == (value as! String).lowercased(), "\(id) entry id")
+                        case "label": #expect(e.label == value as? String, "\(id) entry label")
+                        case "colorComponents": #expect(e.colorComponents == (value as! [NSNumber]).map(\.doubleValue), "\(id) entry colour")
+                        case "guitarType": #expect(e.guitarType?.rawValue == value as? String, "\(id) entry guitarType: \(String(describing: e.guitarType))")
+                        case "peakCount": #expect(e.peaks.count == value as? Int, "\(id) entry peakCount")
+                        case "modePeakIds":
+                            let got = (e.modePeakIDs ?? [:]).mapValues { $0.uuidString.lowercased() }
+                            let wantIds = (value as! [String: String]).mapValues { $0.lowercased() }
+                            #expect(got == wantIds, "\(id) entry modePeakIds: \(got)")
+                        default: Issue.record("\(id): unknown entry field \(key)")
+                        }
+                    }
+                }
+            case "modeFrequency":
+                let e = try #require(m.comparisonEntries?.first)
+                for (name, hz) in want as! [String: NSNumber] {
+                    let mode = try #require(GuitarMode(rawValue: name))
+                    #expect(e.modeFrequency(mode).map(Double.init) == hz.doubleValue, "\(id) \(field) \(name)")
+                }
+            case "absent":
+                let written = try #require(doc, "\(id): absent needs roundTrip")
+                for key in want as! [String] { #expect(!Self.hasKey(key, in: written), "\(id): \(key) not written") }
+            default:
+                Issue.record("\(id): unknown field \(field)")
+            }
+        }
     }
 
     @Test(arguments: fixtureNames())

@@ -27,7 +27,6 @@ private func makeSUT() -> TapToneAnalyzer {
     let fft = RealtimeFFTAnalyzer.forTesting()
     let sut = TapToneAnalyzer(fftAnalyzer: fft)
     TapDisplaySettings.measurementType = .generic
-    sut.cancellables.removeAll()
     return sut
 }
 

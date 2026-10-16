@@ -1742,19 +1742,22 @@ final class TapToneAnalyzer: ObservableObject {
         // When fftAnalyzer.level.isClipping toggles, swap the displayed
         // statusMessage between the analyzer's intended message
         // (preserved in latestRealStatus) and a remediation warning.
-        // Mirrors Python `_set_clipping`.
+        // Set on the main thread, so applied at once — no queue hop. A @Published sink runs before
+        // the property changes, so the analyzer keeps the new value itself, then applies it.
+        // Mirrors Python `_set_clipping` and the web's `setClipping`.
         fftAnalyzer.level.$isClipping
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
+            .sink { [weak self] clipping in
+                self?.isClipping = clipping
                 self?.applyStatusOverrides()
             }
             .store(in: &cancellables)
 
         // ── Dead-input override ──────────────────────────────────────────
-        // Same mechanism as clipping, higher priority. Mirrors Python.
+        // Same mechanism as clipping, higher priority; the watchdog sets it on the main thread.
+        // Mirrors Python.
         fftAnalyzer.$inputAppearsDead
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
+            .sink { [weak self] dead in
+                self?.inputAppearsDead = dead
                 self?.applyStatusOverrides()
             }
             .store(in: &cancellables)
@@ -1768,6 +1771,14 @@ final class TapToneAnalyzer: ObservableObject {
             .store(in: &cancellables)
     }
 
+    /// The input is clipping — the engine's `level.isClipping`, kept here by its sink. Mirrors Python
+    /// `is_clipping` and the web's `isClipping`.
+    private(set) var isClipping = false
+
+    /// The input appears dead — the engine's `inputAppearsDead`, kept here by its sink. Mirrors Python
+    /// `input_appears_dead` and the web's `inputAppearsDead`.
+    private(set) var inputAppearsDead = false
+
     /// Resolves the displayed status against the active input-condition overrides.
     ///
     /// One place decides precedence — dead input, then the wrong device, then clipping, then
@@ -1775,11 +1786,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// a stale warning on screen after its condition clears.
     func applyStatusOverrides() {
         let resolved: String
-        if fftAnalyzer.inputAppearsDead {
+        if inputAppearsDead {
             resolved = TapToneAnalyzer.deadInputStatus
         } else if fftAnalyzer.inputIsNotSelectedDevice {
             resolved = TapToneAnalyzer.wrongDeviceStatus
-        } else if fftAnalyzer.level.isClipping {
+        } else if isClipping {
             resolved = TapToneAnalyzer.clippingWarningStatus
         } else {
             resolved = latestRealStatus

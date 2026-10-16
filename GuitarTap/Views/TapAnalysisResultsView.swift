@@ -155,7 +155,6 @@ struct TapAnalysisResultsView: View {
                             Toggle(isOn: Binding(
                                 get: { analyzer.showingMultiTapComparison },
                                 set: { show in
-                                    analyzer.showingMultiTapComparison = show
                                     analyzer.applyMultiTapComparisonOverlays(enabled: show)
                                 })
                             ) {

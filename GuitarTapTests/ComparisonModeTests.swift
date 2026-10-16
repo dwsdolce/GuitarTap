@@ -2,13 +2,10 @@
 //  ComparisonModeTests.swift
 //  GuitarTapTests
 //
-//  Tests for the spectrum comparison overlay feature:
-//  loadComparison(), clearComparison(), comparisonSpectra, and displayMode.
-//
-//  All tests operate on TapToneAnalyzer state directly;
-//  no audio hardware or async timing is involved.
-//
-//  Test plan coverage: CP1–CP5 (unit-testable subset)
+//  Comparing saved measurements: the entries a comparison holds, their labels and range, the mode,
+//  detection standing down, the per-tap overlay giving way, each entry's Air/Top/Back taken from its
+//  source, and saving and loading a comparison. The shared cases in `comparison.json` (CM1–CM25), the
+//  same as Python and the web.
 //
 // @parity test/comparison
 
@@ -16,403 +13,99 @@ import Testing
 import Foundation
 @testable import GuitarTap
 
-// ---------------------------------------------------------------------------
-// MARK: - Helpers
-// ---------------------------------------------------------------------------
+private final class ComparisonAnchor {}
 
-private func makeSUT() -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer.forTesting()
-    return TapToneAnalyzer(fftAnalyzer: fft)
-}
-
-private func makeSnapshot(
-    minFreq: Float = 80, maxFreq: Float = 1200,
-    minDB: Float = -90, maxDB: Float = -10
-) -> SpectrumSnapshot {
-    let freqs: [Float] = [100, 200, 300, 400]
-    let mags:  [Float] = [-40, -35, -45, -50]
-    return SpectrumSnapshot(
-        frequencies: freqs, magnitudes: mags,
-        minFreq: minFreq, maxFreq: maxFreq,
-        minDB: minDB, maxDB: maxDB,
-        isLogarithmic: false
-    )
-}
-
-private func makeMeasurement(
-    measurementName: String? = nil,
-    withSnapshot: Bool = true
-) -> TapToneMeasurement {
-    TapToneMeasurement(
-        peaks: [],
-        measurementName: measurementName,
-        spectrum: withSnapshot ? makeSnapshot() : nil
-    )
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - loadComparison tests  (CP-U1–CP-U4)
-// ---------------------------------------------------------------------------
-
-@Suite("ComparisonLoad")
+@Suite("Comparison", .serialized)
 @MainActor
-struct ComparisonLoadTests {
+struct ComparisonModeTests {
 
-    // CP-U1: Loading 2 measurements populates comparisonSpectra with 2 entries.
-    @Test func loadComparison_twoMeasurements_producesTwoEntries() {
-        let sut = makeSUT()
-        let m1 = makeMeasurement(measurementName: "Bridge")
-        let m2 = makeMeasurement(measurementName: "Neck")
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
+        let url = Bundle(for: ComparisonAnchor.self).url(forResource: "comparison", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
 
-        sut.loadComparison(measurements: [m1, m2])
-
-        #expect(sut.comparisonSpectra.count == 2, "Expected 2 comparison entries, got \(sut.comparisonSpectra.count)")
-        #expect(sut.displayMode == .comparison, "displayMode should be .comparison after loadComparison")
+    nonisolated static func ids() -> [String] {
+        (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
     }
 
-    // CP-U2: Labels use measurementName when present; fall back to formatted timestamp.
-    @Test func loadComparison_usesMeasurementNameLabelWhenPresent() {
-        let sut = makeSUT()
-        let m = makeMeasurement(measurementName: "Bridge Area")
-
-        sut.loadComparison(measurements: [m])
-
-        let label = sut.comparisonSpectra.first?.label ?? ""
-        #expect(label == "Bridge Area", "Expected label 'Bridge Area', got '\(label)'")
+    static func measurement(_ name: String) throws -> TapToneMeasurement {
+        let file = (data["files"] as! [String: Any])[name]!
+        return try #require(try TapToneAnalyzer.decodeMeasurements(JSONSerialization.data(withJSONObject: file)).first)
     }
 
-    // CP-U3: Measurements without a spectrum snapshot are silently filtered out.
-    @Test func loadComparison_skipsMeasurementsWithoutSnapshot() {
-        let sut = makeSUT()
-        let withSnap    = makeMeasurement(measurementName: "With", withSnapshot: true)
-        let withoutSnap = makeMeasurement(measurementName: "Without", withSnapshot: false)
-
-        sut.loadComparison(measurements: [withSnap, withoutSnap])
-
-        #expect(sut.comparisonSpectra.count == 1, "Should only include measurement with a snapshot")
-        #expect(sut.comparisonSpectra.first?.label == "With")
+    static func peakName(_ id: UUID) -> String {
+        (data["peakNames"] as! [String: String]).first { UUID(uuidString: $0.key) == id }?.value ?? id.uuidString
     }
 
-    // CP-U4: Colors cycle through the 5-color palette without crashing for > 5 entries.
-    @Test func loadComparison_paletteWrapsFor6Measurements() {
-        let sut = makeSUT()
-        let measurements = (1...6).map { makeMeasurement(measurementName: "M\($0)") }
-
-        // Should not crash and should produce 6 entries
-        sut.loadComparison(measurements: measurements)
-
-        #expect(sut.comparisonSpectra.count == 6)
+    static func check(_ fields: [String: Any], _ sut: TapToneAnalyzer, savedBefore: Int, _ id: String) {
+        for (field, want) in fields {
+            switch field {
+            case "entries": #expect(sut.comparisonSpectra.count == want as? Int, "\(id) \(field)")
+            case "labels": #expect(sut.comparisonSpectra.map(\.label) == want as? [String], "\(id) \(field): \(sut.comparisonSpectra.map(\.label))")
+            case "mode": #expect((sut.displayMode == .comparison ? "comparison" : "live") == want as? String, "\(id) \(field)")
+            case "loadedRange":
+                let r = sut.loadedAxisRange
+                let got = r.map { [Double($0.minFreq), Double($0.maxFreq), Double($0.minDB), Double($0.maxDB)] }
+                #expect(got == (want as! [NSNumber]).map(\.doubleValue), "\(id) \(field): \(String(describing: got))")
+            case "detecting": #expect(sut.isDetecting == want as? Bool, "\(id) \(field)")
+            case "multiTap": #expect(sut.showingMultiTapComparison == want as? Bool, "\(id) \(field)")
+            case "tapEntries": #expect(sut.tapEntries.count == want as? Int, "\(id) \(field)")
+            case "savedComparison": #expect(sut.isSavedMeasurementComparison == want as? Bool, "\(id) \(field)")
+            case "modeIds":
+                let got = (sut.comparisonSpectra.first?.modeIDs ?? [:]).mapValues { peakName($0) }
+                #expect(got == want as? [String: String], "\(id) \(field): \(got)")
+            case "entryGuitarType":
+                #expect(sut.comparisonSpectra.first?.guitarType?.rawValue == want as? String, "\(id) \(field)")
+            case "entryPeaks":
+                let got = (sut.comparisonSpectra.first?.peaks ?? []).map { peakName($0.id) }.sorted()
+                #expect(got == (want as! [String]).sorted(), "\(id) \(field): \(got)")
+            case "savedRecord":
+                if let record = want as? [String: Any] {
+                    let last = sut.savedMeasurements.last
+                    #expect(sut.savedMeasurements.count == savedBefore + 1, "\(id) \(field): a record added")
+                    #expect(last?.measurementName == record["name"] as? String, "\(id) \(field) name")
+                    #expect(last?.comparisonEntries?.count == record["entries"] as? Int, "\(id) \(field) entries")
+                } else {
+                    #expect(sut.savedMeasurements.count == savedBefore, "\(id) \(field): none added")
+                }
+            case "phase": #expect(sut.materialTapPhase.rawValue == want as? String, "\(id) \(field)")
+            case "complete": #expect(sut.isMeasurementComplete == want as? Bool, "\(id) \(field)")
+            default: Issue.record("\(id): unknown field \(field)")
+            }
+        }
     }
 
-    // CP-U5: Axis bounds are set to the union of all snapshot ranges.
-    @Test func loadComparison_setsAxisRangesToUnionOfSnapshots() {
-        let sut = makeSUT()
-        let m1 = TapToneMeasurement(peaks: [], measurementName: "A",
-                                    spectrum: makeSnapshot(minFreq: 50,  maxFreq: 800,  minDB: -95, maxDB: -15))
-        let m2 = TapToneMeasurement(peaks: [], measurementName: "B",
-                                    spectrum: makeSnapshot(minFreq: 100, maxFreq: 1200, minDB: -80, maxDB: -5))
-
-        sut.loadComparison(measurements: [m1, m2])
-
-        let r = sut.loadedAxisRange
-        #expect(r?.minFreq == 50,   "Expected minFreq 50, got \(String(describing: r?.minFreq))")
-        #expect(r?.maxFreq == 1200, "Expected maxFreq 1200, got \(String(describing: r?.maxFreq))")
-        #expect(r?.minDB   == -95,  "Expected minDB -95, got \(String(describing: r?.minDB))")
-        #expect(r?.maxDB   == -5,   "Expected maxDB -5, got \(String(describing: r?.maxDB))")
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - clearComparison tests  (CP-U6–CP-U7)
-// ---------------------------------------------------------------------------
-
-@Suite("ComparisonClear")
-@MainActor
-struct ComparisonClearTests {
-
-    // CP-U6: clearComparison empties comparisonSpectra.
-    @Test func clearComparison_emptiesSpectra() {
-        let sut = makeSUT()
-        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
-        #expect(sut.comparisonSpectra.count == 2)
-
-        sut.clearComparison()
-
-        #expect(sut.comparisonSpectra.isEmpty, "comparisonSpectra should be empty after clearComparison()")
-        #expect(sut.displayMode == .live, "displayMode should be .live after clearComparison()")
-    }
-
-    // CP-U7: Loading an empty array also results in empty comparisonSpectra.
-    @Test func loadComparison_emptyArray_producesEmptySpectra() {
-        let sut = makeSUT()
-        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
-
-        sut.loadComparison(measurements: [])
-
-        #expect(sut.comparisonSpectra.isEmpty, "Loading an empty array should clear comparisonSpectra")
-        #expect(sut.displayMode == .live, "displayMode should be .live when no spectra are loaded")
-    }
-
-    // CP-U8: All measurements lacking snapshots also leave displayMode as .live.
-    @Test func loadComparison_noSnapshots_leavesDisplayModeAsLive() {
-        let sut = makeSUT()
-        sut.loadComparison(measurements: [makeMeasurement(withSnapshot: false), makeMeasurement(withSnapshot: false)])
-
-        #expect(sut.comparisonSpectra.isEmpty)
-        #expect(sut.displayMode == .live, "displayMode should be .live when no measurements have snapshots")
-    }
-
-    // CP-U9: Building a comparison from an ARMED sequence stands the detector down.
-    //
-    // An overlay is frozen, like a loaded measurement.  Left armed, analyzeMagnitudes keeps
-    // overwriting the displayed peaks from live audio underneath the overlay, and a tap
-    // captures and completes a measurement the user never sees being made.
-    @Test func loadComparison_whileDetecting_disarmsDetection() {
-        let sut = makeSUT()
-        sut.detectionState = .listening
-
-        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
-
-        #expect(sut.displayMode == .comparison)
-        #expect(sut.detectionState == .idle,
-                "REGRESSION: a comparison overlay is frozen — leaving the detector armed lets live audio overwrite the overlay's peaks and lets a tap complete a measurement invisibly")
-    }
-
-    // CP-U10: An EMPTY comparison leaves the mode live, so there is nothing to freeze and the
-    // detector must be left exactly as it was — the mode follows the data, and so does the disarm.
-    @Test func loadComparison_emptyArray_leavesDetectionAlone() {
-        let sut = makeSUT()
-        sut.detectionState = .listening
-
-        sut.loadComparison(measurements: [])
-
-        #expect(sut.displayMode == .live)
-        #expect(sut.detectionState == .listening,
-                "an empty comparison stays live, so the detector must keep running")
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - displayMode transition tests
-// ---------------------------------------------------------------------------
-
-@Suite("DisplayModeTransitions")
-@MainActor
-struct DisplayModeTransitionTests {
-
-    // displayMode starts as .live on a fresh analyzer.
-    @Test func initialDisplayMode_isLive() {
-        let sut = makeSUT()
-        #expect(sut.displayMode == .live)
-    }
-
-    // loadComparison sets displayMode to .comparison.
-    @Test func loadComparison_setsDisplayModeToComparison() {
-        let sut = makeSUT()
-        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
-        #expect(sut.displayMode == .comparison)
-    }
-
-    // clearComparison sets displayMode back to .live.
-    @Test func clearComparison_setsDisplayModeToLive() {
-        let sut = makeSUT()
-        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
-        sut.clearComparison()
-        #expect(sut.displayMode == .live)
-    }
-
-    // loadMeasurement leaves displayMode .live — the loaded measurement displays because
-    // isMeasurementComplete is set, not because of the mode.
-    @Test func loadMeasurement_leavesDisplayModeLive() {
-        let sut = makeSUT()
-        let m = makeMeasurement(measurementName: "Bridge")
-        sut.loadMeasurement(m)
-        #expect(sut.displayMode == .live)
-    }
-
-    // loadMeasurement while in comparison also exits comparison, returning to .live.
-    @Test func loadMeasurement_duringComparison_exitsComparison() {
-        let sut = makeSUT()
-        sut.loadComparison(measurements: [makeMeasurement(), makeMeasurement()])
-        #expect(sut.displayMode == .comparison)
-
-        sut.loadMeasurement(makeMeasurement(measurementName: "Neck"))
-
-        #expect(sut.displayMode == .live)
-        #expect(sut.comparisonSpectra.isEmpty, "comparisonSpectra should be cleared when loading a measurement")
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Multi-tap to saved comparison transition tests  (MT-SC-U1 to MT-SC-U3)
-// ---------------------------------------------------------------------------
-
-private func makeTapEntry(tapIndex: Int) -> TapEntry {
-    TapEntry(
-        id: UUID(),
-        tapIndex: tapIndex,
-        snapshot: makeSnapshot(),
-        peaks: [],
-        selectedPeakIDs: []
-    )
-}
-
-@Suite("MultiTapToSavedComparisonTransition")
-@MainActor
-struct MultiTapToSavedComparisonTransitionTests {
-
-    // MT-SC-U1: loadComparison while multi-tap comparison is active resets
-    // showingMultiTapComparison and tapEntries.
-    //
-    // Guards the invariant that entering a saved-measurement comparison always
-    // tears down multi-tap state, regardless of whether the per-tap table was
-    // open beforehand.
-    @Test func loadComparison_whileMultiTapActive_resetsMultiTapState() {
-        let sut = makeSUT()
-        sut.tapEntries = [makeTapEntry(tapIndex: 1), makeTapEntry(tapIndex: 2)]
-        sut.showingMultiTapComparison = true
-        sut.applyMultiTapComparisonOverlays(enabled: true)
-        #expect(sut.displayMode == .comparison, "Precondition: multi-tap comparison active")
-        #expect(sut.showingMultiTapComparison == true, "Precondition: showingMultiTapComparison true")
-
-        sut.loadComparison(measurements: [makeMeasurement(measurementName: "A"),
-                                          makeMeasurement(measurementName: "B")])
-
-        #expect(sut.showingMultiTapComparison == false,
-                "loadComparison should reset showingMultiTapComparison")
-        #expect(sut.tapEntries.isEmpty,
-                "loadComparison should clear tapEntries")
-    }
-
-    // MT-SC-U2: After the transition displayMode stays .comparison and
-    // isSavedMeasurementComparison becomes true.
-    @Test func loadComparison_whileMultiTapActive_setsIsSavedMeasurementComparison() {
-        let sut = makeSUT()
-        sut.tapEntries = [makeTapEntry(tapIndex: 1), makeTapEntry(tapIndex: 2)]
-        sut.showingMultiTapComparison = true
-        sut.applyMultiTapComparisonOverlays(enabled: true)
-
-        sut.loadComparison(measurements: [makeMeasurement(measurementName: "A"),
-                                          makeMeasurement(measurementName: "B")])
-
-        #expect(sut.displayMode == .comparison,
-                "displayMode should remain .comparison after saved-measurement load")
-        #expect(sut.isSavedMeasurementComparison == true,
-                "isSavedMeasurementComparison should be true after transitioning from multi-tap")
-        #expect(sut.comparisonSpectra.count == 2,
-                "comparisonSpectra should contain the two loaded measurements")
-    }
-
-    // MT-SC-U3: Without an active multi-tap comparison, loadComparison behaves
-    // normally: showingMultiTapComparison stays false and isSavedMeasurementComparison is true.
-    @Test func loadComparison_withoutMultiTap_isSavedMeasurementComparison() {
-        let sut = makeSUT()
-        #expect(sut.showingMultiTapComparison == false, "Precondition: no multi-tap active")
-
-        sut.loadComparison(measurements: [makeMeasurement(measurementName: "X")])
-
-        #expect(sut.showingMultiTapComparison == false)
-        #expect(sut.isSavedMeasurementComparison == true)
-        #expect(sut.comparisonSpectra.count == 1)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Definitive modes persisted in a comparison
-// ---------------------------------------------------------------------------
-//
-// A comparison MEASUREMENT aggregates other measurements, so their override context is not otherwise
-// in this file. Each ComparisonEntry stores the resolved definitive Air/Top/Back as mode→peakID,
-// computed from the source's selection AND overrides, so the saved file is self-describing: a reader
-// reproduces the table by peak-ID lookup, without re-running classifyAll and without the source's
-// overrides (which are absent from the file).
-
-@Suite("ComparisonModePersistence", .serialized)
-@MainActor
-struct ComparisonModePersistenceTests {
-
-    private func classicalSnapshotWith(_ peaks: [ResonantPeak]) -> SpectrumSnapshot {
-        SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
-            minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
-            guitarType: .classical, measurementType: .classical
-        )
-    }
-
-    // The user's requirement end-to-end: a source measurement whose Top is user-overridden onto a
-    // peak that is NOT the auto Top must have the comparison show THAT peak as Top.
-    @Test func comparison_reflectsSourceOverride() {
+    @Test(arguments: ids())
+    func comparison(_ id: String) throws {
+        let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
         let saved = TapDisplaySettings.measurementType
-        TapDisplaySettings.measurementType = .classical
         defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeSUT()
 
-        let air = ResonantPeak(frequency: 95,  magnitude: -28)
-        let autoTop = ResonantPeak(frequency: 210, magnitude: -20) // classical Top by position
-        let far     = ResonantPeak(frequency: 400, magnitude: -22) // not Top by position
-        let source = TapToneMeasurement(
-            peaks: [air, autoTop, far],
-            spectrum: classicalSnapshotWith([air, autoTop, far]),
-            selectedPeakIDs: [air.id, far.id],                       // far is selected, autoTop is not
-            peakModeOverrides: [far.id: GuitarMode.top.displayName]  // far renamed to Top
-        )
-
-        sut.loadComparison(measurements: [source])
-
-        let modeIDs = sut.comparisonSpectra.first?.modeIDs ?? [:]
-        #expect(modeIDs[GuitarMode.top.rawValue] == far.id,
-                "the comparison's Top must be the user's overridden+selected peak, not the auto Top")
-        #expect(modeIDs[GuitarMode.air.rawValue] == air.id)
-    }
-
-    // The stored map is authoritative: modeFrequency reads it, and does NOT re-derive via classifyAll.
-    @Test func modeFrequency_readsStoredMap_notClassification() {
-        let air = ResonantPeak(frequency: 95,  magnitude: -28)
-        let realTop = ResonantPeak(frequency: 210, magnitude: -20) // classifyAll would pick THIS as Top
-        let entry = ComparisonEntry(
-            id: UUID(), label: "x", colorComponents: [0, 0, 1, 1],
-            snapshot: classicalSnapshotWith([air, realTop]),
-            peaks: [air, realTop], guitarType: .classical, sourceMeasurementID: nil,
-            modePeakIDs: [GuitarMode.top.rawValue: air.id]   // deliberately points Top at the AIR peak
-        )
-        #expect(entry.modeFrequency(.top) == 95,
-                "the stored map wins — the file is authoritative, not re-classified at render")
-    }
-
-    @Test func comparisonEntry_modePeakIDs_roundTrip() throws {
-        let air = ResonantPeak(frequency: 95, magnitude: -28)
-        let top = ResonantPeak(frequency: 210, magnitude: -20)
-        let entry = ComparisonEntry(
-            id: UUID(), label: "e", colorComponents: [0, 0, 1, 1],
-            snapshot: classicalSnapshotWith([air, top]),
-            peaks: [air, top], guitarType: .classical, sourceMeasurementID: nil,
-            modePeakIDs: [GuitarMode.air.rawValue: air.id, GuitarMode.top.rawValue: top.id]
-        )
-        let record = TapToneMeasurement(peaks: [], comparisonEntries: [entry])
-        let data = try TapToneAnalyzer.encodeMeasurements([record])
-        let decoded = try TapToneAnalyzer.decodeMeasurements(data)[0]
-        let e = try #require(decoded.comparisonEntries?.first)
-        #expect(e.modePeakIDs?[GuitarMode.air.rawValue] == air.id)
-        #expect(e.modePeakIDs?[GuitarMode.top.rawValue] == top.id)
-    }
-
-    // A pre-6b saved comparison (no modePeakIDs) is healed on decode and flagged for re-save.
-    @Test func legacyComparisonEntry_isHealedOnDecode() throws {
-        let air = ResonantPeak(frequency: 95,  magnitude: -28)
-        let top = ResonantPeak(frequency: 210, magnitude: -20)
-        let legacy = ComparisonEntry(
-            id: UUID(), label: "legacy", colorComponents: [0, 0, 1, 1],
-            snapshot: classicalSnapshotWith([air, top]),
-            peaks: [air, top], guitarType: .classical, sourceMeasurementID: nil
-            // modePeakIDs omitted → nil, as an old file has it
-        )
-        let record = TapToneMeasurement(peaks: [], comparisonEntries: [legacy])
-        let data = try TapToneAnalyzer.encodeMeasurements([record])
-        let decoded = try TapToneAnalyzer.decodeMeasurements(data)[0]
-
-        #expect(decoded.wasHealed, "a legacy comparison entry must flag for re-save")
-        let e = try #require(decoded.comparisonEntries?.first)
-        #expect(e.modePeakIDs?[GuitarMode.air.rawValue] == air.id, "healed Air (positional)")
-        #expect(e.modePeakIDs?[GuitarMode.top.rawValue] == top.id, "healed Top (positional)")
+        let sut = makeStepsAnalyzer()
+        sut.savedMeasurements = []
+        sut.libraryFileURL = FileManager.default.temporaryDirectory.appendingPathComponent("comparison-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: sut.libraryFileURL) }
+        for step in row["steps"] as! [[String: Any]] {
+            if let names = step["compare"] as? [String] {
+                sut.loadComparison(measurements: try names.map(Self.measurement))
+            } else if step["clearComparison"] as? Bool == true {
+                sut.clearComparison()
+            } else if let name = step["load"] as? String {
+                sut.loadMeasurement(try Self.measurement(name))
+            } else if let show = step["multiTap"] as? Bool {
+                sut.applyMultiTapComparisonOverlays(enabled: show)   // the Taps toggle
+            } else if let name = step["saveComparison"] as? String {
+                sut.saveComparison(measurementName: name)
+            } else if step["loadSaved"] as? Bool == true {
+                sut.loadMeasurement(try #require(sut.savedMeasurements.last))
+            } else if let fields = step["check"] as? [String: Any] {
+                Self.check(fields, sut, savedBefore: 0, id)
+            } else {
+                #expect(runAnalyzerStep(step, on: sut), "\(id): unknown step \(step)")
+            }
+        }
+        Self.check(row["expect"] as! [String: Any], sut, savedBefore: 0, id)
     }
 }

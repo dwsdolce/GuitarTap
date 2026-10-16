@@ -2,76 +2,56 @@
 //  EffectivePeakIDTests.swift
 //  GuitarTapTests
 //
+//  The id each material phase's peak is saved and exported under — `effectiveLongitudinalPeakID`,
+//  `effectiveCrossPeakID`, `effectiveFlcPeakID`: none until the phase's peak is chosen, then that peak's
+//  id. The shared cases in `effective-peak-id.json` (EP1–EP4), the same as Python and the web, through
+//  real plate taps.
+//
 // @parity test/effective-peak-id
-//
-// Resolution of the identified material peak: `effectiveLongitudinalPeakID`,
-// `effectiveCrossPeakID`, `effectiveFlcPeakID`.
-//
-//   selected<Phase>Peak?.id — the dominant peak stored when the phase FINALISES.
-//
-// There is no user-override tier: a wrong peak is fixed by redoing the phase.
-//
-// Twin of Python test_wi2_effective_peak_id.py, under a shared slug so the pair is visible to
-// gen_parity_map.
-//
-// WEB HAS NO COUNTERPART: it holds the same three `selected…Peak`s but reads them directly and has
-// no `effective…PeakID` wrapper to test.
 
 import Testing
 import Foundation
 @testable import GuitarTap
 
+private final class EffectivePeakIDAnchor {}
+
 @Suite("EffectivePeakID", .serialized)
 @MainActor
 struct EffectivePeakIDTests {
 
-    private func makeSUT() -> TapToneAnalyzer {
-        TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
+        let url = Bundle(for: EffectivePeakIDAnchor.self).url(forResource: "effective-peak-id", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
+
+    nonisolated static func ids() -> [String] {
+        (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
     }
 
-    // MARK: - Longitudinal (fL)
+    @Test(arguments: ids())
+    func effectivePeakID(_ id: String) {
+        let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
+        let saved = (TapDisplaySettings.measurementType, TapDisplaySettings.measureFlc)
+        defer { (TapDisplaySettings.measurementType, TapDisplaySettings.measureFlc) = saved }
 
-    @Test func longitudinal_returnsTheFinalisedPhasePeak() {
-        let sut = makeSUT()
-        let phase = ResonantPeak(frequency: 100, magnitude: -20)
-        sut.selectedLongitudinalPeak = phase
-
-        #expect(sut.effectiveLongitudinalPeakID == phase.id,
-                "the finalised phase peak is the identified peak")
-    }
-
-    @Test func longitudinal_nilBeforeThePhaseFinalises() {
-        let sut = makeSUT()
-        #expect(sut.effectiveLongitudinalPeakID == nil)
-    }
-
-    // MARK: - Cross-grain (fC)
-
-    @Test func cross_returnsTheFinalisedPhasePeak() {
-        let sut = makeSUT()
-        let phase = ResonantPeak(frequency: 200, magnitude: -20)
-        sut.selectedCrossPeak = phase
-
-        #expect(sut.effectiveCrossPeakID == phase.id)
-    }
-
-    @Test func cross_nilBeforeThePhaseFinalises() {
-        let sut = makeSUT()
-        #expect(sut.effectiveCrossPeakID == nil)
-    }
-
-    // MARK: - Diagonal (fLC)
-
-    @Test func flc_returnsTheFinalisedPhasePeak() {
-        let sut = makeSUT()
-        let phase = ResonantPeak(frequency: 300, magnitude: -20)
-        sut.selectedFlcPeak = phase
-
-        #expect(sut.effectiveFlcPeakID == phase.id)
-    }
-
-    @Test func flc_nilBeforeThePhaseFinalises() {
-        let sut = makeSUT()
-        #expect(sut.effectiveFlcPeakID == nil)
+        let sut = makeStepsAnalyzer()
+        for step in row["steps"] as! [[String: Any]] {
+            #expect(runAnalyzerStep(step, on: sut), "\(id): unknown step \(step)")
+        }
+        let phases: [String: (effective: UUID?, selected: ResonantPeak?)] = [
+            "L": (sut.effectiveLongitudinalPeakID, sut.selectedLongitudinalPeak),
+            "C": (sut.effectiveCrossPeakID, sut.selectedCrossPeak),
+            "FLC": (sut.effectiveFlcPeakID, sut.selectedFlcPeak),
+        ]
+        for (phase, want) in row["expect"] as! [String: Any] {
+            let (effective, selected) = phases[phase]!
+            if want as? String == "selected" {
+                #expect(effective != nil && effective == selected?.id, "\(id) \(phase): \(String(describing: effective))")
+            } else {
+                #expect(effective == nil, "\(id) \(phase): \(String(describing: effective))")
+            }
+        }
     }
 }

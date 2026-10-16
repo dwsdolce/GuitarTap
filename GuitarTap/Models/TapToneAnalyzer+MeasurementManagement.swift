@@ -1075,6 +1075,7 @@ extension TapToneAnalyzer {
     ///
     /// Call this when `showingMultiTapComparison` is toggled by the Results panel.
     func applyMultiTapComparisonOverlays(enabled: Bool) {
+        showingMultiTapComparison = enabled
         guard enabled else {
             comparisonSpectra = []
             comparisonSnapshots = []
