@@ -2,14 +2,10 @@
 //  MaterialMeasurementInputsTests.swift
 //  GuitarTapTests
 //
-//  The two-store material-dimensions model: a measurement's own dimensions (Store B,
-//  `TapToneAnalyzer.materialInputs`) are seeded from the Settings template (Store A) at completion,
-//  restored from the file's snapshot on load, and — crucially — loading NEVER writes the Settings
-//  defaults (the origin bug this design fixes). Also covers notes-on-load (R10).
-//
-//  These are the *sourcing* invariants that existing tests don't cover: PlateProperties/BraceProperties
-//  test the calc math (dims passed in directly), and MeasurementCodableTests tests the format round-trip
-//  — neither exercises where the dimensions come from.
+//  A material measurement's own dimensions (Store B, `TapToneAnalyzer.materialInputs`) and its notes:
+//  taken from the Settings defaults (Store A) at completion, from the file on a load — which never writes
+//  the Settings defaults — and written by a save. The shared cases in `material-measurement-inputs.json`
+//  (M1–M13), the same as Python and the web.
 //
 // @parity test/material-measurement-inputs
 
@@ -17,109 +13,156 @@ import Testing
 import Foundation
 @testable import GuitarTap
 
-/// Serialized: every test mutates the global `TapDisplaySettings`, so they must not interleave.
-@Suite(.serialized)
+private final class MaterialMeasurementInputsAnchor {}
+
+@Suite("MaterialMeasurementInputs", .serialized)
+@MainActor
 struct MaterialMeasurementInputsTests {
 
-    private func makeSUT() -> TapToneAnalyzer {
-        TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
+        let url = Bundle(for: MaterialMeasurementInputsAnchor.self)
+            .url(forResource: "material-measurement-inputs", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
+
+    nonisolated static func ids() -> [String] {
+        (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
     }
 
-    /// A minimal loadable plate measurement whose snapshot carries its own dimensions.
-    private func plateMeasurement(notes: String? = nil,
-                                  length: Float = 111, width: Float = 222,
-                                  thickness: Float = 3.33, mass: Float = 44,
-                                  bodyLength: Float = 480, bodyWidth: Float = 370,
-                                  preset: PlateStiffnessPreset = .classicalTop) -> TapToneMeasurement {
-        let snap = SpectrumSnapshot(
-            frequencies: [100, 200], magnitudes: [-10, -20],
-            minFreq: 50, maxFreq: 300, minDB: -100, maxDB: 0, isLogarithmic: false,
-            measurementType: .plate,
-            plateLength: length, plateWidth: width, plateThickness: thickness, plateMass: mass,
-            guitarBodyLength: bodyLength, guitarBodyWidth: bodyWidth,
-            plateStiffnessPreset: preset, customPlateStiffness: 60)
-        return TapToneMeasurement(peaks: [], notes: notes, longitudinalSnapshot: snap)
+    /// The settings a case may set, by their TapDisplaySettings names.
+    static let settingNames = ["measurementType", "plateLength", "plateWidth", "plateThickness", "plateMass",
+                               "braceLength", "braceWidth", "braceThickness", "braceMass",
+                               "guitarBodyLength", "guitarBodyWidth", "plateStiffnessPreset", "customPlateStiffness"]
+
+    static func setting(_ name: String) -> Any {
+        switch name {
+        case "measurementType": return TapDisplaySettings.measurementType.rawValue
+        case "plateLength": return Double(TapDisplaySettings.plateLength)
+        case "plateWidth": return Double(TapDisplaySettings.plateWidth)
+        case "plateThickness": return Double(TapDisplaySettings.plateThickness)
+        case "plateMass": return Double(TapDisplaySettings.plateMass)
+        case "braceLength": return Double(TapDisplaySettings.braceLength)
+        case "braceWidth": return Double(TapDisplaySettings.braceWidth)
+        case "braceThickness": return Double(TapDisplaySettings.braceThickness)
+        case "braceMass": return Double(TapDisplaySettings.braceMass)
+        case "guitarBodyLength": return Double(TapDisplaySettings.guitarBodyLength)
+        case "guitarBodyWidth": return Double(TapDisplaySettings.guitarBodyWidth)
+        case "plateStiffnessPreset": return TapDisplaySettings.plateStiffnessPreset.rawValue
+        case "customPlateStiffness": return Double(TapDisplaySettings.customPlateStiffness)
+        default: fatalError("unknown setting \(name)")
+        }
     }
 
-    // MARK: - Seed at complete
-
-    @Test func seedsStoreBFromSettingsWhenPlateCompletes() throws {
-        TapDisplaySettings.measurementType = .plate
-        TapDisplaySettings.plateLength = 501
-        TapDisplaySettings.plateWidth = 201
-        TapDisplaySettings.plateThickness = 4.5
-        TapDisplaySettings.plateMass = 210
-        TapDisplaySettings.plateStiffnessPreset = .classicalTop
-        let sut = makeSUT()
-        #expect(sut.materialInputs == nil)              // nil until the measurement completes
-        sut.isMeasurementComplete = true
-        let mi = try #require(sut.materialInputs)
-        #expect(mi.lengthMM == 501)
-        #expect(mi.widthMM == 201)
-        #expect(mi.thicknessMM == 4.5)
-        #expect(mi.massG == 210)
-        #expect(mi.stiffnessPreset == .classicalTop)
+    static func setSetting(_ name: String, _ value: Any) {
+        let f = { Float((value as! NSNumber).doubleValue) }
+        switch name {
+        case "measurementType": TapDisplaySettings.measurementType = MeasurementType(rawValue: value as! String)!
+        case "plateLength": TapDisplaySettings.plateLength = f()
+        case "plateWidth": TapDisplaySettings.plateWidth = f()
+        case "plateThickness": TapDisplaySettings.plateThickness = f()
+        case "plateMass": TapDisplaySettings.plateMass = f()
+        case "braceLength": TapDisplaySettings.braceLength = f()
+        case "braceWidth": TapDisplaySettings.braceWidth = f()
+        case "braceThickness": TapDisplaySettings.braceThickness = f()
+        case "braceMass": TapDisplaySettings.braceMass = f()
+        case "guitarBodyLength": TapDisplaySettings.guitarBodyLength = f()
+        case "guitarBodyWidth": TapDisplaySettings.guitarBodyWidth = f()
+        case "plateStiffnessPreset":
+            TapDisplaySettings.plateStiffnessPreset = PlateStiffnessPreset(rawValue: value as! String)!
+        case "customPlateStiffness": TapDisplaySettings.customPlateStiffness = f()
+        default: fatalError("unknown setting \(name)")
+        }
     }
 
-    @Test func doesNotSeedStoreBForGuitar() {
-        TapDisplaySettings.measurementType = .generic
-        let sut = makeSUT()
-        sut.isMeasurementComplete = true
-        #expect(sut.materialInputs == nil)              // guitar has no material dimensions
+    /// The inline file a `load` step names, with its notes replaced when the step gives them.
+    static func measurement(_ step: [String: Any]) throws -> TapToneMeasurement {
+        var file = (data["files"] as! [String: Any])[step["load"] as! String] as! [[String: Any]]
+        if let notes = step["notes"] as? String { file[0]["notes"] = notes }
+        let fileData = try JSONSerialization.data(withJSONObject: file)
+        return try #require(try TapToneAnalyzer.decodeMeasurements(fileData).first)
     }
 
-    @Test func doesNotSeedStoreBWhileLoading() {
-        TapDisplaySettings.measurementType = .plate
-        let sut = makeSUT()
-        sut.isLoadingMeasurement = true
-        sut.isMeasurementComplete = true                // the load path sets complete; the seed must be
-        #expect(sut.materialInputs == nil)              // suppressed — load sets Store B from the snapshot
-        sut.isLoadingMeasurement = false
+    /// A Float compared with a case's number, to the precision the cases are written in.
+    static func same(_ actual: Float, _ want: Any) -> Bool {
+        abs(Double(actual) - (want as! NSNumber).doubleValue) < 1e-4
     }
 
-    // MARK: - Load sets Store B without clobbering Settings (the origin bug)
+    @Test(arguments: ids())
+    func materialInputs(_ id: String) throws {
+        let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
+        // The settings are global; put them back afterwards.
+        let saved = Self.settingNames.map { ($0, Self.setting($0)) }
+        defer { for (name, value) in saved { Self.setSetting(name, value) } }
 
-    @Test func loadSetsStoreBFromSnapshotAndLeavesSettingsUntouched() throws {
-        TapDisplaySettings.measurementType = .plate
-        // Store A (the template) — deliberately DIFFERENT from the measurement's own dims.
-        TapDisplaySettings.plateLength = 999
-        TapDisplaySettings.plateWidth = 999
-        TapDisplaySettings.plateThickness = 9.9
-        TapDisplaySettings.plateMass = 999
+        let sut = TapToneAnalyzer.forTesting()
+        var savedRecord: TapToneMeasurement?
+        for step in row["steps"] as! [[String: Any]] {
+            if let settings = step["settings"] as? [String: Any] {
+                // The type first, as a load applies it before the rest.
+                if let type = settings["measurementType"] { Self.setSetting("measurementType", type) }
+                for (name, value) in settings where name != "measurementType" { Self.setSetting(name, value) }
+            } else if step["complete"] as? Bool == true {
+                sut.isMeasurementComplete = true
+            } else if let loading = step["loading"] as? Bool {
+                sut.isLoadingMeasurement = loading
+            } else if step["clearInputs"] as? Bool == true {
+                sut.materialInputs = nil
+            } else if let has = step["hasInputs"] as? Bool {
+                #expect((sut.materialInputs != nil) == has, "\(id): precondition — has dimensions \(has)")
+            } else if step["load"] != nil {
+                sut.loadMeasurement(try Self.measurement(step))
+            } else if step["save"] as? Bool == true {
+                savedRecord = sut.makeMeasurement()
+            }
+        }
 
-        let sut = makeSUT()
-        sut.loadMeasurement(plateMeasurement())
-
-        // Store B carries the measurement's OWN dimensions.
-        let mi = try #require(sut.materialInputs)
-        #expect(mi.lengthMM == 111)
-        #expect(mi.widthMM == 222)
-        #expect(mi.thicknessMM == 3.33)
-        #expect(mi.massG == 44)
-        #expect(mi.bodyLengthMM == 480)
-        #expect(mi.bodyWidthMM == 370)
-        #expect(mi.stiffnessPreset == .classicalTop)
-
-        // The Settings template (Store A) is UNTOUCHED — the invariant the de-clobber restored.
-        #expect(TapDisplaySettings.plateLength == 999)
-        #expect(TapDisplaySettings.plateWidth == 999)
-        #expect(TapDisplaySettings.plateThickness == 9.9)
-        #expect(TapDisplaySettings.plateMass == 999)
-    }
-
-    // MARK: - Notes on load (R10)
-
-    @Test func loadRestoresNotesForReSave() {
-        TapDisplaySettings.measurementType = .plate
-        let sut = makeSUT()
-        sut.loadMeasurement(plateMeasurement(notes: "spruce, tight grain"))
-        #expect(sut.loadedNotes == "spruce, tight grain")
-    }
-
-    @Test func loadTreatsBlankNotesAsNil() {
-        TapDisplaySettings.measurementType = .plate
-        let sut = makeSUT()
-        sut.loadMeasurement(plateMeasurement(notes: ""))
-        #expect(sut.loadedNotes == nil)
+        for (field, want) in row["expect"] as! [String: Any] {
+            switch field {
+            case "inputs":
+                guard let want = want as? [String: Any] else {
+                    #expect(sut.materialInputs == nil, "\(id) inputs: \(String(describing: sut.materialInputs))")
+                    continue
+                }
+                let mi = try #require(sut.materialInputs, "\(id): dimensions")
+                for (key, value) in want {
+                    switch key {
+                    case "lengthMM": #expect(Self.same(mi.lengthMM, value), "\(id) \(key)")
+                    case "widthMM": #expect(Self.same(mi.widthMM, value), "\(id) \(key)")
+                    case "thicknessMM": #expect(Self.same(mi.thicknessMM, value), "\(id) \(key)")
+                    case "massG": #expect(Self.same(mi.massG, value), "\(id) \(key)")
+                    case "bodyLengthMM": #expect(Self.same(mi.bodyLengthMM, value), "\(id) \(key)")
+                    case "bodyWidthMM": #expect(Self.same(mi.bodyWidthMM, value), "\(id) \(key)")
+                    case "stiffnessPreset": #expect(mi.stiffnessPreset.rawValue == value as? String, "\(id) \(key)")
+                    case "customStiffness": #expect(Self.same(mi.customStiffness, value), "\(id) \(key)")
+                    default: Issue.record("\(id): unknown inputs field \(key)")
+                    }
+                }
+            case "settings":
+                for (name, value) in want as! [String: Any] {
+                    #expect(Self.same(Float((Self.setting(name) as! Double)), value), "\(id) setting \(name)")
+                }
+            case "saved":
+                let snap = try #require(savedRecord?.longitudinalSnapshot, "\(id): saved snapshot")
+                for (key, value) in want as! [String: Any] {
+                    switch key {
+                    case "plateLength": #expect(Self.same(snap.plateLength ?? .nan, value), "\(id) \(key)")
+                    case "plateWidth": #expect(Self.same(snap.plateWidth ?? .nan, value), "\(id) \(key)")
+                    case "plateThickness": #expect(Self.same(snap.plateThickness ?? .nan, value), "\(id) \(key)")
+                    case "plateMass": #expect(Self.same(snap.plateMass ?? .nan, value), "\(id) \(key)")
+                    case "guitarBodyLength": #expect(Self.same(snap.guitarBodyLength ?? .nan, value), "\(id) \(key)")
+                    case "guitarBodyWidth": #expect(Self.same(snap.guitarBodyWidth ?? .nan, value), "\(id) \(key)")
+                    case "plateStiffnessPreset":
+                        #expect(snap.plateStiffnessPreset?.rawValue == value as? String, "\(id) \(key)")
+                    default: Issue.record("\(id): unknown saved field \(key)")
+                    }
+                }
+            case "loadedNotes":
+                #expect(sut.loadedNotes == want as? String, "\(id) loadedNotes: \(String(describing: sut.loadedNotes))")
+            default:
+                Issue.record("\(id): unknown field \(field)")
+            }
+        }
     }
 }

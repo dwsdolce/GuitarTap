@@ -4,7 +4,7 @@
 //
 //  Loading a saved measurement: the whole load is the model's — its own settings, its peaks shown under
 //  them, its spectra, label positions and microphone warning, and the detection state. The shared cases
-//  in `measurement-load.json` (LD1–LD6), the same as Python and the web.
+//  in `measurement-load.json` (LD1–LD11), the same as Python and the web.
 //
 // @parity test/measurement-load
 
@@ -29,10 +29,12 @@ struct MeasurementLoadTests {
         (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
     }
 
-    /// The measurement a `load` step names: an inline file of the case table, or a fixture.
-    static func measurement(_ name: String) throws -> TapToneMeasurement {
+    /// The measurement a `load` step names: an inline file of the case table, or a fixture — with its
+    /// name replaced when the step gives one (inline files only).
+    static func measurement(_ name: String, renamed: String? = nil) throws -> TapToneMeasurement {
         let fileData: Data
-        if let inline = (data["files"] as? [String: Any])?[name] {
+        if var inline = (data["files"] as? [String: Any])?[name] as? [[String: Any]] {
+            if let renamed { inline[0]["measurementName"] = renamed }
             fileData = try JSONSerialization.data(withJSONObject: inline)
         } else {
             let stem = (name as NSString).deletingPathExtension
@@ -64,13 +66,13 @@ struct MeasurementLoadTests {
             } else if let db = step["peakMin"] as? Double {
                 sut.peakMinThreshold = Float(db)
             } else if let name = step["load"] as? String {
-                sut.loadMeasurement(try Self.measurement(name))
+                sut.loadMeasurement(try Self.measurement(name, renamed: step["name"] as? String))
             } else if step["highlightFirstPeak"] as? Bool == true {
                 let first = try #require(sut.peaksAbovePeakMin.first, "\(id): a peak to highlight")
                 sut.highlightedPeakID = first.id
                 #expect(sut.highlightedPeakID != nil, "\(id): precondition — a peak is highlighted")
             } else if let names = step["compare"] as? [String] {
-                sut.loadComparison(measurements: try names.map(Self.measurement))
+                sut.loadComparison(measurements: try names.map { try Self.measurement($0) })
             }
         }
         let isGuitar = TapDisplaySettings.measurementType.isGuitar
@@ -104,6 +106,8 @@ struct MeasurementLoadTests {
                 #expect((sut.highlightedPeakID != nil) == want as? Bool, "\(id) \(field)")
             case "recordedMicrophone":
                 #expect((sut.resultProvenance != nil) == want as? Bool, "\(id) \(field)")
+            case "loadedName":
+                #expect(sut.loadedMeasurementName == want as? String, "\(id) \(field): \(String(describing: sut.loadedMeasurementName))")
             case "labelPositions":
                 #expect(sut.peakAnnotationOffsets.count == want as? Int, "\(id) \(field): \(sut.peakAnnotationOffsets.count)")
             default:

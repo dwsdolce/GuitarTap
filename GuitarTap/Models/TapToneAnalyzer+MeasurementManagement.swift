@@ -519,8 +519,8 @@ extension TapToneAnalyzer {
                let minD = snaps.map(\.minDB).min(), let maxD = snaps.map(\.maxDB).max() {
                 setLoadedAxisRange(minFreq: minF, maxFreq: maxF, minDB: minD, maxDB: maxD)
             }
-            loadedMeasurementName = measurement.measurementName.flatMap { $0.isEmpty ? nil : $0 }
-            loadedNotes = measurement.notes.flatMap { $0.isEmpty ? nil : $0 }
+            loadedMeasurementName = measurement.measurementName.flatMap(TapToneMeasurement.normalizedName)
+            loadedNotes = measurement.notes.flatMap(TapToneMeasurement.normalizedNotes)
             // The saved comparison's own date, which its exports show and are named by.
             sourceMeasurementTimestamp = measurement.timestamp
             // Clear any per-tap entries from a previously loaded multi-tap measurement so
@@ -556,11 +556,11 @@ extension TapToneAnalyzer {
         sourceMeasurementTimestamp = measurement.timestamp
 
         // Expose the measurement name so the chart title can reflect it
-        let name = measurement.measurementName.flatMap { $0.isEmpty ? nil : $0 }
+        let name = measurement.measurementName.flatMap(TapToneMeasurement.normalizedName)
         loadedMeasurementName = name
 
         // Expose the notes so re-saving the loaded measurement keeps them (R10).
-        loadedNotes = measurement.notes.flatMap { $0.isEmpty ? nil : $0 }
+        loadedNotes = measurement.notes.flatMap(TapToneMeasurement.normalizedNotes)
 
         // Restore display settings from any available snapshot (prefer longitudinal for plate/brace)
         let settingsSnapshot = measurement.longitudinalSnapshot ?? measurement.spectrumSnapshot
