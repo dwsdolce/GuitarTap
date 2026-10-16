@@ -2,18 +2,11 @@
 //  ScenarioStateTraceTests.swift
 //  GuitarTapTests
 //
-//  Drives the analyzer through end-to-end scenarios and asserts that the
-//  sequence of (isDetecting, isDetectionPaused, isMeasurementComplete,
-//  currentTapCount, capturedTapsCount) tuples matches a canonical trace.
-//
-//  These tests pin the state path, not just the final outcome.  Two
-//  implementations (Swift, Python) can produce the same final result via
-//  different intermediate states; the parity bar requires the intermediate
-//  states match too, because UI behavior is driven by them in real time.
-//
-//  Mirror in Python: tests/test_scenario_state_trace.py.  The canonical
-//  trace for each scenario is hardcoded identically in both languages — if
-//  one side changes, the other must follow.
+//  End-to-end scenarios, pinned by the state they pass through — detecting, paused, complete, the tap
+//  count and the taps held — not only where they end: the app's behaviour on screen follows each
+//  intermediate state, so two editions reaching the same result by different paths would differ. Every
+//  tap is a real capture finish and every wait is audio fed through the analyzer's clock. The shared
+//  cases in `scenario-trace.json` (S1–S4), the same as Python and the web.
 //
 // @parity test/scenario-trace
 
@@ -21,227 +14,51 @@ import Testing
 import Foundation
 @testable import GuitarTap
 
-// ---------------------------------------------------------------------------
-// MARK: - Snapshot
-// ---------------------------------------------------------------------------
+private final class ScenarioTraceAnchor {}
 
-struct StateSnapshot: Equatable, CustomStringConvertible {
-    let label: String
-    let isDetecting: Bool
-    let isDetectionPaused: Bool
-    let isMeasurementComplete: Bool
-    let currentTapCount: Int
-    let capturedTapsCount: Int
-
-    var description: String {
-        "\(label): det=\(isDetecting) paused=\(isDetectionPaused) complete=\(isMeasurementComplete) tapCount=\(currentTapCount) capt=\(capturedTapsCount)"
-    }
-
-    static func == (a: StateSnapshot, b: StateSnapshot) -> Bool {
-        return a.label == b.label &&
-               a.isDetecting == b.isDetecting &&
-               a.isDetectionPaused == b.isDetectionPaused &&
-               a.isMeasurementComplete == b.isMeasurementComplete &&
-               a.currentTapCount == b.currentTapCount &&
-               a.capturedTapsCount == b.capturedTapsCount
-    }
-}
-
-@MainActor
-private func snap(_ label: String, _ a: TapToneAnalyzer) -> StateSnapshot {
-    StateSnapshot(label: label,
-                  isDetecting: a.isDetecting,
-                  isDetectionPaused: a.isDetectionPaused,
-                  isMeasurementComplete: a.isMeasurementComplete,
-                  currentTapCount: a.currentTapCount,
-                  capturedTapsCount: a.capturedTaps.count)
-}
-
-@MainActor
-private func makeSUT(numberOfTaps: Int = 1) -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer.forTesting()
-    let sut = TapToneAnalyzer(fftAnalyzer: fft)
-    sut.numberOfTaps = numberOfTaps
-    sut.tapDetectionThreshold = -40
-    sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed
-    sut.justExitedWarmup = false
-    TapDisplaySettings.measurementType = .generic
-    sut.cancellables.removeAll()
-    // An unstarted analyzer has no frequency bins (all 0 Hz), so a real capture would put every peak
-    // at 0 Hz. Build them as starting the engine does. They are published asynchronously on the main
-    // queue, so each scenario's wait after startTapSequence is what lets them land.
-    sut.fftAnalyzer.actualSampleRate = 48000
-    sut.fftAnalyzer.updateFrequencyBins()
-    return sut
-}
-
-/// A decaying sinusoid the length of one guitar capture — a synthetic tap at 100 Hz.
-@MainActor
-private func tapSamples(_ sut: TapToneAnalyzer) -> [Float] {
-    (0..<sut.fftAnalyzer.fftSize).map { i in
-        let t = Float(i) / 48000
-        return 0.5 * expf(-t * 6) * sinf(2 * .pi * 100 * t)
-    }
-}
-
-/// Capture one tap through the REAL completion path — the merge point of both detection paths.
-@MainActor
-private func captureTap(_ sut: TapToneAnalyzer) {
-    sut.finishGuitarGatedCapture(samples: tapSamples(sut), sampleRate: 48000)
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Scenarios
-// ---------------------------------------------------------------------------
-
-// Every tap goes through the real `finishGuitarGatedCapture`, and the waits are the real ones — the
-// tap cooldown before re-arming, the capture window before averaging — measured, as the app measures
-// them, in AUDIO fed through `onChunkLevel`. No state is assigned by hand, so the capture rows record
-// what the app did. These traces are identical in Swift, Python and web.
 @Suite("ScenarioStateTrace", .serialized)
 @MainActor
 struct ScenarioStateTraceTests {
 
-    init() { TapDisplaySettings.measurementType = .generic }
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
+        let url = Bundle(for: ScenarioTraceAnchor.self).url(forResource: "scenario-trace", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
 
-    private func afterCooldown(_ sut: TapToneAnalyzer) {
-        advanceAudio(sut, by: sut.tapCooldown)
-    }
-    private func afterCaptureWindow(_ sut: TapToneAnalyzer) {
-        advanceAudio(sut, by: sut.captureWindow)
-    }
-
-    // S1: Clean single-tap guitar measurement.
-    @Test func scenario_cleanSingleTap_guitar() async throws {
-        let sut = makeSUT(numberOfTaps: 1)
-        var trace: [StateSnapshot] = []
-        trace.append(snap("init", sut))
-
-        sut.startTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        trace.append(snap("postStart", sut))
-
-        captureTap(sut)
-        trace.append(snap("postCapture", sut))
-
-        afterCaptureWindow(sut)          // completion averages after the capture window
-        trace.append(snap("postProcess", sut))
-
-        let expected: [StateSnapshot] = [
-            StateSnapshot(label: "init",        isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
-            StateSnapshot(label: "postStart",   isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
-            StateSnapshot(label: "postCapture", isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "postProcess", isDetecting: false, isDetectionPaused: false, isMeasurementComplete: true,  currentTapCount: 1, capturedTapsCount: 1),
-        ]
-        #expect(trace == expected, "trace mismatch:\n  got: \(trace)\n  exp: \(expected)")
+    nonisolated static func ids() -> [String] {
+        (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
     }
 
-    // S2: Spurious-tap-on-measurement-type-change — the iPad bug scenario. The stray DETECTION is
-    // simulated (it is the scenario); the capture that follows is real. Same trace as S1.
-    @Test func scenario_spuriousTapOnTypeChange_matchesCleanSingleTap() async throws {
-        let sut = makeSUT(numberOfTaps: 1)
-        var trace: [StateSnapshot] = []
-        trace.append(snap("init", sut))
-
-        sut.startTapSequence()                  // triggered by type-change handler
-        // Spurious tap fires BEFORE the async housekeeping block runs.
-        sut.detectionState = .idle              // handleTapDetection effect
-        // NOW the housekeeping runs (post-fix: must not clobber isDetecting).
-        try await Task.sleep(for: .milliseconds(50))
-        trace.append(snap("postStart", sut))
-
-        captureTap(sut)
-        trace.append(snap("postCapture", sut))
-
-        afterCaptureWindow(sut)
-        trace.append(snap("postProcess", sut))
-
-        let expected: [StateSnapshot] = [
-            StateSnapshot(label: "init",        isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
-            StateSnapshot(label: "postStart",   isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
-            StateSnapshot(label: "postCapture", isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "postProcess", isDetecting: false, isDetectionPaused: false, isMeasurementComplete: true,  currentTapCount: 1, capturedTapsCount: 1),
-        ]
-        #expect(trace == expected, "REGRESSION: spurious-tap trace must end in `.idle` at every checkpoint; if the state is `.listening` at postStart, the line-304 race has been reintroduced")
+    /// The state a `snap` step records, in the case file's form.
+    static func snapshot(_ label: String, _ sut: TapToneAnalyzer) -> [String: AnyHashable] {
+        ["label": label, "detecting": sut.isDetecting, "paused": sut.isDetectionPaused,
+         "complete": sut.isMeasurementComplete, "tapCount": sut.currentTapCount,
+         "capturedTaps": sut.capturedTaps.count]
     }
 
-    // S3: Multi-tap with mid-sequence pause/resume.
-    @Test func scenario_multiTap_pauseResume() async throws {
-        let sut = makeSUT(numberOfTaps: 3)
-        var trace: [StateSnapshot] = []
-        trace.append(snap("init", sut))
+    @Test(arguments: ids())
+    func scenario(_ id: String) {
+        let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
+        let savedType = TapDisplaySettings.measurementType
+        defer { TapDisplaySettings.measurementType = savedType }
 
-        sut.startTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        trace.append(snap("postStart", sut))
+        let sut = makeStepsAnalyzer()
+        var trace: [[String: AnyHashable]] = []
+        for step in row["steps"] as! [[String: Any]] {
+            if let label = step["snap"] as? String {
+                trace.append(Self.snapshot(label, sut))
+            } else if step["strayDetection"] as? Bool == true {
+                sut.detectionState = .idle
+            } else {
+                #expect(runAnalyzerStep(step, on: sut), "\(id): unknown step \(step)")
+            }
+        }
 
-        captureTap(sut)                            // tap 1: detection rests through the cooldown
-        trace.append(snap("postTap1", sut))
-
-        advanceAudio(sut, by: sut.tapCooldown / 2)   // halfway: still resting
-        trace.append(snap("midCooldown", sut))
-
-        advanceAudio(sut, by: sut.tapCooldown / 2)   // ...then re-arms
-        trace.append(snap("postReArm", sut))
-
-        sut.pauseTapDetection()
-        trace.append(snap("postPause", sut))
-
-        sut.resumeTapDetection()
-        trace.append(snap("postResume", sut))
-
-        captureTap(sut)                            // tap 2
-        afterCooldown(sut)
-        captureTap(sut)                            // tap 3 — the last
-        afterCaptureWindow(sut)
-        trace.append(snap("postProcess", sut))
-
-        let expected: [StateSnapshot] = [
-            StateSnapshot(label: "init",        isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
-            StateSnapshot(label: "postStart",   isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
-            StateSnapshot(label: "postTap1",    isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "midCooldown", isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "postReArm",   isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "postPause",   isDetecting: false, isDetectionPaused: true,  isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "postResume",  isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "postProcess", isDetecting: false, isDetectionPaused: false, isMeasurementComplete: true,  currentTapCount: 3, capturedTapsCount: 3),
-        ]
-        #expect(trace == expected, "trace mismatch:\n  got: \(trace)\n  exp: \(expected)")
-    }
-
-    // S4: Multi-tap cancelled mid-sequence.  Cancel is a restart — cancelTapSequence
-    // re-arms a fresh sequence (≡ New Tap): detectionState = .listening, isMeasurementComplete=false,
-    // counts reset to 0.
-    @Test func scenario_multiTap_cancel() async throws {
-        let sut = makeSUT(numberOfTaps: 3)
-        var trace: [StateSnapshot] = []
-        trace.append(snap("init", sut))
-
-        sut.startTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        trace.append(snap("postStart", sut))
-
-        captureTap(sut)
-        trace.append(snap("postTap1", sut))
-
-        advanceAudio(sut, by: sut.tapCooldown / 2)   // halfway: still resting
-        trace.append(snap("midCooldown", sut))
-
-        advanceAudio(sut, by: sut.tapCooldown / 2)
-        trace.append(snap("postReArm", sut))
-
-        sut.cancelTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        trace.append(snap("postCancel", sut))
-
-        let expected: [StateSnapshot] = [
-            StateSnapshot(label: "init",       isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
-            StateSnapshot(label: "postStart",  isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
-            StateSnapshot(label: "postTap1",   isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "midCooldown",isDetecting: false, isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "postReArm",  isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 1, capturedTapsCount: 1),
-            StateSnapshot(label: "postCancel", isDetecting: true,  isDetectionPaused: false, isMeasurementComplete: false, currentTapCount: 0, capturedTapsCount: 0),
-        ]
-        #expect(trace == expected, "trace mismatch:\n  got: \(trace)\n  exp: \(expected)")
+        let expected = ((row["expect"] as! [String: Any])["trace"] as! [[String: Any]]).map { r in
+            r.mapValues { $0 as! AnyHashable }
+        }
+        #expect(trace == expected, "\(id) trace:\n  got: \(trace)\n  exp: \(expected)")
     }
 }

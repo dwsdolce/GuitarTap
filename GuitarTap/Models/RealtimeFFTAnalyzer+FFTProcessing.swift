@@ -27,11 +27,17 @@ extension RealtimeFFTAnalyzer {
             newFrequencies[i] = Float(i) * binWidth
         }
         
-        // Update published property on main thread
-        DispatchQueue.main.async {
+        // Published on the main thread: at once when already there (engine start, file playback), so
+        // the bins are in place before the caller's next step; otherwise queued to it.
+        let publish = {
             self.frequencies = newFrequencies
             // Re-compute calibration corrections for new frequency bins
             self.updateCalibrationCorrections()
+        }
+        if Thread.isMainThread {
+            publish()
+        } else {
+            DispatchQueue.main.async(execute: publish)
         }
     }
     

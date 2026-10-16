@@ -2,8 +2,8 @@
 //  DecayTrackingTests.swift
 //  GuitarTapTests
 //
-//  Tests for TapToneAnalyzer+DecayTracking: ringOutTime on generated audio (DK1–DK8, the shared
-//  cases in `decay-tracking.json`), and that a new sequence clears the last ring-out (DK9).
+//  The shared cases in `decay-tracking.json`: ring-out time, ringOutTime on generated audio (DK1–DK8),
+//  and on the analyzer, that a new sequence clears the last ring-out (DK9).
 //
 //  That a tap's ring-out is the same wherever the audio's chunk boundaries fall is
 //  GuitarCaptureWindowTests GW3.
@@ -85,11 +85,29 @@ struct DecayTrackingTests {
 
     // MARK: - The analyzer
 
-    // DK9: A new sequence clears the last ring-out.
-    @Test func DK9_newSequence_clearsTheRingOut() {
+    nonisolated static func analyzerIDs() -> [String] {
+        (data["analyzer"] as! [[String: Any]]).map { $0["id"] as! String }
+    }
+
+    /// The analyzer cases of `decay-tracking.json` (DK9), as steps on a fresh analyzer.
+    @Test(arguments: analyzerIDs())
+    func analyzer(_ id: String) {
+        let row = (Self.data["analyzer"] as! [[String: Any]]).first { $0["id"] as! String == id }!
         let sut = makeSUT()
-        sut.currentDecayTime = 0.1
-        sut.startTapSequence()
-        #expect(sut.currentDecayTime == nil)
+        for step in row["steps"] as! [[String: Any]] {
+            if let seconds = step["decayTime"] as? Double {
+                sut.currentDecayTime = Float(seconds)
+            } else if step["newTap"] as? Bool == true {
+                sut.startTapSequence()
+            }
+        }
+        for (field, want) in row["expect"] as! [String: Any] {
+            switch field {
+            case "currentDecayTime":
+                #expect(sut.currentDecayTime.map(Double.init) == want as? Double, "\(id) \(field)")
+            default:
+                Issue.record("\(id): unknown field \(field)")
+            }
+        }
     }
 }

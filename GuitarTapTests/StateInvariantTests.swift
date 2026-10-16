@@ -2,19 +2,11 @@
 //  StateInvariantTests.swift
 //  GuitarTapTests
 //
-//  Asserts state-machine invariants that must hold across every code path in
-//  TapToneAnalyzer.  These tests don't drive a specific scenario — they verify
-//  that the analyzer's own state, after any sequence of operations, never
-//  enters a combination the design forbids.
-//
-//  The invariants here are the load-bearing rules that govern Pause / New Tap
-//  / Cancel button enablement and the audio-thread detection guards.  A
-//  refactor that accidentally violates one of these would produce a UI bug
-//  like the iPad type-change race even if individual functions still look
-//  correct in isolation.
-//
-//  Mirror in Python: tests/test_state_invariants.py.  If either side's set of
-//  invariants changes, the other must follow.
+//  State combinations the design forbids, checked after real sequences of steps. They are the rules
+//  Pause / New Tap / Cancel enablement and the audio-thread detection guards rest on, so a refactor
+//  that broke one would show up as a UI bug even where each function looks right on its own. The
+//  checker is below; the shared cases in `state-invariants.json` (V1–V13) run it after their steps
+//  and test it on each forbidden state, the same as Python and the web.
 //
 // @parity test/state-invariants
 
@@ -22,18 +14,7 @@ import Testing
 import Foundation
 @testable import GuitarTap
 
-@MainActor
-private func makeSUT(numberOfTaps: Int = 1) -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer.forTesting()
-    let sut = TapToneAnalyzer(fftAnalyzer: fft)
-    sut.numberOfTaps = numberOfTaps
-    sut.tapDetectionThreshold = -40
-    sut.warmupStartAudioTime = -2  // audio clock: warm-up already elapsed
-    sut.justExitedWarmup = false
-    TapDisplaySettings.measurementType = .generic
-    sut.cancellables.removeAll()
-    return sut
-}
+private final class StateInvariantsAnchor {}
 
 /// Checks that `analyzer` does not violate any of the documented state-machine
 /// invariants.  Returns nil when all invariants hold, or a string describing
@@ -97,155 +78,78 @@ func stateInvariantViolation(_ a: TapToneAnalyzer) -> String? {
 @MainActor
 struct StateInvariantTests {
 
-    init() { TapDisplaySettings.measurementType = .generic }
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
+        let url = Bundle(for: StateInvariantsAnchor.self).url(forResource: "state-invariants", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
 
-    // V1: Fresh analyzer is in a valid state.
-    @Test func freshAnalyzer_holdsInvariants() {
-        let sut = makeSUT()
-        #expect(stateInvariantViolation(sut) == nil)
+    nonisolated static func ids() -> [String] {
+        (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
     }
 
-    // V2: After startTapSequence, invariants hold.
-    @Test func afterStartTapSequence_holdsInvariants() async throws {
-        let sut = makeSUT()
-        sut.startTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        #expect(stateInvariantViolation(sut) == nil)
+    static let detectionStates: [String: DetectionState] = ["idle": .idle, "listening": .listening, "paused": .paused]
+
+    /// A captured tap for a `write` step: 64 bins at 31.25 Hz, −80 dB but bin 16 at −30.
+    static func capturedTap() -> (magnitudes: [Float], frequencies: [Float], captureTime: Date) {
+        var magnitudes = [Float](repeating: -80, count: 64)
+        magnitudes[16] = -30
+        return (magnitudes, (0..<64).map { Float($0) * 31.25 }, Date())
     }
 
-    // V3: After a single-tap guitar measurement completes via processMultipleTaps,
-    // invariants hold.  This is the iPad-bug scenario's end state.
-    @Test func afterSingleTapComplete_holdsInvariants() async throws {
-        let sut = makeSUT(numberOfTaps: 1)
-        sut.startTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        sut.detectionState = .idle
-        sut.capturedTaps = [fakeTap()]
-        sut.currentTapCount = 1
-        sut.processMultipleTaps()
-        #expect(stateInvariantViolation(sut) == nil,
-                "Single-tap completion must not leave the analyzer in an impossible state")
-    }
-
-    // V4: Mid-sequence for a multi-tap guitar measurement, invariants hold — reached through the
-    // REAL capture path (finishGuitarGatedCapture: the merge point of both detection paths), not
-    // by assigning capturedTaps / currentTapCount / detectionState by hand, which would only test
-    // the checker on a state the test invented. Checked twice: resting through the tap
-    // cooldown, and re-armed after it.
-    @Test func midMultiTapSequence_holdsInvariants() async throws {
-        let sut = makeSUT(numberOfTaps: 3)
-        // An unstarted analyzer has no frequency bins (all 0 Hz), so a real spectrum would put every
-        // peak at 0 Hz; set them up as starting the engine or file playback does.
-        sut.fftAnalyzer.actualSampleRate = 48000
-        sut.fftAnalyzer.updateFrequencyBins()
-        sut.startTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        sut.finishGuitarGatedCapture(samples: tapSamples(100, count: sut.fftAnalyzer.fftSize),
-                                     sampleRate: 48000)
-        #expect(sut.capturedTaps.count == 1)
-        #expect(sut.isDetecting == false, "detection rests through the tap cooldown")
-        #expect(stateInvariantViolation(sut) == nil, "mid-sequence, resting")
-
-        advanceAudio(sut, by: sut.tapCooldown)   // the rest runs on the audio clock
-        #expect(sut.isDetecting == true, "re-armed for the next tap once the cooldown has passed")
-        #expect(stateInvariantViolation(sut) == nil, "mid-sequence, re-armed")
-    }
-
-    // V5: Cancel mid-sequence holds invariants.
-    @Test func afterCancel_holdsInvariants() async throws {
-        let sut = makeSUT(numberOfTaps: 3)
-        sut.startTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        sut.cancelTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        #expect(stateInvariantViolation(sut) == nil)
-    }
-
-    // V6: Pause invariant — pausing during active detection is valid; the
-    // paused state itself must hold invariants.
-    @Test func afterPause_holdsInvariants() async throws {
-        let sut = makeSUT(numberOfTaps: 3)
-        sut.startTapSequence()
-        try await Task.sleep(for: .milliseconds(50))
-        sut.pauseTapDetection()
-        #expect(stateInvariantViolation(sut) == nil)
-    }
-
-    // V7: Direct construction of the impossible state the iPad bug produced
-    // must be flagged by the invariant checker.  If this test ever passes
-    // with violation == nil, the checker itself has regressed.
-    @Test func impossibleState_detectingAndComplete_isFlagged() {
-        let sut = makeSUT(numberOfTaps: 1)
-        sut.detectionState = .listening
-        sut.isMeasurementComplete = true
-        #expect(stateInvariantViolation(sut) != nil,
-                "Invariant checker must reject (isDetecting && isMeasurementComplete) in guitar mode")
-    }
-
-    // V8: A plate capture reaches its REVIEW phase through the real gated path, and invariants hold
-    // there — including I6 (no detection while reviewing), which no guitar case can reach.
-    @Test func plateReviewPhase_holdsInvariants() {
-        let sut = makeSUT(numberOfTaps: 1)
-        TapDisplaySettings.measurementType = .plate
-        defer { TapDisplaySettings.measurementType = .generic }
-        sut.tapDetectionThreshold = -90 // accept the synthetic tap
-        sut.startTapSequence()
-        sut.finishGatedFFTCapture(samples: tapSamples(60, count: 24_000), sampleRate: 48000,
-                                  phase: .capturingLongitudinal)
-        #expect(sut.materialTapPhase == .reviewingLongitudinal, "one L tap completes the phase → review")
-        #expect(sut.isDetecting == false)
-        #expect(stateInvariantViolation(sut) == nil)
-    }
-
-    // V9–V13: each invariant the checker enforces REPORTS its forbidden state — V7 covers I1, these
-    // cover I2–I6.
-    @Test func I2_pausedAndComplete_isFlagged() {
-        let sut = makeSUT()
-        sut.detectionState = .paused
-        sut.isMeasurementComplete = true
-        #expect(stateInvariantViolation(sut)?.hasPrefix("I2") == true)
-    }
-
-    @Test func I3_moreTapsThanRequested_isFlagged() {
-        let sut = makeSUT(numberOfTaps: 1)
-        sut.capturedTaps = [fakeTap(), fakeTap()]
-        #expect(stateInvariantViolation(sut)?.hasPrefix("I3") == true)
-    }
-
-    @Test func I4_countOutOfStepWithTaps_isFlagged() {
-        let sut = makeSUT(numberOfTaps: 3)
-        sut.capturedTaps = [fakeTap()]
-        sut.currentTapCount = 0
-        #expect(stateInvariantViolation(sut)?.hasPrefix("I4") == true)
-    }
-
-    @Test func I5_progressOutOfRange_isFlagged() {
-        let sut = makeSUT()
-        sut.tapProgress = 1.5
-        #expect(stateInvariantViolation(sut)?.hasPrefix("I5") == true)
-    }
-
-    @Test func I6_detectingWhileReviewing_isFlagged() {
-        let sut = makeSUT()
-        TapDisplaySettings.measurementType = .plate
-        defer { TapDisplaySettings.measurementType = .generic }
-        sut.materialTapPhase = .reviewingLongitudinal
-        sut.detectionState = .listening
-        #expect(stateInvariantViolation(sut)?.hasPrefix("I6") == true)
-    }
-
-    /// A decaying sinusoid — a synthetic tap with one resonance at `freqHz`.
-    private func tapSamples(_ freqHz: Float, count: Int, sampleRate: Float = 48000) -> [Float] {
-        (0..<count).map { i in
-            let t = Float(i) / sampleRate
-            return 0.5 * expf(-t * 6.0) * sinf(2 * .pi * freqHz * t)
+    /// Sets the fields a `write` step names directly — only to give the checker a forbidden state.
+    static func write(_ fields: [String: Any], on sut: TapToneAnalyzer) {
+        for (field, value) in fields {
+            switch field {
+            case "detectionState": sut.detectionState = detectionStates[value as! String]!
+            case "complete": sut.isMeasurementComplete = value as! Bool
+            case "capturedTaps": sut.capturedTaps = (0..<(value as! Int)).map { _ in capturedTap() }
+            case "tapCount": sut.currentTapCount = value as! Int
+            case "tapProgress": sut.tapProgress = Float((value as! NSNumber).doubleValue)
+            case "phase": sut.materialTapPhase = MaterialTapPhase(rawValue: value as! String)!
+            default: Issue.record("unknown write field \(field)")
+            }
         }
     }
 
-    private func fakeTap(n: Int = 64) -> (magnitudes: [Float], frequencies: [Float], captureTime: Date) {
-        var mags = [Float](repeating: -80, count: n)
-        mags[n / 4] = -30
-        let freqs = (0..<n).map { Float($0) * 31.25 }
-        return (magnitudes: mags, frequencies: freqs, captureTime: Date())
+    /// Asserts the fields an expectation names.
+    static func check(_ fields: [String: Any], _ sut: TapToneAnalyzer, _ id: String) {
+        for (field, want) in fields {
+            switch field {
+            case "violation":
+                let rule = stateInvariantViolation(sut).map { String($0.prefix(2)) }
+                #expect(rule == want as? String, "\(id) \(field): \(String(describing: stateInvariantViolation(sut)))")
+            case "complete":
+                #expect(sut.isMeasurementComplete == want as? Bool, "\(id) \(field)")
+            case "detecting":
+                #expect(sut.isDetecting == want as? Bool, "\(id) \(field)")
+            case "capturedTaps":
+                #expect(sut.capturedTaps.count == want as? Int, "\(id) \(field)")
+            case "phase":
+                #expect(sut.materialTapPhase.rawValue == want as? String, "\(id) \(field): \(sut.materialTapPhase)")
+            default:
+                Issue.record("\(id): unknown field \(field)")
+            }
+        }
+    }
+
+    @Test(arguments: ids())
+    func invariants(_ id: String) {
+        let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
+        let saved = (TapDisplaySettings.measurementType, TapDisplaySettings.measureFlc)
+        defer { (TapDisplaySettings.measurementType, TapDisplaySettings.measureFlc) = saved }
+
+        let sut = makeStepsAnalyzer()
+        for step in row["steps"] as! [[String: Any]] {
+            if let fields = step["check"] as? [String: Any] {
+                Self.check(fields, sut, id)
+            } else if let fields = step["write"] as? [String: Any] {
+                Self.write(fields, on: sut)
+            } else {
+                #expect(runAnalyzerStep(step, on: sut), "\(id): unknown step \(step)")
+            }
+        }
+        Self.check(row["expect"] as! [String: Any], sut, id)
     }
 }

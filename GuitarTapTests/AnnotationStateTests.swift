@@ -2,13 +2,12 @@
 //  AnnotationStateTests.swift
 //  GuitarTapTests
 //
-//  Tests for peak annotation state management:
-//  offset storage, peak selection, visibility filtering, and mode overrides.
-//
-//  All tests operate on TapToneAnalyzer's @Published state properties directly;
-//  no audio hardware or async timing is involved.
-//
-//  Test plan coverage: D1–D10
+//  The per-peak state the user edits and the views read: dragged label positions, selection, which
+//  peaks are annotated, mode labels (the user's own and the auto-detected), the one definitive
+//  Air/Top/Back and the tap-tone ratio, and what clears it all. The shared cases in
+//  `annotation-state.json` (AS1–AS41), the same as Python and the web: each loads its peaks as the app
+//  loads a file and edits them as the views do. Below them, the visibility enum's own cycle and icons,
+//  which are Swift's UI types.
 //
 // @parity test/annotation-state
 
@@ -16,403 +15,179 @@ import Testing
 import Foundation
 @testable import GuitarTap
 
-// ---------------------------------------------------------------------------
-// MARK: - Helper
-// ---------------------------------------------------------------------------
+private final class AnnotationStateAnchor {}
 
-private func makeSUT() -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer.forTesting()
-    return TapToneAnalyzer(fftAnalyzer: fft)
-}
-
-private func makePeak(frequency: Float = 200, magnitude: Float = -20) -> ResonantPeak {
-    ResonantPeak(frequency: frequency, magnitude: magnitude)
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Annotation Offset Tests  (D1–D2)
-// ---------------------------------------------------------------------------
-
-@Suite("AnnotationOffsets")
+@Suite("AnnotationState", .serialized)
 @MainActor
-struct AnnotationOffsetTests {
+struct AnnotationStateTests {
 
-    // D1: updateAnnotationOffset stores the CGPoint keyed by peak ID.
-    @Test func updateAnnotationOffset_storesOffsetByID() {
-        let sut = makeSUT()
-        let peak = makePeak()
-        let offset = CGPoint(x: 10, y: 20)
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
+        let url = Bundle(for: AnnotationStateAnchor.self).url(forResource: "annotation-state", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
 
-        sut.updateAnnotationOffset(for: peak.id, offset: offset)
-
-        let stored = sut.peakAnnotationOffsets[peak.id]
-        #expect(stored != nil, "Offset should be stored for the peak ID")
-        #expect(stored?.x == 10 && stored?.y == 20, "Stored offset mismatch: \(String(describing: stored))")
+    nonisolated static func ids() -> [String] {
+        (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
     }
 
-    // D1b: Updating an offset twice keeps the latest value.
-    @Test func updateAnnotationOffset_overwritesPrevious() {
-        let sut = makeSUT()
-        let peak = makePeak()
-        sut.updateAnnotationOffset(for: peak.id, offset: CGPoint(x: 1, y: 2))
-        sut.updateAnnotationOffset(for: peak.id, offset: CGPoint(x: 99, y: 88))
+    static let modes: [String: GuitarMode] = [
+        "air": .air, "top": .top, "back": .back, "dipole": .dipole,
+        "ringMode": .ringMode, "upperModes": .upperModes, "unknown": .unknown,
+    ]
+    static func modeName(_ mode: GuitarMode) -> String { String(describing: mode) }
 
-        let stored = sut.peakAnnotationOffsets[peak.id]
-        #expect(stored?.x == 99 && stored?.y == 88)
+    /// One case's peaks and the names it gives them.
+    struct Context {
+        let sut: TapToneAnalyzer
+        let ids: [String: UUID]
+        var names: [UUID: String] { Dictionary(uniqueKeysWithValues: ids.map { ($1, $0) }) }
+
+        /// The analyzer's peak of that name, or — for a name the file does not hold — a peak at 220 Hz
+        /// with that id, which the analyzer does not know.
+        func peak(_ name: String) -> ResonantPeak {
+            let id = ids[name]!
+            if let known = sut.allPeaks.first(where: { $0.id == id }) { return known }
+            let json = #"{"id":"\#(id.uuidString)","frequency":220,"magnitude":-20,"quality":10,"bandwidth":5,"timestamp":"2026-01-01T00:00:00Z"}"#
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try! decoder.decode(ResonantPeak.self, from: Data(json.utf8))
+        }
+        func namesOf(_ set: Set<UUID>) -> [String] { set.map { names[$0] ?? $0.uuidString }.sorted() }
     }
 
-    // D2: applyAnnotationOffsets bulk-populates peakAnnotationOffsets.
-    @Test func applyAnnotationOffsets_populatesDictionary() {
-        let sut = makeSUT()
-        let id1 = UUID()
-        let id2 = UUID()
-        let offsets: [UUID: CGPoint] = [
-            id1: CGPoint(x: 5, y: 10),
-            id2: CGPoint(x: 15, y: 20)
-        ]
-
-        sut.applyAnnotationOffsets(offsets)
-
-        #expect(sut.peakAnnotationOffsets[id1] == CGPoint(x: 5, y: 10))
-        #expect(sut.peakAnnotationOffsets[id2] == CGPoint(x: 15, y: 20))
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Peak Selection Tests  (D3)
-// ---------------------------------------------------------------------------
-
-@Suite("PeakSelection")
-struct PeakSelectionTests {
-
-    // D3: Toggling same peak ID twice results in empty selectedPeakIDs.
-    @Test func togglePeakSelection_insertsThenRemoves() {
-        let sut = makeSUT()
-        let id = UUID()
-
-        sut.togglePeakSelection(id)
-        #expect(sut.selectedPeakIDs.contains(id), "After first toggle, peak should be selected")
-
-        sut.togglePeakSelection(id)
-        #expect(!sut.selectedPeakIDs.contains(id), "After second toggle, peak should be deselected")
-    }
-
-    // selectNoPeaks clears all selections.
-    @Test func selectNoPeaks_clearsAll() {
-        let sut = makeSUT()
-        let peaks = [makePeak(frequency: 100), makePeak(frequency: 200)]
-        sut.allPeaks = peaks
-        sut.selectedPeakIDs = Set(peaks.map(\.id))
-
-        sut.selectNoPeaks()
-
-        #expect(sut.selectedPeakIDs.isEmpty, "selectedPeakIDs should be empty after selectNoPeaks")
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - userHasModifiedPeakSelection Flag Tests  (D3b)
-// ---------------------------------------------------------------------------
-
-@Suite("UserModifiedPeakSelectionFlag")
-struct UserModifiedPeakSelectionFlagTests {
-
-    // togglePeakSelection sets the flag.
-    @Test func togglePeakSelection_setsModifiedFlag() {
-        let sut = makeSUT()
-        #expect(!sut.userHasModifiedPeakSelection, "Flag should start false")
-
-        sut.togglePeakSelection(UUID())
-
-        #expect(sut.userHasModifiedPeakSelection, "Flag should be true after toggle")
-    }
-
-    // selectNoPeaks sets the flag.
-    @Test func selectNoPeaks_setsModifiedFlag() {
-        let sut = makeSUT()
-
-        sut.selectNoPeaks()
-
-        #expect(sut.userHasModifiedPeakSelection)
-    }
-
-    // resetToAutoSelection clears the flag and selects the best peak per mode.
-    @Test func resetToAutoSelection_clearsFlagAndSelectsBestPerMode() {
-        let sut = makeSUT()
-        let savedType = TapDisplaySettings.measurementType
-        TapDisplaySettings.measurementType = .acoustic
-        defer { TapDisplaySettings.measurementType = savedType }
-
-        // Two peaks in the acoustic Air range (90–120 Hz); the louder one should win.
-        let quietAir = ResonantPeak(frequency: 98, magnitude: -50)
-        let loudAir  = ResonantPeak(frequency: 105, magnitude: -30)
-        sut.allPeaks = [quietAir, loudAir]
-
-        // Simulate user having made a manual change
-        sut.userHasModifiedPeakSelection = true
-        sut.selectedPeakIDs = []
-
-        sut.resetToAutoSelection()
-
-        #expect(!sut.userHasModifiedPeakSelection, "Flag should be cleared after resetToAutoSelection")
-        #expect(sut.selectedPeakIDs.contains(loudAir.id), "Loudest Air peak should be auto-selected")
-        #expect(!sut.selectedPeakIDs.contains(quietAir.id), "Quieter Air peak should not be selected")
-    }
-
-    // resetToAutoSelection on empty peaksAbovePeakMin is a no-op (no crash).
-    @Test func resetToAutoSelection_emptyPeaks_isNoop() {
-        let sut = makeSUT()
-        sut.userHasModifiedPeakSelection = true
-
-        sut.resetToAutoSelection()
-
-        #expect(!sut.userHasModifiedPeakSelection)
-        #expect(sut.selectedPeakIDs.isEmpty)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Visible Peaks Tests  (D4–D6)
-// ---------------------------------------------------------------------------
-
-@Suite("VisiblePeaks")
-struct VisiblePeaksTests {
-
-    // D4: .all mode returns all peaksAbovePeakMin.
-    @Test func allMode_returnsAllCurrentPeaks() {
-        let sut = makeSUT()
-        sut.annotationVisibilityMode = .all
-        let peaks = [makePeak(frequency: 100), makePeak(frequency: 200), makePeak(frequency: 300)]
-        sut.allPeaks = peaks
-
-        #expect(sut.visiblePeaks.count == 3)
-    }
-
-    // D5: .selected mode returns only peaks whose IDs are in selectedPeakIDs.
-    @Test func selectedMode_filtersToSelectedPeaks() {
-        let sut = makeSUT()
-        sut.annotationVisibilityMode = .selected
-        let p1 = makePeak(frequency: 100)
-        let p2 = makePeak(frequency: 200)
-        let p3 = makePeak(frequency: 300)
-        sut.allPeaks = [p1, p2, p3]
-        sut.selectedPeakIDs = [p1.id, p3.id]
-
-        let visible = sut.visiblePeaks
-        #expect(visible.count == 2)
-        #expect(visible.map(\.frequency).contains(100))
-        #expect(visible.map(\.frequency).contains(300))
-        #expect(!visible.map(\.frequency).contains(200))
-    }
-
-    // D6: .none mode returns empty array regardless of peaksAbovePeakMin.
-    @Test func noneMode_returnsEmpty() {
-        let sut = makeSUT()
-        sut.annotationVisibilityMode = .none
-        let peaks = [makePeak(), makePeak(frequency: 300)]
-        sut.allPeaks = peaks
-        sut.selectedPeakIDs = Set(peaks.map(\.id))   // selection is incidental here; .none wins
-
-        #expect(sut.visiblePeaks.isEmpty, "None mode should suppress all annotations")
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Mode Override / Label Tests  (D7–D8)
-// ---------------------------------------------------------------------------
-
-@Suite("ModeOverrides", .serialized)
-@MainActor
-struct ModeOverrideTests {
-
-    // D7: No override → label comes from GuitarMode.classify() displayName.
-    @Test func noOverride_returnsAutoLabel() {
-        let sut = makeSUT()
-        // Ensure acoustic guitar type (so 100 Hz → Air)
-        let savedType = TapDisplaySettings.measurementType
-        TapDisplaySettings.measurementType = .acoustic
-        defer { TapDisplaySettings.measurementType = savedType }
-        // The analyzer must KNOW the peak: effectiveModeLabel reads identifiedModes and no longer
-        // classifies a stray peak on its own (one peak cannot compete for a band — see peakMode).
-        let peak = makePeak(frequency: 100)   // Air mode for acoustic
-        sut.allPeaks = [peak]
-        sut.identifiedModes = [(peak: peak, mode: GuitarMode.classifyAll([peak])[peak.id] ?? .unknown)]
-
-        let label = sut.effectiveModeLabel(for: peak)
-
-        // GuitarMode.classify(frequency: 100, guitarType: .acoustic) == .air
-        #expect(label == "Air (Helmholtz)", "Expected 'Air (Helmholtz)' for 100 Hz in acoustic mode, got '\(label)'")
-    }
-
-    // D8b: autoDetectedMode is override-blind — it names what "Reset to Auto-Detected" restores to,
-    // NOT the current label. Overriding a peak to another mode must not change the value the reset
-    // menu item advertises. (Regression guard: the desktop menu and iOS sheet used to show the
-    // current mode here, so after a rename the reset item named the override rather than its target.)
-    @Test func autoDetectedMode_ignoresOverride() {
-        let sut = makeSUT()
-        let savedType = TapDisplaySettings.measurementType
-        TapDisplaySettings.measurementType = .acoustic
-        defer { TapDisplaySettings.measurementType = savedType }
-
-        let air = makePeak(frequency: 100)     // classifies Air for acoustic
-        sut.allPeaks = [air]
-        sut.reclassifyPeaks()
-        #expect(sut.autoDetectedMode(for: air) == .air, "precondition: auto-detects Air")
-
-        sut.setModeOverride(GuitarMode.top.displayName, for: air.id)
-
-        #expect(sut.effectiveModeLabel(for: air) == GuitarMode.top.displayName,
-                "the visible label follows the override")
-        #expect(sut.autoDetectedMode(for: air) == .air,
-                "…but the reset target is still the auto-detected Air, not the override")
-    }
-
-    // D8: "Custom" override returns the custom string.
-    @Test func assignedOverride_returnsCustomLabel() {
-        let sut = makeSUT()
-        let peak = makePeak(frequency: 200)
-        sut.setModeOverride("My Label", for: peak.id)
-
-        let label = sut.effectiveModeLabel(for: peak)
-        #expect(label == "My Label", "Expected 'My Label', got '\(label)'")
-    }
-
-    // hasManualOverride tracks presence: an assigned label is an override, and clearing removes it.
-    // Driven through the two calls the app actually makes — setModeOverride and resetModeOverride —
-    // — absence is the only "no override" there is.
-    @Test func hasManualOverride_trueOnceAssigned_falseOnceCleared() {
-        let sut = makeSUT()
-        let peak = makePeak()
-
-        #expect(!sut.hasManualOverride(for: peak.id), "a peak starts with no override")
-
-        sut.setModeOverride("Test", for: peak.id)
-        #expect(sut.hasManualOverride(for: peak.id), "an assigned label is a manual override")
-
-        sut.resetModeOverride(for: peak.id)
-        #expect(!sut.hasManualOverride(for: peak.id), "clearing removes the override entirely")
-        #expect(sut.peakModeOverrides[peak.id] == nil, "cleared means absent, not a stored 'auto'")
-    }
-
-    // The CLEAR half of the store: clearing one peak's override leaves every other peak's alone.
-    @Test func resetModeOverride_clearsOnlyThatPeaksOverride() {
-        let sut = makeSUT()
-        let kept = makePeak(frequency: 100), cleared = makePeak(frequency: 200)
-        sut.setModeOverride("Wolf note", for: cleared.id)
-        sut.setModeOverride("Keep me", for: kept.id)
-
-        sut.resetModeOverride(for: cleared.id)
-
-        #expect(sut.peakModeOverrides[cleared.id] == nil, "the targeted override is gone")
-        if let label = sut.peakModeOverrides[kept.id] {
-            #expect(label == "Keep me", "the other peak's override is untouched")
+    static func run(_ step: [String: Any], _ c: Context, files: [String: Any]) throws -> Bool {
+        let sut = c.sut
+        if let name = step["load"] as? String {
+            let data = try JSONSerialization.data(withJSONObject: files[name]!)
+            sut.loadMeasurement(try #require(try TapToneAnalyzer.decodeMeasurements(data).first))
+        } else if let name = step["toggle"] as? String {
+            sut.togglePeakSelection(c.ids[name]!)
+        } else if step["selectNone"] as? Bool == true {
+            sut.selectNoPeaks()
+        } else if step["resetToAuto"] as? Bool == true {
+            sut.resetToAutoSelection()
+        } else if let o = step["override"] as? [Any] {
+            sut.setModeOverride(o[1] as! String, for: c.ids[o[0] as! String]!)
+        } else if let name = step["resetOverride"] as? String {
+            sut.resetModeOverride(for: c.ids[name]!)
+        } else if let o = step["offset"] as? [Any] {
+            sut.updateAnnotationOffset(for: c.ids[o[0] as! String]!,
+                                       offset: CGPoint(x: (o[1] as! NSNumber).doubleValue, y: (o[2] as! NSNumber).doubleValue))
+        } else if let name = step["resetOffset"] as? String {
+            sut.resetAnnotationOffset(for: c.ids[name]!)
+        } else if step["resetAllOffsets"] as? Bool == true {
+            sut.resetAllAnnotationOffsets()
+        } else if let mode = step["visibility"] as? String {
+            sut.annotationVisibilityMode = AnnotationVisibilityMode(rawValue: mode)!
+        } else if step["cycleVisibility"] as? Bool == true {
+            sut.cycleAnnotationVisibility()
+        } else if let type = step["guitarTypeChange"] as? String {
+            TapDisplaySettings.measurementType = MeasurementType(rawValue: type)!
+            sut.reclassifyForGuitarTypeChange()
         } else {
-            Issue.record("Expected the other peak to keep its .assigned override")
+            return runAnalyzerStep(step, on: sut)
+        }
+        return true
+    }
+
+    /// Asserts the fields an expectation names.
+    static func check(_ fields: [String: Any], _ c: Context, _ id: String) {
+        let sut = c.sut
+        for (field, want) in fields {
+            switch field {
+            case "selected":
+                #expect(c.namesOf(sut.selectedPeakIDs) == (want as! [String]).sorted(), "\(id) \(field): \(c.namesOf(sut.selectedPeakIDs))")
+            case "userModified":
+                #expect(sut.userHasModifiedPeakSelection == want as? Bool, "\(id) \(field)")
+            case "visible":
+                let hz = sut.visiblePeaks.map { Double($0.frequency) }.sorted()
+                #expect(hz == (want as! [NSNumber]).map(\.doubleValue), "\(id) \(field): \(hz)")
+            case "visibility":
+                #expect(sut.annotationVisibilityMode.rawValue == want as? String, "\(id) \(field)")
+            case "label":
+                for (name, label) in want as! [String: String] {
+                    #expect(sut.effectiveModeLabel(for: c.peak(name)) == label, "\(id) \(field) \(name): \(sut.effectiveModeLabel(for: c.peak(name)))")
+                }
+            case "mode":
+                for (name, mode) in want as! [String: String] {
+                    #expect(modeName(sut.peakMode(for: c.peak(name))) == mode, "\(id) \(field) \(name): \(sut.peakMode(for: c.peak(name)))")
+                }
+            case "autoMode":
+                for (name, mode) in want as! [String: String] {
+                    #expect(modeName(sut.autoDetectedMode(for: c.peak(name))) == mode, "\(id) \(field) \(name): \(sut.autoDetectedMode(for: c.peak(name)))")
+                }
+            case "manualOverride":
+                for (name, flag) in want as! [String: Bool] {
+                    #expect(sut.hasManualOverride(for: c.ids[name]!) == flag, "\(id) \(field) \(name)")
+                }
+            case "overrides":
+                let got = Dictionary(uniqueKeysWithValues: sut.peakModeOverrides.map { (c.names[$0] ?? $0.uuidString, $1) })
+                #expect(got == want as? [String: String], "\(id) \(field): \(got)")
+            case "offsets":
+                let got = Dictionary(uniqueKeysWithValues: sut.peakAnnotationOffsets.map {
+                    (c.names[$0] ?? $0.uuidString, [Double($1.x), Double($1.y)])
+                })
+                let wanted = (want as! [String: [NSNumber]]).mapValues { $0.map(\.doubleValue) }
+                #expect(got == wanted, "\(id) \(field): \(got)")
+            case "offsetCount":
+                #expect(sut.peakAnnotationOffsets.count == want as? Int, "\(id) \(field)")
+            case "getPeak":
+                for (mode, name) in want as! [String: Any] {
+                    let got = sut.getPeak(for: modes[mode]!).map { c.names[$0.id] ?? $0.id.uuidString }
+                    #expect(got == name as? String, "\(id) \(field) \(mode): \(String(describing: got))")
+                }
+            case "hasRatio":
+                #expect((sut.calculateTapToneRatio() != nil) == want as? Bool, "\(id) \(field)")
+            case "definitive":
+                let info = sut.definitiveModeInfo()
+                for (mode, entry) in want as! [String: Any] {
+                    let got = info[modes[mode]!]
+                    if let entry = entry as? [String: Any] {
+                        #expect(got.map { Double($0.frequency) } == (entry["hz"] as! NSNumber).doubleValue, "\(id) \(field) \(mode) hz")
+                        #expect(got?.isOverride == entry["isOverride"] as? Bool, "\(id) \(field) \(mode) isOverride")
+                    } else {
+                        #expect(got == nil, "\(id) \(field) \(mode): \(String(describing: got))")
+                    }
+                }
+            case "materialPeakMode":
+                let fL = sut.selectedLongitudinalPeak
+                #expect(fL != nil, "\(id) \(field): a captured fL peak")
+                #expect(fL.map { modeName(sut.peakMode(for: $0)) } == want as? String, "\(id) \(field)")
+            case "selectedIsAuto":
+                #expect((sut.selectedPeakIDs == sut.guitarModeSelectedPeakIDs(from: sut.allPeaks)) == want as? Bool, "\(id) \(field)")
+            default:
+                Issue.record("\(id): unknown field \(field)")
+            }
         }
     }
 
-    @Test func resetAnnotationOffset_clearsOnlyThatPeaksOffset() {
-        let sut = makeSUT()
-        let kept = makePeak(frequency: 100), cleared = makePeak(frequency: 200)
-        sut.updateAnnotationOffset(for: cleared.id, offset: CGPoint(x: 9, y: 9))
-        sut.updateAnnotationOffset(for: kept.id, offset: CGPoint(x: 1, y: 2))
+    @Test(arguments: ids())
+    func annotationState(_ id: String) throws {
+        let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
+        let saved = (TapDisplaySettings.measurementType, TapDisplaySettings.showUnknownModes)
+        defer { (TapDisplaySettings.measurementType, TapDisplaySettings.showUnknownModes) = saved }
 
-        sut.resetAnnotationOffset(for: cleared.id)
-
-        #expect(sut.peakAnnotationOffsets[cleared.id] == nil, "the dragged position is gone")
-        #expect(sut.peakAnnotationOffsets[kept.id] == CGPoint(x: 1, y: 2),
-                "the other peak keeps its dragged position")
-    }
-
-    @Test func resetAllAnnotationOffsets_emptiesTheWholeStore() {
-        let sut = makeSUT()
-        let a = makePeak(frequency: 100), b = makePeak(frequency: 200)
-        sut.updateAnnotationOffset(for: a.id, offset: CGPoint(x: 1, y: 2))
-        sut.updateAnnotationOffset(for: b.id, offset: CGPoint(x: 3, y: 4))
-        #expect(sut.peakAnnotationOffsets.count == 2, "precondition")
-
-        sut.resetAllAnnotationOffsets()
-
-        #expect(sut.peakAnnotationOffsets.isEmpty, "Reset Labels returns every callout to its anchor")
-    }
-
-    // Clearing an override reverts to auto-classification, and an unclassified peak has NO mode —
-    // it is not guessed at. A peak classified ALONE (`GuitarMode.classifyAll([peak])`) cannot compete
-    // for a band, and the Generic Top (140–260 Hz) and Back (180–300 Hz) ranges overlap, so it would
-    // come out .top anywhere between 180 and 260 Hz — including a plate/brace peak, which has no
-    // guitar mode at all. Matches web.
-    @Test func unclassifiedPeak_hasNoMode_evenInTheTopBackOverlap() {
-        let savedType = TapDisplaySettings.measurementType
-        TapDisplaySettings.measurementType = .generic
-        defer { TapDisplaySettings.measurementType = savedType }
-
-        let sut = makeSUT()
-        // 220 Hz sits in BOTH the Generic Top and Back ranges — the band where classifying a lone
-        // peak cannot arbitrate, and where the old fallback always answered .top.
-        let stray = makePeak(frequency: 220)
-        #expect(sut.identifiedModes.isEmpty, "precondition: the analyzer knows nothing about it")
-
-        #expect(sut.peakMode(for: stray) == .unknown)
-        #expect(sut.autoDetectedMode(for: stray) == .unknown)
-    }
-
-    /// The real case the fallback mis-answered: material peaks have no guitar mode. A completed
-    /// plate/brace capture sets allPeaks but leaves identifiedModes empty on purpose.
-    @Test func completedMaterialCapture_leavesItsPeakUnclassified() {
-        let savedType = TapDisplaySettings.measurementType
-        TapDisplaySettings.measurementType = .brace
-        defer { TapDisplaySettings.measurementType = savedType }
-
-        let sut = makeSUT()
-        let fL = makePeak(frequency: 220)
-        sut.allPeaks = [fL]          // as the material capture handlers do — no classify pass
-        #expect(sut.identifiedModes.isEmpty)
-
-        #expect(sut.peakMode(for: fL) == .unknown,
-                "a material peak must not be labelled with a guitar mode")
-    }
-
-    @Test func clearOverride_revertsToAutoLabel() {
-        let sut = makeSUT()
-        let savedType = TapDisplaySettings.measurementType
-        TapDisplaySettings.measurementType = .acoustic
-        defer { TapDisplaySettings.measurementType = savedType }
-        let peak = makePeak(frequency: 100)  // Air mode
-        sut.allPeaks = [peak]
-        sut.identifiedModes = [(peak: peak, mode: GuitarMode.classifyAll([peak])[peak.id] ?? .unknown)]
-
-        sut.setModeOverride("Temp", for: peak.id)
-        sut.resetModeOverride(for: peak.id)   // what the Reset menu item calls
-
-        let label = sut.effectiveModeLabel(for: peak)
-        #expect(label == "Air (Helmholtz)")
+        let ids = (row["peakIds"] as! [String: String]).mapValues { UUID(uuidString: $0)! }
+        let context = Context(sut: makeStepsAnalyzer(), ids: ids)
+        let files = row["files"] as! [String: Any]
+        for step in row["steps"] as! [[String: Any]] {
+            if let fields = step["check"] as? [String: Any] {
+                Self.check(fields, context, id)
+            } else {
+                #expect(try Self.run(step, context, files: files), "\(id): unknown step \(step)")
+            }
+        }
+        Self.check(row["expect"] as! [String: Any], context, id)
     }
 }
 
-// ---------------------------------------------------------------------------
-// MARK: - Annotation Visibility Cycle  (CI5)
-// ---------------------------------------------------------------------------
-
-@Suite("AnnotationVisibilityCycle")
-struct AnnotationVisibilityCycleTests {
-
-    // CI5: Three calls to cycleAnnotationVisibility traverse all → selected → none → all.
-    @Test func cycleAnnotationVisibility_traversesAllModes() {
-        let sut = makeSUT()
-        sut.annotationVisibilityMode = .all
-
-        sut.cycleAnnotationVisibility()
-        #expect(sut.annotationVisibilityMode == .selected)
-
-        sut.cycleAnnotationVisibility()
-        #expect(sut.annotationVisibilityMode == .none)
-
-        sut.cycleAnnotationVisibility()
-        #expect(sut.annotationVisibilityMode == .all)
-    }
+/// The visibility enum itself — Swift's UI type: its cycle order and its icons.
+@Suite("AnnotationVisibilityMode")
+struct AnnotationVisibilityModeTests {
 
     // The .next cycle on the AnnotationVisibilityMode enum itself: all → selected → none → all.
-    // Moved from GuitarModeTests where it was incorrectly placed.
     @Test func annotationVisibilityCycle_allToSelectedToNoneToAll() {
         var mode = AnnotationVisibilityMode.all
         mode = mode.next
@@ -428,371 +203,5 @@ struct AnnotationVisibilityCycleTests {
         for mode in AnnotationVisibilityMode.allCases {
             #expect(!mode.iconName.isEmpty, "Icon name for \(mode) should not be empty")
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Definitive Air/Top/Back uniqueness  (D11–D16)
-// ---------------------------------------------------------------------------
-//
-// Classification and selection are independent. Classification is band membership: five peaks in
-// the Air band are five Air peaks. Selection picks which one is DEFINITIVE, and Air/Top/Back may
-// have at most one each — they are single physical resonances. Dipole/Ring/Upper are clusters and
-// stay unconstrained.
-//
-// Deselecting never relabels: a displaced peak remains classified Air/Top/Back, it just stops being
-// the definitive one.
-//
-// Generic bands: air 70–135, top 140–260, back 180–300, dipole 310–460. The Top fixtures below sit
-// under 180 so they cannot also be Back.
-
-@Suite("DefinitiveModeUniqueness", .serialized)
-@MainActor
-struct DefinitiveModeUniquenessTests {
-
-    private func makeGuitarSUT() -> TapToneAnalyzer {
-        TapDisplaySettings.measurementType = .generic
-        return makeSUT()
-    }
-
-    // D11: selecting a second Top displaces the first — and the displaced peak is STILL a Top peak.
-    @Test func selectingASecondTop_displacesTheFirst_withoutReclassifying() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let topA = makePeak(frequency: 150, magnitude: -30)
-        let topB = makePeak(frequency: 170, magnitude: -25)
-        sut.allPeaks = [topA, topB]
-        sut.reclassifyPeaks()
-
-        sut.togglePeakSelection(topA.id)
-        #expect(sut.selectedPeakIDs == [topA.id])
-
-        sut.togglePeakSelection(topB.id)
-
-        #expect(sut.selectedPeakIDs == [topB.id],
-                "only one definitive Top — selecting B must displace A")
-        #expect(sut.peakMode(for: topA) == .top,
-                "the displaced peak is STILL a Top peak; deselecting does not relabel it")
-    }
-
-    // D12: Dipole is a cluster — several selected peaks are legitimate there.
-    @Test func dipoleAllowsSeveralSelectedPeaks() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let d1 = makePeak(frequency: 320, magnitude: -30)
-        let d2 = makePeak(frequency: 400, magnitude: -25)
-        sut.allPeaks = [d1, d2]
-        sut.reclassifyPeaks()
-        #expect(sut.peakMode(for: d1) == .dipole, "fixture precondition")
-
-        sut.togglePeakSelection(d1.id)
-        sut.togglePeakSelection(d2.id)
-
-        #expect(sut.selectedPeakIDs == [d1.id, d2.id],
-                "Dipole is not a single-holder mode — both stay selected")
-    }
-
-    // D13: relabelling an ALREADY-SELECTED peak into Top displaces the current definitive Top.
-    @Test func overridingASelectedPeakIntoTop_displacesTheDefinitiveTop() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let top = makePeak(frequency: 150, magnitude: -30)
-        let air = makePeak(frequency: 90, magnitude: -25)
-        sut.allPeaks = [top, air]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(top.id)
-        sut.togglePeakSelection(air.id)
-        #expect(sut.selectedPeakIDs == [top.id, air.id], "one Air and one Top, both definitive")
-
-        sut.setModeOverride(GuitarMode.top.displayName, for: air.id)
-
-        #expect(sut.selectedPeakIDs == [air.id],
-                "the relabelled peak becomes the definitive Top; the previous holder is displaced")
-        #expect(sut.peakMode(for: top) == .top,
-                "the displaced peak keeps its Top classification")
-    }
-
-    // D14: relabelling an UNSELECTED peak changes no selection — it just becomes another candidate.
-    @Test func overridingAnUnselectedPeakIntoTop_changesNoSelection() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let top = makePeak(frequency: 150, magnitude: -30)
-        let air = makePeak(frequency: 90, magnitude: -25)
-        sut.allPeaks = [top, air]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(top.id)
-
-        sut.setModeOverride(GuitarMode.top.displayName, for: air.id)
-
-        #expect(sut.selectedPeakIDs == [top.id],
-                "overriding an unselected peak must not touch selection")
-        #expect(sut.peakMode(for: air) == .top, "…though it IS now a Top candidate")
-    }
-
-    // D15: overriding the definitive Top AWAY from Top leaves Top with no definitive peak.
-    // Nothing is auto-promoted — there is no promotion rule, deliberately.
-    @Test func overridingTheDefinitiveTopAway_leavesTopWithNoHolder() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let topA = makePeak(frequency: 150, magnitude: -30)
-        let topB = makePeak(frequency: 170, magnitude: -25)
-        sut.allPeaks = [topA, topB]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(topA.id)
-
-        sut.setModeOverride("Wolf note", for: topA.id)
-
-        #expect(sut.peakMode(for: topA) == .unknown, "freeform label, so no longer Top")
-        #expect(!sut.selectedPeakIDs.contains(topB.id),
-                "topB must NOT be auto-promoted to definitive Top")
-        #expect(sut.selectedPeakIDs == [topA.id],
-                "the relabelled peak stays selected — it is simply no longer a Top")
-    }
-
-    // D16: Select None is a legitimate state — no definitive peaks, classification untouched.
-    @Test func selectNone_leavesClassificationIntact() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let top = makePeak(frequency: 150, magnitude: -30)
-        let air = makePeak(frequency: 90, magnitude: -25)
-        sut.allPeaks = [top, air]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(top.id)
-
-        sut.selectNoPeaks()
-
-        #expect(sut.selectedPeakIDs.isEmpty, "no definitive peaks is a legitimate state")
-        #expect(sut.peakMode(for: top) == .top)
-        #expect(sut.peakMode(for: air) == .air)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: - Definitive peak & tap-tone ratio  (D17–D20)
-// ---------------------------------------------------------------------------
-//
-// getPeak(for:) and calculateTapToneRatio resolve the DEFINITIVE peak: the selected peak whose
-// override-aware mode is that mode. Deselecting it, or relabelling it, removes it here exactly as it
-// does on the chart - so the on-screen ratio and the saved-list ratio cannot disagree.
-
-@Suite("DefinitivePeakAndRatio", .serialized)
-@MainActor
-struct DefinitivePeakAndRatioTests {
-
-    private func makeGuitarSUT() -> TapToneAnalyzer {
-        TapDisplaySettings.measurementType = .generic
-        return makeSUT()
-    }
-
-    // D17: getPeak returns the SELECTED holder, not merely the strongest in the band.
-    @Test func getPeak_returnsSelectedHolder_notStrongest() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let loudTop = makePeak(frequency: 150, magnitude: -18)
-        let weakTop = makePeak(frequency: 165, magnitude: -30)
-        sut.allPeaks = [loudTop, weakTop]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(weakTop.id)   // select the WEAKER one
-
-        #expect(sut.getPeak(for: .top)?.id == weakTop.id,
-                "the definitive Top is the selected peak, not the loudest candidate")
-    }
-
-    // D18: THE user-reported bug. Renaming the Top peak to a freeform label drops the ratio.
-    @Test func renamingTheTopPeak_dropsTheRatio() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let air = makePeak(frequency: 100, magnitude: -25)
-        let top = makePeak(frequency: 150, magnitude: -20)
-        sut.allPeaks = [air, top]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(air.id)
-        sut.togglePeakSelection(top.id)
-        #expect(sut.calculateTapToneRatio() != nil, "precondition: a ratio is shown")
-
-        sut.setModeOverride("Wolf note", for: top.id)
-
-        #expect(sut.getPeak(for: .top) == nil, "a renamed Top is no longer the definitive Top")
-        #expect(sut.calculateTapToneRatio() == nil,
-                "…so there is no ratio, matching the chart and the table")
-    }
-
-    // D19: deselecting the Top peak drops the ratio too.
-    @Test func deselectingTheTopPeak_dropsTheRatio() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let air = makePeak(frequency: 100, magnitude: -25)
-        let top = makePeak(frequency: 150, magnitude: -20)
-        sut.allPeaks = [air, top]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(air.id)
-        sut.togglePeakSelection(top.id)
-        #expect(sut.calculateTapToneRatio() != nil, "precondition")
-
-        sut.togglePeakSelection(top.id)   // deselect Top
-
-        #expect(sut.calculateTapToneRatio() == nil, "a deselected Top yields no ratio")
-    }
-
-    // D20: retargeting a peak TO Top via override makes it the definitive Top and restores the ratio.
-    @Test func overridingAPeakToTop_makesItDefinitive() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let air = makePeak(frequency: 100, magnitude: -25)
-        let far = makePeak(frequency: 400, magnitude: -20)   // generic: dipole, not Top
-        sut.allPeaks = [air, far]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(air.id)
-        sut.togglePeakSelection(far.id)
-        #expect(sut.getPeak(for: .top) == nil, "precondition: no Top yet")
-
-        sut.setModeOverride(GuitarMode.top.displayName, for: far.id)
-
-        #expect(sut.getPeak(for: .top)?.id == far.id, "the relabelled peak is now the definitive Top")
-        #expect(sut.calculateTapToneRatio() != nil, "and the ratio returns")
-    }
-
-    // D21: the multi-tap Averaged row source. definitiveModeInfo is getPeak per mode plus an override
-    // flag — the DEFINITIVE selected peak, NOT a strongest-per-mode re-classification (the old
-    // resolvedModePeaks path that produced the 233-as-Top / empty-Back bug). Here: an out-of-band
-    // peak overridden to Top is the Top, tagged; the louder in-band 233 does not usurp it.
-    @Test func definitiveModeInfo_usesOverriddenDefinitiveTop_andFlagsIt() {
-        let saved = TapDisplaySettings.measurementType
-        TapDisplaySettings.measurementType = .generic
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let air      = makePeak(frequency: 100, magnitude: -25)
-        let belowTop = makePeak(frequency: 138, magnitude: -30)  // below the Top band → unknown by position
-        let louder   = makePeak(frequency: 233, magnitude: -18)  // louder, in the top band by position
-        sut.allPeaks = [air, belowTop, louder]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(air.id)
-        sut.togglePeakSelection(belowTop.id)
-        sut.setModeOverride(GuitarMode.top.displayName, for: belowTop.id)  // 138 → Top
-
-        let info = sut.definitiveModeInfo()
-        #expect(info[.top]?.frequency == 138,
-                "Top is the overridden+selected peak — not the louder 233, which is not selected")
-        #expect(info[.top]?.isOverride == true, "flagged as an override so the Averaged row can tag it")
-        #expect(info[.air]?.isOverride == false, "Air here is auto — not tagged")
-    }
-
-    // D22: definitiveModeInfo follows SELECTION — a deselected Top yields no Top entry (and no tag).
-    @Test func definitiveModeInfo_omitsDeselectedMode() {
-        let saved = TapDisplaySettings.measurementType
-        TapDisplaySettings.measurementType = .generic
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let air = makePeak(frequency: 100, magnitude: -25)
-        let top = makePeak(frequency: 150, magnitude: -20)
-        sut.allPeaks = [air, top]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(air.id)   // Top left unselected
-
-        let info = sut.definitiveModeInfo()
-        #expect(info[.top] == nil, "an unselected Top is not the definitive Top")
-        #expect(info[.air]?.frequency == 100)
-    }
-}
-
-// MARK: - Clean-slate triggers  (paired with Python TestPhase7Triggers)
-//
-// Clean-slate guitar-type change + a new tap sequence clears ALL per-peak state. Pinned identically
-// in Swift and Python.
-
-@Suite("Phase7Triggers", .serialized)
-@MainActor
-struct Phase7TriggersTests {
-
-    private func makeGuitarSUT() -> TapToneAnalyzer {
-        TapDisplaySettings.measurementType = .generic
-        return makeSUT()
-    }
-
-    // A guitar-type change re-derives for the new type: manual overrides cleared, selection reset to
-    // auto, peaks reclassified. NOT the wand (which keeps labels).
-    @Test func reclassifyForGuitarTypeChange_isACleanSlate() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let air = makePeak(frequency: 100, magnitude: -25)
-        let top = makePeak(frequency: 150, magnitude: -20)
-        sut.allPeaks = [air, top]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(air.id)
-        sut.setModeOverride("Wolf note", for: top.id)   // a label made under the OLD type
-        #expect(sut.hasManualOverride(for: top.id), "precondition: override in effect")
-
-        sut.reclassifyForGuitarTypeChange()
-
-        #expect(sut.peakModeOverrides.isEmpty, "clean slate clears manual overrides")
-        #expect(sut.userHasModifiedPeakSelection == false, "selection reset to auto")
-        #expect(sut.selectedPeakIDs == sut.guitarModeSelectedPeakIDs(from: sut.allPeaks),
-                "selection is the fresh auto-selection for the new type")
-    }
-
-    // A guitar-type change re-classifies the SAME peaks under the new type's bands (no re-detection).
-    // 160 Hz is below the Classical Top band (170–230) and inside the Acoustic one (150–210).
-    @Test func reclassifyForGuitarTypeChange_reclassifiesThePeaks() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        TapDisplaySettings.measurementType = .classical
-        let sut = makeSUT()
-        let peak160 = makePeak(frequency: 160, magnitude: -20)
-        sut.allPeaks = [makePeak(frequency: 100, magnitude: -25), peak160]
-        sut.reclassifyPeaks()
-        let modeOf160 = { sut.identifiedModes.first { $0.peak.id == peak160.id }?.mode }
-        #expect(modeOf160() != .top, "precondition: 160 Hz is not Top on a classical")
-
-        TapDisplaySettings.measurementType = .acoustic
-        sut.reclassifyForGuitarTypeChange()
-
-        #expect(modeOf160() == .top, "re-classified under the new type's bands")
-    }
-
-    // A new sequence must leave nothing from the previous measurement to leak into the next file.
-    @Test func startTapSequence_clearsAllPerPeakState() {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        let sut = makeGuitarSUT()
-
-        let air = makePeak(frequency: 100, magnitude: -25)
-        let top = makePeak(frequency: 150, magnitude: -20)
-        sut.allPeaks = [air, top]
-        sut.reclassifyPeaks()
-        sut.togglePeakSelection(air.id)
-        sut.setModeOverride("Wolf note", for: top.id)
-        sut.selectedPeakFrequencies = [100]
-        #expect(!sut.selectedPeakIDs.isEmpty && !sut.peakModeOverrides.isEmpty, "precondition")
-
-        sut.startTapSequence()
-
-        #expect(sut.selectedPeakIDs.isEmpty)
-        #expect(sut.selectedPeakFrequencies.isEmpty)
-        #expect(sut.userHasModifiedPeakSelection == false)
-        #expect(sut.peakModeOverrides.isEmpty)
     }
 }
