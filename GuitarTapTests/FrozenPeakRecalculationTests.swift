@@ -555,11 +555,9 @@ struct PeakMinDurabilityTests {
         freezeOnRealSpectrum(sut, bumps: [(200, -20)])
         let saved = makePeak(frequency: 777, magnitude: -30)
         sut.allPeaks = [saved]
-        sut.loadedMeasurementPeaks = [saved]
 
         sut.reanalyzePeaks()
 
-        #expect(sut.loadedMeasurementPeaks == nil, "Re-analyze drops the loaded peaks")
         #expect(!sut.allPeaks.contains { $0.id == saved.id }, "the saved peak is gone")
         #expect(sut.allPeaks.contains { abs($0.frequency - 200) < 5 }, "the spectrum's peak is re-detected")
     }
@@ -845,13 +843,10 @@ struct FrozenPeakRecalculation_EmptyPeaksGuardTests {
     // selectedPeakIDs is intentionally preserved so the selection can be
     // remapped when the threshold is lowered again.
     //
-    // This test uses the live-tap path (no loadedMeasurementPeaks), where
     // findPeaks() is re-run on the frozen spectrum.  We provide a flat frozen
     // spectrum (no detectable peaks) so findPeaks returns empty.
     @Test func PR29_liveTapPath_emptyPeaks_preservesSelectedPeakIDs() {
         let sut = makeSUT()
-        // Do NOT set loadedMeasurementPeaks — this exercises the live-tap path.
-        sut.loadedMeasurementPeaks = nil
 
         // Build a genuinely flat frozen spectrum (all bins at noise floor).
         let binCount = 512
@@ -924,7 +919,6 @@ struct RecalculateFrozenPeaksIntegrationTests {
         defer { TapDisplaySettings.measurementType = savedType }
 
         let sut = makeSUT()
-        sut.loadedMeasurementPeaks = nil
         sut.minFrequency = 80
         sut.maxFrequency = 1200
         sut.peakMinThreshold = -60
@@ -953,7 +947,6 @@ struct RecalculateFrozenPeaksIntegrationTests {
         defer { TapDisplaySettings.measurementType = savedType }
 
         let sut = makeSUT()
-        sut.loadedMeasurementPeaks = nil
         sut.minFrequency = 80
         sut.maxFrequency = 1200
 
@@ -1033,7 +1026,6 @@ struct RecalculateFrozenPeaksIntegrationTests {
         defer { TapDisplaySettings.measurementType = savedType }
 
         let sut = makeSUT()
-        sut.loadedMeasurementPeaks = nil
         sut.isMeasurementComplete = true
         sut.frozenFrequencies = []
         sut.frozenMagnitudes  = []
@@ -1052,7 +1044,7 @@ struct RecalculateFrozenPeaksIntegrationTests {
 
 @Suite("FrozenPeakRecalculation_LiveTapPath", .serialized)
 struct FrozenPeakRecalculation_LiveTapPathTests {
-    // PR7: On the live-tap path (no loadedMeasurementPeaks), annotation offsets
+    // PR7: On a re-detection, annotation offsets
     // stored for the previous UUIDs are remapped by frequency proximity to the
     // new UUIDs produced by a fresh findPeaks() pass.
     //
@@ -1062,7 +1054,6 @@ struct FrozenPeakRecalculation_LiveTapPathTests {
     // be at ~1000 Hz with a NEW UUID; the offset should transfer to it.
     @Test func PR12_liveTapPath_annotationOffset_remappedByFrequency() {
         let sut = makeSUT()
-        sut.loadedMeasurementPeaks = nil
         sut.minFrequency = 50
         sut.maxFrequency = 2000
         sut.peakMinThreshold = -60
@@ -1117,9 +1108,9 @@ struct FrozenPeakRecalculation_LiveTapPathTests {
 // pointless click.  So: any complete guitar measurement with a frozen spectrum; never
 // material.
 //
-// This replaces `loadedMeasurementPeaks != nil`, a proxy for "the peaks are stale" that was
-// wrong in both directions — it disabled itself after one press, and never lit up for a live
-// capture whose mode assignments had drifted.
+// This replaced "a measurement is loaded", a proxy for "the peaks are stale" that was wrong in
+// both directions — it disabled itself after one press, and never lit up for a live capture whose
+// mode assignments had drifted.
 
 @Suite("FrozenPeakRecalculation_CanReanalyze", .serialized)
 struct FrozenPeakRecalculation_CanReanalyzeTests {
@@ -1133,7 +1124,6 @@ struct FrozenPeakRecalculation_CanReanalyzeTests {
 
         let sut = makeSUT()
         freeze(sut, peaks: [makePeak(frequency: 200)])
-        sut.loadedMeasurementPeaks = nil     // never loaded — a fresh capture
 
         #expect(sut.canReanalyze == true,
                 "A frozen guitar capture must offer Re-analyze — it can always re-claim the modes")
@@ -1148,13 +1138,12 @@ struct FrozenPeakRecalculation_CanReanalyzeTests {
         let sut = makeSUT()
         let savedPeaks = [makePeak(frequency: 200)]
         freeze(sut, peaks: savedPeaks)
-        sut.loadedMeasurementPeaks = savedPeaks
 
         #expect(sut.canReanalyze == true)
     }
 
-    // PR8c: THE ONE-SHOT REGRESSION. reanalyzePeaks() clears loadedMeasurementPeaks, which used
-    // to be the button's only enabling condition — so a single press disabled it forever.
+    // PR8c: THE ONE-SHOT REGRESSION. Re-analyze used to be offered only while a measurement was
+    // loaded, and a press ended that — so a single press disabled it forever.
     @Test func PR35_reanalyze_isNotAOneShot_buttonStaysAvailable() {
         let saved = TapDisplaySettings.measurementType
         defer { TapDisplaySettings.measurementType = saved }
@@ -1163,12 +1152,10 @@ struct FrozenPeakRecalculation_CanReanalyzeTests {
         let sut = makeSUT()
         let savedPeaks = [makePeak(frequency: 200)]
         freeze(sut, peaks: savedPeaks)
-        sut.loadedMeasurementPeaks = savedPeaks
         #expect(sut.canReanalyze == true)
 
         sut.reanalyzePeaks()
 
-        #expect(sut.loadedMeasurementPeaks == nil, "Re-analyze drops the saved peaks (they are now derived)")
         #expect(sut.canReanalyze == true,
                 "Re-analyze must remain available after a press — it is a reset, not a one-shot")
     }
@@ -1184,7 +1171,6 @@ struct FrozenPeakRecalculation_CanReanalyzeTests {
             TapDisplaySettings.measurementType = type
             let sut = makeSUT()
             freeze(sut, peaks: [makePeak(frequency: 200)])          // even WITH a frozen spectrum…
-            sut.loadedMeasurementPeaks = [makePeak(frequency: 200)] // …and loaded peaks
             #expect(sut.canReanalyze == false,
                     "Re-analyze is meaningless for \(type.shortName) and must never be offered")
         }

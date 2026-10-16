@@ -652,14 +652,6 @@ final class TapToneAnalyzer: ObservableObject {
     /// Reset to `false` by ``resetToAutoSelection()`` or by a new tap sequence completing.
     var userHasModifiedPeakSelection: Bool = false
 
-    /// The original peak array from the most recently loaded measurement.
-    ///
-    /// Retained so that ``recalculateFrozenPeaksIfNeeded()`` can remap
-    /// ``peakAnnotationOffsets``, ``peakModeOverrides``, and ``selectedPeakIDs``
-    /// by frequency proximity when Peak Min changes generate new UUIDs.
-    /// `nil` when no measurement has been loaded, or after a new tap sequence starts.
-    var loadedMeasurementPeaks: [ResonantPeak]? = nil
-
     /// Frequencies (Hz) of the currently selected peaks, kept in sync with
     /// `selectedPeakIDs` whenever a non-empty peak set is available.  Used as
     /// a stable carry-forward reference in `recalculateFrozenPeaksIfNeeded()`
@@ -1030,55 +1022,22 @@ final class TapToneAnalyzer: ObservableObject {
         let maxDB: Float
     }
 
-    /// Axis bounds loaded from a saved measurement (or comparison union).
-    ///
-    /// Set via `setLoadedAxisRange(minFreq:maxFreq:minDB:maxDB:)` so all four values
-    /// are published in a single `objectWillChange` notification.  Cleared (set to `nil`)
-    /// by the view after applying.
+    /// The chart axis range of the most recent load (a measurement's own range, or a comparison's
+    /// union). The chart's range is view state: the view applies this when it is published, and a
+    /// later load publishes again. The view never writes it.
     @Published var loadedAxisRange: LoadedAxisRange?
 
-    /// Frequency range bounds loaded from a saved measurement.
-    ///
-    /// These are published so that the view layer can pick them up via `onReceive` and
-    /// apply them to its local display-range state without the analyzer needing to know
-    /// about the chart's axis state directly.
-    @Published var loadedMinFreq: Float?
-    /// Upper frequency bound loaded from a saved measurement, in Hz.
-    @Published var loadedMaxFreq: Float?
-    /// Lower magnitude bound loaded from a saved measurement, in dBFS.
-    @Published var loadedMinDB: Float?
-    /// Upper magnitude bound loaded from a saved measurement, in dBFS.
-    @Published var loadedMaxDB: Float?
-
-    /// Publish all four axis bounds as a single atomic notification.
-    ///
-    /// Calling this helper instead of assigning the four `loaded*` properties
-    /// individually ensures the view receives one `onReceive` event and applies
-    /// all bounds in the same render pass, preventing transient mismatches.
+    /// Publish the loaded axis range — all four bounds in one value, so the view applies them in
+    /// one render pass and never sees a mismatched pair.
     func setLoadedAxisRange(minFreq: Float, maxFreq: Float, minDB: Float, maxDB: Float) {
-        objectWillChange.send()
         loadedAxisRange = LoadedAxisRange(minFreq: minFreq, maxFreq: maxFreq,
                                          minDB: minDB, maxDB: maxDB)
-        // Also keep the individual properties in sync for any existing call sites
-        // that still read them (e.g. tests).
-        loadedMinFreq = minFreq
-        loadedMaxFreq = maxFreq
-        loadedMinDB   = minDB
-        loadedMaxDB   = maxDB
     }
 
-    /// Analysis settings loaded from a saved measurement (tap detection threshold in dBFS).
-    @Published var loadedTapDetectionThreshold: Float?
-    /// Peak-magnitude threshold loaded from a saved measurement, in dBFS.
-    @Published var loadedPeakThreshold: Float?
-    /// Number-of-taps setting loaded from a saved measurement.
-    @Published var loadedNumberOfTaps: Int?
-    /// Unknown-modes visibility flag loaded from a saved measurement.
-    @Published var loadedShowUnknownModes: Bool?
-    /// Guitar type classification loaded from a saved measurement.
-    @Published var loadedGuitarType: GuitarType?
-    /// Measurement type (guitar / plate / brace) loaded from a saved measurement.
-    @Published var loadedMeasurementType: MeasurementType?
+    /// The tap threshold and tap count the loaded measurement was taken with. The loaded-settings
+    /// warning stays until the user changes either away from these.
+    var loadedTapDetectionThreshold: Float?
+    var loadedNumberOfTaps: Int?
 
     /// True while the user should be reminded that threshold and tap-count settings
     /// came from a loaded measurement rather than their own preferences.
@@ -1092,13 +1051,6 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// The title of the alert that shows `microphoneWarning`; set with it.
     @Published var microphoneWarningTitle: String = "Microphone Not Found"
-
-    /// Peak selection IDs loaded from a saved plate/brace measurement.
-    @Published var loadedSelectedLongitudinalPeakID: UUID?
-    /// Cross-grain peak ID loaded from a saved plate measurement.
-    @Published var loadedSelectedCrossPeakID: UUID?
-    /// FLC peak ID loaded from a saved plate measurement.
-    @Published var loadedSelectedFlcPeakID: UUID?
 
     // NOTE: the former loaded*-dimension publishers (loadedPlateLength/…/loadedBraceMass +
     // guitarBody*/plateStiffness*/measureFlc) were removed with the two-store material-dimensions

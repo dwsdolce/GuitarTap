@@ -58,6 +58,7 @@
 //
 // @parity view/main
 
+import Combine
 import SwiftUI
 import Charts
 import AVFoundation
@@ -141,11 +142,6 @@ struct TapToneAnalysisView: View {
     // Wrong-platform guard: shown when the iOS build is run on macOS
     @State private var showingWrongPlatformAlert = false
     #endif
-
-    // Plate/brace measurement mode state
-    @State var selectedLongitudinalPeakID: UUID?
-    @State var selectedCrossPeakID: UUID?
-    @State var selectedFlcPeakID: UUID?
 
     /// Drives the repeating opacity throb on the loaded-settings warning icon.
     @State var warningIconOpacity: Double = 1.0
@@ -269,9 +265,6 @@ struct TapToneAnalysisView: View {
                                             minDB: $minDB, maxDB: $maxDB,
                                             minFreqInput: $minFreqInput, maxFreqInput: $maxFreqInput,
                                             minDBInput: $minDBInput, maxDBInput: $maxDBInput,
-                                            selectedLongitudinalPeakID: $selectedLongitudinalPeakID,
-                                            selectedCrossPeakID: $selectedCrossPeakID,
-                                            selectedFlcPeakID: $selectedFlcPeakID,
                                             loadedChartRange: $loadedChartRange,
                                             expandFreqRange: expandFreqRangeToInclude))
             // A new sequence (New Tap, Play File, Cancel, a re-arm) after a load or a comparison returns
@@ -400,8 +393,8 @@ struct TapToneAnalysisView: View {
 
 // MARK: - ViewModifiers (extracted to keep body type-checker tractable)
 
-/// Applies all `.onReceive` handlers for `loaded*` measurement settings published
-/// by `TapToneAnalyzer` when a saved measurement is restored.
+/// Applies a load's chart range to the view's display-range state, and widens the range to show a
+/// newly identified plate/brace peak. Everything else a load restores is the model's.
 private struct LoadedSettingsModifier: ViewModifier {
     @ObservedObject var tap: TapToneAnalyzer
 
@@ -413,9 +406,6 @@ private struct LoadedSettingsModifier: ViewModifier {
     @Binding var maxFreqInput: String
     @Binding var minDBInput: String
     @Binding var maxDBInput: String
-    @Binding var selectedLongitudinalPeakID: UUID?
-    @Binding var selectedCrossPeakID: UUID?
-    @Binding var selectedFlcPeakID: UUID?
     @Binding var loadedChartRange: DisplayRange.ChartRange?
     let expandFreqRange: (Float) -> Void
 
@@ -425,7 +415,9 @@ private struct LoadedSettingsModifier: ViewModifier {
             // render pass prevents transient states where e.g. minDB has the new value
             // while maxDB is still old, which caused SwiftUI Charts to clamp every data
             // point to the same level and render spurious vertical line artifacts.
-            .onReceive(tap.$loadedAxisRange) { range in
+            // dropFirst: a load is applied when it happens; the value already held when this view
+            // subscribes is not replayed over the user's own range.
+            .onReceive(tap.$loadedAxisRange.dropFirst()) { range in
                 if let range = range {
                     gtLog("  ⬇️ View received loadedAxisRange: \(range.minFreq)-\(range.maxFreq) Hz, \(range.minDB)-\(range.maxDB) dB")
                     minFreq = range.minFreq
@@ -438,93 +430,16 @@ private struct LoadedSettingsModifier: ViewModifier {
                     maxDBInput   = FieldPrecision.string(range.maxDB, FieldPrecision.magnitudeDB)
                     loadedChartRange = DisplayRange.ChartRange(minFreq: range.minFreq, maxFreq: range.maxFreq,
                                                                minDB: range.minDB, maxDB: range.maxDB)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        tap.loadedAxisRange = nil
-                        tap.loadedMinFreq = nil
-                        tap.loadedMaxFreq = nil
-                        tap.loadedMinDB   = nil
-                        tap.loadedMaxDB   = nil
-                    }
-                }
-            }
-            .onReceive(tap.$loadedTapDetectionThreshold) { threshold in
-                if threshold != nil {
-                    gtLog("  ⬇️ View received loadedTapDetectionThreshold: \(threshold!)")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedTapDetectionThreshold = nil }
-                }
-            }
-            .onReceive(tap.$loadedNumberOfTaps) { taps in
-                if taps != nil {
-                    gtLog("  ⬇️ View received loadedNumberOfTaps: \(taps!)")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedNumberOfTaps = nil }
-                }
-            }
-            .onReceive(tap.$loadedPeakThreshold) { threshold in
-                if let threshold = threshold {
-                    gtLog("  ⬇️ View received loadedPeakThreshold: \(threshold)")
-                    TapDisplaySettings.peakMinThreshold = threshold
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedPeakThreshold = nil }
-                }
-            }
-            .onReceive(tap.$loadedShowUnknownModes) { showUnknown in
-                if let showUnknown = showUnknown {
-                    gtLog("  ⬇️ View received loadedShowUnknownModes: \(showUnknown)")
-                    TapDisplaySettings.showUnknownModes = showUnknown
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedShowUnknownModes = nil }
-                }
-            }
-            .onReceive(tap.$loadedGuitarType) { guitarType in
-                if let guitarType = guitarType {
-                    gtLog("  ⬇️ View received loadedGuitarType: \(guitarType.rawValue)")
-                    TapDisplaySettings.guitarType = guitarType
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedGuitarType = nil }
-                }
-            }
-            .onReceive(tap.$loadedMeasurementType) { measurementType in
-                if let measurementType = measurementType {
-                    gtLog("  ⬇️ View received loadedMeasurementType: \(measurementType.shortName)")
-                    TapDisplaySettings.measurementType = measurementType
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedMeasurementType = nil }
-                }
-            }
-            .onReceive(tap.$loadedSelectedLongitudinalPeakID) { peakID in
-                if let peakID = peakID {
-                    gtLog("  ⬇️ View received loadedSelectedLongitudinalPeakID: \(peakID)")
-                    selectedLongitudinalPeakID = peakID
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedLongitudinalPeakID = nil }
-                }
-            }
-            .onReceive(tap.$loadedSelectedCrossPeakID) { peakID in
-                if let peakID = peakID {
-                    gtLog("  ⬇️ View received loadedSelectedCrossPeakID: \(peakID)")
-                    selectedCrossPeakID = peakID
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedCrossPeakID = nil }
-                }
-            }
-            .onReceive(tap.$loadedSelectedFlcPeakID) { peakID in
-                if let peakID = peakID {
-                    gtLog("  ⬇️ View received loadedSelectedFlcPeakID: \(peakID)")
-                    selectedFlcPeakID = peakID
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { tap.loadedSelectedFlcPeakID = nil }
                 }
             }
             .onReceive(tap.$selectedLongitudinalPeak) { peak in
-                if let peak {
-                    selectedLongitudinalPeakID = peak.id
-                    expandFreqRange(peak.frequency)
-                }
+                if let peak { expandFreqRange(peak.frequency) }
             }
             .onReceive(tap.$selectedCrossPeak) { peak in
-                if let peak {
-                    selectedCrossPeakID = peak.id
-                    expandFreqRange(peak.frequency)
-                }
+                if let peak { expandFreqRange(peak.frequency) }
             }
             .onReceive(tap.$selectedFlcPeak) { peak in
-                if let peak {
-                    selectedFlcPeakID = peak.id
-                    expandFreqRange(peak.frequency)
-                }
+                if let peak { expandFreqRange(peak.frequency) }
             }
     }
 }

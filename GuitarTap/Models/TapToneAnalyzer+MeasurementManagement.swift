@@ -480,20 +480,23 @@ extension TapToneAnalyzer {
     }
     
     /// Restores the full analyser state from a saved measurement, entering
-    /// a frozen "viewing" mode.
+    /// a frozen "viewing" mode. The whole load is done here; the views only display the result.
     ///
     /// The restoration sequence:
-    /// 1. Peaks, decay time, and per-phase spectra are restored.
-    /// 2. Display and analysis settings are published via `loaded*` properties
-    ///    so that bound UI controls update without triggering a new tap cycle.
+    /// 1. The measurement's own settings — measurement type, guitar type, Show Unknown Modes, Peak
+    ///    Min, the plate/brace dimensions — are applied and saved, before the peaks, so everything
+    ///    is shown and classified under them. Its chart range is published in `loadedAxisRange`.
+    /// 2. Peaks, decay time, and per-phase spectra are restored.
     /// 3. Phase-specific peak selections (`selectedLongitudinalPeak`,
     ///    `selectedCrossPeak`, `selectedFlcPeak`) are resolved by UUID into
     ///    the restored peak array.
-    /// 4. Annotation offsets, selected peak IDs, annotation visibility mode,
+    /// 4. Annotation offsets (none saved: none), selected peak IDs, annotation visibility mode,
     ///    and mode overrides are all restored.
     /// 5. Tap detection is disabled (`detectionState = .idle`, `currentTapCount = 0`).
     /// 6. The recording microphone is auto-selected if connected; otherwise
-    ///    `microphoneWarning` is set.
+    ///    `microphoneWarning` is set. A file with no microphone clears any earlier warning.
+    ///
+    /// A saved comparison restores its overlays and stops detection and the session recording.
     ///
     /// - Parameter measurement: The ``TapToneMeasurement`` to load.
     func loadMeasurement(_ measurement: TapToneMeasurement) {
@@ -526,6 +529,9 @@ extension TapToneAnalyzer {
             showingMultiTapComparison = false
             displayMode = .comparison
             resultProvenance = nil   // a comparison has no microphone of its own
+            highlightedPeakID = nil
+            detectionState = .idle
+            cancelSessionRecording()
             return
         }
 
@@ -555,6 +561,64 @@ extension TapToneAnalyzer {
 
         // Expose the notes so re-saving the loaded measurement keeps them (R10).
         loadedNotes = measurement.notes.flatMap { $0.isEmpty ? nil : $0 }
+
+        // Restore display settings from any available snapshot (prefer longitudinal for plate/brace)
+        let settingsSnapshot = measurement.longitudinalSnapshot ?? measurement.spectrumSnapshot
+        if let snapshot = settingsSnapshot {
+            // Restore display ranges - use setLoadedAxisRange so all four bounds are
+            // published in a single objectWillChange notification, preventing transient
+            // mismatched-axis states that cause SwiftUI Charts rendering artifacts.
+            gtLog("  📊 Publishing display ranges: \(snapshot.minFreq)-\(snapshot.maxFreq) Hz, \(snapshot.minDB)-\(snapshot.maxDB) dB")
+            setLoadedAxisRange(minFreq: snapshot.minFreq, maxFreq: snapshot.maxFreq,
+                               minDB: snapshot.minDB, maxDB: snapshot.maxDB)
+            
+            // The measurement's own settings become the app's: Show Unknown Modes, guitar type and
+            // measurement type. Applied here, before the peaks, so they are shown and classified
+            // under this measurement's settings from the start.
+            if let showUnknown = snapshot.showUnknownModes {
+                TapDisplaySettings.showUnknownModes = showUnknown
+            }
+            if let guitarType = snapshot.guitarType {
+                TapDisplaySettings.guitarType = guitarType
+            }
+            if let measurementType = snapshot.measurementType {
+                TapDisplaySettings.measurementType = measurementType
+            }
+            
+            // Store B ← the file's own material inputs (never the live Settings defaults). The calc,
+            // Results panel, and Save all read this, so a loaded measurement's numbers come from the
+            // file and loading never disturbs the Settings defaults (Store A).
+            if let mt = snapshot.measurementType, !mt.isGuitar {
+                let brace = mt.isBrace
+                materialInputs = MaterialMeasurementInputs(
+                    lengthMM:    (brace ? snapshot.braceLength    : snapshot.plateLength)    ?? 0,
+                    widthMM:     (brace ? snapshot.braceWidth     : snapshot.plateWidth)     ?? 0,
+                    thicknessMM: (brace ? snapshot.braceThickness : snapshot.plateThickness) ?? 0,
+                    massG:       (brace ? snapshot.braceMass      : snapshot.plateMass)      ?? 0,
+                    bodyLengthMM: snapshot.guitarBodyLength ?? TapDisplaySettings.guitarBodyLength,
+                    bodyWidthMM:  snapshot.guitarBodyWidth  ?? TapDisplaySettings.guitarBodyWidth,
+                    stiffnessPreset: snapshot.plateStiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset,
+                    customStiffness: snapshot.customPlateStiffness ?? TapDisplaySettings.customPlateStiffness
+                )
+            }
+        } else {
+            // Old-format measurement: no snapshot, so no axis range to restore.
+            // Explicitly reset to TapDisplaySettings defaults so the view's @State
+            // axis vars are always published when loading — without this, loading
+            // an old measurement leaves the axis range from the *previous* measurement
+            // in place, causing the next load (which does have a snapshot) to briefly
+            // render its spectrum against a wrong axis range before onReceive fires.
+            gtLog("  ⚠️ No spectrum snapshot in measurement — resetting axis range to defaults")
+            setLoadedAxisRange(minFreq: TapDisplaySettings.minFrequency,
+                               maxFreq: TapDisplaySettings.maxFrequency,
+                               minDB: TapDisplaySettings.minMagnitude,
+                               maxDB: TapDisplaySettings.maxMagnitude)
+        }
+        
+        // Peak Min, before the peaks are assigned, so they are shown under this measurement's value.
+        if let threshold = measurement.peakMinThreshold {
+            peakMinThreshold = threshold
+        }
 
         // Restore peaks. `allPeaks` is guitar-only: a material measurement's peaks are its identified
         // L/C/FLC, restored into the `selected…Peak`s below.
@@ -602,70 +666,6 @@ extension TapToneAnalyzer {
             setFrozenSpectrum(frequencies: [], magnitudes: [])
         }
         
-        // Restore display settings from any available snapshot (prefer longitudinal for plate/brace)
-        let settingsSnapshot = measurement.longitudinalSnapshot ?? measurement.spectrumSnapshot
-        if let snapshot = settingsSnapshot {
-            // Restore display ranges - use setLoadedAxisRange so all four bounds are
-            // published in a single objectWillChange notification, preventing transient
-            // mismatched-axis states that cause SwiftUI Charts rendering artifacts.
-            gtLog("  📊 Publishing display ranges: \(snapshot.minFreq)-\(snapshot.maxFreq) Hz, \(snapshot.minDB)-\(snapshot.maxDB) dB")
-            setLoadedAxisRange(minFreq: snapshot.minFreq, maxFreq: snapshot.maxFreq,
-                               minDB: snapshot.minDB, maxDB: snapshot.maxDB)
-            
-            // Restore showUnknownModes setting if available
-            if let showUnknown = snapshot.showUnknownModes {
-                gtLog("  👁️ Publishing showUnknownModes: \(showUnknown)")
-                loadedShowUnknownModes = showUnknown
-            }
-            
-            // Restore guitarType setting if available.
-            // Apply directly to TapDisplaySettings now (synchronous) so that
-            // reclassifyPeaks() below uses the correct mode ranges.  Also
-            // publish loadedGuitarType so the view's bound control updates.
-            if let guitarType = snapshot.guitarType {
-                gtLog("  🎸 Publishing guitarType: \(guitarType.rawValue)")
-                TapDisplaySettings.guitarType = guitarType
-                loadedGuitarType = guitarType
-            }
-            
-            // Restore measurementType setting if available.
-            // Apply directly so that reclassifyPeaks() uses the correct type.
-            if let measurementType = snapshot.measurementType {
-                gtLog("  📐 Publishing measurementType: \(measurementType.shortName)")
-                TapDisplaySettings.measurementType = measurementType
-                loadedMeasurementType = measurementType
-            }
-            
-            // Store B ← the file's own material inputs (never the live Settings defaults). The calc,
-            // Results panel, and Save all read this, so a loaded measurement's numbers come from the
-            // file and loading never disturbs the Settings defaults (Store A).
-            if let mt = snapshot.measurementType, !mt.isGuitar {
-                let brace = mt.isBrace
-                materialInputs = MaterialMeasurementInputs(
-                    lengthMM:    (brace ? snapshot.braceLength    : snapshot.plateLength)    ?? 0,
-                    widthMM:     (brace ? snapshot.braceWidth     : snapshot.plateWidth)     ?? 0,
-                    thicknessMM: (brace ? snapshot.braceThickness : snapshot.plateThickness) ?? 0,
-                    massG:       (brace ? snapshot.braceMass      : snapshot.plateMass)      ?? 0,
-                    bodyLengthMM: snapshot.guitarBodyLength ?? TapDisplaySettings.guitarBodyLength,
-                    bodyWidthMM:  snapshot.guitarBodyWidth  ?? TapDisplaySettings.guitarBodyWidth,
-                    stiffnessPreset: snapshot.plateStiffnessPreset ?? TapDisplaySettings.plateStiffnessPreset,
-                    customStiffness: snapshot.customPlateStiffness ?? TapDisplaySettings.customPlateStiffness
-                )
-            }
-        } else {
-            // Old-format measurement: no snapshot, so no axis range to restore.
-            // Explicitly reset to TapDisplaySettings defaults so the view's @State
-            // axis vars are always published when loading — without this, loading
-            // an old measurement leaves the axis range from the *previous* measurement
-            // in place, causing the next load (which does have a snapshot) to briefly
-            // render its spectrum against a wrong axis range before onReceive fires.
-            gtLog("  ⚠️ No spectrum snapshot in measurement — resetting axis range to defaults")
-            setLoadedAxisRange(minFreq: TapDisplaySettings.minFrequency,
-                               maxFreq: TapDisplaySettings.maxFrequency,
-                               minDB: TapDisplaySettings.minMagnitude,
-                               maxDB: TapDisplaySettings.maxMagnitude)
-        }
-        
         // Restore the plate/brace identified peaks — the only material peak state — by id from the
         // saved peaks: which peak is L / C / FLC is a fact about the measurement.
         materialPeaksFromLoad = true
@@ -692,14 +692,10 @@ extension TapToneAnalyzer {
         gtLog("  🧊 Spectrum frozen, tap detection disabled")
         
         // Restore annotation offsets
-        if let offsets = measurement.peakAnnotationOffsets {
-            peakAnnotationOffsets = offsets
-            gtLog("  🏷️ Restored \(offsets.count) annotation offsets")
-        }
+        peakAnnotationOffsets = measurement.peakAnnotationOffsets ?? [:]
+        // A newly loaded measurement has no highlighted peak.
+        highlightedPeakID = nil
         
-        // Retain the original saved guitar peaks as the authoritative set (Re-analyze drops them).
-        loadedMeasurementPeaks = measurement.isMaterial ? nil : measurement.peaks
-
         // Restore selected peak IDs (guitar); if none saved, default to selecting all peaks.
         // Material has no per-peak selection, so it restores none — its saved `selectedPeakIDs`
         // aggregate is never read.
@@ -747,28 +743,20 @@ extension TapToneAnalyzer {
         // Restore analysis settings if available — set both internal and published values
         if let threshold = measurement.tapDetectionThreshold {
             gtLog("  🎯 Publishing tap threshold: \(threshold) dB")
-            tapDetectionThreshold = threshold
             loadedTapDetectionThreshold = threshold
+            tapDetectionThreshold = threshold
         } else {
             gtLog("  ⚠️ No tap threshold in measurement")
         }
         
         if let taps = measurement.numberOfTaps {
             gtLog("  🔢 Publishing number of taps: \(taps)")
-            numberOfTaps = taps
             loadedNumberOfTaps = taps
+            numberOfTaps = taps
         } else {
             gtLog("  ⚠️ No number of taps in measurement")
         }
 
-        if let threshold = measurement.peakMinThreshold {
-            gtLog("  📊 Publishing peak threshold: \(threshold) dB")
-            peakMinThreshold = threshold
-            loadedPeakThreshold = threshold
-        } else {
-            gtLog("  ⚠️ No peak threshold in measurement")
-        }
-        
         // Auto-select the recorded microphone if it is connected; warn if it is not.
         // UID match is tried first (Swift/CoreAudio measurements). If that fails, fall back to
         // name matching so that measurements saved by the Python companion app — which stores a
@@ -818,6 +806,8 @@ extension TapToneAnalyzer {
                 microphoneWarning = Self.microphoneNotFoundMessage(
                     recorded: name, current: fftAnalyzer.selectedInputDevice?.name)
             }
+        } else {
+            microphoneWarning = nil
         }
 
         showLoadedSettingsWarning = true
@@ -952,6 +942,7 @@ extension TapToneAnalyzer {
     func loadComparison(measurements: [TapToneMeasurement]) {
         // An unsaved comparison has no date of its own: its exports use the time of export.
         sourceMeasurementTimestamp = nil
+        resultProvenance = nil   // a comparison has no microphone of its own
         // Clear any active multi-tap comparison so the Taps button and per-tap table
         // are hidden when the saved-measurement comparison is displayed.
         tapEntries = []

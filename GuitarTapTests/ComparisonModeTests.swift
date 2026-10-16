@@ -114,10 +114,11 @@ struct ComparisonLoadTests {
 
         sut.loadComparison(measurements: [m1, m2])
 
-        #expect(sut.loadedMinFreq == 50,   "Expected minFreq 50, got \(String(describing: sut.loadedMinFreq))")
-        #expect(sut.loadedMaxFreq == 1200, "Expected maxFreq 1200, got \(String(describing: sut.loadedMaxFreq))")
-        #expect(sut.loadedMinDB   == -95,  "Expected minDB -95, got \(String(describing: sut.loadedMinDB))")
-        #expect(sut.loadedMaxDB   == -5,   "Expected maxDB -5, got \(String(describing: sut.loadedMaxDB))")
+        let r = sut.loadedAxisRange
+        #expect(r?.minFreq == 50,   "Expected minFreq 50, got \(String(describing: r?.minFreq))")
+        #expect(r?.maxFreq == 1200, "Expected maxFreq 1200, got \(String(describing: r?.maxFreq))")
+        #expect(r?.minDB   == -95,  "Expected minDB -95, got \(String(describing: r?.minDB))")
+        #expect(r?.maxDB   == -5,   "Expected maxDB -5, got \(String(describing: r?.maxDB))")
     }
 }
 

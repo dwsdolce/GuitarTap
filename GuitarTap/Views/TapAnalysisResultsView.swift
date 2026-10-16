@@ -198,7 +198,9 @@ struct TapAnalysisResultsView: View {
                         HStack {
                             // The microphone the result was captured with: the input for a live result,
                             // the recorded one — or "unknown" — for a played file or a loaded measurement.
-                            if let deviceName = analyzer.captureMicrophoneName
+                            // None for a comparison: it has no microphone of its own.
+                            if !analyzer.isSavedMeasurementComparison,
+                               let deviceName = analyzer.captureMicrophoneName
                                 ?? (analyzer.resultProvenance != nil ? "unknown" : nil) {
                                 Text(deviceName)
                                     .font(.caption)

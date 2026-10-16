@@ -281,8 +281,6 @@ extension TapToneAnalyzer {
               !frozenFrequencies.isEmpty,
               !frozenMagnitudes.isEmpty else { return }
 
-        // The re-detected peaks replace the saved ones.
-        loadedMeasurementPeaks = nil
         userHasModifiedPeakSelection = false
         selectedPeakFrequencies = []
         identifiedModes = []

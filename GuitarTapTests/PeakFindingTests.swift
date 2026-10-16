@@ -145,7 +145,6 @@ struct PeakFindingTests {
         let air = Self.f(row["airHz"])
         let isAir = { (p: ResonantPeak) in abs(p.frequency - air) < 1 }
         let displayed = sut.peaksAbovePeakMin
-        sut.loadedMeasurementPeaks = nil
         let saved = sut.guitarFullSavePeaks()
         let e = row["expect"] as! [String: Any]
         #expect(displayed.count == e["displayedCount"] as! Int, "\(id): displayed \(displayed.count)")
@@ -157,7 +156,6 @@ struct PeakFindingTests {
 
         let loaded = Array(sut.allPeaks.prefix(row["loadedFirst"] as! Int))
         sut.allPeaks = loaded
-        sut.loadedMeasurementPeaks = loaded
         let savedLoaded = sut.guitarFullSavePeaks()
         #expect(savedLoaded.count == e["loadedSavedCount"] as! Int, "\(id): loaded saved \(savedLoaded.count)")
         #expect((savedLoaded.map(\.id) == loaded.map(\.id)) == e["loadedSavedSame"] as! Bool, "\(id): loaded saved as it is")
