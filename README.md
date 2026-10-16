@@ -75,8 +75,8 @@ Guide and release notes (below).
 
 ## Tests
 
-- **The full suite** — the `guitar_tap` test plan: Product → Test in Xcode, or
-  `xcodebuild test -scheme guitar_tap -testPlan guitar_tap -destination 'platform=macOS'`.
+- **The full suite** — the `guitar_tap` test plan: Product → Test in Xcode, or `Tooling/test.sh`, which runs
+  it with `xcodebuild` and then lists each skipped test and why (as the Python and web runs do).
 
 - **The fast run** — `Tooling/test-fast.sh` runs the macOS suite except the recording-playback regression
   (`FilePlaybackRegressionTests`), which is most of the suite's time — for use while working; run the full

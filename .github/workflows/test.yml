@@ -41,7 +41,7 @@ jobs:
           echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/ci.xcconfig" >> "$GITHUB_ENV"
 
       - name: Tests
-        run: xcodebuild test -scheme guitar_tap -testPlan guitar_tap -destination 'platform=macOS' -resultBundlePath build/unit.xcresult
+        run: Tooling/test.sh --bundle build/unit.xcresult
 
       - name: Result bundle (on failure)
         if: failure()

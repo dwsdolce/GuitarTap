@@ -214,7 +214,8 @@ struct GenerateParityOracleTests {
         return "unknown"
     }
 
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["GENERATE_PARITY_ORACLE"] != nil))
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["GENERATE_PARITY_ORACLE"] != nil,
+                   "it writes the parity oracle — run by Tooling/mint-oracle.sh"))
     func generateParityOracle() async throws {
         let url = Self.sourceOracleURL
         let data = try Data(contentsOf: url)

@@ -11,5 +11,5 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1          # repo root
 
-exec xcodebuild test -scheme guitar_tap -destination 'platform=macOS' \
-  -skip-testing:GuitarTapTests/FilePlaybackRegressionTests "$@"
+# Through Tooling/test.sh, which lists the skipped tests at the end.
+exec Tooling/test.sh -skip-testing:GuitarTapTests/FilePlaybackRegressionTests "$@"

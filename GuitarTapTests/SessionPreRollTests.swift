@@ -78,7 +78,7 @@ struct SessionPreRollTests {
 
     // The capture probe's records follow the recording: a sequence saved because Dump Capture Audio was
     // turned on before its first tap has its probe file too. Runs only in a build with the probe on.
-    @Test(.enabled(if: CaptureProbe.liveProbe))
+    @Test(.enabled(if: CaptureProbe.liveProbe, "the capture probe is switched off"))
     func captureProbe_followsTheRecording() {
         let savedDump = TapDisplaySettings.dumpCaptureAudio
         let savedSession = CaptureProbe.liveSession
