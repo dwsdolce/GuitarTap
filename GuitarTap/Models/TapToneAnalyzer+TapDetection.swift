@@ -210,9 +210,8 @@ extension TapToneAnalyzer {
     /// (per-chunk RMS input level).
     ///
     /// - Parameters:
-    ///   - level: Current RMS input level in dBFS used for threshold
-    ///     comparison (`fftAnalyzer.level.inputLevelDB`, sampled per audio chunk at
-    ///     ~43 Hz).
+    ///   - level: The chunk's RMS input level in dBFS used for threshold comparison, as
+    ///     ``onRmsLevelChanged(_:audioTime:)`` received it (per audio chunk, ~43 Hz).
     ///
     ///     It is the broadband **RMS chunk level**, never an FFT peak-bin magnitude. (A genuine FFT
     ///     peak does exist — `onFftFrame(magnitudes:frequencies:peakMagnitude:)` — but it drives peak

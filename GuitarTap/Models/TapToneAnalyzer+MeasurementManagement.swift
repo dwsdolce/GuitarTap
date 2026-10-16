@@ -373,13 +373,11 @@ extension TapToneAnalyzer {
             // read back as nothing selected. An absent selection is a legacy file's, healed on read.
             selectedPeakIDs: measurementType.isGuitar || !persistedSelectedIDs.isEmpty
                 ? Array(persistedSelectedIDs) : nil,
-            // Resolved over the saved set: a selected peak sitting below Peak Min is still selected, and
-            // its frequency must reach the file or the carry-forward cache is short on reload.
+            // Resolved over the saved set: a selected peak sitting below Peak Min is still selected.
             selectedPeakFrequencies: measurementType.isGuitar || !persistedSelectedIDs.isEmpty
                 ? savedPeaks.filter { persistedSelectedIDs.contains($0.id) }.map { $0.frequency } : nil,
-            // Persist whether the guitar selection was hand-modified, so a reloaded measurement
-            // re-runs auto-selection on Peak Min change (like live) when it was automatic, or
-            // carries the selection forward when it was manual. Guitar only.
+            // Persist whether the guitar selection was hand-modified, so a reloaded measurement offers
+            // Reset to automatic selection as it did when saved. Guitar only.
             userModifiedSelection: measurementType.isGuitar ? userHasModifiedPeakSelection : nil,
             annotationVisibilityMode: annotationVisibilityMode,
             peakModeOverrides: peakModeOverrides.isEmpty ? nil : peakModeOverrides,
@@ -547,8 +545,6 @@ extension TapToneAnalyzer {
         }
 
         // Suppress recalculateFrozenPeaksIfNeeded() for the duration of the load.
-        // The saved peaks are already correct; re-running findPeaks() would
-        // generate wrong UUIDs and may classify with a stale guitar type.
         isLoadingMeasurement = true
         defer { isLoadingMeasurement = false }
 
@@ -717,16 +713,10 @@ extension TapToneAnalyzer {
         } else {
             selectedPeakIDs = Set(measurement.peaks.map { $0.id })
         }
-        // Restore whether the selection was user-modified. A manual selection uses
-        // frequency-proximity carry-forward on Peak Min change; an automatic one re-runs
-        // auto-selection (so a peak revealed by lowering Peak Min is selected as its mode winner,
-        // matching a live measurement). Files saved before this field default to `true` (manual),
-        // preserving prior behaviour exactly.
+        // Restore whether the selection was user-modified, which decides whether Reset to automatic
+        // selection is offered. Files saved before this field default to `true` (manual).
         userHasModifiedPeakSelection = measurement.userModifiedSelection ?? true
-        // Seed the stable frequency cache from the loaded selection so that
-        // recalculateFrozenPeaksIfNeeded() can carry forward selections even
-        // after Peak Min is raised above all peaks (at which point selectedPeakIDs
-        // holds stale UUIDs that no longer exist in the re-analyzed peak set).
+        // The selected peaks' frequencies, kept with the selection.
         selectedPeakFrequencies = measurement.peaks
             .filter { selectedPeakIDs.contains($0.id) }
             .map { $0.frequency }

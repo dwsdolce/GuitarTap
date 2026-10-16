@@ -6,7 +6,7 @@
 //  count and the taps held — not only where they end: the app's behaviour on screen follows each
 //  intermediate state, so two editions reaching the same result by different paths would differ. Every
 //  tap is a real capture finish and every wait is audio fed through the analyzer's clock. The shared
-//  cases in `scenario-trace.json` (S1–S4), the same as Python and the web.
+//  cases in `scenario-trace.json` (S1–S5), the same as Python and the web.
 //
 // @parity test/scenario-trace
 
@@ -49,8 +49,6 @@ struct ScenarioStateTraceTests {
         for step in row["steps"] as! [[String: Any]] {
             if let label = step["snap"] as? String {
                 trace.append(Self.snapshot(label, sut))
-            } else if step["strayDetection"] as? Bool == true {
-                sut.detectionState = .idle
             } else {
                 #expect(runAnalyzerStep(step, on: sut), "\(id): unknown step \(step)")
             }

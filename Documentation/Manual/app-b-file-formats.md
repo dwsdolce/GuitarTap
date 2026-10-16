@@ -73,8 +73,8 @@ what the user did at save time:
 | `longitudinalSnapshot`, `crossSnapshot`, `flcSnapshot` | SpectrumSnapshot | Plate / brace per-phase spectra. |
 | `selectedLongitudinalPeakID`, `selectedCrossPeakID`, `selectedFlcPeakID` | UUID | The peak chosen as fL / fC / fLC. |
 | `selectedPeakIDs` | array of UUID | Currently-selected peaks (guitar). |
-| `selectedPeakFrequencies` | array of float | Frequencies (Hz) parallel to the IDs; a stable fallback for re-matching selection to peaks when a re-analysis regenerates UUIDs. (Peak Min itself never re-detects or regenerates peaks.) |
-| `userModifiedSelection` | bool | Guitar only. `true` once the user has changed peak selection away from the automatic default, so a loaded measurement keeps that selection instead of re-deriving it. Omitted on material measurements and on files saved before 1.0.2; a missing value is read as `true`. |
+| `selectedPeakFrequencies` | array of float | Frequencies (Hz) of the selected peaks, parallel to `selectedPeakIDs` — for a program reading the file that wants the selected peaks' frequencies without resolving the IDs or repeating GuitarTap's selection. GuitarTap itself does not read it back. |
+| `userModifiedSelection` | bool | Guitar only. `true` once the user has changed peak selection away from the automatic default; Reset to automatic selection is offered only then. Omitted on material measurements and on files saved before 1.0.2; a missing value is read as `true`. |
 | `peakAnnotationOffsets` | array | UUID-keyed map of custom label positions, encoded as a flat array (see "UUID-keyed maps"). Each value is `{ "absFreqHz": <freq Hz>, "absDB": <magnitude dB> }`. |
 | `annotationVisibilityMode` | string | Enum: `all` / `selected` / `none`. |
 | `tapDetectionThreshold` | float | Threshold (dB) at save time. |

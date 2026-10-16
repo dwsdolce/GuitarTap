@@ -402,10 +402,8 @@ final class TapToneAnalyzer: ObservableObject {
     /// available as computed reads below.
     @Published var detectionState: DetectionState = .idle {
         didSet {
-            // Nothing to do for a same-value assignment — and in particular the
-            // re-confirmation in startTapSequence's async block must not
-            // re-arm, so that a capture already started by the audio queue
-            // between the synchronous and async assignments is not disrupted.
+            // Nothing to do for a same-value assignment: re-asserting the state the
+            // detector is already in must not run the transition's work again.
             guard oldValue != detectionState else { return }
             let wasDetecting = (oldValue == .listening)
             TAP_DEBUG("detectionState", "\(oldValue.rawValue) → \(detectionState.rawValue) | complete=\(isMeasurementComplete) ready=\(isReadyForDetection) tapCount=\(currentTapCount)/\(numberOfTaps) capt=\(capturedTaps.count) phase=\(materialTapPhase) measType=\(TapDisplaySettings.measurementType) | isPlayingFile=\(fftAnalyzer.isPlayingFile)")
@@ -650,24 +648,17 @@ final class TapToneAnalyzer: ObservableObject {
 
     /// Whether the user has manually modified peak selections since the last auto-selection.
     ///
-    /// When `false`, changing Peak Min on a frozen guitar spectrum re-runs
-    /// ``guitarModeSelectedPeakIDs(from:)`` from scratch. When `true`, selections
-    /// are carried forward by frequency proximity instead so manual choices are preserved.
-    /// Reset to `false` by ``resetToAutoSelection()`` or by a new tap sequence completing.
+    /// Reset to automatic selection is offered only while it is `true`, and it is saved with the
+    /// measurement. Reset to `false` by ``resetToAutoSelection()``, ``reanalyzePeaks()``, or by a new
+    /// tap sequence completing.
     var userHasModifiedPeakSelection: Bool = false
 
-    /// Frequencies (Hz) of the currently selected peaks, kept in sync with
-    /// `selectedPeakIDs` whenever a non-empty peak set is available.  Used as
-    /// a stable carry-forward reference in `recalculateFrozenPeaksIfNeeded()`
-    /// so that selection survives Peak Min being raised above all peaks and
-    /// then lowered again (at which point `selectedPeakIDs` holds stale UUIDs
-    /// that no longer exist in the current peak set).
+    /// Frequencies (Hz) of the currently selected peaks, kept with `selectedPeakIDs` and saved with the
+    /// measurement (`selectedPeakFrequencies`). Nothing reads it back.
     var selectedPeakFrequencies: [Float] = []
 
-    /// Suppresses `recalculateFrozenPeaksIfNeeded()` while `loadMeasurement` is
-    /// restoring state.  During a load the saved peaks are already correct; we
-    /// must not re-run `findPeaks()` with a potentially-wrong guitar type before
-    /// the view has had a chance to apply `loadedGuitarType`.
+    /// True while `loadMeasurement` restores a measurement, so completing it there is told apart from a
+    /// capture completing (a load brings its own material inputs).
     var isLoadingMeasurement: Bool = false
 
     /// Controls which annotations are rendered on the spectrum chart.
@@ -1430,9 +1421,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// thread races ahead of it.
     var lastAudioTime: Double = 0
 
-    /// The level (dBFS) of the chunk whose audio time is ``lastAudioTime``. A re-arm that falls due on
-    /// a chunk re-anchors the hysteresis latch from THIS level — the published meter level
-    /// (`fftAnalyzer.level.inputLevelDB`) lags a chunk behind on the main thread.
+    /// The level (dBFS) of the chunk whose audio time is ``lastAudioTime`` — the input level the
+    /// analyzer acts on: a new sequence seeds its noise floor from it, and each arming (a re-arm, a
+    /// resume, a material phase) re-anchors the hysteresis latch from it. The published meter level
+    /// (`fftAnalyzer.level.inputLevelDB`) is the display's, set a buffer at a time on the main
+    /// thread, so it can lag the chunk detection has just seen.
     var lastChunkLevelDB: Float = -100
 
     /// The WALL time (`ProcessInfo.systemUptime`) at which the latest chunk reached
