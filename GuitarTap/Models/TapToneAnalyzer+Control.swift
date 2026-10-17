@@ -47,17 +47,20 @@ extension TapToneAnalyzer {
         warmupStartAudioTime = fftAnalyzer.audioElapsed  // Begin the warm-up period for the new session.
         gtLog("🎬 Analyzer started - warm-up period: \(warmupPeriod)s")
 
-        // Evaluate the auto-start guard after pending state changes have settled. Launch auto-arm
-        // goes through requestStartTapSequence so it gets the same dump-folder reachability check as
-        // the New Tap button — launching the app is a user action, so it must
-        // prompt too rather than silently record to (or skip) an unreachable folder.
+        // Evaluate the auto-start guard after pending state changes have settled.
         DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if !self.isDetecting && !self.isMeasurementComplete && !self.isDetectionPaused
-                && self.currentTapCount == 0 {
-                self.requestStartTapSequence()
-            }
+            self?.autoStartTapSequence()
         }
+    }
+
+    /// What the engine coming up does: start a tap sequence — only when nothing is under way or on
+    /// screen (not detecting, not complete, not paused, no taps taken), so an engine start never
+    /// replaces a measurement. Goes through ``requestStartTapSequence()`` so it gets the same
+    /// dump-folder reachability check as the New Tap button — launching the app is a user action, so
+    /// it must prompt too rather than silently record to (or skip) an unreachable folder.
+    func autoStartTapSequence() {
+        guard !isDetecting && !isMeasurementComplete && !isDetectionPaused && currentTapCount == 0 else { return }
+        requestStartTapSequence()
     }
 
     /// Stops the FFT engine.

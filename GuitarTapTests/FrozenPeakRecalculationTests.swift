@@ -211,10 +211,6 @@ struct FrozenPeakRecalculationTests {
         if let load = step["load"] as? [String: Any] {
             let data = try JSONSerialization.data(withJSONObject: [document(load, run)])
             sut.loadMeasurement(try #require(try TapToneAnalyzer.decodeMeasurements(data).first))
-        } else if let name = step["loadFixture"] as? String {
-            let url = try #require(Bundle(for: FrozenPeaksAnchor.self).url(
-                forResource: (name as NSString).deletingPathExtension, withExtension: "guitartap"))
-            sut.loadMeasurement(try #require(try TapToneAnalyzer.decodeMeasurements(Data(contentsOf: url)).first))
         } else if step["reanalyze"] as? Bool == true {
             sut.reanalyzePeaks()
         } else if let hz = step["toggleSelection"] {

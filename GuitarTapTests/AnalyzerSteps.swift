@@ -10,7 +10,10 @@
 // @parity tooling/analyzer-steps
 
 import Foundation
+import Testing
 @testable import GuitarTap
+
+private final class AnalyzerStepsAnchor {}
 
 private let materialPhases: [String: MaterialTapPhase] = [
     "L": .capturingLongitudinal, "C": .capturingCross, "FLC": .capturingFlc,
@@ -24,6 +27,8 @@ private let materialPhases: [String: MaterialTapPhase] = [
 /// - `{"setPeakMin": dB}` — the Peak Min control
 /// - `{"newTap": true}`, `{"pause": true}`, `{"resume": true}`, `{"cancel": true}`
 /// - `{"newTapSkippingWarmUp": true}` — the start a guitar file's playback makes
+/// - `{"engineStarted": true}` — what the engine coming up does (its guarded auto-start)
+/// - `{"loadFixture": file}` — a fixture every edition carries, loaded as the app loads a file
 /// - `{"guitarTap": hz}` — a guitar capture finished on a synthetic tap one capture long
 /// - `{"materialTap": {"phase": "L" | "C" | "FLC", "hz": hz}}` — a material capture on a 0.5 s tap
 /// - `{"accept": true}`, `{"redo": true}` — the phase under review
@@ -48,6 +53,17 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
         sut.startTapSequence()
     } else if step["newTapSkippingWarmUp"] as? Bool == true {
         sut.startTapSequence(skipWarmup: true)
+    } else if step["engineStarted"] as? Bool == true {
+        sut.autoStartTapSequence()
+    } else if let name = step["loadFixture"] as? String {
+        guard let url = Bundle(for: AnalyzerStepsAnchor.self).url(
+                forResource: (name as NSString).deletingPathExtension, withExtension: "guitartap"),
+              let data = try? Data(contentsOf: url),
+              let measurement = try? TapToneAnalyzer.decodeMeasurements(data).first else {
+            Issue.record("fixture \(name) could not be read")
+            return true
+        }
+        sut.loadMeasurement(measurement)
     } else if step["pause"] as? Bool == true {
         sut.pauseTapDetection()
     } else if step["resume"] as? Bool == true {
