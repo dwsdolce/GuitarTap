@@ -4,9 +4,8 @@
 //
 //  The tap lifecycle's delays — the rest between material taps, the FLC hold, the capture window —
 //  run on the AUDIO clock, so file playback, which advances audio faster or slower than real time,
-//  moves them with the audio. The shared cases in `audio-clock-timers.json` (AT1–AT6), the same as
-//  Python and the web, advance only audio. Below them, the safety timeout, which runs on the wall
-//  clock by design and so waits in real time.
+//  moves them with the audio; the capture's safety timeout runs on the wall clock, which a test moves
+//  by hand. The shared cases in `audio-clock-timers.json` (AT1–AT8), the same as Python and the web.
 //
 // @parity test/audio-clock-timers
 
@@ -70,46 +69,5 @@ struct AudioClockTimerTests {
             }
         }
         Self.check(row["expect"] as! [String: Any], sut, notedWarmup: notedWarmup, id)
-    }
-
-    // T6: a capture the audio stops filling is closed on the WALL clock — it exists for when the audio
-    // stops, and then the audio clock stops too. After it, detection rests and re-arms as usual.
-    @Test("the safety timeout closes a capture the audio stopped filling")
-    func safetyTimeoutClosesAnUnfilledCapture() async throws {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        TapDisplaySettings.measurementType = .plate
-        let sut = makeStepsAnalyzer()
-        sut.startTapSequence()
-        advanceAudio(sut, by: sut.warmupPeriod + 0.1)
-        advanceAudio(sut, by: 2 * audioFeedChunkSeconds, level: -10)   // a tap opens the capture...
-        #expect(sut.gatedCaptureActive == true)
-        // ...and then no more audio arrives.
-        try await Task.sleep(for: .milliseconds(2300))
-        #expect(sut.gatedCaptureActive == false, "closed by the wall-clock safety timeout")
-
-        advanceAudio(sut, by: sut.tapCooldown)
-        #expect(sut.isDetecting == true, "and detection rests, then re-arms, as after any capture")
-    }
-
-    // T6 measures SILENCE, not time since the capture started: while audio keeps arriving — however
-    // slowly, as under throttled playback — it does not fire. Measured from the capture's start, it
-    // would close captures early whenever playback runs slower than real time.
-    @Test("the safety timeout does not fire while audio keeps arriving")
-    func safetyTimeoutWaitsForSilence() async throws {
-        let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
-        TapDisplaySettings.measurementType = .plate
-        let sut = makeStepsAnalyzer()
-        sut.startTapSequence()
-        advanceAudio(sut, by: sut.warmupPeriod + 0.1)
-        advanceAudio(sut, by: 2 * audioFeedChunkSeconds, level: -10)   // a tap opens the capture
-        #expect(sut.gatedCaptureActive == true)
-        // Slow audio: one quiet chunk every 0.4 s of wall time, for 2.8 s — longer than the 2 s timeout.
-        for _ in 0..<7 {
-            try await Task.sleep(for: .milliseconds(400))
-            advanceAudio(sut, by: audioFeedChunkSeconds)
-        }
-        #expect(sut.gatedCaptureActive == true, "audio kept arriving, so the capture is still open")
     }
 }

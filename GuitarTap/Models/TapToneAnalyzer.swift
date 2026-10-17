@@ -91,15 +91,18 @@ final class TapToneAnalyzer: ObservableObject {
     /// (65 536); it is not configurable per-instance.
     ///
     /// Mirrors Python `TapToneAnalyzer.for_testing()`.
-    static func forTesting() -> TapToneAnalyzer {
+    static func forTesting(wallClock: WallClock = SystemWallClock()) -> TapToneAnalyzer {
         let fft = RealtimeFFTAnalyzer.forTesting()
-        return TapToneAnalyzer(fftAnalyzer: fft)
+        return TapToneAnalyzer(fftAnalyzer: fft, wallClock: wallClock)
     }
 
     // MARK: - Dependencies
 
     /// The underlying real-time FFT engine that delivers spectrum frames and input-level events.
     let fftAnalyzer: RealtimeFFTAnalyzer
+
+    /// The wall clock the capture's safety timeout reads and schedules on — the system's in the app.
+    let wallClock: WallClock
 
     /// Equal-temperament pitch calculator (A4 = 440 Hz) used to annotate peaks with note names.
     let pitchCalculator = Pitch(a4: 440.0)
@@ -1428,7 +1431,7 @@ final class TapToneAnalyzer: ObservableObject {
     /// thread, so it can lag the chunk detection has just seen.
     var lastChunkLevelDB: Float = -100
 
-    /// The WALL time (`ProcessInfo.systemUptime`) at which the latest chunk reached
+    /// The WALL time (``wallClock``) at which the latest chunk reached
     /// ``onRmsLevelChanged(_:audioTime:)`` — what the capture safety timeout measures its silence from
     /// (``afterAudioStall(_:while:_:)``).
     var lastChunkWallTime: TimeInterval = 0
@@ -1501,8 +1504,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// to the FFT engine's published properties.
     ///
     /// - Parameter fftAnalyzer: The ``RealtimeFFTAnalyzer`` instance to subscribe to.
-    init(fftAnalyzer: RealtimeFFTAnalyzer) {
+    init(fftAnalyzer: RealtimeFFTAnalyzer, wallClock: WallClock = SystemWallClock()) {
         self.fftAnalyzer = fftAnalyzer
+        self.wallClock = wallClock
 
         #if os(macOS)
         // When the user grants microphone permission during the first-launch dialog,

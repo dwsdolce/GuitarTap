@@ -120,7 +120,7 @@ extension TapToneAnalyzer {
         // an action due is not also detected on: a re-arm has just re-anchored the latch from it.
         lastAudioTime = audioTime
         lastChunkLevelDB = levelDB
-        lastChunkWallTime = ProcessInfo.processInfo.systemUptime
+        lastChunkWallTime = wallClock.now()
         if runDueAudioActions() { return }
 
         guard isDetecting && !isDetectionPaused && !isMeasurementComplete else {
@@ -181,9 +181,9 @@ extension TapToneAnalyzer {
     /// Stops checking once `relevant` is false (the capture finished or was superseded).
     func afterAudioStall(_ interval: TimeInterval, while relevant: @escaping () -> Bool,
                          _ action: @escaping () -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + interval) { [weak self] in
+        wallClock.after(interval) { [weak self] in
             guard let self, relevant() else { return }
-            let quiet = ProcessInfo.processInfo.systemUptime - self.lastChunkWallTime
+            let quiet = self.wallClock.now() - self.lastChunkWallTime
             if quiet >= interval {
                 action()
             } else {

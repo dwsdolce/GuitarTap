@@ -36,6 +36,7 @@ private let materialPhases: [String: MaterialTapPhase] = [
 ///   "level"?: dB}` — that much audio (quiet unless `level` is given)
 /// - `{"audioChunks": n, "level": dB}` — exactly n chunks of audio at that level, each one chunk after the
 ///   last (two loud ones are a tap)
+/// - `{"stall": seconds}` — that much wall time with no audio
 @MainActor
 func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
     if let settings = step["settings"] as? [String: Any] {
@@ -91,6 +92,8 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
         }
         let level = Float((step["level"] as? Double) ?? -90)
         advanceAudio(sut, by: seconds * ((step["fraction"] as? Double) ?? 1) + ((step["extra"] as? Double) ?? 0), level: level)
+    } else if let seconds = step["stall"] as? Double {
+        (sut.wallClock as! ManualWallClock).advance(by: seconds)
     } else if let n = step["audioChunks"] as? Int {
         let level = Float(step["level"] as! Double)
         for _ in 0..<n { sut.onChunkLevel(level, audioTime: sut.lastAudioTime + audioFeedChunkSeconds) }
@@ -100,11 +103,11 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
     return true
 }
 
-/// A fresh analyzer as the shared scenario cases start one: threshold −40, Taps 1, and the frequency
-/// bins starting the engine builds.
+/// A fresh analyzer as the shared scenario cases start one: threshold −40, Taps 1, the frequency bins
+/// starting the engine builds, and a wall clock that moves only when a step stalls it.
 @MainActor
 func makeStepsAnalyzer() -> TapToneAnalyzer {
-    let sut = TapToneAnalyzer.forTesting()
+    let sut = TapToneAnalyzer.forTesting(wallClock: ManualWallClock())
     sut.numberOfTaps = 1
     sut.tapDetectionThreshold = -40
     sut.fftAnalyzer.actualSampleRate = 48000
