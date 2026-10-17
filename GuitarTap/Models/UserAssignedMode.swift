@@ -4,6 +4,7 @@
 //
 //  Represents a user's optional override of the auto-detected GuitarMode label for a peak.
 //
+// @parity state/mode-overrides tests=test/frozen-peak-recalc,test/annotation-state
 
 /// # UserAssignedMode
 ///

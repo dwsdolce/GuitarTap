@@ -2,6 +2,7 @@
 //  RealtimeFFTAnalyzer+DeviceManagement.swift
 //  GuitarTap
 //
+// @parity audio/device-management tests=test/mic-selection
 
 import AVFoundation
 

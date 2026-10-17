@@ -4,6 +4,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity dsp/guitar-modes
 
 /// The kind of guitar body, which determines mode frequency classification ranges.
 ///

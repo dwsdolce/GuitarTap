@@ -4,6 +4,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity model/measurement-type tests=test/measurement-type-name
 
 /// The kind of tap tone measurement being performed.
 ///

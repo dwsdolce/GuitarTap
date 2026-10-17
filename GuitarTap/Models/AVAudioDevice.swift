@@ -4,6 +4,7 @@
 //
 //  Created by David Smith on 2/12/26.
 //
+// @parity audio/device-management tests=test/mic-selection
 
 /// # AVAudioDevice
 ///

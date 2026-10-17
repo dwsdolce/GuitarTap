@@ -4,7 +4,7 @@
 //
 //  Created on 1/25/26.
 //
-// @parity state/tap-detection tests=test/tap-decisions,test/status-message
+// @parity state/tap-detection tests=test/tap-decisions,test/status-message,test/audio-clock-timers
 
 /// # TapToneAnalyzer+TapDetection
 ///

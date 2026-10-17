@@ -5,7 +5,7 @@
 //  Microphone calibration support for measurement microphones like UMIK-1.
 //  Parses calibration files and applies frequency-dependent corrections to FFT data.
 //
-// @parity dsp/calibration tests=test/file-playback,test/calibration
+// @parity dsp/calibration tests=test/file-playback,test/calibration,test/self-regression
 /// # MicrophoneCalibration
 ///
 /// Frequency-response correction for measurement microphones using externally-supplied

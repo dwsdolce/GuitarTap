@@ -4,6 +4,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity state/annotation-management tests=test/annotation-state,test/frozen-peak-recalc
 
 /// # TapToneAnalyzer+AnnotationManagement
 ///

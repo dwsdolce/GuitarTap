@@ -2,6 +2,7 @@
 //  AnalysisDisplayMode.swift
 //  GuitarTap
 //
+// @parity state/button-enablement
 
 // MARK: - AnalysisDisplayMode
 

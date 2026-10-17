@@ -1,4 +1,4 @@
-// @parity util/field-precision
+// @parity util/field-precision tests=test/field-precision
 //
 //  FieldPrecision.swift
 //  GuitarTap

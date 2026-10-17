@@ -1,4 +1,5 @@
 // MARK: - AnnotationVisibilityMode
+// @parity state/visible-peaks
 
 /// Controls which peak annotations are rendered on the spectrum chart.
 ///

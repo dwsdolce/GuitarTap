@@ -6,6 +6,7 @@
 //
 //  Mirrors Python's models/settings_scope.py.
 //
+// @parity util/test-sandbox
 
 import Foundation
 

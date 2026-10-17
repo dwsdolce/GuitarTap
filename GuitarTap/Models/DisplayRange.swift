@@ -4,7 +4,7 @@
 //
 //  The rule for widening the chart's frequency axis so a newly identified peak is visible.
 //
-// @parity presentation/display-range
+// @parity presentation/display-range tests=test/display-range
 
 import Foundation
 

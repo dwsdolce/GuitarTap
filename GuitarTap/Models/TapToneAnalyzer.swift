@@ -4,7 +4,7 @@
 //
 //  Created on 1/25/26.
 //
-// @parity audio/tap-analyzer tests=test/tap-decisions,test/tap-progress
+// @parity audio/tap-analyzer tests=test/tap-decisions,test/tap-progress,test/effective-peak-id,test/tap-count-change
 
 /// # TapToneAnalyzer
 ///

@@ -25,6 +25,7 @@
 //  the engine. The watchdog detects the silence and performs a clean, bounded,
 //  backed-off restart via the existing (hardened) `start()` path.
 //
+// @parity audio/buffer-watchdog
 
 import Foundation
 import AVFoundation

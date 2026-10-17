@@ -5,6 +5,7 @@
 //  Bulk management methods for per-peak user mode overrides.
 //  Pattern mirrors TapToneAnalyzer+AnnotationManagement.swift.
 //
+// @parity state/mode-overrides tests=test/frozen-peak-recalc,test/annotation-state
 
 /// # TapToneAnalyzer+ModeOverrideManagement
 ///

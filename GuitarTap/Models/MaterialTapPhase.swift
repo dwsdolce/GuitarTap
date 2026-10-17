@@ -4,6 +4,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity state/tap-tone-analyzer
 
 /// # MaterialTapPhase
 ///

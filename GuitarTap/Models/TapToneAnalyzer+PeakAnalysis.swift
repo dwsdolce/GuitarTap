@@ -4,7 +4,7 @@
 //
 //  Created on 1/25/26.
 //
-// @parity dsp/peak-analysis tests=test/frozen-peak-recalc,test/dsp,test/peaks
+// @parity dsp/peak-analysis tests=test/frozen-peak-recalc,test/dsp,test/peaks,test/peak-selection-persistence
 /// # TapToneAnalyzer+PeakAnalysis
 ///
 /// Core DSP methods for detecting, refining, and classifying spectral peaks.

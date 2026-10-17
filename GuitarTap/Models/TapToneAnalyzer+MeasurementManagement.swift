@@ -4,6 +4,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity model/measurement-management tests=test/measurement-load,test/import-persistence,test/comparison
 
 /// # TapToneAnalyzer+MeasurementManagement
 ///

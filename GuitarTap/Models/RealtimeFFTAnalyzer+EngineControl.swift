@@ -2,6 +2,7 @@
 //  RealtimeFFTAnalyzer+EngineControl.swift
 //  GuitarTap
 //
+// @parity audio/engine-control tests=test/file-playback
 
 import AVFoundation
 import Accelerate

@@ -4,6 +4,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity model/measurement-codable tests=test/measurement-codable,test/peak-heal,test/peak-selection-persistence
 
 /// # SpectrumSnapshot
 ///

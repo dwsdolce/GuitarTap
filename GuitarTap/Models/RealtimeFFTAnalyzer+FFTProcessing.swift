@@ -2,9 +2,9 @@
 //  RealtimeFFTAnalyzer+FFTProcessing.swift
 //  GuitarTap
 //
-// @parity dsp/fft tests=test/gated-fft,test/file-playback
-// @parity dsp/guitar-fft tests=test/file-playback
-// @parity dsp/wav tests=test/file-playback,test/tap-decisions
+// @parity dsp/fft tests=test/gated-fft,test/file-playback,test/self-regression
+// @parity dsp/guitar-fft tests=test/file-playback,test/self-regression
+// @parity dsp/wav tests=test/file-playback,test/tap-decisions,test/self-regression
 import AVFoundation
 import QuartzCore
 import Accelerate

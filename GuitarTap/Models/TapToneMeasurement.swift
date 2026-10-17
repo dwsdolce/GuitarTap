@@ -648,6 +648,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     }
 
     // MARK: - Decoding
+    // @parity model/measurement-codable tests=test/measurement-codable,test/peak-heal,test/peak-selection-persistence
 
     /// Synthesized-equivalent `init(from:)` required because we provide a custom `encode(to:)`.
     ///
@@ -988,6 +989,7 @@ extension TapToneMeasurement {
         spectrumSnapshot?.measurementType ?? longitudinalSnapshot?.measurementType
     }
 
+    // @parity model/measurement-type tests=test/measurement-type-name
     /// The measurement's type as the single word shown in the Details pane:
     /// Acoustic / Classical / Flamenco / Generic / Plate / Brace / Comparison — or "—" when no
     /// snapshot carries a type. The type lives ONLY in the snapshot (never a top-level field), so this

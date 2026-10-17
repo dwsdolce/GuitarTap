@@ -4,6 +4,7 @@
 //
 //  Created on 9/21/26.
 //
+// @parity state/tap-tone-analyzer
 
 /// # DetectionState
 ///

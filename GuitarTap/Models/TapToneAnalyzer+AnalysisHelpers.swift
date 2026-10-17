@@ -4,6 +4,7 @@
 //
 //  Created on 1/25/26.
 //
+// @parity state/mode-lookup tests=test/measurement-codable,test/frozen-peak-recalc
 
 /// # TapToneAnalyzer+AnalysisHelpers
 ///

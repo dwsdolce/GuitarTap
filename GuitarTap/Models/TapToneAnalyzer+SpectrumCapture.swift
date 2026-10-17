@@ -5,7 +5,7 @@
 //  Created on 1/25/26.
 //
 // @parity dsp/gated-fft tests=test/gated-fft
-// @parity dsp/gated-capture tests=test/file-playback,test/tap-decisions,test/guitar-capture-window
+// @parity dsp/gated-capture tests=test/file-playback,test/tap-decisions,test/guitar-capture-window,test/self-regression
 // @parity dsp/spectrum-average tests=test/peaks
 /// # TapToneAnalyzer+SpectrumCapture
 ///
@@ -83,6 +83,7 @@ import Accelerate
 extension TapToneAnalyzer {
 
     // MARK: - Session Recording
+    // @parity dsp/session-recording tests=test/session-pre-roll
 
     /// Appends one audio chunk to the session WAV buffer and maintains the **bounded pre-roll**.
     /// Caller must hold `mpmLock`.
