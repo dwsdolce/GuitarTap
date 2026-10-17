@@ -636,25 +636,8 @@ struct MeasurementsListView: View {
             data = try Data(contentsOf: url)
             importSuccess = try analyzer.importAndLoadMeasurements(from: data)
         } catch {
-            importError = importErrorMessage(for: error, url: url)
+            importError = TapToneAnalyzer.importErrorMessage(for: error, fileName: url.lastPathComponent)
         }
-    }
-
-    /// Returns a user-facing error message for an import failure.
-    /// Provides actionable guidance when the failure is a sandbox permission error.
-    private func importErrorMessage(for error: Error, url: URL) -> String {
-        let nsError = error as NSError
-        let isPermissionError = (nsError.domain == NSPOSIXErrorDomain && nsError.code == 1) ||
-                                (nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoPermissionError)
-        let isFormatError = nsError.domain == NSCocoaErrorDomain &&
-                            (nsError.code == NSFileReadCorruptFileError || nsError.code == 4864 /* Swift.DecodingError */)
-        if isPermissionError {
-            return "Could not read \"\(url.lastPathComponent)\": the system denied access (error \(nsError.code))."
-        }
-        if isFormatError {
-            return "Could not import \"\(url.lastPathComponent)\": the file is not a valid GuitarTap measurement."
-        }
-        return "Could not import \"\(url.lastPathComponent)\": \(error.localizedDescription)"
     }
 }
 

@@ -56,6 +56,17 @@ struct ImportPersistenceTests {
             if let names = step["import"] as? [String] {
                 let file = try JSONSerialization.data(withJSONObject: names.map { Self.measurements[$0]! })
                 message = try sut.importAndLoadMeasurements(from: file)
+            } else if let names = step["importFails"] as? [String] {
+                let file = try JSONSerialization.data(withJSONObject: names.map { Self.measurements[$0]! })
+                do {
+                    _ = try sut.importAndLoadMeasurements(from: file)
+                    Issue.record("\(id): the import fails")
+                } catch {
+                    if let want = step["message"] as? String {
+                        let got = TapToneAnalyzer.importErrorMessage(for: error, fileName: step["file"] as! String)
+                        #expect(got == want, "\(id): message \(got)")
+                    }
+                }
             } else if let edit = step["edit"] as? [String: Any] {
                 sut.updateMeasurement(at: edit["entry"] as! Int,
                                       measurementName: edit["name"] as? String,
@@ -66,6 +77,8 @@ struct ImportPersistenceTests {
                 sut.deleteAllMeasurements()
             } else if let warning = step["warning"] as? String {
                 sut.microphoneWarning = warning
+            } else {
+                Issue.record("\(id): unknown step \(step)")
             }
         }
 
@@ -81,7 +94,7 @@ struct ImportPersistenceTests {
                 let persisted = Self.persistedNames(in: sut.libraryFileURL)
                 #expect(persisted == want as? [String], "\(id) \(field): \(String(describing: persisted))")
             case "ids":
-                let fileIDs = Self.measurements.mapValues { $0["id"] as! String }
+                let fileIDs = Self.measurements.compactMapValues { $0["id"] as? String }
                 let want = want as! [String]
                 #expect(library.count == want.count, "\(id) \(field): count")
                 for (entry, name) in zip(library, want) {
@@ -102,5 +115,80 @@ struct ImportPersistenceTests {
                 Issue.record("\(id): unknown field \(field)")
             }
         }
+    }
+
+    // MARK: - A library that cannot be read
+
+    /// The shared measurement a whole library holds that makes it unreadable.
+    nonisolated static let unreadableMeasurement = ["bad id": "bad-id", "no spectrum": "no-spectrum", "empty spectrum": "empty-spectrum"]
+    nonisolated static let unreadableKinds = ["cut short", "bad id", "no spectrum", "empty spectrum"]
+
+    /// A library that cannot be read: one cut short mid-write, or whole but holding an id that is not a UUID
+    /// or a measurement with no spectrum, or one whose spectrum has no points.
+    static func unreadableLibrary(_ kind: String) throws -> Data {
+        if let name = unreadableMeasurement[kind] {
+            return try JSONSerialization.data(withJSONObject: [measurements[name]!])
+        }
+        let whole = try JSONSerialization.data(withJSONObject: [measurements.values.first!])
+        return whole.prefix(whole.count / 2)
+    }
+
+    /// The library could not be read: it is kept beside itself, renamed, the library starts empty and the
+    /// user is told; the next save writes a new library and leaves the kept one as it was.
+    @Test(arguments: unreadableKinds)
+    func unreadableLibrary_isKeptAsideAndNotWrittenOver(_ kind: String) throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("unreadable-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let library = dir.appendingPathComponent("saved_measurements.json")
+        let damaged = try Self.unreadableLibrary(kind)
+        try damaged.write(to: library)
+
+        let sut = TapToneAnalyzer.forTesting()
+        sut.savedMeasurements = []
+        sut.libraryFileURL = library
+        sut.loadPersistedMeasurements()
+
+        #expect(sut.savedMeasurements.isEmpty)
+        #expect(sut.libraryLoadFailure?.contains("saved_measurements-unreadable-") == true)
+        let kept = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("saved_measurements-unreadable-") }
+        try #require(kept.count == 1)
+        #expect(try Data(contentsOf: kept[0]) == damaged, "kept as it was")
+
+        let file = try JSONSerialization.data(withJSONObject: [Self.measurements["A"]!])
+        _ = try sut.importAndLoadMeasurements(from: file)
+        TapToneAnalyzer.persistQueue.sync {}
+        #expect(Self.persistedNames(in: library)?.count == 1, "a new library is written")
+        #expect(try Data(contentsOf: kept[0]) == damaged, "and the kept one is not touched")
+    }
+
+    /// The library could not be read and could not be renamed (its folder is read-only): it stays where
+    /// it is, the user is told, and nothing is written over it this session.
+    @Test(arguments: unreadableKinds)
+    func unreadableLibrary_thatCannotBeMoved_isNotWritten(_ kind: String) throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("unreadable-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let library = dir.appendingPathComponent("saved_measurements.json")
+        let damaged = try Self.unreadableLibrary(kind)
+        try damaged.write(to: library)
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: dir.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path)
+            try? FileManager.default.removeItem(at: dir)
+        }
+
+        let sut = TapToneAnalyzer.forTesting()
+        sut.savedMeasurements = []
+        sut.libraryFileURL = library
+        sut.loadPersistedMeasurements()
+        #expect(sut.libraryLoadFailure != nil)
+        #expect(sut.isLibraryWriteBlocked)
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path)
+        let file = try JSONSerialization.data(withJSONObject: [Self.measurements["A"]!])
+        _ = try sut.importAndLoadMeasurements(from: file)
+        TapToneAnalyzer.persistQueue.sync {}
+        #expect(try Data(contentsOf: library) == damaged, "REGRESSION: a save wrote over the only copy")
     }
 }

@@ -21,6 +21,13 @@ import Foundation
 // MARK: - SpectrumSnapshot binary size (the bytes themselves: MeasurementCodec, snapshotBytes)
 // ---------------------------------------------------------------------------
 
+/// A spectrum for a measurement that is written and read back: a file holding a measurement without one
+/// cannot be read.
+private func aSpectrum() -> SpectrumSnapshot {
+    SpectrumSnapshot(frequencies: [100, 200], magnitudes: [-40, -35],
+                     minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false)
+}
+
 @Suite("SpectrumSnapshotCodable")
 @MainActor
 struct SpectrumSnapshotCodableTests {
@@ -187,7 +194,7 @@ struct TapToneMeasurementCodableTests {
     }
 
     @Test func emptyAnnotationOffsets_roundTrip() throws {
-        let measurement = TapToneMeasurement(peaks: [])
+        let measurement = TapToneMeasurement(peaks: [], spectrum: aSpectrum())
         let data = try JSONEncoder().encode(measurement)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
         #expect(decoded.peakAnnotationOffsets == nil,
@@ -199,6 +206,7 @@ struct TapToneMeasurementCodableTests {
         let peak = ResonantPeak(frequency: 200, magnitude: -20)
         let measurement = TapToneMeasurement(
             peaks: [peak],
+            spectrum: aSpectrum(),
             annotationOffsets: [peak.id: CGPoint(x: 15.5, y: -8.25)]
         )
         let data = try JSONEncoder().encode(measurement)
@@ -227,6 +235,7 @@ struct AnnotationOffsetsCodableTests {
         let p2 = ResonantPeak(frequency: 300, magnitude: -28)
         let measurement = TapToneMeasurement(
             peaks: [p1, p2],
+            spectrum: aSpectrum(),
             annotationOffsets: [p1.id: CGPoint(x: 200, y: -40), p2.id: CGPoint(x: 300, y: -35)]
         )
         #expect(measurement.peakAnnotationOffsets?[p1.id] != nil, "p1 should have an offset")
@@ -254,7 +263,7 @@ struct PeakSelectionOnMeasurementTests {
     @Test func selectedPeakIDs_storedAndRoundTrip() throws {
         let p1 = ResonantPeak(frequency: 95, magnitude: -25)
         let p2 = ResonantPeak(frequency: 195, magnitude: -28)
-        let original = TapToneMeasurement(peaks: [p1, p2], selectedPeakIDs: [p1.id])
+        let original = TapToneMeasurement(peaks: [p1, p2], spectrum: aSpectrum(), selectedPeakIDs: [p1.id])
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
         #expect(decoded.selectedPeakIDs == [p1.id], "selectedPeakIDs should survive round-trip")
@@ -273,7 +282,7 @@ struct AnnotationVisibilityModeCodableTests {
 
     // D4: annotationVisibilityMode is stored and round-trips.
     @Test func annotationVisibilityMode_stored_andRoundTrips() throws {
-        let original = TapToneMeasurement(peaks: [], annotationVisibilityMode: .all)
+        let original = TapToneMeasurement(peaks: [], spectrum: aSpectrum(), annotationVisibilityMode: .all)
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
         #expect(decoded.annotationVisibilityMode == .all)
@@ -282,7 +291,7 @@ struct AnnotationVisibilityModeCodableTests {
     // D5: All three visibility values encode/decode correctly.
     @Test func allVisibilityValues_surviveRoundTrip() throws {
         for mode: AnnotationVisibilityMode in [.all, .selected, .none] {
-            let m = TapToneMeasurement(peaks: [], annotationVisibilityMode: mode)
+            let m = TapToneMeasurement(peaks: [], spectrum: aSpectrum(), annotationVisibilityMode: mode)
             let data = try JSONEncoder().encode(m)
             let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
             #expect(decoded.annotationVisibilityMode == mode,
@@ -293,7 +302,7 @@ struct AnnotationVisibilityModeCodableTests {
     // CI5: All three visibility mode values can be stored on a measurement.
     @Test func visibilityMode_cycle_allValuesStorable() {
         for mode: AnnotationVisibilityMode in [.all, .selected, .none] {
-            let m = TapToneMeasurement(peaks: [], annotationVisibilityMode: mode)
+            let m = TapToneMeasurement(peaks: [], spectrum: aSpectrum(), annotationVisibilityMode: mode)
             #expect(m.annotationVisibilityMode == mode)
         }
     }
@@ -312,14 +321,14 @@ struct ModeOverridesCodableTests {
     // D7: peakModeOverrides keyed by peak UUID stores custom mode labels.
     @Test func modeOverrides_storedPerPeak() {
         let peak = ResonantPeak(frequency: 200, magnitude: -20)
-        let m = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: "Top"])
+        let m = TapToneMeasurement(peaks: [peak], spectrum: aSpectrum(), peakModeOverrides: [peak.id: "Top"])
         #expect(m.peakModeOverrides?[peak.id] == "Top")
     }
 
     // D8: peakModeOverrides survive a JSON round-trip.
     @Test func modeOverrides_surviveRoundTrip() throws {
         let peak = ResonantPeak(frequency: 200, magnitude: -20)
-        let original = TapToneMeasurement(peaks: [peak], peakModeOverrides: [peak.id: "Dipole"])
+        let original = TapToneMeasurement(peaks: [peak], spectrum: aSpectrum(), peakModeOverrides: [peak.id: "Dipole"])
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
         #expect(decoded.peakModeOverrides?[peak.id] == "Dipole")
@@ -343,7 +352,7 @@ struct PeakSelectionTrackingCodableTests {
                      ResonantPeak(frequency: 200, magnitude: -28),
                      ResonantPeak(frequency: 300, magnitude: -32)]
         let ids = [peaks[0].id, peaks[1].id]
-        let m = TapToneMeasurement(peaks: peaks, selectedPeakIDs: ids)
+        let m = TapToneMeasurement(peaks: peaks, spectrum: aSpectrum(), selectedPeakIDs: ids)
         #expect(m.selectedPeakIDs == ids)
     }
 
@@ -351,21 +360,21 @@ struct PeakSelectionTrackingCodableTests {
     @Test func selectedPeakFrequencies_parallelToIDs() {
         let p1 = ResonantPeak(frequency: 200, magnitude: -28)
         let p2 = ResonantPeak(frequency: 300, magnitude: -32)
-        let m = TapToneMeasurement(peaks: [p1, p2], selectedPeakIDs: [p1.id])
+        let m = TapToneMeasurement(peaks: [p1, p2], spectrum: aSpectrum(), selectedPeakIDs: [p1.id])
         #expect(m.selectedPeakIDs == [p1.id])
     }
 
     // PS3: nil selectedPeakIDs means all peaks are treated as selected.
     @Test func nilSelectedPeakIDs_meansAllSelected() {
         let peaks = (0..<3).map { _ in ResonantPeak(frequency: 200, magnitude: -30) }
-        let m = TapToneMeasurement(peaks: peaks, selectedPeakIDs: nil)
+        let m = TapToneMeasurement(peaks: peaks, spectrum: aSpectrum(), selectedPeakIDs: nil)
         #expect(m.selectedPeakIDs == nil)
     }
 
     // PS4: selectedPeakIDs survives JSON round-trip.
     @Test func selectedPeakIDs_roundTrip() throws {
         let peak = ResonantPeak(frequency: 200, magnitude: -28)
-        let original = TapToneMeasurement(peaks: [peak], selectedPeakIDs: [peak.id])
+        let original = TapToneMeasurement(peaks: [peak], spectrum: aSpectrum(), selectedPeakIDs: [peak.id])
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
         #expect(decoded.selectedPeakIDs == [peak.id])
@@ -376,7 +385,7 @@ struct PeakSelectionTrackingCodableTests {
     // with a known frequency for completeness.)
     @Test func selectedPeakIDs_withFrequency_roundTrip() throws {
         let peak = ResonantPeak(frequency: 440, magnitude: -20)
-        let original = TapToneMeasurement(peaks: [peak], selectedPeakIDs: [peak.id])
+        let original = TapToneMeasurement(peaks: [peak], spectrum: aSpectrum(), selectedPeakIDs: [peak.id])
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
         #expect(decoded.selectedPeakIDs?.first == peak.id)
@@ -386,7 +395,7 @@ struct PeakSelectionTrackingCodableTests {
 
     // PS6: Empty selectedPeakIDs encodes/decodes without crashing.
     @Test func emptySelectedPeakIDs_roundTrip() throws {
-        let original = TapToneMeasurement(peaks: [], selectedPeakIDs: [])
+        let original = TapToneMeasurement(peaks: [], spectrum: aSpectrum(), selectedPeakIDs: [])
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TapToneMeasurement.self, from: data)
         // PS6: an empty selection is Select None — it reads back empty, not as "no selection saved".
@@ -535,7 +544,7 @@ struct MeasurementLogicTests {
         var overrides: [UUID: String] = [:]
         for (name, label) in row["overrides"] as? [String: String] ?? [:] { overrides[byName[name]!.id] = label }
         let snapshot = SpectrumSnapshot(
-            frequencies: [], magnitudes: [],
+            frequencies: [100, 200], magnitudes: [-60, -60],
             minFreq: 50, maxFreq: 500, minDB: -100, maxDB: 0, isLogarithmic: false,
             guitarType: .classical, measurementType: .classical
         )
@@ -679,6 +688,10 @@ struct MeasurementCodecTests {
     @Test(arguments: ids("decode"))
     func decode(_ id: String) throws {
         let row = MeasurementLogicTests.row("decode", id)
+        if row["rejected"] as? Bool == true {
+            #expect(throws: (any Error).self, "\(id): \(row["note"] as! String)") { try Self.read(row["file"]!) }
+            return
+        }
         let m = try #require(try Self.read(row["file"]!).first)
         for (field, want) in row["expect"] as! [String: Any] {
             switch field {
@@ -702,6 +715,39 @@ struct MeasurementCodecTests {
                 #expect(m.peaks.first?.pitchNote == want as? String, "\(id) \(field)")
             case "annotationVisibilityMode":
                 #expect(m.annotationVisibilityMode?.rawValue == want as? String, "\(id) \(field)")
+            default:
+                Issue.record("\(id): unknown field \(field)")
+            }
+        }
+    }
+
+    @Test(arguments: ids("ids"))
+    func idRule(_ id: String) throws {
+        let row = MeasurementLogicTests.row("ids", id)
+        if row["rejected"] as? Bool == true {
+            #expect(throws: (any Error).self, "\(id): \(row["note"] as! String)") { try Self.read(row["file"]!) }
+            return
+        }
+        let m = try #require(try Self.read(row["file"]!).first)
+        let frequency = { (peakID: UUID) in m.peaks.first { $0.id == peakID }.map { String(Int($0.frequency.rounded())) } }
+        for (field, want) in row["expect"] as! [String: Any] {
+            switch field {
+            case "selectedFrequencies":
+                let got = (m.selectedPeakIDs ?? []).compactMap { id in m.peaks.first { $0.id == id }?.frequency }.map { Double($0) }
+                #expect(got == want as? [Double], "\(id) \(field): \(got)")
+            case "overrideLabels":
+                let got = Dictionary(uniqueKeysWithValues: (m.peakModeOverrides ?? [:]).compactMap { k, v in frequency(k).map { ($0, v) } })
+                #expect(got == want as? [String: String], "\(id) \(field): \(got)")
+            case "offsets":
+                let got = Dictionary(uniqueKeysWithValues: (m.peakAnnotationOffsets ?? [:]).compactMap { k, v in
+                    frequency(k).map { ($0, [Double(v.x), Double(v.y)]) } })
+                #expect(got == want as? [String: [Double]], "\(id) \(field): \(got)")
+            case "writtenLowercaseIds":
+                let text = try Self.write([m])
+                let uuid = try NSRegularExpression(pattern: "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}")
+                let lower = uuid.matches(in: text, range: NSRange(text.startIndex..., in: text))
+                    .map { String(text[Range($0.range, in: text)!]) }.filter { $0 != $0.uppercased() }
+                #expect(lower.count == want as? Int, "\(id) \(field): \(lower)")
             default:
                 Issue.record("\(id): unknown field \(field)")
             }

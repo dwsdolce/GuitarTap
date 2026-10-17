@@ -29,8 +29,16 @@ when only one measurement is present.
 ]
 ```
 
-Dates are ISO-8601 strings (`YYYY-MM-DDTHH:MM:SSZ`). UUIDs are
-RFC 4122 strings.
+Dates are ISO-8601 strings (`YYYY-MM-DDTHH:MM:SSZ`).
+
+**Ids.** Every id — a measurement's, a peak's, and every reference
+to one — is a UUID (RFC 9562), written as 36 characters:
+hexadecimal digits in groups of 8-4-4-4-12 joined by hyphens, in
+uppercase. Ids are read in either case, so two that differ only in
+case are the same id. A file in which any id is missing, or is not
+in that form (braces, a `urn:uuid:` prefix and unhyphenated digits
+are not accepted), cannot be opened: the app says so and adds
+nothing from it.
 
 **Number precision.** Most numeric fields are single-precision
 (`float32`): they are written as the shortest decimal that
@@ -243,6 +251,17 @@ Two absences are themselves meaningful: a missing `sampleRate`
 means the capture rate was not recorded (treated as "unknown",
 no warning), and a missing `selectedPeakIDs` means every peak is
 considered selected.
+
+**The saved-measurements library.** The measurements you save are
+kept in the same format, in a file of the app's own
+(`saved_measurements.json`). If that file cannot be read when the
+app starts, the app does not write over it: it renames it
+`saved_measurements-unreadable-<date and time>.json` in the same
+folder, starts with an empty library, and tells you where the file
+is. Correct it and rename it back to `saved_measurements.json` to
+restore your measurements. In the browser edition each saved
+measurement is stored on its own; one that cannot be read is left
+out of the list and kept until you choose to delete it.
 
 ## Calibration files (`.txt` / `.cal`)
 

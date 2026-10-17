@@ -334,5 +334,26 @@ struct MicSelectionTests {
         #expect(CalibrationStorage.shared.calibration(forDeviceUID: builtIn.uid) == nil)
         #expect(CalibrationStorage.shared.activeCalibrationID == nil)
     }
+
+    // The stored calibrations cannot be read: they are moved to a key of their own, the list starts
+    // empty, and a later save leaves them as they were.
+    @Test func unreadableCalibrations_areKeptAsideAndNotWrittenOver() {
+        let defaults = TapDisplaySettings.defaults
+        let keptKeys = { defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("storedCalibrations-unreadable-") } }
+        keptKeys().forEach { defaults.removeObject(forKey: $0) }
+        let damaged = Data(#"[{"id": "not-a-uuid", "name": "Room"}]"#.utf8)
+        defaults.set(damaged, forKey: "storedCalibrations")
+
+        #expect(CalibrationStorage.shared.loadAll().isEmpty)
+        let kept = keptKeys()
+        #expect(kept.count == 1)
+        #expect(kept.first.flatMap { defaults.data(forKey: $0) } == damaged, "kept as it was")
+
+        CalibrationStorage.shared.save(MicrophoneCalibration(name: "Room", correctionPoints: []))
+        #expect(CalibrationStorage.shared.loadAll().count == 1, "a new list is written")
+        #expect(kept.first.flatMap { defaults.data(forKey: $0) } == damaged, "and the kept one is not touched")
+        keptKeys().forEach { defaults.removeObject(forKey: $0) }
+        CalibrationStorage.shared.loadAll().forEach { CalibrationStorage.shared.delete($0) }
+    }
 }
 #endif

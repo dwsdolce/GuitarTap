@@ -424,13 +424,29 @@ class CalibrationStorage {
 
     /// Loads and returns all stored calibration profiles.
     ///
-    /// Returns an empty array if no calibrations have been saved or if decoding fails.
+    /// Returns an empty array if no calibrations have been saved. A stored list that cannot be read is
+    /// kept, not written over: ``setAsideUnreadableCalibrations(_:)`` moves it to a key of its own, and
+    /// the list starts empty.
     func loadAll() -> [MicrophoneCalibration] {
-        guard let data = TapDisplaySettings.defaults.data(forKey: storageKey),
-              let calibrations = try? JSONDecoder().decode([MicrophoneCalibration].self, from: data) else {
+        guard let data = TapDisplaySettings.defaults.data(forKey: storageKey) else { return [] }
+        do {
+            return try JSONDecoder().decode([MicrophoneCalibration].self, from: data)
+        } catch {
+            setAsideUnreadableCalibrations(data)
             return []
         }
-        return calibrations
+    }
+
+    /// The stored calibrations could not be read. They are moved to `<key>-unreadable-<date and time>`, so
+    /// no later save writes over them, and the list starts empty; a calibration can be imported again.
+    private func setAsideUnreadableCalibrations(_ data: Data) {
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.dateFormat = "yyyyMMdd-HHmmss"
+        let keptKey = "\(storageKey)-unreadable-\(stamp.string(from: Date()))"
+        TapDisplaySettings.defaults.set(data, forKey: keptKey)
+        TapDisplaySettings.defaults.removeObject(forKey: storageKey)
+        gtLog("❌ Stored calibrations could not be read — kept as \(keptKey); the list starts empty")
     }
 
     /// Removes a calibration from persistent storage.

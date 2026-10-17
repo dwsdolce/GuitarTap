@@ -375,18 +375,7 @@ struct TapToneAnalysisView: View {
             let data = try Data(contentsOf: url)
             openURLImportSuccess = try tapToneAnalyzer.importAndLoadMeasurements(from: data)
         } catch {
-            let nsError = error as NSError
-            let isPermissionError = (nsError.domain == NSPOSIXErrorDomain && nsError.code == 1) ||
-                                    (nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoPermissionError)
-            let isFormatError = nsError.domain == NSCocoaErrorDomain &&
-                                (nsError.code == NSFileReadCorruptFileError || nsError.code == 4864)
-            if isPermissionError {
-                openURLImportError = "Could not read \"\(url.lastPathComponent)\": the system denied access (error \(nsError.code))."
-            } else if isFormatError {
-                openURLImportError = "Could not import \"\(url.lastPathComponent)\": the file is not a valid GuitarTap measurement."
-            } else {
-                openURLImportError = "Could not import \"\(url.lastPathComponent)\": \(error.localizedDescription)"
-            }
+            openURLImportError = TapToneAnalyzer.importErrorMessage(for: error, fileName: url.lastPathComponent)
         }
     }
 }
@@ -660,6 +649,15 @@ private struct LifecycleModifier: ViewModifier {
                 Button("OK") { fft.inputDeviceOpenFailure = nil }
             } message: {
                 Text(fft.inputDeviceOpenFailure ?? "")
+            }
+            // The library could not be read at launch; it was kept aside, not written over.
+            .alert("Saved Measurements Unreadable", isPresented: Binding(
+                get: { tap.libraryLoadFailure != nil },
+                set: { if !$0 { tap.libraryLoadFailure = nil } }
+            )) {
+                Button("OK") { tap.libraryLoadFailure = nil }
+            } message: {
+                Text(tap.libraryLoadFailure ?? "")
             }
     }
 }

@@ -314,6 +314,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// `true` when this record holds a saved comparison rather than a single tap measurement.
     var isComparison: Bool { comparisonEntries != nil }
 
+
     // MARK: - Per-Tap Spectra (Multi-Tap Guitar)
 
     /// Individual tap spectra and peaks from a multi-tap guitar sequence.
@@ -711,6 +712,42 @@ struct TapToneMeasurement: Identifiable, Codable {
         return (kept, removed)
     }
 
+    /// The keys of a UUID-keyed map as the file holds it — the flat `[key, value, …]` array Swift writes,
+    /// or the `{key: value}` object older writers used — each checked as a UUID. A key that is not one
+    /// fails the decode; the values are read, or dropped as a legacy form, by the map's own reader.
+    private static func checkUUIDKeys(in container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys) throws {
+        guard container.contains(key), try !container.decodeNil(forKey: key) else { return }
+        if var flat = try? container.nestedUnkeyedContainer(forKey: key) {
+            var index = 0
+            while !flat.isAtEnd {
+                if index.isMultiple(of: 2) {
+                    let id = try flat.decode(String.self)
+                    guard UUID(uuidString: id) != nil else { throw InvalidIDError(value: id, field: key.stringValue) }
+                } else {
+                    _ = try flat.decode(SkippedValue.self)
+                }
+                index += 1
+            }
+        } else if let object = try? container.nestedContainer(keyedBy: MapKey.self, forKey: key) {
+            for id in object.allKeys where UUID(uuidString: id.stringValue) == nil {
+                throw InvalidIDError(value: id.stringValue, field: key.stringValue)
+            }
+        }
+    }
+
+    /// A map value passed over while its key is checked.
+    private struct SkippedValue: Decodable {
+        init(from decoder: Decoder) throws {}
+    }
+
+    /// A key of a `{key: value}` map, whatever it is.
+    private struct MapKey: CodingKey {
+        let stringValue: String
+        var intValue: Int? { nil }
+        init(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id               = try container.decode(UUID.self,   forKey: .id)
@@ -721,6 +758,10 @@ struct TapToneMeasurement: Identifiable, Codable {
             ?? container.decodeIfPresent(String.self, forKey: .tapLocation)
         notes            = try container.decodeIfPresent(String.self, forKey: .notes)
         spectrumSnapshot = try container.decodeIfPresent(SpectrumSnapshot.self, forKey: .spectrumSnapshot)
+        // Every id is a UUID, the map keys included: the readers below drop a legacy VALUE they cannot
+        // convert, but a key that is not a UUID fails the decode, as every other id does.
+        try Self.checkUUIDKeys(in: container, forKey: .peakAnnotationOffsets)
+        try Self.checkUUIDKeys(in: container, forKey: .peakModeOverrides)
         // Decode as named-field struct (absFreqHz/absDB) and convert to CGPoint for in-memory use.
         // Also accepts legacy CGPoint encoding ({x:, y:}) from files written before this change.
         // Try the new named format (absFreqHz/absDB) first; fall back to legacy formats.
@@ -897,6 +938,18 @@ struct TapToneMeasurement: Identifiable, Codable {
         tapEntries            = decodedTapEntries
         comparisonEntries     = decodedComparisonEntries
         wasHealed             = healed
+
+        // No edition saves a measurement without its spectrum, so a file that holds one is not a
+        // measurement the app made: a comparison of at least two entries, or a guitar spectrum or a
+        // plate/brace's longitudinal one. A spectrum with no points — or with frequencies and
+        // magnitudes that differ in number — is no spectrum, a comparison entry's included.
+        let holdsSpectrum = { (snapshot: SpectrumSnapshot?) -> Bool in
+            guard let snapshot else { return false }
+            return !snapshot.frequencies.isEmpty && snapshot.frequencies.count == snapshot.magnitudes.count
+        }
+        let hasSpectrum = comparisonEntries.map { $0.count >= 2 && $0.allSatisfy { holdsSpectrum($0.snapshot) } }
+            ?? (holdsSpectrum(spectrumSnapshot) || holdsSpectrum(longitudinalSnapshot))
+        guard hasSpectrum else { throw NoSpectrumError() }
     }
 
     // MARK: - Custom Encoding
@@ -1022,3 +1075,83 @@ extension TapToneMeasurement {
         return Set(selectedPeakIDs ?? peaks.map { $0.id })
     }
 }
+
+// MARK: - A measurement with no spectrum
+
+/// A measurement in a file with no spectrum — no guitar spectrum, no plate/brace longitudinal one, or a
+/// comparison of fewer than two entries; a spectrum with no points is none: no edition makes one, so the
+/// file cannot be read. Mirrors Python
+/// and web `NoSpectrumError`.
+struct NoSpectrumError: Error, CustomStringConvertible {
+    var description: String { "no spectrum" }
+}
+
+// MARK: - An id that is not a UUID
+
+/// An id in a file that is missing or not a UUID: the file cannot be read. Names the field the way every
+/// edition names it (`peaks[].id`, `tapEntries[].selectedPeakIDs` …) and the value, so the import's
+/// message says which id it was. Mirrors Python and web `InvalidIdError`.
+struct InvalidIDError: Error, CustomStringConvertible {
+    let value: Any?
+    let field: String
+
+    var description: String {
+        guard let value else { return "\(field) is missing" }
+        return "\"\(value)\" in \(field) is not a UUID"
+    }
+
+    /// The fields that hold ids, named as every edition names them.
+    static let idFields: Set<String> = [
+        "id", "peaks[].id", "selectedPeakIDs", "selectedLongitudinalPeakID", "selectedCrossPeakID",
+        "selectedFlcPeakID", "tapEntries[].id", "tapEntries[].peaks[].id", "tapEntries[].selectedPeakIDs",
+        "comparisonEntries[].id", "comparisonEntries[].peaks[].id", "comparisonEntries[].sourceMeasurementID",
+        "comparisonEntries[].modePeakIDs",
+    ]
+
+    /// The decoder's failure on an id field, as an `InvalidIDError` — its field named from the coding path
+    /// and its value read from `data` — or nil when the failure is not about an id.
+    static func from(_ error: DecodingError, in data: Data) -> InvalidIDError? {
+        let path: [CodingKey]
+        switch error {
+        case .dataCorrupted(let context), .typeMismatch(_, let context), .valueNotFound(_, let context):
+            path = context.codingPath
+        case .keyNotFound(let key, let context):
+            path = context.codingPath + [key]
+        @unknown default:
+            return nil
+        }
+        let field = fieldName(path)
+        guard idFields.contains(field) else { return nil }
+        return InvalidIDError(value: rawValue(at: path, in: data), field: field)
+    }
+
+    /// `peaks[].id` for `[0, "peaks", 3, "id"]`: an array index marks its key `[]`; the file's own array
+    /// index, a trailing index into a list of ids and a key into `modePeakIDs` are left out.
+    private static func fieldName(_ path: [CodingKey]) -> String {
+        var name = ""
+        for (i, key) in path.enumerated() {
+            if key.intValue != nil {
+                if i > 0 { name += "[]" }
+            } else if name.hasSuffix("modePeakIDs") {
+                break
+            } else {
+                name += (name.isEmpty ? "" : ".") + key.stringValue
+            }
+        }
+        return name.hasSuffix("[]") ? String(name.dropLast(2)) : name
+    }
+
+    /// The value at `path` in the file, or nil when there is none.
+    private static func rawValue(at path: [CodingKey], in data: Data) -> Any? {
+        var node: Any? = try? JSONSerialization.jsonObject(with: data)
+        for key in path {
+            if let index = key.intValue, let array = node as? [Any] {
+                node = index < array.count ? array[index] : nil
+            } else {
+                node = (node as? [String: Any])?[key.stringValue]
+            }
+        }
+        return node is NSNull ? nil : node
+    }
+}
+

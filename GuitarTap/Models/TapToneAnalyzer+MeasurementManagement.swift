@@ -97,7 +97,33 @@ extension TapToneAnalyzer {
     static func decodeMeasurements(_ data: Data) throws -> [TapToneMeasurement] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode([TapToneMeasurement].self, from: data)
+        do {
+            return try decoder.decode([TapToneMeasurement].self, from: data)
+        } catch let error as DecodingError {
+            // An id that is not a UUID is named, as every edition names it.
+            throw InvalidIDError.from(error, in: data) ?? error
+        }
+    }
+
+    /// The message an import that failed shows, the same in every edition: the file is not a valid
+    /// measurement (naming the id when that is why), the system denied access, or what went wrong.
+    static func importErrorMessage(for error: Error, fileName: String) -> String {
+        if let invalid = error as? InvalidIDError {
+            return "Could not import \"\(fileName)\": the file is not a valid GuitarTap measurement (\(invalid))."
+        }
+        if let noSpectrum = error as? NoSpectrumError {
+            return "Could not import \"\(fileName)\": the file is not a valid GuitarTap measurement (\(noSpectrum))."
+        }
+        let nsError = error as NSError
+        let isPermissionError = (nsError.domain == NSPOSIXErrorDomain && nsError.code == 1) ||
+                                (nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoPermissionError)
+        if isPermissionError {
+            return "Could not read \"\(fileName)\": the system denied access (error \(nsError.code))."
+        }
+        if error is DecodingError || (nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadCorruptFileError) {
+            return "Could not import \"\(fileName)\": the file is not a valid GuitarTap measurement."
+        }
+        return "Could not import \"\(fileName)\": \(error.localizedDescription)"
     }
 
     /// Loads all persisted measurements from disk.
@@ -133,7 +159,37 @@ extension TapToneAnalyzer {
             }
         } catch {
             gtLog("❌ Failed to load persisted measurements: \(error)")
+            setAsideUnreadableLibrary(at: fileURL)
         }
+    }
+
+    /// The library could not be read. It is kept — renamed `<name>-unreadable-<date and time>.json`
+    /// beside itself — so no save writes over it, the library starts empty, and the user is told once
+    /// where it is: fixing the file and renaming it back restores it. If it cannot be renamed it stays
+    /// where it is and the library is not written this session.
+    func setAsideUnreadableLibrary(at fileURL: URL) {
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.dateFormat = "yyyyMMdd-HHmmss"
+        let keptURL = fileURL.deletingLastPathComponent().appendingPathComponent(
+            "\(fileURL.deletingPathExtension().lastPathComponent)-unreadable-\(stamp.string(from: Date())).json")
+        do {
+            try FileManager.default.moveItem(at: fileURL, to: keptURL)
+            gtLog("📂 Unreadable library kept as \(keptURL.path)")
+            libraryLoadFailure = Self.unreadableLibraryMessage(keptAs: keptURL, original: fileURL)
+        } catch {
+            gtLog("❌ Could not keep the unreadable library aside: \(error) — the library is not written this session")
+            isLibraryWriteBlocked = true
+            libraryLoadFailure = Self.unreadableLibraryMessage(keptAs: fileURL, original: fileURL)
+        }
+    }
+
+    /// The message for a library that could not be read and was kept as `keptAs`.
+    static func unreadableLibraryMessage(keptAs kept: URL, original: URL) -> String {
+        if kept == original {
+            return "Your saved measurements could not be read. The file was left as it is at \(kept.path), and new measurements will not be saved to it until it can be read."
+        }
+        return "Your saved measurements could not be read, so the library starts empty. The file was kept as \(kept.path) — fix it and rename it back to \(original.lastPathComponent) to restore it."
     }
     
     /// Writes all saved measurements to `saved_measurements.json`.
@@ -145,6 +201,10 @@ extension TapToneAnalyzer {
     /// Called automatically after every `saveMeasurement`, `deleteMeasurement`,
     /// and `importMeasurements` operation.
     func persistMeasurements() {
+        guard !isLibraryWriteBlocked else {
+            gtLog("📂 Library not written: it could not be read and is kept as it is")
+            return
+        }
         let fileURL = libraryFileURL
         // Snapshot the array on the main thread; encoding + disk I/O run in background
         // to avoid blocking the UI (spectrum data can be several MB). One serial queue, so the
@@ -529,8 +589,8 @@ extension TapToneAnalyzer {
                let minD = snaps.map(\.minDB).min(), let maxD = snaps.map(\.maxDB).max() {
                 setLoadedAxisRange(minFreq: minF, maxFreq: maxF, minDB: minD, maxDB: maxD)
             }
-            loadedMeasurementName = measurement.measurementName.flatMap(TapToneMeasurement.normalizedName)
-            loadedNotes = measurement.notes.flatMap(TapToneMeasurement.normalizedNotes)
+            loadedMeasurementName = measurement.measurementName.flatMap { TapToneMeasurement.normalizedName($0) }
+            loadedNotes = measurement.notes.flatMap { TapToneMeasurement.normalizedNotes($0) }
             // The saved comparison's own date, which its exports show and are named by.
             sourceMeasurementTimestamp = measurement.timestamp
             // Clear any per-tap entries from a previously loaded multi-tap measurement so
@@ -564,11 +624,11 @@ extension TapToneAnalyzer {
         sourceMeasurementTimestamp = measurement.timestamp
 
         // Expose the measurement name so the chart title can reflect it
-        let name = measurement.measurementName.flatMap(TapToneMeasurement.normalizedName)
+        let name = measurement.measurementName.flatMap { TapToneMeasurement.normalizedName($0) }
         loadedMeasurementName = name
 
         // Expose the notes so re-saving the loaded measurement keeps them (R10).
-        loadedNotes = measurement.notes.flatMap(TapToneMeasurement.normalizedNotes)
+        loadedNotes = measurement.notes.flatMap { TapToneMeasurement.normalizedNotes($0) }
 
         // Restore display settings from any available snapshot (prefer longitudinal for plate/brace)
         let settingsSnapshot = measurement.longitudinalSnapshot ?? measurement.spectrumSnapshot
@@ -670,8 +730,6 @@ extension TapToneAnalyzer {
             // materialTapPhase != .complete) doesn't blank a guitar spectrum that
             // is loaded while the previous measurement type was plate/brace.
             materialTapPhase = .complete
-        } else {
-            setFrozenSpectrum(frequencies: [], magnitudes: [])
         }
         
         // Restore the plate/brace identified peaks — the only material peak state — by id from the

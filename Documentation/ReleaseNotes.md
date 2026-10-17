@@ -68,6 +68,11 @@
 - Every value is shown at the same precision in every edition of Guitar Tap; sample rate and bandwidth read in whole hertz; digital silence reads "−∞".
 - Edit Name & Notes enables Save only when the name or notes actually change.
 
+### Saved Measurements and Files
+
+- If your saved measurements cannot be read when Guitar Tap starts, they are never written over: the file is kept, renamed beside itself, and Guitar Tap tells you where it is. Correct it and rename it back to restore them.
+- A measurement file is read the same way by every edition: its ids may be in upper or lower case, and a file with an id that is missing or malformed is refused with a message rather than opened in part.
+
 ---
 
 ## Bug Fixes
