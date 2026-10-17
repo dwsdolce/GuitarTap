@@ -84,7 +84,21 @@ extension TapToneAnalyzer {
     /// NOTE: `peakMagnitude` here is a GENUINE FFT peak-bin magnitude — unlike `detectTap(level:)`,
     /// which takes the per-chunk RMS level. The two are different quantities; do not conflate them.
     func onFftFrame(magnitudes: [Float], frequencies: [Float], peakMagnitude: Float) {
+        runNextFrameActions(peakMagnitude: peakMagnitude)
         analyzeMagnitudes(magnitudes, frequencies: frequencies, peakMagnitude: peakMagnitude)
+    }
+
+    /// Runs `action` on the next FFT frame, with that frame's peak magnitude — the device-change
+    /// settle's end, which re-anchors detection on the first frame the user sees.
+    func afterNextFrame(_ action: @escaping (Float) -> Void) {
+        pendingFrameActions.append(action)
+    }
+
+    /// Runs, in scheduling order, every action waiting for this frame.
+    func runNextFrameActions(peakMagnitude: Float) {
+        let due = pendingFrameActions
+        pendingFrameActions.removeAll()
+        due.forEach { $0(peakMagnitude) }
     }
 
     // MARK: - RMS-Level Entry Point

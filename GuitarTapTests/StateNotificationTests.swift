@@ -2,16 +2,12 @@
 //  StateNotificationTests.swift
 //  GuitarTapTests
 //
-//  One contract, three mechanisms: when the model's readiness changes, the view layer is told.
-//
-//  Swift satisfies it with `@Published` (this file observes `objectWillChange`), Python with an
-//  explicit signal, web by putting the field on the snapshot and calling `notify()`. Every one of
-//  those can be broken by an ordinary edit — drop the `@Published`, forget to add the signal, leave
-//  the field off the snapshot — and then the button row goes stale for the whole route-change
-//  settle and New Tap never greys out.
-//
-//  The contract is not "does Qt emit" but "does a state change reach the UI", which all three
-//  implement and all three can break.
+//  A device change and the settle after it, against the shared cases in `notification.json` (N1–N18),
+//  the same as Python and the web: detection stands down and New Tap greys out — and the view is told,
+//  which Swift does with `@Published` (observed here through `objectWillChange`), Python with a signal
+//  and the web with its snapshot and `notify()`, each of which an ordinary edit can break — a live
+//  chart is blanked, and once 3 s of audio have passed since the last change and the next frame has
+//  arrived, the latch is re-anchored, readiness and listening come back and the status is put back.
 //
 //  Mirrors: tests/test_state_notification.py · test/state-notification.test.ts
 //
@@ -22,220 +18,82 @@ import Foundation
 import Combine
 @testable import GuitarTap
 
-@MainActor
-private func makeSUT() -> TapToneAnalyzer {
-    let fft = RealtimeFFTAnalyzer.forTesting()
-    let sut = TapToneAnalyzer(fftAnalyzer: fft)
-    TapDisplaySettings.measurementType = .generic
-    return sut
-}
+private final class StateNotificationAnchor {}
 
 @Suite("StateNotification", .serialized)
 @MainActor
 struct StateNotificationTests {
 
-    // N1: standing readiness down notifies observers.
-    @Test func readinessCleared_notifiesObservers() {
-        let sut = makeSUT()
-        var fired = 0
-        let token = sut.objectWillChange.sink { _ in fired += 1 }
-        defer { token.cancel() }
+    // nonisolated: @Test(arguments:) reads the case table outside the main actor, the target's default;
+    // (unsafe) because `Any` cannot be Sendable — the table is immutable once loaded.
+    nonisolated(unsafe) static let data: [String: Any] = {
+        let url = Bundle(for: StateNotificationAnchor.self).url(forResource: "notification", withExtension: "json")!
+        return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    }()
 
-        sut.isReadyForDetection = false
-
-        #expect(fired > 0,
-                "REGRESSION: a readiness change must reach the view layer, or New Tap stays clickable while the input is reinitialising")
+    nonisolated static func ids() -> [String] {
+        (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
     }
 
-    // N2: restoring readiness notifies too — the button has to come back, not just go away.
-    @Test func readinessRestored_notifiesObservers() {
-        let sut = makeSUT()
-        sut.isReadyForDetection = false
-        var fired = 0
-        let token = sut.objectWillChange.sink { _ in fired += 1 }
-        defer { token.cancel() }
-
-        sut.isReadyForDetection = true
-
-        #expect(fired > 0, "restoring readiness must notify, or New Tap never re-enables")
+    /// What a case's run keeps between steps.
+    final class Run {
+        var notedStatus: String?
+        var notedPeaks: [UUID] = []
+        var readinessNotified = false
+        var watch: AnyCancellable?
     }
 
-    // N3: the production path — a route-change restart stands readiness down and says so.
-    @Test func routeChangeRestart_clearsReadinessAndNotifies() {
-        let sut = makeSUT()
-        var fired = 0
-        let token = sut.objectWillChange.sink { _ in fired += 1 }
-        defer { token.cancel() }
-
-        sut.handleRouteChangeRestart()
-
-        #expect(sut.isReadyForDetection == false, "a route-change restart must stand readiness down")
-        #expect(fired > 0, "and must notify the view layer that it did")
+    static func check(_ fields: [String: Any], _ sut: TapToneAnalyzer, _ run: Run, _ id: String) {
+        for (field, want) in fields {
+            let msg = Comment(rawValue: "\(id) \(field)")
+            switch field {
+            case "ready": #expect(sut.isReadyForDetection == want as? Bool, msg)
+            case "readinessNotified": #expect(run.readinessNotified == want as? Bool, msg)
+            case "settling": #expect(sut.isSettling == want as? Bool, msg)
+            case "statusMessage": #expect(sut.statusMessage == want as? String, "\(id) \(field): \(sut.statusMessage)")
+            case "statusAsNoted": #expect((sut.statusMessage == run.notedStatus) == want as? Bool, "\(id) \(field): \(sut.statusMessage) vs \(run.notedStatus ?? "nil")")
+            case "statusBeforeSettleAsNoted":
+                #expect((sut.statusBeforeSettle == run.notedStatus) == want as? Bool, "\(id) \(field): \(sut.statusBeforeSettle ?? "nil")")
+            case "statusIsArmedPrompt": #expect((sut.statusMessage == sut.armedPrompt()) == want as? Bool, msg)
+            case "detecting": #expect(sut.isDetecting == want as? Bool, msg)
+            case "paused": #expect(sut.isDetectionPaused == want as? Bool, msg)
+            case "complete": #expect(sut.isMeasurementComplete == want as? Bool, msg)
+            case "phase": #expect(sut.materialTapPhase.rawValue == want as? String, "\(id) \(field): \(sut.materialTapPhase)")
+            case "aboveThreshold": #expect(sut.isAboveThreshold == want as? Bool, msg)
+            case "hasPeaks": #expect(!sut.allPeaks.isEmpty == want as? Bool, "\(id) \(field): \(sut.allPeaks.count)")
+            case "peaksAsNoted": #expect((sut.allPeaks.map(\.id) == run.notedPeaks) == want as? Bool, msg)
+            default: Issue.record("\(id): unknown field \(field)")
+            }
+        }
     }
 
-    // N4: the settle must not throw away a result announcement. A completed measurement's status
-    // ("Analysis complete! N peaks…") is not re-derivable, so the derivation declines to speak.
-    @Test func settle_restoresACompleteMeasurementsStatus() {
-        let sut = makeSUT()
-        sut.numberOfTaps = 1
-        sut.currentTapCount = 1
-        sut.isMeasurementComplete = true
-        let announced = "Analysis complete! 12 peaks identified (from 1 averaged taps)."
-
-        #expect(sut.statusAfterSettle() == nil, "a completed measurement's status is not derivable")
-        #expect(sut.restoredStatus(before: announced) == announced,
-                "REGRESSION: the settle must PUT BACK the result announcement. Asserting only that it does not say \"Tap again\" passed while the \"Audio device changed - reinitializing…\" transient stayed up forever.")
-    }
-
-    // N5: mid-sequence the settle reports what was captured — not the opening instruction, which is
-    // what the old two-branch guess said once a tap was already in hand.
-    @Test func settle_midSequence_reportsProgressNotTheOpeningInstruction() {
-        let sut = makeSUT()
-        sut.numberOfTaps = 3
-        sut.detectionState = .listening
-        sut.currentTapCount = 1
-
-        #expect(sut.statusAfterSettle() == "Tap 1/3 captured. Tap again...")
-    }
-
-    // N6: idle and nothing captured — "Ready".
-    @Test func settle_idle_isReady() {
-        let sut = makeSUT()
-        #expect(sut.statusAfterSettle() == "Ready")
-    }
-
-    // N7: a COMPLETED measurement survives a device change. The settle blanks the chart while the
-    // new device's audio is not yet valid, but only when a LIVE spectrum is on screen — and
-    // `displayMode == .live` is still true of a finished measurement, because no completion path
-    // sets `.frozen`, so the guard must not ask that.
-    @Test func routeChange_leavesACompletedMeasurementIntact() {
-        let sut = makeSUT()
-        sut.setFrozenSpectrum(frequencies: [100, 200], magnitudes: [-40, -50])
-        sut.allPeaks = [ResonantPeak(frequency: 100, magnitude: -40)]
-        sut.isMeasurementComplete = true
-
-        sut.handleRouteChangeRestart()
-
-        #expect(sut.isSettling == false, "a completed measurement is not a live spectrum — nothing to blank")
-        #expect(sut.allPeaks.count == 1, "REGRESSION: the settle wiped a finished measurement's peaks")
-        #expect(sut.frozenFrequencies == [100, 200], "and its spectrum")
-    }
-
-    // N8: mid-sequence, with a live spectrum on screen, the settle DOES blank — and says so.
-    @Test func routeChange_blanksALiveSpectrum() {
-        let sut = makeSUT()
-        sut.detectionState = .listening
-        sut.allPeaks = [ResonantPeak(frequency: 100, magnitude: -40)] // a live frame's peaks
-
-        sut.handleRouteChangeRestart()
-
-        #expect(sut.isSettling == true, "a live spectrum is blanked for the settle")
-        #expect(sut.allPeaks.isEmpty, "and its peaks cleared, so no annotation floats on a blank chart")
-    }
-
-    // N9: a MATERIAL phase prompt is an instruction about something that already happened
-    // ("Rotate 90°…"), not a description of the state, so the settle must put it back rather than
-    // re-derive it. Two strings are equally correct for one phase — the advance's instruction and a
-    // redo's "…— tap again" — which is the proof it is not a function of the state.
-    @Test func settle_preservesAMaterialPhaseInstruction() {
-        TapDisplaySettings.measurementType = .plate
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
-        sut.cancellables.removeAll()
-        sut.materialTapPhase = .capturingCross
-        sut.detectionState = .listening
-        let afterRedo = "Ready for fC tap — tap again"
-
-        #expect(sut.statusAfterSettle() == nil,
-                "a material phase instruction is not re-derivable from (type, phase)")
-        #expect(sut.restoredStatus(before: afterRedo) == afterRedo,
-                "REGRESSION: the settle reworded the instruction the user was following — it said \"Rotate 90° and tap for fC\" to someone who had already rotated the plate")
-    }
-
-    // N10: the override precedence, in one place. Dead input outranks clipping, and an ordinary
-    // status write while a condition holds must not drop the warning.
-    @Test func statusOverrides_deadInputOutranksClippingAndSurvivesAStatusWrite() {
-        let sut = makeSUT()
-        sut.latestRealStatus = "Tap the guitar..."
-
-        sut.fftAnalyzer.level.isClipping = true
-        sut.applyStatusOverrides()
-        #expect(sut.statusMessage == TapToneAnalyzer.clippingWarningStatus)
-
-        sut.fftAnalyzer.inputAppearsDead = true
-        sut.applyStatusOverrides()
-        #expect(sut.statusMessage == TapToneAnalyzer.deadInputStatus, "dead input outranks clipping")
-
-        sut.fftAnalyzer.inputAppearsDead = false
-        sut.fftAnalyzer.level.isClipping = false
-        sut.applyStatusOverrides()
-        #expect(sut.statusMessage == "Tap the guitar...",
-                "clearing both conditions restores the analyzer's own status")
-    }
-
-    // N11: what the settle PRESERVES is the analyzer's real status, not the override-resolved
-    // string. Capturing the displayed value would let a route change during clipping preserve the
-    // warning sentinel and put it back as though the analyzer had set it.
-    @Test func settle_capturesTheRealStatusNotAnOverrideWarning() {
-        let sut = makeSUT()
-        sut.detectionState = .listening
-        sut.latestRealStatus = "Tap the guitar 3 times..."
-        sut.fftAnalyzer.level.isClipping = true
-        sut.applyStatusOverrides()
-        #expect(sut.statusMessage == TapToneAnalyzer.clippingWarningStatus, "precondition: the warning is showing")
-
-        sut.handleRouteChangeRestart()
-
-        #expect(sut.statusBeforeSettle == "Tap the guitar 3 times...",
-                "REGRESSION: the settle preserved the clipping sentinel instead of the real status")
-    }
-
-    // N12: the phase ADVANCE and the armed DERIVATION must produce the same string, because they
-    // are the same string: otherwise every resume, settle or tap-count change mid-plate would
-    // silently reword the instruction. Pins the single source from both ends.
-    @Test func materialPhaseAdvance_andTheArmedDerivation_agree() {
-        TapDisplaySettings.measurementType = .plate
-        TapDisplaySettings.measureFlc = false
-        let sut = TapToneAnalyzer(fftAnalyzer: RealtimeFFTAnalyzer.forTesting())
-        sut.cancellables.removeAll()
-        sut.materialTapPhase = .reviewingLongitudinal
-
-        sut.acceptCurrentPhase()
-
-        #expect(sut.materialTapPhase == .capturingCross, "precondition: the accept advanced the phase")
-        #expect(sut.statusMessage == "Rotate 90° and tap for fC")
-        #expect(sut.armedPrompt() == sut.statusMessage,
-                "REGRESSION: the advance and the derivation drifted apart — one source, or the settle and the resume reword what the advance said")
-    }
-
-    // N13: a route change during a settle must not capture the transient as the pre-settle status.
-    // A user unplugging and replugging faster than `fftSettleTime` makes that burst. Were the
-    // transient captured, every state whose status is not re-derivable (N4's completed measurement,
-    // N9's material phase instruction) would have it put back on top of itself, where it would stay
-    // until the next tap wrote over it.
-    @Test func aSettleDuringASettle_doesNotCaptureTheTransient() {
-        let sut = makeSUT()
-        TapDisplaySettings.measurementType = .brace   // makeSUT() sets .generic — set it AFTER
-        sut.detectionState = .listening
-        sut.latestRealStatus = "Ready for fL tap"
-
-        sut.handleRouteChangeRestart()                              // unplug
-
-        #expect(sut.statusMessage == TapToneAnalyzer.routeChangeStatus, "precondition: the transient shows")
-        // `latestRealStatus` follows `statusMessage` at the write (its `didSet`), so the transient is
-        // already the real status here; set it explicitly to state the precondition a real second
-        // route change arrives in, seconds later, with the transient on screen.
-        sut.latestRealStatus = TapToneAnalyzer.routeChangeStatus
-
-        sut.handleRouteChangeRestart()                              // replug, inside the settle
-
-        #expect(sut.statusBeforeSettle == "Ready for fL tap",
-                "REGRESSION: the second route change captured the transient as the real status, so the settle puts the transient back on top of itself")
-        // The consequence, in the state the report came from: a material phase prompt is not
-        // re-derivable, so the settle restores what it captured. The settle's completion puts
-        // detection back to listening before it asks what to restore; do the same here.
-        sut.detectionState = .listening
-        #expect(sut.restoredStatus(before: sut.statusBeforeSettle ?? "Ready") == "Ready for fL tap",
-                "REGRESSION: the settle would restore the transient instead of the prompt")
+    @Test(arguments: ids())
+    func notification(_ id: String) {
+        let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
+        let saved = (TapDisplaySettings.measurementType, TapDisplaySettings.measureFlc)
+        defer { (TapDisplaySettings.measurementType, TapDisplaySettings.measureFlc) = saved }
         TapDisplaySettings.measurementType = .generic
+
+        let sut = makeStepsAnalyzer()
+        let run = Run()
+        for step in row["steps"] as! [[String: Any]] {
+            if step["note"] as? Bool == true {
+                run.notedStatus = sut.statusMessage
+                run.notedPeaks = sut.allPeaks.map(\.id)
+            } else if step["watchNotifications"] as? Bool == true {
+                run.watch = sut.objectWillChange.sink { _ in run.readinessNotified = true }
+            } else if let clipping = step["clipping"] as? Bool {
+                sut.fftAnalyzer.level.isClipping = clipping
+                sut.applyStatusOverrides()
+            } else if let dead = step["inputDead"] as? Bool {
+                sut.fftAnalyzer.inputAppearsDead = dead
+                sut.applyStatusOverrides()
+            } else if let fields = step["check"] as? [String: Any] {
+                Self.check(fields, sut, run, id)
+            } else {
+                #expect(runAnalyzerStep(step, on: sut), "\(id): unknown step \(step)")
+            }
+        }
+        Self.check(row["expect"] as! [String: Any], sut, run, id)
     }
 }

@@ -37,6 +37,9 @@ private let materialPhases: [String: MaterialTapPhase] = [
 /// - `{"audioChunks": n, "level": dB}` — exactly n chunks of audio at that level, each one chunk after the
 ///   last (two loud ones are a tap)
 /// - `{"stall": seconds}` — that much wall time with no audio
+/// - `{"routeChange": true}` — the engine restarted on a device change
+/// - `{"spectrumFrame": spectrum}` — one FFT frame from the running engine, a spectrum as `peaks.json`
+///   describes one
 @MainActor
 func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
     if let settings = step["settings"] as? [String: Any] {
@@ -92,6 +95,13 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
         }
         let level = Float((step["level"] as? Double) ?? -90)
         advanceAudio(sut, by: seconds * ((step["fraction"] as? Double) ?? 1) + ((step["extra"] as? Double) ?? 0), level: level)
+    } else if step["routeChange"] as? Bool == true {
+        sut.fftAnalyzer.isRunning = true   // the engine restarted on the new device
+        sut.handleRouteChangeRestart()
+    } else if let spec = step["spectrumFrame"] as? [String: Any] {
+        let (magnitudes, frequencies) = PeakFindingTests.spectrum(spec)
+        sut.fftAnalyzer.isRunning = true   // a frame comes only from the running engine
+        sut.onFftFrame(magnitudes: magnitudes, frequencies: frequencies, peakMagnitude: magnitudes.max()!)
     } else if let seconds = step["stall"] as? Double {
         (sut.wallClock as! ManualWallClock).advance(by: seconds)
     } else if let n = step["audioChunks"] as? Int {

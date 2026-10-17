@@ -552,23 +552,26 @@ final class TapToneAnalyzer: ObservableObject {
     /// Mirrors Python `_latest_real_status`.
     var latestRealStatus: String = "Tap the guitar to begin"
 
-    /// The device-change transient. Named because two places must agree on it: the write in
-    /// `handleRouteChangeRestart()`, and the guard that keeps a SECOND route change from capturing
-    /// it as the pre-settle status. Mirrors Python `ROUTE_CHANGE_STATUS`.
+    /// The device-change transient, shown by `handleRouteChangeRestart()` until the settle ends.
+    /// Mirrors Python `ROUTE_CHANGE_STATUS`.
     static let routeChangeStatus = "Audio device changed - reinitializing..."
 
     /// What the status said before a device-change settle replaced it with the "reinitializing…"
-    /// transient.
-    ///
-    /// It is NOT cleared when a settle ends. Each route change schedules its own restore, so a
-    /// burst — unplug and replug faster than `fftSettleTime` — leaves several of them behind, and
-    /// clearing on the first would hand every later one `"Ready"` in place of the prompt it should
-    /// put back. The capture guard keeps the value fresh instead: the next route change that
-    /// arrives with a REAL status on screen overwrites it.
+    /// transient. Captured by the change that begins a settle, put back and cleared when the settle
+    /// ends; a later change inside the settle supersedes its restore and keeps what was captured.
     ///
     /// A stored property rather than a local, matching Python `_status_before_settle` and web
     /// `statusBeforeSettle`, so the capture is observable and all three editions can pin it.
     var statusBeforeSettle: String?
+
+    /// Whether the device-change settle in progress puts detection back to listening when it ends —
+    /// captured by the change that begins it, since a later change inside the settle finds the
+    /// detector already stood down. `nil` when no settle is in progress.
+    var detectingBeforeSettle: Bool?
+
+    /// Counts device changes. A settle's restore runs only if no later change has superseded it, so
+    /// the settle always ends `fftSettleTime` of audio after the LAST change.
+    var routeChangeGeneration = 0
 
     /// Sentinel string used to detect (and ignore) self-writes to
     /// `statusMessage` performed by the clipping-override path, so the
@@ -1439,6 +1442,9 @@ final class TapToneAnalyzer: ObservableObject {
     /// Tap-lifecycle actions waiting on the audio clock — see ``afterAudio(_:releasedAtFileEnd:_:)``.
     var pendingAudioActions: [(due: Double, releasedAtFileEnd: Bool, action: () -> Void)] = []
 
+    /// Actions waiting for the next FFT frame — see ``afterNextFrame(_:)``.
+    var pendingFrameActions: [(Float) -> Void] = []
+
     /// The rest after a capture before detection re-arms, and the hold before the FLC phase arms, in
     /// seconds of AUDIO (see ``afterAudio(_:releasedAtFileEnd:_:)``).
     let tapCooldown: TimeInterval = 0.5
@@ -1796,13 +1802,16 @@ final class TapToneAnalyzer: ObservableObject {
     }
 
     // MARK: - Route Change Handling
+    // @parity state/route-change-settle tests=test/notification
 
     /// Responds to an audio engine restart triggered by a device or route change.
     ///
-    /// Temporarily disables tap detection, resets the warm-up timer, and re-enables
-    /// detection 3 seconds later (after the 65 536-sample FFT window has filled with
-    /// valid post-restart data).  If detection was active before the route change it is
-    /// restored; otherwise the analyzer returns to the "Ready" state.
+    /// Temporarily disables tap detection, resets the warm-up, and re-enables detection once
+    /// `fftSettleTime` of AUDIO has passed since the change (after the 65 536-sample FFT window has
+    /// filled with valid post-restart data) and the next FFT frame has arrived. If detection was
+    /// listening before the change it listens again; otherwise the analyzer returns to its prompt.
+    /// A later change inside the settle supersedes this one's restore, so the settle always ends a
+    /// full `fftSettleTime` after the last change.
     ///
     /// - Important: The 3-second settle delay is conservative to ensure `peakMagnitude`
     ///   reflects real audio data rather than silence or the engine startup transient
@@ -1811,6 +1820,9 @@ final class TapToneAnalyzer: ObservableObject {
         gtLog("🔄 TapToneAnalyzer: Handling route change restart - resetting detection state")
 
         let wasDetecting = (detectionState == .listening)
+        // The change that begins a settle decides whether its end re-arms; a later change inside it
+        // finds the detector already stood down.
+        if detectingBeforeSettle == nil { detectingBeforeSettle = wasDetecting }
 
         // Disable the New Tap and Resume buttons while reinitialising.
         isReadyForDetection = false
@@ -1856,11 +1868,10 @@ final class TapToneAnalyzer: ObservableObject {
         // Guarded so a route change during a settle does not capture the transient itself: a
         // captured `routeChangeStatus` would be put back by `restoredStatus(before:)` for every
         // state whose status is not re-derivable — a completed measurement, a material phase
-        // prompt — and stay up until something else writes a status. Every route change leaves its
-        // own restore behind, so the test is "is this already the transient". (Web tests
-        // `statusBeforeSettle === null`: its device-change timer is coalesced, so only one restore
-        // is ever pending.)
-        if latestRealStatus != Self.routeChangeStatus {
+        // prompt — and stay up until something else writes a status. The settle's end clears it, so
+        // a value already here means a settle is in progress and the change that began it captured
+        // the real status.
+        if statusBeforeSettle == nil {
             statusBeforeSettle = latestRealStatus
         }
         statusMessage = Self.routeChangeStatus
@@ -1868,42 +1879,40 @@ final class TapToneAnalyzer: ObservableObject {
         // Wait for the FFT pipeline to fill with valid post-restart data (~1.36 s for
         // 65 536 samples at 48 kHz).  Use 3 s: the extra margin covers the HALC
         // startup transient that sometimes appears 2–2.5 s after a device hot-swap
-        // when the audio unit requires an internal recovery restart.
+        // when the audio unit requires an internal recovery restart. On the AUDIO clock: what has
+        // to pass is that much audio from the new device.
         let fftSettleTime: TimeInterval = 3.0
-        DispatchQueue.main.asyncAfter(deadline: .now() + fftSettleTime) { [weak self] in
-            guard let self = self else { return }
+        routeChangeGeneration += 1
+        let generation = routeChangeGeneration
+        afterAudio(fftSettleTime) { [weak self] in
+            guard let self, generation == self.routeChangeGeneration else { return }
             guard self.fftAnalyzer.isRunning else { return }
 
-            // Wait for the next published FFT frame before re-anchoring detection
-            // and unfreezing the display.  This ensures both happen on the same
-            // frame — the first one the user actually sees — preventing a false
-            // rising edge caused by a transient that arrives between the settle
-            // timer firing and the re-anchor.  isAboveThreshold stays true
-            // (blocking detection) until that frame arrives.
-            self.fftAnalyzer.$magnitudes
-                .dropFirst()   // skip the currently-published value
-                .first()       // fire exactly once on the next new publication
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] _ in
-                    guard let self = self else { return }
+            // Wait for the next FFT frame before re-anchoring detection and unfreezing the display.
+            // This ensures both happen on the same frame — the first one the user actually sees —
+            // preventing a false rising edge caused by a transient that arrives between the settle
+            // ending and the re-anchor. isAboveThreshold stays true (blocking detection) until that
+            // frame arrives.
+            self.afterNextFrame { [weak self] peakMagnitude in
+                guard let self, generation == self.routeChangeGeneration else { return }
 
-                    // Re-anchor isAboveThreshold to the level of the first frame
-                    // that is actually displayed, so the hysteresis detector starts
-                    // in the correct state and cannot fire a spurious rising edge.
-                    let currentPeakMag = self.fftAnalyzer.peakMagnitude
-                    self.isAboveThreshold = (currentPeakMag > self.tapDetectionThreshold)
+                // Re-anchor isAboveThreshold to the level of the first frame that is actually
+                // displayed, so the hysteresis detector starts in the correct state and cannot fire
+                // a spurious rising edge.
+                self.isAboveThreshold = (peakMagnitude > self.tapDetectionThreshold)
 
-                    if wasShowingLive { self.isSettling = false }
+                if wasShowingLive { self.isSettling = false }
 
-                    self.isReadyForDetection = true
+                self.isReadyForDetection = true
 
-                    if wasDetecting { self.detectionState = .listening }
-                    // Derive the status from the state we are now in; where that is a result
-                    // announcement rather than a prompt, put back what was there before the settle.
-                    self.statusMessage = self.restoredStatus(before: self.statusBeforeSettle ?? "Ready")
-                    gtLog("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(currentPeakMag) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
-                }
-                .store(in: &self.cancellables)
+                if self.detectingBeforeSettle == true { self.detectionState = .listening }
+                self.detectingBeforeSettle = nil
+                // Derive the status from the state we are now in; where that is a result
+                // announcement rather than a prompt, put back what was there before the settle.
+                self.statusMessage = self.restoredStatus(before: self.statusBeforeSettle ?? "Ready")
+                self.statusBeforeSettle = nil
+                gtLog("🔄 TapToneAnalyzer: Detection re-enabled after route change (current level: \(peakMagnitude) dB, threshold: \(self.tapDetectionThreshold) dB, above threshold: \(self.isAboveThreshold))")
+            }
         }
     }
 }
