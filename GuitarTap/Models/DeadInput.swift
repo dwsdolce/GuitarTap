@@ -11,7 +11,7 @@
 //  each a row of the truth tables here — is verifiable by a unit test rather than by
 //  reproducing a hardware failure by hand.
 //
-// @parity dead-input
+// @parity audio/dead-input tests=test/dead-input-threshold
 
 import Foundation
 

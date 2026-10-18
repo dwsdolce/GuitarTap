@@ -15,7 +15,7 @@
 //
 //  Source of the numbers: the silent-input incidents of 2026-07-16 and 2026-08-21.
 //
-// @parity dead-input
+// @parity test/dead-input-threshold
 
 import Foundation   // pow(_:_:) — previously came in transitively via XCTest
 import Testing

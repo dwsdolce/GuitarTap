@@ -12,7 +12,7 @@
 //  on only in a build made with `liveProbe` set, and then only while Dump Capture Audio is on: each
 //  measurement's records are written beside its session recording, where the first samples of each
 //  capture buffer place it in that recording.
-//  @parity models/capture-probe
+//  @parity util/capture-probe
 
 import Foundation
 
