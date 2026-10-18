@@ -155,6 +155,8 @@ struct MaterialMeasurementInputsTests {
                     case "guitarBodyWidth": #expect(Self.same(snap.guitarBodyWidth ?? .nan, value), "\(id) \(key)")
                     case "plateStiffnessPreset":
                         #expect(snap.plateStiffnessPreset?.rawValue == value as? String, "\(id) \(key)")
+                    case "guitarType":
+                        #expect(snap.guitarType?.rawValue == value as? String, "\(id) \(key): \(String(describing: snap.guitarType))")
                     default: Issue.record("\(id): unknown saved field \(key)")
                     }
                 }

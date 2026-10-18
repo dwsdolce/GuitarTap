@@ -180,12 +180,6 @@ final class TapToneAnalyzer: ObservableObject {
         numberOfTaps == 1 ? "Tap the guitar..." : "Tap the guitar \(numberOfTaps) times..."
     }
 
-    /// Guitar detection-loop status derived from the current state — the analyzer's
-    /// equivalent of the web `setGuitarStatus(engineState)`.  `capturing == false` →
-    /// the resting prompt (count 0) or the between-taps "…captured. Tap again…";
-    /// `capturing == true` → the in-progress "Tap n/N capturing…" or, on the final tap,
-    /// "All taps captured. Processing…".  (guitar mode keeps `currentTapCount ==
-    /// capturedTaps.count`, so the provisional `+1` matches the old `capturedTaps.count + 1`.)
     /// The status shown while a sequence is PAUSED.  One literal, used by `pauseTapDetection()`
     /// and by ``statusAfterSettle()`` so a device change cannot silently reword a paused sequence.
     static let pausedStatus = "Detection paused – tap freely, then resume"
@@ -262,6 +256,12 @@ final class TapToneAnalyzer: ObservableObject {
         statusAfterSettle() ?? before
     }
 
+    /// Guitar detection-loop status derived from the current state — the analyzer's
+    /// equivalent of the web `setGuitarStatus(engineState)`.  `capturing == false` →
+    /// the resting prompt (count 0) or the between-taps "…captured. Tap again…";
+    /// `capturing == true` → the in-progress "Tap n/N capturing…" or, on the final tap,
+    /// "All taps captured. Processing…".  (guitar mode keeps `currentTapCount ==
+    /// capturedTaps.count`, so the provisional `+1` matches the old `capturedTaps.count + 1`.)
     func guitarLoopStatus(capturing: Bool) -> String {
         if capturing {
             let prov = min(currentTapCount + 1, numberOfTaps)
