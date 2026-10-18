@@ -2,7 +2,7 @@
 //  StateNotificationTests.swift
 //  GuitarTapTests
 //
-//  A device change and the settle after it, against the shared cases in `notification.json` (N1–N18),
+//  A device change and the settle after it, against the shared cases in `notification.json` (N1–N21),
 //  the same as Python and the web: detection stands down and New Tap greys out — and the view is told,
 //  which Swift does with `@Published` (observed here through `objectWillChange`), Python with a signal
 //  and the web with its snapshot and `notify()`, each of which an ordinary edit can break — a live
@@ -55,6 +55,8 @@ struct StateNotificationTests {
             case "statusBeforeSettleAsNoted":
                 #expect((sut.statusBeforeSettle == run.notedStatus) == want as? Bool, "\(id) \(field): \(sut.statusBeforeSettle ?? "nil")")
             case "statusIsArmedPrompt": #expect((sut.statusMessage == sut.armedPrompt()) == want as? Bool, msg)
+            case "statusIsMicrophoneAccessWarning":
+                #expect((sut.statusMessage == TapToneAnalyzer.microphoneAccessStatus) == want as? Bool, "\(id) \(field): \(sut.statusMessage)")
             case "detecting": #expect(sut.isDetecting == want as? Bool, msg)
             case "paused": #expect(sut.isDetectionPaused == want as? Bool, msg)
             case "complete": #expect(sut.isMeasurementComplete == want as? Bool, msg)
@@ -87,6 +89,15 @@ struct StateNotificationTests {
                 sut.applyStatusOverrides()
             } else if let dead = step["inputDead"] as? Bool {
                 sut.fftAnalyzer.inputAppearsDead = dead
+                sut.applyStatusOverrides()
+            } else if let failed = step["couldNotRestart"] as? Bool {
+                sut.fftAnalyzer.inputCouldNotRestart = failed
+                sut.applyStatusOverrides()
+            } else if let failed = step["couldNotStart"] as? Bool {
+                sut.fftAnalyzer.inputCouldNotStart = failed
+                sut.applyStatusOverrides()
+            } else if let denied = step["permissionDenied"] as? Bool {
+                sut.fftAnalyzer.microphonePermissionDenied = denied
                 sut.applyStatusOverrides()
             } else if let fields = step["check"] as? [String: Any] {
                 Self.check(fields, sut, run, id)

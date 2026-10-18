@@ -217,7 +217,7 @@ extension RealtimeFFTAnalyzer {
         // A live room clears this floor by ~20 dB on its noise alone, so only a
         // genuinely dead stream fails to refresh the stamp.
         if chunkCarriesSignal(rms: rms) {
-            lastSignalTime = CACurrentMediaTime()
+            lastSignalTime = wallClock.now()
             if !hasEverReceivedSignal { hasEverReceivedSignal = true }
         }
         let wallNow = Date()

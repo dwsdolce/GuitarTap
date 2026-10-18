@@ -28,6 +28,18 @@ extension RealtimeFFTAnalyzer {
     ///
     /// - Note: Requires microphone permissions. Add `NSMicrophoneUsageDescription` to Info.plist
     func start() throws {
+        // A deliberate start that fails for anything but the permission leaves the input unavailable
+        // until a start succeeds; a recovery's restart has its own warning (`inputCouldNotRestart`).
+        let deliberate = !isRecoveringEngine
+        do {
+            try startEngine()
+        } catch {
+            if deliberate, !Self.isPermissionError(error), !inputCouldNotStart { inputCouldNotStart = true }
+            throw error
+        }
+    }
+
+    private func startEngine() throws {
         gtLog("🎤 === Starting Audio Engine ===")
 
         // An export UI test runs with no input device, as CI does and as the other editions' export tests do:
@@ -78,14 +90,8 @@ extension RealtimeFFTAnalyzer {
         // confirmed .authorized. Acquiring it during the first .notDetermined start()
         // binds a muted input that keeps delivering silent buffers even after the user
         // grants access — the cause of a false "Microphone Access Required" alert
-        // post-grant (macOS App Review 2.1a). On macOS it is acquired after the
-        // authorization switch below; on iOS the caller handles permission before
-        // start(), so acquire it here.
-        #if os(iOS)
-        if inputNode == nil {
-            inputNode = audioEngine.inputNode
-        }
-        #endif
+        // post-grant (macOS App Review 2.1a). It is acquired after the permission
+        // check below, on macOS and iOS alike.
         
         #if os(macOS)
         // Request microphone permission explicitly on macOS
@@ -132,23 +138,51 @@ extension RealtimeFFTAnalyzer {
             return
         case .denied:
             gtLog("⚠️ Microphone permission: DENIED — throwing")
+            microphonePermissionDenied = true
             throw NSError(domain: "RealtimeFFTAnalyzer", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "Microphone access denied"])
         case .restricted:
+            microphonePermissionDenied = true
             throw NSError(domain: "RealtimeFFTAnalyzer", code: 2,
                           userInfo: [NSLocalizedDescriptionKey: "Microphone access restricted"])
         @unknown default:
             break
         }
+        #elseif os(iOS)
+        // iOS: the record permission. Asked when not yet decided — the start resumes through
+        // `onPermissionGranted` once granted, as on macOS; refused, the flag and a permission error.
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
+            gtLog("🎤 Microphone permission: GRANTED")
+        case .undetermined:
+            gtLog("🎤 Microphone permission: UNDETERMINED - requesting now...")
+            AVAudioApplication.requestRecordPermission { [weak self] granted in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if granted {
+                        if let handler = self.onPermissionGranted { handler() } else { try? self.start() }
+                    } else {
+                        self.microphonePermissionDenied = true
+                    }
+                }
+            }
+            return
+        case .denied:
+            gtLog("⚠️ Microphone permission: DENIED — throwing")
+            microphonePermissionDenied = true
+            throw NSError(domain: "RealtimeFFTAnalyzer", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Microphone access denied"])
+        @unknown default:
+            break
+        }
+        #endif
 
-        // Reaching here means permission is .authorized (.notDetermined returns above;
-        // .denied/.restricted throw). Acquire the HAL input only now, so it binds an
-        // authorized device and captures real audio instead of silent buffers.
+        // Reaching here means permission is granted (an undetermined status returns above; a
+        // refusal throws). Acquire the HAL input only now, so it binds an authorized device and
+        // captures real audio instead of silent buffers.
         if inputNode == nil {
             inputNode = audioEngine.inputNode
         }
-        
-        #endif
         
         #if os(iOS)
         // Configure audio session for recording (iOS only)
@@ -264,7 +298,7 @@ extension RealtimeFFTAnalyzer {
         #endif
 
         // Start the audio engine
-        try audioEngine.start()
+        try startAudioEngine()
         gtLog("🎤 Audio engine started")
         
         #if os(macOS)
@@ -407,7 +441,7 @@ extension RealtimeFFTAnalyzer {
                     )
                 }
 
-                try audioEngine.start()
+                try startAudioEngine()
                 gtLog("🎤 Audio engine restarted after reset")
                 inputNode = audioEngine.inputNode
             }
@@ -425,7 +459,7 @@ extension RealtimeFFTAnalyzer {
         
         inputNode.installTap(onBus: 0, bufferSize: requestedBufferSize, format: tapFormat) { [weak self] buffer, time in
             guard let self = self else { return }
-            self.lastBufferTime = CACurrentMediaTime()  // watchdog liveness stamp (audio thread)
+            self.lastBufferTime = self.wallClock.now()  // watchdog liveness stamp (audio thread)
             self.audioProcessingQueue.async {
                 self.processAudioBuffer(buffer)
             }
@@ -459,30 +493,15 @@ extension RealtimeFFTAnalyzer {
         DispatchQueue.main.async { [self] in
             self.isRunning = true
             self.engineStartFailed = false
+            if self.microphonePermissionDenied { self.microphonePermissionDenied = false }
+            if self.inputCouldNotStart { self.inputCouldNotStart = false }
             self.lastOpenedInputDevice = self.selectedInputDevice
-            self.engineStartTime = Date()  // Track start time
-            // Prime the watchdog clock so it doesn't fire during the start-up grace
-            // window, then (re)start the buffer-delivery watchdog. Not armed during
-            // file playback (the file path feeds buffers synthetically).
-            self.lastBufferTime = CACurrentMediaTime()
-            // Prime the dead-input clock too, so the no-signal window is measured from the start
-            // rather than from a `lastSignalTime` of 0 — but ONLY for a start the user asked for.
-            //
-            // A watchdog RECOVERY must not stamp this: `lastSignalTime` means "signal was last
-            // OBSERVED", and a restart observes nothing. Stamping it would make the next tick read
-            // .healthy, clearing the warning and the attempt streak, while the clean slate below
-            // clears the exhausted latch — so .deadInputExhausted would be unreachable and a
-            // permanently silent input would restart the engine every 15 s, strobing the warning.
-            // Uses the flag start() captures at entry (`startedByWatchdogRecovery =
-            // isRecoveringEngine`) rather than a parameter carrying the same fact.
-            if !startedByWatchdogRecovery {
-                self.lastSignalTime = CACurrentMediaTime()
-                // A deliberate (re)start gets a clean slate: full recovery attempts again.
-                self.watchdogRecoveryExhausted = false
-                self.watchdogRecoveryAttempts = 0
-            }
+            // (Re)start the buffer-delivery watchdog, priming its clocks so it doesn't fire during the
+            // start-up grace window — a recovery without the clean slate, by the flag start() captures
+            // at entry (`startedByWatchdogRecovery = isRecoveringEngine`). Not armed during file
+            // playback (the file path feeds buffers synthetically).
             if !self.isPlayingFile {
-                self.startBufferWatchdog()
+                self.startBufferWatchdog(isRecovery: startedByWatchdogRecovery)
                 self.registerConfigurationChangeObserver()
             }
 
@@ -815,7 +834,7 @@ extension RealtimeFFTAnalyzer {
         let fileName = url.deletingPathExtension().lastPathComponent
         prepareForFilePlayback(sampleRate: fileSampleRate, fileName: fileName)
         isRunning = true
-        engineStartTime = Date()
+        engineStartTime = wallClock.now()
 
         TAP_DEBUG("file_playback", "PRE_DISPATCH | armed=\(levelCrossingArmed) isPlayingFile=\(isPlayingFile)")
 
@@ -1027,6 +1046,26 @@ extension RealtimeFFTAnalyzer {
         gtLog("🎤 readAudioFileAsMonoFloat32: \(framesRead) frames, \(fileChannels) ch, \(Int(fileSampleRate)) Hz (via ExtAudioFile)")
 
         return (monoSamples, fileSampleRate)
+    }
+
+    /// Whether a start error is a microphone permission refusal: the engine's own denied and
+    /// restricted errors, or `kAudioUnitErr_Unauthorized` (-10877), which macOS returns when it has
+    /// just revoked access while the status still reads authorized. Mirrors Python
+    /// `is_permission_error`.
+    static func isPermissionError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return (nsError.domain == "RealtimeFFTAnalyzer" && (nsError.code == 1 || nsError.code == 2))
+            || nsError.code == -10877
+    }
+
+    /// `audioEngine.start()`, raising the permission flag when the system refuses it for permission.
+    private func startAudioEngine() throws {
+        do {
+            try audioEngine.start()
+        } catch {
+            if Self.isPermissionError(error) { microphonePermissionDenied = true }
+            throw error
+        }
     }
 
     func stop() {

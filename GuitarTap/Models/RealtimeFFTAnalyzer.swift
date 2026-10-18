@@ -625,18 +625,20 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// starts, so the pre-roll buffer naturally contains no mic audio.
     var postEngineStopHandler: (() -> Void)?
 
-    /// Set to true when permission is confirmed denied after start (macOS TCC cache lag).
-    /// The view observes this to show the "Microphone Access Required" alert.
-    /// Reset to false after the alert has been handled.
+    /// True while the microphone permission is refused: set by a start the system refuses (macOS,
+    /// iOS), by a refusal of the request, and by the 3-second check after a start (macOS TCC cache
+    /// lag); cleared by a start that succeeds and by a healthy watchdog tick. The view shows the
+    /// "Microphone Access Required" alert when it is set; the analyzer shows its status warning
+    /// while it is. Mirrors Python `microphone_permission_denied` and web `microphonePermissionDenied`.
     @Published var microphonePermissionDenied: Bool = false
 
-    #if os(macOS)
-    /// Called on the main thread when the user grants microphone permission during the
-    /// first-launch `requestAccess` dialog. Set by `TapToneAnalyzer` so the full
+    /// Called on the main thread when the user grants microphone permission in the system's
+    /// request. Set by `TapToneAnalyzer` so the full
     /// `TapToneAnalyzer.start()` path (which sets `warmupStartAudioTime` and kicks off
     /// `startTapSequence`) is taken instead of restarting only the FFT engine.
     var onPermissionGranted: (() -> Void)?
 
+    #if os(macOS)
     /// Set true on the main thread the moment the user grants microphone permission, so the
     /// 3-second post-start silence check (RealtimeFFTAnalyzer+EngineControl) does not misread
     /// the brief HAL input-acquisition transition as a denial and show a false
@@ -689,9 +691,27 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// (prints every 30 frames, roughly every 15 s at 2 Hz frame rate).
     var fftCount = 0
 
-    /// Time at which the audio engine most recently started. Used in the 3-second
-    /// post-start diagnostic to determine whether to warn about missing buffers.
-    var engineStartTime: Date?
+    /// Time (`wallClock`) at which the audio engine most recently started. Read by the watchdog
+    /// for its start-up grace.
+    var engineStartTime: TimeInterval?
+
+    /// The wall clock the watchdog reads its times from and schedules its restart on — the system's
+    /// in the app, one moved by hand in a test. Mirrors Python `wall_clock` and web `wallClock`.
+    var wallClock: WallClock = SystemWallClock()
+
+    /// The recovery's restart. `nil` restarts the engine (`start()`); a test stands in for it.
+    /// Mirrors Python `watchdog_restart` and web `watchdogRestart`.
+    var watchdogRestart: (() throws -> Void)?
+
+    /// Whether macOS reports the microphone authorized — the watchdog acts only when it is. A test,
+    /// whose host may not be authorized, stands in for it.
+    var microphoneAuthorized: () -> Bool = {
+        #if os(macOS)
+        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+        #else
+        true
+        #endif
+    }
 
     // MARK: - Buffer-delivery Watchdog
     //
@@ -701,7 +721,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     // notices, so the spectrum freezes indefinitely. A repeating timer detects the
     // silence and performs a clean, bounded, backed-off restart via `start()`.
 
-    /// Monotonic timestamp (`CACurrentMediaTime`) of the most recent tap buffer.
+    /// Time (`wallClock`) of the most recent tap buffer.
     /// Stamped on the audio thread; read on the main thread by the watchdog.
     var lastBufferTime: CFTimeInterval = 0
 
@@ -738,7 +758,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     // a dead stream, not a quiet workshop, and a legitimately silent room can never
     // trigger a restart.
 
-    /// Monotonic timestamp (`CACurrentMediaTime`) of the last buffer that carried
+    /// Time (`wallClock`) of the last buffer that carried
     /// any signal at all. Stamped on the audio processing queue; read on the main
     /// thread by the watchdog (same relaxed access pattern as `lastBufferTime`).
     var lastSignalTime: CFTimeInterval = 0
@@ -770,6 +790,21 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// (it needed a USB re-enumeration), so recovery exhausts its attempts and stops.
     /// An app that says "no audio input" beats an app that looks alive while deaf.
     @Published var inputAppearsDead: Bool = false
+
+    /// True once the recovery has given up after restarts that failed: the input could not be
+    /// opened again. Surfaced in the status line, above the dead-input warning; cleared by a
+    /// deliberate start or by signal returning. Mirrors Python `input_could_not_restart` and web
+    /// `inputCouldNotRestart`.
+    @Published var inputCouldNotRestart: Bool = false
+
+    /// True once a deliberate start has failed for anything but the permission: the input is
+    /// unavailable until a start succeeds. Surfaced in the status line, below the permission warning.
+    /// Mirrors Python `input_could_not_start` and web `inputCouldNotStart`.
+    @Published var inputCouldNotStart: Bool = false
+
+    /// The engine is not running because its input is unavailable — refused the permission, or a
+    /// start failed — rather than because it is starting: what the not-running placeholders say.
+    var inputUnavailable: Bool { microphonePermissionDenied || inputCouldNotStart }
 
     /// True while the engine's audio comes from a device other than the selected one and the
     /// restarts that should bind it again have run out. Surfaced in the status line: audio from

@@ -25,7 +25,7 @@
 //  the engine. The watchdog detects the silence and performs a clean, bounded,
 //  backed-off restart via the existing (hardened) `start()` path.
 //
-// @parity audio/buffer-watchdog
+// @parity audio/buffer-watchdog tests=test/buffer-watchdog
 
 import Foundation
 import AVFoundation
@@ -36,12 +36,32 @@ extension RealtimeFFTAnalyzer {
     /// Backoff schedule (seconds) between consecutive recovery restarts.
     private var watchdogBackoffs: [Double] { [0.5, 1.0, 2.0, 4.0] }
 
-    /// (Re)starts the 1 Hz buffer-delivery watchdog on the main runloop.
-    /// No-op safe to call repeatedly; always replaces any existing timer.
-    func startBufferWatchdog() {
+    /// (Re)starts the buffer-delivery watchdog: stamps its clocks from the wall clock, gives a
+    /// deliberate start a clean slate, and starts the 1 Hz tick on the main runloop. Called by
+    /// `start()`, for a deliberate start and for a recovery's restart alike. Safe to call
+    /// repeatedly; always replaces any existing timer. Mirrors Python
+    /// `start_buffer_watchdog(is_watchdog_recovery)` and web `startBufferWatchdog(isRecovery)`.
+    func startBufferWatchdog(isRecovery: Bool) {
         guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in self?.startBufferWatchdog() }
+            DispatchQueue.main.async { [weak self] in self?.startBufferWatchdog(isRecovery: isRecovery) }
             return
+        }
+        engineStartTime = wallClock.now()
+        lastBufferTime = wallClock.now()
+        // Prime the dead-input clock too, so the no-signal window is measured from the start
+        // rather than from a `lastSignalTime` of 0 — but ONLY for a start the user asked for.
+        //
+        // A watchdog RECOVERY must not stamp this: `lastSignalTime` means "signal was last
+        // OBSERVED", and a restart observes nothing. Stamping it would make the next tick read
+        // .healthy, clearing the warning and the attempt streak, while the clean slate below
+        // clears the exhausted latch — so .deadInputExhausted would be unreachable and a
+        // permanently silent input would restart the engine every 15 s, strobing the warning.
+        if !isRecovery {
+            lastSignalTime = wallClock.now()
+            // A deliberate (re)start gets a clean slate: full recovery attempts again.
+            watchdogRecoveryExhausted = false
+            watchdogRecoveryAttempts = 0
+            if inputCouldNotRestart { inputCouldNotRestart = false }
         }
         watchdogTimer?.invalidate()
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -63,22 +83,23 @@ extension RealtimeFFTAnalyzer {
         watchdogTimer = nil
     }
 
-    /// One watchdog tick: if the live mic engine has gone silent past the threshold,
-    /// kick off a bounded recovery.
-    private func checkBufferWatchdog() {
-        guard isRunning, !isPlayingFile, !isRecoveringEngine, let started = engineStartTime else { return }
+    /// One watchdog tick — run every second by the timer, and by a test: if the live mic engine
+    /// has gone silent past the threshold, kick off a bounded recovery.
+    func checkBufferWatchdog() {
+        // Running — or given up, which still watches even when failed restarts left the engine stopped.
+        guard isRunning || watchdogRecoveryExhausted, !isPlayingFile, !isRecoveringEngine,
+              let started = engineStartTime else { return }
 
         #if os(macOS)
         // A permission problem (not a wedge) is handled by the post-start TCC check;
         // don't fight it. Only recover when we are actually authorized.
-        guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else { return }
+        guard microphoneAuthorized() else { return }
         #endif
 
         // Startup grace: let the post-start permission/TCC flow settle before acting,
         // and give a freshly-(re)started engine time to deliver its first buffer.
-        guard Date().timeIntervalSince(started) > 4.0 else { return }
-
-        let now = CACurrentMediaTime()
+        let now = wallClock.now()
+        guard now - started > 4.0 else { return }
 
         // The rule itself lives in DeadInput.swift as a pure function, so the whole
         // truth table is unit-testable without a clock, a timer or audio hardware.
@@ -127,6 +148,7 @@ extension RealtimeFFTAnalyzer {
 
         case .healthy:
             if inputAppearsDead { inputAppearsDead = false }
+            if inputCouldNotRestart { inputCouldNotRestart = false }
             if inputIsNotSelectedDevice { inputIsNotSelectedDevice = false }
 
             // Real audio falsifies any earlier "permission denied" determination.
@@ -243,6 +265,13 @@ extension RealtimeFFTAnalyzer {
             gtLog("❌ Buffer watchdog: giving up on restarts after \(watchdogMaxAttempts) attempts — still watching; will clear as soon as audio returns")
             isRecoveringEngine = false
             watchdogRecoveryExhausted = true
+            // The last restart failed, so the engine is stopped and its watchdog with it: say so, and
+            // re-arm the watchdog, so it keeps watching — the dead-input warning follows, and signal
+            // returning clears both.
+            if engineStartFailed {
+                if !inputCouldNotRestart { inputCouldNotRestart = true }
+                startBufferWatchdog(isRecovery: true)
+            }
             return
         }
 
@@ -251,10 +280,11 @@ extension RealtimeFFTAnalyzer {
 
         // Clean teardown (also stops this watchdog), then restart via the hardened path.
         stop()
-        DispatchQueue.main.asyncAfter(deadline: .now() + backoff) { [weak self] in
+        wallClock.after(backoff) { [weak self] in
             guard let self = self else { return }
             do {
-                try self.start()  // isRecoveringEngine is still true, so start() knows this is a recovery
+                // isRecoveringEngine is still true, so start() knows this is a recovery
+                if let restart = self.watchdogRestart { try restart() } else { try self.start() }
                 gtLog("✅ Buffer watchdog: engine restarted (attempt \(self.watchdogRecoveryAttempts))")
                 self.isRecoveringEngine = false
             } catch {

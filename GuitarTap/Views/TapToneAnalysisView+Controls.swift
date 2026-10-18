@@ -567,7 +567,7 @@ extension TapToneAnalysisView {
                             .font(.caption)
                             .foregroundColor(Palette.color(.statusPeakReadout))
                     } else {
-                        Text("Starting...")
+                        Text(fft.inputUnavailable ? "Audio input unavailable" : "Starting...")
                             .font(.caption)
                             .foregroundColor(Palette.color(.textSecondary))
                     }

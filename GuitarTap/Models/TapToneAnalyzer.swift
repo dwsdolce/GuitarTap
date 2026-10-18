@@ -511,7 +511,10 @@ final class TapToneAnalyzer: ObservableObject {
         didSet {
             guard statusMessage != TapToneAnalyzer.clippingWarningStatus,
                   statusMessage != TapToneAnalyzer.deadInputStatus,
-                  statusMessage != TapToneAnalyzer.wrongDeviceStatus else { return }
+                  statusMessage != TapToneAnalyzer.wrongDeviceStatus,
+                  statusMessage != TapToneAnalyzer.couldNotRestartStatus,
+                  statusMessage != TapToneAnalyzer.microphoneAccessStatus,
+                  statusMessage != TapToneAnalyzer.couldNotStartStatus else { return }
             latestRealStatus = statusMessage
             applyStatusOverrides()
         }
@@ -596,6 +599,18 @@ final class TapToneAnalyzer: ObservableObject {
     /// restarting has not brought the engine back to it. Ranks below a dead input and above
     /// clipping: the level being read is another microphone's.
     static let wrongDeviceStatus = "⚠ Input is not the selected microphone — choose it again in Settings"
+
+    /// Shown once the recovery has given up after restarts that failed: the input could not be opened
+    /// again. Outranks every other input warning — it says the most about what is wrong.
+    static let couldNotRestartStatus = "⚠ The microphone could not be restarted — check its connection, or choose it again in Settings"
+
+    /// Shown while the microphone permission is refused. Outranks every other input warning: without
+    /// the permission there is no input to warn about.
+    static let microphoneAccessStatus = "⚠ Microphone access required — enable it in Settings, then restart GuitarTap"
+
+    /// Shown while the input could not be started (a deliberate start failed for anything but the
+    /// permission). Ranks just below the permission warning.
+    static let couldNotStartStatus = "⚠ The audio input could not be started — check it, or choose another input in Settings"
 
     // MARK: - Published Frozen Spectrum
 
@@ -1522,9 +1537,8 @@ final class TapToneAnalyzer: ObservableObject {
         self.fftAnalyzer = fftAnalyzer
         self.wallClock = wallClock
 
-        #if os(macOS)
-        // When the user grants microphone permission during the first-launch dialog,
-        // RealtimeFFTAnalyzer's requestAccess callback fires on a background thread.
+        // When the user grants microphone permission in the system's request, the engine's
+        // callback fires on a background thread.
         // Without this hook it would call fftAnalyzer.start() directly, bypassing
         // TapToneAnalyzer.start() — so warmupStartAudioTime would never be set and
         // startTapSequence() would never be called, leaving the app stuck showing
@@ -1537,15 +1551,11 @@ final class TapToneAnalyzer: ObservableObject {
                 // Surface engine errors that occur on the permission-granted restart.
                 // kAudioUnitErr_Unauthorized (-10877): TCC cache hasn't updated yet even
                 // though the user just granted permission — treat as a permission error.
-                let nsError = error as NSError
-                let isPermissionError = (nsError.domain == "RealtimeFFTAnalyzer" && (nsError.code == 1 || nsError.code == 2))
-                                     || nsError.code == -10877
-                if isPermissionError {
+                if RealtimeFFTAnalyzer.isPermissionError(error) {
                     self.fftAnalyzer.microphonePermissionDenied = true
                 }
             }
         }
-        #endif
 
         // Restore persisted analysis settings.
         peakMinThreshold = TapDisplaySettings.peakMinThreshold
@@ -1773,6 +1783,32 @@ final class TapToneAnalyzer: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // ── Microphone-permission override ───────────────────────────────
+        // Same mechanism as the dead input, highest priority.
+        fftAnalyzer.$microphonePermissionDenied
+            .sink { [weak self] denied in
+                self?.microphonePermissionDenied = denied
+                self?.applyStatusOverrides()
+            }
+            .store(in: &cancellables)
+
+        // ── Could-not-start override ─────────────────────────────────────
+        fftAnalyzer.$inputCouldNotStart
+            .sink { [weak self] failed in
+                self?.inputCouldNotStart = failed
+                self?.applyStatusOverrides()
+            }
+            .store(in: &cancellables)
+
+        // ── Could-not-restart override ───────────────────────────────────
+        // Same mechanism as the dead input, higher priority.
+        fftAnalyzer.$inputCouldNotRestart
+            .sink { [weak self] failed in
+                self?.inputCouldNotRestart = failed
+                self?.applyStatusOverrides()
+            }
+            .store(in: &cancellables)
+
         // ── Wrong-device override ────────────────────────────────────────
         fftAnalyzer.$inputIsNotSelectedDevice
             .receive(on: DispatchQueue.main)
@@ -1790,14 +1826,33 @@ final class TapToneAnalyzer: ObservableObject {
     /// `input_appears_dead` and the web's `inputAppearsDead`.
     private(set) var inputAppearsDead = false
 
+    /// The microphone permission is refused — the engine's `microphonePermissionDenied`, kept here by
+    /// its sink. Mirrors Python `microphone_permission_denied` and the web's `microphonePermissionDenied`.
+    private(set) var microphonePermissionDenied = false
+
+    /// The input could not be started — the engine's `inputCouldNotStart`, kept here by its sink.
+    /// Mirrors Python `input_could_not_start` and the web's `inputCouldNotStart`.
+    private(set) var inputCouldNotStart = false
+
+    /// The input could not be restarted — the engine's `inputCouldNotRestart`, kept here by its sink.
+    /// Mirrors Python `input_could_not_restart` and the web's `inputCouldNotRestart`.
+    private(set) var inputCouldNotRestart = false
+
     /// Resolves the displayed status against the active input-condition overrides.
     ///
-    /// One place decides precedence — dead input, then the wrong device, then clipping, then
-    /// whatever the analyzer last set — so the override sinks cannot fight each other or leave
-    /// a stale warning on screen after its condition clears.
+    /// One place decides precedence — the microphone permission refused, then an input that could not
+    /// be started, then one that could not be restarted, then dead input, then the wrong device, then clipping, then whatever the analyzer
+    /// last set — so the override sinks cannot fight each other or leave a stale warning on screen
+    /// after its condition clears.
     func applyStatusOverrides() {
         let resolved: String
-        if inputAppearsDead {
+        if microphonePermissionDenied {
+            resolved = TapToneAnalyzer.microphoneAccessStatus
+        } else if inputCouldNotStart {
+            resolved = TapToneAnalyzer.couldNotStartStatus
+        } else if inputCouldNotRestart {
+            resolved = TapToneAnalyzer.couldNotRestartStatus
+        } else if inputAppearsDead {
             resolved = TapToneAnalyzer.deadInputStatus
         } else if fftAnalyzer.inputIsNotSelectedDevice {
             resolved = TapToneAnalyzer.wrongDeviceStatus

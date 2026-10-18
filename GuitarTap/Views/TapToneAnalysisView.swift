@@ -508,26 +508,14 @@ private struct LifecycleModifier: ViewModifier {
                     toggleAnalyzer()
                 }
             }
-            #if os(macOS)
-            .onAppear {
-                // On macOS, System Settings can force-restart the app after revoking microphone
-                // access. Delay slightly so the window is fully presented before showing the alert.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    let status = AVCaptureDevice.authorizationStatus(for: .audio)
-                    if status == .denied || status == .restricted {
-                        showingMicrophonePermissionAlert = true
-                    }
-                }
-            }
             .onChange(of: fft.microphonePermissionDenied) { _, isDenied in
-                // Fired when the 3-second post-start TCC check confirms permission is denied.
-                // This catches the macOS TCC cache lag case where authorizationStatus briefly
-                // reports .authorized after a forced restart even though the mic is still blocked.
-                if isDenied {
-                    showingMicrophonePermissionAlert = true
-                    fft.microphonePermissionDenied = false
-                }
+                // The engine decides: a start the system refused, a refused request, or the 3-second
+                // check after a start (macOS, where the status can read authorized while the input is
+                // blocked). The flag stays set — the status line says so — until the app is restarted
+                // with the permission granted.
+                if isDenied { showingMicrophonePermissionAlert = true }
             }
+            #if os(macOS)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
                 // Stop the engine when the *main* window is closed.  On macOS with a single
                 // Window scene, closing hides the view without destroying the @StateObject, so
@@ -607,7 +595,12 @@ private struct LifecycleModifier: ViewModifier {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("GuitarTap needs microphone access to analyse tap tones. Please enable it in System Settings → Privacy & Security → Microphone.")
+                // A permission granted while the app runs takes effect when it next starts.
+                #if os(iOS)
+                Text("GuitarTap needs microphone access to analyse tap tones. Please enable it in Settings → Privacy & Security → Microphone, then restart GuitarTap.")
+                #else
+                Text("GuitarTap needs microphone access to analyse tap tones. Please enable it in System Settings → Privacy & Security → Microphone, then restart GuitarTap.")
+                #endif
             }
             .onReceive(NotificationCenter.default.publisher(for: .openMeasurementFile)) { notification in
                 guard let url = notification.object as? URL else { return }

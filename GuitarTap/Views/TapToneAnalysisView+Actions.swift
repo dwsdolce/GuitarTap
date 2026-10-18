@@ -5,17 +5,12 @@
 /// This extension contains all methods that respond to toolbar button taps and
 /// menu selections:
 ///
-/// - **`toggleAnalyzer()`** — Starts or stops the audio engine.  On iOS, requests
-///   microphone permission before starting using the appropriate API for the
-///   OS version (iOS 17+ uses `AVAudioApplication`, earlier uses
-///   `AVAudioSession`).  On macOS, checks `AVCaptureDevice.authorizationStatus`
-///   and shows an alert if the user has denied access.  A macOS-specific error
-///   path handles `kAudioUnitErr_Unauthorized` (−10877) — the OS silently mutes
-///   the audio engine after permission is revoked, even while
-///   `authorizationStatus` still reports `.authorized` from its TCC cache.
+/// - **`toggleAnalyzer()`** — Starts or stops the audio engine.  The engine checks or asks
+///   for the microphone permission when it starts, on macOS and iOS alike.
 ///
 /// - **`startAnalyzer()`** — Calls `TapToneAnalyzer.start()` after configuring
-///   the `AVAudioSession` on iOS.  Surfaces permission errors as an alert.
+///   the `AVAudioSession` on iOS.  Surfaces a permission refusal as the alert
+///   (`RealtimeFFTAnalyzer.isPermissionError`), other failures as an engine error.
 ///
 /// - **`startNewTapSequence()`** — Resets the analyzer for a new tap cycle,
 ///   synchronizing spectrum display state (axis ranges, selected peak IDs)
@@ -45,39 +40,8 @@ extension TapToneAnalysisView {
         if fft.isRunning {
             tap.stop()
         } else {
-            #if os(iOS)
-            // On iOS, request microphone permission first.
-            // If already denied, requestRecordPermission returns false immediately without showing a dialog.
-            if #available(iOS 17.0, *) {
-                AVAudioApplication.requestRecordPermission { granted in
-                    DispatchQueue.main.async {
-                        if granted {
-                            self.startAnalyzer()
-                        } else {
-                            self.showingMicrophonePermissionAlert = true
-                        }
-                    }
-                }
-            } else {
-                AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                    DispatchQueue.main.async {
-                        if granted {
-                            self.startAnalyzer()
-                        } else {
-                            self.showingMicrophonePermissionAlert = true
-                        }
-                    }
-                }
-            }
-            #else
-            // On macOS, check permission before starting; show alert if denied.
-            let status = AVCaptureDevice.authorizationStatus(for: .audio)
-            if status == .denied || status == .restricted {
-                showingMicrophonePermissionAlert = true
-            } else {
-                startAnalyzer()
-            }
-            #endif
+            // The engine asks for or checks the microphone permission when it starts.
+            startAnalyzer()
         }
     }
 
@@ -96,18 +60,14 @@ extension TapToneAnalysisView {
             try self.tapToneAnalyzer.start()
         } catch {
             gtLog("❌ Failed to start analyzer: \(error)")
-            #if os(macOS)
-            // Surface permission errors as an alert.
-            // kAudioUnitErr_Unauthorized (-10877) means the audio engine was denied by TCC —
-            // this happens when macOS restarts the app after revoking permission and the TCC
-            // cache hasn't yet updated, so authorizationStatus still reports .authorized.
-            // Our own domain codes 1/2 cover the cases where the status check fires correctly.
-            let nsError = error as NSError
-            let isPermissionError = (nsError.domain == "RealtimeFFTAnalyzer" && (nsError.code == 1 || nsError.code == 2))
-                                 || nsError.code == -10877
-            if isPermissionError {
+            // A permission refusal: the engine has raised its flag; show the alert.
+            if RealtimeFFTAnalyzer.isPermissionError(error) {
                 showingMicrophonePermissionAlert = true
-            } else if nsError.code == 1937010544 {
+                return
+            }
+            #if os(macOS)
+            let nsError = error as NSError
+            if nsError.code == 1937010544 {
                 // kAUStartIO ('iost') — transient Core Audio I/O start failure.
                 // Typically caused by a Continuity Audio device connecting or disconnecting
                 // at the same moment the engine tries to start.  Retry once after a short

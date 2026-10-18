@@ -184,7 +184,7 @@ extension TapToneAnalysisView {
                             Image(systemName: "waveform")
                                 .font(.system(size: 48))
                                 .foregroundColor(Palette.color(.textSecondary))
-                            Text("Starting...")
+                            Text(fft.inputUnavailable ? "Audio input unavailable" : "Starting...")
                                 .font(.caption)
                                 .foregroundColor(Palette.color(.textSecondary))
                         }
