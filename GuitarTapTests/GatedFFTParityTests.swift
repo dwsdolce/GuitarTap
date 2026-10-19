@@ -23,9 +23,11 @@ private final class GatedFFTBundleAnchor {}
 @Suite("GatedFFTParityTests")
 struct GatedFFTParityTests {
 
-    /// Swift minted the oracle, so it asserts at the same-edition bar (`selfTolerances`). See
-    /// FilePlaybackRegressionTests for why Swift does not use the cross-edition tolerance.
+    /// This configuration's own reference is checked at the same-configuration bar (`selfTolerances`): the oracle
+    /// on macOS, which minted it; the self-baseline on iOS. On iOS the oracle is also checked, at the
+    /// cross-edition bar (`tolerances`), as Python's and the web's suites check theirs.
     private static let tol: Float = ParityOracle.selfTolerance(\.gatedFftDb)
+    private static let crossTol: Float = ParityOracle.shared.tolerances.gatedFftDb
     private static let sampleRate: Double = 48000
 
     /// A hardware-free analyzer: no device enumeration, so no saved device calibration can be loaded
@@ -40,17 +42,31 @@ struct GatedFFTParityTests {
         let signal = makeGatedTestSignal(tones: gfft.toneList, sampleRate: Self.sampleRate)
         let (mags, freqs) = analyzer().computeGatedFFT(samples: signal, sampleRate: Self.sampleRate)
 
+        let own = ParityOracle.referenceGated(name)
         let got = gfft.toneList.map { gatedMagnitude(at: Float($0.hz), magnitudes: mags, frequencies: freqs)! }
         for (tone, db) in zip(gfft.toneList, got) {
-            let expected = gfft.expectedDb(at: tone.hz)
-            #expect(abs(db - expected) <= Self.tol,
-                    "\(name) \(tone.hz) Hz: Swift=\(db) dB, oracle=\(expected) dB")
+            if let own {
+                let expected = own.expectedDb(at: tone.hz)
+                #expect(abs(db - expected) <= Self.tol, "\(name) \(tone.hz) Hz: Swift=\(db) dB, expected \(expected) dB")
+            }
+            if !ParityOracle.isOracleConfiguration {
+                let oracle = gfft.expectedDb(at: tone.hz)
+                #expect(abs(db - oracle) <= Self.crossTol, "\(name) \(tone.hz) Hz: Swift=\(db) dB, oracle=\(oracle) dB")
+            }
         }
         if got.count >= 2 {
-            let expDelta = gfft.deltaDb ?? (gfft.expectedDb(at: gfft.toneList[1].hz) - gfft.expectedDb(at: gfft.toneList[0].hz))
+            func expectedDelta(_ c: ParityOracle.GatedCase) -> Float {
+                c.deltaDb ?? (c.expectedDb(at: c.toneList[1].hz) - c.expectedDb(at: c.toneList[0].hz))
+            }
             let delta = got[1] - got[0]
-            #expect(abs(delta - expDelta) <= Self.tol,
-                    "\(name) delta: Swift=\(delta) dB, oracle=\(expDelta) dB")
+            if let own {
+                #expect(abs(delta - expectedDelta(own)) <= Self.tol,
+                        "\(name) delta: Swift=\(delta) dB, expected \(expectedDelta(own)) dB")
+            }
+            if !ParityOracle.isOracleConfiguration {
+                #expect(abs(delta - expectedDelta(gfft)) <= Self.crossTol,
+                        "\(name) delta: Swift=\(delta) dB, oracle=\(expectedDelta(gfft)) dB")
+            }
         }
     }
 

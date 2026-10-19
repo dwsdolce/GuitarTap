@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# The full test run: the guitar_tap test plan on macOS, then each skipped test and why. xcodebuild's log
-# reports a skip on a line of its own, somewhere among thousands; this lists them at the end, as the
-# Python and web runs do. Tooling/test-fast.sh runs through this too.
+# The full test run: the guitar_tap test plan on macOS (or an iPad or iPhone simulator), then each skipped
+# test and why. xcodebuild's log reports a skip on a line of its own, somewhere among thousands; this lists
+# them at the end, as the Python and web runs do. Tooling/test-fast.sh runs through this too.
 #
-# Usage:  Tooling/test.sh [--bundle path.xcresult] [xcodebuild args…]
+# Usage:  Tooling/test.sh [--simulator <name or id>] [--bundle path.xcresult] [xcodebuild args…]
+#         --simulator runs on that iPad or iPhone simulator ("iPad Air 11-inch (M4)", "iPhone 17"): it is
+#         booted and given the microphone first (the state of a user who has allowed it), as
+#         Tooling/run-export-uitests.sh does.
 #         --bundle keeps the result bundle there (CI uploads it); otherwise it is temporary.
 set -u
 cd "$(dirname "$0")/.." || exit 1          # repo root
@@ -19,6 +22,23 @@ if [ -z "${PYTHON:-}" ]; then
     exit 1
 fi
 
+destination='platform=macOS'
+if [[ "${1:-}" == "--simulator" ]]; then
+    simulator="${2:?--simulator needs a simulator name or id}"
+    shift 2
+    udid="$(xcrun simctl list devices available -j | "$PYTHON" -c '
+import json, sys
+want = sys.argv[1]
+for devices in json.load(sys.stdin)["devices"].values():
+    for d in devices:
+        if want in (d["name"], d["udid"]):
+            print(d["udid"]); sys.exit()
+sys.exit("no available simulator named " + want)' "$simulator")" || exit 1
+    xcrun simctl boot "$udid" 2>/dev/null || true
+    xcrun simctl bootstatus "$udid" > /dev/null
+    xcrun simctl privacy "$udid" grant microphone com.dolcesfogato.GuitarTap
+    destination="platform=iOS Simulator,id=$udid"
+fi
 if [[ "${1:-}" == "--bundle" ]]; then
     bundle="${2:?--bundle needs a path}"
     shift 2
@@ -29,7 +49,7 @@ else
 fi
 rm -rf "$bundle"
 
-xcodebuild test -scheme guitar_tap -testPlan guitar_tap -destination 'platform=macOS' \
+xcodebuild test -scheme guitar_tap -testPlan guitar_tap -destination "$destination" \
     -resultBundlePath "$bundle" "$@"
 status=$?
 

@@ -148,6 +148,97 @@ struct ParityOracle: Codable {
         }
     }()
 
+    // MARK: - This configuration's reference
+    // @parity tooling/self-baseline
+
+    /// Edition, OS and arch — the key every edition's self-baseline is filed under.
+    ///
+    /// Deliberately excludes the Swift and Xcode versions: a toolchain upgrade that moves the
+    /// numbers is precisely the event the zero-tolerance bar exists to catch, and keying on the
+    /// version would let the baseline follow the upgrade and report nothing.
+    static func configuration() -> [String: String] {
+    #if arch(arm64)
+        let arch = "arm64"
+    #elseif arch(x86_64)
+        let arch = "x86_64"
+    #else
+        let arch = "unknown"
+    #endif
+    #if os(macOS)
+        let system = "darwin"
+    #elseif os(iOS) && targetEnvironment(simulator)
+        // The simulator's runtime differs from a device's in the last bit of a few values, where an iPad and
+        // an iPhone agree with each other and with macOS — so it is a configuration of its own.
+        let system = "ios-simulator"
+    #elseif os(iOS)
+        let system = "ios"
+    #else
+        let system = "unknown"
+    #endif
+        return ["edition": "swift", "os": system, "arch": arch]
+    }
+
+    /// Whether this configuration minted the oracle — Swift on macOS. Its regression checks compare
+    /// against the oracle itself; every other Swift configuration has a self-baseline of its own.
+    static var isOracleConfiguration: Bool {
+        configuration()["os"] == "darwin"
+    }
+
+    /// This configuration's self-baseline file name: `self-baseline-<os>-<arch>` — Python's and the web's
+    /// key, for the same reason.
+    static var selfBaselineName: String {
+        let key = configuration()
+        return "self-baseline-\(key["os"] ?? "unknown")-\(key["arch"] ?? "unknown")"
+    }
+
+    /// What this configuration's regression checks compare against, at `selfTolerances`: the oracle where
+    /// it was minted (macOS); elsewhere (iOS) this configuration's self-baseline — its own computed numbers
+    /// laid over the oracle's cases — or nil when it has never been minted (`Tooling/mint-baseline.py`), and
+    /// the regression check does not run. Python's and the web's suites check themselves the same way.
+    static let reference: ParityOracle? = {
+        if isOracleConfiguration { return shared }
+        let bundle = Bundle(for: ParityOracleBundleMarker.self)
+        guard let baselineURL = bundle.url(forResource: selfBaselineName, withExtension: "json") else {
+            print("⚠️ \(selfBaselineName).json has never been minted: this configuration's regression check is "
+                  + "not in force — only the cross-edition check against the oracle runs. Mint it with "
+                  + "Tooling/mint-baseline.py.")
+            return nil
+        }
+        guard let oracleURL = bundle.url(forResource: "parity-oracle", withExtension: "json"),
+              var root = (try? JSONSerialization.jsonObject(with: Data(contentsOf: oracleURL))) as? [String: Any],
+              let baseline = (try? JSONSerialization.jsonObject(with: Data(contentsOf: baselineURL))) as? [String: Any],
+              let values = baseline["values"] as? [String: Any] else {
+            fatalError("\(selfBaselineName).json or parity-oracle.json could not be read")
+        }
+        for block in ["filePlayback", "gatedFft"] {
+            guard var cases = root[block] as? [String: Any], let computed = values[block] as? [String: Any] else { continue }
+            for (name, body) in computed {
+                guard var caseDict = cases[name] as? [String: Any], let own = body as? [String: Any] else { continue }
+                for (key, value) in own { caseDict[key] = value }
+                cases[name] = caseDict
+            }
+            root[block] = cases
+        }
+        do {
+            let decoder = JSONDecoder()
+            decoder.nonConformingFloatDecodingStrategy =
+                .convertFromString(positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
+            return try decoder.decode(ParityOracle.self, from: JSONSerialization.data(withJSONObject: root))
+        } catch {
+            fatalError("\(selfBaselineName).json could not be decoded: \(error)")
+        }
+    }()
+
+    /// A file-playback case in this configuration's reference, or nil when it has none.
+    static func referencePlayback(_ name: String) -> PlaybackCase? {
+        reference?.filePlayback[name]
+    }
+
+    /// A gated-FFT case in this configuration's reference, or nil when it has none.
+    static func referenceGated(_ name: String) -> GatedCase? {
+        reference?.gatedFft[name]
+    }
+
     static func playback(_ name: String) -> PlaybackCase {
         guard let found = shared.filePlayback[name] else {
             fatalError("parity-oracle.json has no filePlayback case \(name)")

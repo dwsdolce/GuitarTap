@@ -73,6 +73,31 @@ private func tolerance(_ field: String) -> Float {
     }
 }
 
+/// The cross-edition bar for a field — a case's own override, else the global value.
+private func crossTolerance(_ field: String, for name: String) -> Float {
+    switch field {
+    case "frequency": return ParityOracle.tolerance(\.freqHz, global: \.freqHz, for: name)
+    case "magnitude": return ParityOracle.tolerance(\.magDb, global: \.magDb, for: name)
+    default:          return ParityOracle.tolerance(\.q, global: \.q, for: name)
+    }
+}
+
+/// Swift's two checks of a computed value: against this configuration's own reference at the
+/// same-configuration bar (the oracle on macOS, the self-baseline on iOS — none when never minted); and, where
+/// this configuration did not mint the oracle, against the oracle at the cross-edition bar, as Python's and the
+/// web's suites check theirs.
+private func expectMatch(_ got: Float, _ field: String, oracle: Float, reference: Float?, case name: String,
+                         _ label: String, sourceLocation: SourceLocation = #_sourceLocation) {
+    if let reference {
+        #expect(abs(got - reference) <= tolerance(field), "\(label): expected \(reference), got \(got)",
+                sourceLocation: sourceLocation)
+    }
+    if !ParityOracle.isOracleConfiguration {
+        #expect(abs(got - oracle) <= crossTolerance(field, for: name),
+                "\(label): the oracle has \(oracle), got \(got)", sourceLocation: sourceLocation)
+    }
+}
+
 private func value(_ field: String, of peak: ResonantPeak) -> Float {
     field == "frequency" ? peak.frequency : field == "magnitude" ? peak.magnitude : peak.quality
 }
@@ -138,40 +163,55 @@ struct FilePlaybackRegressionTests {
             case "tapEntries":
                 #expect(sut.tapEntries.count == check.count, "\(c.id): tap entries \(sut.tapEntries.count)")
             case "peaks":
-                let expected = check.expected == "averagedPeaks" ? reg.averagedPeaks : reg.peaks
+                let averaged = check.expected == "averagedPeaks"
+                let expected = averaged ? reg.averagedPeaks : reg.peaks
+                let own = ParityOracle.referencePlayback(c.oracle)
+                let ownExpected = averaged ? own?.averagedPeaks : own?.peaks
                 for role in check.roles ?? [] {
                     let want = try #require(expected?.first { $0.role == role }, "\(c.id): the oracle has no \(role) peak")
+                    let ownWant = ownExpected?.first { $0.role == role }
                     guard let got = identifiedPeak(sut, role) else {
                         Issue.record("\(c.id): the \(role) peak should be identified")
                         continue
                     }
                     for field in check.fields ?? [] {
-                        #expect(abs(value(field, of: got) - value(field, of: want)) <= tolerance(field),
-                                "\(c.id) \(role) \(field): expected \(value(field, of: want)), got \(value(field, of: got))")
+                        expectMatch(value(field, of: got), field, oracle: value(field, of: want),
+                                    reference: ownWant.map { value(field, of: $0) }, case: c.oracle,
+                                    "\(c.id) \(role) \(field)")
                     }
                 }
             case "perTapPeaks":
                 let rows = reg.perTap ?? []
+                let ownRows = ParityOracle.referencePlayback(c.oracle)?.perTap
                 #expect(sut.tapEntries.count == rows.count, "\(c.id): \(sut.tapEntries.count) tap entries, the oracle has \(rows.count)")
                 // TapEntry.resolvedModePeaks() — the code path of MultiTapComparisonResultsView and the PDF.
                 for (index, (entry, row)) in zip(sut.tapEntries, rows).enumerated() {
                     let modePeaks = entry.resolvedModePeaks()
                     for role in check.roles ?? [] {
                         guard let want = row.peaks.first(where: { $0.role == role }) else { continue }
+                        let ownWant = ownRows.flatMap { index < $0.count ? $0[index] : nil }?.peaks
+                            .first { $0.role == role }
                         guard let got = guitarModes[role].flatMap({ modePeaks[$0] }) else {
                             Issue.record("\(c.id) tap \(index + 1): no \(role) peak")
                             continue
                         }
                         for field in check.fields ?? [] {
-                            #expect(abs(value(field, of: got) - value(field, of: want)) <= tolerance(field),
-                                    "\(c.id) tap \(index + 1) \(role) \(field): expected \(value(field, of: want)), got \(value(field, of: got))")
+                            expectMatch(value(field, of: got), field, oracle: value(field, of: want),
+                                        reference: ownWant.map { value(field, of: $0) }, case: c.oracle,
+                                        "\(c.id) tap \(index + 1) \(role) \(field)")
                         }
                     }
                 }
             case "ringOut":
                 let decay = try #require(sut.currentDecayTime, "\(c.id): no ring-out measured")
                 let golden = try #require(reg.ringOutSec)
-                #expect(abs(decay - golden) <= ParityOracle.selfTolerance(\.ringOutSec), "\(c.id): ring-out expected \(golden), got \(decay)")
+                if let own = ParityOracle.referencePlayback(c.oracle)?.ringOutSec {
+                    #expect(abs(decay - own) <= ParityOracle.selfTolerance(\.ringOutSec), "\(c.id): ring-out expected \(own), got \(decay)")
+                }
+                if !ParityOracle.isOracleConfiguration {
+                    #expect(abs(decay - golden) <= ParityOracle.shared.tolerances.ringOutSec,
+                            "\(c.id): ring-out: the oracle has \(golden), got \(decay)")
+                }
             case "phasesCaptured":
                 let captured = [sut.longitudinalSpectrum, sut.crossSpectrum, sut.flcSpectrum].compactMap { $0 }.count
                 #expect(captured == check.count, "\(c.id): \(captured) phases captured; noiseFloorEstimate=\(sut.noiseFloorEstimate) dBFS")

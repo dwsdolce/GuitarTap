@@ -1,7 +1,8 @@
-# The Apple edition's tests on GitHub's Xcode 27 runner: the full unit-test plan on macOS, then the export UI
-# tests — the real app driven through Import and both export paths — on the Mac, an iPad, and an iPhone
-# simulator, each checked against the expected values (Tooling/run-export-uitests.sh). Set up as the README
-# says, in bash. CI has no signing certificates, so it signs ad hoc (an xcconfig override, not a project change).
+# The Apple edition's tests on GitHub's Xcode 27 runner: the full unit-test plan on macOS and on an iPad and an
+# iPhone simulator, then the export UI tests — the real app driven through Import and both export paths — on the
+# Mac, an iPad, and an iPhone simulator, each checked against the expected values (Tooling/run-export-uitests.sh).
+# Set up as the README says, in bash. CI has no signing certificates, so it signs ad hoc (an xcconfig override,
+# not a project change).
 name: Tests
 
 on:
@@ -49,6 +50,50 @@ jobs:
         with:
           name: unit-xcresult
           path: build/unit.xcresult
+          if-no-files-found: ignore
+
+  # The same unit-test plan on an iPad and an iPhone simulator: the simulator checks itself against its own minted
+  # self-baseline (GuitarTapTests/self-baseline-ios-simulator-arm64.json) and against the oracle at the
+  # cross-edition bar. A physical device has its own baseline, checked by hand (CI has no devices).
+  unit-ios:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ["iPad Air 11-inch (M4)", "iPhone 17"]
+    runs-on: xcode-27
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Python environment
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements-dev.txt
+
+      - name: Sign ad hoc
+        run: |
+          printf 'CODE_SIGN_STYLE = Manual\nCODE_SIGN_IDENTITY = -\nDEVELOPMENT_TEAM =\nPROVISIONING_PROFILE_SPECIFIER =\n' > "$RUNNER_TEMP/ci.xcconfig"
+          echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/ci.xcconfig" >> "$GITHUB_ENV"
+
+      - name: Tests
+        run: Tooling/test.sh --simulator "${{ matrix.target }}" --bundle build/unit-ios.xcresult
+
+      - name: Result bundle (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-ios-xcresult-${{ strategy.job-index }}
+          path: build/unit-ios.xcresult
           if-no-files-found: ignore
 
   export-ui:

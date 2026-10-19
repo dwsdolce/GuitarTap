@@ -77,6 +77,7 @@ Guide and release notes (below).
 
 - **The full suite** — the `guitar_tap` test plan: Product → Test in Xcode, or `Tooling/test.sh`, which runs
   it with `xcodebuild` and then lists each skipped test and why (as the Python and web runs do).
+  `--simulator "iPad Air 11-inch (M4)"` (or an iPhone, or a simulator's id) runs it on that simulator.
 
 - **The fast run** — `Tooling/test-fast.sh` runs the macOS suite except the recording-playback regression
   (`FilePlaybackRegressionTests`), which is most of the suite's time — for use while working; run the full
@@ -94,6 +95,14 @@ Behaviour is defined by this app. The contract the other editions are held to is
 self-contained. Each mirrored module carries a `@parity` slug that keeps the Swift, Python, and web
 implementations in step. When an algorithm changes, it is designed once and applied to all three together,
 with the oracle regenerated (`Tooling/mint-oracle.sh`).
+
+The oracle is also Swift-on-macOS's own regression reference. Swift on iOS checks itself against its own
+self-baseline at the same zero-tolerance bar, and against the oracle at the cross-edition bar — as Python and the
+web do. iOS is two configurations: a physical iPad or iPhone (`GuitarTapTests/self-baseline-ios-arm64.json`; the
+two agree) and the simulator (`self-baseline-ios-simulator-arm64.json` — its runtime differs from a device's in
+the last bit of a few values). Each is minted by `Tooling/mint-baseline.py --device <name>` or
+`--simulator <name>`: a first mint must clear the oracle's first-mint bar; a re-mint prints the diff and asks;
+`--check` writes nothing.
 
 ## Soak / stress testing
 

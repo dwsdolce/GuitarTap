@@ -153,29 +153,6 @@ struct GenerateParityOracleTests {
     /// committed oracle still carried the placeholder `TBD-swift-commit-sha`, so when its
     /// numbers were found to have drifted there was no way to say WHICH build produced
     /// them, or when. This field is how the next person dates the goldens.
-    /// Edition, OS and arch — the key every edition's self-baseline is filed under.
-    ///
-    /// Deliberately excludes the Swift and Xcode versions: a toolchain upgrade that moves the
-    /// numbers is precisely the event the zero-tolerance bar exists to catch, and keying on the
-    /// version would let the baseline follow the upgrade and report nothing.
-    private static func configuration() -> [String: String] {
-    #if arch(arm64)
-        let arch = "arm64"
-    #elseif arch(x86_64)
-        let arch = "x86_64"
-    #else
-        let arch = "unknown"
-    #endif
-    #if os(macOS)
-        let system = "darwin"
-    #elseif os(iOS)
-        let system = "ios"
-    #else
-        let system = "unknown"
-    #endif
-        return ["edition": "swift", "os": system, "arch": arch]
-    }
-
     private static func oracleVersion() -> String {
         if let sha = ProcessInfo.processInfo.environment["PARITY_ORACLE_VERSION"],
            !sha.isEmpty {
@@ -218,12 +195,122 @@ struct GenerateParityOracleTests {
                    "it writes the parity oracle — run by Tooling/mint-oracle.sh"))
     func generateParityOracle() async throws {
         let url = Self.sourceOracleURL
+        guard var root = try await Self.computeOracle() else {
+            Issue.record("parity-oracle.json is not the expected shape")
+            return
+        }
+        root["oracleVersion"] = Self.oracleVersion()
+        root["generatedAt"] = ISO8601DateFormatter().string(from: Date())
+        // Which configuration minted this. The oracle is the cross-edition contract AND the
+        // canonical configuration's own zero-tolerance self-baseline — it is only the second
+        // of those for the configuration that produced it, so the file has to say which one
+        // that was rather than leave the hub to assume it.
+        root["configuration"] = ParityOracle.configuration()
+
+        // Tolerances are hand-written, not computed, but they still round-trip through
+        // Double — so 0.03 re-serialises as 0.029999999999999999 and churns the diff on
+        // every regeneration. Re-round them through the shortest decimal that reproduces
+        // the value, the same treatment the computed values get.
+        //
+        // NOT by rounding to a fixed number of decimal places: the parity bar is now
+        // 1e-07 for ringOutSec and 1e-05 for q, and rounding those to 5 dp would silently
+        // write 0 — a bar of zero on values that cannot be zero, which would fail every
+        // run and look like a real finding.
+        for key in ["tolerances", "selfTolerances", "bootstrapTolerances"] {
+            if var block = root[key] as? [String: Any] {
+                for (k, v) in block {
+                    if let d = v as? Double { block[k] = Double(String(d)) ?? d }
+                }
+                root[key] = block
+            }
+        }
+
+        var out = try JSONSerialization.data(
+            withJSONObject: root,
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        )
+        out.append(0x0A)   // trailing newline, so every diff does not end in "\ No newline"
+        let dest = Self.outputURL
+        try out.write(to: dest)
+        print("PARITY_ORACLE_WROTE \(dest.path)")
+        print("Regenerated from \(url.path) — the wrapper copies it into the tree; review the diff, then publish with Tooling/sync-oracle.sh --publish")
+    }
+
+    /// This configuration's self-baseline — what it computes for every oracle case — in the format every
+    /// edition's baseline shares: `configuration`, `provenance`, and `values` holding only each case's
+    /// computed numbers (file playback: `peaks`, `averagedPeaks`, `perTap`, `ringOutSec`; gated FFT:
+    /// `expected`, `deltaDb`, `maxDb`). Written to the temporary directory for `Tooling/mint-baseline.py`,
+    /// which checks it and copies it beside the tests; the canonical configuration's baseline is the
+    /// oracle itself, so this is for every other Swift configuration (iOS).
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["GENERATE_SELF_BASELINE"] != nil,
+                   "it writes this configuration's self-baseline — run by Tooling/mint-baseline.py"))
+    func generateSelfBaseline() async throws {
+        guard let root = try await Self.computeOracle(),
+              let playback = root["filePlayback"] as? [String: Any],
+              let gated = root["gatedFft"] as? [String: Any] else {
+            Issue.record("parity-oracle.json is not the expected shape")
+            return
+        }
+        func computed(_ block: [String: Any], keys: Set<String>) -> [String: Any] {
+            var out: [String: Any] = [:]
+            for (name, body) in block where !name.hasPrefix("_") {
+                guard let caseDict = body as? [String: Any] else { continue }
+                out[name] = caseDict.filter { keys.contains($0.key) }
+            }
+            return out
+        }
+        let environment = ProcessInfo.processInfo.environment
+        let baseline: [String: Any] = [
+            "_generator": "GuitarTap Tooling/mint-baseline.py — this configuration's zero-tolerance regression "
+                + "reference. Not the oracle: the oracle is the cross-edition contract minted by Swift on macOS.",
+            "configuration": ParityOracle.configuration(),
+            "provenance": [
+                "mintedAt": ISO8601DateFormatter().string(from: Date()),
+                "oracleVersion": root["oracleVersion"] as? String ?? "unknown",
+                "device": environment["SIMULATOR_MODEL_IDENTIFIER"] ?? Self.machine(),
+                "simulator": environment["SIMULATOR_DEVICE_NAME"] ?? "no",
+                "system": ProcessInfo.processInfo.operatingSystemVersionString,
+            ],
+            "values": [
+                "filePlayback": computed(playback, keys: ["peaks", "averagedPeaks", "perTap", "ringOutSec"]),
+                "gatedFft": computed(gated, keys: ["expected", "deltaDb", "maxDb"]),
+            ],
+        ]
+        var out = try JSONSerialization.data(
+            withJSONObject: baseline,
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        )
+        out.append(0x0A)
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("self-baseline.json")
+        try out.write(to: dest)
+        print("SELF_BASELINE_WROTE \(dest.path)")
+    }
+
+    /// The hardware model identifier (`iPad17,3`, `iPhone18,2` …).
+    private static func machine() -> String {
+        var info = utsname()
+        uname(&info)
+        return withUnsafeBytes(of: &info.machine) { raw in
+            String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
+        }
+    }
+
+    /// The oracle's cases with every value computed by this configuration: the committed oracle read
+    /// from the source tree, each file-playback case played through the app and each gated-FFT case
+    /// transformed, its numbers replaced. The oracle and a configuration's self-baseline both come from
+    /// here, so iOS's numbers come from the code that makes the oracle. Nil if the file is not the
+    /// expected shape.
+    private static func computeOracle() async throws -> [String: Any]? {
+        // The source tree where it can be read (the Mac, a simulator); on a device, which cannot reach this
+        // Mac's files, the test bundle's copy — the same committed file.
+        let url = FileManager.default.isReadableFile(atPath: Self.sourceOracleURL.path) ? Self.sourceOracleURL
+            : Bundle(for: OracleBundleMarker.self).url(forResource: "parity-oracle", withExtension: "json")
+                ?? Self.sourceOracleURL
         let data = try Data(contentsOf: url)
         guard var root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               var playback = root["filePlayback"] as? [String: Any],
               var gated = root["gatedFft"] as? [String: Any] else {
-            Issue.record("parity-oracle.json is not the expected shape")
-            return
+            return nil
         }
 
         let bundle = Bundle(for: OracleBundleMarker.self)
@@ -352,41 +439,7 @@ struct GenerateParityOracleTests {
 
         root["filePlayback"] = playback
         root["gatedFft"] = gated
-        root["oracleVersion"] = Self.oracleVersion()
-        root["generatedAt"] = ISO8601DateFormatter().string(from: Date())
-        // Which configuration minted this. The oracle is the cross-edition contract AND the
-        // canonical configuration's own zero-tolerance self-baseline — it is only the second
-        // of those for the configuration that produced it, so the file has to say which one
-        // that was rather than leave the hub to assume it.
-        root["configuration"] = Self.configuration()
-
-        // Tolerances are hand-written, not computed, but they still round-trip through
-        // Double — so 0.03 re-serialises as 0.029999999999999999 and churns the diff on
-        // every regeneration. Re-round them through the shortest decimal that reproduces
-        // the value, the same treatment the computed values get.
-        //
-        // NOT by rounding to a fixed number of decimal places: the parity bar is now
-        // 1e-07 for ringOutSec and 1e-05 for q, and rounding those to 5 dp would silently
-        // write 0 — a bar of zero on values that cannot be zero, which would fail every
-        // run and look like a real finding.
-        for key in ["tolerances", "selfTolerances", "bootstrapTolerances"] {
-            if var block = root[key] as? [String: Any] {
-                for (k, v) in block {
-                    if let d = v as? Double { block[k] = Double(String(d)) ?? d }
-                }
-                root[key] = block
-            }
-        }
-
-        var out = try JSONSerialization.data(
-            withJSONObject: root,
-            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        )
-        out.append(0x0A)   // trailing newline, so every diff does not end in "\ No newline"
-        let dest = Self.outputURL
-        try out.write(to: dest)
-        print("PARITY_ORACLE_WROTE \(dest.path)")
-        print("Regenerated from \(url.path) — the wrapper copies it into the tree; review the diff, then publish with Tooling/sync-oracle.sh --publish")
+        return root
     }
 }
 
