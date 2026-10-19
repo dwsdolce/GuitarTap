@@ -58,3 +58,7 @@ Documentation/Manual/index.html
 # Intermediates written during the build.
 Documentation/Manual/nav.html
 Documentation/Manual/ch00-toc.html
+
+# Python bytecode
+__pycache__/
+*.pyc
