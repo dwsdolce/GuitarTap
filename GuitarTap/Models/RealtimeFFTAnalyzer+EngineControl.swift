@@ -333,13 +333,13 @@ extension RealtimeFFTAnalyzer {
         
         gtLog("🎤 Hardware sample rate: \(self.actualSampleRate) Hz, hardware channels: \(hardwareFormat.channelCount) (tap will use mono)")
         
-        // Validate sample rate
+        // Validate sample rate. Permission was decided above, so a rate of 0 is the device's.
         guard actualSampleRate > 0 else {
             audioEngine.stop()
             throw NSError(
                 domain: "RealtimeFFTAnalyzer",
                 code: -2,
-                userInfo: [NSLocalizedDescriptionKey: "Audio hardware not available. Sample rate is 0 Hz. Check microphone permissions and ensure an audio input device is connected."]
+                userInfo: [NSLocalizedDescriptionKey: "Audio hardware not available: the input device reports a sample rate of 0 Hz. Check that an audio input device is connected."]
             )
         }
         
