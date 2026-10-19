@@ -31,7 +31,7 @@ struct BufferWatchdogTests {
     }()
 
     nonisolated static func ids() -> [String] {
-        (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
+        (data["cases"] as! [[String: Any]]).filter { $0["only"] as? String != "web" }.map { $0["id"] as! String }
     }
 
     /// Exact in binary, so every time the cases reach is exact in every edition.
@@ -79,6 +79,7 @@ struct BufferWatchdogTests {
                 case "givenUp": #expect(sut.watchdogRecoveryExhausted == want as? Bool, msg)
                 case "inputDead": #expect(sut.inputAppearsDead == want as? Bool, msg)
                 case "couldNotRestart": #expect(sut.inputCouldNotRestart == want as? Bool, msg)
+                case "inputUnavailable": #expect(sut.inputUnavailable == want as? Bool, msg)
                 case "permissionDenied": #expect(sut.microphonePermissionDenied == want as? Bool, msg)
                 case "restarts": #expect(restartTimes.count == want as? Int, msg)
                 case "restartTimes":
@@ -102,6 +103,8 @@ struct BufferWatchdogTests {
                 run.run(seconds, step["input"] as! String)
             } else if let restart = step["restart"] as? String {
                 run.restartFails = restart == "fails"
+            } else if step["authorized"] as? Bool == false {
+                run.sut.microphoneAuthorized = { false }
             } else if step["permissionDenied"] as? Bool == true {
                 run.sut.microphonePermissionDenied = true
             } else if step["playFile"] as? Bool == true {

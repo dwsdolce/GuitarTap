@@ -802,9 +802,10 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Mirrors Python `input_could_not_start` and web `inputCouldNotStart`.
     @Published var inputCouldNotStart: Bool = false
 
-    /// The engine is not running because its input is unavailable — refused the permission, or a
-    /// start failed — rather than because it is starting: what the not-running placeholders say.
-    var inputUnavailable: Bool { microphonePermissionDenied || inputCouldNotStart }
+    /// The engine is not running because its input is unavailable — refused the permission, a start
+    /// failed, or the recovery's restarts failed — rather than because it is starting: what the
+    /// not-running placeholders say.
+    var inputUnavailable: Bool { microphonePermissionDenied || inputCouldNotStart || inputCouldNotRestart }
 
     /// True while the engine's audio comes from a device other than the selected one and the
     /// restarts that should bind it again have run out. Surfaced in the status line: audio from
