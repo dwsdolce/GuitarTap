@@ -90,11 +90,10 @@ extension RealtimeFFTAnalyzer {
         guard isRunning || watchdogRecoveryExhausted, !isPlayingFile, !isRecoveringEngine,
               let started = engineStartTime else { return }
 
-        #if os(macOS)
         // A permission problem (not a wedge) is handled by the post-start TCC check;
-        // don't fight it. Only recover when we are actually authorized.
+        // don't fight it. Only recover when we are actually authorized — on every platform:
+        // `microphoneAuthorized` answers for its own (macOS asks TCC; elsewhere it is true).
         guard microphoneAuthorized() else { return }
-        #endif
 
         // Startup grace: let the post-start permission/TCC flow settle before acting,
         // and give a freshly-(re)started engine time to deliver its first buffer.
