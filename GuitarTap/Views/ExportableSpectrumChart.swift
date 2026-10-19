@@ -2,7 +2,7 @@
 //  ExportableSpectrumChart.swift
 //  GuitarTap
 //
-// @parity view/spectrum-export tests=test/spectrum-export
+// @parity view/spectrum-export tests=test/spectrum-export,test/export-e2e
 //
 
 /// # ExportableSpectrumChart
@@ -507,6 +507,7 @@ func makeExportableSpectrumView(
     minDB: Float,
     maxDB: Float,
     peaks: [ResonantPeak],
+    showModeBoundaries: Bool = true,
     annotationOffsets: [UUID: CGPoint] = [:],
     showUnknownModes: Bool? = nil,
     measurementType: MeasurementType = .generic,
@@ -644,7 +645,7 @@ func makeExportableSpectrumView(
             minDB: minDB,
             maxDB: maxDB,
             peaks: peaks,
-            showModeBoundaries: true,
+            showModeBoundaries: showModeBoundaries,
             annotationOffsets: annotationOffsets,
             showUnknownModes: showUnknownModes,
             measurementType: measurementType,
@@ -885,14 +886,14 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) throws ->
         }
 
     // The chart's range spans the taps' spectra.
-    let snaps = (measurement.tapEntries ?? []).map(\.snapshot)
+    let range = DisplayRange.spanning((measurement.tapEntries ?? []).map(\.snapshot))
     let compositeView = makeExportableSpectrumView(
         frequencies: [],
         magnitudes: [],
-        minFreq: snaps.map(\.minFreq).min() ?? 50,
-        maxFreq: snaps.map(\.maxFreq).max() ?? 1000,
-        minDB:   snaps.map(\.minDB).min()   ?? -100,
-        maxDB:   snaps.map(\.maxDB).max()   ?? 0,
+        minFreq: range?.minFreq ?? 50,
+        maxFreq: range?.maxFreq ?? 1000,
+        minDB:   range?.minDB   ?? -100,
+        maxDB:   range?.maxDB   ?? 0,
         peaks: [],
         // The measurement's own guitar type, as the main window's tap comparison has it.
         measurementType: measurement.spectrumSnapshot?.measurementType ?? .generic,
@@ -924,15 +925,20 @@ func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) throws 
         return (magnitudes: entry.snapshot.magnitudes, frequencies: entry.snapshot.frequencies,
                 color: color, label: entry.label)
     }
-    let snaps = entries.map(\.snapshot)
+    // The range it was saved with, as a measurement's image; one saved before comparisons kept their
+    // range spans its entries', as loading it does.
+    let range = measurement.comparisonRange ?? DisplayRange.spanning(entries.map(\.snapshot))
+        ?? DisplayRange.ChartRange(minFreq: 50, maxFreq: 1000, minDB: -100, maxDB: 0)
     let compositeView = makeExportableSpectrumView(
         frequencies: [],
         magnitudes: [],
-        minFreq: snaps.map(\.minFreq).min() ?? 50,
-        maxFreq: snaps.map(\.maxFreq).max() ?? 1000,
-        minDB:   snaps.map(\.minDB).min()   ?? -100,
-        maxDB:   snaps.map(\.maxDB).max()   ?? 0,
+        minFreq: range.minFreq,
+        maxFreq: range.maxFreq,
+        minDB:   range.minDB,
+        maxDB:   range.maxDB,
         peaks: [],
+        // A comparison's entries need not be of one guitar type: no mode lines.
+        showModeBoundaries: false,
         measurementType: .generic,
         materialSpectra: comparisonSpectra,
         dateLabel: DateDisplay.string(measurement.timestamp),

@@ -106,6 +106,8 @@ struct AnnotationStateTests {
                 #expect(hz == (want as! [NSNumber]).map(\.doubleValue), "\(id) \(field): \(hz)")
             case "visibility":
                 #expect(sut.annotationVisibilityMode.rawValue == want as? String, "\(id) \(field)")
+            case "savedVisibility":
+                #expect(TapDisplaySettings.annotationVisibilityMode.rawValue == want as? String, "\(id) \(field)")
             case "label":
                 for (name, label) in want as! [String: String] {
                     #expect(sut.effectiveModeLabel(for: c.peak(name)) == label, "\(id) \(field) \(name): \(sut.effectiveModeLabel(for: c.peak(name)))")

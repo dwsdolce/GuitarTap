@@ -197,6 +197,16 @@ struct MicrophoneCalibration: Codable, Identifiable, Equatable {
         return frequencies.map { correction(at: $0) }
     }
 
+    /// The details Settings shows for this calibration: its sensitivity (when the file gives one), its
+    /// number of points, and the frequencies they span (when it has any).
+    var details: (sensitivity: String?, dataPoints: String, range: String?) {
+        let sensitivity = sensitivityFactor.map { "Sensitivity: \(String(format: "%.2f", $0)) dB" }
+        let range = correctionPoints.first.flatMap { first in
+            correctionPoints.last.map { "\(String(format: "%.0f", first.frequency))-\(String(format: "%.0f", $0.frequency)) Hz" }
+        }
+        return (sensitivity, "Data points: \(correctionPoints.count)", range)
+    }
+
     // MARK: - Equatable
 
     /// Two calibrations are equal when their ``id`` values match.

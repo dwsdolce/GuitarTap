@@ -15,13 +15,17 @@ import Testing
 
 private final class AnalyzerStepsAnchor {}
 
+/// The sample count `liveAudio` has fed, so its tone runs on across steps.
+nonisolated(unsafe) private var liveAudioSample = 0
+
 private let materialPhases: [String: MaterialTapPhase] = [
     "L": .capturingLongitudinal, "C": .capturingCross, "FLC": .capturingFlc,
 ]
 
 /// Runs `step` on `sut` if it is one of the shared steps, and says whether it was.
 ///
-/// - `{"settings": {"type": saved name, "measureFlc": Bool}}` — as Settings writes them
+/// - `{"settings": {"type": saved name, "measureFlc": Bool, "range": [minHz, maxHz, minDB, maxDB]}}` — as
+///   Settings writes them (`range`: the measurement type's display range and the dB range)
 /// - `{"setTaps": n}` — the Taps control
 /// - `{"setThreshold": dB}` — the Threshold control
 /// - `{"setPeakMin": dB}` — the Peak Min control
@@ -40,6 +44,8 @@ private let materialPhases: [String: MaterialTapPhase] = [
 /// - `{"routeChange": true}` — the engine restarted on a device change
 /// - `{"spectrumFrame": spectrum}` — one FFT frame from the running engine, a spectrum as `peaks.json`
 ///   describes one
+/// - `{"liveAudio": seconds, "level": dB}` — that much real audio (a 200 Hz tone at that level) through the
+///   microphone's path: each chunk's samples to the gated capture, then its level
 @MainActor
 func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
     if let settings = step["settings"] as? [String: Any] {
@@ -47,6 +53,13 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
             TapDisplaySettings.measurementType = MeasurementType(rawValue: type)!
         }
         if let flc = settings["measureFlc"] as? Bool { TapDisplaySettings.measureFlc = flc }
+        if let range = settings["range"] as? [Double] {
+            let type = TapDisplaySettings.measurementType
+            TapDisplaySettings.setMinFrequency(Float(range[0]), for: type)
+            TapDisplaySettings.setMaxFrequency(Float(range[1]), for: type)
+            TapDisplaySettings.minMagnitude = Float(range[2])
+            TapDisplaySettings.maxMagnitude = Float(range[3])
+        }
     } else if let n = step["setTaps"] as? Int {
         sut.numberOfTaps = n
     } else if let dB = step["setThreshold"] as? Double {
@@ -107,6 +120,18 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
     } else if let n = step["audioChunks"] as? Int {
         let level = Float(step["level"] as! Double)
         for _ in 0..<n { sut.onChunkLevel(level, audioTime: sut.lastAudioTime + audioFeedChunkSeconds) }
+    } else if let seconds = step["liveAudio"] as? Double {
+        // Real audio through the microphone's path: each chunk's samples to the capture, then its level.
+        let level = Float(step["level"] as! Double)
+        let amplitude = Float(2).squareRoot() * pow(10, level / 20)
+        for _ in 0..<Int((seconds / audioFeedChunkSeconds).rounded()) {
+            let chunk = (0..<1024).map { i -> Float in
+                amplitude * sin(2 * .pi * 200 * Float(liveAudioSample + i) / 48000)
+            }
+            liveAudioSample += 1024
+            sut.accumulateGatedSamples(chunk, sampleRate: 48000)
+            sut.onChunkLevel(level, audioTime: sut.lastAudioTime + audioFeedChunkSeconds)
+        }
     } else {
         return false
     }

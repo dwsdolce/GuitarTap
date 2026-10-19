@@ -218,15 +218,12 @@ extension SpectrumView {
     /// ``DisplayRange/frequencyBounds`` and no narrower than ``DisplayRange/minFrequencySpan``, and notifies
     /// via `onFrequencyRangeChanged`.
     func applyFrequencyZoom(scale: CGFloat, anchorFreq: Float) {
-        var newMinFreq = anchorFreq - (anchorFreq - minFreq) / Float(scale)
-        var newMaxFreq = anchorFreq + (maxFreq - anchorFreq) / Float(scale)
-        newMinFreq = max(DisplayRange.frequencyBounds.lowerBound, newMinFreq)
-        newMaxFreq = min(DisplayRange.frequencyBounds.upperBound, newMaxFreq)
-        if newMaxFreq - newMinFreq >= DisplayRange.minFrequencySpan {
-            minFreq = newMinFreq
-            maxFreq = newMaxFreq
-            onFrequencyRangeChanged?()
-        }
+        guard let r = DisplayRange.zoomed(minFreq, maxFreq, about: anchorFreq, scale: Float(scale),
+                                          within: DisplayRange.frequencyBounds,
+                                          minSpan: DisplayRange.minFrequencySpan) else { return }
+        minFreq = r.lo
+        maxFreq = r.hi
+        onFrequencyRangeChanged?()
     }
 
     /// Zooms only the magnitude (Y) axis, anchoring to the cursor position when available.
@@ -251,14 +248,11 @@ extension SpectrumView {
     /// Applies a magnitude-axis zoom about `anchorDB` (the value kept fixed), within
     /// ``DisplayRange/magnitudeBounds`` and no narrower than ``DisplayRange/minMagnitudeSpan``.
     func applyMagnitudeZoom(scale: CGFloat, anchorDB: Float) {
-        var newMinDB = anchorDB - (anchorDB - minDB) / Float(scale)
-        var newMaxDB = anchorDB + (maxDB - anchorDB) / Float(scale)
-        newMinDB = max(DisplayRange.magnitudeBounds.lowerBound, newMinDB)
-        newMaxDB = min(DisplayRange.magnitudeBounds.upperBound, newMaxDB)
-        if newMaxDB - newMinDB >= DisplayRange.minMagnitudeSpan {
-            minDB = newMinDB
-            maxDB = newMaxDB
-        }
+        guard let r = DisplayRange.zoomed(minDB, maxDB, about: anchorDB, scale: Float(scale),
+                                          within: DisplayRange.magnitudeBounds,
+                                          minSpan: DisplayRange.minMagnitudeSpan) else { return }
+        minDB = r.lo
+        maxDB = r.hi
     }
 
     /// Zooms both axes simultaneously, anchoring to the gesture/cursor location.
@@ -333,54 +327,18 @@ extension SpectrumView {
     ///
     /// - Note: Panning is constrained to keep the view within valid bounds
     func handlePan(translation: CGSize) {
-        // Pan on frequency axis (linear scale)
-        let freqRange = maxFreq - minFreq
-        let freqPanFactor = Float(translation.width) / 400.0 // Adjust sensitivity
-        let freqShift = freqRange * freqPanFactor
-
-        var newMinFreq = minFreq - freqShift
-        var newMaxFreq = maxFreq - freqShift
-
-        // Clamp to boundaries
-        let freqBounds = DisplayRange.frequencyBounds
-        if newMinFreq < freqBounds.lowerBound {
-            let shift = freqBounds.lowerBound - newMinFreq
-            newMinFreq = freqBounds.lowerBound
-            newMaxFreq += shift
-        }
-        if newMaxFreq > freqBounds.upperBound {
-            let shift = newMaxFreq - freqBounds.upperBound
-            newMaxFreq = freqBounds.upperBound
-            newMinFreq -= shift
-        }
-
-        minFreq = max(freqBounds.lowerBound, newMinFreq)
-        maxFreq = min(freqBounds.upperBound, newMaxFreq)
+        // Frequency axis (linear): a drag right shows lower frequencies.
+        let freqShift = (maxFreq - minFreq) * Float(translation.width) / 400.0 // Adjust sensitivity
+        let f = DisplayRange.panned(minFreq, maxFreq, by: -freqShift, within: DisplayRange.frequencyBounds)
+        minFreq = f.lo
+        maxFreq = f.hi
         onFrequencyRangeChanged?()
 
-        // Pan on dB axis (always linear)
-        let dbRange = maxDB - minDB
-        let dbPanFactor = Float(translation.height) / 300.0 // Adjust sensitivity
-        let dbShift = dbRange * dbPanFactor
-
-        var newMinDB = minDB + dbShift
-        var newMaxDB = maxDB + dbShift
-
-        // Clamp to boundaries
-        let dbBounds = DisplayRange.magnitudeBounds
-        if newMinDB < dbBounds.lowerBound {
-            let shift = dbBounds.lowerBound - newMinDB
-            newMinDB = dbBounds.lowerBound
-            newMaxDB += shift
-        }
-        if newMaxDB > dbBounds.upperBound {
-            let shift = newMaxDB - dbBounds.upperBound
-            newMaxDB = dbBounds.upperBound
-            newMinDB -= shift
-        }
-
-        minDB = max(dbBounds.lowerBound, newMinDB)
-        maxDB = min(dbBounds.upperBound, newMaxDB)
+        // dB axis (always linear): a drag down shows lower levels.
+        let dbShift = (maxDB - minDB) * Float(translation.height) / 300.0 // Adjust sensitivity
+        let m = DisplayRange.panned(minDB, maxDB, by: dbShift, within: DisplayRange.magnitudeBounds)
+        minDB = m.lo
+        maxDB = m.hi
     }
 
     // MARK: - Axis Reset Helpers

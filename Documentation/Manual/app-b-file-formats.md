@@ -93,6 +93,7 @@ what the user did at save time:
 | `calibrationName` | string | Active calibration profile, if any. |
 | `sampleRate` | float | Capture sample rate (Hz) in effect when recorded. Omitted in files saved before this field existed; absence is treated as "unknown" (no warning). |
 | `comparisonEntries` | array of ComparisonEntry | Present **only** for saved comparisons. |
+| `comparisonRange` | object | Saved comparisons only: the chart's range when the comparison was saved — `minFreq`, `maxFreq` (Hz), `minDB`, `maxDB` (dB), the keys a SpectrumSnapshot gives its range. Opening the comparison shows this range. Omitted by builds before this field existed; such a comparison opens at the range that spans its entries' snapshots (the lowest `minFreq` / `minDB`, the highest `maxFreq` / `maxDB`). |
 | `tapEntries` | array of TapEntry | Per-tap data for multi-tap guitar. |
 | `measurementType`, `guitarType` | string | Convenience copies for external consumers; mirror `spectrumSnapshot` fields. |
 
@@ -214,7 +215,7 @@ peaks nested inside `tapEntries` or `comparisonEntries`.
 When `comparisonEntries` is non-null the measurement is a saved
 comparison: the top-level `peaks`, `spectrumSnapshot`,
 `decayTime`, and similar fields are not meaningful and should
-not be read.
+not be read. Its chart range is `comparisonRange`.
 
 ### TapEntry (when `tapEntries` is present)
 

@@ -1,3 +1,4 @@
+// @parity view/file-exporter tests=test/export-directory
 /// # MeasurementFileExporter
 ///
 /// Platform-adaptive file export helpers for GuitarTap measurements.

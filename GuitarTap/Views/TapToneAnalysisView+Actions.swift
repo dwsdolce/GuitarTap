@@ -136,7 +136,8 @@ extension TapToneAnalysisView {
         if tap.isSavedMeasurementComparison {
             tap.saveComparison(
                 measurementName: TapToneMeasurement.normalizedName(measurementName),
-                notes: TapToneMeasurement.normalizedNotes(notes)
+                notes: TapToneMeasurement.normalizedNotes(notes),
+                minFreq: minFreq, maxFreq: maxFreq, minDB: minDB, maxDB: maxDB
             )
             measurementName = ""
             notes = ""

@@ -194,6 +194,9 @@ extension TapToneAnalysisView {
                 }
                 .buttonStyle(.tintedBordered)
                 .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
+                // A file plays while the audio engine runs, as every edition's: not before it has
+                // started, nor when the microphone is refused or cannot be opened.
+                .disabled(!fft.isRunning)
                 .help("Feed an audio file through the analysis pipeline")
 
                 Spacer()
@@ -332,6 +335,8 @@ extension TapToneAnalysisView {
         }
         .buttonStyle(.tintedBordered)
         .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
+        // A file plays while the audio engine runs, as every edition's.
+        .disabled(!fft.isRunning)
         .help("Feed an audio file through the analysis pipeline (for cross-platform comparison)")
     }
     #endif
@@ -567,7 +572,7 @@ extension TapToneAnalysisView {
                             .font(.caption)
                             .foregroundColor(Palette.color(.statusPeakReadout))
                     } else {
-                        Text(fft.inputUnavailable ? "Audio input unavailable" : "Starting...")
+                        Text(fft.notRunningMessage)
                             .font(.caption)
                             .foregroundColor(Palette.color(.textSecondary))
                     }

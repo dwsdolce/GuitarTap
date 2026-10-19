@@ -6,8 +6,9 @@
 //
 // The chart's display range (DisplayRange) against the shared case file `display-range.json` — the same cases
 // the Python and web suites run: widening onto a newly identified plate / brace peak (a guitar's range is the
-// user's analysis window and is never widened; a load shows the range it was saved with), and when the
-// chart's range moves. The analyzer's announcing each peak is tested in MaterialPeakAnnouncementTests.
+// user's analysis window and is never widened; a load shows the range it was saved with), when the chart's
+// range moves, a zoom or pan step of an axis, and the spectrum points drawn for a range. The analyzer's
+// announcing each peak is tested in MaterialPeakAnnouncementTests.
 
 import Foundation
 import Testing
@@ -66,6 +67,44 @@ struct DisplayRangeExpansionTests {
             let r = DisplayRange.loadedAfterWidening(loaded: Self.range(row["loaded"])!, before: Self.range(row["before"])!,
                                                      after: Self.range(row["after"])!)
             #expect(r == Self.range(row["expect"]), "\(row)")
+        }
+    }
+
+    static func axis(_ name: Any?) -> (bounds: ClosedRange<Float>, minSpan: Float) {
+        name as? String == "magnitude" ? (DisplayRange.magnitudeBounds, DisplayRange.minMagnitudeSpan)
+                                       : (DisplayRange.frequencyBounds, DisplayRange.minFrequencySpan)
+    }
+    static func near(_ got: (lo: Float, hi: Float)?, _ want: Any?) -> Bool {
+        guard let w = want as? [Double] else { return got == nil }
+        guard let g = got else { return false }
+        return abs(Double(g.lo) - w[0]) <= 1e-3 && abs(Double(g.hi) - w[1]) <= 1e-3
+    }
+
+    @Test func zoom() {
+        for row in Self.data["zoom"] as! [[String: Any]] {
+            let r = row["range"] as! [Double], a = Self.axis(row["axis"])
+            let got = DisplayRange.zoomed(Float(r[0]), Float(r[1]), about: Self.f(row["anchor"]!),
+                                          scale: Float((row["scale"] as! NSNumber).doubleValue),
+                                          within: a.bounds, minSpan: a.minSpan)
+            #expect(Self.near(got, row["expect"]), "\(row["id"]!): \(String(describing: got))")
+        }
+    }
+
+    @Test func pan() {
+        for row in Self.data["pan"] as! [[String: Any]] {
+            let r = row["range"] as! [Double]
+            let got = DisplayRange.panned(Float(r[0]), Float(r[1]), by: Float((row["delta"] as! NSNumber).doubleValue),
+                                          within: Self.axis(row["axis"]).bounds)
+            #expect(Self.near(got, row["expect"]), "\(row["id"]!): \(got)")
+        }
+    }
+
+    @Test func drawnIndices() {
+        for row in Self.data["drawnIndices"] as! [[String: Any]] {
+            let r = row["range"] as! [Double], w = row["expect"] as! [Int]
+            let got = DisplayRange.drawnIndices(of: (row["frequencies"] as! [Double]).map { Float($0) },
+                                                min: Float(r[0]), max: Float(r[1]))
+            #expect(got == w[0]..<w[1], "\(row["id"]!): \(got)")
         }
     }
 }

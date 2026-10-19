@@ -485,8 +485,9 @@ extension TapToneAnalyzer {
     ///   the `justExitedWarmup` sync path.
     func reEnableDetectionForNextPlateTap() {
         TAP_DEBUG("reEnableDetectionForNextPlateTap", "Scheduling re-enable after cooldown=\(tapCooldown)s of audio")
+        let generation = captureGeneration
         afterAudio(tapCooldown) { [weak self] in
-            guard let self = self else { return }
+            guard let self, generation == self.captureGeneration else { return }
             self.reArmFromCurrentChunk()
             // Clear stale fast-start marker so the next tap's main-thread
             // startGatedCapture correctly falls back to pre-roll seeding

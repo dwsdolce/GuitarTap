@@ -661,8 +661,9 @@ extension TapToneAnalyzer {
     /// latch is re-anchored from the chunk that made the rest due. Used after each captured tap of a
     /// multi-tap sequence, and when a capture timed out with no audio.
     private func scheduleGuitarReEnable() {
+        let generation = captureGeneration
         afterAudio(tapCooldown) { [weak self] in
-            guard let self = self else { return }
+            guard let self, generation == self.captureGeneration else { return }
             self.reArmFromCurrentChunk()
             self.mpmLock.lock()
             self.lastLevelCrossingCaptureID = -1
@@ -802,8 +803,10 @@ extension TapToneAnalyzer {
             captureTimer = nil
             // `captureWindow` of AUDIO. Released at file end: when the last capture ends with
             // the file, the audio clock stops and would never make it due.
+            let generation = captureGeneration
             afterAudio(captureWindow, releasedAtFileEnd: true) { [weak self] in
-                self?.processMultipleTaps()
+                guard let self, generation == self.captureGeneration else { return }
+                self.processMultipleTaps()
             }
         }
     }
@@ -957,6 +960,29 @@ extension TapToneAnalyzer {
     /// locate the phase's dominant peak. The captured buffer is intentionally longer than the
     /// FFT window so the aligner can re-anchor regardless of the chunk boundary that triggered
     /// the level crossing.
+    /// Ends any capture in progress and drops what the sequence has gathered: the gate closes, the
+    /// window's samples, the pre-roll and the waiting pre-roll go, the captured taps (guitar and
+    /// material) go, the fast-start markers reset — so a pending timeout finds its capture gone — and
+    /// what a capture scheduled (its processing, the next tap's re-arm) does nothing when it comes due.
+    /// New Tap and a load call it, so a capture under way when either happens cannot land after it.
+    func abandonCapture() {
+        captureGeneration += 1
+        gatedCaptureActive = false
+        mpmLock.lock()
+        gatedAccumBuffer = []
+        preRollBuffer = []
+        pendingLevelCrossingPreRoll = nil
+        // A material (plate/brace) completion leaves these two ids equal — unlike the guitar re-enable
+        // paths, it never resets them — so a stale "already handled" equality would make the next
+        // sequence's first capture bail out. Mirrors the reset in postEngineStopHandler /
+        // reEnableDetectionForNextPlateTap.
+        gatedCaptureID = 0
+        lastLevelCrossingCaptureID = -1
+        mpmLock.unlock()
+        capturedTaps = []
+        materialCapturedTaps = []
+    }
+
     func finishGatedFFTCapture(samples: [Float], sampleRate: Double, phase: MaterialTapPhase) {
         // DIAG: log what goes into computeGatedFFT
         let nonZero = samples.filter { $0 != 0 }.count

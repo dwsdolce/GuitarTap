@@ -5,6 +5,8 @@
 //  Created on 1/25/26.
 //
 
+// @parity model/measurement-codable tests=test/measurement-codable,test/peak-heal,test/peak-selection-persistence
+
 /// # TapToneMeasurement
 ///
 /// The complete, serialisable record of a single tap-tone analysis session.
@@ -199,6 +201,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     }
 
     // MARK: - Guitar Spectrum
+    // @parity model/measurement-codable tests=test/measurement-codable,test/peak-heal,test/peak-selection-persistence
 
     /// The averaged frequency spectrum for guitar-mode measurements.
     ///
@@ -311,6 +314,11 @@ struct TapToneMeasurement: Identifiable, Codable {
     /// should not be read.  Use `isComparison` to detect this case.
     let comparisonEntries: [ComparisonEntry]?
 
+    /// A saved comparison's chart range when it was saved — loading it shows this range, as loading a
+    /// measurement shows its own. Comparisons saved before this field existed have none; loading one
+    /// spans its entries' ranges, as a new comparison does.
+    let comparisonRange: DisplayRange.ChartRange?
+
     /// `true` when this record holds a saved comparison rather than a single tap measurement.
     var isComparison: Bool { comparisonEntries != nil }
 
@@ -341,6 +349,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         case peakModeOverrides
         case microphoneName, microphoneUID, calibrationName, sampleRate
         case comparisonEntries
+        case comparisonRange
         case tapEntries
         // Encode-only convenience fields for external consumers
         case measurementType, guitarType
@@ -399,6 +408,7 @@ struct TapToneMeasurement: Identifiable, Codable {
     ///   - calibrationName: Active calibration profile name, if any.
     ///   - sampleRate: Capture sample rate in Hz, if recorded.
     ///   - comparisonEntries: Per-tap comparison rows for multi-tap measurements.
+    ///   - comparisonRange: A saved comparison's chart range when it was saved.
     ///   - tapEntries: Per-tap raw entries retained for the multi-tap breakdown.
     ///   - selectedPeakFrequencies: Frequencies (Hz) of user-marked significant peaks, a
     ///     format-stable fallback to `selectedPeakIDs`.
@@ -429,6 +439,7 @@ struct TapToneMeasurement: Identifiable, Codable {
          calibrationName: String? = nil,
          sampleRate: Double? = nil,
          comparisonEntries: [ComparisonEntry]? = nil,
+         comparisonRange: DisplayRange.ChartRange? = nil,
          tapEntries: [TapEntry]? = nil) {
         self.id = id
         self.timestamp = timestamp
@@ -457,6 +468,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         self.calibrationName = calibrationName
         self.sampleRate = sampleRate
         self.comparisonEntries = comparisonEntries
+        self.comparisonRange = comparisonRange
         self.tapEntries = tapEntries
     }
 
@@ -520,6 +532,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             calibrationName: calibrationName,
             sampleRate: sampleRate,
             comparisonEntries: comparisonEntries,
+            comparisonRange: comparisonRange,
             tapEntries: tapEntries
         )
     }
@@ -812,6 +825,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         microphoneUID        = try container.decodeIfPresent(String.self, forKey: .microphoneUID)
         calibrationName      = try container.decodeIfPresent(String.self, forKey: .calibrationName)
         sampleRate           = try container.decodeIfPresent(Double.self, forKey: .sampleRate)
+        comparisonRange      = try container.decodeIfPresent(DisplayRange.ChartRange.self, forKey: .comparisonRange)
         var decodedComparisonEntries = try container.decodeIfPresent([ComparisonEntry].self, forKey: .comparisonEntries)
         var decodedTapEntries = try container.decodeIfPresent([TapEntry].self, forKey: .tapEntries)
         // Decode peaks as [ResonantPeak]; the extra modeLabel key in each entry is
@@ -1002,6 +1016,7 @@ struct TapToneMeasurement: Identifiable, Codable {
         try container.encodeIfPresent(calibrationName,   forKey: .calibrationName)
         try container.encodeIfPresent(sampleRate, forKey: .sampleRate)
         try container.encodeIfPresent(comparisonEntries, forKey: .comparisonEntries)
+        try container.encodeIfPresent(comparisonRange,   forKey: .comparisonRange)
         try container.encodeIfPresent(tapEntries,        forKey: .tapEntries)
 
         // Convenience: top-level measurementType and guitarType for external consumers

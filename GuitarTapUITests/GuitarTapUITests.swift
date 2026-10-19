@@ -10,6 +10,8 @@
 //  sandbox of its own (GT_TEST_SANDBOX), so its settings and library start empty and are never the
 //  user's. Each export is attached to the test result, which is how the files leave the run.
 //
+// @parity test/export-e2e
+//
 
 #if os(macOS)
 import AppKit

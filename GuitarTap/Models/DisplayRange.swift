@@ -4,7 +4,7 @@
 //
 //  The rule for widening the chart's frequency axis so a newly identified peak is visible.
 //
-// @parity presentation/display-range tests=test/display-range
+// @parity presentation/display-range tests=test/display-range,test/comparison
 
 import Foundation
 
@@ -75,8 +75,9 @@ enum DisplayRange {
     // identified plate or brace peak), or on a measurement-type switch. These are the decisions the
     // view applies.
 
-    /// The chart's four bounds.
-    struct ChartRange: Equatable {
+    /// The chart's four bounds. Codable as a saved comparison's `comparisonRange`, with the keys a
+    /// spectrum snapshot gives its range.
+    struct ChartRange: Equatable, Codable {
         var minFreq: Float
         var maxFreq: Float
         var minDB: Float
@@ -119,6 +120,41 @@ enum DisplayRange {
         let lo = Swift.max(0, firstInside - 1)
         let hi = Swift.min(frequencies.count, firstBeyond + 1)
         return lo < hi ? lo..<hi : lo..<lo
+    }
+
+    /// The range that spans every one of `snapshots` — the lowest of their lower bounds and the highest of
+    /// their upper ones — or nil for none. A comparison with no range of its own shows this, and a saved
+    /// comparison's or multi-tap's image from the measurements list spans its spectra.
+    static func spanning(_ snapshots: [SpectrumSnapshot]) -> ChartRange? {
+        guard let minFreq = snapshots.map(\.minFreq).min(), let maxFreq = snapshots.map(\.maxFreq).max(),
+              let minDB = snapshots.map(\.minDB).min(), let maxDB = snapshots.map(\.maxDB).max() else { return nil }
+        return ChartRange(minFreq: minFreq, maxFreq: maxFreq, minDB: minDB, maxDB: maxDB)
+    }
+
+    /// One zoom step of an axis `[lo, hi]` about `anchor` (`scale` > 1 zooms in), kept within `bounds`:
+    /// the new range, or nil — the step is refused — if it would leave the range narrower than `minSpan`.
+    static func zoomed(_ lo: Float, _ hi: Float, about anchor: Float, scale: Float,
+                       within bounds: ClosedRange<Float>, minSpan: Float) -> (lo: Float, hi: Float)? {
+        let newLo = Swift.max(bounds.lowerBound, anchor - (anchor - lo) / scale)
+        let newHi = Swift.min(bounds.upperBound, anchor + (hi - anchor) / scale)
+        return newHi - newLo >= minSpan ? (newLo, newHi) : nil
+    }
+
+    /// An axis `[lo, hi]` moved by `delta`, kept within `bounds`: a move past a bound stops there, the
+    /// span kept.
+    static func panned(_ lo: Float, _ hi: Float, by delta: Float,
+                       within bounds: ClosedRange<Float>) -> (lo: Float, hi: Float) {
+        var newLo = lo + delta
+        var newHi = hi + delta
+        if newLo < bounds.lowerBound {
+            newHi += bounds.lowerBound - newLo
+            newLo = bounds.lowerBound
+        }
+        if newHi > bounds.upperBound {
+            newLo -= newHi - bounds.upperBound
+            newHi = bounds.upperBound
+        }
+        return (Swift.max(bounds.lowerBound, newLo), Swift.min(bounds.upperBound, newHi))
     }
 }
 

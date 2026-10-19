@@ -84,16 +84,16 @@ extension TapSettingsView {
                 // The active calibration's details
                 if let calibration = activeCalibration {
                     HStack(alignment: .top) {
+                        let details = calibration.details
                         VStack(alignment: .leading, spacing: 2) {
-                            if let sens = calibration.sensitivityFactor {
-                                Text("Sensitivity: \(String(format: "%.2f", sens)) dB")
+                            if let sensitivity = details.sensitivity {
+                                Text(sensitivity)
                             }
-                            Text("Data points: \(calibration.correctionPoints.count)")
+                            Text(details.dataPoints)
                         }
                         Spacer()
-                        if let first = calibration.correctionPoints.first,
-                           let last = calibration.correctionPoints.last {
-                            Text("\(String(format: "%.0f", first.frequency))-\(String(format: "%.0f", last.frequency)) Hz")
+                        if let range = details.range {
+                            Text(range)
                         }
                     }
                     .font(SettingsType.caption)

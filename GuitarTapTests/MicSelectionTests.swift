@@ -256,11 +256,14 @@ struct MicSelectionTests {
     }
 
     // MS31: A selection change restarts the engine when it is running — and when its last start
-    //       failed, so an engine stopped by a failure is started by the next selection.
+    //       failed, so an engine stopped by a failure is started by the next selection — but not
+    //       while the watchdog's recovery has a restart pending, which opens the device then selected.
     @Test func MS31_aFailedStart_letsTheNextSelectionRestart() {
-        #expect(RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: true, startFailed: false))
-        #expect(RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: false, startFailed: true))
-        #expect(!RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: false, startFailed: false))
+        #expect(RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: true, startFailed: false, isRecovering: false))
+        #expect(RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: false, startFailed: true, isRecovering: false))
+        #expect(!RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: false, startFailed: false, isRecovering: false))
+        #expect(!RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: false, startFailed: true, isRecovering: true))
+        #expect(!RealtimeFFTAnalyzer.restartsOnSelectionChange(isRunning: true, startFailed: false, isRecovering: true))
     }
 
     // MARK: - Choosing a calibration

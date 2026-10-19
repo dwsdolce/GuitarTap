@@ -134,8 +134,7 @@ extension TapToneAnalyzer {
         // by the crossing handler sees a fully-reset analyzer.
 
         // ===== UI / per-sequence state (not audio-thread visible) =====
-        comparisonSpectra = []
-        displayMode = .live
+        clearComparison()
         loadedMeasurementName = nil
         loadedNotes = nil
         sourceMeasurementTimestamp = nil
@@ -160,8 +159,7 @@ extension TapToneAnalyzer {
         tapEntries = []
         showingMultiTapComparison = false
 
-        // Clear per-sequence accumulated data.
-        capturedTaps        = []
+        // Clear per-sequence accumulated data (the captured taps go with the capture, below).
         currentTapCount     = 0
         tapProgress         = 0.0
         // No pause-clear here: `detectionState = .listening` further down leaves `.paused`
@@ -179,30 +177,13 @@ extension TapToneAnalyzer {
         // just-captured gated-FFT result.
         setFrozenSpectrum(frequencies: [], magnitudes: [])
 
-        // Cancel any in-flight gated capture from a previous sequence and
-        // reset the pre-roll BEFORE arming the crossing handler.  The ring
-        // buffer fills naturally as audio chunks arrive via
-        // accumulateGatedSamples.  If a tap fires before the buffer is full,
-        // startGatedCapture seeds the accumulator with only the samples
-        // received so far — no zero-padding.  This avoids diluting the
-        // captured signal with silence, which would suppress the spectral
-        // magnitude (the old zero-fill caused a ~7 dB live-capture deficit
-        // and ~23 dB file-playback deficit vs Python).
-        gatedCaptureActive = false
+        // Cancel any in-flight gated capture from a previous sequence and reset the pre-roll BEFORE
+        // arming the crossing handler. The ring buffer fills naturally as audio chunks arrive via
+        // accumulateGatedSamples; if a tap fires before it is full, startGatedCapture seeds the
+        // accumulator with only the samples received so far — no zero-padding, which would dilute the
+        // captured signal with silence.
+        abandonCapture()
         mpmLock.lock()
-        gatedAccumBuffer = []
-        preRollBuffer = []
-        // Clear the audio-queue fast-start markers so the first tap of this
-        // sequence cannot mistake a stale "already handled" equality
-        // (gatedCaptureID == lastLevelCrossingCaptureID) for a real fast-start
-        // capture.  A material (plate/brace) completion leaves these two IDs
-        // equal — unlike the guitar re-enable paths, it never resets them — so
-        // a material→guitar boundary switch would otherwise make
-        // startGuitarGatedCapture bail out (accum 0 samples) without capturing
-        // or completing, stranding the analyzer with all controls disabled.
-        // Mirrors the reset in postEngineStopHandler / reEnableDetectionForNextPlateTap.
-        gatedCaptureID = 0
-        lastLevelCrossingCaptureID = -1
         // Session recording: clear the buffer and begin recording. The buffer accumulates raw audio
         // while detection is active, producing a single WAV per measurement for replay. With Dump
         // Capture Audio off only the bounded pre-roll is kept, and it is dropped at the first tap

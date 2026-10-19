@@ -12,7 +12,11 @@
 //  File playback cuts its own chunks, so no test that plays a file can see the size of a delivered
 //  buffer; these feed delivered buffers directly.
 //
-// @parity none — Python and the web are handed chunks of this size by their audio layers.
+// The web's worklet re-chunks the browser's 128-frame blocks the same way (test/audio-chunking.test.ts:
+// AC1, AC2); Python is handed chunks of this size by PortAudio. AC3 is CoreAudio's alone (one delivered
+// buffer, several chunks).
+//
+// @parity test/audio-chunking
 
 import Testing
 import Foundation

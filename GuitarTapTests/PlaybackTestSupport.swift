@@ -6,6 +6,7 @@
 //  the pipeline: `playFile(url:calibrationURL:completion:)` is what the view calls, so every
 //  file-playback regression runs the path users take.
 //
+// @parity tooling/playback-support
 
 import Foundation
 @testable import GuitarTap

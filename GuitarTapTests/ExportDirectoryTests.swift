@@ -2,12 +2,12 @@
 //  ExportDirectoryTests.swift
 //  GuitarTapTests
 //
-//  Pins the export Save panel's first-run default: it must resolve
-//  the user's REAL ~/Documents/GuitarTap via getpwuid, not the sandbox container home that
-//  homeDirectoryForCurrentUser / NSHomeDirectory return. macOS-sandbox-specific — Python/web are
-//  not sandboxed and have no equivalent, so this is a justified platform-only test.
+//  Pins the export Save panel's first-run default: the user's ~/Documents/GuitarTap — the REAL
+//  home's, via getpwuid, not the sandbox container home that homeDirectoryForCurrentUser /
+//  NSHomeDirectory return (the second test is the sandbox's alone). Python's default is the same
+//  folder (tests/test_export_directory.py); the web has no folder of its own (a download).
 //
-// @parity none — macOS App Sandbox path resolution; no cross-platform counterpart.
+// @parity test/export-directory
 
 #if os(macOS)
 import Testing

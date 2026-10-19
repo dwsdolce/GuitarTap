@@ -45,6 +45,9 @@ struct ComparisonModeTests {
             case "entries": #expect(sut.comparisonSpectra.count == want as? Int, "\(id) \(field)")
             case "labels": #expect(sut.comparisonSpectra.map(\.label) == want as? [String], "\(id) \(field): \(sut.comparisonSpectra.map(\.label))")
             case "mode": #expect((sut.displayMode == .comparison ? "comparison" : "live") == want as? String, "\(id) \(field)")
+            case "chartPeaks": #expect((sut.chartPeaks != nil) == want as? Bool, "\(id) \(field)")
+            case "chartLabels": #expect((sut.chartAnnotationPeaks != nil) == want as? Bool, "\(id) \(field)")
+            case "modeLines": #expect(sut.showsModeBoundaries == want as? Bool, "\(id) \(field)")
             case "loadedRange":
                 let r = sut.loadedAxisRange
                 let got = r.map { [Double($0.minFreq), Double($0.maxFreq), Double($0.minDB), Double($0.maxDB)] }
@@ -61,6 +64,10 @@ struct ComparisonModeTests {
             case "entryPeaks":
                 let got = (sut.comparisonSpectra.first?.peaks ?? []).map { peakName($0.id) }.sorted()
                 #expect(got == (want as! [String]).sorted(), "\(id) \(field): \(got)")
+            case "savedRange":
+                let range = sut.savedMeasurements.last?.comparisonRange
+                #expect(range.map { [$0.minFreq, $0.maxFreq, $0.minDB, $0.maxDB].map(Double.init) } == want as? [Double],
+                        "\(id) \(field)")
             case "savedRecord":
                 if let record = want as? [String: Any] {
                     let last = sut.savedMeasurements.last
@@ -81,7 +88,19 @@ struct ComparisonModeTests {
     func comparison(_ id: String) throws {
         let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
         let saved = TapDisplaySettings.measurementType
-        defer { TapDisplaySettings.measurementType = saved }
+        // The display ranges a case's settings step writes are global too.
+        let savedRanges = MeasurementType.allCases.map {
+            ($0, TapDisplaySettings.minFrequency(for: $0), TapDisplaySettings.maxFrequency(for: $0))
+        }
+        let savedDB = (TapDisplaySettings.minMagnitude, TapDisplaySettings.maxMagnitude)
+        defer {
+            TapDisplaySettings.measurementType = saved
+            for (type, minF, maxF) in savedRanges {
+                TapDisplaySettings.setMinFrequency(minF, for: type)
+                TapDisplaySettings.setMaxFrequency(maxF, for: type)
+            }
+            (TapDisplaySettings.minMagnitude, TapDisplaySettings.maxMagnitude) = savedDB
+        }
 
         let sut = makeStepsAnalyzer()
         sut.savedMeasurements = []
@@ -90,14 +109,14 @@ struct ComparisonModeTests {
         for step in row["steps"] as! [[String: Any]] {
             if let names = step["compare"] as? [String] {
                 sut.loadComparison(measurements: try names.map(Self.measurement))
-            } else if step["clearComparison"] as? Bool == true {
-                sut.clearComparison()
             } else if let name = step["load"] as? String {
                 sut.loadMeasurement(try Self.measurement(name))
             } else if let show = step["multiTap"] as? Bool {
                 sut.applyMultiTapComparisonOverlays(enabled: show)   // the Taps toggle
             } else if let name = step["saveComparison"] as? String {
-                sut.saveComparison(measurementName: name)
+                let view = (step["view"] as? [Double])?.map(Float.init)
+                sut.saveComparison(measurementName: name, minFreq: view?[0], maxFreq: view?[1],
+                                   minDB: view?[2], maxDB: view?[3])
             } else if step["loadSaved"] as? Bool == true {
                 sut.loadMeasurement(try #require(sut.savedMeasurements.last))
             } else if let fields = step["check"] as? [String: Any] {

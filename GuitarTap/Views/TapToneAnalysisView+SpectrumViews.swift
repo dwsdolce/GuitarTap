@@ -184,7 +184,7 @@ extension TapToneAnalysisView {
                             Image(systemName: "waveform")
                                 .font(.system(size: 48))
                                 .foregroundColor(Palette.color(.textSecondary))
-                            Text(fft.inputUnavailable ? "Audio input unavailable" : "Starting...")
+                            Text(fft.notRunningMessage)
                                 .font(.caption)
                                 .foregroundColor(Palette.color(.textSecondary))
                         }
@@ -212,9 +212,9 @@ extension TapToneAnalysisView {
             maxFreq: $maxFreq,
             minDB: $minDB,
             maxDB: $maxDB,
-            peaks: isComparing ? nil : (TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks),
-            annotationPeaks: isComparing ? nil : tap.visiblePeaks,
-            showModeBoundaries: true,
+            peaks: tap.chartPeaks,
+            annotationPeaks: tap.chartAnnotationPeaks,
+            showModeBoundaries: tap.showsModeBoundaries,
             onFrequencyRangeChanged: updateFrequencyInputFields,
             onAxisRangeReset: applyAxisRange,
             annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
@@ -243,9 +243,9 @@ extension TapToneAnalysisView {
             maxFreq: $maxFreq,
             minDB: $minDB,
             maxDB: $maxDB,
-            peaks: isComparing ? nil : (TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks),
-            annotationPeaks: isComparing ? nil : tap.visiblePeaks,
-            showModeBoundaries: true,
+            peaks: tap.chartPeaks,
+            annotationPeaks: tap.chartAnnotationPeaks,
+            showModeBoundaries: tap.showsModeBoundaries,
             onFrequencyRangeChanged: updateFrequencyInputFields,
             onAxisRangeReset: applyAxisRange,
             annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,

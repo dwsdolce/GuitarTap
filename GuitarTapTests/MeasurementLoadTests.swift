@@ -110,6 +110,10 @@ struct MeasurementLoadTests {
                 #expect(sut.loadedMeasurementName == want as? String, "\(id) \(field): \(String(describing: sut.loadedMeasurementName))")
             case "labelPositions":
                 #expect(sut.peakAnnotationOffsets.count == want as? Int, "\(id) \(field): \(sut.peakAnnotationOffsets.count)")
+            case "annotationVisibility":
+                #expect(sut.annotationVisibilityMode.rawValue == want as? String, "\(id) \(field)")
+            case "savedAnnotationVisibility":
+                #expect(TapDisplaySettings.annotationVisibilityMode.rawValue == want as? String, "\(id) \(field)")
             default:
                 Issue.record("\(id): unknown field \(field)")
             }

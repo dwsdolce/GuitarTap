@@ -1,4 +1,4 @@
-// @parity view/pdf-report tests=test/pdf-report
+// @parity view/pdf-report tests=test/pdf-report,test/export-e2e
 
 /// # PDFReportGenerator
 ///

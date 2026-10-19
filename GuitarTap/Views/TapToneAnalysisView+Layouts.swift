@@ -378,6 +378,7 @@ extension TapToneAnalysisView {
                     Image(systemName: "waveform.badge.plus")
                 }
                 .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
+                .disabled(!fft.isRunning)   // a file plays while the audio engine runs
                 .accessibilityLabel("Play File")
                 .help("Feed an audio file through the analysis pipeline")
 
@@ -514,6 +515,7 @@ extension TapToneAnalysisView {
                     Image(systemName: "waveform.badge.plus")
                 }
                 .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
+                .disabled(!fft.isRunning)   // a file plays while the audio engine runs
                 .accessibilityLabel("Play File")
 
                 Button(action: { toggleAutoScale() }) {
@@ -789,6 +791,7 @@ extension TapToneAnalysisView {
                         Image(systemName: "waveform.badge.plus")
                     }
                     .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
+                    .disabled(!fft.isRunning)   // a file plays while the audio engine runs
                     .accessibilityLabel("Play File")
 
                     Button(action: { toggleAutoScale() }) {
@@ -826,6 +829,7 @@ extension TapToneAnalysisView {
                         Image(systemName: "waveform.badge.plus")
                     }
                     .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
+                    .disabled(!fft.isRunning)   // a file plays while the audio engine runs
                     .accessibilityLabel("Play File")
                     .help("Feed an audio file through the analysis pipeline")
 

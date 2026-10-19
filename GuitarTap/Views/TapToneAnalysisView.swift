@@ -305,6 +305,9 @@ struct TapToneAnalysisView: View {
             .onChange(of: tap.hasResultToSaveOrExport, initial: true) { _, hasResult in
                 menuActions.hasResultToSaveOrExport = hasResult
             }
+            .onChange(of: fft.isRunning, initial: true) { _, isRunning in
+                menuActions.isRunning = isRunning
+            }
             .alert("Audio Engine Error", isPresented: Binding(
                 get: { engineStartError != nil },
                 set: { if !$0 { engineStartError = nil } }

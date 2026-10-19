@@ -141,7 +141,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
             // should not be — and this change did not come from setInputDevice's own assignment,
             // restart the engine with the new device.
             guard !isApplyingDeviceSwitch,
-                  Self.restartsOnSelectionChange(isRunning: isRunning, startFailed: engineStartFailed),
+                  Self.restartsOnSelectionChange(isRunning: isRunning, startFailed: engineStartFailed,
+                                                 isRecovering: isRecoveringEngine),
                   selectedInputDevice?.uid != oldValue?.uid else { return }
             gtLog("🔄 Device changed while running — restarting engine for: \(selectedInputDevice?.name ?? "unknown")")
             isApplyingDeviceSwitch = true
@@ -173,7 +174,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
 
     /// True when the engine's last start failed, so it is stopped although it should be running;
     /// cleared by the next successful start. A selection change then starts it
-    /// (``restartsOnSelectionChange(isRunning:startFailed:)``) — otherwise nothing would.
+    /// (``restartsOnSelectionChange(isRunning:startFailed:isRecovering:)``) — otherwise nothing would.
     var engineStartFailed = false
 
     /// The device the engine last opened successfully — the fallback when a switch to another
@@ -181,9 +182,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     var lastOpenedInputDevice: AVAudioDevice?
 
     /// Whether a change of the selected device restarts the engine: when it is running, or when
-    /// its last start failed.
-    static func restartsOnSelectionChange(isRunning: Bool, startFailed: Bool) -> Bool {
-        isRunning || startFailed
+    /// its last start failed — but not while the watchdog's recovery has a restart pending, which
+    /// opens the device selected when it runs (one start, not two). As Python's refresh and the
+    /// web's device change, which only update the selection then.
+    static func restartsOnSelectionChange(isRunning: Bool, startFailed: Bool, isRecovering: Bool) -> Bool {
+        !isRecovering && (isRunning || startFailed)
     }
 
     /// The device list enumerations begun, so one that arrives on the main queue after a newer
@@ -806,6 +809,9 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// failed, or the recovery's restarts failed — rather than because it is starting: what the
     /// not-running placeholders say.
     var inputUnavailable: Bool { microphonePermissionDenied || inputCouldNotStart || inputCouldNotRestart }
+
+    /// What the not-running placeholders say: why the engine is not running.
+    var notRunningMessage: String { inputUnavailable ? "Audio input unavailable" : "Starting..." }
 
     /// True while the engine's audio comes from a device other than the selected one and the
     /// restarts that should bind it again have run out. Surfaced in the status line: audio from

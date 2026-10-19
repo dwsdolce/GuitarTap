@@ -584,6 +584,11 @@ final class TapToneAnalyzer: ObservableObject {
     /// the settle always ends `fftSettleTime` of audio after the LAST change.
     var routeChangeGeneration = 0
 
+    /// Counts abandoned captures (``abandonCapture()``). What a capture schedules — its processing, the
+    /// next tap's re-arm — runs only if no abandon has come since, so nothing of a capture that New Tap or
+    /// a load ended reaches the measurement after it.
+    var captureGeneration = 0
+
     /// Sentinel string used to detect (and ignore) self-writes to
     /// `statusMessage` performed by the clipping-override path, so the
     /// `$statusMessage` sink doesn't store the warning into
@@ -840,7 +845,7 @@ final class TapToneAnalyzer: ObservableObject {
         userHasModifiedPeakSelection = true
     }
 
-    // @parity state/visible-peaks tests=test/annotation-state
+    // @parity state/visible-peaks tests=test/annotation-state,test/comparison
     /// Advances ``annotationVisibilityMode`` to the next state in the cycle:
     /// `all → selected → none → all`, and persists the new value to UserDefaults.
     func cycleAnnotationVisibility() {
@@ -850,6 +855,22 @@ final class TapToneAnalyzer: ObservableObject {
         annotationVisibilityMode = annotationVisibilityMode.next
         TapDisplaySettings.annotationVisibilityMode = annotationVisibilityMode
     }
+
+    /// The peaks the chart marks: a guitar's above Peak Min, a plate's or brace's identified ones — none
+    /// while a comparison is shown, which draws its entries' own.
+    var chartPeaks: [ResonantPeak]? {
+        guard displayMode != .comparison else { return nil }
+        return TapDisplaySettings.measurementType.isGuitar ? peaksAbovePeakMin : materialIdentifiedPeaks
+    }
+
+    /// The peaks the chart labels: ``visiblePeaks`` — none while a comparison is shown.
+    var chartAnnotationPeaks: [ResonantPeak]? {
+        displayMode == .comparison ? nil : visiblePeaks
+    }
+
+    /// Whether the chart draws the guitar mode lines: not for a comparison of saved measurements,
+    /// whose entries need not be of one guitar type. A multi-tap guitar's per-tap overlay keeps them.
+    var showsModeBoundaries: Bool { !isSavedMeasurementComparison }
 
     /// The subset of ``peaksAbovePeakMin`` that should be rendered as annotations given
     /// the current ``annotationVisibilityMode``.

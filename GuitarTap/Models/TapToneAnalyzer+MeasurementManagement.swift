@@ -419,7 +419,8 @@ extension TapToneAnalyzer {
             measurementName: measurementName,
             notes: notes,
             spectrum: snapshot,
-            annotationOffsets: peakAnnotationOffsets,
+            // None dragged is none written, as an empty override map.
+            annotationOffsets: peakAnnotationOffsets.isEmpty ? nil : peakAnnotationOffsets,
             tapDetectionThreshold: tapDetectionThreshold,
             numberOfTaps: numberOfTaps,
             peakMinThreshold: peakMinThreshold,
@@ -584,10 +585,10 @@ extension TapToneAnalyzer {
                         modeIDs: entry.modePeakIDs ?? [:])   // healed on decode; [:] only if truly absent
             }
             comparisonSnapshots = entries.map(\.snapshot)
-            let snaps = entries.map(\.snapshot)
-            if let minF = snaps.map(\.minFreq).min(), let maxF = snaps.map(\.maxFreq).max(),
-               let minD = snaps.map(\.minDB).min(), let maxD = snaps.map(\.maxDB).max() {
-                setLoadedAxisRange(minFreq: minF, maxFreq: maxF, minDB: minD, maxDB: maxD)
+            // A saved comparison shows the range it was saved with, as a measurement does; one saved before
+            // comparisons kept their range spans its entries' ranges, as a new comparison does.
+            if let range = measurement.comparisonRange ?? DisplayRange.spanning(entries.map(\.snapshot)) {
+                setLoadedAxisRange(minFreq: range.minFreq, maxFreq: range.maxFreq, minDB: range.minDB, maxDB: range.maxDB)
             }
             loadedMeasurementName = measurement.measurementName.flatMap { TapToneMeasurement.normalizedName($0) }
             loadedNotes = measurement.notes.flatMap { TapToneMeasurement.normalizedNotes($0) }
@@ -601,6 +602,7 @@ extension TapToneAnalyzer {
             resultProvenance = nil   // a comparison has no microphone of its own
             highlightedPeakID = nil
             detectionState = .idle
+            abandonCapture()
             cancelSessionRecording()
             return
         }
@@ -609,16 +611,12 @@ extension TapToneAnalyzer {
         isLoadingMeasurement = true
         defer { isLoadingMeasurement = false }
 
-        // Loading a new measurement exits comparison mode.
-        // Clear the frozen spectrum immediately so there is no window where displayMode
-        // is .frozen but frozenFrequencies/Magnitudes still hold the previous measurement's
-        // data — that transient state causes a ghost spectrum artifact in the chart.
-        comparisonSpectra = []
-        comparisonSnapshots = []
+        // Loading a new measurement ends any comparison; the loaded measurement displays because
+        // `isMeasurementComplete` is set below, not because of the mode. Clear the frozen spectrum
+        // at once, so no frame shows the previous measurement's spectrum under the new one — a
+        // ghost spectrum in the chart.
+        clearComparison()
         setFrozenSpectrum(frequencies: [], magnitudes: [])
-        // Not a comparison any more; the loaded measurement displays because
-        // `isMeasurementComplete` is set below, not because of the mode.
-        displayMode = .live
 
         // Track the original timestamp so the Results-panel PDF can use it
         sourceMeasurementTimestamp = measurement.timestamp
@@ -750,6 +748,9 @@ extension TapToneAnalyzer {
         // loading, the analyzeMagnitudes loop would otherwise keep overwriting
         // peaksAbovePeakMin with fresh live-audio peaks on every FFT frame.
         detectionState = .idle
+        // A capture under way when the load came is dropped, with all it scheduled — it would
+        // otherwise land on the loaded measurement.
+        abandonCapture()
         cancelSessionRecording()
         isMeasurementComplete = true
         currentTapCount = 0
@@ -1023,15 +1024,10 @@ extension TapToneAnalyzer {
         loadedMeasurementName = nil
         loadedNotes = nil
 
-        // Broadcast the union axis ranges — use setLoadedAxisRange so all four bounds
-        // are published atomically, preventing transient axis mismatches.
-        let snapshots = withSnapshots.compactMap { $0.spectrumSnapshot }
-        if !snapshots.isEmpty,
-           let minF = snapshots.map(\.minFreq).min(),
-           let maxF = snapshots.map(\.maxFreq).max(),
-           let minD = snapshots.map(\.minDB).min(),
-           let maxD = snapshots.map(\.maxDB).max() {
-            setLoadedAxisRange(minFreq: minF, maxFreq: maxF, minDB: minD, maxDB: maxD)
+        // A comparison spans its entries' ranges, whatever was shown before — use setLoadedAxisRange so
+        // all four bounds are published atomically, preventing transient axis mismatches.
+        if let range = DisplayRange.spanning(withSnapshots.compactMap(\.spectrumSnapshot)) {
+            setLoadedAxisRange(minFreq: range.minFreq, maxFreq: range.maxFreq, minDB: range.minDB, maxDB: range.maxDB)
         }
 
         displayMode = comparisonSpectra.isEmpty ? .live : .comparison
@@ -1044,6 +1040,7 @@ extension TapToneAnalyzer {
         // Mirrors web `loadComparison`.
         if !comparisonSpectra.isEmpty {
             detectionState = .idle
+            abandonCapture()
             cancelSessionRecording()
         }
     }
@@ -1057,9 +1054,14 @@ extension TapToneAnalyzer {
     /// - Parameters:
     ///   - measurementName: User-supplied name for the comparison (e.g. "Pre/Post Bracing").
     ///   - notes: Optional free-form notes.
-    func saveComparison(measurementName: String? = nil, notes: String? = nil) {
+    ///   - minFreq, maxFreq, minDB, maxDB: The chart's range, saved with the comparison and shown when it
+    ///     is loaded, as a measurement's; `nil` spans the entries' ranges, as a new comparison does.
+    func saveComparison(measurementName: String? = nil, notes: String? = nil,
+                        minFreq: Float? = nil, maxFreq: Float? = nil,
+                        minDB: Float? = nil, maxDB: Float? = nil) {
         guard !comparisonSpectra.isEmpty,
-              comparisonSnapshots.count == comparisonSpectra.count else { return }
+              comparisonSnapshots.count == comparisonSpectra.count,
+              let spanned = DisplayRange.spanning(comparisonSnapshots) else { return }
 
         let entries: [ComparisonEntry] = comparisonSpectra.enumerated().map { index, entry in
             // Resolve Color → RGBA components using CGColor.
@@ -1089,7 +1091,11 @@ extension TapToneAnalyzer {
             peaks: [],
             measurementName: measurementName,
             notes: notes,
-            comparisonEntries: entries
+            comparisonEntries: entries,
+            comparisonRange: DisplayRange.ChartRange(minFreq: minFreq ?? spanned.minFreq,
+                                                     maxFreq: maxFreq ?? spanned.maxFreq,
+                                                     minDB: minDB ?? spanned.minDB,
+                                                     maxDB: maxDB ?? spanned.maxDB)
         )
         savedMeasurements.append(record)
         // The comparison on screen is now this saved one: its exports show its date and are named by it.
@@ -1097,7 +1103,8 @@ extension TapToneAnalyzer {
         persistMeasurements()
     }
 
-    /// Removes all comparison overlay spectra from the main chart.
+    /// Ends a comparison: its overlay spectra and their snapshots go, and the chart is live. The one
+    /// place a comparison ends — a load, New Tap, and turning the per-tap overlay off call it.
     func clearComparison() {
         comparisonSpectra = []
         comparisonSnapshots = []
@@ -1126,11 +1133,9 @@ extension TapToneAnalyzer {
     func applyMultiTapComparisonOverlays(enabled: Bool) {
         showingMultiTapComparison = enabled
         guard enabled else {
-            comparisonSpectra = []
-            comparisonSnapshots = []
             // Leave comparison; the chart goes back to the averaged spectrum on its own, because
             // the measurement is complete.
-            displayMode = .live
+            clearComparison()
             return
         }
         guard !tapEntries.isEmpty else { return }

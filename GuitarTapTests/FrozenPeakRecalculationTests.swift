@@ -79,7 +79,8 @@ struct FrozenPeakRecalculationTests {
 
     static func document(_ load: [String: Any], _ run: Run) -> [String: Any] {
         let type = load["type"] as! String
-        let snap = snapshot(load["spectrum"] as? [String: Any], type: type)
+        var snap = snapshot(load["spectrum"] as? [String: Any], type: type)
+        if let show = load["showUnknownModes"] as? Bool { snap["showUnknownModes"] = show }
         let (peakJSON, ids) = peaks(load["peaks"] as! [[Any]], run)
         var doc: [String: Any] = ["id": run.newID(), "timestamp": "2026-01-01T00:00:00Z", "peaks": peakJSON]
         if load["spectrum"] != nil { doc["spectrumSnapshot"] = snap }
@@ -123,10 +124,10 @@ struct FrozenPeakRecalculationTests {
 
     /// A UUID-keyed map, by its peaks' frequencies, against the case's frequency-keyed one.
     static func sameMap<V>(_ got: [UUID: V], _ want: [String: Any], _ sut: TapToneAnalyzer,
-                           _ equal: (V, Any) -> Bool) -> Bool {
+                           peaks: [ResonantPeak]? = nil, _ equal: (V, Any) -> Bool) -> Bool {
         guard got.count == want.count else { return false }
         return got.allSatisfy { id, value in
-            guard let p = knownPeaks(sut).first(where: { $0.id == id }),
+            guard let p = (peaks ?? knownPeaks(sut)).first(where: { $0.id == id }),
                   let key = want.keys.first(where: { abs(Float(Double($0)!) - p.frequency) <= 1 }) else { return false }
             return equal(value, want[key]!)
         }
@@ -181,6 +182,8 @@ struct FrozenPeakRecalculationTests {
                 #expect(sut.canReanalyze == want as? Bool, "\(id) \(field)")
             case "complete":
                 #expect(sut.isMeasurementComplete == want as? Bool, "\(id) \(field)")
+            case "tapCount":
+                #expect(sut.currentTapCount == want as? Int, "\(id) \(field): \(sut.currentTapCount)")
             case "phase":
                 #expect(sut.materialTapPhase.rawValue == want as? String, "\(id) \(field): \(sut.materialTapPhase)")
             case "fL", "fC":
@@ -193,16 +196,56 @@ struct FrozenPeakRecalculationTests {
             case "materialPeaks":
                 #expect(sameFrequencies(sut.materialIdentifiedPeaks.map(\.frequency), want), "\(id) \(field)")
             case "saved":
-                let w = want as! [String: Any]
                 guard let saved = sut.savedMeasurements.last else { Issue.record("\(id): nothing saved"); continue }
-                if let peaks = w["peaks"] {
-                    #expect(sameFrequencies(saved.peaks.map(\.frequency), peaks), "\(id) saved peaks")
-                }
-                if let all = w["selectedAll"] as? Bool {
-                    #expect((Set(saved.selectedPeakIDs ?? []) == Set(saved.peaks.map(\.id))) == all, "\(id) saved selectedAll")
-                }
+                checkSaved(saved, want as! [String: Any], sut, id)
             default:
                 Issue.record("\(id): unknown field \(field)")
+            }
+        }
+    }
+
+    /// The last saved measurement against the case's 'saved' fields.
+    static func checkSaved(_ saved: TapToneMeasurement, _ want: [String: Any], _ sut: TapToneAnalyzer, _ id: String) {
+        let snap = saved.spectrumSnapshot ?? saved.longitudinalSnapshot
+        for (key, w) in want {
+            let m = Comment(rawValue: "\(id) saved \(key)")
+            switch key {
+            case "peaks": #expect(sameFrequencies(saved.peaks.map(\.frequency), w), m)
+            case "selectedAll":
+                #expect((Set(saved.selectedPeakIDs ?? []) == Set(saved.peaks.map(\.id))) == w as? Bool, m)
+            case "selected":
+                let ids = Set(saved.selectedPeakIDs ?? [])
+                #expect(sameFrequencies(saved.peaks.filter { ids.contains($0.id) }.map(\.frequency), w), m)
+            case "overrides":
+                #expect(sameMap(saved.peakModeOverrides ?? [:], w as! [String: Any], sut, peaks: saved.peaks) { $0 == $1 as? String },
+                        "\(id) saved \(key): \(String(describing: saved.peakModeOverrides))")
+            case "offsets":
+                #expect(sameMap(saved.peakAnnotationOffsets ?? [:], w as! [String: Any], sut, peaks: saved.peaks) { point, xy in
+                    let v = xy as! [Double]
+                    return Double(point.x) == v[0] && Double(point.y) == v[1]
+                }, "\(id) saved \(key): \(String(describing: saved.peakAnnotationOffsets))")
+            case "name": #expect(saved.measurementName == w as? String, m)
+            case "notes": #expect(saved.notes == w as? String, m)
+            case "tapThreshold": #expect(saved.tapDetectionThreshold.map { Double($0) } == (w as? NSNumber)?.doubleValue, m)
+            case "peakMin": #expect(saved.peakMinThreshold.map { Double($0) } == (w as? NSNumber)?.doubleValue, m)
+            case "numberOfTaps": #expect(saved.numberOfTaps == w as? Int, m)
+            case "measurementType": #expect(snap?.measurementType?.rawValue == w as? String, m)
+            case "guitarType": #expect(snap?.guitarType?.rawValue == w as? String, m)
+            case "showUnknownModes": #expect(snap?.showUnknownModes == w as? Bool, m)
+            case "phaseSpectra":
+                let got = [("L", saved.longitudinalSnapshot), ("C", saved.crossSnapshot), ("FLC", saved.flcSnapshot)]
+                    .filter { $0.1 != nil }.map(\.0)
+                #expect(got == w as? [String], "\(id) saved \(key): \(got)")
+            case "tapEntries": #expect((saved.tapEntries?.count ?? 0) == w as? Int, m)
+            case "offsetsInFile":
+                let file = (try? JSONSerialization.jsonObject(with: TapToneAnalyzer.encodeMeasurements([saved]))) as? [[String: Any]]
+                #expect((file?.first?["peakAnnotationOffsets"] != nil) == w as? Bool, m)
+            case "comparisonColors":
+                let got = saved.multiTapComparisonEntries.map(\.colorComponents)
+                let want = (w as! [[NSNumber]]).map { $0.map(\.doubleValue) }
+                #expect(got.count == want.count && zip(got, want).allSatisfy { g, x in
+                    g.count == x.count && zip(g, x).allSatisfy { abs($0 - $1) <= 1e-6 } }, "\(id) saved \(key): \(got)")
+            default: Issue.record("\(id): unknown saved field \(key)")
             }
         }
     }
@@ -224,8 +267,9 @@ struct FrozenPeakRecalculationTests {
             let (magnitudes, frequencies) = PeakFindingTests.spectrum(spec)
             sut.fftAnalyzer.isRunning = true   // a frame comes only from the running engine
             sut.analyzeMagnitudes(magnitudes, frequencies: frequencies, peakMagnitude: magnitudes.max()!)
-        } else if step["save"] as? Bool == true {
-            sut.saveMeasurement()
+        } else if let save = step["save"], save as? Bool != false {
+            let given = save as? [String: Any] ?? [:]
+            sut.saveMeasurement(measurementName: given["name"] as? String, notes: given["notes"] as? String)
         } else if step["loadSaved"] as? Bool == true {
             sut.loadMeasurement(try #require(sut.savedMeasurements.last))
         } else if step["mark"] as? Bool == true {
@@ -239,7 +283,7 @@ struct FrozenPeakRecalculationTests {
     }
 
     @Test(arguments: ids("cases"))
-    func frozenPeaks(_ id: String) throws {
+    func frozenPeaks(_ id: String) async throws {
         let row = Self.row("cases", id)
         let saved = (TapDisplaySettings.measurementType, TapDisplaySettings.measureFlc)
         defer { (TapDisplaySettings.measurementType, TapDisplaySettings.measureFlc) = saved }
@@ -251,6 +295,8 @@ struct FrozenPeakRecalculationTests {
                 Self.check(fields, sut, run, id)
             } else {
                 try Self.step(step, sut, run, id)
+                // A filled capture is finished on the main queue: let it run, as the app's would.
+                if step["liveAudio"] != nil { try? await Task.sleep(nanoseconds: 5_000_000) }
             }
         }
         Self.check(row["expect"] as! [String: Any], sut, run, id)

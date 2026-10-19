@@ -80,6 +80,8 @@ struct BufferWatchdogTests {
                 case "inputDead": #expect(sut.inputAppearsDead == want as? Bool, msg)
                 case "couldNotRestart": #expect(sut.inputCouldNotRestart == want as? Bool, msg)
                 case "inputUnavailable": #expect(sut.inputUnavailable == want as? Bool, msg)
+                case "notRunningMessage": #expect(sut.notRunningMessage == want as? String, msg)
+                case "inputOpen": #expect(sut.isRunning == want as? Bool, msg)
                 case "permissionDenied": #expect(sut.microphonePermissionDenied == want as? Bool, msg)
                 case "restarts": #expect(restartTimes.count == want as? Int, msg)
                 case "restartTimes":
@@ -91,7 +93,7 @@ struct BufferWatchdogTests {
     }
 
     @Test(arguments: ids())
-    func bufferWatchdog(_ id: String) {
+    func bufferWatchdog(_ id: String) async {
         let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
         let run = Run()
         defer { run.sut.stopBufferWatchdog() }
@@ -112,6 +114,8 @@ struct BufferWatchdogTests {
             } else if step["stop"] as? Bool == true {
                 run.sut.isRunning = false
             } else if let fields = step["check"] as? [String: Any] {
+                // stop() publishes isRunning on the main queue: let that run before reading it.
+                if fields["inputOpen"] != nil { try? await Task.sleep(nanoseconds: 1_000_000) }
                 run.check(fields, id)
             } else {
                 Issue.record("\(id): unknown step \(step)")

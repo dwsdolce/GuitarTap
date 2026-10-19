@@ -5,6 +5,7 @@
 // @parity dsp/fft tests=test/gated-fft,test/file-playback,test/self-regression
 // @parity dsp/guitar-fft tests=test/file-playback,test/self-regression
 // @parity dsp/wav tests=test/file-playback,test/tap-decisions,test/self-regression
+// @parity audio/chunking tests=test/audio-chunking
 import AVFoundation
 import QuartzCore
 import Accelerate

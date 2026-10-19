@@ -316,7 +316,7 @@ extension RealtimeFFTAnalyzer {
     /// A restart after a selection change failed: select the fallback (reported by
     /// `revertFailedInputSwitch`), and start the engine on it — through the watchdog's bounded
     /// retries if that start fails too. The engine is marked as failed until a start succeeds,
-    /// so a later selection starts it (``restartsOnSelectionChange(isRunning:startFailed:)``).
+    /// so a later selection starts it (``restartsOnSelectionChange(isRunning:startFailed:isRecovering:)``).
     func recoverFromFailedStart() {
         engineStartFailed = true
         let failed = selectedInputDevice

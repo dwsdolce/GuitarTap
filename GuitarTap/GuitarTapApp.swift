@@ -73,6 +73,8 @@ final class MenuActions {
     /// Mirrors the analyzer's `hasResultToSaveOrExport`: Save and the exports are enabled only when there
     /// is something to save or export. Observed, so the menu updates when it changes.
     var hasResultToSaveOrExport = false
+    /// Mirrors the engine's `isRunning`: a file plays only while the audio engine runs.
+    var isRunning = false
 }
 
 // MARK: - Focused Scene Value
@@ -154,7 +156,7 @@ struct AppCommands: Commands {
                 menuActions?.openAudioFile?()
             }
             .keyboardShortcut("o", modifiers: [.command, .option])
-            .disabled(menuActions?.openAudioFile == nil)
+            .disabled(menuActions?.openAudioFile == nil || menuActions?.isRunning != true)
 
             Divider()
 

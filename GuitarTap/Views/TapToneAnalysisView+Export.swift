@@ -384,6 +384,7 @@ extension TapToneAnalysisView {
             minDB: minDB,
             maxDB: maxDB,
             peaks: isComparing ? [] : tap.visiblePeaks,
+            showModeBoundaries: tap.showsModeBoundaries,
             annotationOffsets: isComparing ? [:] : tap.peakAnnotationOffsets,
             showUnknownModes: TapDisplaySettings.showUnknownModes,
             measurementType: TapDisplaySettings.measurementType,

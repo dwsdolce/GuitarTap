@@ -2,16 +2,14 @@
 //  SpectrumViewGestureTests.swift
 //  GuitarTapTests
 //
-//  Unit tests for the pure zoom/pan math in SpectrumView+GestureHandlers.swift.
-//  These tests exercise applyFrequencyZoom, applyMagnitudeZoom, and handlePan
-//  by constructing a minimal SpectrumView with bindings backed by a reference-type
-//  state holder, then calling the methods directly — no SwiftUI rendering required.
+//  The chart's gestures in SpectrumView+GestureHandlers.swift: applyFrequencyZoom,
+//  applyMagnitudeZoom and handlePan, through a minimal SpectrumView with bindings backed by a
+//  reference-type state holder, called directly — no SwiftUI rendering required. The range math
+//  they hand to is DisplayRange.zoomed / panned, the shared zoom and pan cases (test/display-range).
 //
-//  Covered: C1–C8
-//
-// @parity none — SwiftUI zoom/pan gesture math (SpectrumView+GestureHandlers), a UI-mechanism
-// unit test that is platform-specific by design (web/Python drive gestures through different
-// stacks: pointer events / Qt). Justified platform-only; not a cross-platform behavioural contract.
+// @parity none — the SwiftUI gestures' own wiring (a drag's translation in points to a pan, the
+// bindings); Python's gestures are pyqtgraph's and the web's pointer events, each calling the same
+// shared range functions.
 
 import Testing
 import SwiftUI
@@ -61,7 +59,7 @@ struct FrequencyZoomTests {
         s.view.applyFrequencyZoom(scale: 2.0, anchorFreq: 550)
         let after = s.maxFreq - s.minFreq
         #expect(after < before, "Zoom-in should narrow the frequency range")
-        #expect(s.minFreq >= 0, "minFreq should stay ≥ 0 Hz")
+        #expect(s.minFreq >= 1, "minFreq should stay ≥ 1 Hz")
         #expect(s.maxFreq <= 5000, "maxFreq should stay ≤ 5 kHz")
     }
 
@@ -72,7 +70,7 @@ struct FrequencyZoomTests {
         s.view.applyFrequencyZoom(scale: 0.5, anchorFreq: 600)
         let after = s.maxFreq - s.minFreq
         #expect(after > before, "Zoom-out should widen the frequency range")
-        #expect(s.minFreq >= 0)
+        #expect(s.minFreq >= 1)
         #expect(s.maxFreq <= 5000)
     }
 
@@ -166,7 +164,7 @@ struct MagnitudeZoomTests {
 @Suite("Pan")
 struct PanTests {
 
-    // C6 — panning left past 0 Hz stops at 0 Hz and preserves the span
+    // C6 — panning left past 1 Hz stops at 1 Hz and preserves the span
     @Test func frequency_clampsAt1Hz() {
         let s = GestureState(minFreq: 50, maxFreq: 300, minDB: -80, maxDB: 0)
         let span = s.maxFreq - s.minFreq

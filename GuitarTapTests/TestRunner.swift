@@ -9,6 +9,9 @@
 // TapDisplaySettings.defaults is now redirected to an isolated UserDefaults
 // suite at its declaration site (in TapDisplaySettings.swift) using a
 // ProcessInfo environment check. No further setup is needed here.
+//
+// @parity none — the XCTest entry point Swift Testing needs on the iPad and iPhone; the other editions'
+// runners need none.
 
 import XCTest
 import Testing
