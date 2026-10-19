@@ -188,13 +188,6 @@ extension TapToneAnalysisView {
                                 .font(.caption)
                                 .foregroundColor(Palette.color(.textSecondary))
                         }
-                    } else if fft.frequencies.isEmpty {
-                        VStack {
-                            ProgressView()
-                            Text("Loading...")
-                                .font(.caption)
-                                .foregroundColor(Palette.color(.textSecondary))
-                        }
                     } else {
                         Color.clear
                     }
