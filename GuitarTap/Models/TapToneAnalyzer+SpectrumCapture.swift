@@ -311,6 +311,7 @@ extension TapToneAnalyzer {
     }
 
     // MARK: - Gated FFT Capture (Plate/Brace)
+    // @parity dsp/gated-capture tests=test/file-playback,test/tap-decisions,test/guitar-capture-window,test/self-regression
 
     /// Receives raw PCM samples from the audio engine and maintains both the
     /// pre-roll ring buffer and the active gated capture buffer.
