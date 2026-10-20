@@ -78,7 +78,12 @@ sys.exit("no available simulator named " + want)' "$simulator")"
         fi
         sleep 5
     done
-    echo "Simulator settled after $((SECONDS - settle_start)) s (its processes at ${load} % CPU)." 
+    echo "Simulator settled after $((SECONDS - settle_start)) s (its processes at ${load} % CPU)."
+    # What the simulator is busy with, so a wait that runs out its limit can be explained: its five busiest
+    # processes, by name.
+    ps -Ao pcpu,command | awk '/\.simruntime\// && $1 > 1 {
+            cpu = $1; split($0, r, "/RuntimeRoot/"); split(r[2], w, " "); n = split(w[1], p, "/")
+            print "  " cpu " %  " p[n] }' | sort -rn | head -5
     # Earlier exports would make Save to Files ask to replace them.
     find "$files" -maxdepth 1 \( -name '*.png' -o -name '*.pdf' \) -delete
     destination="platform=iOS Simulator,id=$udid"
