@@ -38,30 +38,36 @@ final class GuitarTapUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// Each case: one launch and import, then both export paths — the main window with the import loaded,
+    // One test per case, so a stall in the system's own UI (the share sheet, the document picker) costs that
+    // case alone, and the run script's retry of a failed test repeats only it.
+    @MainActor func testExportsGuitar() throws { try exportCase("guitar") }
+    @MainActor func testExportsMultiTap() throws { try exportCase("multi-tap") }
+    @MainActor func testExportsPlate() throws { try exportCase("plate") }
+    @MainActor func testExportsBrace() throws { try exportCase("brace") }
+    @MainActor func testExportsComparison() throws { try exportCase("comparison") }
+
+    /// One case: one launch and import, then both export paths — the main window with the import loaded,
     /// then the row's menu in Saved Measurements.
-    @MainActor func testExports() throws {
-        for c in Self.cases {
-            try XCTContext.runActivity(named: c.name) { _ in
-                let app = launch()
-                try importCase(c.fixture, app: app)
+    @MainActor private func exportCase(_ name: String) throws {
+        let c = try XCTUnwrap(Self.cases.first { $0.name == name }, "no case \(name)")
+        try clearLeftoverExports()
+        let app = launch()
+        try importCase(c.fixture, app: app)
 
-                openMainExports(app)
-                press(app.buttons["Export Spectrum"].firstMatch)
-                _ = try save(c.name, "main", app: app, expecting: "png")
-                press(app.buttons["Export PDF"].firstMatch)
-                _ = try save(c.name, "main", app: app, expecting: "pdf")
-                closeMainExports(app)
+        openMainExports(app)
+        press(app.buttons["Export Spectrum"].firstMatch)
+        _ = try save(c.name, "main", app: app, expecting: "png")
+        press(app.buttons["Export PDF"].firstMatch)
+        _ = try save(c.name, "main", app: app, expecting: "pdf")
+        closeMainExports(app)
 
-                rowMenu(app, fixture: c.fixture, choose: "Export Spectrum")
-                let png = try save(c.name, "saved", app: app, expecting: "png")
-                rowMenu(app, fixture: c.fixture, choose: "Export PDF Report")
-                let pdf = try save(c.name, "saved", app: app, expecting: "pdf")
-                // The saved export is named after the measurement, so it is the row that was imported.
-                XCTAssertEqual([png, pdf], ["\(c.fixture).png", "\(c.fixture).pdf"])
-                app.terminate()
-            }
-        }
+        rowMenu(app, fixture: c.fixture, choose: "Export Spectrum")
+        let png = try save(c.name, "saved", app: app, expecting: "png")
+        rowMenu(app, fixture: c.fixture, choose: "Export PDF Report")
+        let pdf = try save(c.name, "saved", app: app, expecting: "pdf")
+        // The saved export is named after the measurement, so it is the row that was imported.
+        XCTAssertEqual([png, pdf], ["\(c.fixture).png", "\(c.fixture).pdf"])
+        app.terminate()
     }
 
     // MARK: - Driving the app
@@ -168,6 +174,9 @@ final class GuitarTapUITests: XCTestCase {
         app.buttons["Done"].firstMatch
     }
 
+    /// Each path's folder is emptied before its first export (`save`), so a retried case starts clean.
+    private func clearLeftoverExports() throws {}
+
     /// The export buttons are always in the main window.
     @MainActor private func openMainExports(_ app: XCUIApplication) {}
     @MainActor private func closeMainExports(_ app: XCUIApplication) {}
@@ -258,6 +267,16 @@ final class GuitarTapUITests: XCTestCase {
     }
 
     private var local: String { UIDevice.current.userInterfaceIdiom == .pad ? "On My iPad" : "On My iPhone" }
+
+    /// A case that stalled after a save leaves its export in the local files, where Save to Files would ask to
+    /// replace it when the case is retried; clear them first, as the run script does before the run.
+    private func clearLeftoverExports() throws {
+        let folder = try files
+        for name in try FileManager.default.contentsOfDirectory(atPath: folder.path)
+        where name.hasSuffix(".png") || name.hasSuffix(".pdf") {
+            try FileManager.default.removeItem(at: folder.appendingPathComponent(name))
+        }
+    }
 
     @MainActor private func press(_ element: XCUIElement) { element.tap() }
 

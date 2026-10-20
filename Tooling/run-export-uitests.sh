@@ -10,8 +10,13 @@
 #   On the Mac (the default) the tests take over the mouse and keyboard for about eight minutes.
 #   --simulator runs them on an iPad or iPhone simulator ("iPad Air 11-inch (M4)", "iPhone 17", or its id):
 #   the script boots it, grants the microphone (the state of a user who has allowed it — the app asks
-#   before it starts listening), and tells the test where the simulator keeps its own files, which the
-#   document picker and Save to Files use.
+#   before it starts listening), waits for its first-boot work to finish, and tells the test where the
+#   simulator keeps its own files, which the document picker and Save to Files use.
+#
+# Each case is a test of its own, and a failed test is run once more: the share sheet and the document
+# picker are the system's, and on a busy machine (a CI runner's simulator) one now and then never draws.
+# A real failure fails both times; a test that passed only on its second run is listed at the end, so a
+# stall stays visible.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -58,6 +63,22 @@ sys.exit("no available simulator named " + want)' "$simulator")"
     # picker otherwise opens blank for longer than a test should wait.
     xcrun simctl launch "$udid" com.apple.DocumentsApp > /dev/null && sleep 10
     xcrun simctl terminate "$udid" com.apple.DocumentsApp > /dev/null 2>&1 || true
+    # A freshly booted simulator spends its first minutes on system work (calls, notifications, wallpaper,
+    # storage, permissions), and the system services the tests use — the share sheet, the document picker —
+    # wait behind it: on a CI runner long enough that a test's query of them times out. Wait until the
+    # simulator's processes are quiet (under 30 % of one core, three readings 5 s apart), at most 3 minutes.
+    settle_start=$SECONDS quiet=0 load=0
+    while (( SECONDS - settle_start < 180 )); do
+        load="$(ps -Ao pcpu,command | awk '/\.simruntime\// { s += $1 } END { printf "%d", s }')"
+        if (( load < 30 )); then
+            quiet=$((quiet + 1))
+            (( quiet >= 3 )) && break
+        else
+            quiet=0
+        fi
+        sleep 5
+    done
+    echo "Simulator settled after $((SECONDS - settle_start)) s (its processes at ${load} % CPU)." 
     # Earlier exports would make Save to Files ask to replace them.
     find "$files" -maxdepth 1 \( -name '*.png' -o -name '*.pdf' \) -delete
     destination="platform=iOS Simulator,id=$udid"
@@ -68,6 +89,7 @@ fi
 # The result bundle is kept beside the exports, so a failing run can be looked into.
 tests=0
 xcodebuild test -scheme guitar_tap -testPlan GuitarTapUITests -destination "$destination" \
+    -retry-tests-on-failure -test-iterations 2 \
     -derivedDataPath "$work/dd" -resultBundlePath "$out/result.xcresult" | tail -5 || tests=1
 
 xcrun xcresulttool export attachments --path "$out/result.xcresult" --output-path "$work/attachments" > /dev/null
@@ -75,7 +97,7 @@ xcrun xcresulttool export attachments --path "$out/result.xcresult" --output-pat
 import json, os, shutil, sys
 
 attachments, out = sys.argv[1], sys.argv[2]
-files = []
+files = {}
 for test in json.load(open(os.path.join(attachments, "manifest.json"))):
     for a in test["attachments"]:
         # The test names each export <case>--<main|saved>--<file>; XCTest appends _<n>_<uuid>.<ext>.
@@ -90,12 +112,30 @@ for test in json.load(open(os.path.join(attachments, "manifest.json"))):
         dest = os.path.join(out, case, path)
         os.makedirs(dest, exist_ok=True)
         shutil.copy(os.path.join(attachments, a["exportedFileName"]), os.path.join(dest, file))
-        files.append({"case": case, "path": path, "format": ext.lstrip("."),
-                      "file": f"{case}/{path}/{file}"})
-files.sort(key=lambda f: f["file"])
+        # A retried case attaches again what its failed run had saved: one entry per file.
+        files[f"{case}/{path}/{file}"] = {"case": case, "path": path, "format": ext.lstrip("."),
+                                          "file": f"{case}/{path}/{file}"}
+files = sorted(files.values(), key=lambda f: f["file"])
 json.dump({"edition": "swift", "files": files}, open(os.path.join(out, "manifest.json"), "w"), indent=2)
 print(f"{len(files)} exports → {out}")
 EOF
+
+# A test that failed and then passed on its second run: listed, so a stall is seen, not hidden by the retry.
+xcrun xcresulttool get test-results tests --path "$out/result.xcresult" | "$PYTHON" -c '
+import json, sys
+retried = []
+def walk(node):
+    if node.get("nodeType") == "Test Case":
+        runs = [c for c in node.get("children", []) if c.get("nodeType") == "Repetition"]
+        if len(runs) > 1 and node.get("result") == "Passed":
+            retried.append(node.get("name", "?"))
+    for child in node.get("children", []):
+        walk(child)
+for node in json.load(sys.stdin).get("testNodes", []):
+    walk(node)
+if retried:
+    print(f"⚠️  Passed only on a retry ({len(retried)}): " + ", ".join(retried))
+' || true
 
 check=0
 "$PYTHON" Tooling/export-check/check_exports.py check "$out" || check=1
