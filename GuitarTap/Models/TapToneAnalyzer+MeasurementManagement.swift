@@ -90,29 +90,66 @@ extension TapToneAnalyzer {
         return try encoder.encode(measurements)
     }
 
+    /// A library or `.guitartap` file as read: the measurements that could be read, in the file's order,
+    /// and why each of the others could not.
+    struct DecodedLibrary {
+        /// The entries that decoded.
+        var measurements: [TapToneMeasurement]
+        /// The reason each entry that did not decode could not be read, in the file's order.
+        var unreadable: [Error]
+    }
+
     /// The single JSON decoding of the measurement library.
     ///
     /// Every read path — loading `saved_measurements.json` and importing a `.guitartap`
     /// file or string — goes through this. Counterpart to ``encodeMeasurements(_:)``.
-    static func decodeMeasurements(_ data: Data) throws -> [TapToneMeasurement] {
+    ///
+    /// The file must be a JSON list of measurements; anything else throws. Each entry is decoded on its
+    /// own, so one that cannot be read — an id that is not a UUID, no spectrum — costs only itself: its
+    /// reason is returned in `unreadable` and the rest are read.
+    static func decodeLibrary(_ data: Data) throws -> DecodedLibrary {
+        guard let entries = try JSONSerialization.jsonObject(with: data) as? [Any] else {
+            throw DecodingError.typeMismatch([TapToneMeasurement].self, DecodingError.Context(
+                codingPath: [], debugDescription: "A .guitartap file is a list of measurements."))
+        }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        do {
-            return try decoder.decode([TapToneMeasurement].self, from: data)
-        } catch let error as DecodingError {
-            // An id that is not a UUID is named, as every edition names it.
-            throw InvalidIDError.from(error, in: data) ?? error
+        var library = DecodedLibrary(measurements: [], unreadable: [])
+        for entry in entries {
+            let json = try JSONSerialization.data(withJSONObject: entry, options: [.fragmentsAllowed])
+            do {
+                library.measurements.append(try decoder.decode(TapToneMeasurement.self, from: json))
+            } catch let error as DecodingError {
+                // An id that is not a UUID is named, as every edition names it.
+                library.unreadable.append(InvalidIDError.from(error, in: json) ?? error)
+            } catch {
+                library.unreadable.append(error)
+            }
         }
+        return library
+    }
+
+    /// The file's measurements, every one of them: ``decodeLibrary(_:)``, throwing the first unreadable
+    /// entry's reason if there is one.
+    static func decodeMeasurements(_ data: Data) throws -> [TapToneMeasurement] {
+        let library = try decodeLibrary(data)
+        if let first = library.unreadable.first { throw first }
+        return library.measurements
+    }
+
+    /// Why one entry of a file could not be read, in the words an import's message uses: the id that is
+    /// not a UUID, or "no spectrum"; nil for any other reason.
+    static func unreadableReason(_ error: Error) -> String? {
+        if let invalid = error as? InvalidIDError { return "\(invalid)" }
+        if let noSpectrum = error as? NoSpectrumError { return "\(noSpectrum)" }
+        return nil
     }
 
     /// The message an import that failed shows, the same in every edition: the file is not a valid
     /// measurement (naming the id when that is why), the system denied access, or what went wrong.
     static func importErrorMessage(for error: Error, fileName: String) -> String {
-        if let invalid = error as? InvalidIDError {
-            return "Could not import \"\(fileName)\": the file is not a valid GuitarTap measurement (\(invalid))."
-        }
-        if let noSpectrum = error as? NoSpectrumError {
-            return "Could not import \"\(fileName)\": the file is not a valid GuitarTap measurement (\(noSpectrum))."
+        if let reason = unreadableReason(error) {
+            return "Could not import \"\(fileName)\": the file is not a valid GuitarTap measurement (\(reason))."
         }
         let nsError = error as NSError
         let isPermissionError = (nsError.domain == NSPOSIXErrorDomain && nsError.code == 1) ||
@@ -133,19 +170,31 @@ extension TapToneAnalyzer {
     ///
     /// Populates `savedMeasurements` on the main thread. No-ops silently if
     /// the file does not yet exist.
+    ///
+    /// Entries that cannot be read are left out: the file is first copied aside as it was —
+    /// ``keepCopyOfLibrary(at:unreadableCount:)`` — and the library is then saved without them. A file
+    /// that cannot be read at all is set aside — ``setAsideUnreadableLibrary(at:)``.
     func loadPersistedMeasurements() {
         let fileURL = libraryFileURL
-        
+
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             gtLog("📂 No persisted measurements file found")
             return
         }
-        
+
         do {
             let data = try Data(contentsOf: fileURL)
-            let measurements = try TapToneAnalyzer.decodeMeasurements(data)
+            let library = try TapToneAnalyzer.decodeLibrary(data)
+            let measurements = library.measurements
             savedMeasurements = measurements
             gtLog("📂 Loaded \(measurements.count) persisted measurements")
+
+            if !library.unreadable.isEmpty {
+                gtLog("❌ \(library.unreadable.count) persisted measurement(s) could not be read: \(library.unreadable)")
+                keepCopyOfLibrary(at: fileURL, unreadableCount: library.unreadable.count)
+                persistMeasurements()
+                return
+            }
 
             // Files written before the findPeaks duplicate fix carry one bit-identical twin
             // per capture; decoding repairs them in memory. The library is ours, so write the
@@ -163,16 +212,41 @@ extension TapToneAnalyzer {
         }
     }
 
+    /// The library holds entries that cannot be read. Before it is saved without them, it is copied —
+    /// `<name>-unreadable-<date and time>.json` beside itself, as it was — and the user is told once how
+    /// many were left out and where the copy is. If it cannot be copied, the library is not written this
+    /// session, so the only copy of those entries is not replaced.
+    func keepCopyOfLibrary(at fileURL: URL, unreadableCount: Int) {
+        let keptURL = Self.unreadableLibraryURL(for: fileURL)
+        let count = unreadableCount == 1 ? "1 saved measurement" : "\(unreadableCount) saved measurements"
+        let was = unreadableCount == 1 ? "was" : "were"
+        do {
+            try FileManager.default.copyItem(at: fileURL, to: keptURL)
+            gtLog("📂 Library with unreadable entries copied to \(keptURL.path)")
+            libraryLoadFailure = "\(count) could not be read and \(was) removed from the list. The original file was kept as \(keptURL.lastPathComponent) \(Self.whereToFind(keptURL))."
+        } catch {
+            gtLog("❌ Could not copy the library aside: \(error) — the library is not written this session")
+            isLibraryWriteBlocked = true
+            libraryLoadFailure = "\(count) could not be read and \(was) left out of the list. The file, \(fileURL.lastPathComponent), was left as it is \(Self.whereToFind(fileURL)), and new measurements will not be saved to it this session."
+        }
+    }
+
+    /// Where an unreadable library, or a copy of one, is kept: `<name>-unreadable-<date and time>.json`
+    /// beside it.
+    static func unreadableLibraryURL(for fileURL: URL) -> URL {
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.dateFormat = "yyyyMMdd-HHmmss"
+        return fileURL.deletingLastPathComponent().appendingPathComponent(
+            "\(fileURL.deletingPathExtension().lastPathComponent)-unreadable-\(stamp.string(from: Date())).json")
+    }
+
     /// The library could not be read. It is kept — renamed `<name>-unreadable-<date and time>.json`
     /// beside itself — so no save writes over it, the library starts empty, and the user is told once
     /// where it is: fixing the file and renaming it back restores it. If it cannot be renamed it stays
     /// where it is and the library is not written this session.
     func setAsideUnreadableLibrary(at fileURL: URL) {
-        let stamp = DateFormatter()
-        stamp.locale = Locale(identifier: "en_US_POSIX")
-        stamp.dateFormat = "yyyyMMdd-HHmmss"
-        let keptURL = fileURL.deletingLastPathComponent().appendingPathComponent(
-            "\(fileURL.deletingPathExtension().lastPathComponent)-unreadable-\(stamp.string(from: Date())).json")
+        let keptURL = Self.unreadableLibraryURL(for: fileURL)
         do {
             try FileManager.default.moveItem(at: fileURL, to: keptURL)
             gtLog("📂 Unreadable library kept as \(keptURL.path)")
@@ -187,9 +261,26 @@ extension TapToneAnalyzer {
     /// The message for a library that could not be read and was kept as `keptAs`.
     static func unreadableLibraryMessage(keptAs kept: URL, original: URL) -> String {
         if kept == original {
-            return "Your saved measurements could not be read. The file was left as it is at \(kept.path), and new measurements will not be saved to it until it can be read."
+            return "Your saved measurements could not be read. The file, \(kept.lastPathComponent), was left as it is \(whereToFind(kept)), and new measurements will not be saved to it until it can be read."
         }
-        return "Your saved measurements could not be read, so the library starts empty. The file was kept as \(kept.path) — fix it and rename it back to \(original.lastPathComponent) to restore it."
+        return "Your saved measurements could not be read, so the library starts empty. The file was kept as \(kept.lastPathComponent) \(whereToFind(kept)) — fix it and rename it back to \(original.lastPathComponent) to restore it."
+    }
+
+    /// Where a file of the library's is, in the words a user finds it by: on iOS the app's folder in
+    /// Files; on macOS its folder's path, from the home folder.
+    static func whereToFind(_ file: URL) -> String {
+        #if os(iOS)
+        let device = UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone"
+        return "in the GuitarTap folder in Files (On My \(device) › GuitarTap)"
+        #else
+        // The real home folder: in the sandbox NSHomeDirectory() is the app's container.
+        var folder = file.deletingLastPathComponent().path
+        if let account = getpwuid(getuid()), let home = String(validatingCString: account.pointee.pw_dir),
+           folder.hasPrefix(home + "/") {
+            folder = "~" + folder.dropFirst(home.count)
+        }
+        return "in GuitarTap's data folder, \(folder)"
+        #endif
     }
     
     /// Writes all saved measurements to `saved_measurements.json`.
@@ -497,6 +588,9 @@ extension TapToneAnalyzer {
     /// Decodes a JSON data blob into ``TapToneMeasurement`` records and
     /// appends them to `savedMeasurements`.
     ///
+    /// An entry that cannot be read is skipped and the rest are imported; the file must hold at least
+    /// one that can be read.
+    ///
     /// A library operation only: it says nothing about microphones. Nothing is on screen yet, so
     /// there is nothing for a microphone difference to affect — the check belongs to
     /// ``loadMeasurement(_:)``, which is what shows the user data, so importing a library never
@@ -505,20 +599,22 @@ extension TapToneAnalyzer {
     /// - Parameters:
     ///   - jsonData: Raw JSON data containing an array of encoded
     ///     ``TapToneMeasurement`` values.
-    /// - Returns: The array of newly decoded measurements.
-    /// - Throws: A decoding error if `jsonData` is not a valid
-    ///   `[TapToneMeasurement]` JSON array.
-    func importMeasurements(from jsonData: Data) throws -> [TapToneMeasurement] {
-        let measurements = try TapToneAnalyzer.decodeMeasurements(jsonData)
-        
+    /// - Returns: The newly decoded measurements, and why each skipped entry could not be read.
+    /// - Throws: A decoding error if `jsonData` is not a JSON array of measurements, or the first
+    ///   entry's reason if none can be read.
+    func importMeasurements(from jsonData: Data) throws -> DecodedLibrary {
+        let library = try TapToneAnalyzer.decodeLibrary(jsonData)
+        if library.measurements.isEmpty, let first = library.unreadable.first { throw first }
+        let measurements = library.measurements
+
         // Add imported measurements
         savedMeasurements.append(contentsOf: measurements)
         
         // Persist to disk
         persistMeasurements()
 
-        gtLog("📥 Imported \(measurements.count) measurements")
-        return measurements
+        gtLog("📥 Imported \(measurements.count) measurements, skipped \(library.unreadable.count)")
+        return library
     }
 
     /// Imports a `.guitartap` file and returns the one message the user sees for it.
@@ -526,7 +622,8 @@ extension TapToneAnalyzer {
     /// A single measurement is also loaded — so, and only then, the message carries the LOAD's
     /// microphone warning, folded in so one dialog appears rather than two, and consumed so the
     /// main view's alert does not show it again. A library import (Export All) only adds to the
-    /// library and says nothing about microphones.
+    /// library and says nothing about microphones. Entries that could not be read and were skipped
+    /// are named in the message.
     ///
     /// The warning is cleared first, so the message can only ever describe THIS import — whatever
     /// mechanism a view uses to clear an acknowledged warning, a stale one cannot ride along.
@@ -537,17 +634,34 @@ extension TapToneAnalyzer {
     /// - Throws: A decoding error if the file is not a valid `.guitartap` array.
     func importAndLoadMeasurements(from jsonData: Data) throws -> String {
         microphoneWarning = nil
-        let imported = try importMeasurements(from: jsonData)
-        guard imported.count == 1, let measurement = imported.first else {
-            return "Successfully imported \(imported.count) measurements"
+        let library = try importMeasurements(from: jsonData)
+        let imported = library.measurements
+        var message: String
+        if imported.count == 1, let measurement = imported.first {
+            loadMeasurement(measurement)
+            message = "Successfully imported and loaded 1 measurement"
+        } else {
+            message = "Successfully imported \(imported.count) measurements"
         }
-        loadMeasurement(measurement)
-        var message = "Successfully imported and loaded 1 measurement"
-        if let warning = microphoneWarning {
+        if let skipped = Self.skippedEntriesMessage(library.unreadable) {
+            message += "\n\n" + skipped
+        }
+        if imported.count == 1, let warning = microphoneWarning {
             message += "\n\n⚠️ " + warning
             microphoneWarning = nil
         }
         return message
+    }
+
+    /// What an import's message says about the entries it skipped — nil when none were: how many, and
+    /// why when there was one.
+    static func skippedEntriesMessage(_ unreadable: [Error]) -> String? {
+        guard let first = unreadable.first else { return nil }
+        guard unreadable.count == 1 else {
+            return "\(unreadable.count) measurements in the file could not be read and were not imported."
+        }
+        let reason = unreadableReason(first).map { " (\($0))" } ?? ""
+        return "1 measurement in the file could not be read and was not imported\(reason)."
     }
     
     /// Restores the full analyser state from a saved measurement, entering

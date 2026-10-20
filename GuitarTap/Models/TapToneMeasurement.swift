@@ -834,7 +834,7 @@ struct TapToneMeasurement: Identifiable, Codable {
 
         // --- Heal duplicate peaks written by the pre-fix findPeaks ---
         // Every read path reaches this initialiser: `.guitartap` import and the
-        // saved-measurements store both go through decodeMeasurements(_:).
+        // saved-measurements store both go through decodeLibrary(_:).
         var healed = false
         let (healedPeaks, removedIDs) = Self.healDuplicatePeaks(
             decodedPeaks, selectedIDs: Set(decodedSelectedPeakIDs ?? [])
@@ -953,10 +953,10 @@ struct TapToneMeasurement: Identifiable, Codable {
         comparisonEntries     = decodedComparisonEntries
         wasHealed             = healed
 
-        // No edition saves a measurement without its spectrum, so a file that holds one is not a
-        // measurement the app made: a comparison of at least two entries, or a guitar spectrum or a
-        // plate/brace's longitudinal one. A spectrum with no points — or with frequencies and
-        // magnitudes that differ in number — is no spectrum, a comparison entry's included.
+        // A measurement without its spectrum has nothing to show or compare, so it is not read: it
+        // needs a comparison of at least two entries, or a guitar spectrum or a plate/brace's
+        // longitudinal one. A spectrum with no points — or with frequencies and magnitudes that
+        // differ in number — is no spectrum, a comparison entry's included.
         let holdsSpectrum = { (snapshot: SpectrumSnapshot?) -> Bool in
             guard let snapshot else { return false }
             return !snapshot.frequencies.isEmpty && snapshot.frequencies.count == snapshot.magnitudes.count
@@ -1094,9 +1094,8 @@ extension TapToneMeasurement {
 // MARK: - A measurement with no spectrum
 
 /// A measurement in a file with no spectrum — no guitar spectrum, no plate/brace longitudinal one, or a
-/// comparison of fewer than two entries; a spectrum with no points is none: no edition makes one, so the
-/// file cannot be read. Mirrors Python
-/// and web `NoSpectrumError`.
+/// comparison of fewer than two entries; a spectrum with no points is none. The entry cannot be read; the
+/// rest of its file can. Mirrors Python and web `NoSpectrumError`.
 struct NoSpectrumError: Error, CustomStringConvertible {
     var description: String { "no spectrum" }
 }

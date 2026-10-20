@@ -646,7 +646,7 @@ private struct LifecycleModifier: ViewModifier {
             } message: {
                 Text(fft.inputDeviceOpenFailure ?? "")
             }
-            // The library could not be read at launch; it was kept aside, not written over.
+            // The library, or entries in it, could not be read at launch; a copy was kept aside.
             .alert("Saved Measurements Unreadable", isPresented: Binding(
                 get: { tap.libraryLoadFailure != nil },
                 set: { if !$0 { tap.libraryLoadFailure = nil } }

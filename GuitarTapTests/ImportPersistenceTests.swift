@@ -48,16 +48,34 @@ struct ImportPersistenceTests {
         let row = (Self.data["cases"] as! [[String: Any]]).first { $0["id"] as! String == id }!
         let sut = TapToneAnalyzer.forTesting()
         sut.savedMeasurements = []
-        sut.libraryFileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("import-persistence-\(UUID().uuidString).json")
-        defer { try? FileManager.default.removeItem(at: sut.libraryFileURL) }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("import-persistence-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        sut.libraryFileURL = dir.appendingPathComponent("saved_measurements.json")
         var message: String?
+        var stored: Data?
         for step in row["steps"] as! [[String: Any]] {
-            if let names = step["import"] as? [String] {
+            if let names = step["libraryHolds"] as? [String] {
+                let file = try JSONSerialization.data(withJSONObject: names.map { Self.measurements[$0]! })
+                try file.write(to: sut.libraryFileURL)
+                stored = file
+                sut.loadPersistedMeasurements()
+            } else if let names = step["import"] as? [String] {
                 let file = try JSONSerialization.data(withJSONObject: names.map { Self.measurements[$0]! })
                 message = try sut.importAndLoadMeasurements(from: file)
             } else if let names = step["importFails"] as? [String] {
                 let file = try JSONSerialization.data(withJSONObject: names.map { Self.measurements[$0]! })
+                do {
+                    _ = try sut.importAndLoadMeasurements(from: file)
+                    Issue.record("\(id): the import fails")
+                } catch {
+                    if let want = step["message"] as? String {
+                        let got = TapToneAnalyzer.importErrorMessage(for: error, fileName: step["file"] as! String)
+                        #expect(got == want, "\(id): message \(got)")
+                    }
+                }
+            } else if let name = step["importFailsBare"] as? String {
+                let file = try JSONSerialization.data(withJSONObject: Self.measurements[name]!)
                 do {
                     _ = try sut.importAndLoadMeasurements(from: file)
                     Issue.record("\(id): the import fails")
@@ -111,6 +129,20 @@ struct ImportPersistenceTests {
                 #expect(message?.hasPrefix(want as! String) == true, "\(id) \(field): \(String(describing: message))")
             case "microphoneWarning":
                 #expect((sut.microphoneWarning != nil) == want as? Bool, "\(id) \(field)")
+            case "libraryMessage":
+                #expect(sut.libraryLoadFailure == want as? String, "\(id) \(field): \(String(describing: sut.libraryLoadFailure))")
+            case "libraryMessageStartsWith":
+                #expect(sut.libraryLoadFailure?.hasPrefix(want as! String) == true,
+                        "\(id) \(field): \(String(describing: sut.libraryLoadFailure))")
+            case "keptCopy":
+                let kept = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+                    .filter { $0.lastPathComponent.hasPrefix("saved_measurements-unreadable-") }
+                if want as! Bool {
+                    #expect(kept.count == 1, "\(id) \(field): one copy")
+                    #expect(try kept.first.map { try Data(contentsOf: $0) } == stored, "\(id) \(field): as it was")
+                } else {
+                    #expect(kept.isEmpty, "\(id) \(field): no copy")
+                }
             default:
                 Issue.record("\(id): unknown field \(field)")
             }
@@ -119,15 +151,17 @@ struct ImportPersistenceTests {
 
     // MARK: - A library that cannot be read
 
-    /// The shared measurement a whole library holds that makes it unreadable.
-    nonisolated static let unreadableMeasurement = ["bad id": "bad-id", "no spectrum": "no-spectrum", "empty spectrum": "empty-spectrum"]
-    nonisolated static let unreadableKinds = ["cut short", "bad id", "no spectrum", "empty spectrum"]
+    /// A library none of which can be read — cut short mid-write, or one measurement on its own rather than
+    /// a list of them.
+    nonisolated static let unreadableKinds = ["cut short", "not a list"]
+    /// A library some of whose entries cannot be read — an id that is not a UUID, no spectrum, a spectrum
+    /// with no points — beside one that can.
+    nonisolated static let unreadableEntryKinds = ["bad-id", "no-spectrum", "empty-spectrum"]
 
-    /// A library that cannot be read: one cut short mid-write, or whole but holding an id that is not a UUID
-    /// or a measurement with no spectrum, or one whose spectrum has no points.
+    /// A library that cannot be read, of that kind.
     static func unreadableLibrary(_ kind: String) throws -> Data {
-        if let name = unreadableMeasurement[kind] {
-            return try JSONSerialization.data(withJSONObject: [measurements[name]!])
+        if kind == "not a list" {
+            return try JSONSerialization.data(withJSONObject: measurements["A"]!)
         }
         let whole = try JSONSerialization.data(withJSONObject: [measurements.values.first!])
         return whole.prefix(whole.count / 2)
@@ -163,14 +197,16 @@ struct ImportPersistenceTests {
         #expect(try Data(contentsOf: kept[0]) == damaged, "and the kept one is not touched")
     }
 
-    /// The library could not be read and could not be renamed (its folder is read-only): it stays where
-    /// it is, the user is told, and nothing is written over it this session.
-    @Test(arguments: unreadableKinds)
-    func unreadableLibrary_thatCannotBeMoved_isNotWritten(_ kind: String) throws {
+    /// The library, or an entry in it, could not be read and it could not be kept aside (its folder is
+    /// read-only): it stays where it is, the user is told, and nothing is written over it this session.
+    @Test(arguments: unreadableKinds + unreadableEntryKinds)
+    func unreadableLibrary_thatCannotBeKeptAside_isNotWritten(_ kind: String) throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("unreadable-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let library = dir.appendingPathComponent("saved_measurements.json")
-        let damaged = try Self.unreadableLibrary(kind)
+        let damaged = try Self.unreadableKinds.contains(kind)
+            ? Self.unreadableLibrary(kind)
+            : JSONSerialization.data(withJSONObject: [Self.measurements["B"]!, Self.measurements[kind]!])
         try damaged.write(to: library)
         try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: dir.path)
         defer {

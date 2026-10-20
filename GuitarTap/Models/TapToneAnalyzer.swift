@@ -391,12 +391,13 @@ final class TapToneAnalyzer: ObservableObject {
     /// gives an analyzer a file of its own, so suites running in parallel never write each other's.
     var libraryFileURL: URL = TapToneAnalyzer.measurementsFileURL
 
-    /// Set when the library could not be read at launch and was kept aside — see
-    /// ``setAsideUnreadableLibrary(at:)``. The view shows it once in an alert and clears it.
+    /// Set when the library, or entries in it, could not be read at launch and it was kept aside — see
+    /// ``setAsideUnreadableLibrary(at:)`` and ``keepCopyOfLibrary(at:unreadableCount:)``. The view shows it
+    /// once in an alert and clears it.
     @Published var libraryLoadFailure: String?
 
-    /// The library could not be read and could not be kept aside either, so it is never written this
-    /// session: a save would replace the only copy of what it holds.
+    /// The library, or entries in it, could not be read and it could not be kept aside either, so it is
+    /// never written this session: a save would replace the only copy of what it holds.
     var isLibraryWriteBlocked = false
 
     // MARK: - Published Detection State
