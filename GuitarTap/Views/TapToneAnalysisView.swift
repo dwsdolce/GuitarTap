@@ -493,7 +493,7 @@ private struct LifecycleModifier: ViewModifier {
             .onChange(of: tap.showLoadedSettingsWarning) { _, active in
                 if active {
                     withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
-                        warningIconOpacity = 0.2
+                        warningIconOpacity = Palette.opacity(.statusWarningPulseLow)
                     }
                 } else {
                     withAnimation(.default) {

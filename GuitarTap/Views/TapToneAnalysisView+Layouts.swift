@@ -642,7 +642,7 @@ extension TapToneAnalysisView {
                     .hint(HintText.peakMin)
             }
             .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
-            .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : 0.4)
+            .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : Palette.opacity(.controlNotApplicable))
 
             Divider()
 

@@ -700,7 +700,7 @@ extension TapToneAnalysisView {
                     peakMinResetButton
                 }
                 .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
-                .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : 0.4)
+                .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : Palette.opacity(.controlNotApplicable))
             }
 
             // Row 2: Action buttons - all buttons always visible to prevent layout shifts
@@ -870,7 +870,7 @@ extension TapToneAnalysisView {
                 peakMinResetButton
             }
             .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
-            .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : 0.4)
+            .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : Palette.opacity(.controlNotApplicable))
 
             Spacer()
 
@@ -1001,7 +1001,7 @@ extension TapToneAnalysisView {
                     peakMinResetButton
                 }
                 .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
-                .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : 0.4)
+                .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : Palette.opacity(.controlNotApplicable))
 
                 Spacer()
             }

@@ -545,7 +545,7 @@ private struct PeakAnnotationLabel: View {
                         .foregroundColor(Palette.color(.peakPitch))
                     Text("\(sign)\(Int(round(pitchCents))) ¢")
                         .font(.caption2)
-                        .foregroundColor(Palette.color(.peakPitch).opacity(0.8))
+                        .foregroundColor(Palette.color(.peakPitch).opacity(Palette.opacity(.peakPitchCents)))
                 }
             }
 
@@ -568,7 +568,6 @@ private struct PeakAnnotationLabel: View {
             RoundedRectangle(cornerRadius: 6)
                 .stroke(modeColor, lineWidth: isDragging ? 2.5 : (isHovering ? 2 : ChartStyle.screen.labelBorderWidth))
         )
-        .shadow(color: .black.opacity(0.15), radius: 4)
         .contentShape(Rectangle())
     }
 }

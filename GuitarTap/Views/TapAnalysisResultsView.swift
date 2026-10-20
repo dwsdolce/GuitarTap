@@ -540,7 +540,7 @@ struct TapAnalysisResultsView: View {
                         )
                         .background(
                             analyzer.highlightedPeakID == item.peak.id
-                                ? Palette.color(item.mode).opacity(0.12)
+                                ? Palette.color(item.mode).opacity(Palette.opacity(.peakRowHighlight))
                                 : Color.clear,
                             in: RoundedRectangle(cornerRadius: 8)
                         )

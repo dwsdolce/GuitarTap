@@ -140,10 +140,26 @@ enum Palette {
         case pdfChartMatte = "pdf.chartMatte"
     }
 
-    /// An opacity applied to another role's colour (the peak-row tint over its mode colour).
+    /// An opacity the app applies: to another role's colour (the peak-row tint over its mode colour) or to a whole
+    /// view (a control that cannot act now). The raw value is its name in the theme table.
     enum Opacity: String, CaseIterable {
         case peakRowTint = "peak.rowTint"
         case statusMessageBackground = "status.messageBackground"
+        case controlDimmed = "control.dimmed"
+        case controlNotApplicable = "control.notApplicable"
+        case buttonTintFill = "button.tintFill"
+        case buttonTintHover = "button.tintHover"
+        case buttonTintPressed = "button.tintPressed"
+        case buttonTintOn = "button.tintOn"
+        case buttonTintOnHover = "button.tintOnHover"
+        case buttonProminentHover = "button.prominentHover"
+        case buttonPlainHover = "button.plainHover"
+        case peakRowHighlight = "peak.rowHighlight"
+        case modeChipFill = "mode.chipFill"
+        case peakPitchCents = "peak.pitchCents"
+        case exportSummaryChipFill = "export.summaryChipFill"
+        case exportCardShadow = "export.cardShadow"
+        case statusWarningPulseLow = "status.warningPulseLow"
     }
 
     /// A colour's two values, as "#RRGGBB", or "#RRGGBBAA" when the role has an opacity.
@@ -275,6 +291,21 @@ enum Palette {
     static let opacities: [Opacity: (light: Double, dark: Double)] = [
         .peakRowTint: (light: 0.10, dark: 0.20),
         .statusMessageBackground: (light: 0.12, dark: 0.12),
+        .controlDimmed: (light: 0.45, dark: 0.45),
+        .controlNotApplicable: (light: 0.4, dark: 0.4),
+        .buttonTintFill: (light: 0.05, dark: 0.05),
+        .buttonTintHover: (light: 0.15, dark: 0.15),
+        .buttonTintPressed: (light: 0.22, dark: 0.22),
+        .buttonTintOn: (light: 0.28, dark: 0.28),
+        .buttonTintOnHover: (light: 0.38, dark: 0.38),
+        .buttonProminentHover: (light: 0.85, dark: 0.85),
+        .buttonPlainHover: (light: 0.1, dark: 0.1),
+        .peakRowHighlight: (light: 0.12, dark: 0.12),
+        .modeChipFill: (light: 0.15, dark: 0.15),
+        .peakPitchCents: (light: 0.8, dark: 0.8),
+        .exportSummaryChipFill: (light: 0.1, dark: 0.1),
+        .exportCardShadow: (light: 0.5, dark: 0.5),
+        .statusWarningPulseLow: (light: 0.2, dark: 0.2),
     ]
 
     static func pair(_ role: Role) -> Pair { pairs[role]! }
@@ -291,6 +322,11 @@ enum Palette {
             c.a *= dark ? opacities[opacity]!.dark : opacities[opacity]!.light
             return c
         }
+    }
+
+    /// The value of `opacity` in a scheme, for a whole view (`.opacity(…)`) or a colour the app draws itself.
+    static func opacity(_ opacity: Opacity, dark: Bool = false) -> Double {
+        dark ? opacities[opacity]!.dark : opacities[opacity]!.light
     }
 
     /// Draws the app — its windows, controls and the palette's colours — in the scheme `appearance` resolves to:

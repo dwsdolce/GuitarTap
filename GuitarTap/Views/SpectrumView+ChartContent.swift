@@ -78,7 +78,7 @@ extension SpectrumView {
                                 .foregroundColor(Palette.color(boundary.mode))
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
-                                .background(Palette.color(boundary.mode).opacity(0.15))
+                                .background(Palette.color(boundary.mode).opacity(Palette.opacity(.modeChipFill)))
                                 .cornerRadius(4)
                         }
                     }

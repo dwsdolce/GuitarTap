@@ -318,7 +318,7 @@ struct ExportableSpectrumChart: View {
                                                     .foregroundColor(Palette.color(boundary.mode))
                                                     .padding(.horizontal, 8)
                                                     .padding(.vertical, 4)
-                                                    .background(Palette.color(boundary.mode).opacity(0.15))
+                                                    .background(Palette.color(boundary.mode).opacity(Palette.opacity(.modeChipFill)))
                                                     .cornerRadius(6)
                                             }
                                         }
@@ -434,7 +434,7 @@ struct ExportableSpectrumChart: View {
                                                         if !centsStr.isEmpty {
                                                             Text(centsStr)
                                                                 .font(.system(size: 14))
-                                                                .foregroundColor(Palette.color(.peakPitch).opacity(0.8))
+                                                                .foregroundColor(Palette.color(.peakPitch).opacity(Palette.opacity(.peakPitchCents)))
                                                         }
                                                     }
                                                 }
@@ -450,7 +450,7 @@ struct ExportableSpectrumChart: View {
                                             .padding(10)
                                             .background(Palette.color(.chartReadoutBackground))
                                             .cornerRadius(10)
-                                            .shadow(color: Palette.color(.scrim).opacity(0.5), radius: 4, x: 0, y: 2)
+                                            .shadow(color: Palette.color(.scrim).opacity(Palette.opacity(.exportCardShadow)), radius: 4, x: 0, y: 2)
                                             .position(x: annotationX, y: annotationY)
                                         }
                                     }
@@ -700,7 +700,7 @@ func makeExportableSpectrumView(
                                 .foregroundColor(Palette.color(.textSecondary))
                         }
                         .padding(8)
-                        .background(chipColor.opacity(0.1))
+                        .background(chipColor.opacity(Palette.opacity(.exportSummaryChipFill)))
                         .cornerRadius(6)
                     }
                 }

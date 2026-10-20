@@ -603,15 +603,16 @@ struct MeasurementsListView: View {
     private func compareRowContent(at index: Int, for measurement: TapToneMeasurement) -> some View {
         let isHovered = hoveredMeasurementIndex == index
         if isComparing {
+            let comparable = isComparable(measurement)
+            let selected = selectedCompareIndices.contains(index)
+            // A measurement that cannot be compared dims as one group — its circle and its row.
             HStack(spacing: 10) {
-                let comparable = isComparable(measurement)
-                let selected = selectedCompareIndices.contains(index)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundColor(selected ? Palette.color(.accentText) : Palette.color(.textSecondary).opacity(comparable ? 1 : 0.4))
+                    .foregroundColor(Palette.color(selected ? .accentText : .textSecondary))
                 MeasurementRowView(measurement: measurement, isHovered: isHovered) { rowMenuContents(index: index, measurement: measurement) }
-                    .opacity(comparable ? 1.0 : 0.4)
             }
+            .opacity(comparable ? 1.0 : Palette.opacity(.controlNotApplicable))
         } else {
             MeasurementRowView(measurement: measurement, isHovered: isHovered) { rowMenuContents(index: index, measurement: measurement) }
         }

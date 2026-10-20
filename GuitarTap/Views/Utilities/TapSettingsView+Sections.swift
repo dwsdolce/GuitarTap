@@ -312,7 +312,7 @@ extension TapSettingsView {
                 settingsDescription("Minimum magnitude for peak detection. Typical range: -60 to -40 dB")
             }
             .disabled(!selectedMeasurementType.isGuitar)
-            .opacity(selectedMeasurementType.isGuitar ? 1 : 0.4)
+            .opacity(selectedMeasurementType.isGuitar ? 1 : Palette.opacity(.controlNotApplicable))
 
             // Dump Capture Audio (diagnostics). Names no folder: under the sandbox this is the app's
             // own Documents, not the user's — the folder is its own field below. One WAV per

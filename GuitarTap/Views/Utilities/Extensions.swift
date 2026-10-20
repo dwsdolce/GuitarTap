@@ -215,13 +215,13 @@ extension View {
     /// both grey theirs.
     ///
     /// Apply this to the whole group — label, control and any sibling value `Text` — so all of it
-    /// dims together. 0.45 matches web's disabled opacity, so the three editions look alike.
+    /// dims together, at the shared `control.dimmed` opacity, as the other editions dim theirs.
     ///
     /// - Parameter isDisabled: `true` to disable and dim.
     /// - Returns: The view, disabled and dimmed when `isDisabled`.
     func disabledDimmed(_ isDisabled: Bool) -> some View {
         self.disabled(isDisabled)
-            .opacity(isDisabled ? 0.45 : 1)
+            .opacity(isDisabled ? Palette.opacity(.controlDimmed) : 1)
     }
 }
 
