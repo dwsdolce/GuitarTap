@@ -206,6 +206,8 @@ extension View {
         #endif
     }
 
+    // @parity view/dimming tests=test/dimming — disabledDimmed, notApplicableDimmed
+
     /// Disables a control AND shows that it is disabled.
     ///
     /// `.disabled(_:)` alone stops a control responding but does not reliably dim it — a
@@ -222,6 +224,17 @@ extension View {
     func disabledDimmed(_ isDisabled: Bool) -> some View {
         self.disabled(isDisabled)
             .opacity(isDisabled ? Palette.opacity(.controlDimmed) : 1)
+    }
+
+    /// Disables a control that has no meaning here (Peak Min for a plate or brace, or in a comparison)
+    /// AND shows it, more faintly than one that cannot act now: the whole group at the shared
+    /// `control.notApplicable` opacity.
+    ///
+    /// - Parameter notApplicable: `true` to disable and fade.
+    /// - Returns: The view, disabled and faded when `notApplicable`.
+    func notApplicableDimmed(_ notApplicable: Bool) -> some View {
+        self.disabled(notApplicable)
+            .opacity(notApplicable ? Palette.opacity(.controlNotApplicable) : 1)
     }
 }
 

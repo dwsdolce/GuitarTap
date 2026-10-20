@@ -621,8 +621,6 @@ extension TapToneAnalysisView {
                     .accessibilityLabel("Tap detection threshold")
                     .hint(HintText.threshold)
             }
-            .disabled(TapDisplaySettings.measurementType.isBrace)
-            .opacity(TapDisplaySettings.measurementType.isBrace ? 0.4 : 1)
 
             // Peak detection threshold (guitar only — not used for plate/brace)
             VStack(alignment: .leading, spacing: 2) {
@@ -641,8 +639,7 @@ extension TapToneAnalysisView {
                     .accessibilityLabel("Peak detection minimum threshold")
                     .hint(HintText.peakMin)
             }
-            .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
-            .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : Palette.opacity(.controlNotApplicable))
+            .notApplicableDimmed(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
 
             Divider()
 

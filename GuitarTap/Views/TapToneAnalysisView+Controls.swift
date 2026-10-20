@@ -699,8 +699,7 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     peakMinResetButton
                 }
-                .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
-                .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : Palette.opacity(.controlNotApplicable))
+                .notApplicableDimmed(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
             }
 
             // Row 2: Action buttons - all buttons always visible to prevent layout shifts
@@ -869,8 +868,7 @@ extension TapToneAnalysisView {
                     .fixedSize()
                 peakMinResetButton
             }
-            .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
-            .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : Palette.opacity(.controlNotApplicable))
+            .notApplicableDimmed(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
 
             Spacer()
 
@@ -1000,8 +998,7 @@ extension TapToneAnalysisView {
                         .fixedSize()
                     peakMinResetButton
                 }
-                .disabled(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
-                .opacity(TapDisplaySettings.measurementType.isGuitar && tap.displayMode != .comparison ? 1 : Palette.opacity(.controlNotApplicable))
+                .notApplicableDimmed(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
 
                 Spacer()
             }
