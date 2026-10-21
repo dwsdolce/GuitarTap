@@ -11,10 +11,10 @@
 ///
 /// ## Platform Differences
 ///
-/// - **macOS**: Rendered bare (`contentView` without a `NavigationView`),
+/// - **macOS**: Rendered bare (`contentView` without a `NavigationStack`),
 ///   presented in a dedicated `NSWindowController` opened from
 ///   `MeasurementsListView`.
-/// - **iOS**: Wrapped in a `NavigationView`.
+/// - **iOS**: A sheet wrapped in a `NavigationStack`, whose title bar holds Done.
 ///
 /// - SeeAlso: `MeasurementsListView`
 
@@ -53,17 +53,18 @@ struct MeasurementDetailView: View {
             }
             .paletteSurface(.backgroundWindow)
         #else
-        // On iOS, NavigationLink provides the navigation context.  Keep
-        // only the Done button as the cancellation action.
-        contentView
-            .paletteSurface(.backgroundWindow)
-            .navigationTitle("Measurement Details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+        // A sheet of its own: the NavigationStack gives it the title bar that holds Done, as every other sheet.
+        NavigationStack {
+            contentView
+                .paletteSurface(.backgroundWindow)
+                .navigationTitle("Measurement Details")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { dismiss() }
+                    }
                 }
-            }
+        }
         #endif
     }
     

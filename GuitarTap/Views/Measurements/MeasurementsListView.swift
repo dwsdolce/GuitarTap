@@ -80,8 +80,9 @@ struct MeasurementsListView: View {
     
     var body: some View {
         #if os(macOS)
-        // macOS layout without NavigationView wrapper (sheet handles its own window)
-        contentView
+        // macOS layout without NavigationStack wrapper (sheet handles its own window). The list behind AnyView,
+        // which ends its type there, so `body`'s type stays shallow enough to decode on an iPhone's stack.
+        AnyView(contentView)
             .frame(minWidth: 600, minHeight: 400)
             .sheetTitle("Saved Measurements")
             .paletteSurface(.backgroundPanel)
@@ -127,9 +128,9 @@ struct MeasurementsListView: View {
                 }
             }
         #else
-        // iOS layout with NavigationView
-        NavigationView {
-            contentView
+        // iOS layout with NavigationStack
+        NavigationStack {
+            AnyView(contentView)
                 .paletteSurface(.backgroundPanel)
                 .sheet(isPresented: Binding(
                     get: { selectedDetailTarget != nil },
@@ -168,7 +169,7 @@ struct MeasurementsListView: View {
     }
     
     @ViewBuilder
-    private var contentView: some View {
+    var contentView: some View {
         Group {
             if analyzer.savedMeasurements.isEmpty {
                 // Empty state

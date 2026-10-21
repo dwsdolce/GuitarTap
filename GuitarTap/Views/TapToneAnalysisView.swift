@@ -35,7 +35,7 @@
 /// | Platform         | Layout |
 /// |------------------|--------|
 /// | macOS            | Horizontal `HSplitView`: spectrum+info on the left, results panel on the right (when shown). Status bar below. All other panels are sheets. |
-/// | iPad             | Vertical stack inside a `NavigationView`. All secondary panels are sheets. |
+/// | iPad             | Vertical stack inside a `NavigationStack`. All secondary panels are sheets. |
 /// | iPhone (portrait) | Vertical stack. All secondary panels are sheets. |
 /// | iPhone (landscape) | `HStack`: 200 pt scrollable controls panel on left, spectrum on right. |
 ///

@@ -12,9 +12,9 @@
 /// "Ramirez 1975") and notes. The form is identical on both platforms; the
 /// structural difference is:
 ///
-/// - **macOS**: no `NavigationView` wrapper; the sheet receives a fixed
+/// - **macOS**: no `NavigationStack` wrapper; the sheet receives a fixed
 ///   minimum size (`450 × 250 pt`).
-/// - **iOS**: wrapped in a `NavigationView` so the nav-bar toolbar items
+/// - **iOS**: wrapped in a `NavigationStack` so the nav-bar toolbar items
 ///   (Cancel / Save) are visible.
 ///
 /// The `onSave` closure is called when the user confirms; the sheet then
@@ -49,7 +49,7 @@ struct SaveMeasurementSheet: View {
 
     var body: some View {
         #if os(macOS)
-        // macOS layout without NavigationView wrapper
+        // macOS layout without NavigationStack wrapper
         formContent
             .frame(minWidth: 450, idealWidth: 500, minHeight: 250, idealHeight: 350)
             .sheetTitle("Save Measurement")
@@ -68,8 +68,8 @@ struct SaveMeasurementSheet: View {
                 }
             }
         #else
-        // iOS layout with NavigationView
-        NavigationView {
+        // iOS layout with NavigationStack
+        NavigationStack {
             formContent
                 .paletteSurface(.backgroundPanel)
                 .navigationTitle("Save Measurement")

@@ -12,7 +12,7 @@
 /// | `FileExportHelper`       | `NSSavePanel`                  | `UIActivityViewController`           |
 /// | `ToolbarItemPlacement.primaryAction` | `.automatic`   | `.navigationBarTrailing`             |
 /// | `ToolbarItemPlacement.cancelAction`  | `.cancellationAction` | `.navigationBarLeading`      |
-/// | `View.platformSheet`     | `.sheet` (min 400×300 pt)      | `.sheet` inside `NavigationView`     |
+/// | `View.platformSheet`     | `.sheet` (min 400×300 pt)      | `.sheet` inside `NavigationStack`     |
 /// | `View.cursor(_:)`        | `NSCursor` on hover            | No-op                                |
 /// | `PlatformSplitView`      | `HSplitView`                   | `HStack` with `Divider`              |
 /// | `DocumentPicker`         | Not available                  | `UIDocumentPickerViewController`     |
@@ -243,7 +243,7 @@ extension View {
     /// Presents a sheet with platform-appropriate sizing and navigation wrapping.
     ///
     /// On macOS, the sheet is presented with a minimum size of 400×300 pt.
-    /// On iOS, the content is wrapped in a `NavigationView` for a title bar and
+    /// On iOS, the content is wrapped in a `NavigationStack` for a title bar and
     /// dismiss button.
     ///
     /// - Parameters:
@@ -261,7 +261,7 @@ extension View {
         }
         #elseif os(iOS)
         return self.sheet(isPresented: isPresented) {
-            NavigationView {
+            NavigationStack {
                 content()
             }
         }

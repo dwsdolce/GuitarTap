@@ -29,7 +29,7 @@
 ///   `onChange` handlers update the text-field mirrors whenever bound `Double`
 ///   values change.
 /// - **iOS**: Results, metrics, save, and settings all use `.sheet`. The iOS
-///   layout wraps `mainContentView` in a `NavigationView` to provide a nav bar
+///   layout wraps `mainContentView` in a `NavigationStack` to provide a nav bar
 ///   for toolbar items on compact devices.
 /// - **iPhone landscape**: A horizontal split with a 200 pt scrollable control
 ///   panel on the left and the spectrum on the right. Results use a sheet.
@@ -194,10 +194,9 @@ extension TapToneAnalysisView {
     /// where the results panel is shown inline (like macOS).
     @ViewBuilder
     var iOSLayout: some View {
-        NavigationView {
+        NavigationStack {
             mainContentView
         }
-        .navigationViewStyle(.stack)
         .sheet(isPresented: $showingMeasurements) {
             MeasurementsListView(analyzer: tap)
                 .interactiveDismissDisabled()
@@ -215,7 +214,7 @@ extension TapToneAnalysisView {
             get: { showingResults && !isPhoneLandscape },
             set: { showingResults = $0 }
         )) {
-            NavigationView {
+            NavigationStack {
                 TapAnalysisResultsView(
                     analyzer: tap,
                     fftAnalyzer: fft,
@@ -238,7 +237,7 @@ extension TapToneAnalysisView {
             .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showingMetrics) {
-            NavigationView {
+            NavigationStack {
                 AlwaysVisibleScrollView {
                     FFTAnalysisMetricsView(analyzer: fft)
                         .padding()

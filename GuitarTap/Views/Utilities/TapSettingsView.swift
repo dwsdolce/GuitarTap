@@ -190,15 +190,18 @@ struct TapSettingsView: View {
             // The sheet's own layout (TapSettingsView+LayoutHelpers), not a Form: a section's rows in a
             // grey box with no lines between them, at the same spacing in every edition.
             ScrollView {
+                // Each section behind AnyView: its type stops here instead of nesting into `body`'s. Unwrapped,
+                // `body`'s type grew deep enough that decoding it overflowed the main thread's stack on an
+                // iPhone (about 1 MB there, against 8 MB on the Mac and in the simulators).
                 VStack(alignment: .leading, spacing: 14) {
-                    audioInputSection
-                    measurementTypeSection
-                    advancedRow
+                    AnyView(audioInputSection)
+                    AnyView(measurementTypeSection)
+                    AnyView(advancedRow)
                     if showingAdvanced {
-                        displaySettingsSection
-                        analysisSettingsSection
+                        AnyView(displaySettingsSection)
+                        AnyView(analysisSettingsSection)
                     }
-                    aboutSection
+                    AnyView(aboutSection)
                 }
                 .padding(16)
             }

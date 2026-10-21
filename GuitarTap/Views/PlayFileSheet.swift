@@ -15,9 +15,9 @@
 ///
 /// ## Platform layout
 ///
-/// - **macOS**: no `NavigationView` wrapper; the sheet receives a fixed
+/// - **macOS**: no `NavigationStack` wrapper; the sheet receives a fixed
 ///   minimum size.
-/// - **iOS**: wrapped in a `NavigationView` so the nav-bar toolbar items
+/// - **iOS**: wrapped in a `NavigationStack` so the nav-bar toolbar items
 ///   (Cancel / Play) are visible.
 ///
 /// - SeeAlso: `SaveMeasurementSheet`, `TapToneAnalysisView`
@@ -69,7 +69,7 @@ struct PlayFileSheet: View {
                 }
             }
         #else
-        NavigationView {
+        NavigationStack {
             formContent
                 .paletteSurface(.backgroundPanel)
                 .navigationTitle("Play Audio File")

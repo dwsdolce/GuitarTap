@@ -70,7 +70,7 @@ struct EditMeasurementView: View {
                 }
             }
         #else
-        NavigationView {
+        NavigationStack {
             formContent
                 .paletteSurface(.backgroundPanel)
                 .navigationTitle("Edit Measurement")
