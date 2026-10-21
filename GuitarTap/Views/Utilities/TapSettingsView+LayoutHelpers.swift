@@ -145,8 +145,7 @@ extension TapSettingsView {
                 buttons()
             }
         }
-        .buttonStyle(.tintedBordered)
-        .tint(Palette.color(.accent))
+        .buttonStyle(.tinted(.accent))
         .padding(.vertical, 4)
     }
 

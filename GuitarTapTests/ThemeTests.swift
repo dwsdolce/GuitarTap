@@ -62,6 +62,17 @@ struct ThemeTests {
         }
     }
 
+    /// The shape of a button the app draws.
+    @Test func buttonShape() {
+        let button = Self.data["button"] as! [String: Any]
+        #expect(Double(Palette.ButtonShape.cornerRadius) == button["cornerRadius"] as! Double)
+        let padding = button["padding"] as! [Double]
+        #expect([Double(Palette.ButtonShape.padding.vertical), Double(Palette.ButtonShape.padding.horizontal)] == padding)
+        let prominent = button["prominentPadding"] as! [Double]
+        #expect([Double(Palette.ButtonShape.prominentPadding.vertical),
+                 Double(Palette.ButtonShape.prominentPadding.horizontal)] == prominent)
+    }
+
     /// A role at an opacity keeps its colour and scales its alpha by the scheme's opacity.
     @Test func colorAtOpacity() {
         var light = EnvironmentValues()

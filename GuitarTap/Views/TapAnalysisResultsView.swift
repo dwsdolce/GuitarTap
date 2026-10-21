@@ -162,11 +162,8 @@ struct TapAnalysisResultsView: View {
                                       ? "waveform.path.badge.minus" : "waveform.path.badge.plus")
                                     .font(.caption)
                             }
-                            .toggleStyle(.button)
-                            .buttonStyle(.bordered)
-                            .pointerHoverFill()
+                            .toggleStyle(.tinted(analyzer.showingMultiTapComparison ? .resultsTapsActive : .accent))
                             .controlSize(.mini)
-                            .tint(Palette.color(analyzer.showingMultiTapComparison ? .resultsTapsActive : .accent))
                             .disabled(!multiTapUsable)
                             .help(analyzer.showingMultiTapComparison
                                   ? "Show averaged result only" : "Compare individual taps")
@@ -218,7 +215,7 @@ struct TapAnalysisResultsView: View {
                                 Image(systemName: "arrow.trianglehead.2.counterclockwise")
                                     .font(.caption)
                             }
-                            .buttonStyle(.tintedBordered)
+                            .buttonStyle(.tinted(.textSecondary))
                             .controlSize(.mini)
                             .disabled(!analyzer.canReanalyze)
                             .help("Re-analyze peaks from the spectrum using the current settings")
@@ -249,7 +246,7 @@ struct TapAnalysisResultsView: View {
                                     Image(systemName: "xmark.circle")
                                         .font(.caption)
                                 }
-                                .buttonStyle(.tintedBordered)
+                                .buttonStyle(.tinted(.textSecondary))
                                 .controlSize(.mini)
                                 .disabled(!measurementType.isGuitar || analyzer.selectedPeakIDs.isEmpty)
                                 .help(measurementType.isGuitar ? "Deselect all peaks" : "Peak selection is fixed during plate/brace measurements")
@@ -261,7 +258,7 @@ struct TapAnalysisResultsView: View {
                                         Image(systemName: "wand.and.stars")
                                             .font(.caption)
                                     }
-                                    .buttonStyle(.tintedBordered)
+                                    .buttonStyle(.tinted(.textSecondary))
                                     .controlSize(.mini)
                                     .disabled(!analyzer.userHasModifiedPeakSelection)
                                     .help("Reset to automatic mode selection")
@@ -370,7 +367,7 @@ struct TapAnalysisResultsView: View {
                                     Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
                                         .fixedSize()
                                 }
-                                .buttonStyle(.tintedBordered)
+                                .buttonStyle(.appPlain)
                                 .controlSize(.small)
                                 .disabled(!analyzer.hasResultToSaveOrExport)
                             }
@@ -381,7 +378,7 @@ struct TapAnalysisResultsView: View {
                                     Label("Export PDF", systemImage: "doc.richtext")
                                         .fixedSize()
                                 }
-                                .buttonStyle(.tintedBordered)
+                                .buttonStyle(.appPlain)
                                 .controlSize(.small)
                                 .disabled(!analyzer.hasResultToSaveOrExport)
                             }

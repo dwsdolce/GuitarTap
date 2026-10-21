@@ -1,7 +1,7 @@
 #!/bin/bash
 # check-colours.sh
 #
-# Refuses to build when a colour is written outside the palette. Mirrors the Python
+# Refuses to build when a colour or an opacity is written outside the palette. Mirrors the Python
 # edition's src/guitar_tap/_colour_guard.py and the web edition's
 # tooling/check-colours.mjs — same rule.
 #
@@ -11,8 +11,11 @@
 # UIColor — does not follow the Appearance setting, or follows the OS instead of it,
 # and differs from the Python and web editions.
 #
-# Allowed: Color.clear (no colour), and anything inside Palette.swift. Comment lines
-# are skipped.
+# The same for an opacity: every opacity the app applies is a named one in Palette.swift (shared in theme.json);
+# a number in `.opacity(…)` or `opacity:` anywhere else is refused — 0 and 1 (shown / hidden) excepted.
+#
+# Allowed: Color.clear (no colour), anything inside Palette.swift, and the chart-style opacities in
+# ChartStyle.swift (shared in chart-style.json). Comment lines are skipped.
 #
 # OUTPUT: under Xcode this writes "file:line: error:" lines to STDOUT, which Xcode
 # turns into clickable issues; from a terminal it prints them to stderr.
@@ -31,7 +34,10 @@ SYSTEM='blue|red|green|orange|yellow|gray|grey|purple|pink|teal|cyan|mint|indigo
 MATERIAL='ultraThinMaterial|thinMaterial|regularMaterial|thickMaterial|ultraThickMaterial|bar'
 PATTERN="Color\((red|white|hue|hex|sRGB|\.sRGB|displayP3|\.displayP3|nsColor|uiColor|cgColor)\b|Color\.($SYSTEM)\b|\(\.($SYSTEM|$MATERIAL)\)|NSColor\.|UIColor\.|CGColor\("
 
-FOUND="$(grep -rnE "$PATTERN" "$SRC" --include='*.swift' \
+OPACITY='\.opacity\([^)]*\b0?\.[0-9]*[1-9]|[Oo]pacity:[[:space:]]*0?\.[0-9]*[1-9]'
+
+FOUND="$( { grep -rnE "$PATTERN" "$SRC" --include='*.swift'
+            grep -rnE "$OPACITY" "$SRC" --include='*.swift' | grep -v '/Views/Utilities/ChartStyle.swift:'; } \
     | grep -v '/Views/Utilities/Palette.swift:' \
     | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//')"
 
@@ -40,11 +46,11 @@ FOUND="$(grep -rnE "$PATTERN" "$SRC" --include='*.swift' \
 if [ "$IN_XCODE" = "1" ]; then
     while IFS= read -r line; do
         file="${line%%:*}"; rest="${line#*:}"; num="${rest%%:*}"; text="${rest#*:}"
-        echo "$file:$num: error: Colour outside the palette — use a Palette role: $(echo "$text" | sed -E 's/^[[:space:]]+//')"
+        echo "$file:$num: error: Colour or opacity outside the palette — use a Palette role or opacity: $(echo "$text" | sed -E 's/^[[:space:]]+//')"
     done <<< "$FOUND"
 else
     {
-        echo "BLOCKED — a colour is written outside the palette (GuitarTap/Views/Utilities/Palette.swift):"
+        echo "BLOCKED — a colour or an opacity is written outside the palette (GuitarTap/Views/Utilities/Palette.swift):"
         echo "$FOUND" | sed "s|^$ROOT/||"
     } >&2
 fi

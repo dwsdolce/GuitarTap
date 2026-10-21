@@ -392,7 +392,7 @@ extension TapToneAnalysisView {
                 Button(action: { crosshairMode.toggle() }) {
                     Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                 }
-                .tint(crosshairMode ? Palette.color(.accent) : nil)
+                .tint(Palette.color(.accent))
                 .accessibilityLabel("Crosshair")
 
                 Button(action: { tap.cycleAnnotationVisibility() }) {
@@ -528,7 +528,7 @@ extension TapToneAnalysisView {
                 Button(action: { crosshairMode.toggle() }) {
                     Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                 }
-                .tint(crosshairMode ? Palette.color(.accent) : nil)
+                .tint(Palette.color(.accent))
                 .accessibilityLabel("Crosshair")
 
                 Button(action: { tap.cycleAnnotationVisibility() }) {
@@ -650,7 +650,7 @@ extension TapToneAnalysisView {
                         .font(.caption)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.prominent())
                 .disabled(newTapButtonDisabled)
                 .hint(HintText.newTap)
 
@@ -677,8 +677,7 @@ extension TapToneAnalysisView {
                         .frame(maxWidth: .infinity)
                     }
                 }
-                .buttonStyle(.tintedBordered)
-                .tint(isInReviewPhase ? Palette.color(.statusComplete) : nil)
+                .buttonStyle(.tinted(isInReviewPhase ? .statusComplete : .accent))
                 .disabled(!pauseResumeButtonEnabled)
                 .hint(isInReviewPhase ? "Accept this tap and continue" :
                       tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
@@ -695,9 +694,8 @@ extension TapToneAnalysisView {
                     Label(label, systemImage: icon)
                         .font(.caption)
                         .frame(maxWidth: .infinity)
-                        .foregroundStyle(Palette.color(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 }
-                .buttonStyle(.tintedBordered)
+                .buttonStyle(.tinted(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 .disabled(!cancelButtonEnabled)
                 .hint(isInReviewPhase ? "Redo this tap phase" : HintText.cancel)
             }
@@ -840,7 +838,7 @@ extension TapToneAnalysisView {
                     Button(action: { crosshairMode.toggle() }) {
                         Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                     }
-                    .tint(crosshairMode ? Palette.color(.accent) : nil)
+                    .tint(Palette.color(.accent))
                     .accessibilityLabel("Crosshair")
 
                     Button(action: { tap.cycleAnnotationVisibility() }) {

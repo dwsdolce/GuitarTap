@@ -452,7 +452,7 @@ private struct CustomModeLabelPopover: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.prominent())
             }
         }
         .padding()

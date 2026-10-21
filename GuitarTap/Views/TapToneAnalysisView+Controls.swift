@@ -49,24 +49,20 @@ extension TapToneAnalysisView {
                     Toggle(isOn: $crosshairMode) {
                         Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                     }
-                    .toggleStyle(.button)
-                    .buttonStyle(.bordered)
-                    .pointerHoverFill()
-                    .tint(Palette.color(crosshairMode ? .accent : .toolbarInactive))
+                    .toggleStyle(.tinted(.accent))
                     .accessibilityLabel("Crosshair")
 
                     Button(action: { tap.cycleAnnotationVisibility() }) {
                         Image(systemName: tap.annotationVisibilityMode.iconName)
                     }
-                    .buttonStyle(.tintedBordered)
-                    .tint(Palette.color(.accent))
+                    .buttonStyle(.tinted(.accent))
                     .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
                     .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                     Button(action: { showingSaveSheet = true }) {
                         Image(systemName: "square.and.arrow.down")
                     }
-                    .buttonStyle(.tintedBordered)
+                    .buttonStyle(.tinted(.accent))
                     .disabled(!tap.hasResultToSaveOrExport)
                     .accessibilityLabel("Save")
                     .hint(HintText.save)
@@ -74,7 +70,7 @@ extension TapToneAnalysisView {
                     Button(action: { showingMeasurements = true }) {
                         Image(systemName: "list.bullet.clipboard")
                     }
-                    .buttonStyle(.tintedBordered)
+                    .buttonStyle(.tinted(.accent))
                     .accessibilityLabel("Measurements")
                     .hint(HintText.measurements)
 
@@ -120,7 +116,7 @@ extension TapToneAnalysisView {
                     Button(action: { showResults() }) {
                         Label("Results", systemImage: "doc.text")
                     }
-                    .buttonStyle(.tintedBordered)
+                    .buttonStyle(.tinted(.accent))
                     .hint(HintText.showResults)
                 }
 
@@ -128,27 +124,20 @@ extension TapToneAnalysisView {
                 Toggle(isOn: autoScaleBinding) {
                     Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                 }
-                .toggleStyle(.button)
-                .buttonStyle(.bordered)
-                .pointerHoverFill()
-                .tint(Palette.color(.accent))
+                .toggleStyle(.tinted(.accent))
                 .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
 
                 // Crosshair mode toggle button (iPad)
                 Toggle(isOn: $crosshairMode) {
                     Label("Crosshair", systemImage: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                 }
-                .toggleStyle(.button)
-                .buttonStyle(.bordered)
-                .pointerHoverFill()
-                .tint(Palette.color(crosshairMode ? .accent : .toolbarInactive))
+                .toggleStyle(.tinted(.accent))
 
                 // Annotation visibility cycling button (iPad)
                 Button(action: { tap.cycleAnnotationVisibility() }) {
                     Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
                 }
-                .buttonStyle(.tintedBordered)
-                .tint(Palette.color(.accent))
+                .buttonStyle(.tinted(.accent))
                 .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
@@ -156,8 +145,7 @@ extension TapToneAnalysisView {
                 Button(action: { showingSaveSheet = true }) {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
-                .buttonStyle(.tintedBordered)
-                .tint(Palette.color(.accent))
+                .buttonStyle(.tinted(.accent))
                 .disabled(!tap.isMeasurementComplete && tap.displayMode != .comparison)
                 .hint(HintText.save)
             }
@@ -168,32 +156,28 @@ extension TapToneAnalysisView {
                 Button(action: { showingMeasurements = true }) {
                     Label("Measurements", systemImage: "list.bullet.clipboard")
                 }
-                .buttonStyle(.tintedBordered)
-                .tint(Palette.color(.accent))
+                .buttonStyle(.tinted(.accent))
                 .hint(HintText.measurements)
 
                 // Metrics button
                 Button(action: { showingMetrics = true }) {
                     Label("Metrics", systemImage: "chart.bar")
                 }
-                .buttonStyle(.tintedBordered)
-                .tint(Palette.color(.accent))
+                .buttonStyle(.tinted(.accent))
                 .hint(HintText.showMetrics)
 
                 // Settings button
                 Button(action: { showingSettings = true }) {
                     Label("Settings", systemImage: "gearshape")
                 }
-                .buttonStyle(.tintedBordered)
-                .tint(Palette.color(.accent))
+                .buttonStyle(.tinted(.accent))
                 .hint(HintText.settings)
 
                 // Play File button
                 Button(action: { showingPlayFileSheet = true }) {
                     Label("Play File\u{2026}", systemImage: "waveform.badge.plus")
                 }
-                .buttonStyle(.tintedBordered)
-                .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
+                .buttonStyle(.tinted(fft.isPlayingFile ? .statusPlayingFile : .accent))
                 // A file plays while the audio engine runs, as every edition's: not before it has
                 // started, nor when the microphone is refused or cannot be opened.
                 .disabled(!fft.isRunning)
@@ -257,10 +241,7 @@ extension TapToneAnalysisView {
         Toggle(isOn: autoScaleBinding) {
             if iconOnly { Image(systemName: icon) } else { Label("Auto dB", systemImage: icon) }
         }
-        .toggleStyle(.button)
-        .buttonStyle(.bordered)
-        .pointerHoverFill()
-        .tint(Palette.color(.accent))
+        .toggleStyle(.tinted(.accent))
         .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
     }
 
@@ -273,8 +254,7 @@ extension TapToneAnalysisView {
                 Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
             }
         }
-        .buttonStyle(.tintedBordered)
-        .tint(Palette.color(.accent))
+        .buttonStyle(.tinted(.accent))
         .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
         .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
     }
@@ -284,8 +264,7 @@ extension TapToneAnalysisView {
         Button(action: { showingSaveSheet = true }) {
             if iconOnly { Image(systemName: "square.and.arrow.down") } else { Label("Save", systemImage: "square.and.arrow.down") }
         }
-        .buttonStyle(.tintedBordered)
-        .tint(Palette.color(.accent))
+        .buttonStyle(.tinted(.accent))
         .disabled(!tap.isMeasurementComplete && tap.displayMode != .comparison)
         .hint(HintText.save)
     }
@@ -299,8 +278,7 @@ extension TapToneAnalysisView {
                 Label("Measurements", systemImage: "list.bullet.clipboard")
             }
         }
-        .buttonStyle(.tintedBordered)
-        .tint(Palette.color(.accent))
+        .buttonStyle(.tinted(.accent))
         .hint(HintText.measurements)
     }
 
@@ -309,8 +287,7 @@ extension TapToneAnalysisView {
         Button(action: { showingMetrics = true }) {
             if iconOnly { Image(systemName: "chart.bar") } else { Label("Metrics", systemImage: "chart.bar") }
         }
-        .buttonStyle(.tintedBordered)
-        .tint(Palette.color(.accent))
+        .buttonStyle(.tinted(.accent))
         .hint(HintText.showMetrics)
     }
 
@@ -319,8 +296,7 @@ extension TapToneAnalysisView {
         Button(action: { showingSettings = true }) {
             if iconOnly { Image(systemName: "gearshape") } else { Label("Settings", systemImage: "gearshape") }
         }
-        .buttonStyle(.tintedBordered)
-        .tint(Palette.color(.accent))
+        .buttonStyle(.tinted(.accent))
         .hint(HintText.settings)
     }
 
@@ -333,8 +309,7 @@ extension TapToneAnalysisView {
                 Label("Play File\u{2026}", systemImage: "waveform.badge.plus")
             }
         }
-        .buttonStyle(.tintedBordered)
-        .tint(Palette.color(fft.isPlayingFile ? .statusPlayingFile : .accent))
+        .buttonStyle(.tinted(fft.isPlayingFile ? .statusPlayingFile : .accent))
         // A file plays while the audio engine runs, as every edition's.
         .disabled(!fft.isRunning)
         .help("Feed an audio file through the analysis pipeline (for cross-platform comparison)")
@@ -501,7 +476,7 @@ extension TapToneAnalysisView {
                     Button { tap.dismissCaptureAudioSaved() } label: {
                         Image(systemName: "xmark")
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.icon())
                     .help("Dismiss")
                 }
                 .padding(.horizontal, 10)
@@ -711,7 +686,7 @@ extension TapToneAnalysisView {
                     Label("New Tap", systemImage: "hand.tap")
                         .font(.subheadline)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.prominent())
                 .disabled(newTapButtonDisabled)
                 .hint(HintText.newTap)
 
@@ -736,8 +711,7 @@ extension TapToneAnalysisView {
                         .font(.subheadline)
                     }
                 }
-                .buttonStyle(.tintedBordered)
-                .tint(isInReviewPhase ? Palette.color(.statusComplete) : nil)
+                .buttonStyle(.tinted(isInReviewPhase ? .statusComplete : .accent))
                 .disabled(!pauseResumeButtonEnabled)
                 .hint(isInReviewPhase ? "Accept this tap and continue" :
                       tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
@@ -753,9 +727,8 @@ extension TapToneAnalysisView {
                     let (label, icon) = redoOrCancelLabel
                     Label(label, systemImage: icon)
                         .font(.subheadline)
-                        .foregroundStyle(Palette.color(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 }
-                .buttonStyle(.tintedBordered)
+                .buttonStyle(.tinted(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 .disabled(!cancelButtonEnabled)
                 .hint(isInReviewPhase ? "Redo this tap phase" : HintText.cancel)
             }
@@ -878,8 +851,7 @@ extension TapToneAnalysisView {
             }) {
                 Label("New Tap", systemImage: "hand.tap")
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Palette.color(.accent))
+            .buttonStyle(.prominent())
             .disabled(newTapButtonDisabled)
             .hint(HintText.newTap)
 
@@ -902,8 +874,7 @@ extension TapToneAnalysisView {
                     )
                 }
             }
-            .buttonStyle(.tintedBordered)
-            .tint(isInReviewPhase ? Palette.color(.statusComplete) : nil)
+            .buttonStyle(.tinted(isInReviewPhase ? .statusComplete : .accent))
             .disabled(!pauseResumeButtonEnabled)
             .hint(isInReviewPhase ? "Accept this tap and continue" :
                   tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
@@ -918,9 +889,8 @@ extension TapToneAnalysisView {
             }) {
                 let (label, icon) = redoOrCancelLabel
                 Label(label, systemImage: icon)
-                    .foregroundStyle(Palette.color(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
             }
-            .buttonStyle(.tintedBordered)
+            .buttonStyle(.tinted(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
             .disabled(!cancelButtonEnabled)
             .hint(isInReviewPhase ? "Redo this tap phase" : HintText.cancel)
         }
@@ -1013,8 +983,7 @@ extension TapToneAnalysisView {
                 }) {
                     Label("New Tap", systemImage: "hand.tap")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Palette.color(.accent))
+                .buttonStyle(.prominent())
                 .disabled(newTapButtonDisabled)
                 .hint(HintText.newTap)
 
@@ -1037,8 +1006,7 @@ extension TapToneAnalysisView {
                         )
                     }
                 }
-                .buttonStyle(.tintedBordered)
-                .tint(isInReviewPhase ? Palette.color(.statusComplete) : nil)
+                .buttonStyle(.tinted(isInReviewPhase ? .statusComplete : .accent))
                 .disabled(!pauseResumeButtonEnabled)
                 .hint(isInReviewPhase ? "Accept this tap and continue" :
                       tap.isDetectionPaused ? HintText.resumeDetection : HintText.pauseDetection)
@@ -1053,9 +1021,8 @@ extension TapToneAnalysisView {
                 }) {
                     let (label, icon) = redoOrCancelLabel
                     Label(label, systemImage: icon)
-                        .foregroundStyle(Palette.color(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 }
-                .buttonStyle(.tintedBordered)
+                .buttonStyle(.tinted(cancelButtonEnabled ? .statusWarning : .toolbarInactive))
                 .disabled(!cancelButtonEnabled)
                 .hint(isInReviewPhase ? "Redo this tap phase" : HintText.cancel)
             }
