@@ -34,9 +34,6 @@
 /// - **iPhone landscape**: A horizontal split with a 200 pt scrollable control
 ///   panel on the left and the spectrum on the right. Results use a sheet.
 ///
-/// A `LoadingOverlay` is shown during spectrum export, measurement save, and
-/// PDF report generation on both platforms.
-///
 /// - SeeAlso: `TapToneAnalysisView+Controls`, `ResultsWindowPresenter`
 
 import SwiftUI
@@ -128,7 +125,6 @@ extension TapToneAnalysisView {
             }
             .frame(minWidth: 400, minHeight: 500)
         }
-        .overlay { loadingOverlay }
         // Arm-time guard: New Tap was pressed with Dump Capture Audio on but its
         // folder unreachable. Prompt before capturing rather than losing the write at completion.
         .alert("Capture Audio Folder Unavailable", isPresented: $tapToneAnalyzer.dumpFolderUnreachable) {
@@ -291,21 +287,8 @@ extension TapToneAnalysisView {
                     }
             }
         }
-        .overlay { loadingOverlay }
     }
     #endif
-
-    /// Overlay shown during long-running export/save operations.
-    @ViewBuilder
-    var loadingOverlay: some View {
-        if isExportingSpectrum {
-            LoadingOverlay(message: "Exporting spectrum...")
-        } else if isSavingMeasurement {
-            LoadingOverlay(message: "Saving measurement with chart image...")
-        } else if isGeneratingReport {
-            LoadingOverlay(message: "Generating PDF report...")
-        }
-    }
 
     /// Main content view shared across platforms
     @ViewBuilder
@@ -593,17 +576,14 @@ extension TapToneAnalysisView {
                     .font(.caption)
                     .foregroundColor(Palette.color(.textSecondary))
                 Spacer()
-                Stepper("\(tap.numberOfTaps)",
+                tapCountText
+                Stepper("",
                         value: $tapToneAnalyzer.numberOfTaps,
                         in: 1...10)
                     .tint(Palette.color(.accent))
                     .labelsHidden()
                     .accessibilityLabel("Number of taps: \(tap.numberOfTaps)")
                     .hint(HintText.taps)
-                Text("\(tap.numberOfTaps)")
-                    .font(.caption)
-                    .foregroundColor(Palette.color(.textPrimary))
-                    .frame(width: 20)
             }
             .disabledDimmed(tapCountLocked)
 

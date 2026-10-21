@@ -145,8 +145,6 @@ extension TapToneAnalysisView {
             return
         }
 
-        isSavingMeasurement = true
-
         // Pass only the view's own state: the name, the notes and the displayed axis range. The model
         // reads everything else from itself. Mirrors Python TapToneAnalysisView.save_measurement().
         tapToneAnalyzer.saveMeasurement(
@@ -161,7 +159,6 @@ extension TapToneAnalysisView {
         measurementName = ""
         notes = ""
         showingSaveSheet = false
-        isSavingMeasurement = false
     }
 
     // MARK: - Spectrum Display Helpers

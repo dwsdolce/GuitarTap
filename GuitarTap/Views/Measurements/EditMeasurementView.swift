@@ -57,6 +57,7 @@ struct EditMeasurementView: View {
         #if os(macOS)
         formContent
             .frame(minWidth: 450, idealWidth: 500, minHeight: 250, idealHeight: 350)
+            .sheetTitle("Edit Measurement")
             .paletteSurface(.backgroundPanel)
             .navigationTitle("Edit Measurement")
             .toolbar {
@@ -90,11 +91,6 @@ struct EditMeasurementView: View {
     private var formContent: some View {
         #if os(macOS)
         VStack(alignment: .leading, spacing: 16) {
-            Text("Edit Measurement")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .frame(maxWidth: .infinity, alignment: .center)
-
             VStack(alignment: .leading, spacing: 6) {
                 Text("Measurement Name")
                     .font(.headline)

@@ -650,9 +650,11 @@ struct TapAnalysisResultsView: View {
     }
     
     // @parity view/material-results
+    /// The plate's properties, once it has its peaks and dimensions — which a completed plate always has.
+    @ViewBuilder
     private var platePropertiesSection: some View {
-        materialSection("Plate Properties") {
-            if let props = calculatedPlateProperties {
+        if let props = calculatedPlateProperties {
+            materialSection("Plate Properties") {
                 VStack(alignment: .leading, spacing: 6) {
                     // Speed of Sound
                     // (fL / fC / fLC are inputs, shown in the peak list above — not repeated here.)
@@ -779,25 +781,6 @@ struct TapAnalysisResultsView: View {
                     }
 
                 }
-            } else {
-                VStack(spacing: 12) {
-                    if effectiveLongitudinalPeakID == nil && effectiveCrossPeakID == nil {
-                        Text("Select peaks above to calculate properties")
-                            .foregroundColor(Palette.color(.textSecondary))
-                    } else if effectiveLongitudinalPeakID == nil {
-                        Text("Select a longitudinal (L) peak")
-                            .foregroundColor(Palette.color(.statusWarning))
-                    } else {
-                        Text("Select a cross-grain (C) peak")
-                            .foregroundColor(Palette.color(.statusWarning))
-                    }
-                    
-                    Text("Tip: The longitudinal mode is typically the higher frequency peak")
-                        .font(MaterialType.body)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
             }
         }
     }
@@ -868,9 +851,11 @@ struct TapAnalysisResultsView: View {
         )
     }
     
+    /// The brace's properties, once it has its peak and dimensions — which a completed brace always has.
+    @ViewBuilder
     private var bracePropertiesSection: some View {
-        materialSection("Brace Properties") {
-            if let props = calculatedBraceProperties {
+        if let props = calculatedBraceProperties {
+            materialSection("Brace Properties") {
                 VStack(alignment: .leading, spacing: 6) {
                     // Speed of Sound
                     // (fL is an input, shown in the peak list above — not repeated here.)
@@ -925,16 +910,6 @@ struct TapAnalysisResultsView: View {
                             .font(MaterialType.bodyBold)
                     }
                 }
-            } else {
-                VStack(spacing: 12) {
-                    Text("Select the fL (L) peak above to calculate properties")
-                        .foregroundColor(Palette.color(.textSecondary))
-                    Text("Tip: The dominant peak is auto-selected after tapping")
-                        .font(MaterialType.body)
-                        .foregroundColor(Palette.color(.textSecondary))
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
             }
         }
     }

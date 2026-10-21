@@ -106,7 +106,6 @@ struct TapToneAnalysisView: View {
     @State var showingHelp = false
     @State var showingHelpMenu = false
     @State var isExportingSpectrum = false
-    @State var isSavingMeasurement = false
     @State var isGeneratingReport = false
 
     /// True while any file-export panel (spectrum PNG or PDF report) is in flight. The export

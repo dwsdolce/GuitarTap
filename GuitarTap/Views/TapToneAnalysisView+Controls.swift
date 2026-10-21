@@ -497,6 +497,15 @@ extension TapToneAnalysisView {
         .background(Palette.color(.backgroundSubtle))
     }
 
+    /// The tap count, drawn before its stepper in every layout.
+    var tapCountText: some View {
+        Text("\(tap.numberOfTaps)")
+            .font(.caption)
+            .fontWeight(.medium)
+            .foregroundColor(Palette.color(.textPrimary))
+            .frame(minWidth: 16)
+    }
+
     /// Reset button for the tap-detection threshold slider.
     @ViewBuilder
     var thresholdResetButton: some View {
@@ -538,13 +547,17 @@ extension TapToneAnalysisView {
                         .font(.caption)
                         .foregroundColor(Palette.color(.textSecondary))
 
-                    Stepper("\(tap.numberOfTaps)",
-                            value: $tapToneAnalyzer.numberOfTaps,
-                            in: 1...10)
-                        .tint(Palette.color(.accent))
-                        .disabledDimmed(tapCountLocked)
-                        .frame(maxWidth: 120)
-                        .hint(HintText.taps)
+                    HStack(spacing: 4) {
+                        tapCountText
+                        Stepper("",
+                                value: $tapToneAnalyzer.numberOfTaps,
+                                in: 1...10)
+                            .tint(Palette.color(.accent))
+                            .labelsHidden()
+                            .accessibilityLabel("Number of taps: \(tap.numberOfTaps)")
+                    }
+                    .disabledDimmed(tapCountLocked)
+                    .hint(HintText.taps)
 
                     Spacer()
                 }
@@ -696,11 +709,7 @@ extension TapToneAnalysisView {
                     .font(.caption)
                     .foregroundColor(Palette.color(.textSecondary))
 
-                Text("\(tap.numberOfTaps)")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(Palette.color(.textPrimary))
-                    .frame(minWidth: 16)
+                tapCountText
 
                 Stepper("",
                         value: $tapToneAnalyzer.numberOfTaps,
@@ -825,11 +834,7 @@ extension TapToneAnalysisView {
                         .font(.caption)
                         .foregroundColor(Palette.color(.textSecondary))
 
-                    Text("\(tap.numberOfTaps)")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(Palette.color(.textPrimary))
-                        .frame(minWidth: 16)
+                    tapCountText
 
                     Stepper("",
                             value: $tapToneAnalyzer.numberOfTaps,

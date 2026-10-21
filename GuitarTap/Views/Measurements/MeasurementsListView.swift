@@ -126,13 +126,6 @@ struct MeasurementsListView: View {
                     Text(success)
                 }
             }
-            .overlay {
-                if isExporting {
-                    LoadingOverlay(message: "Exporting measurements...")
-                } else if isGeneratingReport {
-                    LoadingOverlay(message: "Generating PDF report...")
-                }
-            }
         #else
         // iOS layout with NavigationView
         NavigationView {
@@ -168,13 +161,6 @@ struct MeasurementsListView: View {
                 } message: {
                     if let success = importSuccess {
                         Text(success)
-                    }
-                }
-                .overlay {
-                    if isExporting {
-                        LoadingOverlay(message: "Exporting measurements...")
-                    } else if isGeneratingReport {
-                        LoadingOverlay(message: "Generating PDF report...")
                     }
                 }
         }
