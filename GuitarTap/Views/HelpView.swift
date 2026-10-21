@@ -253,7 +253,7 @@ The Results panel is where you turn the captured frequencies into properties. En
                     )
                     helpRow(
                         title: "Peak Labels",
-                        body: "Drag any peak label to reposition it and avoid overlaps. To reset an individual label: double-tap it (iOS/iPadOS) or right-click it and choose \"Reset Position\" (macOS). To reset all labels at once: use the ellipsis menu's \"Reset Labels\" (iOS/iPadOS) or right-click the chart area (not a label) and choose \"Reset Labels\" (macOS)."
+                        body: "Drag any peak label to reposition it and avoid overlaps. To reset an individual label: right-click it and choose \"Reset Position\" (on iPhone and iPad, with a mouse or trackpad), or double-tap it on iPhone and iPad. To reset all labels at once: choose \"Reset Labels\" from the chart menu."
                     )
                     helpRow(
                         title: "Play Audio File",
@@ -330,13 +330,13 @@ Help menu:
                     )
                     #endif
                     helpRow(
-                        title: "Chart Options",
-                        body: "The ellipsis button in the top-right corner of the spectrum opens the Chart Options menu (on macOS, right-clicking the chart opens the same menu). From here you can reset either or both axes to the values you last saved in Settings (\"Reset to Saved\"), or restore the factory defaults (\"Reset to Defaults\"). If peak labels have been dragged from their auto-positions, \"Reset Labels\" moves them back.",
+                        title: "Chart Menu",
+                        body: "The ⋯ button in the top-right corner of the spectrum opens the chart menu; right-clicking the chart opens the same menu (on iPhone and iPad with a mouse or trackpad). It resets either or both axes to the values you last saved in Settings (\"Reset … to Saved\") or to the factory defaults (\"Reset … to Defaults\"). If peak labels have been dragged from their auto-positions, \"Reset Labels\" moves them back.",
                         systemImages: ["ellipsis.circle"]
                     )
                     helpRow(
                         title: "Zoom & Pan Help",
-                        body: "The info (ⓘ) button in the top-right corner of the spectrum shows a full reference card for navigating the chart. Scroll wheel and drag gestures are context-sensitive: position the pointer over the plot to operate on both axes, over the frequency axis (bottom) to operate on frequency only, or over the magnitude axis (left) to operate on magnitude only. Modifier—key shortcuts are also available: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ Scroll — zoom both axes; ⌃ Scroll — zoom both axes; Pinch — zoom of both axes or each individual axis (trackpad). Right-click the chart area to reset axes and labels; right-click a label to reset just that label's position.",
+                        body: "The info (ⓘ) button in the top-right corner of the spectrum lists the ways to zoom and pan that work on the device in use. Scroll and drag act by where the pointer is: over the plot on both axes, over the frequency axis (bottom) on frequency only, or over the magnitude axis (left) on magnitude only; a pinch acts the same way by where it starts. With a keyboard: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘ or ⌃ Scroll — zoom both axes. Right-click the chart for the chart menu; right-click a label to reset just that label's position.",
                         systemImages: ["info.circle"]
                     )
                 } header: {
@@ -435,13 +435,13 @@ Help menu:
                     #if os(iOS)
                     helpRow(
                         title: "Zooming the Spectrum",
-                        body: "Pinch to zoom both axes or each individual axis and drag to pan within the chart or on an axis to pan that axis. To reset the axes, tap the … button in the top-right corner of the spectrum and choose Reset to Saved or Reset to Defaults.",
+                        body: "Pinch to zoom and drag to pan — over the plot both axes, over an axis that axis alone. With a mouse or trackpad connected, scroll zooms the same way, and with a keyboard ⇧ / ⌥ Scroll pans. To reset the axes, tap the ⋯ button in the top-right corner of the spectrum and choose a reset to Saved or to Defaults.",
                         systemImages: ["ellipsis.circle"]
                     )
                     #else
                     helpRow(
                         title: "Zooming the Spectrum",
-                        body: "Scroll over the chart to zoom — the axis depends on where the pointer is: over the plot area it zooms both axes; over the frequency axis (bottom) it zooms frequency only; over the magnitude axis (left) it zooms magnitude only. Drag to pan the same way. Modifier keys: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘/⌃ Scroll — zoom both axes. To reset the axes, right-click anywhere inside the chart.",
+                        body: "Scroll over the chart to zoom — the axis depends on where the pointer is: over the plot area it zooms both axes; over the frequency axis (bottom) it zooms frequency only; over the magnitude axis (left) it zooms magnitude only. Drag to pan, and pinch on a trackpad to zoom, the same way. Modifier keys: ⇧ Scroll — pan frequency; ⌥ Scroll — pan magnitude; ⌘/⌃ Scroll — zoom both axes. To reset the axes, click the ⋯ button in the top-right corner of the spectrum, or right-click inside the chart, and choose a reset.",
                         systemImages: ["info.circle"]
                     )
                     #endif

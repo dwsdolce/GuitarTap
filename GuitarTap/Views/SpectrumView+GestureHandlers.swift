@@ -105,9 +105,8 @@ extension SpectrumView {
         return .outside
     }
 
-#if os(macOS)
-
-    /// Handles scroll wheel events for zooming and panning on macOS.
+    /// Handles scroll events from a mouse or trackpad for zooming and panning — on macOS, and on iOS with a mouse or
+    /// trackpad connected.
     ///
     /// Zoom operations anchor to the current cursor position so the point under the
     /// cursor stays fixed as the range expands or contracts.
@@ -185,17 +184,12 @@ extension SpectrumView {
             }
         }
         // Ignore any combination of modifiers
-
-
     }
-
-#endif
 
     /// Zooms only the frequency (X) axis, anchoring to the cursor position when available.
     ///
-    /// When `cursorPosition`, `plotFrame`, and `proxy` are all provided (macOS), the frequency
+    /// When `cursorPosition`, `plotFrame`, and `proxy` are all provided (a scroll), the frequency
     /// value under the cursor stays fixed. Falls back to range midpoint otherwise.
-#if os(macOS)
     func handleFrequencyZoom(scale: CGFloat, cursorPosition: CGPoint? = nil, plotFrame: CGRect? = nil, proxy: ChartProxy? = nil) {
         let anchorFreq: Float = {
             if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
@@ -208,11 +202,6 @@ extension SpectrumView {
         }()
         applyFrequencyZoom(scale: scale, anchorFreq: anchorFreq)
     }
-#else
-    func handleFrequencyZoom(scale: CGFloat) {
-        applyFrequencyZoom(scale: scale, anchorFreq: (maxFreq + minFreq) / 2)
-    }
-#endif
 
     /// Applies a frequency-axis zoom about `anchorFreq` (the value kept fixed), within
     /// ``DisplayRange/frequencyBounds`` and no narrower than ``DisplayRange/minFrequencySpan``, and notifies
@@ -228,9 +217,8 @@ extension SpectrumView {
 
     /// Zooms only the magnitude (Y) axis, anchoring to the cursor position when available.
     ///
-    /// When `cursorPosition`, `plotFrame`, and `proxy` are all provided (macOS), the dB value
+    /// When `cursorPosition`, `plotFrame`, and `proxy` are all provided (a scroll), the dB value
     /// under the cursor stays fixed. Falls back to range midpoint otherwise.
-#if os(macOS)
     func handleMagnitudeZoom(scale: CGFloat, cursorPosition: CGPoint? = nil, plotFrame: CGRect? = nil, proxy: ChartProxy? = nil) {
         let anchorDB: Float = {
             if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
@@ -243,7 +231,6 @@ extension SpectrumView {
         }()
         applyMagnitudeZoom(scale: scale, anchorDB: anchorDB)
     }
-#endif
 
     /// Applies a magnitude-axis zoom about `anchorDB` (the value kept fixed), within
     /// ``DisplayRange/magnitudeBounds`` and no narrower than ``DisplayRange/minMagnitudeSpan``.
@@ -257,7 +244,7 @@ extension SpectrumView {
 
     /// Zooms both axes simultaneously, anchoring to the gesture/cursor location.
     ///
-    /// On macOS, `cursorPosition`/`plotFrame`/`proxy` provide the exact data-space anchor
+    /// For a scroll, `cursorPosition`/`plotFrame`/`proxy` provide the exact data-space anchor
     /// via ChartProxy. On both platforms, `pinchAnchor` (from `MagnifyGesture.startAnchor`)
     /// is converted to data coordinates using `lastPlotFrame`.
     ///
@@ -272,15 +259,13 @@ extension SpectrumView {
                     proxy: ChartProxy? = nil) {
         // --- Frequency axis anchor ---
         let anchorFreq: Float = {
-            #if os(macOS)
-            // Scroll-wheel path: use ChartProxy for exact data coordinates.
+            // Scroll path: use ChartProxy for exact data coordinates.
             if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
                 let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
                 if let hz = p.value(atX: plotLocal.x, as: Double.self) {
                     return Float(hz).clamped(to: minFreq...maxFreq)
                 }
             }
-            #endif
             // Pinch path: convert UnitPoint (relative to the whole overlay view) into
             // a plot-area fraction, then interpolate in the data domain.
             if let anchor = pinchAnchor, lastPlotFrame != .zero {
@@ -297,14 +282,12 @@ extension SpectrumView {
 
         // --- dB axis anchor ---
         let anchorDB: Float = {
-            #if os(macOS)
             if let pos = cursorPosition, let frame = plotFrame, let p = proxy {
                 let plotLocal = CGPoint(x: pos.x - frame.minX, y: pos.y - frame.minY)
                 if let db = p.value(atY: plotLocal.y, as: Double.self) {
                     return Float(db).clamped(to: minDB...maxDB)
                 }
             }
-            #endif
             if let anchor = pinchAnchor, lastPlotFrame != .zero {
                 // UnitPoint.y = 0 is the view top (= maxDB), 1 is the bottom (= minDB).
                 let viewHeight = lastPlotFrame.minY + lastPlotFrame.height

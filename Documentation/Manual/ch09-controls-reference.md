@@ -267,16 +267,15 @@ desktop there is no toggle; the crosshair follows the mouse
 pointer whenever the pointer is over the chart, showing the
 frequency and magnitude under the cursor in real time.
 
-**Chart Options** <img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle"> (iOS / iPadOS
-only) — Opens the **Chart Options** sheet from the upper-right
-corner of the spectrum chart. Hosts the Reset to Saved and Reset
-to Defaults groups, plus Reset Labels when there are dragged
-labels to reset (§6.2, §6.6). On desktop the same actions are
-reached by right-clicking the chart.
+**Chart menu** <img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle"> — Opens the chart
+menu from the upper-right corner of the spectrum chart; a
+right-click on the chart opens the same menu. It holds the reset
+items — each axis or both, to Saved or to Defaults — plus Reset
+Labels when there are dragged labels to reset (§6.2, §6.6).
 
-**Zoom & Pan Help** <img src="images/symbols/info.circle.png" width="18" height="18" class="inline-icon" alt="info.circle"> (desktop only) — Shows a
-summary popover of the scroll, modifier-key, and trackpad
-gestures for axis zoom and pan (§6.3).
+**Zoom & Pan Help** <img src="images/symbols/info.circle.png" width="18" height="18" class="inline-icon" alt="info.circle"> — Shows a popover
+below the button listing the zoom and pan gestures and modifier
+keys that work on the computer or device in use (§6.2, §6.3).
 
 **Settings** <img src="images/symbols/gearshape.png" width="18" height="18" class="inline-icon" alt="gearshape"> — Opens the Settings sheet
 (Chapter 8). Shortcut: **⌘,** / **Ctrl+,**.
@@ -364,6 +363,6 @@ at once.
 ## 9.8 Spectrum Chart Interactions
 
 See Chapter 6 for a complete reference covering live and frozen
-state, zoom / pan gestures and shortcuts, the **?** popover, the
+state, zoom / pan gestures and shortcuts, the **ⓘ** popover, the
 crosshair, peak-label dragging and reset, and the Annotation
 modes cycle.

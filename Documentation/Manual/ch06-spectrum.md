@@ -32,29 +32,23 @@ next tap.
 - **Drag** over the plot area to pan both axes. Drag over a
   single axis to pan that axis only.
 
-To reset the view, tap the **…** button in the upper-right corner
-of the spectrum chart. The **Chart Options** sheet opens with two
-sections, each offering a per-axis or both-axes choice:
+With a mouse or trackpad connected, scrolling and right-clicking
+work as on the desktop (§6.3), and with a keyboard so do the
+modifier keys.
 
-- **Reset to Saved**
-    - Reset Both Axes
-    - Reset Frequency Axis
-    - Reset Magnitude Axis
+To reset the view, tap the **⋯** button in the upper-right corner
+of the spectrum chart. The chart menu opens — the same menu on
+every platform, and the one a right-click opens:
 
-  These return the chosen axis (or both) to the view stored as
-  your default — see §6.8.
-
-- **Reset to Defaults**
-    - Reset Both Axes
-    - Reset Frequency Axis
-    - Reset Magnitude Axis
-
-  These return the chosen axis (or both) to the app's built-in
-  starting range.
-
-The same sheet also exposes **Reset Labels** when any peak labels
-have been dragged from their auto-positions; that control is
-covered in §6.6.
+- **Reset Both Axes to Saved**, **Reset Frequency Axis to Saved**,
+  **Reset Magnitude Axis to Saved** return the chosen axis (or
+  both) to the view stored as your default — see §6.8.
+- **Reset Both Axes to Defaults**, **Reset Frequency Axis to
+  Defaults**, **Reset Magnitude Axis to Defaults** return the
+  chosen axis (or both) to the app's built-in starting range.
+- **Reset Labels** moves dragged peak labels back to their
+  auto-positions; it is available when any label has been
+  dragged (§6.6).
 
 ## 6.3 Zooming and Panning — macOS, Windows, and Linux Desktop
 
@@ -96,21 +90,21 @@ are in:
 |---|---|
 | ⇧ Shift | Pan the frequency axis |
 | ⌥ Option (macOS) / Alt (Windows / Linux) | Pan the magnitude axis |
-| ⌘ Command (macOS) / Ctrl (Windows / Linux) | Zoom both axes |
+| ⌘ Command or ⌃ Control (macOS) / Ctrl (Windows / Linux) | Zoom both axes around the pointer |
 
-On a trackpad, two-finger **pinch** works the same as scroll-wheel
-zoom — over the plot area for both axes, over an axis for that
-axis only.
+On a Mac trackpad, two-finger **pinch** works the same as
+scroll-wheel zoom — over the plot area for both axes, over an axis
+for that axis only. On Windows and Linux a trackpad pinch zooms
+both axes, as Ctrl + scroll does.
 
-To reset the view, click the **…** (Chart Options) button in the
-upper-right corner of the chart and choose a Reset option, or
-**right-click** anywhere in the chart area for the same menu.
+To reset the view, click the **⋯** button in the upper-right
+corner of the chart, or **right-click** anywhere in the chart
+area: both open the chart menu (§6.2 lists its items).
 
-Two icons sit in the upper-right corner of the spectrum window:
-the **…** Chart Options button (axis/label resets, above) and the
-**?** icon, which opens a Zoom & Pan Controls popover that
-summarises all the gestures and modifier keys for the current
-platform.
+Two icons sit in the upper-right corner of the spectrum chart: the
+**⋯** button (the chart menu, above) and the **ⓘ** button, which
+opens a Zoom & Pan Controls popover listing the gestures and
+modifier keys that work on the computer or device in use.
 
 ## 6.4 Auto dB
 
@@ -154,12 +148,12 @@ label to a position you prefer.
 - **Drag** a label to reposition it. The new position is saved
   with the measurement and restored when the measurement is
   reloaded.
-- **Reset an individual label** — double-tap on iOS / iPadOS;
-  right-click and choose **Reset Position** on desktop.
-- **Reset all labels** — open the **…** menu in the upper-right
-  corner of the spectrum chart and choose **Reset Labels** on
-  iOS / iPadOS; right-click an empty area of the chart and choose
-  **Reset Labels** on desktop.
+- **Reset an individual label** — right-click it and choose
+  **Reset Position** (on iOS / iPadOS, with a mouse or trackpad),
+  or double-tap it on iOS / iPadOS.
+- **Reset all labels** — choose **Reset Labels** from the chart
+  menu: the **⋯** button in the upper-right corner of the spectrum
+  chart, or a right-click on the chart.
 
 ## 6.7 Annotation Modes
 
@@ -194,7 +188,8 @@ Each measurement type — each guitar type, plate and brace — has
 its own **saved frequency range**: its home view. The magnitude
 (dB) range is saved once for all types. The chart starts at the
 saved view when Guitar Tap opens and when you switch measurement
-type, and **Reset to Saved** (§6.2, §6.3) returns to it.
+type, and the chart menu's **Reset … to Saved** items (§6.2)
+return to it.
 
 The saved view is a starting point, not a limit — zoom and pan
 freely. The chart moves only when:
@@ -231,7 +226,7 @@ view for the current measurement type, save it:
 
 What is saved: the **frequency range** (low and high Hz) for the
 current measurement type, and the **magnitude range** (low and high
-dB) for all types — exactly as shown, so **Reset to Saved** brings
+dB) for all types — exactly as shown, so a reset to Saved brings
 back the same view, with a peak at the chart's edge still on the same
 side of it.
 

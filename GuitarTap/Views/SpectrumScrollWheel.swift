@@ -41,18 +41,15 @@ import AppKit
 
 // MARK: - Scroll Event Value
 
-/// The coalesced values extracted from one or more `NSEvent` scroll wheel events.
-///
-/// Passed to the `onScrollWheel` handler instead of a raw `NSEvent` so that
-/// `ScrollWheelHostView` can accumulate and sum deltas from multiple raw events
-/// before delivering a single, reduced notification per display frame.
-struct ScrollWheelEvent {
-    /// Accumulated horizontal scroll delta (positive = right).
-    let deltaX: CGFloat
-    /// Accumulated vertical scroll delta (positive = down).
-    let deltaY: CGFloat
-    /// Modifier flags from the most-recent contributing raw event.
-    let modifierFlags: NSEvent.ModifierFlags
+extension ScrollModifiers {
+    /// The modifier keys among AppKit's flags.
+    init(_ flags: NSEvent.ModifierFlags) {
+        self = []
+        if flags.contains(.shift) { insert(.shift) }
+        if flags.contains(.option) { insert(.option) }
+        if flags.contains(.command) { insert(.command) }
+        if flags.contains(.control) { insert(.control) }
+    }
 }
 
 // MARK: - macOS Scroll Wheel Support
@@ -219,7 +216,7 @@ class ScrollWheelHostView: NSView {
         pendingTemplate = nil
         pendingFlush = nil
 
-        scrollHandler?(ScrollWheelEvent(deltaX: dx, deltaY: dy, modifierFlags: mods))
+        scrollHandler?(ScrollWheelEvent(deltaX: dx, deltaY: dy, modifierFlags: ScrollModifiers(mods)))
     }
 
     /// Returns the current mouse position in this view's coordinate space (y=0 at top).

@@ -285,6 +285,9 @@ struct SpectrumView: View {
     /// ⋯ button in the chart's upper-right, so this is no longer iOS-only.
     /// Whether the zoom/pan controls (?) help popover is showing. All platforms.
     @State private var showingControlsHelp: Bool = false
+    /// Raw screen-local position of the pointer within the chart overlay: on macOS updated on every hover tick, on
+    /// iOS with each scroll from a mouse or trackpad. The scroll handler zooms around it rather than the range midpoint.
+    @State var lastCursorPosition: CGPoint? = nil
     /// Where each peak label is on the chart, as the labels report it.
     @State private var peakLabelFrames: [UUID: CGRect] = [:]
 
@@ -295,10 +298,6 @@ struct SpectrumView: View {
     /// Whether the cursor readout is currently visible
     @State private var isCursorVisible: Bool = false
 
-
-    /// Raw screen-local position of the mouse within the chart overlay, updated on every hover tick.
-    /// Used by the scroll-wheel zoom handler to zoom around the cursor rather than the range midpoint.
-    @State var lastCursorPosition: CGPoint? = nil
 
     /// Which chart region the pointer is currently over. Updated on every hover tick.
     /// Used by the scroll-wheel handler to decide which axis to operate on.
@@ -515,39 +514,11 @@ struct SpectrumView: View {
         }
         .buttonStyle(.icon())
         .help("Zoom & Pan Controls")
-        .popover(isPresented: $showingControlsHelp, arrowEdge: .bottom) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Zoom & Pan Controls")
-                            .font(.headline)
-                            .padding(.bottom, 2)
-                        Group {
-                            Text("Scroll over plot") + Text(": Zoom both axes around cursor").foregroundColor(Palette.color(.textSecondary))
-                            Text("Scroll over freq axis") + Text(": Zoom frequency only").foregroundColor(Palette.color(.textSecondary))
-                            Text("Scroll over mag axis") + Text(": Zoom magnitude only").foregroundColor(Palette.color(.textSecondary))
-                            Text("⇧ + Scroll") + Text(": Pan frequency axis").foregroundColor(Palette.color(.textSecondary))
-                            Text("⌥ + Scroll") + Text(": Pan magnitude axis").foregroundColor(Palette.color(.textSecondary))
-                            Text("⌘/⌃ + Scroll") + Text(": Zoom both axes").foregroundColor(Palette.color(.textSecondary))
-                        }
-                        .font(.callout)
-                        PaletteDivider()
-                        Group {
-                            Text("Pinch over plot") + Text(": Zoom both axes").foregroundColor(Palette.color(.textSecondary))
-                            Text("Pinch over freq axis") + Text(": Zoom frequency only").foregroundColor(Palette.color(.textSecondary))
-                            Text("Pinch over mag axis") + Text(": Zoom magnitude only").foregroundColor(Palette.color(.textSecondary))
-                        }
-                        .font(.callout)
-                        PaletteDivider()
-                        Group {
-                            Text("Drag over plot") + Text(": Pan both axes").foregroundColor(Palette.color(.textSecondary))
-                            Text("Drag over freq axis") + Text(": Pan frequency only").foregroundColor(Palette.color(.textSecondary))
-                            Text("Drag over mag axis") + Text(": Pan magnitude only").foregroundColor(Palette.color(.textSecondary))
-                            Text("Right-click") + Text(": Reset axes & labels").foregroundColor(Palette.color(.textSecondary))
-                        }
-                        .font(.callout)
-                    }
-                    .padding()
-                    .frame(minWidth: 300)
-                    .paletteSurface(.backgroundPanel)
+        // Below the ⓘ (iOS places a popover itself), a popover on the iPhone too, as the ⋯ menu.
+        .popover(isPresented: $showingControlsHelp, arrowEdge: .top) {
+            ChartHelpView()
+                .equatable()
+                .presentationCompactAdaptation(.popover)
         }
     }
 
@@ -732,6 +703,11 @@ struct SpectrumView: View {
                 }
                 .contextMenu { chartMenuItems }
                 #else
+                // Scrolling with a mouse or trackpad zooms and pans as on macOS; touches pass through.
+                .overlay(PointerScroll { event, location in
+                    lastCursorPosition = location
+                    handleScrollWheel(event: event, plotFrame: resolvedPlotFrame, proxy: proxy)
+                })
                 // A right-click with a mouse or trackpad opens the chart menu; touches pass through.
                 .overlay(SecondaryClickMenu(menu: { chartUIMenu() }, passesThrough: { point in
                     peakLabelFrames.values.contains { $0.contains(point) }
@@ -1286,5 +1262,42 @@ private struct ChartMenuButton: View, Equatable {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("Chart options")
+    }
+}
+
+// MARK: - The chart's help
+
+/// The chart's help: the lines that work on the device in use (`ChartHelp`). It scrolls when the screen is too short
+/// to show it whole. It depends on nothing a live frame changes, so it is equal to itself: the frame, which redraws
+/// the chart around it, leaves it — and how far it is scrolled — alone.
+private struct ChartHelpView: View, Equatable {
+    private let groups = ChartHelp.shown(on: ChartHelp.current)
+
+    static func == (a: Self, b: Self) -> Bool { true }
+
+    var body: some View {
+        ViewThatFits(in: .vertical) {
+            content
+            ScrollView { content }
+        }
+        .frame(minWidth: 300)
+        .paletteSurface(.backgroundPanel)
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(ChartHelp.title)
+                .font(.headline)
+                .padding(.bottom, 2)
+            ForEach(Array(groups.enumerated()), id: \.offset) { index, group in
+                if index > 0 { PaletteDivider() }
+                ForEach(group, id: \.gesture) { line in
+                    (Text(line.gesture) + Text(": \(line.effect)").foregroundColor(Palette.color(.textSecondary)))
+                        .font(.callout)
+                }
+            }
+        }
+        .padding()
+        .fixedSize(horizontal: false, vertical: true)
     }
 }

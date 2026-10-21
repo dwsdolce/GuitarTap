@@ -34,9 +34,9 @@ struct MeasurementRowView<MenuItems: View>: View {
         } label: {
             Image(systemName: "ellipsis.circle")
                 .font(.caption)
-                .foregroundColor(Palette.color(.textSecondary))
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
+        .buttonStyle(.icon())
         .menuIndicator(.hidden)
         .fixedSize()
         .opacity(isHovered ? 1.0 : 0.0)

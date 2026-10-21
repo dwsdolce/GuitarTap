@@ -242,6 +242,10 @@ struct MeasurementsListView: View {
                         #endif
                         .help(isComparing ? "Toggle selection for comparison" : "Double-click to load measurement")
                         .contextMenu { rowMenuContents(index: index, measurement: measurement) }
+                        #if os(macOS)
+                        // The row under the pointer on background.subtle, in every edition.
+                        .listRowBackground(hoveredMeasurementIndex == index ? Palette.color(.backgroundSubtle) : Color.clear)
+                        #endif
                     }
                     .onDelete { indexSet in
                         if let index = indexSet.first {

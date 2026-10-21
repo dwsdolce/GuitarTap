@@ -153,8 +153,8 @@ Tap **Advanced** to reveal these.
   is kept.
 - **Save Current View** — saves the *current* chart axes as the
   saved view: the frequency range for the current measurement
-  type and the magnitude range. Reset to Saved in the chart's
-  **…** menu (§6.2) returns to this view.
+  type and the magnitude range. The chart menu's **Reset … to
+  Saved** items (§6.2) return to this view.
 - **Reset to Defaults** — restores the built-in starting ranges.
 
 ## 8.5 Advanced — Analysis Settings
