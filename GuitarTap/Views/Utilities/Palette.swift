@@ -72,7 +72,6 @@ enum Palette {
         case peakSelectedStar = "peak.selectedStar"
         case peakUnselectedStar = "peak.unselectedStar"
         case peakInRange = "peak.inRange"
-        case peakOutOfRange = "peak.outOfRange"
         case qualityGray = "quality.gray"
         case qualityOrange = "quality.orange"
         case qualityYellow = "quality.yellow"
@@ -220,7 +219,6 @@ enum Palette {
         .peakSelectedStar: Pair(light: "#007AFF", dark: "#0A84FF"),
         .peakUnselectedStar: Pair(light: "#6B7785", dark: "#8A96A5"),
         .peakInRange: Pair(light: "#34C759", dark: "#30D158"),
-        .peakOutOfRange: Pair(light: "#FF9500", dark: "#FF9F0A"),
         .qualityGray: Pair(light: "#8E8E93", dark: "#8E8E93"),
         .qualityOrange: Pair(light: "#FF9500", dark: "#FF9F0A"),
         .qualityYellow: Pair(light: "#FFCC00", dark: "#FFD60A"),

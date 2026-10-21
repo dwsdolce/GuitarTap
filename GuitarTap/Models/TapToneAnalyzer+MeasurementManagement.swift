@@ -647,7 +647,7 @@ extension TapToneAnalyzer {
             message += "\n\n" + skipped
         }
         if imported.count == 1, let warning = microphoneWarning {
-            message += "\n\n⚠️ " + warning
+            message += "\n\n⚠\u{FE0E} " + warning
             microphoneWarning = nil
         }
         return message

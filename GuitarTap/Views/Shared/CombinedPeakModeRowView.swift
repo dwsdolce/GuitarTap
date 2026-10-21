@@ -120,11 +120,11 @@ struct CombinedPeakModeRowView: View {
 
                 Spacer(minLength: 0)
 
-                // Mode range indicator — a plain mark, not one in a circle
+                // Classified mark — a plain check, not one in a circle. A classified peak is always
+                // inside its mode's range: classification assigns a mode only to a peak within it.
                 if materialRole == nil && mode != .unknown && mode != .upperModes {
-                    let inRange = mode.modeRange.contains(peak.frequency)
-                    Image(systemName: inRange ? "checkmark" : "exclamationmark.triangle")
-                        .foregroundColor(Palette.color(inRange ? .peakInRange : .peakOutOfRange))
+                    Image(systemName: "checkmark")
+                        .foregroundColor(Palette.color(.peakInRange))
                         .font(Self.detailFont.weight(.semibold))
                 }
             }

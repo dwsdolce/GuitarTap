@@ -594,29 +594,29 @@ final class TapToneAnalyzer: ObservableObject {
     /// `statusMessage` performed by the clipping-override path, so the
     /// `$statusMessage` sink doesn't store the warning into
     /// `latestRealStatus`.  Mirrors Python's identical override.
-    static let clippingWarningStatus = "⚠ Input clipping — reduce mic gain"
+    static let clippingWarningStatus = "⚠\u{FE0E} Input clipping — reduce mic gain"
 
     /// Shown while the input delivers buffers that carry no signal. Outranks the
     /// clipping warning: a dead input cannot also be clipping, and if both were
     /// somehow set, "no audio" is the more actionable message.
-    static let deadInputStatus = "⚠ No audio input — check the microphone connection"
+    static let deadInputStatus = "⚠\u{FE0E} No audio input — check the microphone connection"
 
     /// Shown while the audio comes from a device other than the selected microphone and
     /// restarting has not brought the engine back to it. Ranks below a dead input and above
     /// clipping: the level being read is another microphone's.
-    static let wrongDeviceStatus = "⚠ Input is not the selected microphone — choose it again in Settings"
+    static let wrongDeviceStatus = "⚠\u{FE0E} Input is not the selected microphone — choose it again in Settings"
 
     /// Shown once the recovery has given up after restarts that failed: the input could not be opened
     /// again. Outranks every other input warning — it says the most about what is wrong.
-    static let couldNotRestartStatus = "⚠ The microphone could not be restarted — check its connection, or choose it again in Settings"
+    static let couldNotRestartStatus = "⚠\u{FE0E} The microphone could not be restarted — check its connection, or choose it again in Settings"
 
     /// Shown while the microphone permission is refused. Outranks every other input warning: without
     /// the permission there is no input to warn about.
-    static let microphoneAccessStatus = "⚠ Microphone access required — enable it in Settings, then restart GuitarTap"
+    static let microphoneAccessStatus = "⚠\u{FE0E} Microphone access required — enable it in Settings, then restart GuitarTap"
 
     /// Shown while the input could not be started (a deliberate start failed for anything but the
     /// permission). Ranks just below the permission warning.
-    static let couldNotStartStatus = "⚠ The audio input could not be started — check it, or choose another input in Settings"
+    static let couldNotStartStatus = "⚠\u{FE0E} The audio input could not be started — check it, or choose another input in Settings"
 
     // MARK: - Published Frozen Spectrum
 
