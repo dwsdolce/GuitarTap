@@ -453,7 +453,7 @@ extension TapToneAnalyzer {
         let snapshot: SpectrumSnapshot?
         if measurementType.isGuitar {
             let freqs = isMeasurementComplete ? frozenFrequencies : fftAnalyzer.frequencies
-            let mags  = isMeasurementComplete ? frozenMagnitudes  : fftAnalyzer.magnitudes
+            let mags  = isMeasurementComplete ? frozenMagnitudes  : fftAnalyzer.frame.magnitudes
             snapshot = SpectrumSnapshot(
                 frequencies: freqs,
                 magnitudes: mags,

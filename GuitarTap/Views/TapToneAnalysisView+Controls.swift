@@ -316,6 +316,16 @@ extension TapToneAnalysisView {
     }
     #endif
 
+    /// The status bar's level: the frame's peak magnitude for a guitar, its readout level for a plate or brace.
+    func frameLevelText(_ frame: LiveFrame) -> Text {
+        Text("\(FieldPrecision.string(TapDisplaySettings.measurementType.isGuitar ? frame.peakMagnitude : frame.displayLevelDB, FieldPrecision.peakMagnitudeDB)) dB")
+    }
+
+    /// The status bar's peak readout: the frame's loudest bin.
+    func framePeakText(_ frame: LiveFrame) -> Text {
+        Text("Peak: \(FieldPrecision.string(frame.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB @ \(FieldPrecision.string(frame.peakFrequency, FieldPrecision.peakFrequencyHz)) Hz")
+    }
+
     /// Fixed status bar at bottom of screen
     @ViewBuilder
     var statusBarView: some View {
@@ -374,7 +384,7 @@ extension TapToneAnalysisView {
                     .foregroundColor(Palette.color(tap.isMeasurementComplete ? .statusTapDetected : .textSecondary))
                     .lineLimit(1)
 
-                Text("\(FieldPrecision.string(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, FieldPrecision.peakMagnitudeDB)) dB")
+                FrameReader(frame: fft.frame) { frame in frameLevelText(frame) }
                     .font(.caption)
                     .foregroundColor(Palette.color(.textSecondary))
                     .lineLimit(1)
@@ -412,7 +422,7 @@ extension TapToneAnalysisView {
                 Spacer()
 
                 if fft.isRunning {
-                    Text("Peak: \(FieldPrecision.string(fft.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB @ \(FieldPrecision.string(fft.peakFrequency, FieldPrecision.peakFrequencyHz)) Hz")
+                    FrameReader(frame: fft.frame) { frame in framePeakText(frame) }
                         .font(.caption)
                         .foregroundColor(Palette.color(.statusPeakReadout))
                         .lineLimit(1)
@@ -523,7 +533,7 @@ extension TapToneAnalysisView {
                     Text("•")
                         .foregroundColor(Palette.color(.textSecondary))
 
-                    Text("\(FieldPrecision.string(TapDisplaySettings.measurementType.isGuitar ? fft.peakMagnitude : fft.displayLevelDB, FieldPrecision.peakMagnitudeDB)) dB")
+                    FrameReader(frame: fft.frame) { frame in frameLevelText(frame) }
                         .font(.subheadline)
                         .foregroundColor(Palette.color(.textSecondary))
 
@@ -543,7 +553,7 @@ extension TapToneAnalysisView {
                     }
 
                     if fft.isRunning {
-                        Text("Peak: \(FieldPrecision.string(fft.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB @ \(FieldPrecision.string(fft.peakFrequency, FieldPrecision.peakFrequencyHz)) Hz")
+                        FrameReader(frame: fft.frame) { frame in framePeakText(frame) }
                             .font(.caption)
                             .foregroundColor(Palette.color(.statusPeakReadout))
                     } else {
@@ -627,6 +637,7 @@ extension TapToneAnalysisView {
                     Stepper("\(tap.numberOfTaps)",
                             value: $tapToneAnalyzer.numberOfTaps,
                             in: 1...10)
+                        .tint(Palette.color(.accent))
                         .disabledDimmed(tapCountLocked)
                         .frame(maxWidth: 120)
                         .hint(HintText.taps)
@@ -664,6 +675,7 @@ extension TapToneAnalysisView {
                         .foregroundColor(Palette.color(.textSecondary))
                         .fixedSize()
                     Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
+                        .tint(Palette.color(.accent))
                         .accessibilityLabel("Peak detection minimum threshold")
                         .hint(HintText.peakMin)
 
@@ -789,12 +801,13 @@ extension TapToneAnalysisView {
                 Stepper("",
                         value: $tapToneAnalyzer.numberOfTaps,
                         in: 1...10)
+                    .tint(Palette.color(.accent))
                     .labelsHidden()
             }
             .disabledDimmed(tapCountLocked)
             .hint(HintText.taps)
 
-            Divider()
+            PaletteDivider()
                 .frame(height: 20)
 
             // Tap detection threshold slider — controls the RMS rising-edge
@@ -821,7 +834,7 @@ extension TapToneAnalysisView {
             }
             .hint(HintText.threshold)
 
-            Divider()
+            PaletteDivider()
                 .frame(height: 20)
 
             HStack(spacing: 4) {
@@ -830,6 +843,7 @@ extension TapToneAnalysisView {
                     .foregroundColor(Palette.color(.textSecondary))
                     .fixedSize()
                 Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
+                    .tint(Palette.color(.accent))
                     .frame(width: 80)
                     .accessibilityLabel("Peak detection minimum threshold")
                     .hint(HintText.peakMin)
@@ -916,12 +930,13 @@ extension TapToneAnalysisView {
                     Stepper("",
                             value: $tapToneAnalyzer.numberOfTaps,
                             in: 1...10)
+                        .tint(Palette.color(.accent))
                         .labelsHidden()
                 }
                 .disabledDimmed(tapCountLocked)
                 .hint(HintText.taps)
 
-                Divider()
+                PaletteDivider()
                     .frame(height: 20)
 
                 // Tap detection threshold slider — controls the RMS rising-edge
@@ -948,7 +963,7 @@ extension TapToneAnalysisView {
                 }
                 .hint(HintText.threshold)
 
-                Divider()
+                PaletteDivider()
                     .frame(height: 20)
 
                 // Peak Min slider — minimum spectral magnitude for peak annotation.
@@ -958,6 +973,7 @@ extension TapToneAnalysisView {
                         .foregroundColor(Palette.color(.textSecondary))
                         .fixedSize()
                     Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
+                        .tint(Palette.color(.accent))
                         .frame(width: 80)
                         .accessibilityLabel("Peak detection minimum threshold")
 

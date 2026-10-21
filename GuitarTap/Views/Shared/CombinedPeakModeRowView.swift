@@ -29,8 +29,7 @@
 ///
 /// ## Mode Override Presentation
 ///
-/// - macOS: the picker appears as a `Popover`.
-/// - iOS compact: the picker appears as a sheet (`showModePickerSheet`).
+/// The picker is the platform's menu on every device; "Custom…" opens a popover to type a label.
 ///
 /// - SeeAlso: `TapAnalysisResultsView`, `UserAssignedMode`
 
@@ -64,7 +63,6 @@ struct CombinedPeakModeRowView: View {
 
     @State private var showCustomLabelPopover = false
     @State private var customLabelDraft = ""
-    @State private var showModePickerSheet = false
 
     /// Whether the override label is freeform text (not a predefined GuitarMode).
     private var isFreeformOverride: Bool {
@@ -211,25 +209,6 @@ struct CombinedPeakModeRowView: View {
                         onSetModeOverride?(label)
                     }
                 }
-                #if os(iOS)
-                .sheet(isPresented: $showModePickerSheet) {
-                    ModePickerSheet(
-                        currentLabel: effectiveModeLabel,
-                        isManualOverride: isManualOverride,
-                        autoLabel: (autoDetectedMode ?? mode).displayName,
-                        onSelect: { label in onSetModeOverride?(label) },
-                        onReset: onResetModeOverride,
-                        onCustom: {
-                            customLabelDraft = isManualOverride ? effectiveModeLabel : ""
-                            showModePickerSheet = false
-                            // Small delay so the sheet dismisses before the popover opens
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                                showCustomLabelPopover = true
-                            }
-                        }
-                    )
-                }
-                #endif
         } else {
             // Read-only fallback (no callbacks provided)
             Text(effectiveModeLabel)
@@ -245,15 +224,6 @@ struct CombinedPeakModeRowView: View {
 
     @ViewBuilder
     private var modeLabelButton: some View {
-        #if os(iOS)
-        // On iOS, Menu is an action sheet with a fixed max height — use a scrollable sheet instead
-        Button {
-            showModePickerSheet = true
-        } label: {
-            modeLabelContent
-        }
-        .buttonStyle(.plain)
-        #else
         Menu {
             // Reset option shown only when there is an active override
             if isManualOverride {
@@ -290,6 +260,7 @@ struct CombinedPeakModeRowView: View {
             modeLabelContent
         }
         .buttonStyle(.plain)
+        #if os(macOS)
         .help(isManualOverride
               ? "Manually assigned — tap to change or reset"
               : "Tap to assign a mode label")
@@ -328,95 +299,6 @@ struct CombinedPeakModeRowView: View {
     }
 }
 
-// MARK: - Mode Picker Sheet (iOS only)
-
-#if os(iOS)
-/// A scrollable sheet showing all mode suggestions, used on iOS where Menu is height-limited.
-private struct ModePickerSheet: View {
-    let currentLabel: String
-    let isManualOverride: Bool
-    let autoLabel: String
-    let onSelect: (String) -> Void
-    let onReset: (() -> Void)?
-    let onCustom: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                if isManualOverride {
-                    Section {
-                        Button {
-                            onReset?()
-                            dismiss()
-                        } label: {
-                            Label("Reset to Auto-Detected (\(autoLabel))", systemImage: "arrow.counterclockwise")
-                        }
-                    }
-                }
-
-                Section("Standard Modes") {
-                    ForEach(UserAssignedMode.guitarTapModes, id: \.self) { label in
-                        Button {
-                            onSelect(label)
-                            dismiss()
-                        } label: {
-                            HStack {
-                                Text(label)
-                                    .foregroundColor(Palette.color(.textPrimary))
-                                Spacer()
-                                if label == currentLabel {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(Palette.color(.accentText))
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Section("Extended Modes") {
-                    ForEach(UserAssignedMode.additionalModes, id: \.self) { label in
-                        Button {
-                            onSelect(label)
-                            dismiss()
-                        } label: {
-                            HStack {
-                                Text(label)
-                                    .foregroundColor(Palette.color(.textPrimary))
-                                Spacer()
-                                if label == currentLabel {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(Palette.color(.accentText))
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Section {
-                    Button {
-                        onCustom()
-                        dismiss()
-                    } label: {
-                        Label("Custom…", systemImage: "pencil")
-                    }
-                }
-            }
-            .navigationTitle("Assign Mode")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-    }
-}
-#endif
-
 // MARK: - Custom Mode Label Popover
 
 /// A small popover that lets the user type an arbitrary mode label.
@@ -452,7 +334,6 @@ private struct CustomModeLabelPopover: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
-                .buttonStyle(.prominent())
             }
         }
         .padding()
@@ -463,5 +344,6 @@ private struct CustomModeLabelPopover: View {
         .presentationDetents([.height(160)])
         .presentationDragIndicator(.visible)
         #endif
+        .paletteSurface(.backgroundPanel)
     }
 }

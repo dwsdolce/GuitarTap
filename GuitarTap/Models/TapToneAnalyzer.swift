@@ -1734,8 +1734,8 @@ final class TapToneAnalyzer: ObservableObject {
         // which delegates to analyzeMagnitudes for peak analysis.  The entry-
         // point method placement mirrors Python's on_fft_frame in
         // tap_tone_analyzer_tap_detection.py.
-        fftAnalyzer.$magnitudes
-            .combineLatest(fftAnalyzer.$frequencies, fftAnalyzer.$peakMagnitude)
+        fftAnalyzer.frame.$magnitudes
+            .combineLatest(fftAnalyzer.$frequencies, fftAnalyzer.frame.$peakMagnitude)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] magnitudes, frequencies, peakMag in
                 self?.onFftFrame(magnitudes: magnitudes, frequencies: frequencies, peakMagnitude: peakMag)

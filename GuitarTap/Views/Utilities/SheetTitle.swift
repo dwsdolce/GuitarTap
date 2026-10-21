@@ -18,7 +18,7 @@ extension View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                     .padding(.vertical, 10)
-                Divider()
+                PaletteDivider()
             }
             .background(Palette.color(.backgroundPanel))
         }

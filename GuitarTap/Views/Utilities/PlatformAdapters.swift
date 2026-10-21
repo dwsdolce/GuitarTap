@@ -352,7 +352,7 @@ struct PlatformSplitView<Primary: View, Secondary: View>: View {
             primary
                 .frame(maxWidth: .infinity)
             
-            Divider()
+            PaletteDivider()
             
             secondary
                 .frame(width: secondaryWidth)

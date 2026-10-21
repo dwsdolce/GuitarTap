@@ -202,7 +202,7 @@ struct TapSettingsView: View {
                 }
                 .padding(16)
             }
-            .background(Palette.color(.backgroundPanel))
+            .paletteSurface(.backgroundPanel)
             .legacyScrollers()
             #if os(macOS)
             .frame(minWidth: 500, minHeight: 600)

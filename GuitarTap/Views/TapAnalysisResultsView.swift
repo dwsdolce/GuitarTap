@@ -58,8 +58,9 @@ import Charts
 struct TapAnalysisResultsView: View {
     /// The tap-tone analyzer supplying peaks, decay time, and material data.
     @ObservedObject var analyzer: TapToneAnalyzer
-    /// The FFT analyzer (read-only here; used for metrics display).
-    @ObservedObject var fftAnalyzer: RealtimeFFTAnalyzer
+    /// The FFT analyzer. Not observed here: it publishes on every frame, and this view (its rows and their menus) must not be
+    /// redrawn that often. Only `AnalyzerRunningIndicator` watches it.
+    let fftAnalyzer: RealtimeFFTAnalyzer
     
     /// Lower bound of the displayed frequency range (Hz). Used to filter
     /// guitar peaks to the visible spectrum window.
@@ -588,7 +589,7 @@ struct TapAnalysisResultsView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Divider()
+            PaletteDivider()
                 .frame(height: 36)
 
             // Tap tone ratio
@@ -624,15 +625,7 @@ struct TapAnalysisResultsView: View {
     }
 
     private var statusIndicator: some View {
-        HStack {
-            Circle()
-                .fill(Palette.color(fftAnalyzer.isRunning ? .statusRunning : .statusStopped))
-                .frame(width: 8, height: 8)
-            
-            Text(fftAnalyzer.isRunning ? "Analyzing" : "Stopped")
-                .font(.caption)
-                .foregroundColor(Palette.color(.textSecondary))
-        }
+        AnalyzerRunningIndicator(fftAnalyzer: fftAnalyzer)
     }
     
     // MARK: - Plate Properties Section
@@ -1236,5 +1229,23 @@ struct MaterialPeakRowView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// "Analyzing" or "Stopped" with its dot — the one part of the results that follows the analyzer, kept in its own
+/// view so that only it is redrawn when the analyzer publishes.
+private struct AnalyzerRunningIndicator: View {
+    @ObservedObject var fftAnalyzer: RealtimeFFTAnalyzer
+
+    var body: some View {
+        HStack {
+            Circle()
+                .fill(Palette.color(fftAnalyzer.isRunning ? .statusRunning : .statusStopped))
+                .frame(width: 8, height: 8)
+
+            Text(fftAnalyzer.isRunning ? "Analyzing" : "Stopped")
+                .font(.caption)
+                .foregroundColor(Palette.color(.textSecondary))
+        }
     }
 }

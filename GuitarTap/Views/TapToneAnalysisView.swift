@@ -445,7 +445,7 @@ private struct AutoScaleModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onReceive(fft.$magnitudes) { newMagnitudes in
+            .onReceive(fft.frame.$magnitudes) { newMagnitudes in
                 let hasValidData = !newMagnitudes.isEmpty && newMagnitudes.contains { $0 > -99 }
                 if isAutoScaleEnabled && hasValidData && fft.isRunning {
                     autoScaleAction()

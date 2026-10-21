@@ -25,11 +25,11 @@ struct ComparisonResultsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             headerRow
-            Divider()
+            PaletteDivider()
             ForEach(Array(spectra.enumerated()), id: \.offset) { index, entry in
                 dataRow(entry: entry, modeFreqs: modeFreqs(for: entry))
                 if index < spectra.count - 1 {
-                    Divider()
+                    PaletteDivider()
                         .padding(.leading, 8)
                 }
             }

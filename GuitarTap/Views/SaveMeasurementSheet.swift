@@ -53,6 +53,7 @@ struct SaveMeasurementSheet: View {
         formContent
             .frame(minWidth: 450, idealWidth: 500, minHeight: 250, idealHeight: 350)
             .sheetTitle("Save Measurement")
+            .paletteSurface(.backgroundPanel)
             .navigationTitle("Save Measurement")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -70,6 +71,7 @@ struct SaveMeasurementSheet: View {
         // iOS layout with NavigationView
         NavigationView {
             formContent
+                .paletteSurface(.backgroundPanel)
                 .navigationTitle("Save Measurement")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -127,7 +129,9 @@ struct SaveMeasurementSheet: View {
             } header: {
                 Text("Measurement Name")
                     .font(.headline)
+                    .foregroundStyle(Palette.color(.textSecondary))
             }
+            .paletteRows(grouped: true)
 
             Section {
                 TextEditor(text: $notes)
@@ -136,11 +140,13 @@ struct SaveMeasurementSheet: View {
             } header: {
                 Text("Notes (Optional)")
                     .font(.headline)
+                    .foregroundStyle(Palette.color(.textSecondary))
             } footer: {
                 Text("Add any observations about this measurement")
                     .font(.caption)
                     .foregroundColor(Palette.color(.textSecondary))
             }
+            .paletteRows(grouped: true)
         }
         .formStyle(.grouped)
         #endif

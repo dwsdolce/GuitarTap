@@ -28,6 +28,7 @@ struct EmptyStateView: View {
             Text(title)
                 .font(.title2)
                 .fontWeight(.semibold)
+                .foregroundColor(Palette.color(.textPrimary))
             
             Text(message)
                 .font(.body)

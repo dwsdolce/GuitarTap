@@ -57,6 +57,7 @@ struct EditMeasurementView: View {
         #if os(macOS)
         formContent
             .frame(minWidth: 450, idealWidth: 500, minHeight: 250, idealHeight: 350)
+            .paletteSurface(.backgroundPanel)
             .navigationTitle("Edit Measurement")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -70,6 +71,7 @@ struct EditMeasurementView: View {
         #else
         NavigationView {
             formContent
+                .paletteSurface(.backgroundPanel)
                 .navigationTitle("Edit Measurement")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -127,7 +129,9 @@ struct EditMeasurementView: View {
             } header: {
                 Text("Measurement Name")
                     .font(.headline)
+                    .foregroundStyle(Palette.color(.textSecondary))
             }
+            .paletteRows(grouped: true)
 
             Section {
                 TextEditor(text: $notes)
@@ -136,11 +140,13 @@ struct EditMeasurementView: View {
             } header: {
                 Text("Notes (Optional)")
                     .font(.headline)
+                    .foregroundStyle(Palette.color(.textSecondary))
             } footer: {
                 Text("Add any observations about this measurement")
                     .font(.caption)
                     .foregroundColor(Palette.color(.textSecondary))
             }
+            .paletteRows(grouped: true)
         }
         .formStyle(.grouped)
         #endif

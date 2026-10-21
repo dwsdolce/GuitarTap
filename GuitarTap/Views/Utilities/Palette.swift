@@ -463,3 +463,55 @@ enum Palette {
         #endif
     }
 }
+
+extension View {
+    /// The root of a window, sheet or popover: its text in `text.primary` and its background in `role`, set once here
+    /// so that nothing inside falls back to the platform's colours. In a sheet or popover the presentation's own
+    /// background (behind a popover's arrow, a sheet's bars) is `role` too, and a list, form or text editor inside
+    /// draws no background of its own. Applied before any `.toolbar`, so the toolbar's items stay the platform's.
+    func paletteSurface(_ role: Palette.Role) -> some View {
+        foregroundStyle(Palette.color(.textPrimary))
+            .scrollContentBackground(.hidden)
+            .background(Palette.color(role))
+            .presentationBackground(Palette.color(role))
+    }
+
+    /// The rows of a list or form: on `background.subtle` where they are grouped (a form, and every list on iOS), as
+    /// the Settings boxes; on the list's own background in a plain macOS list.
+    func paletteRows(grouped: Bool = false) -> some View {
+        #if os(iOS)
+        listRowBackground(Palette.color(.backgroundSubtle))
+        #else
+        listRowBackground(grouped ? Palette.color(.backgroundSubtle) : Color.clear)
+        #endif
+    }
+}
+
+/// A divider in the `separator` role — the platform's `Divider`, horizontal or vertical by its stack, drawn in the
+/// palette's colour rather than the platform's.
+struct PaletteDivider: View {
+    var body: some View {
+        Divider().overlay(Palette.color(.separator))
+    }
+}
+
+/// A group box in palette roles — the title in `text.primary` above its content on `background.subtle`, corner
+/// radius 8 — rather than the platform's box.
+struct PaletteGroupBoxStyle: GroupBoxStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            configuration.label
+                .foregroundStyle(Palette.color(.textPrimary))
+            configuration.content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Palette.color(.backgroundSubtle)))
+        }
+    }
+}
+
+extension GroupBoxStyle where Self == PaletteGroupBoxStyle {
+    /// A group box in palette roles.
+    static var palette: PaletteGroupBoxStyle { PaletteGroupBoxStyle() }
+}

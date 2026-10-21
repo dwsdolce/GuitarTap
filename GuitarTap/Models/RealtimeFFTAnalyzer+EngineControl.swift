@@ -544,12 +544,12 @@ extension RealtimeFFTAnalyzer {
                 // Do NOT treat perfectSilence as denial when status is .notDetermined —
                 // on a fresh install the system permission prompt may not have been answered
                 // yet, so silent buffers are expected during that window.
-                let perfectSilence = self.peakMagnitude.isInfinite
-                    && self.peakMagnitude < 0
+                let perfectSilence = self.frame.peakMagnitude.isInfinite
+                    && self.frame.peakMagnitude < 0
                     && self.firstBufferReceived
                     && tccStatus != .notDetermined
                 self.logEngineInputState("3 s after start")
-                gtLog("🎤 3s TCC check — status: \(tccStatus.rawValue), peak: \(self.peakMagnitude) dB, perfectSilence: \(perfectSilence), buffersReceived: \(self.firstBufferReceived)")
+                gtLog("🎤 3s TCC check — status: \(tccStatus.rawValue), peak: \(self.frame.peakMagnitude) dB, perfectSilence: \(perfectSilence), buffersReceived: \(self.firstBufferReceived)")
                 // Silence is evidence of a PERMISSION problem only before the input has
                 // ever worked, and never during a watchdog recovery restart.
                 //
@@ -605,8 +605,8 @@ extension RealtimeFFTAnalyzer {
         updateFrequencyBins()
         updateMetrics()
 
-        magnitudes = [Float](repeating: -100, count: fftSize / 2)
-        peakMagnitude = -100
+        frame.magnitudes = [Float](repeating: -100, count: fftSize / 2)
+        frame.peakMagnitude = -100
         lastPublishTime = 0
         isPlayingFile = true
         playingFileName = fileName
@@ -1111,8 +1111,8 @@ extension RealtimeFFTAnalyzer {
             self?.isRunning = false
             self?.isPlayingFile = false
             self?.playingFileName = nil
-            self?.peakMagnitude = -100  // Reset to silent state
-            self?.peakFrequency = 0
+            self?.frame.peakMagnitude = -100  // Reset to silent state
+            self?.frame.peakFrequency = 0
         }
     }
 }

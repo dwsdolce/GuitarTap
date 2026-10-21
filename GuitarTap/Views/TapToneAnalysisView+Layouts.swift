@@ -54,7 +54,7 @@ extension TapToneAnalysisView {
             // Toolbar buttons span the full window width
             headerView
 
-            Divider()
+            PaletteDivider()
 
             // Fixed split: results pane sizes itself to its content minimum width;
             // spectrum pane fills the remaining space.
@@ -63,18 +63,19 @@ extension TapToneAnalysisView {
                 macOSLeftPane
                     .frame(maxWidth: .infinity)
 
-                Divider()
+                PaletteDivider()
 
                 // Right pane: sizes to its ideal (unwrapped) width at the current font size
                 macOSResultsPane
                     .fixedSize(horizontal: true, vertical: false)
             }
 
-            Divider()
+            PaletteDivider()
 
             // Status bar spans the full width below the split
             statusBarView
         }
+        .paletteSurface(.backgroundWindow)
         .sheet(isPresented: $showingMeasurements) {
             MeasurementsListView(analyzer: tap)
                 .interactiveDismissDisabled()
@@ -114,6 +115,7 @@ extension TapToneAnalysisView {
                     FFTAnalysisMetricsView(analyzer: fft)
                         .padding()
                 }
+                .paletteSurface(.backgroundPanel)
                 .navigationTitle("FFT Analysis Metrics")
                 .toolbar {
                     // Done only closes: a plain button (.cancellationAction), as every closing Done.
@@ -226,6 +228,7 @@ extension TapToneAnalysisView {
                     onExportSpectrum: { exportCurrentSpectrum() },
                     onExportPDFReport: { exportPDFReport() }
                 )
+                .paletteSurface(.backgroundPanel)
                 .navigationTitle("Analysis Results")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -244,6 +247,7 @@ extension TapToneAnalysisView {
                     FFTAnalysisMetricsView(analyzer: fft)
                         .padding()
                 }
+                .paletteSurface(.backgroundPanel)
                 .navigationTitle("FFT Analysis Metrics")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -334,7 +338,7 @@ extension TapToneAnalysisView {
                 .padding(.horizontal)
                 .padding(.top, 8)
 
-            Divider()
+            PaletteDivider()
 
             HStack(spacing: 0) {
                 // Left pane: spectrum chart + decay info.
@@ -350,7 +354,7 @@ extension TapToneAnalysisView {
                 }
                 .frame(minWidth: 200, maxWidth: .infinity)
 
-                Divider()
+                PaletteDivider()
 
                 // Right pane: scrollable analysis results, capped width so the
                 // FFT chart on the left always gets a usable share.
@@ -365,10 +369,11 @@ extension TapToneAnalysisView {
                 .frame(idealWidth: 360, maxWidth: 480)
             }
 
-            Divider()
+            PaletteDivider()
 
             statusBarView
         }
+        .paletteSurface(.backgroundWindow)
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -456,7 +461,7 @@ extension TapToneAnalysisView {
             .frame(width: 200)
             .background(Palette.color(.backgroundSubtle))
 
-            Divider()
+            PaletteDivider()
 
             // Right: spectrum and status — fills remaining space
             VStack(spacing: 0) {
@@ -465,7 +470,7 @@ extension TapToneAnalysisView {
                     .padding(.horizontal, 4)
 
                 // Compact status bar
-                Divider()
+                PaletteDivider()
                 compactStatusBar
             }
             .frame(maxWidth: .infinity)
@@ -494,12 +499,13 @@ extension TapToneAnalysisView {
                     .frame(width: 420)
                     .frame(maxHeight: .infinity)
                     .background(Palette.color(.backgroundPanel))
-                    .overlay(alignment: .leading) { Divider() }
+                    .overlay(alignment: .leading) { PaletteDivider() }
                     .transition(.move(edge: .trailing))
                 }
             }
         }
         .animation(.easeInOut(duration: 0.25), value: showingResults)
+        .paletteSurface(.backgroundWindow)
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -585,15 +591,18 @@ extension TapToneAnalysisView {
             HStack {
                 Text("Taps:")
                     .font(.caption)
+                    .foregroundColor(Palette.color(.textSecondary))
                 Spacer()
                 Stepper("\(tap.numberOfTaps)",
                         value: $tapToneAnalyzer.numberOfTaps,
                         in: 1...10)
+                    .tint(Palette.color(.accent))
                     .labelsHidden()
                     .accessibilityLabel("Number of taps: \(tap.numberOfTaps)")
                     .hint(HintText.taps)
                 Text("\(tap.numberOfTaps)")
                     .font(.caption)
+                    .foregroundColor(Palette.color(.textPrimary))
                     .frame(width: 20)
             }
             .disabledDimmed(tapCountLocked)
@@ -636,12 +645,13 @@ extension TapToneAnalysisView {
                     peakMinResetButton
                 }
                 Slider(value: $tapToneAnalyzer.peakMinThreshold, in: -100...(-20), step: 1)
+                    .tint(Palette.color(.accent))
                     .accessibilityLabel("Peak detection minimum threshold")
                     .hint(HintText.peakMin)
             }
             .notApplicableDimmed(!TapDisplaySettings.measurementType.isGuitar || tap.displayMode == .comparison)
 
-            Divider()
+            PaletteDivider()
 
             // Action buttons - vertical stack
             VStack(spacing: 6) {
@@ -713,6 +723,7 @@ extension TapToneAnalysisView {
                     Text(phaseLabel)
                         .font(.caption)
                         .fontWeight(.semibold)
+                        .foregroundColor(Palette.color(.statusTapCount))
                     ProgressView(value: tap.tapProgress)
                         .progressViewStyle(.linear)
                         .tint(Palette.color(.statusProgress))
@@ -740,7 +751,7 @@ extension TapToneAnalysisView {
             headerView
             #endif
 
-            Divider()
+            PaletteDivider()
 
             // Main content - spectrum fills remaining space
             #if os(macOS)
@@ -765,10 +776,11 @@ extension TapToneAnalysisView {
             #endif
 
             // Fixed status bar at bottom
-            Divider()
+            PaletteDivider()
 
             statusBarView
         }
+        .paletteSurface(.backgroundWindow)
         #if os(iOS)
         .navigationTitle(appTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -917,7 +929,7 @@ extension TapToneAnalysisView {
             }
             .buttonStyle(.plain)
 
-            Divider()
+            PaletteDivider()
 
             Button(action: {
                 showingHelpMenu = false
@@ -938,6 +950,7 @@ extension TapToneAnalysisView {
             .buttonStyle(.plain)
         }
         .frame(width: 260)
+        .paletteSurface(.backgroundPanel)
         .presentationCompactAdaptation(.popover)
     }
     #endif

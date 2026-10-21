@@ -84,6 +84,7 @@ struct MeasurementsListView: View {
         contentView
             .frame(minWidth: 600, minHeight: 400)
             .sheetTitle("Saved Measurements")
+            .paletteSurface(.backgroundPanel)
             .fileImporter(
                 isPresented: $showingImportPicker,
                 allowedContentTypes: [.guitarTapMeasurement, .json],
@@ -136,6 +137,7 @@ struct MeasurementsListView: View {
         // iOS layout with NavigationView
         NavigationView {
             contentView
+                .paletteSurface(.backgroundPanel)
                 .sheet(isPresented: Binding(
                     get: { selectedDetailTarget != nil },
                     set: { if !$0 { selectedDetailTarget = nil } }
@@ -197,7 +199,8 @@ struct MeasurementsListView: View {
                             .font(.caption)
                             .foregroundColor(Palette.color(.textSecondary))
                     }
-                    
+                    .paletteRows()
+
                     ForEach(Array(analyzer.savedMeasurements.enumerated()), id: \.offset) { index, measurement in
                         Button(action: {
                             // Single tap: only acts in compare mode
@@ -245,6 +248,7 @@ struct MeasurementsListView: View {
                             measurementPendingDelete = (index: index, measurement: analyzer.savedMeasurements[index])
                         }
                     }
+                    .paletteRows()
                 }
             }
         }

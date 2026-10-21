@@ -27,6 +27,14 @@ import SwiftUI
 
 struct FFTAnalysisMetricsView: View {
     @ObservedObject var analyzer: RealtimeFFTAnalyzer
+    /// The live frame — the processing times and the peak — observed on its own: the analyzer no longer
+    /// announces a frame.
+    @ObservedObject private var frame: LiveFrame
+
+    init(analyzer: RealtimeFFTAnalyzer) {
+        self.analyzer = analyzer
+        self.frame = analyzer.frame
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -39,7 +47,7 @@ struct FFTAnalysisMetricsView: View {
                         subtitle: "Hz per bin"
                     )
 
-                    Divider()
+                    PaletteDivider()
 
                     MetricRow(
                         label: "Bin Count",
@@ -47,7 +55,7 @@ struct FFTAnalysisMetricsView: View {
                         subtitle: "FFT output bins (guitar mode only)"
                     )
                     
-                    Divider()
+                    PaletteDivider()
                     
                     MetricRow(
                         label: "Sample Rate",
@@ -57,7 +65,7 @@ struct FFTAnalysisMetricsView: View {
                         subtitle: "Hardware capture rate"
                     )
 
-                    Divider()
+                    PaletteDivider()
 
                     MetricRow(
                         label: "Bandwidth",
@@ -65,7 +73,7 @@ struct FFTAnalysisMetricsView: View {
                         subtitle: "0 Hz to Nyquist"
                     )
                     
-                    Divider()
+                    PaletteDivider()
                     
                     MetricRow(
                         label: "Sample Length",
@@ -73,7 +81,7 @@ struct FFTAnalysisMetricsView: View {
                         subtitle: "Time window duration"
                     )
                     
-                    Divider()
+                    PaletteDivider()
                     
                     MetricRow(
                         label: "Frame Rate",
@@ -83,31 +91,32 @@ struct FFTAnalysisMetricsView: View {
                 }
                 .padding(8)
             }
+            .groupBoxStyle(.palette)
             
             // Performance Section
             GroupBox("Performance") {
                 VStack(alignment: .leading, spacing: 8) {
                     MetricRow(
                         label: "Processing Time",
-                        value: String(format: "%.3f ms", analyzer.processingTimeMs),
+                        value: String(format: "%.3f ms", frame.processingTimeMs),
                         subtitle: "Last frame",
-                        valueColor: processingTimeColor(analyzer.processingTimeMs)
+                        valueColor: processingTimeColor(frame.processingTimeMs)
                     )
                     
-                    Divider()
+                    PaletteDivider()
                     
                     MetricRow(
                         label: "Average Processing",
-                        value: String(format: "%.3f ms", analyzer.avgProcessingTimeMs),
+                        value: String(format: "%.3f ms", frame.avgProcessingTimeMs),
                         subtitle: "30-frame average",
-                        valueColor: processingTimeColor(analyzer.avgProcessingTimeMs)
+                        valueColor: processingTimeColor(frame.avgProcessingTimeMs)
                     )
                     
-                    Divider()
+                    PaletteDivider()
                     
                     // CPU headroom calculation
                     let frameTimeMs = 1000.0 / analyzer.frameRate
-                    let cpuUsage = (analyzer.avgProcessingTimeMs / frameTimeMs) * 100
+                    let cpuUsage = (frame.avgProcessingTimeMs / frameTimeMs) * 100
                     
                     MetricRow(
                         label: "CPU Usage",
@@ -118,26 +127,28 @@ struct FFTAnalysisMetricsView: View {
                 }
                 .padding(8)
             }
+            .groupBoxStyle(.palette)
             
             // Peak Detection Section
             GroupBox("Peak Detection") {
                 VStack(alignment: .leading, spacing: 8) {
                     MetricRow(
                         label: "Peak Frequency",
-                        value: analyzer.peakFrequency.formattedAsFrequency(),
+                        value: frame.peakFrequency.formattedAsFrequency(),
                         subtitle: "Dominant frequency"
                     )
                     
-                    Divider()
+                    PaletteDivider()
                     
                     MetricRow(
                         label: "Peak Magnitude",
-                        value: "\(FieldPrecision.string(analyzer.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB",
+                        value: "\(FieldPrecision.string(frame.peakMagnitude, FieldPrecision.peakMagnitudeDB)) dB",
                         subtitle: "Signal strength"
                     )
                 }
                 .padding(8)
             }
+            .groupBoxStyle(.palette)
             
             // Status indicator
             HStack {

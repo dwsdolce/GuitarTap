@@ -9,12 +9,14 @@
 ///
 /// ## Spectrum Data Sources
 ///
-/// Two computed properties resolve which data is currently displayed:
+/// `displaySpectrum(live:)` resolves which data is displayed:
 ///
-/// | Property | Frozen | Live |
+/// | | Frozen | Live |
 /// |---|---|---|
-/// | `displayFrequencies` | `tap.frozenFrequencies` | `fft.frequencies` |
-/// | `displayMagnitudes` | `tap.frozenMagnitudes` | `fft.magnitudes` |
+/// | frequencies | `tap.frozenFrequencies` | `fft.frequencies` |
+/// | magnitudes | `tap.frozenMagnitudes` | the live frame's `magnitudes` |
+///
+/// The live frame reaches the chart through a `FrameReader`, so a frame redraws the chart alone.
 ///
 /// The spectrum is frozen immediately after a tap is detected so the chart
 /// holds the last captured FFT while the analyzer continues running.
@@ -62,10 +64,10 @@ extension TapToneAnalysisView {
     // publishing), return empty arrays rather than the live 32768-bin data.
     // This prevents the one-frame bar-forest artifact seen when a measurement
     // is loaded while the audio engine is running.
-    private var displaySpectrum: (frequencies: [Float], magnitudes: [Float]) {
+    func displaySpectrum(live: [Float]) -> (frequencies: [Float], magnitudes: [Float]) {
         // In comparison mode the main line must be suppressed — the comparison
         // overlays are drawn via materialSpectra.  Without this guard the live
-        // FFT feed (fft.frequencies/magnitudes) bleeds through as a red jagged
+        // FFT feed bleeds through as a red jagged
         // waveform on top of the comparison curves.
         if tap.displayMode == .comparison {
             return ([], [])
@@ -84,12 +86,9 @@ extension TapToneAnalysisView {
             }
             return (tap.frozenFrequencies, tap.frozenMagnitudes)
         } else {
-            return (fft.frequencies, fft.magnitudes)
+            return (fft.frequencies, live)
         }
     }
-
-    var displayFrequencies: [Float] { displaySpectrum.frequencies }
-    var displayMagnitudes:  [Float] { displaySpectrum.magnitudes  }
 
     /// Per-phase spectra for plate/brace measurements, plus any active comparison overlays.
     ///
@@ -166,9 +165,13 @@ extension TapToneAnalysisView {
             // or multi-tap) — annotations would render over the comparison curves and
             // are not meaningful in that context.
             let isComparing = tap.displayMode == .comparison
-            spectrumView(isComparing: isComparing, thresholds: thresholds)
+            let shown = displaySpectrum(live: fft.frame.magnitudes)
+            FrameReader(frame: fft.frame) { frame in
+                spectrumView(isComparing: isComparing, thresholds: thresholds,
+                             spectrum: displaySpectrum(live: frame.magnitudes))
+            }
             // Force view to update when any relevant state changes
-            .id("\(tap.isMeasurementComplete)-\(fft.isRunning)-\(displayFrequencies.count)-\(displayMagnitudes.count)")
+            .id("\(tap.isMeasurementComplete)-\(fft.isRunning)-\(shown.frequencies.count)-\(shown.magnitudes.count)")
             .frame(minHeight: 200, maxHeight: .infinity)
             #if os(iOS)
             .padding(isPhoneLandscape ? .horizontal : .all)
@@ -202,12 +205,13 @@ extension TapToneAnalysisView {
     @ViewBuilder
     func spectrumView(
         isComparing: Bool,
-        thresholds: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])]
+        thresholds: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])],
+        spectrum: (frequencies: [Float], magnitudes: [Float])
     ) -> some View {
         #if os(iOS)
         SpectrumView(
-            frequencies: displayFrequencies,
-            magnitudes: displayMagnitudes,
+            frequencies: spectrum.frequencies,
+            magnitudes: spectrum.magnitudes,
             minFreq: $minFreq,
             maxFreq: $maxFreq,
             minDB: $minDB,
@@ -237,8 +241,8 @@ extension TapToneAnalysisView {
         )
         #else
         SpectrumView(
-            frequencies: displayFrequencies,
-            magnitudes: displayMagnitudes,
+            frequencies: spectrum.frequencies,
+            magnitudes: spectrum.magnitudes,
             minFreq: $minFreq,
             maxFreq: $maxFreq,
             minDB: $minDB,
@@ -301,7 +305,7 @@ extension TapToneAnalysisView {
                     }
                 }
 
-                Divider()
+                PaletteDivider()
 
                 // Instructions based on current phase
                 HStack(alignment: .top, spacing: 12) {
@@ -324,6 +328,7 @@ extension TapToneAnalysisView {
             }
             .padding(.vertical, 4)
         }
+        .groupBoxStyle(.palette)
     }
 
     /// Color for current material measurement phase

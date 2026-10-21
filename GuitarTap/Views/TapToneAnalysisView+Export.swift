@@ -201,17 +201,10 @@ extension TapToneAnalysisView {
             entries: tap.comparisonSnapshots.enumerated().map { index, snap in
                 // Reconstruct a minimal ComparisonEntry just for the metadata section
                 let entry = tap.comparisonSpectra[index]
-                let cgColor: CGColor = entry.color.resolve(in: Palette.lightEnvironment).cgColor
-                let comps: [Double]
-                if let c = cgColor.components, c.count >= 3 {
-                    comps = [Double(c[0]), Double(c[1]), Double(c[2]), c.count >= 4 ? Double(c[3]) : 1.0]
-                } else {
-                    comps = [0.0, 0.0, 1.0, 1.0]
-                }
                 return ComparisonEntry(
                     id: UUID(),
                     label: entry.label,
-                    colorComponents: comps,
+                    colorComponents: Palette.storedComponents(entry.color),
                     snapshot: snap,
                     peaks: entry.peaks,
                     guitarType: entry.guitarType,
@@ -378,7 +371,7 @@ extension TapToneAnalysisView {
         let chartTitle = "FFT Peaks — \(subtitle)"
         return makeExportableSpectrumView(
             frequencies: tap.isMeasurementComplete ? tap.frozenFrequencies : fft.frequencies,
-            magnitudes: tap.isMeasurementComplete ? tap.frozenMagnitudes : fft.magnitudes,
+            magnitudes: tap.isMeasurementComplete ? tap.frozenMagnitudes : fft.frame.magnitudes,
             minFreq: minFreq,
             maxFreq: maxFreq,
             minDB: minDB,

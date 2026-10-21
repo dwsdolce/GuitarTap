@@ -69,7 +69,7 @@
 /// ```swift
 /// let analyzer = RealtimeFFTAnalyzer()
 /// try analyzer.start()
-/// // Observe analyzer.magnitudes and analyzer.frequencies for visualisation
+/// // Observe analyzer.frame.magnitudes and analyzer.frequencies for visualisation
 /// analyzer.stop()
 /// ```
 ///
@@ -327,20 +327,13 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     
     // MARK: - Published Output Properties
     
-    /// Frequency spectrum magnitudes in dB scale
-    /// - Note: Array length is `fftSize / 2`, ranging from -100 dB to ~0 dB
-    @Published var magnitudes: [Float]
-    
+    /// The latest frame — its spectrum, peak, readout level and processing times — published once per frame. An
+    /// object of its own so that only the views that draw a frame observe it.
+    let frame: LiveFrame
+
     /// Frequency values corresponding to each magnitude bin, in Hz
     /// - Note: Array length is `fftSize / 2`, evenly spaced from 0 Hz to Nyquist frequency
     @Published var frequencies: [Float]
-    
-    /// The frequency with the highest magnitude in the current frame, in Hz
-    @Published var peakFrequency: Float = 0
-    
-    /// The magnitude of the peak frequency in dB
-    /// Initialize to -100 dB (very quiet) to prevent false "above threshold" detection on startup
-    @Published var peakMagnitude: Float = -100
     
     /// The latest audio buffer's input level — `inputLevelDB`, `isClipping`, `recentPeakLevelDB` —
     /// published once per buffer. An object of its own so that only the level meter observes it.
@@ -357,16 +350,11 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// the True→False transition of `level.isClipping`.
     var lastClipTime: Date?
 
-    /// Input level gated to the FFT publish rate for display purposes.
-    /// Updates in lockstep with `magnitudes`/`peakMagnitude` (i.e. at the FFT frame rate),
-    /// so the status-bar level number refreshes at the same cadence as the graph.
-    @Published var displayLevelDB: Float = -100
-
     /// The latest chunk's level AS A READOUT: `level.inputLevelDB`, except that a chunk of true digital
     /// silence (RMS exactly 0) is -∞ rather than -100. -100 dB is a real level — a quiet UMIK-1
     /// reaches it — so the readout must not show it for the absence of any signal. Detection and the
     /// level meters keep reading `level.inputLevelDB`, whose -100 on silence is unchanged.
-    /// Published at the frame rate as `displayLevelDB`.
+    /// Published at the frame rate as `frame.displayLevelDB`.
     var readoutLevelDB: Float = -100
     
     /// Timestamp of the most recent `level.recentPeakLevelDB` update; used to detect hold expiry.
@@ -667,12 +655,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// Calculated as: sampleRate / fftSize (0% overlap, hop = fftSize)
     @Published var frameRate: Float = 0
     
-    /// Processing time in milliseconds - time taken to process the last FFT frame
-    @Published var processingTimeMs: Float = 0
-    
-    /// Average processing time over the last several frames (milliseconds)
-    @Published var avgProcessingTimeMs: Float = 0
-    
     /// Circular buffer for tracking recent processing times
     var processingTimeHistory: [Float] = []
     /// Number of recent frames retained for the processing-time moving average.
@@ -873,7 +855,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         
         // Pre-allocate output arrays to avoid repeated allocations
         // Initialize with -100 dB (very quiet) as a sensible default
-        self.magnitudes = [Float](repeating: -100, count: fftSize / 2)
+        self.frame = LiveFrame(binCount: fftSize / 2)
         self.frequencies = [Float](repeating: 0, count: fftSize / 2)
         
         // Rectangular window (all ones) for the continuous real-time display path.

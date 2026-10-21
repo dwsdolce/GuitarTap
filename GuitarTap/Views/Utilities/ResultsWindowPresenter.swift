@@ -164,6 +164,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
                 onExportSpectrum: onExportSpectrum,
                 onExportPDFReport: onExportPDFReport
             )
+            .paletteSurface(.backgroundWindow)
             .navigationTitle("Analysis Results")
         }
         let hosting = NSHostingView(rootView: content)

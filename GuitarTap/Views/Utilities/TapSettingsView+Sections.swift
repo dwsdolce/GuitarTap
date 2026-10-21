@@ -329,6 +329,7 @@ extension TapSettingsView {
                         .foregroundColor(Palette.color(.textSecondary))
                     Text(dumpFolderDisplayPath)
                         .font(SettingsType.caption)
+                        .foregroundColor(Palette.color(.textPrimary))
                         .lineLimit(2)
                         .truncationMode(.middle)
                         .textSelection(.enabled)

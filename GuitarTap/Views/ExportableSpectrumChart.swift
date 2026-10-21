@@ -265,6 +265,7 @@ struct ExportableSpectrumChart: View {
         VStack(spacing: 0) {
             Text(chartTitle)
                 .font(.system(size: 24, weight: .semibold))
+                .foregroundColor(Palette.color(.chartTitle))
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.bottom, 16)
 
@@ -367,6 +368,7 @@ struct ExportableSpectrumChart: View {
                                        let label = labels[doubleValue] {
                                         Text(label)
                                             .font(.system(size: Self.frequencyLabelSize))
+                                            .foregroundStyle(Palette.color(.chartAxis))
                                     }
                                 }
                                 AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.export.gridWidth))
@@ -377,6 +379,7 @@ struct ExportableSpectrumChart: View {
                             AxisMarks(position: .leading, values: .stride(by: ChartStyle.export.magnitudeStride ?? 20)) { _ in
                                 AxisValueLabel()
                                     .font(.system(size: 12))
+                                    .foregroundStyle(Palette.color(.chartAxis))
                                 AxisGridLine(stroke: StrokeStyle(lineWidth: ChartStyle.export.gridWidth))
                                     .foregroundStyle(Palette.color(.chartGrid))
                             }
@@ -744,7 +747,7 @@ func makeExportableSpectrumView(
             .padding()
         }
     }
-    .background(Palette.color(.chartBackground))
+    .paletteSurface(.chartBackground)
     .padding()
 }
 private extension Text {

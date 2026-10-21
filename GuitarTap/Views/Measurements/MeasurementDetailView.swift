@@ -34,13 +34,13 @@ struct MeasurementDetailView: View {
         // Measurements list (MeasurementsListView), so no duplicate
         // controls are presented here.
         #if os(macOS)
-        // On macOS in a separate window. A Done at the bottom right closes it, as every form has —
-        // a plain button, since it only closes (the one rule); Esc does the same.
+        // On macOS in a separate window. A Done at the bottom right closes it, as every form has — the
+        // platform's button, as a dialog's are; it only closes, so it is not the default. Esc does the same.
         contentView
             .frame(minWidth: 600, minHeight: 500)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
-                    Divider()
+                    PaletteDivider()
                     HStack {
                         Spacer()
                         Button("Done") { NSApp.keyWindow?.performClose(nil) }
@@ -51,10 +51,12 @@ struct MeasurementDetailView: View {
                 }
                 .background(Palette.color(.backgroundPanel))
             }
+            .paletteSurface(.backgroundWindow)
         #else
         // On iOS, NavigationLink provides the navigation context.  Keep
         // only the Done button as the cancellation action.
         contentView
+            .paletteSurface(.backgroundWindow)
             .navigationTitle("Measurement Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -134,7 +136,7 @@ struct MeasurementDetailView: View {
                             }
 
                             if let notes = measurement.notes, !notes.isEmpty {
-                                Divider()
+                                PaletteDivider()
                                 Text("Notes:")
                                     .font(.caption)
                                     .foregroundColor(Palette.color(.textSecondary))
@@ -144,6 +146,7 @@ struct MeasurementDetailView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                .groupBoxStyle(.palette)
                     
                     // Comparison records show the per-spectrum Air/Top/Back table; everything
                     // else shows the identified (selected) peaks only.
@@ -161,6 +164,7 @@ struct MeasurementDetailView: View {
                             })
                             .padding(.vertical, 4)
                         }
+                        .groupBoxStyle(.palette)
                     } else {
                         // Identified Peaks = the selected peaks only, sorted by frequency.
                         // Plate/brace skip guitar-mode classification.
@@ -206,6 +210,7 @@ struct MeasurementDetailView: View {
                                 }
                             }
                         }
+                        .groupBoxStyle(.palette)
                     }
                 }
                 .padding()

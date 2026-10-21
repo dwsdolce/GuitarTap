@@ -41,7 +41,7 @@ struct MultiTapComparisonResultsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             headerRow
-            Divider()
+            PaletteDivider()
 
             // Per-tap rows — each tap's OWN auto-classification (its own spectrum, its own peaks).
             ForEach(Array(tapEntries.enumerated()), id: \.offset) { index, entry in
@@ -55,7 +55,7 @@ struct MultiTapComparisonResultsView: View {
                     overrideModes: [],
                     bold: false
                 )
-                Divider()
+                PaletteDivider()
                     .padding(.leading, 8)
             }
 

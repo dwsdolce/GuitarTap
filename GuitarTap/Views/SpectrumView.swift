@@ -506,14 +506,14 @@ struct SpectrumView: View {
                             Text("⌘/⌃ + Scroll") + Text(": Zoom both axes").foregroundColor(Palette.color(.textSecondary))
                         }
                         .font(.callout)
-                        Divider()
+                        PaletteDivider()
                         Group {
                             Text("Pinch over plot") + Text(": Zoom both axes").foregroundColor(Palette.color(.textSecondary))
                             Text("Pinch over freq axis") + Text(": Zoom frequency only").foregroundColor(Palette.color(.textSecondary))
                             Text("Pinch over mag axis") + Text(": Zoom magnitude only").foregroundColor(Palette.color(.textSecondary))
                         }
                         .font(.callout)
-                        Divider()
+                        PaletteDivider()
                         Group {
                             Text("Drag over plot") + Text(": Pan both axes").foregroundColor(Palette.color(.textSecondary))
                             Text("Drag over freq axis") + Text(": Pan frequency only").foregroundColor(Palette.color(.textSecondary))
@@ -524,6 +524,7 @@ struct SpectrumView: View {
                     }
                     .padding()
                     .frame(minWidth: 300)
+                    .paletteSurface(.backgroundPanel)
         }
     }
 
@@ -532,6 +533,7 @@ struct SpectrumView: View {
             ZStack {
                 Text(chartTitle)
                     .font(.headline)
+                    .foregroundColor(Palette.color(.chartTitle))
                     .frame(maxWidth: .infinity, alignment: .center)
 
                 HStack(spacing: 14) {
@@ -914,7 +916,6 @@ struct SpectrumView: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
         .background(Palette.color(.chartReadoutBackground), in: RoundedRectangle(cornerRadius: 6))
-        .shadow(radius: 2)
         .frame(width: labelWidth, height: labelHeight)
         .position(x: labelX + labelWidth / 2, y: labelY + labelHeight / 2)
         .allowsHitTesting(false)
@@ -982,7 +983,6 @@ struct SpectrumView: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
         .background(Palette.color(.chartReadoutBackground), in: RoundedRectangle(cornerRadius: 6))
-        .shadow(radius: 2)
         .frame(width: labelWidth, height: labelHeight)
         .position(x: labelX + labelWidth / 2, y: labelY + labelHeight / 2)
         .allowsHitTesting(false)
@@ -1258,7 +1258,7 @@ private struct ChartOptionsSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
 
-            Divider()
+            PaletteDivider()
 
             Group {
                 sectionHeader("Reset to Saved")
@@ -1267,7 +1267,7 @@ private struct ChartOptionsSheet: View {
                 optionButton("Reset Magnitude Axis", icon: "arrow.uturn.backward", action: onResetMagToSaved)
             }
 
-            Divider().padding(.vertical, 4)
+            PaletteDivider().padding(.vertical, 4)
 
             Group {
                 sectionHeader("Reset to Defaults")
@@ -1277,13 +1277,14 @@ private struct ChartOptionsSheet: View {
             }
 
             if let onResetLabels {
-                Divider().padding(.vertical, 4)
+                PaletteDivider().padding(.vertical, 4)
                 optionButton("Reset Labels", icon: "arrow.uturn.backward.circle", action: onResetLabels)
                     .disabled(!hasLabelsToReset)
             }
         }
         .padding(.bottom, 8)
         .frame(minWidth: 280)
+        .paletteSurface(.backgroundPanel)
         .presentationDetents([.height(460), .large])
         .presentationDragIndicator(.visible)
     }

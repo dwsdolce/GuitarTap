@@ -142,7 +142,7 @@ extension TapToneAnalyzer {
         }
         detectTap(level: levelDB,
                   audioTime: audioTime,
-                  magnitudes: fftAnalyzer.magnitudes,
+                  magnitudes: fftAnalyzer.frame.magnitudes,
                   frequencies: fftAnalyzer.frequencies)
     }
 

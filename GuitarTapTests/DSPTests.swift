@@ -139,8 +139,8 @@ struct DSPTests {
             await drainMain()
             fft.performFFT(on: samples)
             await drainMain()
-            #expect(Self.close(fft.peakFrequency, e["peakFrequency"]), "\(id): peakFrequency \(fft.peakFrequency)")
-            #expect(Self.close(fft.peakMagnitude, e["peakMagnitude"]), "\(id): peakMagnitude \(fft.peakMagnitude)")
+            #expect(Self.close(fft.frame.peakFrequency, e["peakFrequency"]), "\(id): peakFrequency \(fft.frame.peakFrequency)")
+            #expect(Self.close(fft.frame.peakMagnitude, e["peakMagnitude"]), "\(id): peakMagnitude \(fft.frame.peakMagnitude)")
         case "processRawSamples":
             fft.processRawSamples(samples)
             await drainMain()

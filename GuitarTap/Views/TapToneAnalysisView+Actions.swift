@@ -233,7 +233,7 @@ extension TapToneAnalysisView {
         if tap.displayMode == .comparison {
             sourceMagnitudes = tap.comparisonSpectra.flatMap { $0.magnitudes }
         } else {
-            sourceMagnitudes = displayMagnitudes
+            sourceMagnitudes = displaySpectrum(live: fft.frame.magnitudes).magnitudes
         }
         let mags = sourceMagnitudes.filter { $0 > -100 && $0 < 20 }
         guard !mags.isEmpty else {

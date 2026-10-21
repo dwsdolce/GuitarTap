@@ -469,13 +469,14 @@ extension RealtimeFFTAnalyzer {
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     
-                    self.magnitudes = db
-                    self.peakFrequency = peakFreq
-                    self.peakMagnitude = peakMag
-                    self.processingTimeMs = processingTime
-                    self.avgProcessingTimeMs = avgTime
-                    // displayLevelDB updates at the same rate as the graph (gated by shouldPublish)
-                    self.displayLevelDB = self.readoutLevelDB
+                    let frame = self.frame
+                    frame.magnitudes = db
+                    frame.peakFrequency = peakFreq
+                    frame.peakMagnitude = peakMag
+                    frame.processingTimeMs = processingTime
+                    frame.avgProcessingTimeMs = avgTime
+                    // The readout level updates at the same rate as the graph (gated by shouldPublish)
+                    frame.displayLevelDB = self.readoutLevelDB
                 }
             }
         }

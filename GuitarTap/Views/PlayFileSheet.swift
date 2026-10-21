@@ -40,6 +40,7 @@ struct PlayFileSheet: View {
         formContent
             .frame(minWidth: 450, idealWidth: 500, minHeight: 200, idealHeight: 250)
             .sheetTitle("Play Audio File")
+            .paletteSurface(.backgroundPanel)
             .navigationTitle("Play Audio File")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -70,6 +71,7 @@ struct PlayFileSheet: View {
         #else
         NavigationView {
             formContent
+                .paletteSurface(.backgroundPanel)
                 .navigationTitle("Play Audio File")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -109,6 +111,7 @@ struct PlayFileSheet: View {
                         .truncationMode(.middle)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Button("Browse\u{2026}") { showingAudioPicker = true }
+                        .buttonStyle(.appPlain)
                 }
             }
             .fileImporter(
@@ -133,8 +136,10 @@ struct PlayFileSheet: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if calibrationURL != nil {
                         Button("Clear") { calibrationURL = nil }
+                            .buttonStyle(.appPlain)
                     }
                     Button("Browse\u{2026}") { showingCalibrationPicker = true }
+                        .buttonStyle(.appPlain)
                 }
                 Text("Select the calibration file that was active when the recording was made")
                     .font(.caption)
@@ -163,11 +168,14 @@ struct PlayFileSheet: View {
                         .truncationMode(.middle)
                     Spacer()
                     Button("Browse\u{2026}") { showingAudioPicker = true }
+                        .buttonStyle(.appPlain)
                 }
             } header: {
                 Text("Audio File")
                     .font(.headline)
+                    .foregroundStyle(Palette.color(.textSecondary))
             }
+            .paletteRows(grouped: true)
             .fileImporter(
                 isPresented: $showingAudioPicker,
                 allowedContentTypes: [.audio],
@@ -187,17 +195,21 @@ struct PlayFileSheet: View {
                     Spacer()
                     if calibrationURL != nil {
                         Button("Clear") { calibrationURL = nil }
+                            .buttonStyle(.appPlain)
                     }
                     Button("Browse\u{2026}") { showingCalibrationPicker = true }
+                        .buttonStyle(.appPlain)
                 }
             } header: {
                 Text("Calibration File (Optional)")
                     .font(.headline)
+                    .foregroundStyle(Palette.color(.textSecondary))
             } footer: {
                 Text("Select the calibration file that was active when the recording was made")
                     .font(.caption)
                     .foregroundColor(Palette.color(.textSecondary))
             }
+            .paletteRows(grouped: true)
             .fileImporter(
                 isPresented: $showingCalibrationPicker,
                 allowedContentTypes: [.text, .plainText, .commaSeparatedText],
