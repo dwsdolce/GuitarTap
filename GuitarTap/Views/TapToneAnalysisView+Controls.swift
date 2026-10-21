@@ -15,7 +15,7 @@
 /// |---|---|---|
 /// | iPhone (compact) | Icon-only button row | `compactTapControls` |
 /// | iPhone landscape | Navigation bar items | `landscapeTapControls` |
-/// | iPad | Two-row labeled buttons (`ipadHeaderButtons`) | `regularTapControls` |
+/// | iPad | Navigation bar items | `regularTapControls` |
 /// | macOS | `ViewThatFits` wide/medium/narrow variants | `regularTapControls` |
 ///
 /// The macOS header uses `ViewThatFits` to automatically switch between a
@@ -41,44 +41,41 @@ extension TapToneAnalysisView {
         VStack(spacing: 12) {
             // Top row: Main controls - adaptive for iOS
             #if os(iOS)
-            if useCompactLayout {
-                // iPhone portrait: icon-only button bar (all buttons except Start/Results/AutodB/Metrics/Settings which are in the nav bar)
-                HStack(spacing: 8) {
-                    Spacer()
+            // On iOS the header is the iPhone's (the iPad shows its buttons in the navigation bar):
+            // an icon-only button bar (all buttons except Start/Results/AutodB/Metrics/Settings, which are in the
+            // nav bar)
+            HStack(spacing: 8) {
+                Spacer()
 
-                    Toggle(isOn: $crosshairMode) {
-                        Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
-                    }
-                    .toggleStyle(.tinted(.accent))
-                    .accessibilityLabel("Crosshair")
-
-                    Button(action: { tap.cycleAnnotationVisibility() }) {
-                        Image(systemName: tap.annotationVisibilityMode.iconName)
-                    }
-                    .buttonStyle(.tinted(.accent))
-                    .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
-                    .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
-
-                    Button(action: { showingSaveSheet = true }) {
-                        Image(systemName: "square.and.arrow.down")
-                    }
-                    .buttonStyle(.tinted(.accent))
-                    .disabled(!tap.hasResultToSaveOrExport)
-                    .accessibilityLabel("Save")
-                    .hint(HintText.save)
-
-                    Button(action: { showingMeasurements = true }) {
-                        Image(systemName: "list.bullet.clipboard")
-                    }
-                    .buttonStyle(.tinted(.accent))
-                    .accessibilityLabel("Measurements")
-                    .hint(HintText.measurements)
-
-                    Spacer()
+                Toggle(isOn: $crosshairMode) {
+                    Image(systemName: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
                 }
-            } else {
-                // Regular layout for iPad
-                ipadHeaderButtons
+                .toggleStyle(.tinted(.accent))
+                .accessibilityLabel("Crosshair")
+
+                Button(action: { tap.cycleAnnotationVisibility() }) {
+                    Image(systemName: tap.annotationVisibilityMode.iconName)
+                }
+                .buttonStyle(.tinted(.accent))
+                .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
+                .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
+
+                Button(action: { showingSaveSheet = true }) {
+                    Image(systemName: "square.and.arrow.down")
+                }
+                .buttonStyle(.tinted(.accent))
+                .disabled(!tap.hasResultToSaveOrExport)
+                .accessibilityLabel("Save")
+                .hint(HintText.save)
+
+                Button(action: { showingMeasurements = true }) {
+                    Image(systemName: "list.bullet.clipboard")
+                }
+                .buttonStyle(.tinted(.accent))
+                .accessibilityLabel("Measurements")
+                .hint(HintText.measurements)
+
+                Spacer()
             }
             #else
             // macOS layout (unchanged)
@@ -87,13 +84,7 @@ extension TapToneAnalysisView {
 
             // Tap sequence controls (always visible, not just when running)
             #if os(iOS)
-            if useCompactLayout {
-                // Compact tap controls for iPhone
-                compactTapControls
-            } else {
-                // Regular tap controls for iPad
-                regularTapControls
-            }
+            compactTapControls
             #else
             // macOS uses regular controls
             regularTapControls
@@ -101,93 +92,6 @@ extension TapToneAnalysisView {
         }
         .padding()
     }
-
-    #if os(iOS)
-    /// iPad button layout - full labels in two rows
-    @ViewBuilder
-    var ipadHeaderButtons: some View {
-        VStack(spacing: 8) {
-            // Row 1: Primary controls
-            HStack(spacing: 8) {
-                Spacer()
-
-                // Results button - only shown when not in horizontal layout (where results are always visible)
-                if !isIPadHorizontal {
-                    Button(action: { showResults() }) {
-                        Label("Results", systemImage: "doc.text")
-                    }
-                    .buttonStyle(.tinted(.accent))
-                    .hint(HintText.showResults)
-                }
-
-                // Auto-scale dB toggle button (iPad)
-                Toggle(isOn: autoScaleBinding) {
-                    Label("Auto dB", systemImage: isAutoScaleEnabled ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
-                }
-                .toggleStyle(.tinted(.accent))
-                .hint(HintText.autoScale(isEnabled: isAutoScaleEnabled))
-
-                // Crosshair mode toggle button (iPad)
-                Toggle(isOn: $crosshairMode) {
-                    Label("Crosshair", systemImage: crosshairMode ? "plus.viewfinder" : "dot.viewfinder")
-                }
-                .toggleStyle(.tinted(.accent))
-
-                // Annotation visibility cycling button (iPad)
-                Button(action: { tap.cycleAnnotationVisibility() }) {
-                    Label("Annotations", systemImage: tap.annotationVisibilityMode.iconName)
-                }
-                .buttonStyle(.tinted(.accent))
-                .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
-                .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
-
-                // Save button
-                Button(action: { showingSaveSheet = true }) {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .buttonStyle(.tinted(.accent))
-                .disabled(!tap.isMeasurementComplete && tap.displayMode != .comparison)
-                .hint(HintText.save)
-            }
-
-            // Row 2: Secondary controls
-            HStack(spacing: 8) {
-                // Measurements button
-                Button(action: { showingMeasurements = true }) {
-                    Label("Measurements", systemImage: "list.bullet.clipboard")
-                }
-                .buttonStyle(.tinted(.accent))
-                .hint(HintText.measurements)
-
-                // Metrics button
-                Button(action: { showingMetrics = true }) {
-                    Label("Metrics", systemImage: "chart.bar")
-                }
-                .buttonStyle(.tinted(.accent))
-                .hint(HintText.showMetrics)
-
-                // Settings button
-                Button(action: { showingSettings = true }) {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .buttonStyle(.tinted(.accent))
-                .hint(HintText.settings)
-
-                // Play File button
-                Button(action: { showingPlayFileSheet = true }) {
-                    Label("Play File\u{2026}", systemImage: "waveform.badge.plus")
-                }
-                .buttonStyle(.tinted(fft.isPlayingFile ? .statusPlayingFile : .accent))
-                // A file plays while the audio engine runs, as every edition's: not before it has
-                // started, nor when the microphone is refused or cannot be opened.
-                .disabled(!fft.isRunning)
-                .help("Feed an audio file through the analysis pipeline")
-
-                Spacer()
-            }
-        }
-    }
-    #endif
 
     #if os(macOS)
     /// macOS button layout - adapts to narrow windows using ViewThatFits.

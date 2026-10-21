@@ -71,6 +71,8 @@ struct ThemeTests {
         let prominent = button["prominentPadding"] as! [Double]
         #expect([Double(Palette.ButtonShape.prominentPadding.vertical),
                  Double(Palette.ButtonShape.prominentPadding.horizontal)] == prominent)
+        let icon = button["iconPadding"] as! [Double]
+        #expect([Double(Palette.ButtonShape.iconPadding.vertical), Double(Palette.ButtonShape.iconPadding.horizontal)] == icon)
     }
 
     /// A role at an opacity keeps its colour and scales its alpha by the scheme's opacity.

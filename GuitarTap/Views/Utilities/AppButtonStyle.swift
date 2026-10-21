@@ -12,7 +12,8 @@
 //   on + hover at their `button.tint…` opacities;
 // - prominent: the main action of a sheet — filled with its role, the label in `text.onColor`, the fill at
 //   `button.prominentHover` under the pointer; one that cannot act is drawn as a plain button;
-// - icon: an icon in its role, no frame and no fill.
+// - icon: an icon in its role, no frame and no fill; under the pointer the plain button's wash on a patch behind it
+//   (`Palette.ButtonShape.iconPadding`).
 //
 // A button that cannot act is drawn at `control.dimmed`, whole. The corner radius and padding are
 // `Palette.ButtonShape`. A toggle drawn as a button is a tinted button with an on state (`AppToggleStyle`).
@@ -71,7 +72,8 @@ enum AppButtonState { case rest, hover, pressed, on, onHover, cannotAct }
 /// What a button the app draws looks like in a state — the one rule the drawing follows.
 struct AppButtonLook: Equatable {
     var text: Palette.Role
-    var fill: Palette.Role
+    /// The fill; nil for none (an icon button).
+    var fill: Palette.Role?
     var fillOpacity: Palette.Opacity?
     var washRole: Palette.Role?
     var washOpacity: Palette.Opacity?
@@ -79,7 +81,7 @@ struct AppButtonLook: Equatable {
     var drawnAt: Palette.Opacity?
     var prominentPadding = false
 
-    static func of(_ kind: AppButtonKind, _ state: AppButtonState) -> AppButtonLook? {
+    static func of(_ kind: AppButtonKind, _ state: AppButtonState) -> AppButtonLook {
         let dimmed: Palette.Opacity? = state == .cannotAct ? .controlDimmed : nil
         let plain = AppButtonLook(text: .textPrimary, fill: .backgroundControl, fillOpacity: nil,
                                   washRole: state == .hover ? .accent : nil,
@@ -103,8 +105,9 @@ struct AppButtonLook: Equatable {
             return AppButtonLook(text: .textOnColor, fill: role,
                                  fillOpacity: state == .hover ? .buttonProminentHover : nil,
                                  border: nil, drawnAt: nil, prominentPadding: true)
-        case .icon:
-            return nil
+        case .icon(let role):
+            return AppButtonLook(text: role, fill: nil, fillOpacity: nil, washRole: plain.washRole,
+                                 washOpacity: plain.washOpacity, border: nil, drawnAt: dimmed)
         }
     }
 }
@@ -134,22 +137,24 @@ private struct AppButtonBody<Label: View>: View {
         RoundedRectangle(cornerRadius: Palette.ButtonShape.cornerRadius, style: .continuous)
     }
 
-    @ViewBuilder
     private var drawn: some View {
-        if case .icon(let role) = kind {
-            label.foregroundStyle(Palette.color(role))
-                .opacity(isEnabled ? 1 : Palette.opacity(.controlDimmed))
-        } else if let look = AppButtonLook.of(kind, state) {
-            let padding = look.prominentPadding ? Palette.ButtonShape.prominentPadding : Palette.ButtonShape.padding
-            label
-                .foregroundStyle(Palette.color(look.text))
-                .padding(.vertical, padding.vertical)
-                .padding(.horizontal, padding.horizontal)
-                .background(shape.fill(Palette.color(look.fill).opacity(look.fillOpacity.map { Palette.opacity($0) } ?? 1)))
-                .overlay(shape.fill(Palette.color(look.washRole ?? look.fill)
-                    .opacity(look.washOpacity.map { Palette.opacity($0) } ?? 0)))
-                .overlay(shape.stroke(Palette.color(look.border ?? look.fill), lineWidth: look.border == nil ? 0 : 1))
-                .opacity(look.drawnAt.map { Palette.opacity($0) } ?? 1)
+        let look = AppButtonLook.of(kind, state)
+        let padding: (vertical: CGFloat, horizontal: CGFloat) = if case .icon = kind {
+            Palette.ButtonShape.iconPadding
+        } else if look.prominentPadding {
+            Palette.ButtonShape.prominentPadding
+        } else {
+            Palette.ButtonShape.padding
         }
+        return label
+            .foregroundStyle(Palette.color(look.text))
+            .padding(.vertical, padding.vertical)
+            .padding(.horizontal, padding.horizontal)
+            .background(shape.fill(look.fill.map { Palette.color($0).opacity(look.fillOpacity.map { Palette.opacity($0) } ?? 1) }
+                                   ?? Color.clear))
+            .overlay(shape.fill(look.washRole.map { Palette.color($0).opacity(look.washOpacity.map { Palette.opacity($0) } ?? 0) }
+                                ?? Color.clear))
+            .overlay(shape.stroke(look.border.map { Palette.color($0) } ?? Color.clear, lineWidth: look.border == nil ? 0 : 1))
+            .opacity(look.drawnAt.map { Palette.opacity($0) } ?? 1)
     }
 }

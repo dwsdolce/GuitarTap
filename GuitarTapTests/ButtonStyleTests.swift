@@ -38,6 +38,7 @@ struct ButtonStyleTests {
         let kind: AppButtonKind = switch row["kind"] as! String {
         case "tinted": .tinted(role)
         case "prominent": .prominent(role)
+        case "icon": .icon(role)
         default: .plain
         }
         let state: AppButtonState = switch row["state"] as! String {
@@ -48,12 +49,12 @@ struct ButtonStyleTests {
         case "cannotAct": .cannotAct
         default: .rest
         }
-        let look = try #require(AppButtonLook.of(kind, state))
-        let fill = row["fill"] as! [Any?]
+        let look = AppButtonLook.of(kind, state)
+        let fill = row["fill"] as? [Any?]
         let wash = row["wash"] as? [Any?]
         #expect(look.text == Self.role(row["text"]), "\(id) text")
-        #expect(look.fill == Self.role(fill[0]), "\(id) fill")
-        #expect(look.fillOpacity == Self.opacity(fill[1]), "\(id) fill opacity")
+        #expect(look.fill == Self.role(fill?[0] ?? nil), "\(id) fill")
+        #expect(look.fillOpacity == Self.opacity(fill?[1] ?? nil), "\(id) fill opacity")
         #expect(look.washRole == Self.role(wash?[0]), "\(id) wash")
         #expect(look.washOpacity == Self.opacity(wash?[1]), "\(id) wash opacity")
         #expect(look.border == Self.role(row["border"]), "\(id) border")

@@ -325,11 +325,12 @@ enum Palette {
     }
 
     /// The shape of a button the app draws: its corner radius, and its padding (vertical, horizontal) in points —
-    /// a prominent button's a little larger.
+    /// a prominent button's a little larger; an icon button's the patch its hover wash fills.
     enum ButtonShape {
         static let cornerRadius: CGFloat = 6
         static let padding = (vertical: CGFloat(3), horizontal: CGFloat(8))
         static let prominentPadding = (vertical: CGFloat(4), horizontal: CGFloat(10))
+        static let iconPadding = (vertical: CGFloat(3), horizontal: CGFloat(3))
     }
 
     /// The value of `opacity` in a scheme, for a whole view (`.opacity(…)`) or a colour the app draws itself.

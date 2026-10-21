@@ -358,6 +358,11 @@ struct DraggablePeakAnnotation: View {
                 isFlc: peak.id == selectedFlcPeakID,
                 modeOverrides: modeOverrides
             )
+            // Where the label is on screen, for whatever on the chart must tell a label from the plot.
+            .background(GeometryReader { label in
+                Color.clear.preference(key: PeakLabelFramesKey.self,
+                                       value: [peak.id: label.frame(in: .named(PeakLabelFramesKey.space))])
+            })
             .position(finalPosition)
             .highPriorityGesture(
                 DragGesture(minimumDistance: 1)
@@ -421,16 +426,27 @@ struct DraggablePeakAnnotation: View {
                 withAnimation(.none) { isHovering = hovering }
             }
             .contextMenu {
-                Button(action: onReset) {
-                    Label("Reset Position", systemImage: "arrow.counterclockwise")
+                ForEach(ChartMenu.labelMenu, id: \.title) { entry in
+                    Button(action: onReset) {
+                        Label(entry.title, systemImage: entry.symbol)
+                    }
+                    .disabled(!isMoved)
                 }
-                .disabled(!isMoved)
             }
             #if os(macOS)
             .help(isMoved ? "Drag to adjust • Right-click to reset position" : "Drag to reposition label")
             #endif
         }
 
+    }
+}
+
+/// Each peak label's frame in the chart's coordinate space (``PeakLabelFramesKey/space``).
+struct PeakLabelFramesKey: PreferenceKey {
+    static let space = "peakLabelChart"
+    static let defaultValue: [UUID: CGRect] = [:]
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue()) { $1 }
     }
 }
 

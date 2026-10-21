@@ -283,9 +283,10 @@ struct SpectrumView: View {
 
     /// Whether the chart-options (⋯) menu/sheet is showing. All platforms now show the
     /// ⋯ button in the chart's upper-right, so this is no longer iOS-only.
-    @State private var showingChartOptions: Bool = false
     /// Whether the zoom/pan controls (?) help popover is showing. All platforms.
     @State private var showingControlsHelp: Bool = false
+    /// Where each peak label is on the chart, as the labels report it.
+    @State private var peakLabelFrames: [UUID: CGRect] = [:]
 
     #if os(macOS)
     /// Snapped cursor position in data coordinates, including series identity. Nil when not hovering.
@@ -302,6 +303,15 @@ struct SpectrumView: View {
     /// Which chart region the pointer is currently over. Updated on every hover tick.
     /// Used by the scroll-wheel handler to decide which axis to operate on.
     @State var currentPointerRegion: PointerRegion = .outside
+
+    #else
+
+    /// Whether crosshair tracking mode is active (iOS only). Defaults to false when not provided.
+    var crosshairMode: Binding<Bool> = .constant(false)
+
+    /// Snapped crosshair position in data coordinates, including series identity. Nil when not active.
+    @State private var crosshairSnapState: CursorSnapState? = nil
+    #endif
 
     /// Estimated hit rects for visible annotation labels, used by onContinuousHover
     /// to set the openHand cursor. Computed from label positions + a fixed size estimate.
@@ -334,15 +344,6 @@ struct SpectrumView: View {
             )
         }
     }
-
-    #else
-
-    /// Whether crosshair tracking mode is active (iOS only). Defaults to false when not provided.
-    var crosshairMode: Binding<Bool> = .constant(false)
-
-    /// Snapped crosshair position in data coordinates, including series identity. Nil when not active.
-    @State private var crosshairSnapState: CursorSnapState? = nil
-    #endif
 
     // MARK: - Computed Properties
 
@@ -464,33 +465,55 @@ struct SpectrumView: View {
 
     // MARK: - Body
 
-    /// ⋯ Chart Options button — shown on every platform (matches the web).
+    /// The chart's menu (`ChartMenu.groups`) with this chart's actions — the same from the ⋯ and from a right-click,
+    /// on every device: SwiftUI's menu (`chartMenuItems`) and, for iOS's right-click, UIKit's (`chartUIMenu`).
+    private var chartMenuGroups: [[ChartMenuItem]] {
+        ChartMenu.groups.compactMap { group in
+            let items: [ChartMenuItem] = group.compactMap { entry in
+                switch entry.action {
+                case .resetBothToSaved: return ChartMenuItem(entry: entry, action: resetBothAxesToSaved)
+                case .resetFrequencyToSaved: return ChartMenuItem(entry: entry, action: resetFrequencyAxisToSaved)
+                case .resetMagnitudeToSaved: return ChartMenuItem(entry: entry, action: resetMagnitudeAxisToSaved)
+                case .resetBothToDefaults: return ChartMenuItem(entry: entry, action: resetBothAxesToDefaults)
+                case .resetFrequencyToDefaults: return ChartMenuItem(entry: entry, action: resetFrequencyAxisToDefaults)
+                case .resetMagnitudeToDefaults: return ChartMenuItem(entry: entry, action: resetMagnitudeAxisToDefaults)
+                case .resetLabels:
+                    guard let onResetLabels else { return nil }
+                    return ChartMenuItem(entry: entry, action: onResetLabels, isEnabled: hasLabelsToReset)
+                case .resetPosition: return nil
+                }
+            }
+            return items.isEmpty ? nil : items
+        }
+    }
+
+    /// The chart's menu as SwiftUI menu items: the macOS right-click.
+    private var chartMenuItems: some View { ChartMenuItems(groups: chartMenuGroups) }
+
+    #if os(iOS)
+    /// The chart's menu as a UIKit menu, for a secondary click on iOS.
+    private func chartUIMenu() -> UIMenu {
+        UIMenu(children: chartMenuGroups.map { group in
+            UIMenu(options: .displayInline, children: group.map { item in
+                let action = UIAction(title: item.title, image: UIImage(systemName: item.symbol)) { _ in item.action() }
+                if !item.isEnabled { action.attributes = .disabled }
+                return action
+            })
+        })
+    }
+    #endif
+
+    /// ⋯ — the chart's menu, on every device.
     private var chartOptionsButton: some View {
-        Button { showingChartOptions = true } label: {
-            Image(systemName: "ellipsis.circle").font(.caption).foregroundColor(Palette.color(.textSecondary))
-        }
-        .buttonStyle(.plain)
-        .help("Chart options")
-        .popover(isPresented: $showingChartOptions) {
-                    ChartOptionsSheet(
-                        hasLabelsToReset: hasLabelsToReset,
-                        onResetBothToSaved: { resetBothAxesToSaved(); showingChartOptions = false },
-                        onResetFreqToSaved: { resetFrequencyAxisToSaved(); showingChartOptions = false },
-                        onResetMagToSaved: { resetMagnitudeAxisToSaved(); showingChartOptions = false },
-                        onResetBothToDefaults: { resetBothAxesToDefaults(); showingChartOptions = false },
-                        onResetFreqToDefaults: { resetFrequencyAxisToDefaults(); showingChartOptions = false },
-                        onResetMagToDefaults: { resetMagnitudeAxisToDefaults(); showingChartOptions = false },
-                        onResetLabels: onResetLabels.map { action in { action(); showingChartOptions = false } }
-                    )
-        }
+        ChartMenuButton(groups: chartMenuGroups).equatable()
     }
 
     /// ? help button — shown on every platform.
     private var controlsHelpButton: some View {
         Button { showingControlsHelp.toggle() } label: {
-            Image(systemName: "info.circle").font(.caption).foregroundColor(Palette.color(.textSecondary))
+            Image(systemName: "info.circle").font(.caption)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.icon())
         .help("Zoom & Pan Controls")
         .popover(isPresented: $showingControlsHelp, arrowEdge: .bottom) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -666,6 +689,8 @@ struct SpectrumView: View {
                 }
                 // contentShape ensures the ZStack is hittable even when empty (no annotation labels).
                 // This is required for onContinuousHover to fire reliably.
+                .coordinateSpace(name: PeakLabelFramesKey.space)
+                .onPreferenceChange(PeakLabelFramesKey.self) { peakLabelFrames = $0 }
                 .contentShape(Rectangle())
                 #if os(macOS)
                 // Hover handler: sets cursor on mouse move and tracks position/snap state.
@@ -705,35 +730,12 @@ struct SpectrumView: View {
                         lockedSeriesIndex = -1
                     }
                 }
-                .contextMenu {
-                    Button(action: resetBothAxesToSaved) {
-                        Label("Reset Both Axes to Saved", systemImage: "arrow.counterclockwise")
-                    }
-                    Button(action: resetFrequencyAxisToSaved) {
-                        Label("Reset Frequency Axis to Saved", systemImage: "arrow.counterclockwise")
-                    }
-                    Button(action: resetMagnitudeAxisToSaved) {
-                        Label("Reset Magnitude Axis to Saved", systemImage: "arrow.counterclockwise")
-                    }
-                    Divider()
-                    Button(action: resetBothAxesToDefaults) {
-                        Label("Reset Both Axes to Defaults", systemImage: "arrow.counterclockwise.circle")
-                    }
-                    Button(action: resetFrequencyAxisToDefaults) {
-                        Label("Reset Frequency Axis to Defaults", systemImage: "arrow.counterclockwise.circle")
-                    }
-                    Button(action: resetMagnitudeAxisToDefaults) {
-                        Label("Reset Magnitude Axis to Defaults", systemImage: "arrow.counterclockwise.circle")
-                    }
-                    if let onResetLabels = onResetLabels {
-                        Divider()
-                        Button(action: onResetLabels) {
-                            Label("Reset Labels", systemImage: "arrow.uturn.backward")
-                        }
-                        .disabled(!hasLabelsToReset)
-                    }
-                }
+                .contextMenu { chartMenuItems }
                 #else
+                // A right-click with a mouse or trackpad opens the chart menu; touches pass through.
+                .overlay(SecondaryClickMenu(menu: { chartUIMenu() }, passesThrough: { point in
+                    peakLabelFrames.values.contains { $0.contains(point) }
+                }))
                 // Pan/crosshair DragGesture: annotation highPriorityGestures pre-empt this as children
                 .gesture(
                     DragGesture(minimumDistance: crosshairMode.wrappedValue ? 0 : 10)
@@ -1235,77 +1237,54 @@ struct SpectrumView: View {
     .padding()
 }
 
-// MARK: - Chart Options Sheet
+// MARK: - The chart's menu
 
-/// A sheet/popover presenting axis-reset and label-reset options for the spectrum chart.
-/// Shown from the chart's ⋯ button on every platform (and via right-click on macOS).
-/// Using a sheet instead of a Menu avoids UIContextMenuInteraction conflicts with the
-/// chart's gesture recognizers on iOS.
-private struct ChartOptionsSheet: View {
-    let hasLabelsToReset: Bool
-    let onResetBothToSaved: () -> Void
-    let onResetFreqToSaved: () -> Void
-    let onResetMagToSaved: () -> Void
-    let onResetBothToDefaults: () -> Void
-    let onResetFreqToDefaults: () -> Void
-    let onResetMagToDefaults: () -> Void
-    let onResetLabels: (() -> Void)?
+/// One item of the chart's menu, ready to show: its entry, what it does here, and whether it can act now.
+private struct ChartMenuItem {
+    let entry: ChartMenuEntry
+    let action: () -> Void
+    var isEnabled = true
+    var title: String { entry.title }
+    var symbol: String { entry.symbol }
+}
+
+/// The chart's menu items, with a separator between groups.
+private struct ChartMenuItems: View {
+    let groups: [[ChartMenuItem]]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Chart Options")
-                .font(.headline)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-
-            PaletteDivider()
-
-            Group {
-                sectionHeader("Reset to Saved")
-                optionButton("Reset Both Axes", icon: "arrow.uturn.backward", action: onResetBothToSaved)
-                optionButton("Reset Frequency Axis", icon: "arrow.uturn.backward", action: onResetFreqToSaved)
-                optionButton("Reset Magnitude Axis", icon: "arrow.uturn.backward", action: onResetMagToSaved)
-            }
-
-            PaletteDivider().padding(.vertical, 4)
-
-            Group {
-                sectionHeader("Reset to Defaults")
-                optionButton("Reset Both Axes", icon: "arrow.counterclockwise.circle", action: onResetBothToDefaults)
-                optionButton("Reset Frequency Axis", icon: "arrow.counterclockwise.circle", action: onResetFreqToDefaults)
-                optionButton("Reset Magnitude Axis", icon: "arrow.counterclockwise.circle", action: onResetMagToDefaults)
-            }
-
-            if let onResetLabels {
-                PaletteDivider().padding(.vertical, 4)
-                optionButton("Reset Labels", icon: "arrow.uturn.backward.circle", action: onResetLabels)
-                    .disabled(!hasLabelsToReset)
+        ForEach(Array(groups.enumerated()), id: \.offset) { index, group in
+            if index > 0 { Divider() }
+            ForEach(group, id: \.title) { item in
+                Button(action: item.action) {
+                    Label(item.title, systemImage: item.symbol)
+                }
+                .disabled(!item.isEnabled)
             }
         }
-        .padding(.bottom, 8)
-        .frame(minWidth: 280)
-        .paletteSurface(.backgroundPanel)
-        .presentationDetents([.height(460), .large])
-        .presentationDragIndicator(.visible)
     }
+}
 
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.caption)
-            .foregroundStyle(Palette.color(.textSecondary))
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .padding(.bottom, 2)
-    }
+/// The chart's ⋯ menu. It compares itself by what it shows — its items' names and whether each can act — not by
+/// their actions: a live frame redraws the chart around it many times a second, and a menu redrawn while it is open
+/// snaps back to its top on iOS.
+private struct ChartMenuButton: View, Equatable {
+    let groups: [[ChartMenuItem]]
 
-    private func optionButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: icon)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
+    static func == (a: Self, b: Self) -> Bool { a.shown == b.shown }
+
+    private var shown: [[String]] { groups.map { $0.map { "\($0.title)|\($0.isEnabled)" } } }
+
+    var body: some View {
+        Menu {
+            ChartMenuItems(groups: groups)
+        } label: {
+            Image(systemName: "ellipsis.circle").font(.caption)
         }
-        .buttonStyle(.plain)
+        .menuStyle(.button)
+        .buttonStyle(.icon())
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Chart options")
     }
 }
