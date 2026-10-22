@@ -1,3 +1,4 @@
+// @parity view/main
 /// # TapToneAnalysisView+Export
 ///
 /// PDF report and spectrum PNG export flows for `TapToneAnalysisView`.

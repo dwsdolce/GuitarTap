@@ -1,3 +1,4 @@
+// @parity view/spectrum-chart
 /// # SpectrumView+ChartContent
 ///
 /// `@ChartContentBuilder` properties and color/label helpers for `SpectrumView`.

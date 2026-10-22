@@ -1,3 +1,4 @@
+// @parity view/main
 /// # TapToneAnalysisView+Actions
 ///
 /// User-initiated action handlers for `TapToneAnalysisView`.

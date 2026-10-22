@@ -1,3 +1,4 @@
+// @parity view/spectrum-gestures
 /// # SpectrumScrollWheel
 ///
 /// macOS scroll wheel event monitoring infrastructure for `SpectrumView`.

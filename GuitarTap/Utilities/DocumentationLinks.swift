@@ -1,3 +1,4 @@
+// @parity view/help
 //
 //  DocumentationLinks.swift
 //  GuitarTap

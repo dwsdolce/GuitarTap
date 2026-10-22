@@ -1,3 +1,4 @@
+// @parity view/spectrum-chart tests=test/snap-interpolation
 /// # SpectrumView+SnapInterpolation
 ///
 /// Cursor/crosshair snap-to-waveform interpolation for `SpectrumView`.
@@ -142,6 +143,17 @@ extension SpectrumView {
             let absoluteY = plotFrame.minY + screenY
             candidates.append((index: i, dist: abs(absoluteY - cursorScreenY)))
         }
+        return lockedSeries(candidates: candidates, lockedIndex: lockedIndex)
+    }
+
+    /// The series the cursor follows, from each series' on-screen distance to the cursor: the nearest, unless the
+    /// one it follows (`lockedIndex`) is within `curveGravityThreshold` of it. The first of equally near series.
+    ///
+    /// - Parameters:
+    ///   - candidates: Each series' index and its snapped point's distance from the cursor, in points.
+    ///   - lockedIndex: The index currently locked (`-1` = none).
+    /// - Returns: The series index to lock to.
+    static func lockedSeries(candidates: [(index: Int, dist: CGFloat)], lockedIndex: Int) -> Int {
         guard !candidates.isEmpty else { return lockedIndex }
         let best = candidates.min(by: { $0.dist < $1.dist })!
         guard best.index != lockedIndex else { return lockedIndex }

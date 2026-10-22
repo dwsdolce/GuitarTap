@@ -1,3 +1,4 @@
+// @parity view/play-file-sheet
 //
 //  PlayFileSheet.swift
 //  GuitarTap

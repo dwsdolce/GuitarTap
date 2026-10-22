@@ -1,3 +1,4 @@
+// @parity app/entry
 //
 //  GuitarTapApp.swift
 //  GuitarTap

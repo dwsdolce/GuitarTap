@@ -1,3 +1,4 @@
+// @parity view/settings
 //
 //  TapSettingsView+LayoutHelpers.swift
 //  GuitarTap

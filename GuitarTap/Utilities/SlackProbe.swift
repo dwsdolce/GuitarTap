@@ -1,3 +1,4 @@
+// @parity diagnostics/slack-probe
 //
 //  SlackProbe.swift
 //  GuitarTap

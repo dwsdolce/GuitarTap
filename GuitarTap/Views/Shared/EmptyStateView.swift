@@ -1,3 +1,4 @@
+// @parity view/empty-state
 //
 //  EmptyStateView.swift
 //  GuitarTap

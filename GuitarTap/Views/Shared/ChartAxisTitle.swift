@@ -1,3 +1,4 @@
+// @parity view/spectrum-chart
 //
 //  ChartAxisTitle.swift
 //  GuitarTap

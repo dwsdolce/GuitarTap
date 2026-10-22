@@ -2,6 +2,8 @@
 //  ViewTypeDepthTests.swift
 //  GuitarTapTests
 //
+// @parity none — SwiftUI's generic view types and the depth the runtime decodes them at; Python's widgets and the
+// web's components have no such type to measure.
 
 import SwiftUI
 import Testing

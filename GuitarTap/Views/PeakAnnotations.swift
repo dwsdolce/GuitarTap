@@ -1,3 +1,4 @@
+// @parity view/peak-annotations
 //
 //  PeakAnnotations.swift
 //  GuitarTap

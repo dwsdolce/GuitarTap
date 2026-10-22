@@ -1,3 +1,5 @@
+// @parity none — macOS shows the results in a free-floating window of their own; Python and the web show them in the
+// main window.
 /// # ResultsWindowPresenter
 ///
 /// Manages a free-floating, non-modal `NSWindow` that hosts

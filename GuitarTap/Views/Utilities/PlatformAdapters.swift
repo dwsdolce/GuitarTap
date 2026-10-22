@@ -1,3 +1,4 @@
+// @parity view/platform-adapters
 /// # PlatformAdapters
 ///
 /// Cross-platform type aliases, view modifiers, and UI helpers that abstract

@@ -1,3 +1,5 @@
+// @parity none — a macOS sheet has no title bar, so it draws its own title; Python's dialogs and the web's panels have
+// theirs.
 //
 //  SheetTitle.swift
 //  GuitarTap
