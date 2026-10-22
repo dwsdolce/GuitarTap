@@ -70,37 +70,21 @@ struct TapDetectionTests {
         #expect(RealtimeFFTAnalyzer.levelCrossingConfirmationChunks == Self.data["confirmChunks"] as? Int)
     }
 
-    /// The audio queue's fast-start opens a capture the detector has not confirmed: a sound the detector does not
-    /// count as a tap completes the measurement on what follows (T15, T16), and with the main thread a capture
-    /// window behind the audio, a real tap's capture completes before the detector sees the tap, leaving detection
-    /// armed (T17). Swift takes audio in two steps today, the fast-start on the audio queue and detection on the
-    /// main thread; these cases pass once every chunk is taken in one sequence, as the web's.
-    static let knownFailures: Set<String> = ["T15", "T16", "T17"]
-
     @Test(arguments: ids("cases"))
-    func decision(_ id: String) async {
+    func decision(_ id: String) {
         let row = Self.row("cases", id)
         let saved = TapDisplaySettings.measurementType
         defer { TapDisplaySettings.measurementType = saved }
 
-        let run = { () async in
-            let sut = makeStepsAnalyzer()
-            for step in row["steps"] as! [[String: Any]] {
-                if let fields = step["check"] as? [String: Any] {
-                    Self.check(fields, sut, id)
-                } else {
-                    #expect(runAnalyzerStep(step, on: sut), "\(id): unknown step \(step)")
-                    // The engine queues its chunks' main-thread part: let it run, as the app's would.
-                    if step["liveAudio"] != nil { try? await Task.sleep(nanoseconds: 5_000_000) }
-                }
+        let sut = makeStepsAnalyzer()
+        for step in row["steps"] as! [[String: Any]] {
+            if let fields = step["check"] as? [String: Any] {
+                Self.check(fields, sut, id)
+            } else {
+                #expect(runAnalyzerStep(step, on: sut), "\(id): unknown step \(step)")
             }
-            Self.check(row["expect"] as! [String: Any], sut, id)
         }
-        if Self.knownFailures.contains(id) {
-            await withKnownIssue("the fast-start opens a capture the detector did not confirm") { await run() }
-        } else {
-            await run()
-        }
+        Self.check(row["expect"] as! [String: Any], sut, id)
     }
 
     /// The buffer an onset case names, as Float32.

@@ -29,9 +29,7 @@ import Foundation
 
 /// Whether the analyzer is listening for taps, paused mid-sequence, or neither.
 ///
-/// - SeeAlso: ``TapToneAnalyzer/detectionState`` — the published property, whose `didSet`
-///   arms and disarms the audio-queue level-crossing handler on entry to and exit from
-///   ``listening``.
+/// - SeeAlso: ``TapToneAnalyzer/detectionState`` — the published property.
 enum DetectionState: String {
 
     // MARK: - Cases
@@ -40,7 +38,7 @@ enum DetectionState: String {
     /// the measurement completes, and after a measurement is loaded for review.
     case idle = "idle"
 
-    /// Actively listening for taps.  The audio-queue level-crossing handler is armed.
+    /// Actively listening for taps.
     case listening = "listening"
 
     /// The sequence is paused: detection is off but the tap count and captured taps are

@@ -22,12 +22,12 @@
 /// ```
 /// AVAudioInputNode tap (buffers of the size CoreAudio chooses, hardware rate)
 ///        │
-///        ├──► audioProcessingQueue — cut into 1 024-sample chunks
-///        │         ├─ RMS level → inputLevelDB / recentPeakLevelDB (main thread, ~43 Hz)
-///        │         ├─ rawSampleHandler → TapToneAnalyzer pre-roll + gated capture
-///        │         └─ inputBuffer accumulation
-///        │                  └─ when ≥ fftSize samples:
-///        │                         performFFT(on:) → magnitudes / peakMagnitude (main, ~0.7 Hz)
+///        ├──► audioProcessingQueue — cut into 1 024-sample chunks; each chunk's level, clipping and
+///        │         audio time; the level → inputLevelDB / recentPeakLevelDB (main thread, ~43 Hz)
+///        │         └─ one hop per chunk to the main thread, taken there in order:
+///        │                  ├─ inputBuffer accumulation → when ≥ fftSize samples:
+///        │                  │      performFFT(on:) → magnitudes / peakMagnitude (~0.7 Hz)
+///        │                  └─ audioFrameHandler → TapToneAnalyzer: pre-roll, capture, clock, detection
 ///
 /// computeGatedFFT(samples:sampleRate:) — called externally by TapToneAnalyzer,
 ///        not part of the continuous tap path
@@ -62,7 +62,7 @@
 ///
 /// ## Thread Safety
 /// - Audio buffer delivery: `audioProcessingQueue` (serial, `.userInteractive`)
-/// - Shared buffer access: `bufferAccessQueue` (serial, `.userInteractive`)
+/// - Each chunk's FFT input and analysis: the main thread, in order (one hop per chunk)
 /// - All `@Published` property updates: main thread only
 ///
 /// ## Example Usage
@@ -239,13 +239,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
         qos: .userInteractive
     )
     
-    /// Serial queue for synchronizing access to shared buffers
-    /// Prevents race conditions when reading/writing audio data
-    let bufferAccessQueue = DispatchQueue(
-        label: "com.realtimefft.bufferaccess",
-        qos: .userInteractive
-    )
-    
     // MARK: - FFT Configuration
     
     /// The size of the FFT window (65 536 points).
@@ -272,7 +265,7 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     // MARK: - Audio Buffers
     
     /// Accumulates incoming audio samples until there's enough data for FFT processing
-    /// - Important: Access only on bufferAccessQueue to prevent race conditions
+    /// - Important: Main thread only — each chunk is taken there (``takeChunk(_:levelDB:audioTime:)``).
     var inputBuffer: [Float] = []
 
     /// The size, in samples, of every chunk the pipeline processes, live or from a file.
@@ -378,6 +371,8 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// When set, calibration corrections are applied to FFT magnitude data
     @Published var activeCalibration: MicrophoneCalibration? {
         didSet {
+            // The same calibration set again changes nothing: its corrections and its association stand.
+            guard activeCalibration != oldValue else { return }
             // Pre-compute corrections for current frequency bins when calibration changes
             updateCalibrationCorrections()
             
@@ -422,88 +417,16 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// This avoids interpolation overhead during real-time FFT processing
     var calibrationCorrections: [Float] = []
 
-    // MARK: - Raw Sample Callback (for gated FFT)
+    // MARK: - The chunk's hand-over
 
-    /// Optional callback that receives raw PCM samples on `audioProcessingQueue`.
-    ///
-    /// Set by ``TapToneAnalyzer`` to feed the gated FFT pre-roll ring buffer and
-    /// the gated accumulation buffer used for plate/brace measurements. Called on
-    /// every audio buffer at the hardware callback rate (~43 Hz at 1024 samples).
-    ///
-    /// - Important: Do **not** update any `@Published` properties or touch UIKit/SwiftUI
-    ///   from this callback — it runs on a background queue.
-    var rawSampleHandler: (([Float], Double) -> Void)?
+    /// Takes each chunk on the main thread, in order: its samples, its level in dBFS and its audio time
+    /// (``audioElapsed`` at the end of the chunk, carried with it). ``TapToneAnalyzer`` keeps the pre-roll,
+    /// fills the capture, advances its clock and detects taps from it — every chunk in one sequence, as the
+    /// web's `onAudioFrame`.
+    var audioFrameHandler: (([Float], Float, Double) -> Void)?
 
-    // MARK: - Audio-Queue RMS Level Callback
-
-    /// Optional callback fired **synchronously on the audio processing queue**
-    /// for every chunk with the per-chunk RMS level in dBFS.
-    ///
-    /// Mirrors Python `proc_thread.rmsLevelChanged` signal.
-    /// ``TapToneAnalyzer`` wires this to `onRmsLevelChanged(_:)` so tap
-    /// detection runs at ~43 Hz per chunk, identically to Python's
-    /// `_on_rms_level_changed`.
-    ///
-    /// - Important: The callback runs on a background queue.  The handler
-    ///   is responsible for dispatching to the main thread if needed.
-    /// Per-chunk RMS callback: `(levelDB, audioTime)`.
-    ///
-    /// `audioTime` is `audioElapsed` AT THE MOMENT THIS CHUNK WAS PROCESSED — it travels WITH the
-    /// sample rather than being read later by the consumer. That matters: the handler may be delivered
-    /// to the main thread asynchronously, and the audio thread races ahead. Reading `audioElapsed` at
-    /// the consumer would give the CURRENT audio time, not this chunk's — which silently skipped the
-    /// detection warm-up when the audio thread got ahead (as it does at the start of file playback).
-    var rmsLevelHandler: ((Float, Double) -> Void)?
-
-    // MARK: - Audio-Queue Level-Crossing Callback
-
-    /// Optional callback fired **synchronously on the audio processing queue**
-    /// the first time `inputLevelDB` crosses `levelCrossingThreshold` from
-    /// below on a rising edge.
-    ///
-    /// ``TapToneAnalyzer`` sets this to snapshot the pre-roll ring buffer at the
-    /// exact audio buffer where the signal crosses the threshold.  This
-    /// eliminates the main-thread Combine dispatch delay that otherwise shifts
-    /// the pre-roll past the tap attack transient before
-    /// ``TapToneAnalyzer/startGuitarGatedCapture()`` runs.
-    ///
-    /// The handler is auto-disarmed (``levelCrossingArmed`` set `false`) after
-    /// it fires to prevent repeated invocations during the same tap's ring-out.
-    /// ``TapToneAnalyzer`` re-arms it when detection is re-enabled.
-    ///
-    /// - Important: Runs on `audioProcessingQueue` — do **not** touch
-    ///   `@Published` properties or UI state from this callback.
-    var levelCrossingHandler: (() -> Void)?
-
-    /// The dBFS threshold for ``levelCrossingHandler``.
-    ///
-    /// Kept in sync with ``TapToneAnalyzer/tapDetectionThreshold`` so the audio-
-    /// queue fast-path fires at the same (or slightly earlier) level as the
-    /// main-thread hysteresis detector.
-    var levelCrossingThreshold: Float = -40
-
-    /// When `true`, the next rising-edge crossing of ``levelCrossingThreshold``
-    /// — confirmed by ``levelCrossingConfirmationChunks`` consecutive
-    /// above-threshold chunks — will fire ``levelCrossingHandler``.  Set
-    /// `false` after it fires; re-armed by ``TapToneAnalyzer`` when tap
-    /// detection is re-enabled.
-    var levelCrossingArmed: Bool = false {
-        didSet {
-            if levelCrossingArmed != oldValue {
-                let thread = Thread.isMainThread ? "main" : "audio"
-                TAP_DEBUG("levelCrossingArm", "ARMED=\(levelCrossingArmed) (was \(oldValue)) thread=\(thread)")
-                // Reset the confirmation counter whenever arming state
-                // transitions, so a fresh rising edge is required after each
-                // arm.  Without this reset, arming while the signal is
-                // already above threshold (and a stale counter is non-zero)
-                // could spuriously fire on the next chunk.
-                levelCrossingConsecutiveAbove = 0
-            }
-        }
-    }
-
-    /// Number of consecutive above-threshold audio chunks required to confirm
-    /// a level crossing before ``levelCrossingHandler`` is fired.
+    /// Number of consecutive above-threshold audio chunks the tap detector (`TapToneAnalyzer.detectTap`)
+    /// requires to confirm a rising edge.
     ///
     /// At a 1024-sample chunk and 48 kHz sample rate each chunk is ~21 ms,
     /// so the default of `2` requires ~43 ms of sustained signal above the
@@ -524,35 +447,15 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// is a single-chunk excursion (RMS -46.78 dB then -53.55 dB), so 2
     /// already rejects it.
     ///
-    /// The trade-off vs `1` (legacy fire-on-first-crossing):
-    /// - Pros: filters single-chunk noise events that previously triggered
-    ///   bogus gated captures — especially during file playback, which has
-    ///   no human review-time gap between phases.
-    /// - Cons: trigger fires `levelCrossingConfirmationChunks - 1` chunks
-    ///   later than before.  `alignCaptureToOnset` compensates by
-    ///   anchoring the FFT window to the sample-precise tap onset, so the
-    ///   FFT input is unchanged.  A bump spanning 2+ chunks could still
-    ///   slip through; a louder/higher value would start cutting into
-    ///   weak marginal taps like the brace example above.
-    ///
-    /// This constant is also consulted by the main-thread tap detector
-    /// (`TapToneAnalyzer.detectTap`) so both rising-edge paths apply
-    /// the same confirmation logic — otherwise a bump rejected here can
-    /// still fire the main-thread detector and start a bogus capture.
+    /// The trade-off vs `1` (fire on the first crossing):
+    /// - Pros: filters single-chunk noise events that would otherwise start bogus gated captures —
+    ///   especially during file playback, which has no human review-time gap between phases.
+    /// - Cons: the tap is confirmed `levelCrossingConfirmationChunks - 1` chunks later. The capture is
+    ///   seeded from the pre-roll and `alignCaptureToOnset` anchors the FFT window to the sample-precise
+    ///   tap onset, so the FFT input is unchanged. A bump spanning 2+ chunks could still slip through; a
+    ///   higher value would start cutting into weak marginal taps like the brace example above.
     static let levelCrossingConfirmationChunks: Int = 2
 
-    /// Running count of consecutive above-threshold chunks within the
-    /// current candidate rising-edge run.  Reset to `0` whenever the level
-    /// drops back below threshold or arming state changes.  Counts up while
-    /// armed and waiting for confirmation; once it reaches
-    /// ``RealtimeFFTAnalyzer/levelCrossingConfirmationChunks`` the handler
-    /// fires and the level crossing is disarmed.
-    var levelCrossingConsecutiveAbove: Int = 0
-
-    /// Tracks the previous buffer's level for rising-edge detection on the
-    /// audio queue.  Updated every buffer inside ``processAudioBuffer(_:)``.
-    var previousLevelDB: Float = -100
-    
     /// Suppresses re-saving the device→calibration mapping during auto-load.
     ///
     /// When `selectedInputDevice.didSet` auto-loads a device-specific calibration,

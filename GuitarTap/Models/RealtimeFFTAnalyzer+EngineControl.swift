@@ -731,40 +731,27 @@ extension RealtimeFFTAnalyzer {
 
         // ── Post-playback: flush partial buffer + gated capture ──────────
 
-        // 1. Force-flush any partial audio that accumulated in inputBuffer.
-        TAP_DEBUG("file_playback", "PARTIAL_FLUSH — draining inputBuffer")
-        audioProcessingQueue.sync {
-            var partial: [Float] = []
-            bufferAccessQueue.sync {
-                partial = inputBuffer
-                inputBuffer.removeAll()
-            }
-            TAP_DEBUG("file_playback", "PARTIAL_FLUSH | partialLen=\(partial.count) fftSize=\(capturedFftSize)")
-            if !partial.isEmpty {
-                if partial.count < capturedFftSize {
-                    partial.append(contentsOf: [Float](repeating: 0, count: capturedFftSize - partial.count))
-                }
-                TAP_DEBUG("file_playback", "PARTIAL_FLUSH_EMIT | emitting FFT frame with \(partial.count) samples")
-                performFFT(on: partial)
-                TAP_DEBUG("file_playback", "PARTIAL_FLUSH_EMIT_DONE")
-            }
-        }
-
-        // 2. Flush any active gated capture.
-        //    Must run on main thread because finishGatedFFTCapture
-        //    updates @Published properties.  Synchronous so the flush
-        //    completes before the caller proceeds.
+        // On the main thread, after the file's last chunk (queued there ahead of this): the partial FFT
+        // frame, zero-padded, then any capture the file stopped filling. Synchronous so both are done before
+        // the caller proceeds.
         //
-        //    Safe from deadlock here: this runs on a global queue, not on
-        //    audioProcessingQueue.  The main thread can only be blocked at
-        //    audioProcessingQueue.sync{} in startFromFile, but the
-        //    filePlaybackGeneration guard (line 532/551) causes this worker
-        //    to exit before reaching this point when a second file is opened.
+        // Safe from deadlock here: this runs on a global queue, not on audioProcessingQueue. The main thread
+        // can only be blocked at audioProcessingQueue.sync{} in startFromFile, and the filePlaybackGeneration
+        // guard makes this worker exit before reaching this point when a second file is opened.
         TAP_DEBUG("file_playback", "PRE_MIC_RESTART — calling preMicRestartHandler")
         let flushAndClear = { [self] in
             // Stopped while this worker was finishing? Then the capture belongs to a playback the user
             // abandoned, and the sequence now running must not receive it.
             guard filePlaybackGeneration == myGeneration else { return }
+            var partial = inputBuffer
+            inputBuffer.removeAll()
+            TAP_DEBUG("file_playback", "PARTIAL_FLUSH | partialLen=\(partial.count) fftSize=\(capturedFftSize)")
+            if !partial.isEmpty {
+                if partial.count < capturedFftSize {
+                    partial.append(contentsOf: [Float](repeating: 0, count: capturedFftSize - partial.count))
+                }
+                performFFT(on: partial)
+            }
             preMicRestartHandler?()
             isPlayingFile = false
         }
@@ -795,7 +782,6 @@ extension RealtimeFFTAnalyzer {
         // Keeping the original audioEngine instance preserves the AUHAL's
         // configured input-device state so start() can restart it without
         // "no object with given ID 0" errors after playback.
-        TAP_DEBUG("file_playback", "PRE_STOP | armed=\(levelCrossingArmed) prevDB=\(String(format: "%.1f", previousLevelDB))")
         inputNode?.removeTap(onBus: 0)
         audioEngine.stop()
 
@@ -806,13 +792,13 @@ extension RealtimeFFTAnalyzer {
         // Drain any processAudioBuffer / processRawSamples calls that were
         // already dispatched to audioProcessingQueue before the tap was
         // removed.  A synchronous dispatch flushes all pending work first.
-        TAP_DEBUG("file_playback", "PRE_DRAIN | armed=\(levelCrossingArmed)")
+        TAP_DEBUG("file_playback", "PRE_DRAIN")
         audioProcessingQueue.sync { }
-        TAP_DEBUG("file_playback", "POST_DRAIN | armed=\(levelCrossingArmed)")
+        TAP_DEBUG("file_playback", "POST_DRAIN")
 
-        // Clear the accumulation buffer so no stale mic audio is mixed into
-        // the first FFT window from the file.
-        bufferAccessQueue.sync { inputBuffer.removeAll() }
+        // Clear the FFT's input so no stale mic audio is mixed into the first FFT window from the file. A mic
+        // chunk still queued for the main thread is dropped when it arrives (its playback generation is stale).
+        inputBuffer.removeAll()
 
         // Let TapToneAnalyzer clear its pre-roll ring buffer now that the
         // mic is stopped and the audio queue is fully drained.  Without this,
@@ -821,9 +807,9 @@ extension RealtimeFFTAnalyzer {
         // into the gated capture's pre-roll seed.  Python doesn't have this
         // problem because its stream.stop() runs inside start_from_file
         // before the pre-roll can accumulate anything.
-        TAP_DEBUG("file_playback", "POST_ENGINE_STOP — calling postEngineStopHandler | armed=\(levelCrossingArmed)")
+        TAP_DEBUG("file_playback", "POST_ENGINE_STOP — calling postEngineStopHandler")
         postEngineStopHandler?()
-        TAP_DEBUG("file_playback", "POST_ENGINE_STOP_DONE | armed=\(levelCrossingArmed)")
+        TAP_DEBUG("file_playback", "POST_ENGINE_STOP_DONE")
 
         // ── 2. Open and read the audio file into a mono Float32 array. ───
         let (monoSamples, fileSampleRate) = try Self.readAudioFileAsMonoFloat32(url: url)
@@ -836,7 +822,7 @@ extension RealtimeFFTAnalyzer {
         isRunning = true
         engineStartTime = wallClock.now()
 
-        TAP_DEBUG("file_playback", "PRE_DISPATCH | armed=\(levelCrossingArmed) isPlayingFile=\(isPlayingFile)")
+        TAP_DEBUG("file_playback", "PRE_DISPATCH isPlayingFile=\(isPlayingFile)")
 
         filePlaybackCompletion = completion
         let myGeneration = filePlaybackGeneration
@@ -886,7 +872,7 @@ extension RealtimeFFTAnalyzer {
         filePlaybackGeneration += 1
         // Let a chunk already being processed finish, then drop what it accumulated.
         audioProcessingQueue.sync { }
-        bufferAccessQueue.sync { inputBuffer.removeAll() }
+        inputBuffer.removeAll()
         isPlayingFile = false
         playingFileName = nil
         if !isForTesting { try? start() }
@@ -1095,9 +1081,11 @@ extension RealtimeFFTAnalyzer {
             audioEngine.stop()
         }
         
-        // Clear the input buffer on the buffer access queue (async to avoid blocking)
-        bufferAccessQueue.async { [weak self] in
-            self?.inputBuffer.removeAll()
+        // Clear the FFT's input, which the main thread owns.
+        if Thread.isMainThread {
+            inputBuffer.removeAll()
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.inputBuffer.removeAll() }
         }
 
         // Reset debug tracking

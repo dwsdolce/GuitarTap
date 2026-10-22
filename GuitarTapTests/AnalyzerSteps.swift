@@ -42,11 +42,12 @@ private let materialPhases: [String: MaterialTapPhase] = [
 ///   last (two loud ones are a tap)
 /// - `{"stall": seconds}` — that much wall time with no audio
 /// - `{"routeChange": true}` — the engine restarted on a device change
+/// - `{"engineRunning": Bool}` — the engine stopped or started again, as a retry after a failed start does
 /// - `{"spectrumFrame": spectrum}` — one FFT frame from the running engine, a spectrum as `peaks.json`
 ///   describes one
 /// - `{"liveAudio": seconds, "level": dB}` — that much real audio (a 200 Hz tone at that level) through the
-///   microphone's path: each chunk through the engine's per-chunk processing, which queues the main thread's part
-///   as the app's does; the caller lets the main queue run after the step (the main thread takes it in order)
+///   microphone's path: each chunk through the engine's per-chunk processing and its hand-over, which on the main
+///   thread takes the chunk at once — the FFT's input, then the analyzer's `processAudioFrame`
 @MainActor
 func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
     if let settings = step["settings"] as? [String: Any] {
@@ -109,6 +110,8 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
         }
         let level = Float((step["level"] as? Double) ?? -90)
         advanceAudio(sut, by: seconds * ((step["fraction"] as? Double) ?? 1) + ((step["extra"] as? Double) ?? 0), level: level)
+    } else if let running = step["engineRunning"] as? Bool {
+        sut.fftAnalyzer.isRunning = running
     } else if step["routeChange"] as? Bool == true {
         sut.fftAnalyzer.isRunning = true   // the engine restarted on the new device
         sut.handleRouteChangeRestart()

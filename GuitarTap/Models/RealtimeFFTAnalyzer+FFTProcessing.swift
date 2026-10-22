@@ -93,8 +93,8 @@ extension RealtimeFFTAnalyzer {
     ///
     /// - Parameter buffer: The audio buffer captured from the microphone
     ///
-    /// - Note: This method runs on the audioProcessingQueue, not the main thread or audio thread.
-    ///         All buffer access is synchronized via bufferAccessQueue to prevent race conditions.
+    /// - Note: This method runs on the audioProcessingQueue, not the main thread or audio thread. Each chunk
+    ///         is handed to the main thread, which owns the FFT's input and the analysis.
     func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
         // Safety check: ensure we have channel data
         guard let channelData = buffer.floatChannelData else {
@@ -152,7 +152,7 @@ extension RealtimeFFTAnalyzer {
     }
 
     /// Announces a chunk's level on the main thread, for the level meter and the clipping indicator.
-    /// Display only — tap detection is fed by `rmsLevelHandler`.
+    /// Display only — tap detection is fed by the chunk's hand-over (``handOver(_:levelDB:audioTime:)``).
     ///
     /// The live path announces once per DELIVERED buffer, not once per chunk: a buffer's chunks are
     /// processed in the same instant, so announcing each would redraw the meter several times in one
@@ -175,9 +175,8 @@ extension RealtimeFFTAnalyzer {
         }
     }
 
-    /// Process raw Float32 samples through the full audio pipeline: raw-sample
-    /// delivery, RMS/clipping detection, level-crossing tap trigger, FFT
-    /// accumulation and execution.
+    /// Process one chunk of raw Float32 samples through the pipeline: its level, clipping and audio time
+    /// here, then its hand-over to the main thread, where the FFT and the analyzer take it in order.
     ///
     /// Called from `processDeliveredSamples` (mic/engine path) and directly from the
     /// file-playback sample pump (direct-injection path that bypasses
@@ -187,7 +186,9 @@ extension RealtimeFFTAnalyzer {
     }
 
     /// Runs one chunk through the pipeline — everything ``processRawSamples(_:)`` does except
-    /// announcing the level for display — and returns that level for the caller to announce.
+    /// announcing the level for display — and returns that level for the caller to announce. Its level,
+    /// clipping, dead-input stamp and audio time are taken here, on the audio queue, as nothing may wait for
+    /// them; the rest of its processing is the main thread's (``handOver(_:levelDB:audioTime:)``).
     ///
     /// - Parameter samples: The samples of one chunk.
     /// - Returns: The chunk's level, for ``announceLevel(_:)``.
@@ -196,9 +197,6 @@ extension RealtimeFFTAnalyzer {
             firstBufferReceived = true
         }
 
-        // Deliver raw samples to MPM or other consumers (runs on audioProcessingQueue)
-        rawSampleHandler?(samples, actualSampleRate)
-        
         // Advance the AUDIO clock — seconds of audio processed, not wall-clock seconds. The detection
         // warm-up is measured against this so it always covers the first 0.5 s of AUDIO, however long
         // the setup before the first chunk took. (See `audioElapsed`.)
@@ -242,101 +240,45 @@ extension RealtimeFFTAnalyzer {
             return wallNow.timeIntervalSince(last) < self.clipHoldSeconds
         }()
 
-        // ── Audio-queue fast-path: snapshot pre-roll at threshold crossing ──
-        // Fires BEFORE the main-thread dispatch so the pre-roll buffer is
-        // captured at the exact audio buffer that crosses the threshold,
-        // eliminating the Combine dispatch delay that otherwise shifts the
-        // pre-roll past the tap attack transient.
-        //
-        // Requires ``levelCrossingConfirmationChunks`` consecutive
-        // above-threshold chunks (default 2 = ~43 ms) before firing.  This
-        // rejects brief noise bumps that would otherwise consume a phase's
-        // gated capture window — especially during file playback where
-        // there's no human review-time gap between phases.  ``alignCaptureToOnset``
-        // re-anchors the FFT window to the sample-precise onset, so the few
-        // chunks of trigger delay introduced here are invisible downstream.
-        if isPlayingFile {
-            TAP_DEBUG("processRawSamples", "LEVEL_CHECK | armed=\(levelCrossingArmed) levelDB=\(String(format: "%.1f", levelDB)) threshold=\(String(format: "%.1f", levelCrossingThreshold)) prevDB=\(String(format: "%.1f", previousLevelDB)) chunkLen=\(samples.count) fileSamplePos=\(samplesConsumed)")
-        }
-        if levelCrossingArmed {
-            let aboveThreshold = levelDB > levelCrossingThreshold
-            let prevAboveThreshold = previousLevelDB > levelCrossingThreshold
-            let confirmTarget = Self.levelCrossingConfirmationChunks
-            if aboveThreshold {
-                if levelCrossingConsecutiveAbove > 0 {
-                    // Already counting — extend the run.
-                    levelCrossingConsecutiveAbove += 1
-                } else if !prevAboveThreshold {
-                    // Fresh rising edge — start a new candidate run.
-                    levelCrossingConsecutiveAbove = 1
-                    if isPlayingFile && confirmTarget > 1 {
-                        TAP_DEBUG("processRawSamples", "LEVEL_CROSSING_PENDING | rmsDB=\(String(format: "%.1f", levelDB)) prevDB=\(String(format: "%.1f", previousLevelDB)) need=\(confirmTarget - 1) more")
-                    }
-                }
-                // If aboveThreshold && counter == 0 && prevAboveThreshold,
-                // signal was already above when arming happened — we wait
-                // for a fall + rise (handled when level drops then climbs).
-                if levelCrossingConsecutiveAbove >= confirmTarget {
-                    levelCrossingArmed = false
-                    if isPlayingFile {
-                        TAP_DEBUG("processRawSamples", "LEVEL_CROSSING_FIRED | rmsDB=\(String(format: "%.1f", levelDB)) prevDB=\(String(format: "%.1f", previousLevelDB)) confirmedBy=\(confirmTarget)")
-                    }
-                    // didSet on levelCrossingArmed resets the counter.
-                    levelCrossingHandler?()
-                }
-            } else {
-                // Below threshold — abort any in-progress candidate run.
-                if levelCrossingConsecutiveAbove > 0 && isPlayingFile {
-                    TAP_DEBUG("processRawSamples", "LEVEL_CROSSING_CANCELED | rmsDB=\(String(format: "%.1f", levelDB)) (signal fell below after \(levelCrossingConsecutiveAbove)/\(confirmTarget) chunks)")
-                }
-                levelCrossingConsecutiveAbove = 0
-            }
-        }
-        previousLevelDB = levelDB
-
-        // ── Direct RMS callback (mirrors Python rmsLevelChanged signal) ──
-        // Called on the audio processing queue, exactly like rawSampleHandler
-        // and levelCrossingHandler.  TapToneAnalyzer wires this to
-        // onRmsLevelChanged so tap detection runs synchronously per chunk
-        // during both live mic and file playback — identical to Python's
-        // proc_thread.rmsLevelChanged.connect(self._on_rms_level_changed).
-        rmsLevelHandler?(levelDB, audioElapsed)
-
-        // Thread-safe: Accumulate samples in input buffer using synchronized access
-        bufferAccessQueue.sync {
-            inputBuffer.append(contentsOf: samples)
-        }
-        
-        // Process when we have enough samples for an FFT (0% overlap, hop = fftSize)
-        let hopSize = fftSize
-        
-        var shouldContinue = true
-        while shouldContinue {
-            var chunk: [Float]?
-            
-            // Thread-safe: Check and extract chunk from buffer
-            bufferAccessQueue.sync {
-                if inputBuffer.count >= fftSize {
-                    // Extract a chunk of samples
-                    chunk = Array(inputBuffer.prefix(fftSize))
-                    
-                    // Remove samples based on hop size
-                    inputBuffer.removeFirst(hopSize)
-
-                } else {
-                    shouldContinue = false
-                }
-            }
-            
-            // Process the chunk outside the synchronized block to minimize lock time
-            if let chunk = chunk {
-                performFFT(on: chunk)
-            }
-        }
+        handOver(samples, levelDB: levelDB, audioTime: audioElapsed)
 
         return ChunkLevel(levelDB: levelDB, isSilent: rms <= 0, time: wallNow, isClipping: newClipState)
     }
     
+    /// Hands one chunk to the main thread, which takes every chunk in order (``takeChunk(_:levelDB:audioTime:)``).
+    /// `audioTime` is this chunk's audio time, carried with it: the audio queue runs ahead of the main thread.
+    ///
+    /// A chunk from a source that has since been replaced — a microphone chunk still queued when a file
+    /// starts, a file's when its playback is stopped — is dropped when it arrives. On the main thread itself
+    /// (a test, a file pumped there) the chunk is taken at once, so it is in place before the next one.
+    func handOver(_ samples: [Float], levelDB: Float, audioTime: Double) {
+        let generation = filePlaybackGeneration
+        let handedOver = SlackProbe.now
+        let take = { [weak self] in
+            guard let self, self.filePlaybackGeneration == generation else { return }
+            SlackProbe.shared.record(.latency, ms: (SlackProbe.now - handedOver) * 1000)
+            self.takeChunk(samples, levelDB: levelDB, audioTime: audioTime)
+        }
+        if Thread.isMainThread {
+            take()
+        } else {
+            DispatchQueue.main.async(execute: take)
+        }
+    }
+
+    /// On the main thread: one chunk into the FFT's input — a full window is transformed at once — then
+    /// to ``audioFrameHandler``, as the web's `processRawSamples` feeds its FFT, then hands the chunk up.
+    func takeChunk(_ samples: [Float], levelDB: Float, audioTime: Double) {
+        inputBuffer.append(contentsOf: samples)
+        // 0% overlap: each FFT takes the next fftSize samples.
+        while inputBuffer.count >= fftSize {
+            let window = Array(inputBuffer.prefix(fftSize))
+            inputBuffer.removeFirst(fftSize)
+            performFFT(on: window)
+        }
+        audioFrameHandler?(samples, levelDB, audioTime)
+    }
+
     /// Performs the pure FFT computation on a block of audio samples and returns
     /// the magnitude spectrum in dBFS.
     ///

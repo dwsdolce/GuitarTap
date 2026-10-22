@@ -188,13 +188,36 @@ struct MicrophoneCalibration: Codable, Identifiable, Equatable {
 
     /// Returns calibration corrections for an array of frequencies in a single pass.
     ///
-    /// Equivalent to calling ``correction(at:)`` for each element, but expressed as a map
-    /// for convenient use in FFT pipelines.
+    /// The same values as calling ``correction(at:)`` for each element. Ascending frequencies, as an
+    /// FFT's bins are, take one pass over them and the points together; any other order falls back to
+    /// ``correction(at:)`` for each.
     ///
     /// - Parameter frequencies: Array of FFT bin centre frequencies, in Hz.
     /// - Returns: Array of additive dB corrections, parallel to `frequencies`.
     func corrections(for frequencies: [Float]) -> [Float] {
-        return frequencies.map { correction(at: $0) }
+        // The FFT's bins ascend, as the points do: one pass over both — each bin's bracketing pair is the
+        // previous bin's or one after it — with the same values as ``correction(at:)`` for every bin.
+        let points = correctionPoints
+        guard points.count > 1, zip(frequencies, frequencies.dropFirst()).allSatisfy({ $0 <= $1 }) else {
+            return frequencies.map { correction(at: $0) }
+        }
+        let first = points[0], last = points[points.count - 1]
+        var result = [Float]()
+        result.reserveCapacity(frequencies.count)
+        var i = 0
+        for frequency in frequencies {
+            if frequency <= first.frequency {
+                result.append(first.correction)
+            } else if frequency >= last.frequency {
+                result.append(last.correction)
+            } else {
+                while frequency > points[i + 1].frequency { i += 1 }
+                let low = points[i], high = points[i + 1]
+                let t = (frequency - low.frequency) / (high.frequency - low.frequency)
+                result.append(low.correction + t * (high.correction - low.correction))
+            }
+        }
+        return result
     }
 
     /// The details Settings shows for this calibration: its sensitivity (when the file gives one), its

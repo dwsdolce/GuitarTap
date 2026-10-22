@@ -101,13 +101,20 @@ extension TapToneAnalyzer {
         due.forEach { $0(peakMagnitude) }
     }
 
-    // MARK: - RMS-Level Entry Point
+    // MARK: - The Per-Chunk Entry
 
-    /// One chunk's level, on the main thread — the per-chunk entry.
-    ///
-    /// The body of `rmsLevelHandler`'s hop to the main thread (``setupSubscriptions()``), named so that
-    /// tests feed audio through exactly the path audio takes: Python `_on_chunk_level`, the web's
-    /// `processAudioFrame`.
+    /// One chunk, on the main thread, in order — the per-chunk entry, as the web's `processAudioFrame`: its
+    /// samples into the pre-roll, the session recording and any capture under way (a capture that fills is
+    /// finished there and then), then its level to the detector (``onChunkLevel(_:audioTime:)``). The
+    /// engine's hand-over (``RealtimeFFTAnalyzer/audioFrameHandler``) calls it for every chunk.
+    func processAudioFrame(_ samples: [Float], levelDB: Float, audioTime: Double, sampleRate: Double) {
+        SlackProbe.shared.setChunkPeriod(samples: samples.count, sampleRate: sampleRate)
+        SlackProbe.shared.time(.accumulate) { accumulateGatedSamples(samples, sampleRate: sampleRate) }
+        onChunkLevel(levelDB, audioTime: audioTime)
+    }
+
+    /// One chunk's level, on the main thread — the detector's part of ``processAudioFrame(_:levelDB:audioTime:sampleRate:)``,
+    /// after the chunk's samples have fed the capture. Tests feed levels through it: Python `_on_chunk_level`.
     func onChunkLevel(_ levelDB: Float, audioTime: Double) {
         onRmsLevelChanged(levelDB, audioTime: audioTime)
     }
@@ -325,14 +332,10 @@ extension TapToneAnalyzer {
 
         // Hysteresis: Use different thresholds for rising vs falling edges.
         // Rising edge ALSO requires N consecutive chunks above the rising
-        // threshold to confirm — mirrors the audio-queue level crossing
-        // detector in RealtimeFFTAnalyzer.  Without confirmation here,
-        // a brief noise bump that the audio-queue rejected can still
-        // fire the main-thread rising-edge detector and start a bogus
-        // gated capture (see test failure on plate-umik-1-swift-mac-1778816330
-        // where the FLC bump at -46.8 dB was rejected by the audio queue
-        // but caught here, capturing 26.4 Hz @ -78.9 dB instead of the
-        // real 35.4 Hz FLC tap that arrived a few seconds later).
+        // threshold to confirm. Without it a brief noise bump starts a bogus
+        // gated capture (plate-umik-1-swift-mac-1778816330: an FLC bump at
+        // -46.8 dB captured 26.4 Hz @ -78.9 dB instead of the real 35.4 Hz
+        // FLC tap that arrived a few seconds later).
         let risingThreshold  = effectiveRisingThreshold
         let fallingThreshold = effectiveFallingThreshold
         let confirmTarget = RealtimeFFTAnalyzer.levelCrossingConfirmationChunks
@@ -489,12 +492,6 @@ extension TapToneAnalyzer {
         afterAudio(tapCooldown) { [weak self] in
             guard let self, generation == self.captureGeneration else { return }
             self.reArmFromCurrentChunk()
-            // Clear stale fast-start marker so the next tap's main-thread
-            // startGatedCapture correctly falls back to pre-roll seeding
-            // if the audio-queue level crossing doesn't fire in time.
-            self.mpmLock.lock()
-            self.lastLevelCrossingCaptureID = -1
-            self.mpmLock.unlock()
             TAP_DEBUG("reEnableDetectionForNextPlateTap", "Re-enabled | chunkLevel=\(String(format: "%.2f", self.lastChunkLevelDB)) isAboveThreshold=\(self.isAboveThreshold) isDetecting=\(self.isDetecting)")
             // Do NOT reset warmupStartAudioTime here — that would restart warmup and
             // destabilise isAboveThreshold via the justExitedWarmup sync path.

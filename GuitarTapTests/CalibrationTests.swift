@@ -120,4 +120,20 @@ struct CalibrationTests {
         #expect(details.dataPoints == expect["dataPoints"] as? String, "\(id) dataPoints: \(details.dataPoints)")
         #expect(details.range == expect["range"] as? String, "\(id) range: \(String(describing: details.range))")
     }
+
+    /// Every bin's correction, computed for all the FFT's bins at once, is the one ``correction(at:)`` gives
+    /// that bin alone — exactly, for the bins of 48 kHz and of 44.1 kHz and for unsorted frequencies.
+    @Test func correctionsForAllBins_areEachBinsCorrection() throws {
+        let name = (Self.data["calibrationFile"] as! String) as NSString
+        let url = try #require(Bundle(for: CalibrationAnchor.self).url(
+            forResource: name.deletingPathExtension, withExtension: name.pathExtension))
+        let calibration = try CalibrationFileParser.parse(url: url)
+        let fftSize = Self.data["fftSize"] as! Int
+        for rate in [48000.0, 44100.0] {
+            let bins = (0..<(fftSize / 2)).map { Float($0) * Float(rate) / Float(fftSize) }
+            #expect(calibration.corrections(for: bins) == bins.map { calibration.correction(at: $0) }, "\(rate) Hz")
+        }
+        let unsorted: [Float] = [1000, 20, 5000, 20, 19000, 3]
+        #expect(calibration.corrections(for: unsorted) == unsorted.map { calibration.correction(at: $0) })
+    }
 }

@@ -119,21 +119,11 @@ extension TapToneAnalyzer {
         let isBraceMode = measurementType == .brace
         gtLog("🎬 Starting tap sequence: \(numberOfTaps) tap(s), plate mode: \(isPlateMode), brace mode: \(isBraceMode), skipWarmup: \(skipWarmup)")
 
-        // This function runs fully synchronously, matching the Python port's
-        // `start_tap_sequence`.  All call sites are on the main thread (button
-        // actions, settings-apply callbacks, file-playback setup); none of them
-        // observe partial state, so there is no need to defer housekeeping to a
-        // later main-queue tick.  Eliminating the deferral removes the race
-        // class where handleTapDetection on the audio thread set isDetecting
-        // false between the sync arming and a deferred re-arming.
-        //
-        // State that detectTap() reads on the audio thread (isMeasurementComplete,
-        // isDetecting, warmupStartAudioTime, isAboveThreshold, justExitedWarmup,
-        // materialTapPhase, noiseFloorEstimate, gatedCaptureActive / preRollBuffer)
-        // is set BEFORE `detectionState = .listening` so the first audio buffer observed
-        // by the crossing handler sees a fully-reset analyzer.
+        // This function runs fully synchronously on the main thread, matching the Python port's
+        // `start_tap_sequence`. The chunks are taken on the main thread too (processAudioFrame), between
+        // calls, so the first chunk after it sees a fully-reset analyzer.
 
-        // ===== UI / per-sequence state (not audio-thread visible) =====
+        // ===== UI / per-sequence state =====
         clearComparison()
         loadedMeasurementName = nil
         loadedNotes = nil
@@ -163,27 +153,22 @@ extension TapToneAnalyzer {
         currentTapCount     = 0
         tapProgress         = 0.0
         // No pause-clear here: `detectionState = .listening` further down leaves `.paused`
-        // on its own, and clearing to `.idle` at this point would disarm a level crossing
-        // that a restart-while-listening is relying on staying armed.
+        // on its own.
 
         currentDecayTime    = nil
 
-        // ===== Audio-thread-visible state (must precede detectionState = .listening) =====
+        // ===== Detection state (set before detectionState = .listening) =====
         isMeasurementComplete = false
 
-        // Clear any frozen spectrum BEFORE setting detectionState = .listening.  If we
-        // set isDetecting first and the audio thread fires a tap immediately
-        // (file-playback case), a later setFrozenSpectrum() would wipe the
-        // just-captured gated-FFT result.
+        // Clear any frozen spectrum BEFORE setting detectionState = .listening.
         setFrozenSpectrum(frequencies: [], magnitudes: [])
 
-        // Cancel any in-flight gated capture from a previous sequence and reset the pre-roll BEFORE
-        // arming the crossing handler. The ring buffer fills naturally as audio chunks arrive via
+        // Cancel any in-flight gated capture from a previous sequence and reset the pre-roll. The ring
+        // buffer fills naturally as audio chunks arrive via
         // accumulateGatedSamples; if a tap fires before it is full, startGatedCapture seeds the
         // accumulator with only the samples received so far — no zero-padding, which would dilute the
         // captured signal with silence.
         abandonCapture()
-        mpmLock.lock()
         // Session recording: clear the buffer and begin recording. The buffer accumulates raw audio
         // while detection is active, producing a single WAV per measurement for replay. With Dump
         // Capture Audio off only the bounded pre-roll is kept, and it is dropped at the first tap
@@ -197,7 +182,6 @@ extension TapToneAnalyzer {
         isSessionRecording = true
         sessionPreRollActive = true   // bound the pre-first-tap audio to ~2 s
         sessionRecordingSampleRate = mpmSampleRate > 0 ? mpmSampleRate : 48000
-        mpmLock.unlock()
         CaptureProbe.beginLiveSession(recording: TapDisplaySettings.dumpCaptureAudio)   // diagnostic
 
         // Seed the noise-floor estimate so the first relative-threshold (plate/brace) calculation has a
@@ -398,9 +382,7 @@ extension TapToneAnalyzer {
     func acceptCurrentPhase() {
         // Session recording: checkpoint the current buffer position so that
         // if a subsequent phase is redone, we can truncate back to here.
-        mpmLock.lock()
         sessionCheckpoints.append(sessionRecordingBuffer.count)
-        mpmLock.unlock()
 
         let measureFlc = TapDisplaySettings.measureFlc
         switch materialTapPhase {
@@ -497,7 +479,6 @@ extension TapToneAnalyzer {
         // Peek (don't pop) — the anchor must remain in place so that a
         // second redo of the same phase truncates to the same position,
         // not to the start of the *previous* accepted phase.
-        mpmLock.lock()
         if let phaseStart = sessionCheckpoints.last,
            sessionRecordingBuffer.count > phaseStart {
             sessionRecordingBuffer.removeSubrange(phaseStart...)
@@ -506,7 +487,6 @@ extension TapToneAnalyzer {
             // Later phases (phaseStart > 0) keep earlier taps, so the latch stays frozen.
             if phaseStart == 0 { sessionPreRollActive = true }
         }
-        mpmLock.unlock()
 
         switch materialTapPhase {
         case .reviewingLongitudinal:
@@ -568,10 +548,7 @@ extension TapToneAnalyzer {
     ///
     /// **Does NOT clear gated capture state** (`gatedCaptureActive`, `gatedAccumBuffer`,
     /// `preRollBuffer`).  Callers that need to cancel an in-flight capture must do so
-    /// explicitly — and crucially, they must do it *synchronously* before arming detection
-    /// (`detectionState = .listening`).  If the clear were here (deferred inside a `main.async`
-    /// block), the audio-queue level-crossing handler could start a legitimate gated
-    /// capture between the sync and async sections, and this method would then kill it.
+    /// explicitly, before detection listens (`detectionState = .listening`).
     private func resetMaterialPhaseState(to phase: MaterialTapPhase) {
         materialTapPhase    = phase
         longitudinalSpectrum = nil

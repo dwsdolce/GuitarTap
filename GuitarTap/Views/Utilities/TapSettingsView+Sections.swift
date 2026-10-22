@@ -74,6 +74,9 @@ extension TapSettingsView {
                     .pickerStyle(.menu)
                     .fixedSize()
                     .onChange(of: selectedCalibrationID) { _, newID in
+                        // Showing the active calibration (the sheet appearing, a device's calibration
+                        // loading) is not a choice: only a different one is applied.
+                        guard newID != fftAnalyzer.activeCalibration?.id else { return }
                         if let id = newID {
                             fftAnalyzer.activeCalibration = storedCalibrations.first { $0.id == id }
                         } else {

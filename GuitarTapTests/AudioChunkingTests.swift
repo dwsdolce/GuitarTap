@@ -37,7 +37,7 @@ struct AudioChunkingTests {
         let fft = RealtimeFFTAnalyzer.forTesting()
         fft.actualSampleRate = 48000
         var seen: [[Float]] = []
-        fft.rawSampleHandler = { samples, _ in seen.append(samples) }
+        fft.audioFrameHandler = { samples, _, _ in seen.append(samples) }
         var sent = 0
         while sent < total {
             let n = min(size, total - sent)
@@ -68,7 +68,7 @@ struct AudioChunkingTests {
         let fft = RealtimeFFTAnalyzer.forTesting()
         fft.actualSampleRate = 48000
         var times: [Double] = []
-        fft.rmsLevelHandler = { _, audioTime in times.append(audioTime) }
+        fft.audioFrameHandler = { _, _, audioTime in times.append(audioTime) }
 
         fft.processDeliveredSamples(ramp(4800))
 
