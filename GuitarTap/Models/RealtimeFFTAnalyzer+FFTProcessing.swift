@@ -226,8 +226,8 @@ extension RealtimeFFTAnalyzer {
         // peaks; RMS check (>= 0 dBFS) catches sustained clipping.  Either
         // condition holds the clipping state True for clipHoldSeconds before
         // clearing.  Edge-triggered publish so SwiftUI only re-renders on
-        // True↔False transitions.  Mirrors Python `_FftProcessingThread`
-        // clipping detection block.
+        // True↔False transitions.  Mirrors Python
+        // `RealtimeFFTAnalyzer.process_raw_samples`'s clipping detection.
         var peakAbs: Float = 0
         vDSP_maxmgv(samples, 1, &peakAbs, vDSP_Length(samples.count))
 
@@ -346,19 +346,19 @@ extension RealtimeFFTAnalyzer {
     /// Performs a Fast Fourier Transform on audio samples and updates published magnitude data.
     ///
     /// Delegates the pure DSP work to `computeFFT(on:)`, applies microphone calibration
-    /// corrections, then publishes the results on the main thread.  Also tracks processing
-    /// time and throttles UI updates.
+    /// corrections, then publishes the results.  Also tracks processing time and throttles
+    /// UI updates.
     ///
     /// Calibration is applied here (not inside `computeFFT`) so that `computeFFT` remains
     /// a truly pure function — its output depends only on its input `samples` argument and
     /// the FFT configuration, not on any mutable instance state like `calibrationCorrections`.
     /// This mirrors the Python architecture where `dft_anal` is a side-effect-free module-level
-    /// function and calibration is applied by the caller (`_FftProcessingThread.run()`).
+    /// function and calibration is applied by the caller (`perform_fft`).
     ///
     /// - Parameter samples: Audio samples to analyze, must be of length fftSize
     ///
-    /// - Note: This method runs on the audioProcessingQueue. Results are published
-    ///         on the main thread via @Published properties for SwiftUI compatibility.
+    /// - Note: This method runs on the main thread (``takeChunk(_:levelDB:audioTime:)``), which owns
+    ///         the FFT's input; results are published via @Published properties.
     func performFFT(on samples: [Float]) {
         let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -367,18 +367,10 @@ extension RealtimeFFTAnalyzer {
 
         // Apply microphone calibration corrections if available.
         // Kept here (not in computeFFT) so computeFFT remains a pure function.
-        // Mirrors Python _FftProcessingThread.run(): mag_y_db = mag_y_db + calibration.
+        // Mirrors Python perform_fft: magnitudes_db = magnitudes_db + calibration.
         if !calibrationCorrections.isEmpty && calibrationCorrections.count == db.count {
             vDSP_vadd(db, 1, calibrationCorrections, 1, &db, 1, vDSP_Length(db.count))
         }
-
-        // ── Per-FFT-frame bookkeeping ─────────────────────────────
-        // Advance per-frame bookkeeping: fftFrameCounter (frame ordinal) and
-        // samplesConsumed (audio-source sample position, += fftSize per frame),
-        // used by the file-playback timing/traces elsewhere.  Mirrors the frame
-        // bookkeeping in Python _FftProcessingThread.run().
-        fftFrameCounter += 1
-        samplesConsumed += fftSize
 
         // Find peak frequency in the spectrum
         if let maxIndex = db.enumerated().max(by: { $0.element < $1.element })?.offset {

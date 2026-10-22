@@ -597,10 +597,6 @@ extension RealtimeFFTAnalyzer {
     ///   - sampleRate: The file's sample rate in Hz.
     ///   - fileName: Display name for logging/status.
     func prepareForFilePlayback(sampleRate: Double, fileName: String) {
-        // Reset ordinals so frames start at #1.
-        fftFrameCounter = 0
-        samplesConsumed = 0
-
         actualSampleRate = sampleRate
         updateFrequencyBins()
         updateMetrics()

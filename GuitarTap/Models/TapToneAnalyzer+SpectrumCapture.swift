@@ -346,7 +346,6 @@ extension TapToneAnalyzer {
         gatedAccumBuffer = []
 
         // DIAG: log capture completion details
-        let diagConsumed = fftAnalyzer.samplesConsumed
         let diagRms: Float = {
             let sumSq = captured.reduce(Float(0)) { $0 + $1 * $1 }
             let rms = sqrt(sumSq / max(Float(captured.count), 1))
@@ -354,7 +353,7 @@ extension TapToneAnalyzer {
         }()
         let diagHash: Float = captured.count >= 16 ? captured[0..<16].reduce(0, +) : 0
         let completeProfile = captureWindowProfile(captured, label: "ACCUM_COMPLETE(\(String(describing: phase)))")
-        TAP_DEBUG("gatedAccum", "CAPTURE COMPLETE | samples=\(captured.count) fileSamplePos=\(diagConsumed) captureRMS=\(String(format: "%.2f", diagRms))dB first16hash=\(String(format: "%.6f", diagHash))\n\(completeProfile)")
+        TAP_DEBUG("gatedAccum", "CAPTURE COMPLETE | samples=\(captured.count) audioTime=\(String(format: "%.3f", lastAudioTime))s captureRMS=\(String(format: "%.2f", diagRms))dB first16hash=\(String(format: "%.6f", diagHash))\n\(completeProfile)")
 
         if let phase {
             finishGatedFFTCapture(samples: captured, sampleRate: sampleRate, phase: phase)

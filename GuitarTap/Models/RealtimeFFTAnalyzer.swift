@@ -285,21 +285,6 @@ final class RealtimeFFTAnalyzer: ObservableObject {
     /// - Important: Access only on audioProcessingQueue.
     var deliveredBufferSizeLogged = false
 
-    // MARK: - FILE_DEBUG instrumentation
-
-    /// Counter so each FFT frame produced by ``performFFT(on:)`` has a unique
-    /// ordinal.  Used by FILE_DEBUG logs to correlate FFT frames with file-
-    /// playback progress and tap detection.  Resets to 0 on each playback
-    /// restart via ``prepareForFilePlayback(sampleRate:fileName:)``.
-    /// Mirrors Python `_FftProcessingThread._fft_frame_counter`.
-    var fftFrameCounter: Int = 0
-
-    /// Running total of samples consumed by FFT frames (incremented by
-    /// ``fftSize`` per frame).  Used to compute the file-time of each FFT
-    /// frame for FILE_DEBUG logging.
-    /// Mirrors Python `_FftProcessingThread._samples_consumed`.
-    var samplesConsumed: Int = 0
-
     /// Seconds of AUDIO processed since the engine started — the audio clock.
     ///
     /// Advanced by `processRawSamples` (`samples.count / sampleRate`), so it tracks the audio itself

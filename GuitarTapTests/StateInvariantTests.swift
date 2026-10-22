@@ -58,7 +58,7 @@ func stateInvariantViolation(_ a: TapToneAnalyzer) -> String? {
     }
 
     // I6: During a plate/brace review phase, isDetecting must be false.
-    // The audio thread checks materialTapPhase.isCapturing; firing a tap during
+    // Detection checks materialTapPhase.isCapturing; firing a tap during
     // a review phase would corrupt the captured spectrum.
     if !isGuitar {
         switch a.materialTapPhase {
