@@ -45,7 +45,8 @@ private let materialPhases: [String: MaterialTapPhase] = [
 /// - `{"spectrumFrame": spectrum}` — one FFT frame from the running engine, a spectrum as `peaks.json`
 ///   describes one
 /// - `{"liveAudio": seconds, "level": dB}` — that much real audio (a 200 Hz tone at that level) through the
-///   microphone's path: each chunk's samples to the gated capture, then its level
+///   microphone's path: each chunk through the engine's per-chunk processing, which queues the main thread's part
+///   as the app's does; the caller lets the main queue run after the step (the main thread takes it in order)
 @MainActor
 func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
     if let settings = step["settings"] as? [String: Any] {
@@ -129,8 +130,9 @@ func runAnalyzerStep(_ step: [String: Any], on sut: TapToneAnalyzer) -> Bool {
                 amplitude * sin(2 * .pi * 200 * Float(liveAudioSample + i) / 48000)
             }
             liveAudioSample += 1024
-            sut.accumulateGatedSamples(chunk, sampleRate: 48000)
-            sut.onChunkLevel(level, audioTime: sut.lastAudioTime + audioFeedChunkSeconds)
+            // The engine's audio clock follows the analyzer's, so this audio continues the steps before it.
+            sut.fftAnalyzer.audioElapsed = sut.lastAudioTime
+            sut.fftAnalyzer.processRawSamples(chunk)
         }
     } else {
         return false
