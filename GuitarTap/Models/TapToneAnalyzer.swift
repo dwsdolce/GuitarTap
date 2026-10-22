@@ -1611,8 +1611,10 @@ final class TapToneAnalyzer: ObservableObject {
     func setupSubscriptions() {
         // Wire the raw-sample handler for gated FFT capture (called on the audio queue).
         fftAnalyzer.rawSampleHandler = { [weak self] samples, sampleRate in
-            self?.accumulateGatedSamples(samples, sampleRate: sampleRate)
+            SlackProbe.shared.setChunkPeriod(samples: samples.count, sampleRate: sampleRate)
+            SlackProbe.shared.time(.accumulate) { self?.accumulateGatedSamples(samples, sampleRate: sampleRate) }
         }
+        SlackProbe.shared.start()
 
         // Wire the audio-queue level-crossing handler.
         // When the input level crosses the threshold on the audio queue, start
@@ -1738,7 +1740,10 @@ final class TapToneAnalyzer: ObservableObject {
             .combineLatest(fftAnalyzer.$frequencies, fftAnalyzer.frame.$peakMagnitude)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] magnitudes, frequencies, peakMag in
-                self?.onFftFrame(magnitudes: magnitudes, frequencies: frequencies, peakMagnitude: peakMag)
+                SlackProbe.shared.time(.frame) {
+                    self?.onFftFrame(magnitudes: magnitudes, frequencies: frequencies, peakMagnitude: peakMag)
+                    SlackProbe.shared.simulateFftOnMain()
+                }
             }
             .store(in: &cancellables)
 
@@ -1764,11 +1769,13 @@ final class TapToneAnalyzer: ObservableObject {
         //  - Tap detection sees the same sequence of values, just with
         //    negligible (~1 chunk) latency.
         fftAnalyzer.rmsLevelHandler = { [weak self] levelDB, audioTime in
+            let handedOver = SlackProbe.now
             DispatchQueue.main.async { [weak self] in
+                SlackProbe.shared.record(.latency, ms: (SlackProbe.now - handedOver) * 1000)
                 // audioTime is THIS chunk's audio timestamp, captured on the audio thread. It must be
                 // carried across the hop — the audio thread races ahead of the main queue, so reading
                 // fftAnalyzer.audioElapsed here would give a LATER time and silently skip the warm-up.
-                self?.onChunkLevel(levelDB, audioTime: audioTime)
+                SlackProbe.shared.time(.mainChunk) { self?.onChunkLevel(levelDB, audioTime: audioTime) }
             }
         }
 

@@ -446,6 +446,7 @@ extension RealtimeFFTAnalyzer {
             // Calculate processing time
             let endTime = CFAbsoluteTimeGetCurrent()
             let processingTime = Float((endTime - startTime) * 1000)  // Convert to milliseconds
+            SlackProbe.shared.record(.fft, ms: Double(processingTime))
             
             // Update processing time history for averaging
             processingTimeHistory.append(processingTime)
