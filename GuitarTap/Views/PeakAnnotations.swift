@@ -18,19 +18,13 @@
 ///     └── PeakAnnotationLabel     (badge: mode name, pitch, frequency, dBFS)
 /// ```
 ///
-/// ## Position Calculation
+/// ## Position
 ///
-/// Label positions are computed from chart coordinates using the current axis
-/// ranges:
-///
-/// - **X**: `freqNormalized = (freq - minFreq) / (maxFreq - minFreq)`
-/// - **Y**: `dbNormalized = (clampedMag - minDB) / (maxDB - minDB)` — inverted
-///   because SwiftUI's coordinate system has y=0 at the top.
-///
-/// The default label position is 70 pt above the peak marker. Users can drag
-/// labels anywhere; accumulated offsets are stored as `[UUID: CGPoint]` and
-/// passed back via `onOffsetChange`. Positions are cached in `@State` to avoid
-/// redundant recalculation during drag.
+/// A label is a point in chart units: its centre is where it was dragged, else its peak plus
+/// ``TapToneAnalyzer/defaultAnnotationOffset`` (``TapToneAnalyzer/annotationCentre(for:offsets:)``),
+/// placed on screen by the current axis ranges (``PlotMapping``). Every label the annotation mode shows
+/// is drawn, wherever its peak is; the overlay is cut at the plot's edges (``PlotArea``), and a label is
+/// never moved to stay inside. Its line runs from the peak's dot to the label's centre, under the label.
 ///
 /// ## Gesture Handling
 ///
@@ -113,7 +107,8 @@ struct PeakAnnotationsOverlay: View {
 
                     peak: peak,
                     classifiedMode: peakModeMap[peak.id],
-                    offset: annotationOffsets.wrappedValue[peak.id] ?? .zero,
+                    centre: TapToneAnalyzer.annotationCentre(for: peak, offsets: annotationOffsets.wrappedValue),
+                    isMoved: annotationOffsets.wrappedValue[peak.id] != nil,
                     chartGeometry: geometry,
                     plotFrame: plotFrame,
                     minFreq: minFreq,
@@ -136,6 +131,42 @@ struct PeakAnnotationsOverlay: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Cut at the plot's edges, the labels and their lines alike.
+        .clipShape(PlotArea(rect: plotFrame))
+    }
+}
+
+/// The plot area as a shape, for cutting what is drawn over the chart at the plot's edges.
+struct PlotArea: Shape {
+    let rect: CGRect
+    func path(in _: CGRect) -> Path { Path(rect) }
+}
+
+/// Between chart units (Hz, dB) and points in the view, for a plot area and its axis ranges.
+struct PlotMapping {
+    let plot: CGRect
+    let minFreq: Float
+    let maxFreq: Float
+    let minDB: Float
+    let maxDB: Float
+
+    private var valid: Bool {
+        plot.width > 0 && plot.height > 0 && maxFreq > minFreq && maxDB > minDB
+    }
+
+    /// The view point of (`hz`, `db`) — outside the plot when the point is outside the ranges; nil
+    /// while the plot or a range is empty.
+    func point(hz: CGFloat, db: CGFloat) -> CGPoint? {
+        guard valid else { return nil }
+        return CGPoint(x: plot.minX + (hz - CGFloat(minFreq)) / CGFloat(maxFreq - minFreq) * plot.width,
+                       y: plot.minY + (1 - (db - CGFloat(minDB)) / CGFloat(maxDB - minDB)) * plot.height)
+    }
+
+    /// The chart units (x Hz, y dB) of a view point; nil while the plot or a range is empty.
+    func data(at point: CGPoint) -> CGPoint? {
+        guard valid else { return nil }
+        return CGPoint(x: CGFloat(minFreq) + (point.x - plot.minX) / plot.width * CGFloat(maxFreq - minFreq),
+                       y: CGFloat(minDB) + (1 - (point.y - plot.minY) / plot.height) * CGFloat(maxDB - minDB))
     }
 }
 
@@ -143,15 +174,13 @@ struct PeakAnnotationsOverlay: View {
 
 /// Per-peak label that the user can drag to any position on the chart.
 ///
-/// Position state is managed as a two-part sum:
-/// 1. A persisted `offset: CGPoint` stored in `TapToneAnalyzer.peakAnnotationOffsets`
-///    (survives view re-creation and measurement loads).
-/// 2. A transient `dragOffset: CGSize` accumulated live during an active drag
-///    gesture and merged into `offset` on `.onEnded`.
+/// Its position is the sum of:
+/// 1. `centre`, in chart units (``TapToneAnalyzer/annotationCentre(for:offsets:)``) — where it was
+///    dragged, else its peak plus the default offset.
+/// 2. A transient `dragOffset: CGSize` accumulated live during an active drag gesture; on `.onEnded`
+///    the label's centre, in chart units, is stored as its dragged position.
 ///
-/// Label and peak positions are pure computed properties derived from the current
-/// axis ranges and plot frame, so they stay correct automatically on every render.
-/// During a drag the LABEL anchor is frozen (`frozenChartPosition`) so axis-range changes
+/// During a drag the label's centre on screen is frozen (`frozenCentre`) so axis-range changes
 /// mid-gesture don't shift the label under the finger/cursor. The PEAK position is deliberately
 /// NOT frozen — the dot doesn't move while you drag its label, so the connecting line must keep
 /// tracking it live or it visibly detaches and snaps back on release.
@@ -162,9 +191,10 @@ struct DraggablePeakAnnotation: View {
     /// When provided, used instead of the per-frequency `GuitarMode.classify(frequency:guitarType:)`
     /// so that peaks in overlapping mode ranges display distinct labels.
     var classifiedMode: GuitarMode? = nil
-    /// Persisted label position in absolute data-space (x = Hz, y = dB).
-    /// `.zero` means no saved position; the default (70pt above peak) is used instead.
-    let offset: CGPoint
+    /// The label's centre in chart units (x = Hz, y = dB).
+    let centre: CGPoint
+    /// Whether the label has been dragged: it has a stored position.
+    let isMoved: Bool
     /// Full view geometry, used to resolve `plotFrame` origin.
     let chartGeometry: GeometryProxy
     /// The chart's rendered plot area within the containing view.
@@ -205,8 +235,8 @@ struct DraggablePeakAnnotation: View {
     /// `true` during an active drag gesture.
     @State private var isDragging: Bool = false
 
-    /// Label origin frozen at drag-start so positions don't jump mid-gesture. `nil` when not dragging.
-    @State private var frozenChartPosition: CGPoint? = nil
+    /// The label's centre on screen, frozen at drag-start so it doesn't jump mid-gesture. `nil` when not dragging.
+    @State private var frozenCentre: CGPoint? = nil
 
     private var modeColor: Color {
         if measurementType.isGuitar {
@@ -231,116 +261,31 @@ struct DraggablePeakAnnotation: View {
         }
     }
 
-    /// Whether the annotation has been moved from its default position
-    private var isMoved: Bool {
-        offset.x != 0 || offset.y != 0
+    private var mapping: PlotMapping {
+        PlotMapping(plot: plotFrame, minFreq: minFreq, maxFreq: maxFreq, minDB: minDB, maxDB: maxDB)
     }
 
-    /// Current label origin in view coordinates (the default 70pt-above-peak position, ignoring any stored offset).
-    /// Returns the drag-frozen value while a drag is active; otherwise computes fresh from current axis ranges.
-    /// No `@State` writes needed — positions update automatically on every render when props change.
-    private var chartPosition: CGPoint {
-        frozenChartPosition ?? calculateChartPosition()
+    /// The peak's dot on screen — outside the plot when the peak is outside the ranges, where the
+    /// plot's edge cuts the line. NOT frozen during a drag: the dot does not move while you drag its
+    /// label, so the line's start must keep tracking it live.
+    private var peakPosition: CGPoint? {
+        mapping.point(hz: CGFloat(peak.frequency), db: CGFloat(peak.magnitude))
     }
 
-    /// Current peak marker position in view coordinates.
-    /// Returns the drag-frozen value while a drag is active; otherwise computes fresh.
-    private var peakPosition: CGPoint {
-        // NOT frozen during a drag: the dot does not move while you drag its label, so the
-        // connecting line's start must keep tracking it live. Freezing it pinned the line to a
-        // stale point for the duration of the gesture, so the line visibly detached from the dot
-        // and snapped back on release.
-        calculatePeakPosition()
-    }
-
-    /// Calculate position in chart coordinates
-    private func calculateChartPosition() -> CGPoint {
-        // Use the plot frame dimensions for accurate positioning
-        let chartWidth = plotFrame.width
-        let chartHeight = plotFrame.height
-        guard chartWidth > 0, chartHeight > 0 else { return .zero }
-
-        // Calculate X position (frequency)
-        let freqRange = maxFreq - minFreq
-        guard freqRange > 0 else { return .zero }
-        let freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
-        let x = plotFrame.minX + freqNormalized * chartWidth
-
-        // Calculate Y position (magnitude)
-        let dbRange = maxDB - minDB
-        guard dbRange > 0 else { return .zero }
-        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
-        let dbNormalized = CGFloat((clampedMag - minDB) / dbRange)
-        let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
-
-        return CGPoint(x: x, y: y - 70) // Offset up by 70 to place above peak
-    }
-
-    /// Position of the actual peak marker (without the label offset)
-    private func calculatePeakPosition() -> CGPoint {
-        let chartWidth = plotFrame.width
-        let chartHeight = plotFrame.height
-        guard chartWidth > 0, chartHeight > 0 else { return .zero }
-
-        // Calculate X position (frequency)
-        let freqRange = maxFreq - minFreq
-        guard freqRange > 0 else { return .zero }
-        let freqNormalized = CGFloat((peak.frequency - minFreq) / freqRange)
-        let x = plotFrame.minX + freqNormalized * chartWidth
-
-        // Calculate Y position (magnitude)
-        let dbRange = maxDB - minDB
-        guard dbRange > 0 else { return .zero }
-        let clampedMag = max(minDB, min(maxDB, peak.magnitude))
-        let dbNormalized = CGFloat((clampedMag - minDB) / dbRange)
-        let y = plotFrame.minY + (1.0 - dbNormalized) * chartHeight
-
-        return CGPoint(x: x, y: y)
-    }
-
-    /// Final position including user offset and drag.
-    ///
-    /// `offset` is stored in **absolute** data-space (x = Hz, y = dB); convert to
-    /// pixels using the current axis ranges and plot frame.
-    /// When `offset == .zero` (no stored position), falls back to `chartPosition`
-    /// (the 70pt-above-peak default).
-    /// `dragOffset` is a transient live-drag value already in pixels.
-    private var finalPosition: CGPoint {
-        let freqRange = CGFloat(maxFreq - minFreq)
-        let dbRange   = CGFloat(maxDB   - minDB)
-        guard plotFrame.width > 0, plotFrame.height > 0, freqRange > 0, dbRange > 0 else {
-            return CGPoint(x: chartPosition.x + dragOffset.width,
-                           y: chartPosition.y + dragOffset.height)
-        }
-        if offset == .zero {
-            // No saved position — use default (70pt above peak) plus any live drag.
-            return CGPoint(
-                x: chartPosition.x + dragOffset.width,
-                y: chartPosition.y + dragOffset.height
-            )
-        }
-        // Convert absolute data-space position to pixels.
-        let absX = plotFrame.minX + ((CGFloat(offset.x) - CGFloat(minFreq)) / freqRange) * plotFrame.width
-        let absY = plotFrame.minY + (1.0 - (CGFloat(offset.y) - CGFloat(minDB)) / dbRange) * plotFrame.height
-        return CGPoint(x: absX + dragOffset.width, y: absY + dragOffset.height)
+    /// The label's centre on screen, including any live drag.
+    private var finalPosition: CGPoint? {
+        guard let centrePoint = frozenCentre ?? mapping.point(hz: centre.x, db: centre.y) else { return nil }
+        return CGPoint(x: centrePoint.x + dragOffset.width, y: centrePoint.y + dragOffset.height)
     }
 
     var body: some View {
         // Separate the connection line and label into distinct layers
         ZStack(alignment: .topLeading) {
-            // Connection line layer - never hittable (visual only)
-            if peakPosition.x.isFinite && peakPosition.y.isFinite &&
-               chartPosition.x.isFinite && chartPosition.y.isFinite &&
-               chartPosition != .zero {
-                ConnectionLine(
-                    from: peakPosition,
-                    to: CGPoint(
-                        x: finalPosition.x,
-                        y: finalPosition.y + 30
-                    ),
-                    color: modeColor
-                )
-                .allowsHitTesting(false)
+            // The line from the peak's dot to the label's centre, drawn first so the label covers its
+            // end — never hittable (visual only).
+            if let peakPosition, let finalPosition {
+                ConnectionLine(from: peakPosition, to: finalPosition, color: modeColor)
+                    .allowsHitTesting(false)
             }
 
             // The annotation content - positioned independently.
@@ -364,15 +309,16 @@ struct DraggablePeakAnnotation: View {
                 Color.clear.preference(key: PeakLabelFramesKey.self,
                                        value: [peak.id: label.frame(in: .named(PeakLabelFramesKey.space))])
             })
-            .position(finalPosition)
+            .position(finalPosition ?? .zero)
+            .opacity(finalPosition == nil ? 0 : 1)
             .highPriorityGesture(
                 DragGesture(minimumDistance: 1)
                     .onChanged { value in
                         if !isDragging {
                             isDragging = true
                             isAnnotationDragging = true
-                            // Freeze positions at drag start so they don't shift mid-gesture
-                            frozenChartPosition = calculateChartPosition()
+                            // Freeze the label's centre at drag start so it doesn't shift mid-gesture
+                            frozenCentre = mapping.point(hz: centre.x, db: centre.y)
                             #if os(macOS)
                             NSCursor.closedHand.set()
                             #endif
@@ -380,24 +326,9 @@ struct DraggablePeakAnnotation: View {
                         dragOffset = value.translation
                     }
                     .onEnded { value in
-                        // Store the absolute data-space position of the label center.
-                        // Take the current finalPosition (which incorporates the live
-                        // dragOffset), then convert from pixels back to data-space (Hz, dB).
-                        let freqRange = CGFloat(maxFreq - minFreq)
-                        let dbRange   = CGFloat(maxDB   - minDB)
-                        let dataOffset: CGPoint
-                        if plotFrame.width > 0, plotFrame.height > 0, freqRange > 0, dbRange > 0 {
-                            // finalPosition before dragOffset is cleared gives the pixel
-                            // position of the label center at drag-end.
-                            let endPixelX = finalPosition.x
-                            let endPixelY = finalPosition.y
-                            // Convert pixels → absolute data-space.
-                            let absHz = CGFloat(minFreq) + ((endPixelX - plotFrame.minX) / plotFrame.width)  * freqRange
-                            let absDB = CGFloat(minDB)   + (1.0 - (endPixelY - plotFrame.minY) / plotFrame.height) * dbRange
-                            dataOffset = CGPoint(x: absHz, y: absDB)
-                        } else {
-                            dataOffset = .zero
-                        }
+                        // Store the label's centre at drag-end (finalPosition, before dragOffset is
+                        // cleared, includes the live drag) in chart units (Hz, dB).
+                        let dataCentre = finalPosition.flatMap { mapping.data(at: $0) }
 
                         // Disable animation for smoother dragging
                         #if os(macOS)
@@ -407,13 +338,13 @@ struct DraggablePeakAnnotation: View {
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
-                            onOffsetChange(dataOffset)
+                            if let dataCentre { onOffsetChange(dataCentre) }
                             isDragging = false
                             isAnnotationDragging = false
                         }
                         dragOffset = .zero
-                        // Release frozen positions — computed properties take over again
-                        frozenChartPosition = nil
+                        // Release the frozen centre — the computed position takes over again
+                        frozenCentre = nil
                     }
             )
             #if os(iOS)
@@ -461,7 +392,7 @@ struct PeakLabelFramesKey: PreferenceKey {
 private struct ConnectionLine: View {
     /// Starting point — the peak marker position.
     let from: CGPoint
-    /// Ending point — the bottom centre of the label badge.
+    /// Ending point — the centre of the label, which covers the line's end.
     let to: CGPoint
     /// The mode color used for the stroke.
     let color: Color

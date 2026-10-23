@@ -784,7 +784,7 @@ struct TapToneMeasurement: Identifiable, Codable {
             decodedOffsets = named.mapValues { CGPoint(x: $0.absFreqHz, y: $0.absDB) }
         } else {
             // Legacy: raw CGPoint or old hzOffset/dbOffset fields — treat as no position saved.
-            // Annotation labels will fall back to their default (70pt above peak) positions.
+            // Annotation labels will fall back to their default positions (annotationCentre(for:)).
             decodedOffsets = nil
         }
         tapDetectionThreshold = try container.decodeIfPresent(Float.self, forKey: .tapDetectionThreshold)

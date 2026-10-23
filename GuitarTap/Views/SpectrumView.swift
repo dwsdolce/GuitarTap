@@ -163,9 +163,8 @@ struct SpectrumView: View {
 
     /// The subset of peaks that should show annotation labels.
     ///
-    /// When `nil`, `visiblePeaks` falls back to `peaks` filtered by frequency range
-    /// (the behaviour before annotation visibility was introduced).  When provided,
-    /// the caller is responsible for applying the annotation visibility filter so that
+    /// When `nil`, `visiblePeaks` falls back to `peaks` with the unknown-mode filter. When
+    /// provided, the caller is responsible for applying the annotation visibility filter so that
     /// `SpectrumView` does not need to know about `selectedPeakIDs` or
     /// `annotationVisibilityMode`.
     var annotationPeaks: [ResonantPeak]? = nil
@@ -312,36 +311,9 @@ struct SpectrumView: View {
     @State private var crosshairSnapState: CursorSnapState? = nil
     #endif
 
-    /// Estimated hit rects for visible annotation labels, used by onContinuousHover
-    /// to set the openHand cursor. Computed from label positions + a fixed size estimate.
-    /// Uses the same position logic as DraggablePeakAnnotation.calculateChartPosition().
-    func annotationLabelRects(in plotFrame: CGRect) -> [CGRect] {
-        guard let offsets = annotationOffsets else { return [] }
-        let labelSize = CGSize(width: 100, height: 80) // conservative estimate
-        return visiblePeaks.compactMap { peak -> CGRect? in
-            let freqRange = CGFloat(maxFreq - minFreq)
-            let dbRange   = CGFloat(maxDB   - minDB)
-            guard plotFrame.width > 0, plotFrame.height > 0,
-                  freqRange > 0, dbRange > 0 else { return nil }
-            // X from frequency
-            let freqNormalized = CGFloat((peak.frequency - minFreq)) / freqRange
-            let baseX = plotFrame.minX + freqNormalized * plotFrame.width
-            // Y from magnitude (inverted, offset up 70pt for default label position)
-            let clampedMag = max(minDB, min(maxDB, peak.magnitude))
-            let dbNormalized = CGFloat(clampedMag - minDB) / dbRange
-            let baseY = plotFrame.minY + (1.0 - dbNormalized) * plotFrame.height - 70
-            // Apply persisted data-space offset
-            let storedOffset = offsets.wrappedValue[peak.id] ?? .zero
-            let pixelOffsetX = (CGFloat(storedOffset.x) / freqRange) * plotFrame.width
-            let pixelOffsetY = (CGFloat(storedOffset.y) / dbRange)   * plotFrame.height
-            let centre = CGPoint(x: baseX + pixelOffsetX, y: baseY + pixelOffsetY)
-            return CGRect(
-                x: centre.x - labelSize.width  / 2,
-                y: centre.y - labelSize.height / 2,
-                width:  labelSize.width,
-                height: labelSize.height
-            )
-        }
+    /// Whether a point is over a peak label: the labels' frames as drawn, cut at the plot's edges.
+    func isOverLabel(_ point: CGPoint, plotFrame: CGRect) -> Bool {
+        peakLabelFrames.values.contains { $0.intersection(plotFrame).contains(point) }
     }
 
     // MARK: - Computed Properties
@@ -411,27 +383,24 @@ struct SpectrumView: View {
         Set(modeOverrides.keys)
     }
 
-    /// Returns the peaks that should show annotation labels.
+    /// Returns the peaks that should show annotation labels — whatever the chart's range: a label
+    /// whose peak is off the chart is drawn too, and the plot's edges cut it.
     ///
-    /// When an explicit ``annotationPeaks`` list is provided by the caller, that list is
-    /// filtered to the visible frequency range and returned directly — the caller has
-    /// already applied the annotation visibility mode filter.
+    /// When an explicit ``annotationPeaks`` list is provided by the caller, that list is returned
+    /// as it is — the caller has already applied the annotation visibility mode filter.
     ///
-    /// When `annotationPeaks` is `nil`, falls back to ``peaks`` with the same
-    /// frequency-range and unknown-mode filters applied (legacy behaviour for call sites
-    /// that don't need separate dot/label control).
+    /// When `annotationPeaks` is `nil`, falls back to ``peaks`` with the dot layer's unknown-mode
+    /// filter, over every frequency (call sites that don't need separate dot/label control).
     var visiblePeaks: [ResonantPeak] {
         // If the caller supplied a pre-filtered annotation list, use it
         if let explicit = annotationPeaks {
-            return explicit.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq }
+            return explicit
         }
 
-        // Legacy fallback: same range + unknown-mode rule as the dot layer, so a call site that
-        // supplies no explicit annotation list still honours user-assigned mode labels.
         return GuitarMode.peaksInDisplayRange(
             peaks ?? [],
-            minFreq: minFreq,
-            maxFreq: maxFreq,
+            minFreq: -.infinity,
+            maxFreq: .infinity,
             isGuitar: measurementType.isGuitar,
             showUnknownModes: TapDisplaySettings.showUnknownModes,
             overriddenPeakIDs: overriddenPeakIDs
@@ -626,6 +595,12 @@ struct SpectrumView: View {
                     Rectangle()
                         .fill(Color.clear)
 
+                    // The mode chips, over the curves and dots, under the peak labels.
+                    if showModeBoundaries && measurementType.isGuitar {
+                        ModeChipsLayer(mapping: PlotMapping(plot: resolvedPlotFrame, minFreq: minFreq, maxFreq: maxFreq,
+                                                            minDB: minDB, maxDB: maxDB))
+                    }
+
                     PeakAnnotationsOverlay(
                         peaks: visiblePeaks,
                         annotationOffsets: annotationOffsets!,
@@ -671,7 +646,7 @@ struct SpectrumView: View {
                         lastCursorPosition = location
                         let region = pointerRegion(at: location, plotFrame: resolvedPlotFrame)
                         currentPointerRegion = region
-                        let overLabel = annotationLabelRects(in: resolvedPlotFrame).contains { $0.contains(location) }
+                        let overLabel = isOverLabel(location, plotFrame: resolvedPlotFrame)
                         if overLabel {
                             NSCursor.openHand.set()
                         } else {
@@ -710,7 +685,7 @@ struct SpectrumView: View {
                 })
                 // A right-click with a mouse or trackpad opens the chart menu; touches pass through.
                 .overlay(SecondaryClickMenu(menu: { chartUIMenu() }, passesThrough: { point in
-                    peakLabelFrames.values.contains { $0.contains(point) }
+                    isOverLabel(point, plotFrame: resolvedPlotFrame)
                 }))
                 // Pan/crosshair DragGesture: annotation highPriorityGestures pre-empt this as children
                 .gesture(
@@ -771,7 +746,7 @@ struct SpectrumView: View {
                     handleScrollWheel(event: event, plotFrame: resolvedPlotFrame, proxy: proxy)
                 }, cursorHandler: { point in
                     let cgPoint = CGPoint(x: point.x, y: point.y)
-                    let overLabel = annotationLabelRects(in: resolvedPlotFrame).contains { $0.contains(cgPoint) }
+                    let overLabel = isOverLabel(cgPoint, plotFrame: resolvedPlotFrame)
                     if overLabel {
                         NSCursor.openHand.set()
                     } else {

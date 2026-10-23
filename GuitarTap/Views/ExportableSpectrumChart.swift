@@ -80,7 +80,7 @@ struct ExportableSpectrumChart: View {
     /// Whether to draw guitar mode boundary lines.
     var showModeBoundaries: Bool = true
     /// Per-peak label positions in absolute data-space (x = Hz, y = dB).
-    /// When `.zero` or absent, the default position (70pt above peak) is used.
+    /// When absent, the label sits at its peak plus `TapToneAnalyzer.defaultAnnotationOffset`.
     var annotationOffsets: [UUID: CGPoint] = [:]
     /// Override for `TapDisplaySettings.showUnknownModes`. Pass `nil` to use
     /// the global setting.
@@ -136,8 +136,10 @@ struct ExportableSpectrumChart: View {
         return boundaries
     }
 
+    /// The peaks labelled, whatever the chart's range: a label whose peak is off the chart is drawn too,
+    /// and the plot's edges cut it. The dots take the ones inside the range.
     private var visiblePeaks: [ResonantPeak] {
-        let filtered = peaks?.filter { $0.frequency >= minFreq && $0.frequency <= maxFreq } ?? []
+        let filtered = peaks ?? []
 
         // In plate/brace mode, show all peaks (no guitar mode filtering)
         if !measurementType.isGuitar {
@@ -224,30 +226,8 @@ struct ExportableSpectrumChart: View {
         }
     }
 
-    /// Compute the annotation label center in chart-local pixels from a stored absolute
-    /// data-space position, the chart frame, and the axis bounds.
-    ///
-    /// - Returns: The pixel coordinate for the annotation card center.
-    ///   When ``annotationOffsets`` has no entry for the peak (or the stored value is `.zero`),
-    ///   the default position (70 pt above the peak marker) is returned.
-    private func annotationPosition(
-        for peak: ResonantPeak,
-        peakPosition: CGPoint,
-        frame: CGRect
-    ) -> CGPoint {
-        let offset = annotationOffsets[peak.id] ?? .zero
-        let freqRange = CGFloat(maxFreq - minFreq)
-        let dbRange   = CGFloat(maxDB   - minDB)
-        guard offset != .zero, freqRange > 0, dbRange > 0 else {
-            return CGPoint(x: peakPosition.x, y: peakPosition.y - 70)
-        }
-        let ax = frame.minX + ((offset.x - CGFloat(minFreq)) / freqRange) * frame.width
-        let ay = frame.minY + (1.0 - (offset.y - CGFloat(minDB)) / dbRange) * frame.height
-        return CGPoint(x: ax, y: ay)
-    }
-
-    private func isStartOfModeRange(_ frequency: Float, for mode: GuitarMode) -> Bool {
-        return abs(frequency - mode.modeRange.lowerBound) < 0.1
+    private func mapping(_ plot: CGRect) -> PlotMapping {
+        PlotMapping(plot: plot, minFreq: minFreq, maxFreq: maxFreq, minDB: minDB, maxDB: maxDB)
     }
 
     /// The points of one spectrum to draw: those inside the range and the one beyond each edge
@@ -307,28 +287,14 @@ struct ExportableSpectrumChart: View {
                                         .foregroundStyle(Palette.color(boundary.mode).opacity(ChartStyle.export.modeBoundaryOpacity))
                                         .lineStyle(StrokeStyle(lineWidth: ChartStyle.export.modeBoundaryWidth,
                                                                dash: ChartStyle.export.modeBoundaryDash))
-                                        .annotation(
-                                            position: .top,
-                                            alignment: .center,
-                                            spacing: 4,
-                                            overflowResolution: .init(x: .fit, y: .fit(to: .plot))
-                                        ) {
-                                            if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
-                                                Text(boundary.mode.abbreviation)
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .foregroundColor(Palette.color(boundary.mode))
-                                                    .padding(.horizontal, 8)
-                                                    .padding(.vertical, 4)
-                                                    .background(Palette.color(boundary.mode).opacity(Palette.opacity(.modeChipFill)))
-                                                    .cornerRadius(6)
-                                            }
-                                        }
                                 }
                             }
 
-                            // Peak markers only (no inline annotations)
+                            // Peak markers only (no inline annotations), for the peaks inside the frequency range.
                             // Peaks below minDB are hidden entirely — not clamped to the bottom.
-                            ForEach(visiblePeaks.filter { $0.magnitude >= minDB }) { peak in
+                            ForEach(visiblePeaks.filter {
+                                $0.frequency >= minFreq && $0.frequency <= maxFreq && $0.magnitude >= minDB
+                            }) { peak in
                                 let clampedMag = min(maxDB, peak.magnitude)
                                 PointMark(
                                     x: .value("Frequency", peak.frequency),
@@ -390,28 +356,30 @@ struct ExportableSpectrumChart: View {
                                 if let plotFrame = proxy.plotFrame {
                                     let frame = geometry[plotFrame]
 
-                                    // Connection lines layer
+                                    let map = mapping(frame)
+
+                                    // The mode chips, over the curves and dots, under the labels.
+                                    if showModeBoundaries && measurementType.isGuitar {
+                                        ModeChipsLayer(mapping: map, exporting: true)
+                                    }
+
+                                    // The labels and their lines: each line from the peak's dot to its label's
+                                    // centre, under the label; all cut at the plot's edges.
+                                    ZStack(alignment: .topLeading) {
                                     ForEach(visiblePeaks) { peak in
-                                        if let peakX = proxy.position(forX: peak.frequency),
-                                           let peakY = proxy.position(forY: Double(peak.magnitude)) {
-                                            let peakPosition = CGPoint(x: frame.minX + peakX, y: frame.minY + peakY)
-                                            let annPos = annotationPosition(for: peak, peakPosition: peakPosition, frame: frame)
-                                            ConnectionLineShape(
-                                                from: CGPoint(x: annPos.x, y: annPos.y + 50),
-                                                to: peakPosition
-                                            )
+                                        let centre = TapToneAnalyzer.annotationCentre(for: peak, offsets: annotationOffsets)
+                                        if let peakPosition = map.point(hz: CGFloat(peak.frequency), db: CGFloat(peak.magnitude)),
+                                           let annPos = map.point(hz: centre.x, db: centre.y) {
+                                            ConnectionLineShape(from: annPos, to: peakPosition)
                                             .stroke(peakColor(for: peak).opacity(ChartStyle.export.leaderOpacity),
                                                     style: StrokeStyle(lineWidth: ChartStyle.export.leaderWidth,
                                                                        dash: ChartStyle.export.leaderDash))
                                         }
                                     }
 
-                                    // Annotations layer
                                     ForEach(visiblePeaks) { peak in
-                                        if let peakX = proxy.position(forX: peak.frequency),
-                                           let peakY = proxy.position(forY: Double(peak.magnitude)) {
-                                            let peakPosition = CGPoint(x: frame.minX + peakX, y: frame.minY + peakY)
-                                            let annPos = annotationPosition(for: peak, peakPosition: peakPosition, frame: frame)
+                                        let centre = TapToneAnalyzer.annotationCentre(for: peak, offsets: annotationOffsets)
+                                        if let annPos = map.point(hz: centre.x, db: centre.y) {
                                             let annotationX = annPos.x
                                             let annotationY = annPos.y
 
@@ -457,6 +425,9 @@ struct ExportableSpectrumChart: View {
                                             .position(x: annotationX, y: annotationY)
                                         }
                                     }
+                                    }
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                    .clipShape(PlotArea(rect: frame))
                                 }
                             }
                         }

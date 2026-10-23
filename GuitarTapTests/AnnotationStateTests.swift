@@ -5,7 +5,7 @@
 //  The per-peak state the user edits and the views read: dragged label positions, selection, which
 //  peaks are annotated, mode labels (the user's own and the auto-detected), the one definitive
 //  Air/Top/Back and the tap-tone ratio, and what clears it all. The shared cases in
-//  `annotation-state.json` (AS1–AS41), the same as Python and the web: each loads its peaks as the app
+//  `annotation-state.json` (AS1–AS44), the same as Python and the web: each loads its peaks as the app
 //  loads a file and edits them as the views do. Below them, the visibility enum's own cycle and icons,
 //  which are Swift's UI types.
 //
@@ -135,6 +135,11 @@ struct AnnotationStateTests {
                 #expect(got == wanted, "\(id) \(field): \(got)")
             case "offsetCount":
                 #expect(sut.peakAnnotationOffsets.count == want as? Int, "\(id) \(field)")
+            case "centre":
+                for (name, xy) in want as! [String: [NSNumber]] {
+                    let got = sut.annotationCentre(for: c.peak(name))
+                    #expect([Double(got.x), Double(got.y)] == xy.map(\.doubleValue), "\(id) \(field) \(name): \(got)")
+                }
             case "getPeak":
                 for (mode, name) in want as! [String: Any] {
                     let got = sut.getPeak(for: modes[mode]!).map { c.names[$0.id] ?? $0.id.uuidString }
@@ -182,6 +187,13 @@ struct AnnotationStateTests {
             }
         }
         Self.check(row["expect"] as! [String: Any], context, id)
+    }
+
+    /// Where an undragged label's centre sits from its peak: the shared case file's `labelOffset`.
+    @Test func defaultAnnotationOffset_isTheSharedOffset() {
+        let want = (Self.data["labelOffset"] as! [NSNumber]).map(\.doubleValue)
+        let got = TapToneAnalyzer.defaultAnnotationOffset
+        #expect([Double(got.x), Double(got.y)] == want)
     }
 }
 

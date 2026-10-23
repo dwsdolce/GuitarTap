@@ -37,9 +37,8 @@ extension TapToneAnalyzer {
     ///   - peakID: The ``ResonantPeak/id`` of the peak whose label is being
     ///     repositioned.
     ///   - offset: The absolute label-center position in **data-space**:
-    ///     `x` = frequency in Hz, `y` = magnitude in dB.
-    ///     `.zero` represents "no saved position" — the default (70pt above peak)
-    ///     will be used at render time.
+    ///     `x` = frequency in Hz, `y` = magnitude in dB. A peak with no stored position
+    ///     has its label at its peak plus ``defaultAnnotationOffset`` (``annotationCentre(for:)``).
     ///     Stored values are converted to pixels at render time using the current
     ///     chart axis ranges, making positions valid across platforms and screen sizes.
     ///
@@ -56,13 +55,21 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Returns the current drag-offset for the given peak's annotation callout.
-    ///
-    /// - Parameter peakID: The ``ResonantPeak/id`` of the target peak.
-    /// - Returns: The stored `CGPoint` offset, or `.zero` if the label has
-    ///   never been dragged or its offset was cleared.
-    func getAnnotationOffset(for peakID: UUID) -> CGPoint {
-        peakAnnotationOffsets[peakID] ?? .zero
+    /// Where an undragged peak label's centre sits from its peak, in chart units: `x` Hz, `y` dB.
+    static let defaultAnnotationOffset = CGPoint(x: 0, y: 14)
+
+    /// A peak label's centre in chart units (`x` Hz, `y` dB): where the label was dragged, else the peak
+    /// plus ``defaultAnnotationOffset``. It depends on the peak alone — the chart's range, zoom and the
+    /// annotation visibility do not move it.
+    func annotationCentre(for peak: ResonantPeak) -> CGPoint {
+        Self.annotationCentre(for: peak, offsets: peakAnnotationOffsets)
+    }
+
+    /// ``annotationCentre(for:)`` from a given map of dragged positions — for the views and the export,
+    /// which are handed the positions rather than the analyzer.
+    static func annotationCentre(for peak: ResonantPeak, offsets: [UUID: CGPoint]) -> CGPoint {
+        offsets[peak.id] ?? CGPoint(x: CGFloat(peak.frequency) + defaultAnnotationOffset.x,
+                                    y: CGFloat(peak.magnitude) + defaultAnnotationOffset.y)
     }
 
     /// Removes any stored drag-offset for a single peak, returning its

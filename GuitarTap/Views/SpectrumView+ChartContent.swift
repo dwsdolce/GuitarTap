@@ -12,7 +12,8 @@
 ///
 /// 1. `spectrumLineContent` — primary red `LineMark` of the FFT spectrum.
 /// 2. `modeBoundaryContent` — vertical `RuleMark` lines at guitar mode boundaries
-///    (only when `showModeBoundaries` and `measurementType.isGuitar`).
+///    (only when `showModeBoundaries` and `measurementType.isGuitar`); their names are
+///    ``ModeChipsLayer``, drawn over the chart.
 /// 3. `peakAnnotationContent` — `PointMark` dots at each detected peak with
 ///    invisible placeholder annotations for label positioning.
 /// 4. `materialSpectraContent` — coloured `LineMark` overlays for plate/brace
@@ -51,11 +52,10 @@ extension SpectrumView {
     }
 
     /// Guitar mode boundary markers: vertical dashed `RuleMark` lines at mode
-    /// frequency boundaries, with abbreviated mode labels at the start of each band.
+    /// frequency boundaries. The mode names are ``ModeChipsLayer``, over the chart.
     ///
     /// Only rendered when `showModeBoundaries` is `true` and the current
-    /// `measurementType` is a guitar type.  Labels are shown only at the lower
-    /// boundary of each mode range (determined by `isStartOfModeRange(_:for:)`).
+    /// `measurementType` is a guitar type.
     @ChartContentBuilder
     var modeBoundaryContent: some ChartContent {
         // Only show guitar mode boundaries when in guitar measurement mode
@@ -65,24 +65,6 @@ extension SpectrumView {
                     .foregroundStyle(Palette.color(boundary.mode).opacity(ChartStyle.screen.modeBoundaryOpacity))
                     .lineStyle(StrokeStyle(lineWidth: ChartStyle.screen.modeBoundaryWidth,
                                            dash: ChartStyle.screen.modeBoundaryDash))
-                    .annotation(
-                        position: .top,
-                        alignment: .center,
-                        spacing: 4,
-                        overflowResolution: .init(x: .fit, y: .fit(to: .plot))
-                    ) {
-                        // Only show mode name at start of range (lower boundary)
-                        if isStartOfModeRange(boundary.frequency, for: boundary.mode) {
-                            Text(boundary.mode.abbreviation)
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(Palette.color(boundary.mode))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(Palette.color(boundary.mode).opacity(Palette.opacity(.modeChipFill)))
-                                .cornerRadius(4)
-                        }
-                    }
             }
         }
     }
@@ -250,8 +232,45 @@ extension SpectrumView {
         }
     }
 
-    /// Determines if this boundary frequency is the start (lower bound) of a mode range
-    func isStartOfModeRange(_ frequency: Float, for mode: GuitarMode) -> Bool {
-        return abs(frequency - mode.modeRange.lowerBound) < 0.1
+}
+
+// MARK: - Mode chips
+
+/// The mode names at the start of each guitar mode's range, at the top of the plot, centred on the
+/// range's start — cut at the plot's edges, never moved inside: a chip whose range starts just off the
+/// chart shows the part inside the plot. Drawn over the chart in plot coordinates (``PlotMapping``),
+/// the live chart's and the export's alike.
+struct ModeChipsLayer: View {
+    let mapping: PlotMapping
+    /// The export's chips: larger, and a little below the plot's top.
+    var exporting = false
+
+    var body: some View {
+        let modes: [GuitarMode] = [.air, .top, .back, .dipole, .ringMode, .upperModes]
+        ZStack(alignment: .topLeading) {
+            ForEach(modes, id: \.self) { mode in
+                if let x = mapping.point(hz: CGFloat(mode.modeRange.lowerBound), db: CGFloat(mapping.maxDB))?.x {
+                    // Centred on a zero-width frame at the view's leading edge, then moved by an offset,
+                    // which leaves the layout alone: a chip far off the plot cannot shift the others.
+                    chip(mode)
+                        .fixedSize()
+                        .frame(width: 0)
+                        .offset(x: x, y: mapping.plot.minY + (exporting ? 4 : 0))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .clipShape(PlotArea(rect: mapping.plot))
+        .allowsHitTesting(false)
+    }
+
+    private func chip(_ mode: GuitarMode) -> some View {
+        Text(mode.abbreviation)
+            .font(exporting ? .system(size: 14, weight: .semibold) : .caption2.weight(.semibold))
+            .foregroundColor(Palette.color(mode))
+            .padding(.horizontal, exporting ? 8 : 4)
+            .padding(.vertical, exporting ? 4 : 2)
+            .background(Palette.color(mode).opacity(Palette.opacity(.modeChipFill)))
+            .cornerRadius(exporting ? 6 : 4)
     }
 }
