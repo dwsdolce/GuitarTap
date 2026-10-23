@@ -188,7 +188,7 @@ extension RealtimeFFTAnalyzer {
         // Configure audio session for recording (iOS only)
         let audioSession = AVAudioSession.sharedInstance()
         do {
-            try audioSession.setCategory(.record, mode: .measurement, options: [])
+            try Self.setRecordingCategory(audioSession)
             try audioSession.setActive(true, options: [])
         } catch {
             throw error

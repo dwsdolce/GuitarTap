@@ -9,8 +9,8 @@
 /// - **`toggleAnalyzer()`** — Starts or stops the audio engine.  The engine checks or asks
 ///   for the microphone permission when it starts, on macOS and iOS alike.
 ///
-/// - **`startAnalyzer()`** — Calls `TapToneAnalyzer.start()` after configuring
-///   the `AVAudioSession` on iOS.  Surfaces a permission refusal as the alert
+/// - **`startAnalyzer()`** — Calls `TapToneAnalyzer.start()`, which sets up the audio
+///   session on iOS.  Surfaces a permission refusal as the alert
 ///   (`RealtimeFFTAnalyzer.isPermissionError`), other failures as an engine error.
 ///
 /// - **`startNewTapSequence()`** — Resets the analyzer for a new tap cycle,
@@ -51,13 +51,6 @@ extension TapToneAnalysisView {
         // Don't dispatch to background - this can cause deadlocks when the engine
         // tries to update @Published properties on main thread
         do {
-            #if os(iOS)
-            // Configure audio session for iOS
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: [])
-            try session.setActive(true)
-            #endif
-
             try self.tapToneAnalyzer.start()
         } catch {
             gtLog("❌ Failed to start analyzer: \(error)")

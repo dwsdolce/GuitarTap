@@ -530,10 +530,20 @@ extension RealtimeFFTAnalyzer {
     #endif
     
     #if os(iOS)
+    /// Sets the session's category to the one the app records with — `.record`, mode `.measurement`,
+    /// no options — unless it is that already. iOS warns when the category is set while the session is
+    /// active, even to the same value, and each setting is a round trip to the system; the microphone
+    /// list and the engine's start both need it, so whichever comes second finds it set.
+    static func setRecordingCategory(_ session: AVAudioSession) throws {
+        guard session.category != .record || session.mode != .measurement || !session.categoryOptions.isEmpty
+        else { return }
+        try session.setCategory(.record, mode: .measurement, options: [])
+    }
+
     /// Enumerates `AVAudioSession.availableInputs` and updates `availableInputDevices`.
     ///
-    /// Configures the audio session to `.playAndRecord` / `.measurement` before
-    /// querying, because iOS will not expose external USB audio devices unless a
+    /// Sets the recording category (``setRecordingCategory(_:)``) before querying,
+    /// because iOS will not expose external USB audio devices unless a
     /// recording category is active. This configuration step is **skipped** if the
     /// engine is already running to avoid invalidating the active audio tap.
     ///
@@ -548,11 +558,10 @@ extension RealtimeFFTAnalyzer {
         // and cause the app to stop receiving audio data.
         if !audioEngine.isRunning {
             // Configure audio session BEFORE querying available inputs
-            // Without setting the category to .record or .playAndRecord, iOS will NOT
-            // expose external USB audio devices (like UMIK-1) in availableInputs.
+            // Without a recording category, iOS will NOT expose external USB audio
+            // devices (like UMIK-1) in availableInputs; the engine's .record does.
             do {
-                // Use .playAndRecord to maximize device discovery
-                try session.setCategory(.playAndRecord, mode: .measurement, options: [.allowBluetoothA2DP])
+                try Self.setRecordingCategory(session)
                 try session.setActive(true, options: [])
                 gtLog("🎙️ iOS audio session configured for device enumeration")
             } catch {
