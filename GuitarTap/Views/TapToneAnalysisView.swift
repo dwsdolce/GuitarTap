@@ -240,6 +240,7 @@ struct TapToneAnalysisView: View {
     /// produce, so the user can re-arm.  Always enabled in comparison mode; disabled
     /// when the FFT isn't running/ready.
     var newTapButtonDisabled: Bool { buttonRule(buttonState).newTapDisabled }
+    var typeMenuDisabled: Bool { !buttonRule(buttonState).typeMenuEnabled }
 
     /// Creates the view and its paired audio analyzers.
     ///

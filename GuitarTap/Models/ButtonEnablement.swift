@@ -48,6 +48,10 @@ struct ButtonOutput: Equatable {
     var pauseEnabled: Bool
     var newTapDisabled: Bool
     var cancelEnabled: Bool
+    /// The measurement-type button beside New Tap. Choosing a type restarts with it, as the Settings picker
+    /// does, so it is enabled whenever that is — during a sequence too — except during a file playback,
+    /// which Cancel stops first.
+    var typeMenuEnabled: Bool
 }
 
 /// Computes the Pause / New Tap / Cancel enablement triple from the analyzer state.
@@ -56,7 +60,7 @@ func buttonRule(_ s: ButtonState) -> ButtonOutput {
     // delivers taps back to back, so pausing detection while the file plays on would only let taps
     // go by, and a new sequence would be fed the rest of the file.
     if s.isPlayingFile {
-        return ButtonOutput(pauseEnabled: false, newTapDisabled: true, cancelEnabled: true)
+        return ButtonOutput(pauseEnabled: false, newTapDisabled: true, cancelEnabled: true, typeMenuEnabled: false)
     }
 
     let isGuitar = s.measurementType.isGuitar
@@ -105,5 +109,6 @@ func buttonRule(_ s: ButtonState) -> ButtonOutput {
 
     return ButtonOutput(pauseEnabled: pauseEnabled,
                         newTapDisabled: newTapDisabled,
-                        cancelEnabled: cancelEnabled)
+                        cancelEnabled: cancelEnabled,
+                        typeMenuEnabled: true)
 }

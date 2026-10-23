@@ -539,6 +539,73 @@ extension TapToneAnalysisView {
 
     /// Compact tap controls for iPhone
     @ViewBuilder
+    // MARK: - New Tap
+
+    /// New Tap and, beside it, the measurement type it taps. New Tap starts a new tap of the current type
+    /// (disabled while a sequence is under way, as before). The type button shows the current type; its menu
+    /// lists the six types, and choosing one makes it the measurement type and starts a new tap of it — the
+    /// same change as the Settings picker, without the sheet; when it is enabled is the button rule's
+    /// (`typeMenuEnabled`). Comparisons are made in Saved Measurements, so they are not offered here.
+    func newTapButton(font: Font? = nil) -> some View {
+        HStack(spacing: 4) {
+            Button(action: { tap.requestStartTapSequence() }) {
+                Label("New Tap", systemImage: "hand.tap")
+                    .font(font)
+            }
+            .buttonStyle(.prominent())
+            .disabled(newTapButtonDisabled)
+            .hint(HintText.newTap)
+
+            Menu {
+                Section("Guitar") {
+                    ForEach(MeasurementType.allCases.filter(\.isGuitar)) { newTapTypeItem($0) }
+                }
+                Section("Material") {
+                    ForEach(MeasurementType.allCases.filter { !$0.isGuitar }) { newTapTypeItem($0) }
+                }
+            } label: {
+                HStack(spacing: 3) {
+                    Text(TapDisplaySettings.measurementType.shortName)
+                    Image(systemName: "chevron.down")
+                        .imageScale(.small)
+                }
+                .font(font)
+            }
+            .menuStyle(.button)
+            .buttonStyle(.tinted(.accent))
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .disabled(typeMenuDisabled)
+            .hint(HintText.measurementType)
+        }
+    }
+
+    /// One type in New Tap's menu, ticked when it is the current type.
+    private func newTapTypeItem(_ type: MeasurementType) -> some View {
+        Button {
+            startNewTap(of: type)
+        } label: {
+            if type == TapDisplaySettings.measurementType {
+                Label(type.rawValue, systemImage: "checkmark")
+            } else {
+                Text(type.rawValue)
+            }
+        }
+    }
+
+    /// Makes `type` the measurement type — the chart moving to that type's saved range, as when the
+    /// Settings picker changes it — and starts a new tap of it.
+    func startNewTap(of type: MeasurementType) {
+        if type != TapDisplaySettings.measurementType {
+            TapDisplaySettings.measurementType = type
+            minFreq = TapDisplaySettings.minFrequency(for: type)
+            maxFreq = TapDisplaySettings.maxFrequency(for: type)
+            minDB = TapDisplaySettings.minMagnitude
+            maxDB = TapDisplaySettings.maxMagnitude
+        }
+        tap.requestStartTapSequence()
+    }
+
     var compactTapControls: some View {
         VStack(spacing: 8) {
             // Row 1: Taps and threshold
@@ -610,15 +677,7 @@ extension TapToneAnalysisView {
             // Row 2: Action buttons - all buttons always visible to prevent layout shifts
             HStack(spacing: 8) {
                 // New Tap button — also available mid-sequence to start over
-                Button(action: {
-                    tap.requestStartTapSequence()
-                }) {
-                    Label("New Tap", systemImage: "hand.tap")
-                        .font(.subheadline)
-                }
-                .buttonStyle(.prominent())
-                .disabled(newTapButtonDisabled)
-                .hint(HintText.newTap)
+                newTapButton(font: .subheadline)
 
                 // Pause/Resume button — becomes "Accept" during plate/brace review phases
                 Button(action: {
@@ -774,14 +833,7 @@ extension TapToneAnalysisView {
             Spacer()
 
             // Tap sequence buttons — also available mid-sequence (plate/brace) to start over
-            Button(action: {
-                tap.requestStartTapSequence()
-            }) {
-                Label("New Tap", systemImage: "hand.tap")
-            }
-            .buttonStyle(.prominent())
-            .disabled(newTapButtonDisabled)
-            .hint(HintText.newTap)
+            newTapButton()
 
             // Pause/Resume button — becomes "Accept" during plate/brace review phases
             Button(action: {
@@ -904,14 +956,7 @@ extension TapToneAnalysisView {
                 Spacer()
 
                 // Tap sequence buttons — also available mid-sequence (plate/brace) to start over
-                Button(action: {
-                    tap.requestStartTapSequence()
-                }) {
-                    Label("New Tap", systemImage: "hand.tap")
-                }
-                .buttonStyle(.prominent())
-                .disabled(newTapButtonDisabled)
-                .hint(HintText.newTap)
+                newTapButton()
 
                 // Pause/Resume button — becomes "Accept" during plate/brace review phases
                 Button(action: {

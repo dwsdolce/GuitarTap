@@ -195,6 +195,13 @@ comparison mode when a comparison is active. Enabled except
 while a measurement is actively being captured (and when
 detection is unavailable).
 
+**Measurement type** (beside New Tap) — Shows the current
+measurement type (Generic, Acoustic, Classical, Flamenco, Plate or
+Brace). Its menu lists the six types; choosing one makes it the
+measurement type and starts a new tap of it, as choosing it in
+Settings does — during a sequence too, which restarts. Disabled only
+while a file plays. Comparisons are made from Saved Measurements.
+
 **Play File** <img src="images/symbols/waveform.badge.plus.png" width="18" height="18" class="inline-icon" alt="waveform.badge.plus"> — Opens a
 file picker; the selected audio file is fed through the analysis
 pipeline as if it were live microphone input. Useful for analyzing

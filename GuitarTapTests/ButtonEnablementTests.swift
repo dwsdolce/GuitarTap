@@ -56,6 +56,7 @@ struct ButtonEnablementTests {
         if let v = expect["pauseEnabled"] { #expect(out.pauseEnabled == v, "\(id) pause") }
         if let v = expect["newTapDisabled"] { #expect(out.newTapDisabled == v, "\(id) new tap") }
         if let v = expect["cancelEnabled"] { #expect(out.cancelEnabled == v, "\(id) cancel") }
+        if let v = expect["typeMenuEnabled"] { #expect(out.typeMenuEnabled == v, "\(id) type menu") }
     }
 
     // Save and the exports: enabled only when there is something to save or export — a complete

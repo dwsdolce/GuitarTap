@@ -307,6 +307,9 @@ enum HintText {
     /// Hint for the "New Tap" button.
     static let newTap = "Start a new tap sequence to detect and analyze resonance peaks"
 
+    /// Hint for the measurement-type button beside New Tap.
+    static let measurementType = "Measurement type: choose one to start a new tap of it"
+
     /// Hint for the "Cancel" button.
     static let cancel = "Cancel the current tap sequence and start over"
 

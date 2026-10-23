@@ -105,8 +105,11 @@ current input.
 
 ## 2.5 Choosing a Measurement Type
 
-In Settings, the **Measurement Type** section determines what the
-analyzer is looking for:
+The measurement type determines what the analyzer is looking for.
+Choose it from the **type button beside New Tap**, which shows the
+current type (for example **Classical**) — choosing another starts a
+new tap of it — or in **Settings**, in the **Measurement Type**
+section. The two always show the same type.
 
 - **Generic Guitar / Acoustic Guitar / Classical Guitar /
   Flamenco Guitar.** Guitar-body mode. The four sub-types differ in

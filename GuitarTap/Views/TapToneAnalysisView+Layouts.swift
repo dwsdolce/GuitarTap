@@ -635,14 +635,8 @@ extension TapToneAnalysisView {
 
             // Action buttons - vertical stack
             VStack(spacing: 6) {
-                Button(action: { tap.requestStartTapSequence() }) {
-                    Label("New Tap", systemImage: "hand.tap")
-                        .font(.caption)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.prominent())
-                .disabled(newTapButtonDisabled)
-                .hint(HintText.newTap)
+                newTapButton(font: .caption)
+                    .frame(maxWidth: .infinity)
 
                 // Pause/Resume — becomes "Accept" during plate/brace review phases
                 Button(action: {

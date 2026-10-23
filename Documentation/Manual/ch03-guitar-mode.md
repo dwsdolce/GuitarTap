@@ -40,8 +40,8 @@ Type when a subtype is selected.
 
 ## 3.2 Setting Up for Guitar Mode
 
-1. Open **Settings → Measurement Type** and choose **Generic
-   Guitar** unless you have a specific reason (quality indicators
+1. Choose **Generic Guitar** from the type button beside **New
+   Tap** (or in **Settings → Measurement Type**) unless you have a specific reason (quality indicators
    or a target frequency range) to choose Acoustic, Classical, or
    Flamenco — see §3.1.
 2. The frequency-window panel updates to show the ranges for the
