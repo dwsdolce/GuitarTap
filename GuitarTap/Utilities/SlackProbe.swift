@@ -14,11 +14,8 @@ import QuartzCore
 /// - **lag** — a timer asks the main thread for a call every 5 ms; each call's lateness is the time the thread
 ///   was busy with something else.
 /// - **latency** — from the audio thread handing a chunk to the main thread to the main thread taking it.
-/// - **busy time** per kind of work: the main thread's per-chunk work (`main/chunk`), the capture filling done
-///   on the audio thread (`accumulate`), the FFT (`fft`), the main thread's work on each FFT frame (`frame`).
-///
-/// With `GT_SLACK_PROBE_FFT_ON_MAIN=1` as well, the main thread also spins for the last FFT's duration after each
-/// frame — the cost it would carry if the FFT ran there.
+/// - **busy time** per kind of work: the main thread's per-chunk work (`main/chunk`), the capture filling within
+///   it (`accumulate`), the FFT (`fft`), the work on each FFT frame (`frame`).
 ///
 /// Mirrors Python `slack_probe` and the web's `slackProbe`.
 final class SlackProbe: @unchecked Sendable {
@@ -29,11 +26,9 @@ final class SlackProbe: @unchecked Sendable {
     }
 
     let enabled = ProcessInfo.processInfo.environment["GT_SLACK_PROBE"] == "1"
-    let fftOnMain = ProcessInfo.processInfo.environment["GT_SLACK_PROBE_FFT_ON_MAIN"] == "1"
 
     private let lock = NSLock()
     private var samples: [Kind: [Double]] = [:]
-    private var lastFftMs: Double = 0
     private var timer: DispatchSourceTimer?
     private var expected: CFTimeInterval = 0
     private var windowStart: CFTimeInterval = 0
@@ -61,7 +56,6 @@ final class SlackProbe: @unchecked Sendable {
         guard enabled else { return }
         lock.lock()
         samples[kind, default: []].append(ms)
-        if kind == .fft { lastFftMs = ms }
         lock.unlock()
     }
 
@@ -79,15 +73,6 @@ final class SlackProbe: @unchecked Sendable {
         let result = work()
         record(kind, ms: (Self.now - start) * 1000)
         return result
-    }
-
-    /// On the main thread after each FFT frame, with `GT_SLACK_PROBE_FFT_ON_MAIN=1`: spin for the last FFT's
-    /// duration.
-    func simulateFftOnMain() {
-        guard enabled, fftOnMain else { return }
-        lock.lock(); let ms = lastFftMs; lock.unlock()
-        let until = Self.now + ms / 1000
-        while Self.now < until {}
     }
 
     private func tick() {
@@ -120,11 +105,10 @@ final class SlackProbe: @unchecked Sendable {
         for kind in [Kind.mainChunk, .accumulate, .fft, .frame] {
             let v = window[kind] ?? []
             let sum = v.reduce(0, +)
-            if kind == .mainChunk || kind == .frame { busy += sum }
+            if kind != .accumulate { busy += sum }  // accumulate is within main/chunk
             parts.append("\(kind.rawValue) avg \(f(v.isEmpty ? 0 : sum / Double(v.count))) max \(f(v.max() ?? 0)) n \(v.count)")
         }
         parts.append("main busy \(String(format: "%.1f", busy / (seconds * 1000) * 100))%")
-        if fftOnMain { parts.append("(FFT simulated on main)") }
         let line = parts.joined(separator: " | ")
         print(line)
         fflush(stdout)

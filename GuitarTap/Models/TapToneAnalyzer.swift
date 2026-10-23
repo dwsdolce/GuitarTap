@@ -1576,7 +1576,6 @@ final class TapToneAnalyzer: ObservableObject {
             .sink { [weak self] magnitudes, frequencies, peakMag in
                 SlackProbe.shared.time(.frame) {
                     self?.onFftFrame(magnitudes: magnitudes, frequencies: frequencies, peakMagnitude: peakMag)
-                    SlackProbe.shared.simulateFftOnMain()
                 }
             }
             .store(in: &cancellables)
