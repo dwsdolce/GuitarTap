@@ -32,8 +32,7 @@
 /// - `L` = beam length (m) — use plate length for L-tap, plate width for C-tap
 /// - `(βL)² = 22.37` for the first free-free bending mode — first root of
 ///   `cos(βL)·cosh(βL) = 1`, i.e. βL = 4.7300… (Blevins 1979, Table 8-1).
-///   Applied to lutherie wood by Haines (1979, 2000) — see
-///   *Documentation/tonewood-references.md* for full citations.
+///   Applied to lutherie wood by Haines (1979, 2000). Full citations under References below.
 ///
 /// ## Gore Plate Equations
 ///
@@ -50,6 +49,19 @@
 /// | Specific modulus | `E / ρ` (GPa/(g/cm³)) | Primary quality indicator; higher = lighter, stiffer wood |
 /// | Speed of sound | `√(E/ρ)` (m/s) | Governs how quickly vibrations travel through the plate |
 /// | Radiation ratio | `c_L / ρ` | Efficiency of acoustic power radiation |
+///
+/// ## References
+///
+/// - Blevins, R. D. (1979). *Formulas for Natural Frequency and Mode Shape*. Van Nostrand Reinhold, New York. Table 8-1 (free-free beam, first bending mode).
+/// - Haines, D. W. (1979). "On musical instrument wood." *Catgut Acoustical Society Newsletter*, No. 31, pp. 23–32.
+/// - Haines, D. W. (2000). "The essential mechanical properties of wood prepared for musical instruments." *Catgut Acoustical Society Journal*, Ser. 2, Vol. 4, pp. 20–32.
+/// - Haines, D. W., Hutchins, C. M., Lee, C. H. & Thompson, D. A. (1977). "Mechanical properties of Sitka spruce for guitars." *JASA* 61(S1):S35. doi:10.1121/1.2015598
+/// - Gore, T. & Gilet, G. (2011; 2nd ed. 2016). *Contemporary Acoustic Guitar Design and Build*, Vols. 1–2. Trevor Gore Guitars, Australia. Vol. 1 ISBN 978-0-9871174-2-7. https://goreguitars.com.au/the-book/
+/// - Brémaud, I. (2012). "Acoustical properties of wood in string instruments soundboards and tuned idiophones: Biological and cultural diversity." *JASA* 131(1):807–818. doi:10.1121/1.3651233
+/// - Wegst, U. G. K. (2006). "Wood for sound." *American Journal of Botany* 93(10):1439–1448. doi:10.3732/ajb.93.10.1439
+/// - Bucur, V. (2006). *Acoustics of Wood*, 2nd ed. Springer, Berlin/Heidelberg.
+/// - Schleske, M. (1990). "Speed of sound and damping of spruce in relation to the direction of grains and rays." *Catgut Acoustical Society Journal*, Ser. 2, Vol. 1, No. 6, pp. 16–20.
+/// - USDA Forest Products Laboratory (2010). *Wood Handbook: Wood as an Engineering Material*. FPL-GTR-190, Chapter 5, Tables 5-1 and 5-2.
 import Foundation
 import SwiftUI
 
@@ -498,7 +510,7 @@ struct PlateProperties {
 /// (Gore & Gilet 2011/2016; Brémaud 2012; Wegst 2006).
 /// The grading scales differ by wood species (spruce vs cedar) and measurement direction
 /// (longitudinal vs cross-grain) because the physical ranges are very different.
-/// Full citations in *Documentation/tonewood-references.md*.
+/// Full citations under References in the file's opening comment.
 enum WoodQuality: String, CaseIterable {
 
     /// Exceptional instrument-grade material; master-grade or AAA classification.
@@ -556,8 +568,8 @@ enum WoodQuality: String, CaseIterable {
     ///
     /// **Source:** Gore, T. & Gilet, G., *Contemporary Acoustic Guitar Design and Build*,
     /// 2nd ed. (2016), Vol. 1 (ISBN: 978-0-9871174-2-7).  See also Brémaud (2012) and
-    /// Wegst (2006) for corroborating species data.  Full citations in
-    /// *Documentation/tonewood-references.md*.
+    /// Wegst (2006) for corroborating species data.  Full citations under References in the
+    /// file's opening comment.
     ///
     /// | Species | Direction | Excellent | Very Good | Good | Fair | Poor |
     /// |---------|-----------|-----------|-----------|------|------|------|
@@ -701,7 +713,7 @@ struct BraceProperties {
 /// These typical values can be used to contextualise measurements from tap tests, or as
 /// starting points when a reference sample is not available.  Values are approximate averages
 /// consistent with: Haines et al. (1977), Brémaud (2012), Wegst (2006), and Bucur (2006).
-/// Full citations in *Documentation/tonewood-references.md*.
+/// Full citations under References in the file's opening comment.
 struct TonewoodReference {
 
     /// Typical acoustic properties of Sitka Spruce, the most common guitar-top wood.
