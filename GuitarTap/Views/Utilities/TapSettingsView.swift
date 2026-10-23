@@ -228,10 +228,12 @@ struct TapSettingsView: View {
                     .fontWeight(.semibold)
                 }
             }
-            // A microphone chosen here that cannot be opened — the previous one is kept.
+            // A microphone chosen here that cannot be opened — the previous one is kept. The setter
+            // clears the published value only while it is set: SwiftUI calls it again as the alert
+            // closes, within its update, where a published assignment is not allowed.
             .alert("Microphone Unavailable", isPresented: Binding(
                 get: { deviceOpenFailure != nil },
-                set: { if !$0 { fftAnalyzer.inputDeviceOpenFailure = nil } }
+                set: { if !$0, fftAnalyzer.inputDeviceOpenFailure != nil { fftAnalyzer.inputDeviceOpenFailure = nil } }
             )) {
                 Button("OK") { fftAnalyzer.inputDeviceOpenFailure = nil }
             } message: {

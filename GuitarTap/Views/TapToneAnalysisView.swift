@@ -627,9 +627,12 @@ private struct LifecycleModifier: ViewModifier {
             // The load's microphone warning — its microphone not found, a different recording
             // setup, or a microphone that cannot be opened — under the title set with it. The
             // alert is on the main view so it survives the Measurements sheet dismissing.
+            // The bindings below clear a published value only while it is set: OK has cleared it
+            // already, and SwiftUI calls the setter again as the alert closes, within its update —
+            // where a published assignment, even of the same value, is not allowed.
             .alert(tap.microphoneWarningTitle, isPresented: Binding(
                 get: { tap.microphoneWarning != nil },
-                set: { if !$0 { tap.microphoneWarning = nil } }
+                set: { if !$0, tap.microphoneWarning != nil { tap.microphoneWarning = nil } }
             )) {
                 Button("OK") { tap.microphoneWarning = nil }
             } message: {
@@ -639,7 +642,7 @@ private struct LifecycleModifier: ViewModifier {
             // opened — the previous one is kept. Settings shows its own while the sheet is open.
             .alert("Microphone Unavailable", isPresented: Binding(
                 get: { fft.inputDeviceOpenFailure != nil },
-                set: { if !$0 { fft.inputDeviceOpenFailure = nil } }
+                set: { if !$0, fft.inputDeviceOpenFailure != nil { fft.inputDeviceOpenFailure = nil } }
             )) {
                 Button("OK") { fft.inputDeviceOpenFailure = nil }
             } message: {
@@ -648,7 +651,7 @@ private struct LifecycleModifier: ViewModifier {
             // The library, or entries in it, could not be read at launch; a copy was kept aside.
             .alert("Saved Measurements Unreadable", isPresented: Binding(
                 get: { tap.libraryLoadFailure != nil },
-                set: { if !$0 { tap.libraryLoadFailure = nil } }
+                set: { if !$0, tap.libraryLoadFailure != nil { tap.libraryLoadFailure = nil } }
             )) {
                 Button("OK") { tap.libraryLoadFailure = nil }
             } message: {
