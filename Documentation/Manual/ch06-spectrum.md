@@ -149,8 +149,9 @@ label to a position you prefer.
   with the measurement and restored when the measurement is
   reloaded.
 - **Reset an individual label** — right-click it and choose
-  **Reset Position** (on iOS / iPadOS, with a mouse or trackpad),
-  or double-tap it on iOS / iPadOS.
+  **Reset Position**. On a phone or tablet — iPhone, iPad, or the
+  web app on Android — long-press it (on a tablet with a mouse or
+  trackpad, a right-click works too).
 - **Reset all labels** — choose **Reset Labels** from the chart
   menu: the **⋯** button in the upper-right corner of the spectrum
   chart, or a right-click on the chart.

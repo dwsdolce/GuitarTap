@@ -258,7 +258,7 @@ The Results panel is where you turn the captured frequencies into properties. En
                     )
                     helpRow(
                         title: "Peak Labels",
-                        body: "Drag any peak label to reposition it and avoid overlaps. To reset an individual label: right-click it and choose \"Reset Position\" (on iPhone and iPad, with a mouse or trackpad), or double-tap it on iPhone and iPad. To reset all labels at once: choose \"Reset Labels\" from the chart menu."
+                        body: "Drag any peak label to reposition it and avoid overlaps. To reset an individual label: right-click it and choose \"Reset Position\"; on iPhone and iPad, long-press it (or right-click it on an iPad with a mouse or trackpad). To reset all labels at once: choose \"Reset Labels\" from the chart menu."
                     )
                     helpRow(
                         title: "Play Audio File",
@@ -336,7 +336,7 @@ Help menu:
                     #endif
                     helpRow(
                         title: "Chart Menu",
-                        body: "The ⋯ button in the top-right corner of the spectrum opens the chart menu; right-clicking the chart opens the same menu (on iPhone and iPad with a mouse or trackpad). It resets either or both axes to the values you last saved in Settings (\"Reset … to Saved\") or to the factory defaults (\"Reset … to Defaults\"). If peak labels have been dragged from their auto-positions, \"Reset Labels\" moves them back.",
+                        body: "The ⋯ button in the top-right corner of the spectrum opens the chart menu; right-clicking the chart opens the same menu (and on iPad with a mouse or trackpad). It resets either or both axes to the values you last saved in Settings (\"Reset … to Saved\") or to the factory defaults (\"Reset … to Defaults\"). If peak labels have been dragged from their auto-positions, \"Reset Labels\" moves them back.",
                         systemImages: ["ellipsis.circle"]
                     )
                     helpRow(

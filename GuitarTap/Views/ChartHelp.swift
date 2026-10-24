@@ -9,6 +9,7 @@
 
 #if os(iOS)
 import GameController
+import UIKit
 #endif
 
 /// One line of the chart's help: a gesture, what it does, and what the device needs for it to work.
@@ -73,13 +74,15 @@ enum ChartHelp {
         }
     }
 
-    /// The device in use: a Mac has a pointer, a keyboard and a trackpad; an iPhone or iPad has touch, and a pointer
-    /// or a keyboard while one is connected.
+    /// The device in use: a Mac has a pointer, a keyboard and a trackpad; an iPad has touch, and a pointer or a
+    /// keyboard while one is connected; an iPhone has touch, and a keyboard while one is connected — an iPhone does
+    /// not use a mouse (no cursor, no buttons), though iOS still reports one connected, so it has no pointer.
     static var current: Device {
         #if os(macOS)
         Device(pointer: true, keyboard: true, pinch: true, appleKeys: true)
         #else
-        Device(pointer: !GCMouse.mice().isEmpty, keyboard: GCKeyboard.coalesced != nil, pinch: true, appleKeys: true)
+        Device(pointer: UIDevice.current.userInterfaceIdiom == .pad && !GCMouse.mice().isEmpty,
+               keyboard: GCKeyboard.coalesced != nil, pinch: true, appleKeys: true)
         #endif
     }
 }
