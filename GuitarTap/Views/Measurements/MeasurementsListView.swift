@@ -73,7 +73,22 @@ struct MeasurementsListView: View {
     @State private var hoveredMeasurementIndex: Int?
     @State private var measurementPendingDelete: (index: Int, measurement: TapToneMeasurement)?
     @State private var showingDeleteAllConfirmation = false
+    @State private var showingDeleteDuplicatesConfirmation = false
+    @State private var showingDeleteSelectedConfirmation = false
+    // Delete › Selected…: ticking rows to delete, as compare mode ticks rows to compare.
+    @State private var isSelectingToDelete = false
+    @State private var selectedDeleteIndices: Set<Int> = []
     @State private var editTarget: (index: Int, measurement: TapToneMeasurement)?
+    // Sort & Filter: what the list shows and in what order; the library keeps its own order.
+    @State private var sort = TapDisplaySettings.savedMeasurementsSort
+    @State private var ascending = TapDisplaySettings.savedMeasurementsAscending
+    @State private var filter = TapDisplaySettings.savedMeasurementsFilter
+
+    /// The positions in the library the list shows, in order.
+    private var shownIndices: [Int] {
+        SavedMeasurementsOrder.shown(SavedMeasurementsOrder.keys(analyzer.savedMeasurements),
+                                     sort: sort, ascending: ascending, filter: filter)
+    }
     #if os(macOS)
     @State private var detailWindowController: NSWindowController?
     #endif
@@ -168,6 +183,30 @@ struct MeasurementsListView: View {
         #endif
     }
     
+    /// The line above the rows: the total, or — while a filter is on — how many of how many are shown, with an ×
+    /// that shows all again.
+    @ViewBuilder
+    private var listCountLine: some View {
+        let total = analyzer.savedMeasurements.count
+        if let filter {
+            HStack {
+                Text("Showing \(shownIndices.count) of \(total) · \(filter)")
+                Spacer()
+                Button { self.filter = nil } label: {
+                    Image(systemName: "xmark.circle")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Show all measurements")
+            }
+            .font(.caption)
+            .foregroundColor(Palette.color(.textSecondary))
+        } else {
+            Text("Total: \(total) measurement\(total == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundColor(Palette.color(.textSecondary))
+        }
+    }
+
     @ViewBuilder
     var contentView: some View {
         Group {
@@ -179,69 +218,82 @@ struct MeasurementsListView: View {
                     message: "Tap the guitar and click Save to store measurements for comparison."
                 )
             } else {
-                // Measurements list
-                List {
-                    Section {
-                        Text("Total: \(analyzer.savedMeasurements.count) measurement\(analyzer.savedMeasurements.count == 1 ? "" : "s")")
-                            .font(.caption)
-                            .foregroundColor(Palette.color(.textSecondary))
-                    }
-                    .paletteRows()
-
-                    ForEach(Array(analyzer.savedMeasurements.enumerated()), id: \.offset) { index, measurement in
-                        Button(action: {
-                            // Single tap: only acts in compare mode
-                            if isComparing {
-                                toggleCompareSelection(at: index, for: measurement)
-                            }
-                        }) {
-                            compareRowContent(at: index, for: measurement)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        // Double-tap loads the measurement and dismisses the list.
-                        // Dismiss first so the sheet is gone before loadMeasurement()
-                        // sets @Published properties (including microphoneWarning).
-                        // The load is deferred so the sheet teardown completes cleanly
-                        // and the mic warning alert fires only on the main view.
-                        // Off in compare mode: while a double-tap gesture is attached, SwiftUI holds
-                        // every single click for the double-click interval, which made the compare
-                        // checkmarks lag the click.
-                        .gesture(
-                            TapGesture(count: 2).onEnded {
-                                let m = measurement
-                                dismiss()
-                                DispatchQueue.main.async {
-                                    analyzer.loadMeasurement(m)
+                // The total (or the filter's count) stays above the list; only the rows scroll.
+                VStack(alignment: .leading, spacing: 0) {
+                    listCountLine
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                    List {
+                        ForEach(shownIndices, id: \.self) { index in
+                            let measurement = analyzer.savedMeasurements[index]
+                            Button(action: {
+                                // Single tap: only acts in compare mode
+                                if isComparing {
+                                    toggleCompareSelection(at: index, for: measurement)
+                                } else if isSelectingToDelete {
+                                    toggleDeleteSelection(at: index)
                                 }
-                            },
-                            including: isComparing ? .subviews : .all
-                        )
-                        #if os(macOS)
-                        .onHover { inside in
-                            hoveredMeasurementIndex = inside ? index : nil
-                            if inside {
-                                NSCursor.pointingHand.push()
-                            } else {
-                                NSCursor.pop()
+                            }) {
+                                compareRowContent(at: index, for: measurement)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            // Double-tap loads the measurement and dismisses the list.
+                            // Dismiss first so the sheet is gone before loadMeasurement()
+                            // sets @Published properties (including microphoneWarning).
+                            // The load is deferred so the sheet teardown completes cleanly
+                            // and the mic warning alert fires only on the main view.
+                            // Off in compare mode: while a double-tap gesture is attached, SwiftUI holds
+                            // every single click for the double-click interval, which made the compare
+                            // checkmarks lag the click.
+                            .gesture(
+                                TapGesture(count: 2).onEnded {
+                                    let m = measurement
+                                    dismiss()
+                                    DispatchQueue.main.async {
+                                        analyzer.loadMeasurement(m)
+                                    }
+                                },
+                                including: isComparing || isSelectingToDelete ? .subviews : .all
+                            )
+                            #if os(macOS)
+                            .onHover { inside in
+                                hoveredMeasurementIndex = inside ? index : nil
+                                if inside {
+                                    NSCursor.pointingHand.push()
+                                } else {
+                                    NSCursor.pop()
+                                }
+                            }
+                            #endif
+                            .help(isComparing ? "Toggle selection for comparison"
+                                  : isSelectingToDelete ? "Toggle selection for deletion" : "Double-click to load measurement")
+                            .contextMenu { rowMenuContents(index: index, measurement: measurement) }
+                            #if os(macOS)
+                            // The row under the pointer on background.subtle, in every edition.
+                            .listRowBackground(hoveredMeasurementIndex == index ? Palette.color(.backgroundSubtle) : Color.clear)
+                            #endif
+                        }
+                        .onDelete { indexSet in
+                            // A row's position in the list shown → its place in the library.
+                            if let row = indexSet.first {
+                                let index = shownIndices[row]
+                                measurementPendingDelete = (index: index, measurement: analyzer.savedMeasurements[index])
                             }
                         }
-                        #endif
-                        .help(isComparing ? "Toggle selection for comparison" : "Double-click to load measurement")
-                        .contextMenu { rowMenuContents(index: index, measurement: measurement) }
-                        #if os(macOS)
-                        // The row under the pointer on background.subtle, in every edition.
-                        .listRowBackground(hoveredMeasurementIndex == index ? Palette.color(.backgroundSubtle) : Color.clear)
-                        #endif
+                        .paletteRows()
                     }
-                    .onDelete { indexSet in
-                        if let index = indexSet.first {
-                            measurementPendingDelete = (index: index, measurement: analyzer.savedMeasurements[index])
-                        }
-                    }
-                    .paletteRows()
                 }
             }
+        }
+        .onChange(of: sort) { _, value in TapDisplaySettings.savedMeasurementsSort = value }
+        .onChange(of: ascending) { _, value in TapDisplaySettings.savedMeasurementsAscending = value }
+        .onChange(of: filter) { _, value in
+            TapDisplaySettings.savedMeasurementsFilter = value
+            // A measurement the filter hides cannot stay ticked for a comparison.
+            selectedCompareIndices.formIntersection(shownIndices)
+            selectedDeleteIndices.formIntersection(shownIndices)
         }
         .alert("Delete Measurement?", isPresented: Binding(
             get: { measurementPendingDelete != nil },
@@ -261,11 +313,29 @@ struct MeasurementsListView: View {
                 Text("Are you sure you want to delete \"\(target.measurement.measurementName ?? "Measurement")\"? This cannot be undone.")
             }
         }
+        .alert("Delete Duplicates?", isPresented: $showingDeleteDuplicatesConfirmation) {
+            Button("Delete", role: .destructive) { analyzer.deleteDuplicateMeasurements() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            let n = analyzer.duplicateMeasurementIndices.count
+            Text("This will delete \(n) duplicate measurement\(n == 1 ? "" : "s"); the first copy of each is kept.")
+        }
+        .alert("Delete Selected Measurements?", isPresented: $showingDeleteSelectedConfirmation) {
+            Button("Delete", role: .destructive) {
+                analyzer.deleteMeasurements(at: selectedDeleteIndices)
+                exitDeleteSelection()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            let n = selectedDeleteIndices.count
+            Text("This will permanently delete \(n) measurement\(n == 1 ? "" : "s"). This cannot be undone.")
+        }
         .alert("Delete All Measurements?", isPresented: $showingDeleteAllConfirmation) {
             Button("Delete All", role: .destructive) { deleteAll() }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This will permanently delete all \(analyzer.savedMeasurements.count) saved measurements. This cannot be undone.")
+            let n = analyzer.savedMeasurements.count
+            Text("This will permanently delete all \(n) saved measurement\(n == 1 ? "" : "s"). This cannot be undone.")
         }
         .sheet(isPresented: Binding(
             get: { editTarget != nil },
@@ -280,6 +350,8 @@ struct MeasurementsListView: View {
             ToolbarItem(placement: .cancellationAction) {
                 if isComparing {
                     Button("Cancel") { exitCompareMode() }
+                } else if isSelectingToDelete {
+                    Button("Cancel") { exitDeleteSelection() }
                 } else {
                     Button("Done") { dismiss() }
                 }
@@ -287,7 +359,13 @@ struct MeasurementsListView: View {
 
             #if os(iOS)
             ToolbarItem(placement: .navigationBarTrailing) {
-                if isComparing {
+                if isSelectingToDelete {
+                    Button(role: .destructive, action: { showingDeleteSelectedConfirmation = true }) {
+                        Text("Delete (\(selectedDeleteIndices.count))")
+                            .fontWeight(.semibold)
+                    }
+                    .disabled(selectedDeleteIndices.isEmpty)
+                } else if isComparing {
                     Button(action: openComparison) {
                         Text("Compare (\(selectedCompareIndices.count))")
                             .fontWeight(.semibold)
@@ -301,31 +379,27 @@ struct MeasurementsListView: View {
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                if !isComparing {
-                    Menu {
-                        Button(action: { showingImportPicker = true }) {
-                            Label("Import Measurement", systemImage: "square.and.arrow.down")
-                        }
-
-                        Button(action: { exportAllMeasurements() }) {
-                            Label("Export All Measurements", systemImage: "square.and.arrow.up")
-                        }
-                        .disabled(analyzer.savedMeasurements.isEmpty)
-
-                        Divider()
-
-                        Button(role: .destructive, action: { showingDeleteAllConfirmation = true }) {
-                            Label("Delete All", systemImage: "trash")
-                        }
-                        .disabled(analyzer.savedMeasurements.isEmpty)
-                    } label: {
-                        Label("More", systemImage: "ellipsis.circle")
-                    }
+                SavedMeasurementsSortMenu(sort: $sort, ascending: $ascending, filter: $filter)
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if !isComparing && !isSelectingToDelete {
+                    SavedMeasurementsMoreMenu(
+                        isEmpty: analyzer.savedMeasurements.isEmpty,
+                        hasDuplicates: !analyzer.duplicateMeasurementIndices.isEmpty,
+                        importMeasurement: { showingImportPicker = true },
+                        exportAll: { exportAllMeasurements() },
+                        delete: deleteMenuActions
+                    )
                 }
             }
             #else
             ToolbarItem(placement: .primaryAction) {
-                if isComparing {
+                if isSelectingToDelete {
+                    Button(role: .destructive, action: { showingDeleteSelectedConfirmation = true }) {
+                        Label("Delete (\(selectedDeleteIndices.count))", systemImage: "trash")
+                    }
+                    .disabled(selectedDeleteIndices.isEmpty)
+                } else if isComparing {
                     Button(action: openComparison) {
                         Label("Compare (\(selectedCompareIndices.count))", systemImage: "waveform.path")
                     }
@@ -340,10 +414,14 @@ struct MeasurementsListView: View {
             }
 
             ToolbarItem(placement: .primaryAction) {
+                SavedMeasurementsSortMenu(sort: $sort, ascending: $ascending, filter: $filter)
+            }
+
+            ToolbarItem(placement: .primaryAction) {
                 Button(action: { showingImportPicker = true }) {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
-                .disabled(isComparing)
+                .disabled(isComparing || isSelectingToDelete)
             }
 
             ToolbarItem(placement: .primaryAction) {
@@ -357,15 +435,14 @@ struct MeasurementsListView: View {
                 } label: {
                     Label("Export All", systemImage: "square.and.arrow.up")
                 }
-                .disabled(analyzer.savedMeasurements.isEmpty || isComparing)
+                .disabled(analyzer.savedMeasurements.isEmpty || isComparing || isSelectingToDelete)
                 .help("Export the whole library as one .guitartap file (share/AirDrop or save to disk)")
             }
 
             ToolbarItem(placement: .primaryAction) {
-                Button(role: .destructive, action: { showingDeleteAllConfirmation = true }) {
-                    Label("Delete All", systemImage: "trash")
-                }
-                .disabled(analyzer.savedMeasurements.isEmpty || isComparing)
+                SavedMeasurementsDeleteMenu(hasDuplicates: !analyzer.duplicateMeasurementIndices.isEmpty,
+                                            actions: deleteMenuActions)
+                    .disabled(analyzer.savedMeasurements.isEmpty || isComparing || isSelectingToDelete)
             }
             #endif
         }
@@ -525,6 +602,28 @@ struct MeasurementsListView: View {
         selectedCompareIndices = []
     }
 
+    /// The Delete menu's three choices: All…, Duplicates… and Selected….
+    private var deleteMenuActions: SavedMeasurementsDeleteActions {
+        SavedMeasurementsDeleteActions(
+            all: { showingDeleteAllConfirmation = true },
+            duplicates: { showingDeleteDuplicatesConfirmation = true },
+            selected: { isSelectingToDelete = true; selectedDeleteIndices = [] }
+        )
+    }
+
+    private func toggleDeleteSelection(at index: Int) {
+        if selectedDeleteIndices.contains(index) {
+            selectedDeleteIndices.remove(index)
+        } else {
+            selectedDeleteIndices.insert(index)
+        }
+    }
+
+    private func exitDeleteSelection() {
+        isSelectingToDelete = false
+        selectedDeleteIndices = []
+    }
+
     private func openComparison() {
         guard selectedCompareIndices.count >= 2 else { return }
         analyzer.loadComparison(measurements: selectedCompareMeasurements)
@@ -597,9 +696,10 @@ struct MeasurementsListView: View {
     @ViewBuilder
     private func compareRowContent(at index: Int, for measurement: TapToneMeasurement) -> some View {
         let isHovered = hoveredMeasurementIndex == index
-        if isComparing {
-            let comparable = isComparable(measurement)
-            let selected = selectedCompareIndices.contains(index)
+        if isComparing || isSelectingToDelete {
+            // Any measurement can be deleted; only one with a spectrum can be compared.
+            let comparable = isSelectingToDelete || isComparable(measurement)
+            let selected = isSelectingToDelete ? selectedDeleteIndices.contains(index) : selectedCompareIndices.contains(index)
             // A measurement that cannot be compared dims as one group — its circle and its row.
             HStack(spacing: 10) {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
@@ -694,3 +794,123 @@ private struct DocumentPickerRepresentable: UIViewControllerRepresentable {
 #endif
 
 
+
+// MARK: - Sort & Filter
+
+/// Saved Measurements' Sort & Filter menu: the sort — choosing the ticked one again reverses it, the arrow showing
+/// which way — and the one type shown, or all. Its own view, so the list's type stays shallow.
+struct SavedMeasurementsSortMenu: View {
+    @Binding var sort: SavedMeasurementsSort
+    @Binding var ascending: Bool
+    @Binding var filter: String?
+
+    var body: some View {
+        Menu {
+            Section("Sort by") {
+                // Toggles, which a menu draws with the system's tick (a Label's icon is not shown in a macOS menu).
+                ForEach(SavedMeasurementsSort.allCases) { key in
+                    Toggle(isOn: Binding(
+                        get: { key == sort },
+                        set: { _ in
+                            if key == sort { ascending.toggle() } else { sort = key; ascending = true }
+                        }
+                    )) {
+                        Text(key == sort ? "\(key.title)  \(ascending ? "↑" : "↓")" : key.title)
+                    }
+                }
+            }
+            Section("Show") {
+                filterItem("All", value: nil)
+                ForEach(SavedMeasurementsOrder.filterTypes, id: \.self) { type in
+                    filterItem(type, value: type)
+                }
+            }
+        } label: {
+            Label("Sort & Filter", systemImage: "line.3.horizontal.decrease.circle")
+        }
+        .help("Sort the list, or show one type of measurement")
+    }
+
+    private func filterItem(_ title: String, value: String?) -> some View {
+        Toggle(title, isOn: Binding(get: { filter == value }, set: { _ in filter = value }))
+    }
+}
+
+#if os(iOS)
+/// Saved Measurements' More (⋯) menu on iPad and iPhone.
+struct SavedMeasurementsMoreMenu: View {
+    let isEmpty: Bool
+    let hasDuplicates: Bool
+    let importMeasurement: () -> Void
+    let exportAll: () -> Void
+    let delete: SavedMeasurementsDeleteActions
+
+    var body: some View {
+        Menu {
+            Button(action: importMeasurement) {
+                Label("Import Measurement", systemImage: "square.and.arrow.down")
+            }
+
+            Button(action: exportAll) {
+                Label("Export All Measurements", systemImage: "square.and.arrow.up")
+            }
+            .disabled(isEmpty)
+
+            Divider()
+
+            Menu {
+                SavedMeasurementsDeleteItems(hasDuplicates: hasDuplicates, actions: delete)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+            .disabled(isEmpty)
+        } label: {
+            Label("More", systemImage: "ellipsis.circle")
+        }
+    }
+}
+#endif
+
+// MARK: - Delete
+
+/// The Delete menu's three choices.
+struct SavedMeasurementsDeleteActions {
+    let all: () -> Void
+    let duplicates: () -> Void
+    let selected: () -> Void
+}
+
+/// The Delete menu's items: All… (every measurement), Duplicates… (every later copy of a measurement already in the
+/// library — disabled when there are none) and Selected… (tick the rows to delete, as compare mode does).
+struct SavedMeasurementsDeleteItems: View {
+    let hasDuplicates: Bool
+    let actions: SavedMeasurementsDeleteActions
+
+    var body: some View {
+        Button(role: .destructive, action: actions.all) {
+            Label("All…", systemImage: "trash")
+        }
+        Button(role: .destructive, action: actions.duplicates) {
+            Label("Duplicates…", systemImage: "square.on.square")
+        }
+        .disabled(!hasDuplicates)
+        Button(action: actions.selected) {
+            Label("Selected…", systemImage: "checkmark.circle")
+        }
+    }
+}
+
+/// Saved Measurements' Delete menu in the toolbar (macOS).
+struct SavedMeasurementsDeleteMenu: View {
+    let hasDuplicates: Bool
+    let actions: SavedMeasurementsDeleteActions
+
+    var body: some View {
+        Menu {
+            SavedMeasurementsDeleteItems(hasDuplicates: hasDuplicates, actions: actions)
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
+        .help("Delete all measurements, the duplicates, or the ones you select")
+    }
+}

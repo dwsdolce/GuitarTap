@@ -57,8 +57,9 @@ SCREENSHOT:
            several guitar measurements with the waveform indicator,
            at least one plate and one brace (no indicator), and at
            least one saved comparison with the chart indicator.
-           Bottom toolbar showing Compare…, Import…, Delete All,
-           Done buttons.
+           Toolbar showing Compare…, Sort & Filter, Import, Export All,
+           Delete and Done; the "Total: N measurements" line above the
+           rows.
   Notes:   Use a real set of measurements so the dates and notes
            are plausible. Crop tight to the window.
 -->
@@ -83,8 +84,33 @@ Each row carries up to three lines plus a trailing column:
   count and the headline material values.
 - **Line 3** — the notes you entered on Save, if any.
 
-The list is shown in the order the measurements were saved —
-newest entries appear at the bottom — not sorted by date or name.
+The line above the rows gives the total: "Total: 48 measurements".
+
+### Sorting and filtering the list
+
+**Sort & Filter** <img src="images/symbols/line.3.horizontal.decrease.circle.png" width="18" height="18" class="inline-icon" alt="line.3.horizontal.decrease.circle">
+changes what the list shows and in what order. It is a button beside
+**Compare** on macOS, Windows, Linux and the web, and in the navigation
+bar on iPad and iPhone. Its menu has two parts:
+
+- **Sort by** — **As Added** (the order the measurements were added to
+  the library, oldest first — the default), **Date** (when the
+  measurement was made), **Name** (A to Z, ignoring case) or **Type**
+  (Generic, Acoustic, Classical, Flamenco, Plate, Brace, then
+  Comparison — which groups the list by type). The chosen key is ticked,
+  with an arrow showing which way it runs; choose it again to reverse
+  it. Measurements with the same name or type are listed by date.
+- **Show** — **All**, or one type only. A comparison is a measurement
+  whose type is Comparison, so you can show only comparisons.
+
+While a type is shown, the line above the rows reads "Showing 12 of 48 ·
+Plate", with an <span class="nowrap">ⓧ</span> that shows all again.
+
+Sorting and filtering change only what you see: the library itself
+always keeps the order the measurements were added, so **As Added** is
+always there to return to, and an import is added to the end of the
+library and appears wherever the chosen sort puts it. Your choice is
+remembered between openings and when the app is restarted.
 
 ## 7.3 Loading a Measurement into the View
 
@@ -234,21 +260,22 @@ SCREENSHOT:
   File:    images/ch07-measurements-list-ios.png
   Subject: Saved Measurements dialog on iOS / iPadOS, with the
            ellipsis menu in the upper-right corner expanded to show
-           "Import Measurement" and "Delete All". Capture in light
+           "Import Measurement", "Export All Measurements" and the
+           "Delete" submenu (All…, Duplicates…, Selected…). Capture in light
            mode to match the macOS screenshot.
   Notes:   The iOS dialog layout differs from macOS — there is no
-           separate row of Compare / Import / Delete All buttons
+           separate row of Compare / Import / Delete buttons
            along the bottom. Crop tight to the dialog.
 -->
 
-![Saved Measurements dialog on iOS — Import Measurement and Delete All live inside the ellipsis menu in the upper-right.](images/ch07-measurements-list-ios.png){: .screenshot-mobile }
+![Saved Measurements dialog on iOS — Import Measurement, Export All and Delete live inside the ellipsis menu in the upper-right.](images/ch07-measurements-list-ios.png){: .screenshot-mobile }
 
 The access path differs between platforms:
 
 - **iOS / iPadOS:** open the Saved Measurements dialog, tap the
   **<img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle">**
   menu in the upper-right corner, and choose **Import
-  Measurement**. (The same menu also hosts **Delete All**.)
+  Measurement**. (The same menu also holds **Delete**.)
   The Files picker opens; select a `.guitartap` to import.
 - **Desktop (macOS native and Python builds):** **File → Import
   Measurement** opens a file picker. Drag-and-drop onto the
@@ -339,8 +366,27 @@ conversion is needed regardless of direction.
 
 ## 7.12 Deleting Measurements
 
+To delete one measurement:
+
 - **Desktop:** popup menu → **Delete**.
 - **iOS / iPadOS:** swipe-to-delete on the row.
+
+To delete several, use the **Delete** menu — a button in the Saved
+Measurements toolbar on macOS, Windows, Linux and the web; on iPad and
+iPhone, the **Delete** submenu of the
+<img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle">
+menu:
+
+- **All…** — every measurement in the library.
+- **Duplicates…** — every later copy of a measurement that is already in
+  the library (importing the same file twice, for example); the first
+  copy of each is kept. Disabled when there are none. A measurement whose
+  name or notes you have edited is a new measurement, not a duplicate.
+- **Selected…** — puts the list into selection mode, as **Compare**
+  does, except that any row can be ticked. Tick the measurements to
+  delete; the **Compare** button reads **Delete (n)** and **Done**
+  reads **Cancel**. Choose **Delete (n)** to delete them, or **Cancel**
+  to leave the list as it was.
 
 A confirmation prompt appears before deletion so an accidental
 click or swipe does not lose data. Deleting a measurement removes

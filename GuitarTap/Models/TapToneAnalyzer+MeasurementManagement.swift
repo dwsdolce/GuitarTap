@@ -579,6 +579,25 @@ extension TapToneAnalyzer {
         persistMeasurements()
     }
 
+    /// Removes the measurements at `indices` (positions in `savedMeasurements`) and persists the library once.
+    func deleteMeasurements(at indices: Set<Int>) {
+        let doomed = indices.filter(savedMeasurements.indices.contains)
+        guard !doomed.isEmpty else { return }
+        savedMeasurements = savedMeasurements.enumerated().filter { !doomed.contains($0.offset) }.map(\.element)
+        persistMeasurements()
+    }
+
+    /// The positions in `savedMeasurements` of the duplicates — every later copy of a measurement already in the
+    /// library (``SavedMeasurementsOrder/duplicates(_:)``).
+    var duplicateMeasurementIndices: Set<Int> {
+        Set(SavedMeasurementsOrder.duplicates(savedMeasurements.map { $0.id.uuidString }))
+    }
+
+    /// Removes the duplicates, keeping the first copy of each measurement.
+    func deleteDuplicateMeasurements() {
+        deleteMeasurements(at: duplicateMeasurementIndices)
+    }
+
     /// Removes every saved measurement and persists the empty library.
     func deleteAllMeasurements() {
         savedMeasurements.removeAll()

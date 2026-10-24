@@ -108,6 +108,9 @@ struct TapDisplaySettings {
     private static let measurementTypeKey = "measurementType"
     private static let guitarTypeKey = "guitarType"
     private static let showUnknownModesKey = "showUnknownModes"
+    private static let savedMeasurementsSortKey = "savedMeasurementsSort"
+    private static let savedMeasurementsAscendingKey = "savedMeasurementsAscending"
+    private static let savedMeasurementsFilterKey = "savedMeasurementsFilter"
     private static let appearanceKey = "appearance"
 
     // Plate measurement keys
@@ -359,6 +362,26 @@ struct TapDisplaySettings {
         }
     }
     
+    // MARK: - Saved Measurements order
+
+    /// How Saved Measurements is sorted; As Added (the library's own order) until one is chosen.
+    static var savedMeasurementsSort: SavedMeasurementsSort {
+        get { defaults.string(forKey: savedMeasurementsSortKey).flatMap(SavedMeasurementsSort.init(rawValue:)) ?? .asAdded }
+        set { defaults.set(newValue.rawValue, forKey: savedMeasurementsSortKey) }
+    }
+
+    /// The sort's direction: ascending (oldest first, A to Z, the type menu's order) unless reversed.
+    static var savedMeasurementsAscending: Bool {
+        get { defaults.object(forKey: savedMeasurementsAscendingKey) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: savedMeasurementsAscendingKey) }
+    }
+
+    /// The one type Saved Measurements shows (a short name, or Comparison); `nil` shows all.
+    static var savedMeasurementsFilter: String? {
+        get { defaults.string(forKey: savedMeasurementsFilterKey) }
+        set { defaults.set(newValue, forKey: savedMeasurementsFilterKey) }
+    }
+
     // MARK: - Annotation Visibility Mode
 
     /// The last-used annotation visibility mode (persisted in UserDefaults).
