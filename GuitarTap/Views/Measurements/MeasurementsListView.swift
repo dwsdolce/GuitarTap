@@ -207,6 +207,70 @@ struct MeasurementsListView: View {
         }
     }
 
+    /// The list's rows, in the order shown.
+    private var measurementRows: some View {
+        List {
+            ForEach(shownIndices, id: \.self) { index in
+                let measurement = analyzer.savedMeasurements[index]
+                Button(action: {
+                    // Single tap: only acts in compare mode
+                    if isComparing {
+                        toggleCompareSelection(at: index, for: measurement)
+                    } else if isSelectingToDelete {
+                        toggleDeleteSelection(at: index)
+                    }
+                }) {
+                    compareRowContent(at: index, for: measurement)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                // Double-tap loads the measurement and dismisses the list.
+                // Dismiss first so the sheet is gone before loadMeasurement()
+                // sets @Published properties (including microphoneWarning).
+                // The load is deferred so the sheet teardown completes cleanly
+                // and the mic warning alert fires only on the main view.
+                // Off in compare mode: while a double-tap gesture is attached, SwiftUI holds
+                // every single click for the double-click interval, which made the compare
+                // checkmarks lag the click.
+                .gesture(
+                    TapGesture(count: 2).onEnded {
+                        let m = measurement
+                        dismiss()
+                        DispatchQueue.main.async {
+                            analyzer.loadMeasurement(m)
+                        }
+                    },
+                    including: isComparing || isSelectingToDelete ? .subviews : .all
+                )
+                #if os(macOS)
+                .onHover { inside in
+                    hoveredMeasurementIndex = inside ? index : nil
+                    if inside {
+                        NSCursor.pointingHand.push()
+                    } else {
+                        NSCursor.pop()
+                    }
+                }
+                #endif
+                .help(isComparing ? "Toggle selection for comparison"
+                      : isSelectingToDelete ? "Toggle selection for deletion" : "Double-click to load measurement")
+                .contextMenu { rowMenuContents(index: index, measurement: measurement) }
+                #if os(macOS)
+                // The row under the pointer on background.subtle, in every edition.
+                .listRowBackground(hoveredMeasurementIndex == index ? Palette.color(.backgroundSubtle) : Color.clear)
+                #endif
+            }
+            .onDelete { indexSet in
+                // A row's position in the list shown → its place in the library.
+                if let row = indexSet.first {
+                    let index = shownIndices[row]
+                    measurementPendingDelete = (index: index, measurement: analyzer.savedMeasurements[index])
+                }
+            }
+            .paletteRows()
+        }
+    }
+
     @ViewBuilder
     var contentView: some View {
         Group {
@@ -224,66 +288,9 @@ struct MeasurementsListView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
                         .padding(.bottom, 4)
-                    List {
-                        ForEach(shownIndices, id: \.self) { index in
-                            let measurement = analyzer.savedMeasurements[index]
-                            Button(action: {
-                                // Single tap: only acts in compare mode
-                                if isComparing {
-                                    toggleCompareSelection(at: index, for: measurement)
-                                } else if isSelectingToDelete {
-                                    toggleDeleteSelection(at: index)
-                                }
-                            }) {
-                                compareRowContent(at: index, for: measurement)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            // Double-tap loads the measurement and dismisses the list.
-                            // Dismiss first so the sheet is gone before loadMeasurement()
-                            // sets @Published properties (including microphoneWarning).
-                            // The load is deferred so the sheet teardown completes cleanly
-                            // and the mic warning alert fires only on the main view.
-                            // Off in compare mode: while a double-tap gesture is attached, SwiftUI holds
-                            // every single click for the double-click interval, which made the compare
-                            // checkmarks lag the click.
-                            .gesture(
-                                TapGesture(count: 2).onEnded {
-                                    let m = measurement
-                                    dismiss()
-                                    DispatchQueue.main.async {
-                                        analyzer.loadMeasurement(m)
-                                    }
-                                },
-                                including: isComparing || isSelectingToDelete ? .subviews : .all
-                            )
-                            #if os(macOS)
-                            .onHover { inside in
-                                hoveredMeasurementIndex = inside ? index : nil
-                                if inside {
-                                    NSCursor.pointingHand.push()
-                                } else {
-                                    NSCursor.pop()
-                                }
-                            }
-                            #endif
-                            .help(isComparing ? "Toggle selection for comparison"
-                                  : isSelectingToDelete ? "Toggle selection for deletion" : "Double-click to load measurement")
-                            .contextMenu { rowMenuContents(index: index, measurement: measurement) }
-                            #if os(macOS)
-                            // The row under the pointer on background.subtle, in every edition.
-                            .listRowBackground(hoveredMeasurementIndex == index ? Palette.color(.backgroundSubtle) : Color.clear)
-                            #endif
-                        }
-                        .onDelete { indexSet in
-                            // A row's position in the list shown → its place in the library.
-                            if let row = indexSet.first {
-                                let index = shownIndices[row]
-                                measurementPendingDelete = (index: index, measurement: analyzer.savedMeasurements[index])
-                            }
-                        }
-                        .paletteRows()
-                    }
+                    // The rows behind AnyView, which ends their type there, so the list's type stays shallow
+                    // enough to decode on an iPhone's stack.
+                    AnyView(measurementRows)
                 }
             }
         }
