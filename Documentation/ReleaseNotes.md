@@ -5,7 +5,7 @@
 ## Version {{version}} · Build {{build}}
 ### What's New Since Build {{since}}
 
-<!-- Notes reviewed through commit 8b7ef17 (2026-10-24). The next update reads only `git log 8b7ef17..HEAD`, then moves this line to the newest commit it covered. -->
+<!-- Notes reviewed through commit 0f33f1a (2026-10-24). The next update reads only `git log 0f33f1a..HEAD`, then moves this line to the newest commit it covered. -->
 
 ---
 
@@ -18,6 +18,10 @@
 ### Sort, Filter and Delete in Saved Measurements
 
 - A new **Sort & Filter** menu sorts the list as added, by date, name or type (choose the same again to reverse it), or shows one type only — comparisons included. Your choice is remembered. **Delete All** is now a **Delete** menu: **All**, **Duplicates** (every later copy of a measurement, keeping the first) or **Selected** (tick the measurements to delete). The list itself always keeps the order the measurements were added.
+
+### Chart Menu for a Comparison
+
+- While a comparison is shown, the chart's menu resets either or both axes to the comparison range — the span of the compared measurements, where the comparison opened — in place of Saved and Defaults, which mean nothing for measurements of many guitars.
 
 ### Appearance: Light, Dark or System
 
@@ -131,6 +135,7 @@
 - **On iPad and iPhone, Measurement Details had no Done button.** Edit Measurement on an iPhone in landscape now has a sidebar.
 - **Exports from a standard-resolution display were half size**, and oversized from an iPhone.
 - **Play File was offered with no input running**; it is now disabled until the input is available.
+- **On iPad and iPhone, an open menu lost the item under your finger** each time the spectrum updated while waiting for a tap.
 
 ---
 
