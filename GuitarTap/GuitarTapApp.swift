@@ -16,8 +16,8 @@
 /// - **iOS**: Uses a standard `WindowGroup`.
 ///
 /// Both platforms handle `onOpenURL` by posting
-/// `Notification.Name.openMeasurementFile` so that `MeasurementsListView`
-/// can import the file regardless of which view is currently on screen.
+/// `Notification.Name.openMeasurementFile`; `TapToneAnalysisView` imports the
+/// file, and loads it when it holds one measurement, whatever is on screen.
 ///
 /// ## Global Constants
 ///

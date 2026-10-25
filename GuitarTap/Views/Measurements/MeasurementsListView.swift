@@ -32,10 +32,8 @@
 ///
 /// ## AirDrop / Open-URL
 ///
-/// Files opened via AirDrop or "Open in…" are routed through
-/// `Notification.Name.openMeasurementFile` posted by `GuitarTapApp`. This
-/// view observes the notification and calls `importFromFile(url:)` when
-/// received.
+/// Files opened via AirDrop or "Open in…" are imported by `TapToneAnalysisView`
+/// (`Notification.Name.openMeasurementFile`, posted by `GuitarTapApp`), not here.
 ///
 /// - SeeAlso: `MeasurementDetailView`, `MeasurementFileExporter`
 

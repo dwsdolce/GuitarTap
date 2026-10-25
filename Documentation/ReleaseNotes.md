@@ -126,6 +126,7 @@
 - **Cancel or New Tap straight after accepting the fC tap** could start the new measurement in the fLC capture.
 - **A plate's status was replaced by the guitar prompt** after a device change; the plate prompt now reads "Ready for fL tap".
 - **A loaded comparison could be overwritten** by live taps behind it.
+- **A comparison could be replaced by a new measurement** when GuitarTap came back to the front — opened from AirDrop or Files on iPad and iPhone, or restored from the Dock on macOS.
 - **Save, Export Spectrum and Export PDF** are enabled only when there is a completed measurement or a comparison.
 - **A peak with no musical pitch** (very low or invalid frequencies) could crash the app; it now reads "no pitch".
 - **A stray peak in the Top / Back overlap, or a brace fL near 220 Hz, was labelled Top**; it is now unknown.

@@ -54,12 +54,14 @@ extension TapToneAnalyzer {
     }
 
     /// What the engine coming up does: start a tap sequence — only when nothing is under way or on
-    /// screen (not detecting, not complete, not paused, no taps taken), so an engine start never
-    /// replaces a measurement. Goes through ``requestStartTapSequence()`` so it gets the same
+    /// screen (not detecting, not complete, not paused, no taps taken, no comparison shown), so an engine
+    /// start never replaces a measurement or a comparison — such as the app coming back to the front with
+    /// a comparison just opened from AirDrop. Goes through ``requestStartTapSequence()`` so it gets the same
     /// dump-folder reachability check as the New Tap button — launching the app is a user action, so
     /// it must prompt too rather than silently record to (or skip) an unreachable folder.
     func autoStartTapSequence() {
-        guard !isDetecting && !isMeasurementComplete && !isDetectionPaused && currentTapCount == 0 else { return }
+        guard !isDetecting && !isMeasurementComplete && !isDetectionPaused && currentTapCount == 0
+                && displayMode != .comparison else { return }
         requestStartTapSequence()
     }
 
