@@ -14,24 +14,37 @@
 
 import SwiftUI
 
+/// Which part of a comparison table to draw: the whole table, or its heading and its rows apart — for a list that
+/// keeps its heading fixed above the rows it scrolls.
+enum ComparisonTablePart {
+    case whole, heading, rows
+}
+
 struct ComparisonResultsView: View {
 
     /// The comparison spectra from `TapToneAnalyzer.comparisonSpectra`.
     let spectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String, peaks: [ResonantPeak], guitarType: GuitarType?, modeIDs: [String: UUID])]
+
+    /// The part to draw; the whole table unless the heading and the rows are placed apart.
+    var part: ComparisonTablePart = .whole
 
     /// Columns shown in the table (Air, Top, Back).
     private let columns: [GuitarMode] = [.air, .top, .back]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            headerRow
-            PaletteDivider()
+            if part != .rows {
+                headerRow
+                PaletteDivider()
+            }
+            if part != .heading {
             ForEach(Array(spectra.enumerated()), id: \.offset) { index, entry in
                 dataRow(entry: entry, modeFreqs: modeFreqs(for: entry))
                 if index < spectra.count - 1 {
                     PaletteDivider()
                         .padding(.leading, 8)
                 }
+            }
             }
         }
         .font(.caption)

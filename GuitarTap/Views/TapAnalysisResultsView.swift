@@ -282,6 +282,10 @@ struct TapAnalysisResultsView: View {
 
                 headerFooterDivider
 
+                // What is not an item stays fixed above the list: a comparison table's heading, or the
+                // empty list's message.
+                fixedAboveList
+
                 // Scrollable peaks list (plus plate/brace properties which can be long)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
@@ -489,6 +493,35 @@ struct TapAnalysisResultsView: View {
         }
     }
 
+    /// The part of the peaks list that is not an item, fixed above it: the heading of the table of taps or of
+    /// compared spectra, or the message an empty list shows. The same cases as ``peaksAndModesSection``.
+    @ViewBuilder
+    private var fixedAboveList: some View {
+        if analyzer.showingMultiTapComparison && !analyzer.tapEntries.isEmpty {
+            MultiTapComparisonResultsView(
+                tapEntries: analyzer.tapEntries,
+                averagedModes: analyzer.definitiveModeInfo(),
+                guitarType: TapDisplaySettings.guitarType,
+                part: .heading
+            )
+            .padding(.horizontal)
+            .padding(.top, 8)
+        } else if !measurementType.isGuitar && analyzer.displayMode != .comparison {
+            EmptyView()
+        } else if sortedPeaksWithModes.isEmpty {
+            if analyzer.displayMode == .comparison {
+                ComparisonResultsView(spectra: analyzer.comparisonSpectra, part: .heading)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+            } else {
+                Text("No peaks detected in visible range")
+                    .foregroundColor(Palette.color(.textSecondary))
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+        }
+    }
+
     private var peaksAndModesSection: some View {
         // No box: the rows carry their own tints, as in the other editions.
         VStack(alignment: .leading, spacing: 0) {
@@ -500,22 +533,19 @@ struct TapAnalysisResultsView: View {
                 MultiTapComparisonResultsView(
                     tapEntries: analyzer.tapEntries,
                     averagedModes: analyzer.definitiveModeInfo(),
-                    guitarType: TapDisplaySettings.guitarType
+                    guitarType: TapDisplaySettings.guitarType,
+                    part: .rows
                 )
-                .padding(.vertical, 4)
+                .padding(.bottom, 4)
             } else if !measurementType.isGuitar && analyzer.displayMode != .comparison {
                 // Material (plate/brace): the identified L/C/FLC are the peaks — fixed slot rows
                 // during capture, then the identified peaks once complete.
                 materialPeakRows
             } else if sortedPeaksWithModes.isEmpty {
+                // The heading, or the empty list's message, is fixed above the list (`fixedAboveList`).
                 if analyzer.displayMode == .comparison {
-                    ComparisonResultsView(spectra: analyzer.comparisonSpectra)
-                        .padding(.vertical, 4)
-                } else {
-                    Text("No peaks detected in visible range")
-                        .foregroundColor(Palette.color(.textSecondary))
-                        .frame(maxWidth: .infinity)
-                        .padding()
+                    ComparisonResultsView(spectra: analyzer.comparisonSpectra, part: .rows)
+                        .padding(.bottom, 4)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 4) {

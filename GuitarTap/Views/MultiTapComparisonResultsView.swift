@@ -35,13 +35,19 @@ struct MultiTapComparisonResultsView: View {
     let guitarType: GuitarType?
 
 
+    /// The part to draw; the whole table unless the heading and the rows are placed apart.
+    var part: ComparisonTablePart = .whole
+
     /// Columns shown in the table (Air, Top, Back).
     private let columns: [GuitarMode] = [.air, .top, .back]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            headerRow
-            PaletteDivider()
+            if part != .rows {
+                headerRow
+                PaletteDivider()
+            }
+            if part != .heading {
 
             // Per-tap rows — each tap's OWN auto-classification (its own spectrum, its own peaks).
             ForEach(Array(tapEntries.enumerated()), id: \.offset) { index, entry in
@@ -68,6 +74,7 @@ struct MultiTapComparisonResultsView: View {
                 overrideModes: Set(averagedModes.filter { $0.value.isOverride }.keys),
                 bold: true
             )
+            }
         }
         .font(.caption)
     }
