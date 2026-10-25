@@ -22,7 +22,7 @@ struct ButtonStyleTests {
         return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     }()
 
-    static func ids() -> [String] {
+    nonisolated static func ids() -> [String] {
         (data["cases"] as! [[String: Any]]).map { $0["id"] as! String }
     }
 

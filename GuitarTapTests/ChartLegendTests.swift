@@ -22,7 +22,7 @@ struct ChartLegendTests {
         return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     }()
 
-    static func ids() -> [String] { (data["lines"] as! [[Any]]).map { $0[0] as! String } }
+    nonisolated static func ids() -> [String] { (data["lines"] as! [[Any]]).map { $0[0] as! String } }
 
     @Test(arguments: ids())
     func lines(_ id: String) {

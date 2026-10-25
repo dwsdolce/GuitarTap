@@ -33,7 +33,7 @@ struct ChartHelpTests {
         #expect(ChartHelp.groups == expected)
     }
 
-    static func deviceIDs() -> [String] { (data["devices"] as! [[String: Any]]).map { $0["id"] as! String } }
+    nonisolated static func deviceIDs() -> [String] { (data["devices"] as! [[String: Any]]).map { $0["id"] as! String } }
 
     @Test(arguments: deviceIDs())
     func shown(_ id: String) {

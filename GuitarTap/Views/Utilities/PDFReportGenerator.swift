@@ -57,6 +57,7 @@
 
 import SwiftUI
 import CoreGraphics
+import ImageIO
 
 #if os(iOS)
 import UIKit
@@ -255,6 +256,17 @@ struct PDFReportData {
 }
 
 // MARK: - PDF Generator
+
+/// The report's chart image height at `width`: its own aspect, rounded to whole points here, so the report lays
+/// out the same on macOS and iOS (left to SwiftUI, a fractional height was rounded differently on each, moving
+/// every line below the image by a point). Nil when the data is not an image.
+func reportImageHeight(_ data: Data, width: CGFloat) -> CGFloat? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+          let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+          let pixelWidth = properties[kCGImagePropertyPixelWidth] as? CGFloat, pixelWidth > 0,
+          let pixelHeight = properties[kCGImagePropertyPixelHeight] as? CGFloat else { return nil }
+    return (width * pixelHeight / pixelWidth).rounded()
+}
 
 /// Generates PDF data by rendering `PDFReportContentView` via `ImageRenderer`.
 struct PDFReportGenerator {
@@ -464,7 +476,7 @@ private struct PDFReportContentView: View {
             reportImage(from: imageData)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: contentWidth)
+                .frame(width: contentWidth, height: reportImageHeight(imageData, width: contentWidth))
                 .background(Palette.color(.pdfChartMatte))
                 .cornerRadius(6)
         }
@@ -1253,7 +1265,7 @@ private struct ComparisonPDFReportContentView: View {
             reportImage(from: imageData)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: contentWidth)
+                .frame(width: contentWidth, height: reportImageHeight(imageData, width: contentWidth))
                 .background(Palette.color(.pdfChartMatte))
                 .cornerRadius(6)
         }
