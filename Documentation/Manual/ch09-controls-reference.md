@@ -278,7 +278,9 @@ frequency and magnitude under the cursor in real time.
 menu from the upper-right corner of the spectrum chart; a
 right-click on the chart opens the same menu. It holds the reset
 items — each axis or both, to Saved or to Defaults — plus Reset
-Labels when there are dragged labels to reset (§6.2, §6.6).
+Labels when there are dragged labels to reset (§6.2, §6.6). While a
+comparison measurement is shown it holds only the resets to the
+comparison range (§6.2).
 
 **Zoom & Pan Help** <img src="images/symbols/info.circle.png" width="18" height="18" class="inline-icon" alt="info.circle"> — Shows a popover
 below the button listing the zoom and pan gestures and modifier

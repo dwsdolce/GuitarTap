@@ -196,6 +196,10 @@ struct SpectrumView: View {
     /// Optional callback to reset all peak annotation label positions
     var onResetLabels: (() -> Void)?
 
+    /// The comparison range while a comparison measurement is shown, else nil: with it, the chart's menu is the
+    /// comparison's (`ChartMenu.comparisonGroups`), resetting to it.
+    var comparisonRange: DisplayRange.ChartRange? = nil
+
     /// Whether there are annotation offsets that need resetting (controls enabled state of menu item)
     var hasLabelsToReset: Bool = false
 
@@ -436,7 +440,7 @@ struct SpectrumView: View {
     /// The chart's menu (`ChartMenu.groups`) with this chart's actions — the same from the ⋯ and from a right-click,
     /// on every device: SwiftUI's menu (`chartMenuItems`) and, for iOS's right-click, UIKit's (`chartUIMenu`).
     private var chartMenuGroups: [[ChartMenuItem]] {
-        ChartMenu.groups.compactMap { group in
+        (comparisonRange == nil ? ChartMenu.groups : ChartMenu.comparisonGroups).compactMap { group in
             let items: [ChartMenuItem] = group.compactMap { entry in
                 switch entry.action {
                 case .resetBothToSaved: return ChartMenuItem(entry: entry, action: resetBothAxesToSaved)
@@ -445,6 +449,9 @@ struct SpectrumView: View {
                 case .resetBothToDefaults: return ChartMenuItem(entry: entry, action: resetBothAxesToDefaults)
                 case .resetFrequencyToDefaults: return ChartMenuItem(entry: entry, action: resetFrequencyAxisToDefaults)
                 case .resetMagnitudeToDefaults: return ChartMenuItem(entry: entry, action: resetMagnitudeAxisToDefaults)
+                case .resetBothToComparison: return ChartMenuItem(entry: entry, action: resetBothAxesToComparison)
+                case .resetFrequencyToComparison: return ChartMenuItem(entry: entry, action: resetFrequencyAxisToComparison)
+                case .resetMagnitudeToComparison: return ChartMenuItem(entry: entry, action: resetMagnitudeAxisToComparison)
                 case .resetLabels:
                     guard let onResetLabels else { return nil }
                     return ChartMenuItem(entry: entry, action: onResetLabels, isEnabled: hasLabelsToReset)

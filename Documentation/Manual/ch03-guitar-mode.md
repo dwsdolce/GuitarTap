@@ -242,7 +242,7 @@ the absence is unambiguous.
 
 ## 3.9 Comparing Guitar Measurements
 
-Comparison overlays two to five saved guitar measurements on the
+Comparison overlays two or more saved guitar measurements on the
 same chart. Useful for any pair-or-more of measurements you want to
 see side by side — different build stages of the same instrument,
 different tap locations on the same body, different instruments you
@@ -267,7 +267,7 @@ SCREENSHOT:
 **Starting a comparison**
 
 1. Open the **Measurements** list.
-2. Tap to select two to five saved guitar measurements. Plate and
+2. Tap to select two or more saved guitar measurements. Plate and
    brace measurements are excluded — comparison is guitar-only.
 3. Tap the **Compare** button that appears once two or more
    measurements are selected.

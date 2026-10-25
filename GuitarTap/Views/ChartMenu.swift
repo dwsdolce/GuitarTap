@@ -14,6 +14,7 @@ struct ChartMenuEntry: Equatable {
     enum Action: String {
         case resetBothToSaved, resetFrequencyToSaved, resetMagnitudeToSaved
         case resetBothToDefaults, resetFrequencyToDefaults, resetMagnitudeToDefaults
+        case resetBothToComparison, resetFrequencyToComparison, resetMagnitudeToComparison
         case resetLabels, resetPosition
     }
 
@@ -37,6 +38,17 @@ enum ChartMenu {
         ],
         [
             ChartMenuEntry(action: .resetLabels, title: "Reset Labels", symbol: "arrow.uturn.backward"),
+        ],
+    ]
+
+    /// The chart's menu while a comparison measurement is shown, in place of ``groups``: Settings' range and the
+    /// app's defaults mean nothing for measurements of many guitars, so it resets to the comparison range — the span
+    /// of the compared measurements' saved views, the range a comparison opens at.
+    static let comparisonGroups: [[ChartMenuEntry]] = [
+        [
+            ChartMenuEntry(action: .resetBothToComparison, title: "Reset Both Axes to Comparison Range", symbol: "arrow.counterclockwise"),
+            ChartMenuEntry(action: .resetFrequencyToComparison, title: "Reset Frequency Axis to Comparison Range", symbol: "arrow.counterclockwise"),
+            ChartMenuEntry(action: .resetMagnitudeToComparison, title: "Reset Magnitude Axis to Comparison Range", symbol: "arrow.counterclockwise"),
         ],
     ]
 

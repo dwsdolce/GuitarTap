@@ -33,6 +33,11 @@ struct ChartMenuTests {
         #expect(ChartMenu.groups == expected)
     }
 
+    @Test func comparisonMenu() {
+        let expected = (Self.data["comparisonGroups"] as! [[[String: Any]]]).map(Self.entries)
+        #expect(ChartMenu.comparisonGroups == expected)
+    }
+
     @Test func labelMenu() {
         #expect(ChartMenu.labelMenu == Self.entries(Self.data["labelMenu"] as! [[String: Any]]))
     }

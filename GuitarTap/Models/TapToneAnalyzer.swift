@@ -1146,6 +1146,12 @@ final class TapToneAnalyzer: ObservableObject {
         displayMode == .comparison && !showingMultiTapComparison
     }
 
+    /// The comparison range while a comparison measurement is shown — the span of the compared measurements' saved
+    /// views, the range a comparison opens at — else nil. The chart's menu resets to it.
+    var comparisonRange: DisplayRange.ChartRange? {
+        isSavedMeasurementComparison ? DisplayRange.spanning(comparisonSnapshots) : nil
+    }
+
     // MARK: - Gated FFT State
     //
     // Main thread only: every chunk reaches the analyzer there, in order (`processAudioFrame`).

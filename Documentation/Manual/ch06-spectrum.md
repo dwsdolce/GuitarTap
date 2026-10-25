@@ -50,6 +50,16 @@ every platform, and the one a right-click opens:
   auto-positions; it is available when any label has been
   dragged (§6.6).
 
+While a comparison measurement is shown (§3.9), Saved and Defaults
+have no meaning — the comparison holds measurements of many
+guitars — so the chart menu has one group in their place:
+
+- **Reset Both Axes to Comparison Range**, **Reset Frequency Axis
+  to Comparison Range**, **Reset Magnitude Axis to Comparison
+  Range** return the chosen axis (or both) to the comparison
+  range: the span of the compared measurements' saved views, from
+  the lowest to the highest of them — where the comparison opened.
+
 ## 6.3 Zooming and Panning — macOS, Windows, and Linux Desktop
 
 Desktop interaction follows the same pattern as iOS/iPadOS but

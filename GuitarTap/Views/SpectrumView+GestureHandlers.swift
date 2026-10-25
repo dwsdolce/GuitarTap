@@ -358,6 +358,26 @@ extension SpectrumView {
         onAxisRangeReset?(minFreq, maxFreq, newMinDB, newMaxDB)
     }
 
+    /// Resets both axes to the comparison range.
+    func resetBothAxesToComparison() {
+        guard let range = comparisonRange else { return }
+        onAxisRangeReset?(range.minFreq, range.maxFreq, range.minDB, range.maxDB)
+        onFrequencyRangeChanged?()
+    }
+
+    /// Resets the frequency axis to the comparison range.
+    func resetFrequencyAxisToComparison() {
+        guard let range = comparisonRange else { return }
+        onAxisRangeReset?(range.minFreq, range.maxFreq, minDB, maxDB)
+        onFrequencyRangeChanged?()
+    }
+
+    /// Resets the magnitude axis to the comparison range.
+    func resetMagnitudeAxisToComparison() {
+        guard let range = comparisonRange else { return }
+        onAxisRangeReset?(minFreq, maxFreq, range.minDB, range.maxDB)
+    }
+
     /// Resets both axes to factory default values
     func resetBothAxesToDefaults() {
         let type = TapDisplaySettings.measurementType
