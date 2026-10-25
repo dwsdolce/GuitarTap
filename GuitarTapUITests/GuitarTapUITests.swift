@@ -27,6 +27,7 @@ final class GuitarTapUITests: XCTestCase {
         ("plate", "plate-umik-1-swift-mac-1785359486"),
         ("brace", "brace-umik-1-swift-mac-1785359411"),
         ("comparison", "5-guitar-comparison-1776708138"),
+        ("large-comparison", "18-compare-1792944381"),
     ]
 
     /// The unit tests' fixtures, from the source tree.
@@ -45,6 +46,7 @@ final class GuitarTapUITests: XCTestCase {
     @MainActor func testExportsPlate() throws { try exportCase("plate") }
     @MainActor func testExportsBrace() throws { try exportCase("brace") }
     @MainActor func testExportsComparison() throws { try exportCase("comparison") }
+    @MainActor func testExportsLargeComparison() throws { try exportCase("large-comparison") }
 
     /// One case: one launch and import, then both export paths — the main window with the import loaded,
     /// then the row's menu in Saved Measurements.

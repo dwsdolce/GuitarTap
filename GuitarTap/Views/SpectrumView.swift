@@ -196,9 +196,9 @@ struct SpectrumView: View {
     /// Optional callback to reset all peak annotation label positions
     var onResetLabels: (() -> Void)?
 
-    /// The comparison range while a comparison measurement is shown, else nil: with it, the chart's menu is the
+    /// The compared span while a comparison measurement is shown, else nil: with it, the chart's menu is the
     /// comparison's (`ChartMenu.comparisonGroups`), resetting to it.
-    var comparisonRange: DisplayRange.ChartRange? = nil
+    var comparedSpan: DisplayRange.ChartRange? = nil
 
     /// Whether there are annotation offsets that need resetting (controls enabled state of menu item)
     var hasLabelsToReset: Bool = false
@@ -440,7 +440,7 @@ struct SpectrumView: View {
     /// The chart's menu (`ChartMenu.groups`) with this chart's actions — the same from the ⋯ and from a right-click,
     /// on every device: SwiftUI's menu (`chartMenuItems`) and, for iOS's right-click, UIKit's (`chartUIMenu`).
     private var chartMenuGroups: [[ChartMenuItem]] {
-        (comparisonRange == nil ? ChartMenu.groups : ChartMenu.comparisonGroups).compactMap { group in
+        (comparedSpan == nil ? ChartMenu.groups : ChartMenu.comparisonGroups).compactMap { group in
             let items: [ChartMenuItem] = group.compactMap { entry in
                 switch entry.action {
                 case .resetBothToSaved: return ChartMenuItem(entry: entry, action: resetBothAxesToSaved)
@@ -514,40 +514,13 @@ struct SpectrumView: View {
             }
             .padding(.bottom, 8)
 
-            ZStack(alignment: .topTrailing) {
-                HStack(spacing: 4) {
-                    ChartAxisTitle(text: "FFT Magnitude (dB)", font: .caption, vertical: true)
-                    VStack(spacing: 4) {
-                        chartView
-                        ChartAxisTitle(text: "Frequency (Hz)", font: .caption)
-                    }
-                }
-                materialSpectraLegend
-                    .padding(.top, 8)
-                    .padding(.trailing, 12)
-            }
-        }
-    }
-
-    /// Legend overlay for per-phase plate/brace spectra
-    @ViewBuilder
-    private var materialSpectraLegend: some View {
-        if !materialSpectra.isEmpty {
-            HStack(spacing: 12) {
-                ForEach(Array(materialSpectra.enumerated()), id: \.offset) { _, series in
-                    HStack(spacing: 4) {
-                        Rectangle()
-                            .fill(series.color)
-                            .frame(width: 16, height: 2)
-                        Text(series.label)
-                            .font(.caption2)
-                            .foregroundColor(series.color)
-                    }
+            HStack(spacing: 4) {
+                ChartAxisTitle(text: "FFT Magnitude (dB)", font: .caption, vertical: true)
+                VStack(spacing: 4) {
+                    chartView
+                    ChartAxisTitle(text: "Frequency (Hz)", font: .caption)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Palette.color(.chartReadoutBackground), in: RoundedRectangle(cornerRadius: 6))
         }
     }
 
@@ -639,6 +612,9 @@ struct SpectrumView: View {
                             .allowsHitTesting(false)
                     }
                     #endif
+
+                    ChartLegend(series: materialSpectra.map { ($0.color, $0.label) })
+                        .placed(in: resolvedPlotFrame, inset: 8)
                 }
                 // contentShape ensures the ZStack is hittable even when empty (no annotation labels).
                 // This is required for onContinuousHover to fire reliably.

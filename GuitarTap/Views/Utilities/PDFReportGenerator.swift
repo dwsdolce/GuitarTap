@@ -1062,6 +1062,9 @@ struct ComparisonPDFReportData {
     let spectrumImageData: Data?
     /// The comparison entries — one per overlaid spectrum.
     let entries: [ComparisonEntry]
+    /// The chart's frequency range: the one the spectrum image shows.
+    let minFreq: Float
+    let maxFreq: Float
     /// Resolved Air/Top/Back frequencies per entry, keyed by entry index.
     let modeFrequencies: [(label: String, color: Color, air: Float?, top: Float?, back: Float?, overrideModes: Set<GuitarMode>)]
 }
@@ -1224,13 +1227,8 @@ private struct ComparisonPDFReportContentView: View {
                 metaRow(label: "Notes", value: notes)
             }
             metaRow(label: "Spectra", value: "\(data.entries.count) spectra compared")
-            if let firstSnap = data.entries.first?.snapshot,
-               let lastSnap = data.entries.last?.snapshot {
-                let minF = data.entries.map(\.snapshot.minFreq).min() ?? firstSnap.minFreq
-                let maxF = data.entries.map(\.snapshot.maxFreq).max() ?? lastSnap.maxFreq
-                metaRow(label: "Frequency Range",
-                        value: "\(minF.formattedAsFrequency()) – \(maxF.formattedAsFrequency())")
-            }
+            metaRow(label: "Frequency Range",
+                    value: "\(data.minFreq.formattedAsFrequency()) – \(data.maxFreq.formattedAsFrequency())")
         }
     }
 
@@ -1413,12 +1411,15 @@ extension PDFReportGenerator {
                     modePeaks[.back]?.frequency, [])
         }
 
+        let range = multiTapChartRange(measurement)
         return ComparisonPDFReportData(
             timestamp: measurement.timestamp,
             comparisonLabel: measurement.measurementName,
             notes: measurement.notes,
             spectrumImageData: try renderSpectrumImageForMultiTap(measurement),
             entries: cmpEntries,
+            minFreq: range.minFreq,
+            maxFreq: range.maxFreq,
             modeFrequencies: modeFrequencies
         )
     }
@@ -1432,12 +1433,15 @@ extension PDFReportGenerator {
             return (entry.label, color, entry.modeFrequency(.air), entry.modeFrequency(.top),
                     entry.modeFrequency(.back), [])
         }
+        let range = comparisonChartRange(measurement)
         return ComparisonPDFReportData(
             timestamp: measurement.timestamp,
             comparisonLabel: measurement.measurementName,
             notes: measurement.notes,
             spectrumImageData: try renderSpectrumImageForComparison(measurement),
             entries: entries,
+            minFreq: range.minFreq,
+            maxFreq: range.maxFreq,
             modeFrequencies: modeFrequencies
         )
     }

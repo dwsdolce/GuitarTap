@@ -212,6 +212,9 @@ extension TapToneAnalysisView {
                     sourceMeasurementID: nil
                 )
             },
+            // The range the chart image above shows: the chart's on screen.
+            minFreq: minFreq,
+            maxFreq: maxFreq,
             modeFrequencies: modeFrequencies
         )
 

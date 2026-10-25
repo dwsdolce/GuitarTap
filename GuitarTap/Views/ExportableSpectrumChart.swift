@@ -428,6 +428,14 @@ struct ExportableSpectrumChart: View {
                                     }
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                                     .clipShape(PlotArea(rect: frame))
+
+                                    // The legend over the labels, as on screen, in the image's sizes.
+                                    ChartLegend(series: materialSpectra.map { ($0.color, $0.label) },
+                                                font: .system(size: 14), swatch: CGSize(width: 22, height: 3),
+                                                spacing: 16, lineSpacing: 6,
+                                                padding: EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10),
+                                                cornerRadius: 8)
+                                        .placed(in: frame, inset: 10)
                                 }
                             }
                         }
@@ -683,24 +691,8 @@ func makeExportableSpectrumView(
             .padding(.vertical, 8)
         }
 
-        // Legend: comparison curve labels or guitar mode key
-        if !materialSpectra.isEmpty {
-            HStack(spacing: 20) {
-                Text("Measurements:")
-                    .exportFont(10, .semibold)
-
-                ForEach(Array(materialSpectra.enumerated()), id: \.offset) { _, series in
-                    HStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(series.color)
-                            .frame(width: 24, height: 4)
-                        Text(series.label)
-                            .exportFont(10)
-                    }
-                }
-            }
-            .padding()
-        } else {
+        // The guitar mode key; overlaid curves have their legend on the chart, as on screen.
+        if materialSpectra.isEmpty {
             HStack(spacing: 20) {
                 Text("Guitar Modes:")
                     .exportFont(10, .semibold)
@@ -859,15 +851,14 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) throws ->
              color: Palette.comparisonColor(index: index, label: entry.label), label: entry.label)
         }
 
-    // The chart's range spans the taps' spectra.
-    let range = DisplayRange.spanning((measurement.tapEntries ?? []).map(\.snapshot))
+    let range = multiTapChartRange(measurement)
     let compositeView = makeExportableSpectrumView(
         frequencies: [],
         magnitudes: [],
-        minFreq: range?.minFreq ?? 50,
-        maxFreq: range?.maxFreq ?? 1000,
-        minDB:   range?.minDB   ?? -100,
-        maxDB:   range?.maxDB   ?? 0,
+        minFreq: range.minFreq,
+        maxFreq: range.maxFreq,
+        minDB:   range.minDB,
+        maxDB:   range.maxDB,
         peaks: [],
         // The measurement's own guitar type, as the main window's tap comparison has it.
         measurementType: measurement.spectrumSnapshot?.measurementType ?? .generic,
@@ -877,6 +868,22 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) throws ->
     )
 
     return try renderExportPNG(compositeView)
+}
+
+/// A multi-tap measurement's tap comparison chart range: the measurement's own, as on screen, where the taps overlay
+/// the measurement's chart. Its image and its PDF page's Frequency Range both use it.
+func multiTapChartRange(_ measurement: TapToneMeasurement) -> DisplayRange.ChartRange {
+    guard let snap = measurement.spectrumSnapshot else {
+        return DisplayRange.ChartRange(minFreq: 50, maxFreq: 1000, minDB: -100, maxDB: 0)
+    }
+    return DisplayRange.ChartRange(minFreq: snap.minFreq, maxFreq: snap.maxFreq, minDB: snap.minDB, maxDB: snap.maxDB)
+}
+
+/// A saved comparison's chart range: the range it was saved with, as a measurement's; one saved before comparisons
+/// kept their range spans its entries', as loading it does. Its image and its PDF's Frequency Range both use it.
+func comparisonChartRange(_ measurement: TapToneMeasurement) -> DisplayRange.ChartRange {
+    measurement.comparisonRange ?? DisplayRange.spanning((measurement.comparisonEntries ?? []).map(\.snapshot))
+        ?? DisplayRange.ChartRange(minFreq: 50, maxFreq: 1000, minDB: -100, maxDB: 0)
 }
 
 /// Renders the comparison overlay chart for a saved comparison `TapToneMeasurement`
@@ -899,10 +906,7 @@ func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) throws 
         return (magnitudes: entry.snapshot.magnitudes, frequencies: entry.snapshot.frequencies,
                 color: color, label: entry.label)
     }
-    // The range it was saved with, as a measurement's image; one saved before comparisons kept their
-    // range spans its entries', as loading it does.
-    let range = measurement.comparisonRange ?? DisplayRange.spanning(entries.map(\.snapshot))
-        ?? DisplayRange.ChartRange(minFreq: 50, maxFreq: 1000, minDB: -100, maxDB: 0)
+    let range = comparisonChartRange(measurement)
     let compositeView = makeExportableSpectrumView(
         frequencies: [],
         magnitudes: [],

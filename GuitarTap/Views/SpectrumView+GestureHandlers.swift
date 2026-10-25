@@ -358,23 +358,23 @@ extension SpectrumView {
         onAxisRangeReset?(minFreq, maxFreq, newMinDB, newMaxDB)
     }
 
-    /// Resets both axes to the comparison range.
+    /// Resets both axes to the compared span ("Comparison Range").
     func resetBothAxesToComparison() {
-        guard let range = comparisonRange else { return }
+        guard let range = comparedSpan else { return }
         onAxisRangeReset?(range.minFreq, range.maxFreq, range.minDB, range.maxDB)
         onFrequencyRangeChanged?()
     }
 
-    /// Resets the frequency axis to the comparison range.
+    /// Resets the frequency axis to the compared span ("Comparison Range").
     func resetFrequencyAxisToComparison() {
-        guard let range = comparisonRange else { return }
+        guard let range = comparedSpan else { return }
         onAxisRangeReset?(range.minFreq, range.maxFreq, minDB, maxDB)
         onFrequencyRangeChanged?()
     }
 
-    /// Resets the magnitude axis to the comparison range.
+    /// Resets the magnitude axis to the compared span ("Comparison Range").
     func resetMagnitudeAxisToComparison() {
-        guard let range = comparisonRange else { return }
+        guard let range = comparedSpan else { return }
         onAxisRangeReset?(minFreq, maxFreq, range.minDB, range.maxDB)
     }
 

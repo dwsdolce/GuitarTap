@@ -1146,9 +1146,10 @@ final class TapToneAnalyzer: ObservableObject {
         displayMode == .comparison && !showingMultiTapComparison
     }
 
-    /// The comparison range while a comparison measurement is shown — the span of the compared measurements' saved
-    /// views, the range a comparison opens at — else nil. The chart's menu resets to it.
-    var comparisonRange: DisplayRange.ChartRange? {
+    /// The compared span while a comparison measurement is shown — the span of the compared measurements' saved
+    /// views, the range a new comparison opens at — else nil. The chart's menu resets to it ("Comparison Range").
+    /// Not a saved comparison's own range (`TapToneMeasurement.comparisonRange`), the view it was saved with.
+    var comparedSpan: DisplayRange.ChartRange? {
         isSavedMeasurementComparison ? DisplayRange.spanning(comparisonSnapshots) : nil
     }
 

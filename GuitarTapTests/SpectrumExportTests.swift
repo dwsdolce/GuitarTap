@@ -2,9 +2,10 @@
 //  SpectrumExportTests.swift
 //  GuitarTapTests
 //
-//  The exported spectrum image's size: every Export Spectrum PNG is 2928 pixels wide — 2376 high with the
-//  peak summary, 2138 without — and states 144 pixels per inch, so a viewer that honours the figure shows
-//  it at 1464 points wide. Python test_spectrum_export.py and the web's spectrum-export.test.ts have the
+//  The exported spectrum image's size: every Export Spectrum PNG is 2928 pixels wide — 2376 high for a guitar
+//  measurement (the peak summary and the mode key under the chart), 2254 for a plate (the peak summary; its legend
+//  is on the chart), 2016 for a comparison — and states 144 pixels per inch, so a viewer that honours the figure
+//  shows it at 1464 points wide. Python test_spectrum_export.py and the web's spectrum-export.test.ts have the
 //  same cases.
 //
 // @parity test/spectrum-export
