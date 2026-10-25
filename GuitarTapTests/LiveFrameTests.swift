@@ -38,7 +38,7 @@ struct LiveFrameTests {
     }
 
     // LF1: a frame, while a completed measurement is on screen, is announced on the live frame and by nothing
-    // else. (While a sequence runs the analyzer announces its live peaks each frame, as it should.)
+    // else. (While a sequence runs, a frame's live peaks are announced on the detected peaks — DetectedPeaksTests.)
     @Test func frame_isAnnouncedOnTheLiveFrameAlone() async {
         let fft = RealtimeFFTAnalyzer.forTesting()
         let sut = TapToneAnalyzer(fftAnalyzer: fft)

@@ -387,7 +387,10 @@ extension TapToneAnalysisView {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
                 .tint(Palette.color(.accent))
-                .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
+                .modifier(DisabledByPeaks(peaks: tap.peaks) {
+                    (TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty
+                        || tap.displayMode == .comparison
+                })
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
             }
 
@@ -524,7 +527,9 @@ extension TapToneAnalysisView {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
                 .tint(Palette.color(.accent))
-                .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty)
+                .modifier(DisabledByPeaks(peaks: tap.peaks) {
+                    (TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty
+                })
                 .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
             }
 
@@ -831,7 +836,10 @@ extension TapToneAnalysisView {
                         Image(systemName: tap.annotationVisibilityMode.iconName)
                     }
                     .tint(Palette.color(.accent))
-                    .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
+                    .modifier(DisabledByPeaks(peaks: tap.peaks) {
+                    (TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty
+                        || tap.displayMode == .comparison
+                })
                     .accessibilityLabel("Annotation visibility: \(tap.annotationVisibilityMode.label)")
                 }
 

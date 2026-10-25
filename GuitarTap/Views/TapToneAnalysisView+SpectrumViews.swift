@@ -166,9 +166,13 @@ extension TapToneAnalysisView {
             // are not meaningful in that context.
             let isComparing = tap.displayMode == .comparison
             let shown = displaySpectrum(live: fft.frame.magnitudes)
-            FrameReader(frame: fft.frame) { frame in
-                spectrumView(isComparing: isComparing, thresholds: thresholds,
-                             spectrum: displaySpectrum(live: frame.magnitudes))
+            // The chart reads the live frame and the detected peaks inside their readers, so a frame or new peaks
+            // redraw the chart and not the view around it.
+            PeaksReader(peaks: tap.peaks) { _ in
+                FrameReader(frame: fft.frame) { frame in
+                    spectrumView(isComparing: isComparing, thresholds: thresholds,
+                                 spectrum: displaySpectrum(live: frame.magnitudes))
+                }
             }
             // Force view to update when any relevant state changes
             .id("\(tap.isMeasurementComplete)-\(fft.isRunning)-\(shown.frequencies.count)-\(shown.magnitudes.count)")

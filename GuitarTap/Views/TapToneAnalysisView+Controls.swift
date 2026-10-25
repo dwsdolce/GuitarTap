@@ -58,7 +58,10 @@ extension TapToneAnalysisView {
                     Image(systemName: tap.annotationVisibilityMode.iconName)
                 }
                 .buttonStyle(.tinted(.accent))
-                .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
+                .modifier(DisabledByPeaks(peaks: tap.peaks) {
+                    (TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty
+                        || tap.displayMode == .comparison
+                })
                 .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
 
                 Button(action: { showingSaveSheet = true }) {
@@ -160,7 +163,10 @@ extension TapToneAnalysisView {
             }
         }
         .buttonStyle(.tinted(.accent))
-        .disabled((TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty || tap.displayMode == .comparison)
+        .modifier(DisabledByPeaks(peaks: tap.peaks) {
+                    (TapDisplaySettings.measurementType.isGuitar ? tap.peaksAbovePeakMin : tap.materialIdentifiedPeaks).isEmpty
+                        || tap.displayMode == .comparison
+                })
         .help("Annotation visibility: \(tap.annotationVisibilityMode.label)")
     }
 

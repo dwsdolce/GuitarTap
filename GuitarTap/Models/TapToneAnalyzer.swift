@@ -311,9 +311,19 @@ final class TapToneAnalyzer: ObservableObject {
     /// Per-peak state (selection, mode overrides, annotation offsets) is keyed to these identities,
     /// which is what makes that state durable across a Peak Min move.
     ///
-    @Published var allPeaks: [ResonantPeak] = [] {
-        didSet { refreshDisplayedPeaks() }
+    /// Held in ``peaks`` (``DetectedPeaks``), which alone announces a change to it.
+    var allPeaks: [ResonantPeak] {
+        get { peaks.allPeaks }
+        set {
+            peaks.allPeaks = newValue
+            refreshDisplayedPeaks()
+        }
     }
+
+    /// The detected peaks — ``allPeaks``, ``peaksAbovePeakMin``, ``identifiedModes`` and ``selectedPeakIDs`` —
+    /// published on their own: they change on every live frame while a sequence waits for a tap, and announced by
+    /// the analyzer they would redraw every view that observes it at the frame rate.
+    let peaks = DetectedPeaks()
 
     /// ``allPeaks`` with the **Peak Min** filter applied — and *only* that filter.
     ///
@@ -341,7 +351,10 @@ final class TapToneAnalyzer: ObservableObject {
     /// ``allPeaks``, so filtering can never disturb identity or the per-peak state keyed to it.
     /// Peak Min is a guitar-only control, so for plate/brace this is simply ``allPeaks`` — the
     /// identified L / C / FLC peaks are the material result and are never filtered.
-    @Published private(set) var peaksAbovePeakMin: [ResonantPeak] = []
+    private(set) var peaksAbovePeakMin: [ResonantPeak] {
+        get { peaks.peaksAbovePeakMin }
+        set { peaks.peaksAbovePeakMin = newValue }
+    }
 
     /// Recomputes ``peaksAbovePeakMin`` from ``allPeaks``. Called when either the peak set or Peak
     /// Min changes. Cheap — a filter over an existing array, no detection.
@@ -366,7 +379,11 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Each element pairs a ``ResonantPeak`` with the ``GuitarMode`` whose frequency band
     /// contains the peak.  Legacy mode names are normalised before comparison.
-    @Published var identifiedModes: [(peak: ResonantPeak, mode: GuitarMode)] = []
+    /// Held in ``peaks``, which alone announces a change to it.
+    var identifiedModes: [(peak: ResonantPeak, mode: GuitarMode)] {
+        get { peaks.identifiedModes }
+        set { peaks.identifiedModes = newValue }
+    }
 
     /// Ring-out time of the most recent guitar tap, in seconds — measured from its FFT window
     /// (``ringOutTime(_:from:to:sampleRate:threshold:)``).
@@ -626,7 +643,11 @@ final class TapToneAnalyzer: ObservableObject {
     ///
     /// Unmarked peaks are displayed at reduced opacity and can be hidden by setting
     /// ``annotationVisibilityMode`` to `.selected`.
-    @Published var selectedPeakIDs: Set<UUID> = []
+    /// Held in ``peaks``, which alone announces a change to it.
+    var selectedPeakIDs: Set<UUID> {
+        get { peaks.selectedPeakIDs }
+        set { peaks.selectedPeakIDs = newValue }
+    }
 
     /// The peak the user has focused by clicking a dot in the chart or a row in the results panel.
     ///

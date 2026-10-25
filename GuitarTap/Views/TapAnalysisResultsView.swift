@@ -123,7 +123,13 @@ struct TapAnalysisResultsView: View {
         analyzer.isMeasurementComplete ? hasFlcMeasurement : TapDisplaySettings.measureFlc
     }
     
+    /// Built inside a ``PeaksReader``, so the detected peaks redraw the panel. Behind `AnyView`, which ends the
+    /// panel's type there, so the main view's type stays shallow enough to decode on an iPhone's stack.
     var body: some View {
+        PeaksReader(peaks: analyzer.peaks) { _ in AnyView(content) }
+    }
+
+    private var content: some View {
         ScrollViewReader { scrollProxy in
             VStack(alignment: .leading, spacing: 0) {
                 // Fixed header
