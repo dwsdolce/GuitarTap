@@ -5,7 +5,7 @@
 ## Version {{version}} · Build {{build}}
 ### What's New Since Build {{since}}
 
-<!-- Notes reviewed through commit 0cb435c (2026-10-24). The next update reads only `git log 0cb435c..HEAD`, then moves this line to the newest commit it covered. -->
+<!-- Notes reviewed through commit 80b458e (2026-10-25). The next update reads only `git log 80b458e..HEAD`, then moves this line to the newest commit it covered. -->
 
 ---
 
