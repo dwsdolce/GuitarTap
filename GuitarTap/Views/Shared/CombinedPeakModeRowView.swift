@@ -227,10 +227,8 @@ struct CombinedPeakModeRowView: View {
         Menu {
             // Reset option shown only when there is an active override
             if isManualOverride {
-                Button {
+                Button("Reset to Auto-Detected (\((autoDetectedMode ?? mode).displayName))") {
                     onResetModeOverride?()
-                } label: {
-                    Label("Reset to Auto-Detected (\((autoDetectedMode ?? mode).displayName))", systemImage: "arrow.counterclockwise")
                 }
                 Divider()
             }
@@ -250,11 +248,9 @@ struct CombinedPeakModeRowView: View {
             Divider()
 
             // Free-text entry
-            Button {
+            Button("Custom…") {
                 customLabelDraft = isManualOverride ? effectiveModeLabel : ""
                 showCustomLabelPopover = true
-            } label: {
-                Label("Custom…", systemImage: "pencil")
             }
         } label: {
             modeLabelContent

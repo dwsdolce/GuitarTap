@@ -362,32 +362,6 @@ struct PlatformSplitView<Primary: View, Secondary: View>: View {
     }
 }
 
-// MARK: - Context Menu Helpers
-
-extension View {
-    /// Attaches a platform-appropriate context menu to a view.
-    ///
-    /// Both platforms use `.contextMenu`, but this wrapper keeps call sites
-    /// consistent and allows future platform-specific divergence without
-    /// changing callers.
-    ///
-    /// - Parameter menuItems: A view builder producing the context menu items.
-    /// - Returns: The view with a context menu attached.
-    func platformContextMenu<MenuItems: View>(
-        @ViewBuilder menuItems: () -> MenuItems
-    ) -> some View {
-        #if os(macOS)
-        return self.contextMenu {
-            menuItems()
-        }
-        #elseif os(iOS)
-        return self.contextMenu {
-            menuItems()
-        }
-        #endif
-    }
-}
-
 // MARK: - Always-Visible Scroll View (macOS)
 
 #if os(macOS)

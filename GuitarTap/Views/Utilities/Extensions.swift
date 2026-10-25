@@ -198,6 +198,17 @@ extension View {
     ///
     /// - Parameter text: The hint string to display.
     /// - Returns: The view with the appropriate platform hint applied.
+    /// A menu's items with their icons on the Mac too. The Mac draws a SwiftUI menu item's title alone unless told to
+    /// show its icon; iPad and iPhone show it anyway. Applied to the contents of each menu whose items have icons.
+    @ViewBuilder
+    func menuIcons() -> some View {
+        #if os(macOS)
+        labelStyle(.titleAndIcon)
+        #else
+        self
+        #endif
+    }
+
     func hint(_ text: String) -> some View {
         #if os(macOS)
         self.help(text)

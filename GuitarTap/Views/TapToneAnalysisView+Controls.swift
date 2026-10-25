@@ -566,9 +566,11 @@ extension TapToneAnalysisView {
                 Section("Guitar") {
                     ForEach(MeasurementType.allCases.filter(\.isGuitar)) { newTapTypeItem($0) }
                 }
+                .menuIcons()
                 Section("Material") {
                     ForEach(MeasurementType.allCases.filter { !$0.isGuitar }) { newTapTypeItem($0) }
                 }
+                .menuIcons()
             } label: {
                 HStack(spacing: 3) {
                     Text(TapDisplaySettings.measurementType.shortName)

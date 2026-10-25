@@ -683,7 +683,7 @@ struct SpectrumView: View {
                         lockedSeriesIndex = -1
                     }
                 }
-                .contextMenu { chartMenuItems }
+                .contextMenu { chartMenuItems.menuIcons() }
                 #else
                 // Scrolling with a mouse or trackpad zooms and pans as on macOS; touches pass through.
                 .overlay(PointerScroll { event, location in
@@ -1235,7 +1235,7 @@ private struct ChartMenuButton: View, Equatable {
 
     var body: some View {
         Menu {
-            ChartMenuItems(groups: groups)
+            ChartMenuItems(groups: groups).menuIcons()
         } label: {
             Image(systemName: "ellipsis.circle").font(.caption)
         }

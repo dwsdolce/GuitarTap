@@ -364,6 +364,7 @@ struct DraggablePeakAnnotation: View {
                     }
                     .disabled(!isMoved)
                 }
+                .menuIcons()
             }
             #if os(macOS)
             .help(isMoved ? "Drag to adjust • Right-click to reset position" : "Drag to reposition label")

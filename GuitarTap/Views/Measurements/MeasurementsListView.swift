@@ -436,9 +436,11 @@ struct MeasurementsListView: View {
                     Button(action: { exportAllMeasurements() }) {
                         Label("Export All… (Share / AirDrop)", systemImage: "square.and.arrow.up")
                     }
+                    .menuIcons()
                     Button(action: { saveAllMeasurementsToDisk() }) {
                         Label("Save All to Disk…", systemImage: "arrow.down.doc")
                     }
+                    .menuIcons()
                 } label: {
                     Label("Export All", systemImage: "square.and.arrow.up")
                 }
@@ -641,62 +643,56 @@ struct MeasurementsListView: View {
     /// Row content that adds a selection checkbox overlay when in compare mode.
     @ViewBuilder
     private func rowMenuContents(index: Int, measurement: TapToneMeasurement) -> some View {
-        Button(action: {
+        // A saved measurement's menu, from its groups (`SavedMeasurementMenu`), a separator between them.
+        ForEach(Array(SavedMeasurementMenu.groups.enumerated()), id: \.offset) { groupIndex, group in
+            if groupIndex > 0 { Divider() }
+            ForEach(group, id: \.action) { entry in
+                if shows(entry) {
+                    Button(role: entry.action == .delete ? .destructive : nil) {
+                        perform(entry.action, index: index, measurement: measurement)
+                    } label: {
+                        Label(entry.title, systemImage: entry.symbol)
+                    }
+                }
+            }
+        }
+        .menuIcons()
+    }
+
+    /// Whether this edition shows `entry`: the Mac-only item on the Mac alone.
+    private func shows(_ entry: SavedMeasurementMenuEntry) -> Bool {
+        #if os(macOS)
+        true
+        #else
+        !entry.macOSOnly
+        #endif
+    }
+
+    /// What a saved measurement's menu item does.
+    private func perform(_ action: SavedMeasurementMenuEntry.Action, index: Int, measurement: TapToneMeasurement) {
+        switch action {
+        case .load:
             let m = measurement
             dismiss()
             DispatchQueue.main.async {
                 analyzer.loadMeasurement(m)
             }
-        }) {
-            Label("Load into View", systemImage: "arrow.down.doc")
-        }
-        
-        Divider()
-        
-        Button(action: {
+        case .details:
             showDetail(index: index, measurement: measurement)
-        }) {
-            Label("View Details", systemImage: "eye")
-        }
-
-        Button(action: {
+        case .edit:
             editTarget = (index: index, measurement: measurement)
-        }) {
-            Label("Edit Name & Notes", systemImage: "pencil")
-        }
-
-        Button(action: {
+        case .exportMeasurement:
             exportSingleMeasurement(measurement)
-        }) {
-            Label("Export Measurement", systemImage: "doc.badge.arrow.up")
-        }
-
-        #if os(macOS)
-        Button(action: {
+        case .saveToDisk:
+            #if os(macOS)
             saveMeasurementToDisk(measurement)
-        }) {
-            Label("Save Measurement to Disk…", systemImage: "arrow.down.doc")
-        }
-        #endif
-
-        Button(action: {
+            #endif
+        case .exportSpectrum:
             exportSpectrumMeasurement(measurement)
-        }) {
-            Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
-        }
-
-        Button(action: {
+        case .exportPDF:
             exportPDFReport(for: measurement)
-        }) {
-            Label("Export PDF Report", systemImage: "doc.richtext")
-        }
-
-        Divider()
-        
-        Button(role: .destructive, action: {
+        case .delete:
             measurementPendingDelete = (index: index, measurement: measurement)
-        }) {
-            Label("Delete", systemImage: "trash")
         }
     }
 
@@ -914,7 +910,7 @@ struct SavedMeasurementsDeleteMenu: View {
 
     var body: some View {
         Menu {
-            SavedMeasurementsDeleteItems(hasDuplicates: hasDuplicates, actions: actions)
+            SavedMeasurementsDeleteItems(hasDuplicates: hasDuplicates, actions: actions).menuIcons()
         } label: {
             Label("Delete", systemImage: "trash")
         }
