@@ -170,7 +170,7 @@ SCREENSHOT:
            Peak Detection Minimum field is enabled and the Show
            Unknown Modes toggle is shown.
   Notes:   Crop to the settings sheet only. Recapture: the Settings
-           sheet was redesigned in 1.0.3 (grouped boxes, Appearance
+           sheet was redesigned in 1.1.0 (grouped boxes, Appearance
            first in Display Settings).
 -->
 
