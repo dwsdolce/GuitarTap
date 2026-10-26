@@ -5,7 +5,7 @@
 ## Version {{version}} · Build {{build}}
 ### What's New Since Build {{since}}
 
-<!-- Notes reviewed through commit fa0f625 (2026-10-25). The next update reads only `git log fa0f625..HEAD`, then moves this line to the newest commit it covered. -->
+<!-- Notes reviewed through commit 90be580 (2026-10-25). The next update reads only `git log 90be580..HEAD`, then moves this line to the newest commit it covered. -->
 
 ---
 
@@ -82,6 +82,8 @@
 - Exported images and PDF reports are identical on Mac, iPad and iPhone, at the same size whatever screen you export from.
 - A saved measurement's exports show its date, and their file names carry its time. Page 2 of a multi-tap report shows its "Comparison:" line again.
 - If the chart cannot be drawn, Guitar Tap tries again, then reports **Export Failed** rather than saving a file without the chart.
+- Export Spectrum and Export PDF Report give the same file from the main window and from Saved Measurements. A multi-tap measurement's image is its averaged spectrum, also while the Taps view is on.
+- The report's peak table and the summary under an exported chart are titled **Selected Peaks** and list the selected peaks in view, whatever the annotation setting; "Detected Peaks: N" counts the peaks at or above Peak Min in view. Measurement Details' peak list is titled Selected Peaks too.
 
 ### Microphones
 
@@ -140,6 +142,10 @@
 - **Exports from a standard-resolution display were half size**, and oversized from an iPhone.
 - **Play File was offered with no input running**; it is now disabled until the input is available.
 - **On iPad and iPhone, an open menu lost the item under your finger** each time the spectrum updated while waiting for a tap.
+- **A multi-tap measurement's PDF report showed the individual taps on page 1** when exported with the Taps view on; page 1 is always the averaged result.
+- **A selected peak below Peak Min appeared in a measurement's image and PDF report** exported from Saved Measurements, though not on screen.
+- **A plate's or brace's exported image read "Comparing N measurements"** under its header.
+- **Clicking a peak's star in Analysis Results** showed the selection on the chart, but the star stayed empty until something else changed.
 
 ---
 
