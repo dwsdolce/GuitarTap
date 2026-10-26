@@ -109,7 +109,7 @@ extension SpectrumView {
     /// overlapping curves.
     static let curveGravityThreshold: CGFloat = 12.0
 
-    /// Returns the `materialSpectra` index the cursor should lock to.
+    /// Returns the `overlaySpectra` index the cursor should lock to.
     ///
     /// The algorithm computes the on-screen Y distance from the cursor to each
     /// series' snapped magnitude, then applies `curveGravityThreshold` hysteresis:
@@ -121,7 +121,7 @@ extension SpectrumView {
     ///   - cursorScreenY: Current cursor Y position in overlay-local coordinates.
     ///   - proxy: The chart proxy for magnitude → screen-Y conversion.
     ///   - plotFrame: The resolved chart plot frame in overlay-local coordinates.
-    ///   - materialSpectra: The per-phase spectra currently displayed.
+    ///   - overlaySpectra: The overlaid curves currently displayed.
     ///   - lockedIndex: The index currently locked (`-1` = primary spectrum).
     /// - Returns: The series index to lock to (`-1` = primary spectrum).
     static func nearestSeriesIndex(
@@ -129,12 +129,12 @@ extension SpectrumView {
         cursorScreenY: CGFloat,
         proxy: ChartProxy,
         plotFrame: CGRect,
-        materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)],
+        overlaySpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)],
         lockedIndex: Int
     ) -> Int {
-        guard !materialSpectra.isEmpty else { return -1 }
+        guard !overlaySpectra.isEmpty else { return -1 }
         var candidates: [(index: Int, dist: CGFloat)] = []
-        for (i, series) in materialSpectra.enumerated() {
+        for (i, series) in overlaySpectra.enumerated() {
             guard let snapped = snapToWaveform(targetHz: targetHz,
                                                magnitudes: series.magnitudes,
                                                frequencies: series.frequencies),
@@ -164,12 +164,12 @@ extension SpectrumView {
 
     /// Converts a raw screen location into a `CursorSnapState`.
     ///
-    /// Behaviour depends on `isMeasurementComplete` and `materialSpectra`:
+    /// Behaviour depends on `isMeasurementComplete` and `overlaySpectra`:
     ///
-    /// - **Live spectrum** (`isMeasurementComplete == false` and no material spectra):
+    /// - **Live spectrum** (`isMeasurementComplete == false` and no overlaid curves):
     ///   Returns the raw data-coordinate position with no series lock
     ///   (free-floating cursor readout).
-    /// - **Measurement complete** or **plate/brace multi-phase** display:
+    /// - **Measurement complete**, or **overlaid curves** shown:
     ///   Runs `nearestSeriesIndex` to select the nearest curve, then
     ///   calls `snapToWaveform` on that series to obtain an interpolated
     ///   `(frequency, magnitude)` pair.  Updates `lockedSeriesIndex` in place.
@@ -194,7 +194,7 @@ extension SpectrumView {
               let rawDB   = proxy.value(atY: plotLocal.y, as: Double.self) else { return nil }
 
         // Snap when measurement is complete (guitar or plate/brace) or when phase spectra are loaded
-        guard isMeasurementComplete || !materialSpectra.isEmpty else {
+        guard isMeasurementComplete || !overlaySpectra.isEmpty else {
             return CursorSnapState(frequency: rawFreq, magnitude: rawDB,
                                    seriesIndex: nil, curveColor: primaryCurveColor)
         }
@@ -205,7 +205,7 @@ extension SpectrumView {
             cursorScreenY: location.y,
             proxy: proxy,
             plotFrame: plotFrame,
-            materialSpectra: materialSpectra,
+            overlaySpectra: overlaySpectra,
             lockedIndex: lockedSeriesIndex)
         lockedSeriesIndex = newLock
 
@@ -214,8 +214,8 @@ extension SpectrumView {
         let curveColor: Color
         let seriesIdx: Int?
 
-        if !materialSpectra.isEmpty, newLock >= 0, newLock < materialSpectra.count {
-            let s = materialSpectra[newLock]
+        if !overlaySpectra.isEmpty, newLock >= 0, newLock < overlaySpectra.count {
+            let s = overlaySpectra[newLock]
             snapMags  = s.magnitudes
             snapFreqs = s.frequencies
             curveColor = s.color

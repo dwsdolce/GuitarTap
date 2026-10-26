@@ -1103,7 +1103,7 @@ extension TapToneAnalyzer {
     /// Loads the given guitar measurements as comparison overlays in the main chart.
     ///
     /// Only measurements with a `spectrumSnapshot` are included. The comparison
-    /// spectra are shown via the main `SpectrumView`'s existing `materialSpectra`
+    /// spectra are shown via the main `SpectrumView`'s existing `overlaySpectra`
     /// path; calling this does not affect the current tap/measurement state.
     ///
     /// Also updates `loadedMin/MaxFreq` and `loadedMin/MaxDB` to the union of all
@@ -1178,23 +1178,27 @@ extension TapToneAnalyzer {
         }
     }
 
-    /// Saves the current comparison as a first-class measurement record.
+    /// The current comparison as the measurement it would be saved as, without saving it — what
+    /// ``saveComparison(measurementName:notes:minFreq:maxFreq:minDB:maxDB:)`` saves and the main view's
+    /// exports report.
     ///
     /// Each entry in `comparisonSpectra` becomes a `ComparisonEntry` storing the full
     /// spectrum snapshot, selected peaks, guitar type, label, and chart color components.
-    /// The resulting `TapToneMeasurement` is appended to `savedMeasurements` and persisted.
     ///
     /// - Parameters:
     ///   - measurementName: User-supplied name for the comparison (e.g. "Pre/Post Bracing").
     ///   - notes: Optional free-form notes.
     ///   - minFreq, maxFreq, minDB, maxDB: The chart's range, saved with the comparison and shown when it
     ///     is loaded, as a measurement's; `nil` spans the entries' ranges, as a new comparison does.
-    func saveComparison(measurementName: String? = nil, notes: String? = nil,
-                        minFreq: Float? = nil, maxFreq: Float? = nil,
-                        minDB: Float? = nil, maxDB: Float? = nil) {
+    ///   - timestamp: The comparison's time; now, by default.
+    /// - Returns: `nil` when there is no comparison.
+    func makeComparisonMeasurement(measurementName: String? = nil, notes: String? = nil,
+                                   minFreq: Float? = nil, maxFreq: Float? = nil,
+                                   minDB: Float? = nil, maxDB: Float? = nil,
+                                   timestamp: Date = Date()) -> TapToneMeasurement? {
         guard !comparisonSpectra.isEmpty,
               comparisonSnapshots.count == comparisonSpectra.count,
-              let spanned = DisplayRange.spanning(comparisonSnapshots) else { return }
+              let spanned = DisplayRange.spanning(comparisonSnapshots) else { return nil }
 
         let entries: [ComparisonEntry] = comparisonSpectra.enumerated().map { index, entry in
             // Resolve Color → RGBA components using CGColor.
@@ -1220,7 +1224,8 @@ extension TapToneAnalyzer {
             )
         }
 
-        let record = TapToneMeasurement(
+        return TapToneMeasurement(
+            timestamp: timestamp,
             peaks: [],
             measurementName: measurementName,
             notes: notes,
@@ -1230,6 +1235,17 @@ extension TapToneAnalyzer {
                                                      minDB: minDB ?? spanned.minDB,
                                                      maxDB: maxDB ?? spanned.maxDB)
         )
+    }
+
+    /// Saves the current comparison as a first-class measurement record
+    /// (``makeComparisonMeasurement(measurementName:notes:minFreq:maxFreq:minDB:maxDB:timestamp:)``),
+    /// appended to `savedMeasurements` and persisted.
+    func saveComparison(measurementName: String? = nil, notes: String? = nil,
+                        minFreq: Float? = nil, maxFreq: Float? = nil,
+                        minDB: Float? = nil, maxDB: Float? = nil) {
+        guard let record = makeComparisonMeasurement(measurementName: measurementName, notes: notes,
+                                                     minFreq: minFreq, maxFreq: maxFreq,
+                                                     minDB: minDB, maxDB: maxDB) else { return }
         savedMeasurements.append(record)
         // The comparison on screen is now this saved one: its exports show its date and are named by it.
         sourceMeasurementTimestamp = record.timestamp
@@ -1256,7 +1272,7 @@ extension TapToneAnalyzer {
     /// chart reverts to the averaged spectrum on its own, because the measurement is complete.
     ///
     /// **Display mode note:** This method sets `displayMode = .comparison` while overlays
-    /// are active so the chart's `materialSpectra` computed property feeds `comparisonSpectra`
+    /// are active so the chart's `overlaySpectra` computed property feeds `comparisonSpectra`
     /// to the renderer. The Results panel is gated by `showingMultiTapComparison`, not
     /// `displayMode`, so the guitar summary footer and peak list remain visible and the
     /// "Comparison" mode badge is suppressed. Setting `.comparison` here is intentional and
@@ -1287,7 +1303,7 @@ extension TapToneAnalyzer {
 
         comparisonSpectra = entries
         comparisonSnapshots = snapshots
-        // Switch to comparison display mode so the chart's materialSpectra computed property
+        // Switch to comparison display mode so the chart's overlaySpectra computed property
         // picks up the comparisonSpectra overlays. The Results panel uses showingMultiTapComparison
         // (not displayMode) to gate its content, so guitar summary etc. remain visible.
         displayMode = .comparison

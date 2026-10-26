@@ -298,11 +298,20 @@ extension TapToneAnalysisView {
         isExportingSpectrum = true
 
         DispatchQueue.main.async {
-            // The export's fixed 2× scale, as from Saved Measurements — not the screen's: a 1× display
-            // would halve the image, an iPhone's 3× enlarge it.
+            // The image of the result as the measurement it would be saved as, drawn as Saved
+            // Measurements draws a saved one (at the export's fixed 2× scale, not the screen's) — a
+            // multi-tap measurement's is its averaged spectrum whichever view of it is shown.
             let pngData: Data
             do {
-                pngData = try renderExportPNG(self.createExportableSpectrumView())
+                guard let measurement = self.currentMeasurement(),
+                      let data = measurement.isComparison
+                        ? try renderSpectrumImageForComparison(measurement)
+                        : try renderSpectrumImageForMeasurement(measurement) else {
+                    self.isExportingSpectrum = false
+                    self.exportFailed = true
+                    return
+                }
+                pngData = data
             } catch {
                 self.isExportingSpectrum = false
                 self.exportFailed = true

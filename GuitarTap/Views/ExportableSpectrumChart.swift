@@ -107,10 +107,10 @@ struct ExportableSpectrumChart: View {
     /// When empty, the chart falls back to computing a local classification from `visiblePeaks`.
     var peakModes: [UUID: GuitarMode] = [:]
 
-    /// Per-phase spectra overlay for plate/brace measurements. Each element
-    /// provides a labeled, colored spectrum series drawn alongside the primary
-    /// curve.
-    var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
+    /// The overlaid curves: a comparison's measurements or taps, or a plate's or brace's
+    /// phases. Each element provides a labeled, colored spectrum series drawn alongside
+    /// (or, in a comparison, instead of) the primary curve.
+    var overlaySpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
 
     private var chartData: [SpectrumDataPoint] {
         seriesData(frequencies: frequencies, magnitudes: magnitudes)
@@ -255,9 +255,9 @@ struct ExportableSpectrumChart: View {
                     ZStack(alignment: .topLeading) {
                         // The chart
                         Chart {
-                            // Per-phase spectra overlay (plate/brace) or single spectrum (guitar)
-                            if !materialSpectra.isEmpty {
-                                ForEach(Array(materialSpectra.enumerated()), id: \.offset) { index, series in
+                            // The overlaid curves (a comparison, or a plate's or brace's phases) or the single spectrum
+                            if !overlaySpectra.isEmpty {
+                                ForEach(Array(overlaySpectra.enumerated()), id: \.offset) { index, series in
                                     let data = seriesData(frequencies: series.frequencies, magnitudes: series.magnitudes)
                                     ForEach(data) { dataPoint in
                                         LineMark(
@@ -305,13 +305,13 @@ struct ExportableSpectrumChart: View {
                             }
                         }
                         // Charts warns and falls back when handed an EMPTY scale, and this chart re-renders
-                        // once per FFT frame — thousands of warnings in guitar mode, where materialSpectra is
-                        // always []. The series content above is already guarded by `if !materialSpectra.isEmpty`;
+                        // once per FFT frame — thousands of warnings in guitar mode, where overlaySpectra is
+                        // always []. The series content above is already guarded by `if !overlaySpectra.isEmpty`;
                         // this modifier was not. A single placeholder keeps the scale non-empty and shows
                         // nothing, because the legend is hidden on the next line.
                         .chartForegroundStyleScale(
-                            domain: materialSpectra.isEmpty ? [""] : materialSpectra.map { $0.label },
-                            range: materialSpectra.isEmpty ? [Color.clear] : materialSpectra.map { $0.color }
+                            domain: overlaySpectra.isEmpty ? [""] : overlaySpectra.map { $0.label },
+                            range: overlaySpectra.isEmpty ? [Color.clear] : overlaySpectra.map { $0.color }
                         )
                         .chartLegend(.hidden)
                         .chartPlotStyle { plotArea in
@@ -430,7 +430,7 @@ struct ExportableSpectrumChart: View {
                                     .clipShape(PlotArea(rect: frame))
 
                                     // The legend over the labels, as on screen, in the image's sizes.
-                                    ChartLegend(series: materialSpectra.map { ($0.color, $0.label) },
+                                    ChartLegend(series: overlaySpectra.map { ($0.color, $0.label) },
                                                 font: .system(size: 14), swatch: CGSize(width: 22, height: 3),
                                                 spacing: 16, lineSpacing: 6,
                                                 padding: EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10),
@@ -474,7 +474,7 @@ struct ExportableSpectrumChart: View {
 ///   - modeOverrides: Per-peak user-assigned mode label overrides.
 ///   - peakModes: Pre-computed context-aware guitar modes keyed by peak UUID; overrides
 ///     the per-frequency classification when non-empty.
-///   - materialSpectra: Per-phase spectrum series for plate/brace overlays.
+///   - overlaySpectra: The overlaid curves: a comparison's measurements or taps, or a plate's or brace's phases.
 ///   - dateLabel: Date/time string shown in the header (e.g. formatted measurement timestamp).
 ///   - chartTitle: Title shown in the chart header. Defaults to `"FFT Peaks"`.
 ///   - softwareVersion: App version/build string stamped in the header; defaults to the running app's version.
@@ -489,6 +489,12 @@ func makeExportableSpectrumView(
     minDB: Float,
     maxDB: Float,
     peaks: [ResonantPeak],
+    /// The Selected Peaks Summary's peaks: the report's Selected Peaks table — the selected peaks at or
+    /// above Peak Min in the range (``TapToneMeasurement/reportPeaks``), whatever the annotation setting.
+    summaryPeaks: [ResonantPeak] = [],
+    /// The header's "Detected Peaks: N": a guitar's detected peaks in view (``TapToneMeasurement/detectedPeaksInView``);
+    /// `nil` for a plate or brace, which has no detected peaks apart from its selected ones, and for a comparison.
+    detectedPeakCount: Int? = nil,
     showModeBoundaries: Bool = true,
     annotationOffsets: [UUID: CGPoint] = [:],
     showUnknownModes: Bool? = nil,
@@ -498,7 +504,7 @@ func makeExportableSpectrumView(
     selectedFlcPeakID: UUID? = nil,
     modeOverrides: [UUID: String] = [:],
     peakModes: [UUID: GuitarMode] = [:],
-    materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = [],
+    overlaySpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = [],
     dateLabel: String,
     chartTitle: String = "FFT Peaks",
     /// The header's Type, when it is not the measurement type's name: "Comparison" for an overlay of
@@ -606,15 +612,15 @@ func makeExportableSpectrumView(
                 Spacer()
             }
 
-            if !materialSpectra.isEmpty {
-                Text("Comparing \(materialSpectra.count) measurements")
-                    .exportFont(11)
-                    .foregroundColor(Palette.color(.textSecondary))
-            } else if !peaks.isEmpty {
-                Text("Detected Peaks: \(peaks.count)")
-                    .exportFont(11)
-                    .foregroundColor(Palette.color(.textSecondary))
-            }
+            // A guitar's detected peaks in view; a comparison's measurements (a plate's or brace's phases are
+            // overlaid curves too, but not measurements compared). A plate or brace has no line, but keeps its
+            // height, so every export's header is the same height and its chart in the same place.
+            let subtitle: String? = detectedPeakCount.map { "Detected Peaks: \($0)" }
+                ?? (!overlaySpectra.isEmpty && measurementType.isGuitar
+                    ? "Comparing \(overlaySpectra.count) measurements" : nil)
+            Text(subtitle ?? " ")
+                .exportFont(11)
+                .foregroundColor(Palette.color(.textSecondary))
         }
         .padding()
 
@@ -636,16 +642,16 @@ func makeExportableSpectrumView(
             selectedFlcPeakID: selectedFlcPeakID,
             modeOverrides: modeOverrides,
             peakModes: peakModes,
-            materialSpectra: materialSpectra,
+            overlaySpectra: overlaySpectra,
             chartTitle: chartTitle
         )
         .frame(width: 1400, height: 800)
         .padding()
 
-        // Peak Summary
-        if !peaks.isEmpty {
+        // Peak Summary: the report table's peaks
+        if !summaryPeaks.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Detected Peaks Summary")
+                Text("Selected Peaks Summary")
                     .exportFont(13, .bold)
                     .padding(.horizontal)
 
@@ -655,9 +661,9 @@ func makeExportableSpectrumView(
                     // freeform label is user-defined — italic + " *". Material uses the L/C/FLC role.
                     // Inlined because this free function can't call the struct's private helpers.
                     let summaryModeMap: [UUID: GuitarMode] = measurementType.isGuitar
-                        ? (peakModes.isEmpty ? GuitarMode.classifyAll(peaks) : peakModes)
+                        ? (peakModes.isEmpty ? GuitarMode.classifyAll(summaryPeaks) : peakModes)
                         : [:]
-                    ForEach(peaks.prefix(8).sorted(by: { $0.frequency < $1.frequency })) { peak in
+                    ForEach(summaryPeaks.sorted(by: { $0.frequency < $1.frequency })) { peak in
                         let assigned: String? = {
                             if let l = modeOverrides[peak.id] { return l }
                             return nil
@@ -692,7 +698,7 @@ func makeExportableSpectrumView(
         }
 
         // The guitar mode key; overlaid curves have their legend on the chart, as on screen.
-        if materialSpectra.isEmpty {
+        if overlaySpectra.isEmpty {
             HStack(spacing: 20) {
                 Text("Guitar Modes:")
                     .exportFont(10, .semibold)
@@ -781,21 +787,22 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) throws
     let primarySnapshot = measurement.spectrumSnapshot ?? measurement.longitudinalSnapshot
     guard let snap = primarySnapshot else { return nil }
 
-    var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
+    var overlaySpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
     if let longSnap = measurement.longitudinalSnapshot {
-        materialSpectra.append((longSnap.magnitudes, longSnap.frequencies, Palette.color(.materialLongitudinal), "Longitudinal (fL)"))
+        overlaySpectra.append((longSnap.magnitudes, longSnap.frequencies, Palette.color(.materialLongitudinal), "Longitudinal (fL)"))
     }
     if let crossSnap = measurement.crossSnapshot {
-        materialSpectra.append((crossSnap.magnitudes, crossSnap.frequencies, Palette.color(.materialCross), "Cross-grain (fC)"))
+        overlaySpectra.append((crossSnap.magnitudes, crossSnap.frequencies, Palette.color(.materialCross), "Cross-grain (fC)"))
     }
     if let flcSnap = measurement.flcSnapshot {
-        materialSpectra.append((flcSnap.magnitudes, flcSnap.frequencies, Palette.color(.materialFlc), "Diagonal (fLC)"))
+        overlaySpectra.append((flcSnap.magnitudes, flcSnap.frequencies, Palette.color(.materialFlc), "Diagonal (fLC)"))
     }
 
     let measurementType = snap.measurementType ?? .generic
 
-    // Mirror TapToneAnalyzer.visiblePeaks: filter by annotationVisibilityMode and selectedPeakIDs
-    let allPeaks = measurement.peaks
+    // Mirror TapToneAnalyzer.visiblePeaks: the peaks above Peak Min, filtered by annotationVisibilityMode
+    // and selectedPeakIDs
+    let allPeaks = measurement.peaksAbovePeakMin
     let visibilityMode = measurement.annotationVisibilityMode ?? .all
     let selectedIDs = measurement.effectiveSelectedPeakIDs
     let visiblePeaks: [ResonantPeak]
@@ -813,6 +820,8 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) throws
         minDB: snap.minDB,
         maxDB: snap.maxDB,
         peaks: visiblePeaks,
+        summaryPeaks: measurement.reportPeaks,
+        detectedPeakCount: measurement.isMaterial ? nil : measurement.detectedPeaksInView.count,
         annotationOffsets: measurement.peakAnnotationOffsets ?? [:],
         showUnknownModes: snap.showUnknownModes,
         measurementType: measurementType,
@@ -823,7 +832,7 @@ func renderSpectrumImageForMeasurement(_ measurement: TapToneMeasurement) throws
         // The measurement's own modes — classified among all its peaks, as the file, the Details pane
         // and the live screen have them; never among the visible peaks or with the app's guitar type.
         peakModes: measurement.autoModes,
-        materialSpectra: materialSpectra,
+        overlaySpectra: overlaySpectra,
         dateLabel: DateDisplay.string(measurement.timestamp),
         chartTitle: "FFT Peaks — \(measurement.measurementName ?? "New")"
     )
@@ -862,7 +871,7 @@ func renderSpectrumImageForMultiTap(_ measurement: TapToneMeasurement) throws ->
         peaks: [],
         // The measurement's own guitar type, as the main window's tap comparison has it.
         measurementType: measurement.spectrumSnapshot?.measurementType ?? .generic,
-        materialSpectra: spectra,
+        overlaySpectra: spectra,
         dateLabel: DateDisplay.string(measurement.timestamp),
         chartTitle: "Tap Comparison — \(measurement.measurementName ?? "Multi-Tap")"
     )
@@ -918,7 +927,7 @@ func renderSpectrumImageForComparison(_ measurement: TapToneMeasurement) throws 
         // A comparison's entries need not be of one guitar type: no mode lines.
         showModeBoundaries: false,
         measurementType: .generic,
-        materialSpectra: comparisonSpectra,
+        overlaySpectra: comparisonSpectra,
         dateLabel: DateDisplay.string(measurement.timestamp),
         // The live chart's title, so the image reads the same from the list as from the main view.
         chartTitle: "FFT Peaks — \(measurement.measurementName ?? "New")",

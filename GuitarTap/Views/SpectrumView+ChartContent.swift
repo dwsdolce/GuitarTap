@@ -16,8 +16,8 @@
 ///    ``ModeChipsLayer``, drawn over the chart.
 /// 3. `peakAnnotationContent` — `PointMark` dots at each detected peak with
 ///    invisible placeholder annotations for label positioning.
-/// 4. `materialSpectraContent` — coloured `LineMark` overlays for plate/brace
-///    per-phase spectra (longitudinal, cross, FLC).
+/// 4. `overlaySpectraContent` — coloured `LineMark` overlays: a comparison's
+///    measurements or taps, or a plate's or brace's phases (longitudinal, cross, FLC).
 /// 5. `thresholdLinesContent` — horizontal `RuleMark` lines showing tap
 ///    detection thresholds.
 ///
@@ -135,15 +135,15 @@ extension SpectrumView {
         }
     }
 
-    /// Coloured `LineMark` overlays for each phase in `materialSpectra`.
+    /// Coloured `LineMark` overlays for each series in `overlaySpectra`.
     ///
-    /// Used during plate and brace measurements to show the longitudinal, cross,
-    /// and FLC tap spectra side-by-side.  Each series is differentiated by the
+    /// Shows a comparison's measurements or a multi-tap measurement's taps, or a
+    /// plate's or brace's longitudinal, cross and FLC phases.  Each series is differentiated by the
     /// `foregroundStyle(by: .value("Series", label))` modifier so Swift Charts
     /// automatically builds a legend entry for each.
     @ChartContentBuilder
-    var materialSpectraContent: some ChartContent {
-        ForEach(Array(materialSpectra.enumerated()), id: \.offset) { seriesIndex, series in
+    var overlaySpectraContent: some ChartContent {
+        ForEach(Array(overlaySpectra.enumerated()), id: \.offset) { seriesIndex, series in
             let count = min(series.frequencies.count, series.magnitudes.count)
             let dataPoints: [SpectrumDataPoint] = DisplayRange
                 .drawnIndices(of: Array(series.frequencies.prefix(count)), min: minFreq, max: maxFreq)

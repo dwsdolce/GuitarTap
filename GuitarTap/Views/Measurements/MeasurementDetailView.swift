@@ -167,7 +167,7 @@ struct MeasurementDetailView: View {
                         }
                         .groupBoxStyle(.palette)
                     } else {
-                        // Identified Peaks = the selected peaks only, sorted by frequency.
+                        // Selected Peaks = the selected peaks only, sorted by frequency.
                         // Plate/brace skip guitar-mode classification.
                         let isMaterialMeasurement = measurement.isMaterial
                         let selectedIDs = measurement.effectiveSelectedPeakIDs
@@ -179,7 +179,7 @@ struct MeasurementDetailView: View {
                         let modeMap = measurement.autoModes
                         let labels = measurement.peakModeLabels
 
-                        GroupBox("Identified Peaks") {
+                        GroupBox("Selected Peaks") {
                             if shownPeaks.isEmpty {
                                 Text("No identified peaks")
                                     .foregroundColor(Palette.color(.textSecondary))

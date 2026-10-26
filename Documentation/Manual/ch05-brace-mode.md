@@ -89,7 +89,7 @@ SCREENSHOT:
 
   File:    images/ch05-results-panel.png
   Subject: Brace measurement Results panel scrolled to show its
-           sections: Detected Peaks (the single fL row with star +
+           sections: Selected Peaks (the single fL row with star +
            frequency + magnitude + fL phase badge), the editable
            Sample Dimensions block (Length, Width, Height, Mass +
            calculated density), Brace Properties (Speed of Sound,
@@ -102,7 +102,7 @@ SCREENSHOT:
            Crop to the panel only.
 -->
 
-![Brace Results panel showing Detected Peaks (single fL row), the editable Sample Dimensions, Brace Properties, and Brace Process Instructions.](images/ch05-results-panel.png){: .screenshot-panel }
+![Brace Results panel showing Selected Peaks (single fL row), the editable Sample Dimensions, Brace Properties, and Brace Process Instructions.](images/ch05-results-panel.png){: .screenshot-panel }
 
 Once the tap is captured, the Results panel is where you turn the
 frequency into material properties: you enter this strip's
@@ -110,7 +110,7 @@ dimensions and the properties recompute live as you type. The
 dimension fields seed from the Settings defaults at the moment the
 measurement completes. The panel shows the sections below.
 
-### Detected Peaks
+### Selected Peaks
 
 A single row for the longitudinal peak. It shows a
 selection-indicator star, the peak frequency, the peak magnitude
@@ -145,7 +145,7 @@ immediately.
   scale) accompanies the value with a matching colour cue.
 - **Radiation Ratio (R)** — in the same column.
 
-The frequency (fL) is an input, shown in Detected Peaks above.
+The frequency (fL) is an input, shown in Selected Peaks above.
 There is no Cross/Long ratio or Overall Quality row — both are
 plate-only since they need cross-grain data.
 

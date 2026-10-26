@@ -522,7 +522,14 @@ struct TapAnalysisResultsView: View {
         }
     }
 
+    /// The rows, built inside their own ``PeaksReader``: they sit in the `ScrollViewReader`'s closure, which the
+    /// panel's reader redrawing does not run again, so a peak's selection (its star) would wait for the next change
+    /// to the analyzer itself.
     private var peaksAndModesSection: some View {
+        PeaksReader(peaks: analyzer.peaks) { _ in AnyView(peaksAndModesRows) }
+    }
+
+    private var peaksAndModesRows: some View {
         // No box: the rows carry their own tints, as in the other editions.
         VStack(alignment: .leading, spacing: 0) {
             // Multi-tap comparison view: shown when the toggle is active for a completed

@@ -249,7 +249,7 @@ SCREENSHOT:
 
   File:    images/ch04-results-panel.png
   Subject: Plate measurement Results panel scrolled to show its
-           sections: Detected Peaks, the editable Sample Dimensions
+           sections: Selected Peaks, the editable Sample Dimensions
            and Body Dimensions blocks, Gore Target Thickness, Plate
            Properties, and Plate Process Instructions. Captured from
            a completed three-phase sequence (Diagonal tap enabled)
@@ -259,7 +259,7 @@ SCREENSHOT:
            Crop to the panel only.
 -->
 
-![Plate Results panel showing Detected Peaks, the editable Sample and Body Dimensions, Gore Target Thickness, Plate Properties, and Plate Process Instructions.](images/ch04-results-panel.png){: .screenshot-panel }
+![Plate Results panel showing Selected Peaks, the editable Sample and Body Dimensions, Gore Target Thickness, Plate Properties, and Plate Process Instructions.](images/ch04-results-panel.png){: .screenshot-panel }
 
 Once the taps are captured, the Results panel is where you turn
 those frequencies into material properties. The captured
@@ -271,7 +271,7 @@ time already reads correctly — but the panel is the place to enter
 or correct the actual measured values for this piece. The panel
 scrolls through the sections below, top to bottom.
 
-### Detected Peaks
+### Selected Peaks
 
 One row per captured phase — two rows (fL, fC) for a two-tap
 sequence, three rows (fL, fC, fLC) when the Diagonal tap is
@@ -379,7 +379,7 @@ Material characterisation of the wood:
   colour cue.
 
 The frequencies themselves (fL, fC, fLC) are inputs and are shown
-in the Detected Peaks table above, not repeated here. The quality
+in the Selected Peaks table above, not repeated here. The quality
 scales are calibrated for spruce; readings on cedar, redwood, or
 other top woods read as a point of comparison rather than an
 absolute grade.

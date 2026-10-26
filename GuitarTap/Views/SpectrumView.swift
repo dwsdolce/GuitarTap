@@ -110,7 +110,7 @@ struct CursorSnapState {
     let frequency: Double
     /// Interpolated magnitude at the snapped position, in dB.
     let magnitude: Double
-    /// Index into `materialSpectra` identifying the locked curve, or `nil`
+    /// Index into `overlaySpectra` identifying the locked curve, or `nil`
     /// when tracking the primary (single) spectrum.
     let seriesIndex: Int?
     /// Display color matching the tracked curve; used to tint the readout label
@@ -186,9 +186,9 @@ struct SpectrumView: View {
     /// Optional binding to annotation offsets for draggable labels
     var annotationOffsets: Binding<[UUID: CGPoint]>?
 
-    /// Optional per-phase spectra to overlay (plate/brace measurements: L, C, FLC)
-    /// Each entry has its own colour and label for the legend
-    var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
+    /// The overlaid curves: a comparison's measurements or a multi-tap measurement's taps, or a plate's
+    /// or brace's phases (L, C, FLC). Each entry has its own colour and label for the legend
+    var overlaySpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] = []
 
     /// Optional threshold lines to display (for tap detection visualization)
     var thresholdLines: [(value: Float, label: String, color: Color, lineWidth: CGFloat, dash: [CGFloat])]?
@@ -213,7 +213,7 @@ struct SpectrumView: View {
     var isReviewingMaterialPhase: Bool = false
 
     /// Color of the primary (single) spectrum line. Used to tint the cursor readout label
-    /// so it matches the waveform. Only relevant when `materialSpectra` is empty.
+    /// so it matches the waveform. Only relevant when `overlaySpectra` is empty.
     var primaryCurveColor: Color = Palette.color(.chartSpectrum)
 
     /// The current measurement type (guitar vs plate/brace) - affects which annotations are shown
@@ -276,7 +276,7 @@ struct SpectrumView: View {
     @State var lastPlotFrame: CGRect = .zero
 
     /// Index of the waveform series the cursor is currently locked to.
-    /// -1 = primary spectrum, 0+ = index into materialSpectra. Reset to -1 on cursor exit/drag end.
+    /// -1 = primary spectrum, 0+ = index into overlaySpectra. Reset to -1 on cursor exit/drag end.
     @State private var lockedSeriesIndex: Int = -1
 
     /// Which chart region the drag started in. Captured on the first drag `.onChanged` event
@@ -613,7 +613,7 @@ struct SpectrumView: View {
                     }
                     #endif
 
-                    ChartLegend(series: materialSpectra.map { ($0.color, $0.label) })
+                    ChartLegend(series: overlaySpectra.map { ($0.color, $0.label) })
                         .placed(in: resolvedPlotFrame, inset: 8)
                 }
                 // contentShape ensures the ZStack is hittable even when empty (no annotation labels).
@@ -934,21 +934,21 @@ struct SpectrumView: View {
             if !isReviewingMaterialPhase {
                 spectrumLineContent
             }
-            if !materialSpectra.isEmpty {
-                materialSpectraContent
+            if !overlaySpectra.isEmpty {
+                overlaySpectraContent
             }
             modeBoundaryContent
             peakAnnotationContent
             thresholdLinesContent
         }
         // Charts warns and falls back when handed an EMPTY scale, and this chart re-renders once
-        // per FFT frame — thousands of warnings in guitar mode, where materialSpectra is always [].
-        // The series content above is already guarded by `if !materialSpectra.isEmpty`; this
+        // per FFT frame — thousands of warnings in guitar mode, where overlaySpectra is always [].
+        // The series content above is already guarded by `if !overlaySpectra.isEmpty`; this
         // modifier was not. A single placeholder keeps the scale non-empty and shows nothing,
         // because the legend is hidden on the next line.
         .chartForegroundStyleScale(
-            domain: materialSpectra.isEmpty ? [""] : materialSpectra.map { $0.label },
-            range: materialSpectra.isEmpty ? [Color.clear] : materialSpectra.map { $0.color }
+            domain: overlaySpectra.isEmpty ? [""] : overlaySpectra.map { $0.label },
+            range: overlaySpectra.isEmpty ? [Color.clear] : overlaySpectra.map { $0.color }
         )
         .chartLegend(.hidden)
         .chartPlotStyle { plotArea in

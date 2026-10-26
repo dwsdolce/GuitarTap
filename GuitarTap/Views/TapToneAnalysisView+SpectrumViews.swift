@@ -21,12 +21,14 @@
 /// The spectrum is frozen immediately after a tap is detected so the chart
 /// holds the last captured FFT while the analyzer continues running.
 ///
-/// ## Material Spectra Overlay
+/// ## Overlay Spectra
 ///
-/// For plate and brace measurements `materialSpectra` assembles up to three
-/// named series (longitudinal, cross-grain, FLC) from the analyzer's
-/// per-phase `SpectrumSnapshot` properties. Guitar measurements return an
-/// empty array and use the single red primary curve instead.
+/// `overlaySpectra` is the chart's overlaid curves. In comparison mode, for any
+/// measurement type, it is the analyzer's `comparisonSpectra` (a comparison's
+/// measurements or a multi-tap measurement's taps). Otherwise, for plate and brace
+/// it assembles up to three named series (longitudinal, cross-grain, FLC) from the
+/// analyzer's per-phase `SpectrumSnapshot` properties; a guitar returns an empty
+/// array and uses the single red primary curve instead.
 ///
 /// ## Threshold Lines
 ///
@@ -66,7 +68,7 @@ extension TapToneAnalysisView {
     // is loaded while the audio engine is running.
     func displaySpectrum(live: [Float]) -> (frequencies: [Float], magnitudes: [Float]) {
         // In comparison mode the main line must be suppressed — the comparison
-        // overlays are drawn via materialSpectra.  Without this guard the live
+        // overlays are drawn via overlaySpectra.  Without this guard the live
         // FFT feed bleeds through as a red jagged
         // waveform on top of the comparison curves.
         if tap.displayMode == .comparison {
@@ -79,7 +81,7 @@ extension TapToneAnalysisView {
         }
         if tap.isMeasurementComplete {
             // For plate/brace measurements frozen arrays are intentionally empty
-            // (phase spectra live in materialSpectra); always return them as-is.
+            // (phase spectra live in overlaySpectra); always return them as-is.
             // For guitar, guard against the transient empty-frozen / live-running race.
             if tap.frozenFrequencies.isEmpty && tap.materialTapPhase != .complete {
                 return ([], [])
@@ -90,11 +92,11 @@ extension TapToneAnalysisView {
         }
     }
 
-    /// Per-phase spectra for plate/brace measurements, plus any active comparison overlays.
+    /// The chart's overlaid curves.
     ///
-    /// For guitar mode this returns only `comparisonSpectra` (empty when no comparison is loaded).
-    /// For plate/brace mode this returns the per-phase spectra (longitudinal/cross/FLC).
-    var materialSpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] {
+    /// In comparison mode, for any measurement type, this returns `comparisonSpectra`. Otherwise a
+    /// guitar returns none, and a plate or brace its per-phase spectra (longitudinal/cross/FLC).
+    var overlaySpectra: [(magnitudes: [Float], frequencies: [Float], color: Color, label: String)] {
         // Comparison mode takes priority over everything else — when the user has
         // selected measurements to compare, show those overlays regardless of
         // measurement type (guitar, plate, or brace).
@@ -226,7 +228,7 @@ extension TapToneAnalysisView {
             onFrequencyRangeChanged: updateFrequencyInputFields,
             onAxisRangeReset: applyAxisRange,
             annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
-            materialSpectra: materialSpectra,
+            overlaySpectra: overlaySpectra,
             thresholdLines: isComparing ? [] : thresholds,
             onResetLabels: { tapToneAnalyzer.resetAllAnnotationOffsets() },
             comparedSpan: tap.comparedSpan,
@@ -258,7 +260,7 @@ extension TapToneAnalysisView {
             onFrequencyRangeChanged: updateFrequencyInputFields,
             onAxisRangeReset: applyAxisRange,
             annotationOffsets: $tapToneAnalyzer.peakAnnotationOffsets,
-            materialSpectra: materialSpectra,
+            overlaySpectra: overlaySpectra,
             thresholdLines: isComparing ? [] : thresholds,
             onResetLabels: { tapToneAnalyzer.resetAllAnnotationOffsets() },
             comparedSpan: tap.comparedSpan,

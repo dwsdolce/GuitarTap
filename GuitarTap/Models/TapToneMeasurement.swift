@@ -1089,6 +1089,34 @@ extension TapToneMeasurement {
         if isMaterial { return Set(peaks.map { $0.id }) }
         return Set(selectedPeakIDs ?? peaks.map { $0.id })
     }
+
+    // @parity model/export-peaks tests=test/export-peaks
+    /// The peaks the measurement shows when it is loaded, and so the peaks its image and report show:
+    /// a guitar's at or above its Peak Min (all of them for a file saved without one), as
+    /// ``TapToneAnalyzer/refreshDisplayedPeaks()`` projects them; a plate's or brace's identified peaks.
+    var peaksAbovePeakMin: [ResonantPeak] {
+        guard !isMaterial, let peakMin = peakMinThreshold else { return peaks }
+        return peaks.filter { $0.magnitude >= peakMin }
+    }
+
+    /// A guitar's detected peaks in view: its peaks at or above Peak Min (``peaksAbovePeakMin``) within the saved
+    /// range — the export header's "Detected Peaks: N". Empty for a plate or brace, which has no detected peaks
+    /// apart from its selected ones.
+    var detectedPeaksInView: [ResonantPeak] {
+        guard !isMaterial, let snapshot = spectrumSnapshot else { return [] }
+        return peaksAbovePeakMin.filter { $0.frequency >= snapshot.minFreq && $0.frequency <= snapshot.maxFreq }
+    }
+
+    /// The peaks the report's Selected Peaks table lists, low to high: the selected peaks
+    /// (``effectiveSelectedPeakIDs``) at or above Peak Min (``peaksAbovePeakMin``) within the saved range.
+    /// The image's Selected Peaks Summary lists the same peaks.
+    var reportPeaks: [ResonantPeak] {
+        guard let snapshot = spectrumSnapshot ?? longitudinalSnapshot ?? crossSnapshot else { return [] }
+        let selected = effectiveSelectedPeakIDs
+        return peaksAbovePeakMin
+            .filter { selected.contains($0.id) && $0.frequency >= snapshot.minFreq && $0.frequency <= snapshot.maxFreq }
+            .sorted { $0.frequency < $1.frequency }
+    }
 }
 
 // MARK: - A measurement with no spectrum

@@ -204,8 +204,8 @@ struct PDFReportData {
         let minFreq = displaySnapshot?.minFreq ?? 50
         let maxFreq = displaySnapshot?.maxFreq ?? 1000
 
-        // Filter peaks to those within the saved display frequency range
-        let rangeFilteredPeaks = measurement.peaks.filter {
+        // The peaks the measurement shows (at or above its Peak Min) within its frequency range
+        let rangeFilteredPeaks = measurement.peaksAbovePeakMin.filter {
             $0.frequency >= minFreq && $0.frequency <= maxFreq
         }
 
@@ -509,10 +509,10 @@ private struct PDFReportContentView: View {
 
     private var peaksSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            PDFText("Detected Peaks", 13, bold: true)
+            PDFText("Selected Peaks", 13, bold: true)
 
             if visibleSortedPeaks.isEmpty {
-                PDFText("No peaks detected in this measurement.", 11)
+                PDFText("No selected peaks in view.", 11)
                     .foregroundColor(Palette.color(.pdfSecondary))
             } else {
                 // Table header
@@ -821,7 +821,7 @@ private struct PDFReportContentView: View {
         VStack(alignment: .leading, spacing: 10) {
             PDFText("Plate Properties", 13, bold: true)
 
-            // (fL / fC / fLC are inputs, shown in the Detected Peaks table — not repeated here.)
+            // (fL / fC / fLC are inputs, shown in the Selected Peaks table — not repeated here.)
 
             HStack(alignment: .top, spacing: 0) {
                 // Left column
@@ -898,7 +898,7 @@ private struct PDFReportContentView: View {
         VStack(alignment: .leading, spacing: 10) {
             PDFText("Brace Properties", 13, bold: true)
 
-            // (fL is an input, shown in the Detected Peaks table — not repeated here.)
+            // (fL is an input, shown in the Selected Peaks table — not repeated here.)
 
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -1060,9 +1060,8 @@ private struct PDFReportContentView: View {
 
 /// All data required to render a PDF comparison report.
 ///
-/// Create from the analyzer's `comparisonSpectra` and `comparisonSnapshots`
-/// in `exportComparisonPDFReport()`, then pass to
-/// `PDFReportGenerator.generateComparison(data:)`.
+/// Create from a comparison measurement (`comparisonData(for:)`) or a multi-tap measurement's taps
+/// (`multiTapComparisonData(for:)`), then pass to `PDFReportGenerator.generateComparison(data:)`.
 struct ComparisonPDFReportData {
     /// Date and time the report was generated.
     let timestamp: Date

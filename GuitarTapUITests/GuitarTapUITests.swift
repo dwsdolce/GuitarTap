@@ -16,6 +16,7 @@
 #if os(macOS)
 import AppKit
 #endif
+import ImageIO
 import XCTest
 
 final class GuitarTapUITests: XCTestCase {
@@ -35,6 +36,10 @@ final class GuitarTapUITests: XCTestCase {
         .deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("GuitarTapTests")
 
+    /// Each export's bytes as it arrived, by `<case>/<path>/<ext>`: the Saved Measurements export and the
+    /// main window's must be the same file.
+    private var exported: [String: Data] = [:]
+
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
@@ -47,6 +52,26 @@ final class GuitarTapUITests: XCTestCase {
     @MainActor func testExportsBrace() throws { try exportCase("brace") }
     @MainActor func testExportsComparison() throws { try exportCase("comparison") }
     @MainActor func testExportsLargeComparison() throws { try exportCase("large-comparison") }
+
+    /// A multi-tap measurement's exports are of the measurement: its image is the averaged spectrum whether the
+    /// Taps view is on or off.
+    @MainActor func testTapsViewDoesNotChangeTheExports() throws {
+        let c = try XCTUnwrap(Self.cases.first { $0.name == "multi-tap" })
+        try clearLeftoverExports()
+        let app = launch()
+        try importCase(c.fixture, app: app)
+
+        openMainExports(app)
+        press(app.buttons["Export Spectrum"].firstMatch)
+        _ = try save(c.name, "main", app: app, expecting: "png")
+        // The Taps control is a toggle, found by its label.
+        press(app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Taps'")).firstMatch)
+        press(app.buttons["Export Spectrum"].firstMatch)
+        _ = try save(c.name, "taps", app: app, expecting: "png")
+        XCTAssertTrue(Self.samePicture(exported["\(c.name)/taps/png"], exported["\(c.name)/main/png"]),
+                      "the image with the Taps view on is not the measurement's")
+        app.terminate()
+    }
 
     /// One case: one launch and import, then both export paths — the main window with the import loaded,
     /// then the row's menu in Saved Measurements.
@@ -69,7 +94,32 @@ final class GuitarTapUITests: XCTestCase {
         let pdf = try save(c.name, "saved", app: app, expecting: "pdf")
         // The saved export is named after the measurement, so it is the row that was imported.
         XCTAssertEqual([png, pdf], ["\(c.fixture).png", "\(c.fixture).pdf"])
+        // The main window exports the measurement on screen as Saved Measurements exports it: the same image.
+        XCTAssertTrue(Self.samePicture(exported["\(c.name)/main/png"], exported["\(c.name)/saved/png"]),
+                      "the main window's image is not Saved Measurements'")
         app.terminate()
+    }
+
+    /// Whether two PNGs are the same picture: the same size, and every pixel's channels within 1 of each other.
+    /// Two renders of the same chart can differ by 1 in a channel here and there (the renderer is not bit-exact
+    /// between runs), which no one can see; anything drawn differently differs by far more.
+    static func samePicture(_ a: Data?, _ b: Data?) -> Bool {
+        guard let a = a.flatMap(Self.pixels), let b = b.flatMap(Self.pixels),
+              a.width == b.width, a.height == b.height, a.bytes.count == b.bytes.count else { return false }
+        return zip(a.bytes, b.bytes).allSatisfy { abs(Int($0) - Int($1)) <= 1 }
+    }
+
+    /// A PNG's pixels as 8-bit RGBA.
+    private static func pixels(_ png: Data) -> (width: Int, height: Int, bytes: [UInt8])? {
+        guard let source = CGImageSourceCreateWithData(png as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        let width = image.width, height = image.height
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        guard let context = CGContext(data: &bytes, width: width, height: height, bitsPerComponent: 8,
+                                      bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return (width, height, bytes)
     }
 
     // MARK: - Driving the app
@@ -111,8 +161,9 @@ final class GuitarTapUITests: XCTestCase {
     /// The waits below are upper bounds for slow machines (CI's simulators especially); each returns as soon
     /// as what it waits for is there.
     ///
-    /// Wait for a file `ext` that was not in `folder` before, attach it as `<case>--<path>--<file>` (an
-    /// attachment name cannot hold a "/"), and return its name.
+    /// Wait for a file `ext` that was not in `folder` before, keep its bytes (`exported`), attach it as
+    /// `<case>--<path>--<file>` (an attachment name cannot hold a "/") when it is one of the export check's —
+    /// the `main` and `saved` paths every edition exports — and return its name.
     private func awaitExport(in folder: URL, before: Set<String>, name: String, path: String,
                              ext: String) throws -> String {
         let deadline = Date().addingTimeInterval(90)
@@ -123,10 +174,13 @@ final class GuitarTapUITests: XCTestCase {
                 let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
                 if size > 0 {
                     Thread.sleep(forTimeInterval: 0.3)   // let an atomic write finish
-                    let attachment = XCTAttachment(contentsOfFile: url)
-                    attachment.name = "\(name)--\(path)--\(file)"
-                    attachment.lifetime = .keepAlways
-                    add(attachment)
+                    exported["\(name)/\(path)/\(ext)"] = try Data(contentsOf: url)
+                    if ["main", "saved"].contains(path) {
+                        let attachment = XCTAttachment(contentsOfFile: url)
+                        attachment.name = "\(name)--\(path)--\(file)"
+                        attachment.lifetime = .keepAlways
+                        add(attachment)
+                    }
                     return file
                 }
             }

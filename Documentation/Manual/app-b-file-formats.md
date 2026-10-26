@@ -299,5 +299,5 @@ types:
 | Action | Extension | Contents |
 |---|---|---|
 | Export Measurement / Save Measurement to Disk | `.guitartap` | Full measurement — peaks, spectrum data, settings, metadata (see above). |
-| Export Spectrum Image | `.png` | Chart as rendered on screen — frozen spectrum with peak annotations for a single measurement, or the overlay with all coloured curves and legend for a comparison. |
+| Export Spectrum Image | `.png` | The measurement's chart — frozen spectrum with peak annotations for a single measurement (a multi-tap measurement's averaged spectrum, even while the Taps view is on), or the overlay with all coloured curves and legend for a comparison. |
 | Export PDF Report | `.pdf` | Spectrum image + peak table + analysis summary + metadata header. Contents vary by measurement type; see §7.7 for the per-type breakdown. |

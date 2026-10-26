@@ -184,6 +184,22 @@ measurement is exported with all of its phase spectra, and a
 comparison is exported as the overlay with every coloured curve,
 its label, and the legend.
 
+The image is of the measurement, whichever of the two places below
+it is exported from, so both give the same image. A multi-tap
+measurement is exported as its averaged spectrum, even while the
+**Taps** view shows the individual taps. For a guitar:
+
+- The chart's annotation cards follow the **Annotations** setting, as
+  on screen, among the peaks at or above Peak Min.
+- **Detected Peaks: N** under the header counts the detected peaks in
+  view: those at or above Peak Min within the chart's range.
+- The **Selected Peaks Summary** under the chart lists the selected
+  peaks in view — the peaks chosen for each mode — the same as the PDF
+  report's Selected Peaks table, whatever the Annotations setting.
+
+A plate or brace image has no count; its summary lists its fL, fC and
+fLC (a brace, its fL).
+
 Two ways to invoke it:
 
 - For a measurement on screen — press the **Export Spectrum**
@@ -198,11 +214,12 @@ Bundles the chart, the data, and the metadata into a single
 shareable PDF. Like the spectrum image export, this works on any
 measurement; the PDF contents follow the measurement type:
 
-- **Guitar** — spectrum image, peak frequency table (mode,
-  frequency, magnitude, Q, bandwidth, pitch), and the analysis
-  summary (decay time and Tap Tone Ratio).
+- **Guitar** — spectrum image, the **Selected Peaks** table (the
+  selected peaks in view: frequency, magnitude, note and mode), and
+  the analysis summary (decay time and Tap Tone Ratio).
 - **Plate / brace** — spectrum image(s) for the captured phases,
-  the peak table, and the material properties (E_L, E_C, specific
+  the Selected Peaks table (fL, fC and fLC; a brace, fL), and the
+  material properties (E_L, E_C, specific
   modulus, radiation ratio, quality rating, and Gore thickness for
   plate).
 - **Comparison** — a header listing the constituent measurements,
