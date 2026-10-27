@@ -14,13 +14,37 @@ install.
 **macOS / Windows (Python desktop build).** Run the installer for
 your platform from the project release page. The build is bundled
 with PyInstaller and ships with its own Python runtime — no separate
-Python installation is required.
+Python installation is required. The Windows installer is not signed,
+so Windows may say "Windows protected your PC" when it starts: choose
+**More info**, then **Run anyway**.
 
-**Linux (Python desktop build).** Download the AppImage from the
-project release page, mark it executable (`chmod +x
-GuitarTap-x.y.z.AppImage`), and run it directly. The AppImage
-includes everything required; no system packages need to be
-installed.
+**Linux (Python desktop build).** The project release page has the
+Linux build in three forms; each includes everything required, and
+each runs on Ubuntu 22.04 or later, or another Linux distribution of
+the same age or newer, on an x86_64 (64-bit Intel or AMD) computer.
+Pick one:
+
+- **Debian, Ubuntu, Linux Mint and their relatives — the `.deb`**
+  (`guitar-tap-<version>.<build>-x86_64.deb`). Install it from a
+  terminal, in the folder it was downloaded to:
+  `sudo apt install ./guitar-tap-<version>.<build>-x86_64.deb` (the
+  `./` is needed). Guitar Tap is then in the applications menu, and
+  `guitar-tap` starts it from a terminal. Double-clicking the file may
+  open it in the archive manager instead of installing it. To remove
+  it: `sudo apt remove guitar-tap`.
+- **Fedora and its relatives — the `.rpm`**
+  (`guitar-tap-<version>.<build>-x86_64.rpm`). Install it the same
+  way: `sudo dnf install ./guitar-tap-<version>.<build>-x86_64.rpm`.
+  To remove it: `sudo dnf remove guitar-tap`.
+- **Any distribution, with nothing installed — the AppImage**
+  (`guitar-tap-<version>.<build>-x86_64.AppImage`). Make it
+  executable, once: in the file manager, right-click it → Properties
+  → turn on **Executable as Program**; or in a terminal,
+  `chmod +x guitar-tap-*.AppImage`. Then double-click it, or run it
+  from the terminal. A downloaded AppImage is not executable, and
+  double-clicking it before then says "There is no application
+  installed for 'AppImage application bundle' files". It is not added
+  to the applications menu; to remove it, delete the file.
 
 The native and Python builds share the `.guitartap` file format —
 measurements written on one can be opened on the other without loss.
