@@ -184,8 +184,7 @@ extension TapToneAnalysisView {
             fftAnalyzer: fft,
             minFreq: minFreq,
             maxFreq: maxFreq,
-            onExportSpectrum: { exportCurrentSpectrum() },
-            onExportPDFReport: { exportPDFReport() }
+            onExport: { performResultsExport($0) }
         )
     }
     #endif
@@ -221,8 +220,7 @@ extension TapToneAnalysisView {
                     fftAnalyzer: fft,
                     minFreq: minFreq,
                     maxFreq: maxFreq,
-                    onExportSpectrum: { exportCurrentSpectrum() },
-                    onExportPDFReport: { exportPDFReport() }
+                    onExport: { performResultsExport($0) }
                 )
                 .paletteSurface(.backgroundPanel)
                 .navigationTitle("Analysis Results")
@@ -346,8 +344,7 @@ extension TapToneAnalysisView {
                     fftAnalyzer: fft,
                     minFreq: minFreq,
                     maxFreq: maxFreq,
-                    onExportSpectrum: { exportCurrentSpectrum() },
-                    onExportPDFReport: { exportPDFReport() }
+                    onExport: { performResultsExport($0) }
                 )
                 .frame(idealWidth: 360, maxWidth: 480)
             }
@@ -478,8 +475,7 @@ extension TapToneAnalysisView {
                         fftAnalyzer: fft,
                         minFreq: minFreq,
                         maxFreq: maxFreq,
-                        onExportSpectrum: { exportCurrentSpectrum() },
-                        onExportPDFReport: { exportPDFReport() },
+                        onExport: { performResultsExport($0) },
                         compactLandscape: true
                     )
                     .frame(width: 420)

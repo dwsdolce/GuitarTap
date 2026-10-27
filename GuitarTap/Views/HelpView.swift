@@ -238,7 +238,7 @@ The Results panel is where you turn the captured frequencies into properties. En
                     )
                     helpRow(
                         title: "Analysis Results",
-                        body: "The Analysis Results panel shows the peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. It also contains Export Spectrum and Export PDF Report buttons. On iPhone, tap the Results button (doc icon) in the toolbar to open the panel as a sheet. On iPad and desktop, the panel is permanently visible on the right side of the window.",
+                        body: "The Analysis Results panel shows the peak list, decay time, plate properties, quality rating, and (for Plate mode) the Gore target thickness. It also has an Export button (Share on iPhone and iPad) whose menu exports or shares the spectrum image and the PDF report. On iPhone, tap the Results button (doc icon) in the toolbar to open the panel as a sheet. On iPad and desktop, the panel is permanently visible on the right side of the window.",
                         systemImages: ["doc.text"]
                     )
                     helpRow(
@@ -272,7 +272,7 @@ The Results panel is where you turn the captured frequencies into properties. En
                     )
                     helpRow(
                         title: "Measurements",
-                        body: "Lists all saved measurements. Double-click (macOS) or double-tap (iOS/iPadOS) a row to load the measurement into the main view — the measurements window closes automatically after loading. Click a row's ⋯ button or right-click it (macOS), or long-press it (iOS/iPadOS), to access: Load into View, View Details, Edit Name & Notes, Export Measurement (opens the share sheet — use AirDrop, Mail, etc. to send the .guitartap file), Save Measurement to Disk… (macOS only — saves the .guitartap file via a save dialog), Export Spectrum (saves the chart image), Export PDF Report, or Delete. Use Import Measurement to load a .guitartap file from Files or another device. Use Export All (macOS: Export All… via the share sheet, or Save All to Disk… for a file-save dialog) to write your whole library to a single .guitartap file — for backing it up or moving the complete set of measurements to another device or platform; re-import it with Import Measurement. Use Sort & Filter to sort the list as added, by date, name or type (choose the same key again to reverse it), or to show one type only; the choice is remembered. Delete removes all measurements, the duplicates (keeping the first copy of each), or the ones you select. Tap Compare to enter multi-select mode and overlay two or more saved guitar measurements on the main chart for side-by-side comparison. The measurement name and notes can also be edited from the Edit button in the Measurement Details toolbar.",
+                        body: "Lists all saved measurements. Double-click (macOS) or double-tap (iOS/iPadOS) a row to load the measurement into the main view — the measurements window closes automatically after loading. Click a row's ⋯ button or right-click it (macOS), or long-press it (iOS/iPadOS), to access: Load into View, View Details, Edit Name & Notes; Share Measurement, Share Spectrum and Share PDF Report (the share sheet — AirDrop, Mail, Save to Files…); on macOS also Export Measurement…, Export Spectrum… and Export PDF Report… (a save dialog); and Delete. Use Import… (iOS/iPadOS: More → Import Measurement) to load one or more .guitartap files at once — a single measurement is loaded into the main view; several are only added to the list. Use Export (iOS/iPadOS: More → Share) to share or export all your measurements, or the ones you select, as a single .guitartap file — for backing them up or moving them to another device or platform; re-import it with Import. Use Sort & Filter to sort the list as added, by date, name or type (choose the same key again to reverse it), or to show one type only; the choice is remembered. Delete removes all measurements, the duplicates (keeping the first copy of each), or the ones you select. Tap Compare to enter multi-select mode and overlay two or more saved guitar measurements on the main chart for side-by-side comparison. The measurement name and notes can also be edited from the Edit button in the Measurement Details toolbar.",
                         systemImages: ["list.bullet.clipboard"]
                     )
                     helpRow(
@@ -294,6 +294,10 @@ The Results panel is where you turn the captured frequencies into properties. En
                         title: "Toolbar Layout (iPad)",
                         body: "On iPad, all action buttons are in the navigation bar toolbar. Leading (left) side: Results, Auto dB, Crosshair, Annotations. Trailing (right) side: Save, Measurements, Metrics, Settings, Help (?). The tap controls (taps, threshold, peak min) remain below the toolbar."
                     )
+                    helpRow(
+                        title: "Menu Bar (iPad)",
+                        body: "With a keyboard or pointer, move to the top of the screen (or swipe down from it) for the menu bar. Guitar Tap: About Guitar Tap; Settings… (⌘,). File: Play Audio File… (⌥⌘O); Save Measurement… (⌘S); Share Spectrum Image…; Share PDF Report…. View: Auto dB (⌘0); Cycle Annotations (⌘`); Show Metrics (⌘M); Show Measurements (⌘L). Help: Quick Start Guide (⌘?); User Manual. Hold ⌘ to see the shortcuts."
+                    )
                     #elseif os(macOS)
                     helpRow(
                         title: "Menu Bar",
@@ -308,7 +312,9 @@ File menu:
 • Save Measurement… — ⌘S
 • Export Spectrum Image… — ⌘E
 • Export PDF Report… — ⇧⌘E
-Save and Export items are disabled until a measurement is complete.
+• Share Spectrum Image… — the share sheet
+• Share PDF Report… — the share sheet
+Save, Export and Share items are disabled until a measurement is complete.
 
 View menu:
 • Auto dB — ⌘0 — toggles auto-scaling of the dB axis
@@ -435,7 +441,7 @@ Help menu:
                     )
                     helpRow(
                         title: "PDF Reports",
-                        body: "Each saved measurement can generate a PDF report containing the spectrum chart, peak table, and analysis summary. Open Measurements, select a measurement, then tap the PDF export button. Saved comparison records generate a comparison PDF showing the overlay spectrum and an Air / Top / Back frequency table for each spectrum. A comparison PDF can also be exported directly from the main view while a live comparison is active, using Export PDF Report in the Analysis Results panel."
+                        body: "Each saved measurement can generate a PDF report containing the spectrum chart, peak table, and analysis summary. Open Measurements, open a measurement's menu, then choose Export PDF Report… (Share PDF Report on iPhone and iPad). Saved comparison records generate a comparison PDF showing the overlay spectrum and an Air / Top / Back frequency table for each spectrum. A comparison PDF can also be exported directly from the main view while a live comparison is active, using the Analysis Results panel's Export button (Share on iPhone and iPad)."
                     )
                     #if os(iOS)
                     helpRow(

@@ -60,15 +60,13 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
     ///   - fftAnalyzer: The FFT analyzer providing live spectrum data.
     ///   - minFreq: Lower bound of the displayed frequency range, in Hz.
     ///   - maxFreq: Upper bound of the displayed frequency range, in Hz.
-    ///   - onExportSpectrum: Callback invoked when the user requests spectrum export.
-    ///   - onExportPDFReport: Callback invoked when the user requests PDF export.
+    ///   - onExport: Called with the item chosen from the results' Export (or Share) menu.
     func show(
         analyzer: TapToneAnalyzer,
         fftAnalyzer: RealtimeFFTAnalyzer,
         minFreq: Float,
         maxFreq: Float,
-        onExportSpectrum: @escaping () -> Void,
-        onExportPDFReport: @escaping () -> Void
+        onExport: @escaping (ExportMenus.ResultsAction) -> Void
     ) {
         if let existing = window, existing.isVisible {
             // Update content and bring to front
@@ -77,8 +75,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
                 fftAnalyzer: fftAnalyzer,
                 minFreq: minFreq,
                 maxFreq: maxFreq,
-                onExportSpectrum: onExportSpectrum,
-                onExportPDFReport: onExportPDFReport
+                onExport: onExport
             )
             existing.makeKeyAndOrderFront(nil)
             return
@@ -89,8 +86,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
             fftAnalyzer: fftAnalyzer,
             minFreq: minFreq,
             maxFreq: maxFreq,
-            onExportSpectrum: onExportSpectrum,
-            onExportPDFReport: onExportPDFReport
+            onExport: onExport
         )
 
         let win = NSWindow(
@@ -145,8 +141,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
     ///   - fftAnalyzer: FFT analyzer to pass to the results view.
     ///   - minFreq: Minimum displayed frequency, in Hz.
     ///   - maxFreq: Maximum displayed frequency, in Hz.
-    ///   - onExportSpectrum: Spectrum export action callback.
-    ///   - onExportPDFReport: PDF report export action callback.
+    ///   - onExport: Called with the item chosen from the results' Export (or Share) menu.
     /// - Returns: A configured `NSView` suitable for use as a window's
     ///   `contentView`.
     private func makeHostingView(
@@ -154,8 +149,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
         fftAnalyzer: RealtimeFFTAnalyzer,
         minFreq: Float,
         maxFreq: Float,
-        onExportSpectrum: @escaping () -> Void,
-        onExportPDFReport: @escaping () -> Void
+        onExport: @escaping (ExportMenus.ResultsAction) -> Void
     ) -> NSView {
         let content = NavigationStack {
             TapAnalysisResultsView(
@@ -163,8 +157,7 @@ final class ResultsWindowPresenter: NSObject, NSWindowDelegate {
                 fftAnalyzer: fftAnalyzer,
                 minFreq: minFreq,
                 maxFreq: maxFreq,
-                onExportSpectrum: onExportSpectrum,
-                onExportPDFReport: onExportPDFReport
+                onExport: onExport
             )
             .paletteSurface(.backgroundWindow)
             .navigationTitle("Analysis Results")

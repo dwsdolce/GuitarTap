@@ -303,10 +303,11 @@ measurement:
   spectra, labels, date), the overlay image, and an Air / Top /
   Back frequency table with one column per spectrum.
 
-A saved comparison `.guitartap` file can be **imported** via
-**File → Import Measurement** (macOS / Python desktop) or the
-Import Measurement button in the Measurements list (iOS). The app
-detects the comparison on load and restores the overlay.
+A saved comparison `.guitartap` file can be **imported** with the
+Measurements list's **Import…** button (macOS, Python and web
+builds), or its **<img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle">** menu's **Import Measurement** (iOS and
+iPadOS); see §7.9. The app detects the comparison on load and restores the
+overlay.
 
 **What is inactive during comparison**
 

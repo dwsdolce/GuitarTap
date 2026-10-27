@@ -293,11 +293,12 @@ the import workflow.
 
 ## Exported formats
 
-The export actions described in §7.6 – §7.8 produce these file
-types:
+The export and share actions described in §7.6 – §7.10 produce these
+file types:
 
 | Action | Extension | Contents |
 |---|---|---|
-| Export Measurement / Save Measurement to Disk | `.guitartap` | Full measurement — peaks, spectrum data, settings, metadata (see above). |
-| Export Spectrum Image | `.png` | The measurement's chart — frozen spectrum with peak annotations for a single measurement (a multi-tap measurement's averaged spectrum, even while the Taps view is on), or the overlay with all coloured curves and legend for a comparison. |
-| Export PDF Report | `.pdf` | Spectrum image + peak table + analysis summary + metadata header. Contents vary by measurement type; see §7.7 for the per-type breakdown. |
+| Export Measurement / Share Measurement | `.guitartap` | Full measurement — peaks, spectrum data, settings, metadata (see above). |
+| Export All / Export Selected, Share All / Share Selected | `.guitartap` | The library, or the measurements selected, in one file — each in full, as above. |
+| Export Spectrum / Share Spectrum | `.png` | The measurement's chart — frozen spectrum with peak annotations for a single measurement (a multi-tap measurement's averaged spectrum, even while the Taps view is on), or the overlay with all coloured curves and legend for a comparison. |
+| Export PDF Report / Share PDF Report | `.pdf` | Spectrum image + peak table + analysis summary + metadata header. Contents vary by measurement type; see §7.7 for the per-type breakdown. |

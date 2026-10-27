@@ -114,7 +114,12 @@ extension TapSettingsView {
                         Button {
                             showingDeleteAllCalibrationsConfirmation = true
                         } label: {
+                            // It asks first, so "…" on the Mac (style guide S9); none on iOS.
+                            #if os(macOS)
+                            Label("Delete All Calibrations…", systemImage: "trash")
+                            #else
                             Label("Delete All Calibrations", systemImage: "trash")
+                            #endif
                         }
                     }
                 }

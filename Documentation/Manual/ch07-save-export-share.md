@@ -57,7 +57,7 @@ SCREENSHOT:
            several guitar measurements with the waveform indicator,
            at least one plate and one brace (no indicator), and at
            least one saved comparison with the chart indicator.
-           Toolbar showing Compare…, Sort & Filter, Import, Export All,
+           Toolbar showing Compare…, Sort & Filter, Import…, Export,
            Delete and Done; the "Total: N measurements" line above the
            rows.
   Notes:   Use a real set of measurements so the dates and notes
@@ -202,11 +202,17 @@ fLC (a brace, its fL).
 
 Two ways to invoke it:
 
-- For a measurement on screen — press the **Export Spectrum**
-  button at the bottom of the Analysis Results window. Keyboard
-  shortcut: **⌘E** on macOS; **Ctrl+E** on Windows and Linux.
+- For a measurement on screen — the **Export** button at the
+  bottom of the Analysis Results window → **Export Spectrum…**
+  (on iPhone and iPad, its **Share** button → **Share Spectrum**).
+  Keyboard shortcut: **⌘E** on macOS; **Ctrl+E** on Windows and
+  Linux.
 - For a saved measurement — open the popup menu on its row in
-  the Measurements list and choose **Export Spectrum**.
+  the Measurements list and choose **Export Spectrum…** (on iPhone
+  and iPad, **Share Spectrum**).
+
+On the Mac both menus also have **Share Spectrum…**, which hands the
+image to the share sheet (§7.11).
 
 ## 7.7 Exporting a PDF Report
 
@@ -231,12 +237,16 @@ notes.
 
 Two ways to invoke it:
 
-- For a measurement on screen — press the **Export PDF Report**
-  button at the bottom of the Analysis Results window. Keyboard
-  shortcut: **⇧⌘E** on macOS; **Ctrl+Shift+E** on Windows and
-  Linux.
+- For a measurement on screen — the **Export** button at the
+  bottom of the Analysis Results window → **Export PDF Report…**
+  (on iPhone and iPad, its **Share** button → **Share PDF
+  Report**). Keyboard shortcut: **⇧⌘E** on macOS;
+  **Ctrl+Shift+E** on Windows and Linux.
 - For a saved measurement — open the popup menu on its row in
-  the Measurements list and choose **Export PDF Report**.
+  the Measurements list and choose **Export PDF Report…** (on
+  iPhone and iPad, **Share PDF Report**).
+
+On the Mac both menus also have **Share PDF Report…** (§7.11).
 
 ## 7.8 Exporting a Measurement
 
@@ -255,15 +265,14 @@ self-contained.
 
 Which popup-menu item to use depends on platform:
 
-- **iOS / iPadOS:** **Export Measurement** → system share sheet
-  (AirDrop, Mail, Files, etc.).
-- **macOS (native build):** either **Export Measurement** (system
-  share sheet) or **Save Measurement to Disk…** (file-save
-  dialog).
-- **Python build (Windows / Linux / macOS Python):** **Export
-  Measurement** → file-save dialog. There is no share sheet on
-  these platforms, so the action behaves the same way as Swift
-  macOS's Save Measurement to Disk…
+- **macOS (native build):** **Export Measurement…** writes the
+  file through a save dialog; **Share Measurement…** hands it to
+  the share sheet (AirDrop, Mail, Messages and so on).
+- **iOS / iPadOS:** **Share Measurement** → the share sheet; its
+  **Save to Files** writes the file to a folder.
+- **Python and web builds:** **Export Measurement…** → a save
+  dialog (in a browser that has none, a download). These builds
+  have no share sheet.
 
 The file extension is **`.guitartap`** on every platform, and the
 format is interchangeable across iOS, iPadOS, macOS, Windows, and
@@ -277,29 +286,37 @@ SCREENSHOT:
   File:    images/ch07-measurements-list-ios.png
   Subject: Saved Measurements dialog on iOS / iPadOS, with the
            ellipsis menu in the upper-right corner expanded to show
-           "Import Measurement", "Export All Measurements" and the
-           "Delete" submenu (All…, Duplicates…, Selected…). Capture in light
+           "Import Measurement", the "Share" submenu (Share All, Share
+           Selected) and the "Delete" submenu (All…, Duplicates…,
+           Selected…). Capture in light
            mode to match the macOS screenshot.
   Notes:   The iOS dialog layout differs from macOS — there is no
            separate row of Compare / Import / Delete buttons
            along the bottom. Crop tight to the dialog.
 -->
 
-![Saved Measurements dialog on iOS — Import Measurement, Export All and Delete live inside the ellipsis menu in the upper-right.](images/ch07-measurements-list-ios.png){: .screenshot-mobile }
+![Saved Measurements dialog on iOS — Import Measurement, Share and Delete live inside the ellipsis menu in the upper-right.](images/ch07-measurements-list-ios.png){: .screenshot-mobile }
 
 The access path differs between platforms:
 
 - **iOS / iPadOS:** open the Saved Measurements dialog, tap the
   **<img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle">**
   menu in the upper-right corner, and choose **Import
-  Measurement**. (The same menu also holds **Delete**.)
-  The Files picker opens; select a `.guitartap` to import.
-- **Desktop (macOS native and Python builds):** **File → Import
-  Measurement** opens a file picker. Drag-and-drop onto the
-  Saved Measurements window also works.
+  Measurement**. (The same menu also holds **Share** and
+  **Delete**.) The Files picker opens; select one or more
+  `.guitartap` files.
+- **macOS, Python and web builds:** the Saved Measurements
+  window's **Import…** button opens a file picker; select one or
+  more `.guitartap` files.
 
-The imported measurement appears in the list regardless of its
-type — guitar, plate, brace, or comparison.
+Imported measurements appear in the list whatever their type —
+guitar, plate, brace, or comparison. Choosing several files imports
+them all at once, with one message for the lot: how many
+measurements came from how many files, then any file — or
+measurement in a file — that could not be read, and why. If the
+import brings in exactly one measurement, it is loaded into the
+main view; if it brings in several, they are added to the list and
+the main view stays as it was.
 
 If the input device named in the imported file is not available
 on the current system, the import still succeeds and the imported
@@ -307,42 +324,48 @@ data is unchanged. A warning is shown **after** the import
 completes, letting you know that further capture will use a
 fallback input device until the original is reconnected.
 
-## 7.10 Exporting or Backing Up the Whole Library
+## 7.10 Exporting the Whole Library or a Selection
 
-Where §7.8 exports a single measurement, **Export All** writes your
-**entire** saved-measurement library to one `.guitartap` file. Its
-purpose is to back up the complete collection or to move it in a single
-step — from one platform to another (macOS ↔ iPad ↔ Windows / Linux),
-or, on the web build, from one browser to another.
+Where §7.8 exports a single measurement, the Saved Measurements
+window's library menu writes several to one `.guitartap` file: your
+**entire** library (**All**), or the measurements you choose
+(**Selected** — tick them, then press **Export (N)** or **Share (N)**,
+as Delete's Selected… works, §7.12). Its purpose is to back up the
+collection, or part of it, or to move it in a single step — from one
+platform to another (macOS ↔ iPad ↔ Windows / Linux), or, on the web
+build, from one browser to another.
 
-The action lives in the Saved Measurements list:
+The menu by platform:
 
-- **iOS / iPadOS, web, and Python (Windows / Linux / macOS Python):**
-  **Export All**.
-- **macOS (native build):** **Export All…** (opens the share sheet —
-  AirDrop, Mail, Files) or **Save All to Disk…** (a file-save dialog
-  that writes the library file to a folder you choose).
+- **macOS (native build):** the **Export** menu — **Export All…** and
+  **Export Selected…** (a save dialog), **Share All…** and **Share
+  Selected…** (the share sheet).
+- **iOS / iPadOS:** the **<img src="images/symbols/ellipsis.circle.png" width="18" height="18" class="inline-icon" alt="ellipsis.circle">** menu's **Share** submenu —
+  **Share All**
+  and **Share Selected**.
+- **Python and web builds:** the **Export** menu — **Export All…**
+  and **Export Selected…**.
 
-The result is a single `.guitartap` file containing every saved
-measurement — guitar, plate, brace, and comparison. Re-import it on any
-platform with **Import Measurement** (§7.9); the measurements are merged
-back into the list. The file is interchangeable across all builds, so
-Export All on one platform followed by Import on another is the
-supported way to carry a whole library across.
+The result is a single `.guitartap` file containing those measurements
+— guitar, plate, brace, and comparison. Re-import it on any platform
+with **Import** (§7.9); the measurements are merged back into the list.
+The file is interchangeable across all builds, so Export All on one
+platform followed by Import on another is the supported way to carry a
+whole library across.
 
 **Web build — why the backup matters.** In a browser the library is
 stored *in that browser*, and the browser can clear it — Safari deletes a
 site's stored data after roughly seven days without a visit, on both macOS and
 iOS. Installing the app (**Add to
 Home Screen** on iOS, **Add to Dock** on desktop) promotes the storage
-to durable; keeping an **Export All** file elsewhere is the portable
-backup. The app shows this reminder in the Saved Measurements panel on
+to durable; keeping a file from **Export → Export All…** elsewhere is
+the portable backup. The app shows this reminder in the Saved Measurements panel on
 affected browsers:
 
 > Your library is stored in this browser and can be cleared by the
 > browser (Safari deletes it after about 7 days without a visit, on macOS and iOS). Install the app (Add to Home
-> Screen / Add to Dock) for durable storage, and use Export All to keep
-> a backup.
+> Screen / Add to Dock) for durable storage, and use Export → Export
+> All… to keep a backup.
 
 ## 7.11 Sharing Between Devices
 
@@ -351,9 +374,12 @@ Anything you can export — measurements (§7.8), spectrum images
 Which action to use depends on where the file is going.
 
 **Apple ecosystem (iOS, iPadOS, macOS native build).** Use the
-**Export Measurement**, **Export Spectrum**, or **Export PDF
-Report** popup-menu actions. Each opens the system share sheet,
-from which:
+**Share** items: a measurement's **Share Measurement**, **Share
+Spectrum** and **Share PDF Report**; Analysis Results' **Share
+Spectrum** and **Share PDF Report**; and the library menu's **Share
+All** and **Share Selected**. (On the Mac they end in "…", beside
+the Export… items.) Each opens the system share sheet, from
+which:
 
 - **AirDrop** sends directly to a nearby Apple device.
 - **iCloud Drive / Files** stores the file to iCloud; the
@@ -361,21 +387,18 @@ from which:
 - **Mail / Messages** attaches the file; the recipient taps the
   attachment to open it.
 
-**Non-Apple devices and archival.** Use **Save Measurement to
-Disk…** (macOS popup menu) — which is the file-save path, not a
-share-sheet path — to write a `.guitartap` directly to a folder
-of your choice. On Python desktop builds (Windows, Linux, and
-macOS Python) the **Export Measurement** action opens the same
-kind of save dialog, since no system share sheet exists on
-Windows or Linux. From disk the file can travel via any
+**Non-Apple devices and archival.** Use the **Export…** items —
+on the Mac and in the Python and web builds — which write the file
+through a save dialog to a folder of your choice. (On iPhone and
+iPad, the share sheet's **Save to Files** does the same.) From
+disk the file can travel via any
 cross-platform channel — Dropbox, Google Drive, email, USB drive,
 network share — and the receiver imports it with §7.9. This same
-disk-save path is the right choice when you simply want a
-permanent file copy outside the app's library.
+path is the right choice when you simply want a permanent file
+copy outside the app's library.
 
 **Cross-platform example.** Export from a Windows or Linux build
-with the **Export Measurement** action — which opens a save
-dialog on those platforms — transfer the resulting `.guitartap`
+with **Export Measurement…**, transfer the resulting `.guitartap`
 file to an iPhone or iPad (via Files, email, Dropbox, etc.), and
 import it on the receiving Apple device via §7.9. The
 `.guitartap` format is identical on every platform, so no

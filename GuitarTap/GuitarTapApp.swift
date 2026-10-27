@@ -6,7 +6,7 @@
 
 /// # GuitarTapApp
 ///
-/// Application entry point and macOS menu-command definitions.
+/// Application entry point and the menu bar's commands (the Mac's, and the iPad's).
 ///
 /// ## App Structure
 ///
@@ -51,7 +51,6 @@ let appTitle: String = {
     return "\(name) \(appVersion)"
 }()
 
-#if os(macOS)
 // MARK: - Menu Actions (stable class reference for FocusedValue)
 
 /// Holds all menu-driven action closures as mutable properties on a single
@@ -66,11 +65,15 @@ final class MenuActions {
     var saveMeasurement: (() -> Void)?
     var exportSpectrum: (() -> Void)?
     var exportPDF: (() -> Void)?
+    var shareSpectrum: (() -> Void)?
+    var sharePDF: (() -> Void)?
     var autoScaleDB: (() -> Void)?
     var cycleAnnotations: (() -> Void)?
     var showMetrics: (() -> Void)?
     var showMeasurements: (() -> Void)?
     var showSettings: (() -> Void)?
+    var showHelp: (() -> Void)?
+    var showAbout: (() -> Void)?
     /// Mirrors the analyzer's `hasResultToSaveOrExport`: Save and the exports are enabled only when there
     /// is something to save or export. Observed, so the menu updates when it changes.
     var hasResultToSaveOrExport = false
@@ -89,7 +92,7 @@ extension FocusedValues {
     }
 }
 
-// MARK: - macOS Menu Commands
+// MARK: - Menu Commands (the Mac's menu bar, and the iPad's)
 
 /// Static menu command replacements that have no focused-value dependencies.
 ///
@@ -104,7 +107,10 @@ extension FocusedValues {
 /// dependencies — SwiftUI only evaluates this struct once and never tears
 /// down the resulting NSMenu items.
 struct StaticCommands: Commands {
+    #if os(macOS)
     @Environment(\.openWindow) private var openWindow
+    #endif
+    @FocusedValue(\.menuActions) private var menuActions
 
     var body: some Commands {
         // Remove the "New Window" menu command while preserving the standard app menu
@@ -115,16 +121,25 @@ struct StaticCommands: Commands {
         CommandGroup(replacing: .undoRedo) {}
         CommandGroup(replacing: .textEditing) {}
 
-        // Replace the default Help menu item with one that opens the in-app Help window.
+        // Replace the default Help menu item with the Quick Start Guide (the Mac's Help window, the iPad's Help
+        // sheet) and the User Manual.
         CommandGroup(replacing: .help) {
             Button("Quick Start Guide") {
+                #if os(macOS)
                 openWindow(id: "help")
+                #else
+                menuActions?.showHelp?()
+                #endif
             }
             .keyboardShortcut("?", modifiers: .command)
 
             Button("User Manual") {
                 if let url = DocumentationLinks.userManual {
+                    #if os(macOS)
                     NSWorkspace.shared.open(url)
+                    #else
+                    UIApplication.shared.open(url)
+                    #endif
                 }
             }
         }
@@ -142,7 +157,8 @@ struct AppCommands: Commands {
     @FocusedValue(\.menuActions) private var menuActions
 
     var body: some Commands {
-        // App menu — Settings item with standard ⌘, shortcut
+        #if os(macOS)
+        // App menu — the system's About, then Settings with the standard ⌘, shortcut
         CommandGroup(after: .appInfo) {
             Button("Settings…") {
                 menuActions?.showSettings?()
@@ -150,10 +166,27 @@ struct AppCommands: Commands {
             .keyboardShortcut(",", modifiers: .command)
             .disabled(menuActions?.showSettings == nil)
         }
+        #else
+        // App menu on the iPad — About, which iPadOS does not supply, and Guitar Tap's own Settings in place of the
+        // system's (the Settings app's page for the app, still reached from the Settings app).
+        CommandGroup(replacing: .appInfo) {
+            Button("About Guitar Tap") {
+                menuActions?.showAbout?()
+            }
+            .disabled(menuActions?.showAbout == nil)
+        }
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings…") {
+                menuActions?.showSettings?()
+            }
+            .keyboardShortcut(",", modifiers: .command)
+            .disabled(menuActions?.showSettings == nil)
+        }
+        #endif
 
-        // File menu — Play File, Save and Export actions
+        // File menu — Play File, Save, and the Export and Share actions
         CommandGroup(after: .saveItem) {
-            Button("Play Audio File…") {
+            Button(menuTitle("Play Audio File")) {
                 menuActions?.openAudioFile?()
             }
             .keyboardShortcut("o", modifiers: [.command, .option])
@@ -161,7 +194,7 @@ struct AppCommands: Commands {
 
             Divider()
 
-            Button("Save Measurement…") {
+            Button(menuTitle("Save Measurement")) {
                 menuActions?.saveMeasurement?()
             }
             .keyboardShortcut("s", modifiers: .command)
@@ -169,6 +202,7 @@ struct AppCommands: Commands {
 
             Divider()
 
+            #if os(macOS)
             Button("Export Spectrum Image…") {
                 menuActions?.exportSpectrum?()
             }
@@ -180,10 +214,24 @@ struct AppCommands: Commands {
             }
             .keyboardShortcut("e", modifiers: [.command, .shift])
             .disabled(menuActions?.exportPDF == nil || menuActions?.hasResultToSaveOrExport != true)
+
+            #endif
+
+            // Share after Export, as in Apple's menus: the share sheet in place of a save dialog. The iPad has no
+            // save dialog, so Share alone.
+            Button(menuTitle("Share Spectrum Image")) {
+                menuActions?.shareSpectrum?()
+            }
+            .disabled(menuActions?.shareSpectrum == nil || menuActions?.hasResultToSaveOrExport != true)
+
+            Button(menuTitle("Share PDF Report")) {
+                menuActions?.sharePDF?()
+            }
+            .disabled(menuActions?.sharePDF == nil || menuActions?.hasResultToSaveOrExport != true)
         }
 
-        // View menu — inject display controls after the sidebar group so they
-        // appear in the existing View menu rather than creating a duplicate.
+        // View menu — inject display controls after the sidebar group so they appear in the existing View menu
+        // rather than creating a duplicate (on the Mac and on the iPad).
         CommandGroup(after: .sidebar) {
             Divider()
 
@@ -215,7 +263,12 @@ struct AppCommands: Commands {
         }
     }
 }
-#endif
+
+/// A menu bar item's words: "…" when it needs more from the user before it is done — on the iPad's menu bar as on
+/// the Mac's, as Apple's own (style guide S9).
+private func menuTitle(_ title: String) -> String {
+    title + "…"
+}
 
 #if os(macOS)
 /// macOS app delegate.
@@ -315,6 +368,9 @@ struct GuitarTapApp: App {
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
         }
         .handlesExternalEvents(matching: ["*"])
+        // The iPad's menu bar (an iPhone has none).
+        .commands { StaticCommands() }
+        .commands { AppCommands() }
         #endif
     }
 }

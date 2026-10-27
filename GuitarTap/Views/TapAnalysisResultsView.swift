@@ -41,9 +41,9 @@
 ///
 /// ## Export
 ///
-/// Optional `onExportSpectrum` and `onExportPDFReport` closures are provided
-/// by `TapToneAnalysisView`. When non-nil they activate the corresponding
-/// export buttons at the bottom of the scroll view.
+/// An optional `onExport` closure is provided by `TapToneAnalysisView`. When non-nil, one button at the bottom
+/// — Export on the Mac, Share on iOS and iPadOS — opens Analysis Results' menu (`ExportMenus.analysisResults`):
+/// the spectrum image and the PDF report, exported or shared.
 ///
 /// - SeeAlso: `TapToneAnalysisView+Export`, `ResultsWindowPresenter`,
 ///   `PlateProperties`, `BraceProperties`
@@ -68,11 +68,8 @@ struct TapAnalysisResultsView: View {
     /// Upper bound of the displayed frequency range (Hz).
     var maxFreq: Float
     
-    /// Called when the user taps "Export Spectrum". Pass `nil` to hide the button.
-    var onExportSpectrum: (() -> Void)? = nil
-
-    /// Called when the user taps "Export PDF Report". Pass `nil` to hide the button.
-    var onExportPDFReport: (() -> Void)? = nil
+    /// Called with the item chosen from the Export (or Share) menu. Pass `nil` to hide the button.
+    var onExport: ((ExportMenus.ResultsAction) -> Void)? = nil
 
     /// When true (the iPhone landscape side panel), hides the device-name row and the Ring-Out /
     /// Tap-Ratio summary so the peak list gets the full height. Default false → the iPad panel and
@@ -367,32 +364,27 @@ struct TapAnalysisResultsView: View {
                     }
 
                     // Status indicator + export buttons
-                    if onExportSpectrum != nil || onExportPDFReport != nil {
+                    if let onExport {
                         HStack {
                             statusIndicator
                             Spacer()
-                            if let exportSpectrum = onExportSpectrum {
-                                Button {
-                                    exportSpectrum()
-                                } label: {
-                                    Label("Export Spectrum", systemImage: "chart.line.uptrend.xyaxis")
-                                        .fixedSize()
-                                }
-                                .buttonStyle(.appPlain)
-                                .controlSize(.small)
-                                .disabled(!analyzer.hasResultToSaveOrExport)
+                            Menu {
+                                ExportMenuItems(groups: ExportMenus.analysisResults.entries(for: .current),
+                                                perform: onExport)
+                            } label: {
+                                Label(ExportMenus.analysisResults.button(for: .current),
+                                      systemImage: ExportMenus.analysisResults.symbol)
+                                    .fixedSize()
                             }
-                            if let exportPDF = onExportPDFReport {
-                                Button {
-                                    exportPDF()
-                                } label: {
-                                    Label("Export PDF", systemImage: "doc.richtext")
-                                        .fixedSize()
-                                }
-                                .buttonStyle(.appPlain)
-                                .controlSize(.small)
-                                .disabled(!analyzer.hasResultToSaveOrExport)
-                            }
+                            .menuStyle(.button)
+                            .buttonStyle(.appPlain)
+                            .menuIndicator(.hidden)
+                            // The items in their own order: iOS otherwise puts the first nearest the button, which
+                            // here, at the panel's foot, reverses them.
+                            .menuOrder(.fixed)
+                            .controlSize(.small)
+                            .fixedSize()
+                            .disabled(!analyzer.hasResultToSaveOrExport)
                         }
                     } else {
                         statusIndicator

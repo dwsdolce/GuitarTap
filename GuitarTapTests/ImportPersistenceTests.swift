@@ -2,9 +2,9 @@
 //  ImportPersistenceTests.swift
 //  GuitarTapTests
 //
-//  The saved-measurement library: importing through the app's import (`importAndLoadMeasurements`),
-//  editing an entry, saving, and the message an import shows. The shared cases in
-//  `import-persistence.json` (IP1–IP9, IM1–IM3), the same as Python and the web; IP8 is the web's alone.
+//  The saved-measurement library: importing through the app's import (`importAndLoadMeasurements`, and
+//  `importFiles` for files chosen together), editing an entry, saving, and the message an import shows. The shared
+//  cases in `import-persistence.json`, the same as Python and the web; IP8 is the web's alone.
 //
 //  Each case gives its analyzer a library file of its own, so neither the user's measurements nor another
 //  suite's saves running in parallel can reach it.
@@ -53,6 +53,7 @@ struct ImportPersistenceTests {
         defer { try? FileManager.default.removeItem(at: dir) }
         sut.libraryFileURL = dir.appendingPathComponent("saved_measurements.json")
         var message: String?
+        var imported: Bool?
         var stored: Data?
         for step in row["steps"] as! [[String: Any]] {
             if let names = step["libraryHolds"] as? [String] {
@@ -63,6 +64,15 @@ struct ImportPersistenceTests {
             } else if let names = step["import"] as? [String] {
                 let file = try JSONSerialization.data(withJSONObject: names.map { Self.measurements[$0]! })
                 message = try sut.importAndLoadMeasurements(from: file)
+            } else if let files = step["importFiles"] as? [[String: Any]] {
+                let chosen = try files.map { file in
+                    let names = file["holds"] as! [String]
+                    let data = try JSONSerialization.data(withJSONObject: names.map { Self.measurements[$0]! })
+                    return TapToneAnalyzer.ImportFile(name: file["file"] as! String, contents: .success(data))
+                }
+                let report = sut.importFiles(chosen)
+                message = report.message
+                imported = report.imported
             } else if let names = step["importFails"] as? [String] {
                 let file = try JSONSerialization.data(withJSONObject: names.map { Self.measurements[$0]! })
                 do {
@@ -125,6 +135,11 @@ struct ImportPersistenceTests {
                 }
             case "message":
                 #expect(message == want as? String, "\(id) \(field): \(String(describing: message))")
+            case "imported":
+                #expect(imported == want as? Bool, "\(id) \(field)")
+            case "loaded":
+                #expect(sut.loadedMeasurementName == want as? String,
+                        "\(id) \(field): \(String(describing: sut.loadedMeasurementName))")
             case "messageStartsWith":
                 #expect(message?.hasPrefix(want as! String) == true, "\(id) \(field): \(String(describing: message))")
             case "microphoneWarning":

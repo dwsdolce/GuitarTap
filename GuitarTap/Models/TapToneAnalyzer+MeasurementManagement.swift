@@ -99,6 +99,19 @@ extension TapToneAnalyzer {
         var unreadable: [Error]
     }
 
+    /// A file chosen in Import's file picker: its name, and its contents — or why they could not be read.
+    struct ImportFile {
+        let name: String
+        let contents: Result<Data, Error>
+    }
+
+    /// What an import of chosen files says: its message, and whether anything was imported (the success alert)
+    /// or not (the error alert).
+    struct ImportReport {
+        let message: String
+        let imported: Bool
+    }
+
     /// The single JSON decoding of the measurement library.
     ///
     /// Every read path — loading `saved_measurements.json` and importing a `.guitartap`
@@ -673,14 +686,68 @@ extension TapToneAnalyzer {
     }
 
     /// What an import's message says about the entries it skipped — nil when none were: how many, and
-    /// why when there was one.
-    static func skippedEntriesMessage(_ unreadable: [Error]) -> String? {
+    /// why when there was one. `fileName` names the file, for an import of several; without it, "the file".
+    static func skippedEntriesMessage(_ unreadable: [Error], fileName: String? = nil) -> String? {
         guard let first = unreadable.first else { return nil }
+        let file = fileName.map { "\"\($0)\"" } ?? "the file"
         guard unreadable.count == 1 else {
-            return "\(unreadable.count) measurements in the file could not be read and were not imported."
+            return "\(unreadable.count) measurements in \(file) could not be read and were not imported."
         }
         let reason = unreadableReason(first).map { " (\($0))" } ?? ""
-        return "1 measurement in the file could not be read and was not imported\(reason)."
+        return "1 measurement in \(file) could not be read and was not imported\(reason)."
+    }
+
+    /// Imports the files chosen in Import's file picker and returns the one message the user sees for them, and
+    /// whether anything was imported (the success alert) or not (the error alert).
+    ///
+    /// One file is imported as ``importAndLoadMeasurements(from:)`` imports it. Several are each added to the
+    /// library in turn; the message counts the measurements imported and the files they came from, then names
+    /// each file that could not be imported, and each file with entries that could not be read, with the reason.
+    /// Exactly one measurement imported in all is loaded, as a single import's is, with its microphone warning;
+    /// more than one, none is — what is on screen stays.
+    func importFiles(_ files: [ImportFile]) -> ImportReport {
+        if files.count == 1, let file = files.first {
+            do {
+                return ImportReport(message: try importAndLoadMeasurements(from: try file.contents.get()),
+                                    imported: true)
+            } catch {
+                return ImportReport(message: Self.importErrorMessage(for: error, fileName: file.name), imported: false)
+            }
+        }
+        microphoneWarning = nil
+        var imported: [TapToneMeasurement] = []
+        var filesImported = 0
+        var problems: [String] = []
+        for file in files {
+            do {
+                let library = try importMeasurements(from: try file.contents.get())
+                imported.append(contentsOf: library.measurements)
+                filesImported += 1
+                if let skipped = Self.skippedEntriesMessage(library.unreadable, fileName: file.name) {
+                    problems.append(skipped)
+                }
+            } catch {
+                problems.append(Self.importErrorMessage(for: error, fileName: file.name))
+            }
+        }
+        guard !imported.isEmpty else {
+            return ImportReport(message: problems.joined(separator: "\n\n"), imported: false)
+        }
+        var message: String
+        if imported.count == 1, let measurement = imported.first {
+            loadMeasurement(measurement)
+            message = "Successfully imported and loaded 1 measurement"
+        } else {
+            message = "Successfully imported \(imported.count) measurements from \(filesImported) file\(filesImported == 1 ? "" : "s")"
+        }
+        for problem in problems {
+            message += "\n\n" + problem
+        }
+        if imported.count == 1, let warning = microphoneWarning {
+            message += "\n\n⚠\u{FE0E} " + warning
+            microphoneWarning = nil
+        }
+        return ImportReport(message: message, imported: true)
     }
     
     /// Restores the full analyser state from a saved measurement, entering
@@ -1054,33 +1121,11 @@ extension TapToneAnalyzer {
             + "\n\nA tap captured now may not match the saved result. The sample rate is set outside Guitar Tap: in Audio MIDI Setup on a Mac, or Sound settings on Windows."
     }
 
-    /// Encodes a single measurement as a pretty-printed JSON string and
-    /// delivers it to `completion` on the main thread.
-    ///
-    /// Encoding is done on a background queue to avoid blocking the main
-    /// thread for large measurements with many peaks.
-    ///
-    /// - Parameters:
-    ///   - measurement: The ``TapToneMeasurement`` to export.
-    ///   - completion: Called on the main thread with the JSON string and the
-    ///     original measurement.
-    func exportMeasurement(_ measurement: TapToneMeasurement, completion: @escaping (String, TapToneMeasurement) -> Void) {
+    /// Encodes `measurements` as a `.guitartap` JSON array — the form written to `saved_measurements.json` and the
+    /// form Import reads — for exporting or sharing one measurement, the selected ones, or the whole library.
+    func exportMeasurements(_ measurements: [TapToneMeasurement], completion: @escaping (String) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            if let data = try? TapToneAnalyzer.encodeMeasurements([measurement]),
-               let json = String(data: data, encoding: .utf8) {
-                DispatchQueue.main.async {
-                    completion(json, measurement)
-                }
-            }
-        }
-    }
-
-    /// Encodes the whole library (`savedMeasurements`) as a `.guitartap` JSON array — the same
-    /// form written to `saved_measurements.json` — for Export All / backup / migration.
-    func exportAllMeasurements(completion: @escaping (String) -> Void) {
-        let snapshot = savedMeasurements
-        DispatchQueue.global(qos: .userInitiated).async {
-            if let data = try? TapToneAnalyzer.encodeMeasurements(snapshot),
+            if let data = try? TapToneAnalyzer.encodeMeasurements(measurements),
                let json = String(data: data, encoding: .utf8) {
                 DispatchQueue.main.async {
                     completion(json)

@@ -21,14 +21,15 @@
 /// |---|---|---|
 /// | Detail navigation | `NSWindowController` (`detailWindowController`) | `NavigationLink` |
 /// | Import | `.fileImporter` with `UTType.guitarTapMeasurement` | `DocumentPicker` |
-/// | Export (JSON) | `MeasurementFileExporter.exportJSON` → `NSSavePanel` | Share sheet |
+/// | Export (`.guitartap`, image, PDF) | `MeasurementFileExporter.deliver` → `NSSavePanel` | — |
+/// | Share | `MeasurementFileExporter.deliver` → `NSSharingServicePicker` | Share sheet |
 ///
 /// ## Import Flow
 ///
-/// The file importer / document picker calls `importFromFile(url:)`, which
+/// The file importer / document picker calls `importFiles(_:)`, which
 /// uses a security-scoped access pair (`startAccessingSecurityScopedResource`
 /// / `stopAccessingSecurityScopedResource`) to read `.guitartap` files
-/// outside the app sandbox, then calls `TapToneAnalyzer.importMeasurement`.
+/// outside the app sandbox, then calls `TapToneAnalyzer.importFiles(_:)`.
 ///
 /// ## AirDrop / Open-URL
 ///
@@ -73,9 +74,11 @@ struct MeasurementsListView: View {
     @State private var showingDeleteAllConfirmation = false
     @State private var showingDeleteDuplicatesConfirmation = false
     @State private var showingDeleteSelectedConfirmation = false
-    // Delete › Selected…: ticking rows to delete, as compare mode ticks rows to compare.
-    @State private var isSelectingToDelete = false
-    @State private var selectedDeleteIndices: Set<Int> = []
+    /// What a select mode is ticking rows for — Delete › Selected…, or the library menu's Export Selected… or
+    /// Share Selected… — as compare mode ticks rows to compare; nil when no select mode is on.
+    @State private var selectingFor: SelectionPurpose?
+    @State private var selectedIndices: Set<Int> = []
+    private var isSelecting: Bool { selectingFor != nil }
     @State private var editTarget: (index: Int, measurement: TapToneMeasurement)?
     // Sort & Filter: what the list shows and in what order; the library keeps its own order.
     @State private var sort = TapDisplaySettings.savedMeasurementsSort
@@ -102,12 +105,12 @@ struct MeasurementsListView: View {
             .fileImporter(
                 isPresented: $showingImportPicker,
                 allowedContentTypes: [.guitarTapMeasurement, .json],
-                allowsMultipleSelection: false
+                allowsMultipleSelection: true
             ) { result in
                 switch result {
                 case .success(let urls):
-                    if let url = urls.first {
-                        importFromFile(url: url)
+                    if !urls.isEmpty {
+                        importFiles(urls)
                     }
                 case .failure(let error):
                     importError = "Failed to open file: \(error.localizedDescription)"
@@ -154,8 +157,8 @@ struct MeasurementsListView: View {
                     }
                 }
                 .sheet(isPresented: $showingImportPicker) {
-                    DocumentPickerView { url in
-                        importFromFile(url: url)
+                    DocumentPickerView { urls in
+                        importFiles(urls)
                     }
                 }
                 .alert("Export Failed", isPresented: $exportFailed) {
@@ -214,8 +217,8 @@ struct MeasurementsListView: View {
                     // Single tap: only acts in compare mode
                     if isComparing {
                         toggleCompareSelection(at: index, for: measurement)
-                    } else if isSelectingToDelete {
-                        toggleDeleteSelection(at: index)
+                    } else if isSelecting {
+                        toggleSelection(at: index)
                     }
                 }) {
                     compareRowContent(at: index, for: measurement)
@@ -238,7 +241,7 @@ struct MeasurementsListView: View {
                             analyzer.loadMeasurement(m)
                         }
                     },
-                    including: isComparing || isSelectingToDelete ? .subviews : .all
+                    including: isComparing || isSelecting ? .subviews : .all
                 )
                 #if os(macOS)
                 .onHover { inside in
@@ -251,7 +254,7 @@ struct MeasurementsListView: View {
                 }
                 #endif
                 .help(isComparing ? "Toggle selection for comparison"
-                      : isSelectingToDelete ? "Toggle selection for deletion" : "Double-click to load measurement")
+                      : selectingFor?.rowHelp ?? "Double-click to load measurement")
                 .contextMenu { rowMenuContents(index: index, measurement: measurement) }
                 #if os(macOS)
                 // The row under the pointer on background.subtle, in every edition.
@@ -298,7 +301,7 @@ struct MeasurementsListView: View {
             TapDisplaySettings.savedMeasurementsFilter = value
             // A measurement the filter hides cannot stay ticked for a comparison.
             selectedCompareIndices.formIntersection(shownIndices)
-            selectedDeleteIndices.formIntersection(shownIndices)
+            selectedIndices.formIntersection(shownIndices)
         }
         .alert("Delete Measurement?", isPresented: Binding(
             get: { measurementPendingDelete != nil },
@@ -327,12 +330,12 @@ struct MeasurementsListView: View {
         }
         .alert("Delete Selected Measurements?", isPresented: $showingDeleteSelectedConfirmation) {
             Button("Delete", role: .destructive) {
-                analyzer.deleteMeasurements(at: selectedDeleteIndices)
-                exitDeleteSelection()
+                analyzer.deleteMeasurements(at: selectedIndices)
+                exitSelection()
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            let n = selectedDeleteIndices.count
+            let n = selectedIndices.count
             Text("This will permanently delete \(n) measurement\(n == 1 ? "" : "s"). This cannot be undone.")
         }
         .alert("Delete All Measurements?", isPresented: $showingDeleteAllConfirmation) {
@@ -355,8 +358,8 @@ struct MeasurementsListView: View {
             ToolbarItem(placement: .cancellationAction) {
                 if isComparing {
                     Button("Cancel") { exitCompareMode() }
-                } else if isSelectingToDelete {
-                    Button("Cancel") { exitDeleteSelection() }
+                } else if isSelecting {
+                    Button("Cancel") { exitSelection() }
                 } else {
                     Button("Done") { dismiss() }
                 }
@@ -364,12 +367,12 @@ struct MeasurementsListView: View {
 
             #if os(iOS)
             ToolbarItem(placement: .navigationBarTrailing) {
-                if isSelectingToDelete {
-                    Button(role: .destructive, action: { showingDeleteSelectedConfirmation = true }) {
-                        Text("Delete (\(selectedDeleteIndices.count))")
+                if let purpose = selectingFor {
+                    Button(role: purpose == .delete ? .destructive : nil, action: { confirmSelection(purpose) }) {
+                        Text("\(purpose.verb) (\(selectedIndices.count))")
                             .fontWeight(.semibold)
                     }
-                    .disabled(selectedDeleteIndices.isEmpty)
+                    .disabled(selectedIndices.isEmpty)
                 } else if isComparing {
                     Button(action: openComparison) {
                         Text("Compare (\(selectedCompareIndices.count))")
@@ -387,23 +390,23 @@ struct MeasurementsListView: View {
                 SavedMeasurementsSortMenu(sort: $sort, ascending: $ascending, filter: $filter)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                if !isComparing && !isSelectingToDelete {
+                if !isComparing && !isSelecting {
                     SavedMeasurementsMoreMenu(
                         isEmpty: analyzer.savedMeasurements.isEmpty,
                         hasDuplicates: !analyzer.duplicateMeasurementIndices.isEmpty,
                         importMeasurement: { showingImportPicker = true },
-                        exportAll: { exportAllMeasurements() },
+                        panel: { performPanel($0) },
                         delete: deleteMenuActions
                     )
                 }
             }
             #else
             ToolbarItem(placement: .primaryAction) {
-                if isSelectingToDelete {
-                    Button(role: .destructive, action: { showingDeleteSelectedConfirmation = true }) {
-                        Label("Delete (\(selectedDeleteIndices.count))", systemImage: "trash")
+                if let purpose = selectingFor {
+                    Button(role: purpose == .delete ? .destructive : nil, action: { confirmSelection(purpose) }) {
+                        Label("\(purpose.verb) (\(selectedIndices.count))", systemImage: purpose.symbol)
                     }
-                    .disabled(selectedDeleteIndices.isEmpty)
+                    .disabled(selectedIndices.isEmpty)
                 } else if isComparing {
                     Button(action: openComparison) {
                         Label("Compare (\(selectedCompareIndices.count))", systemImage: "waveform.path")
@@ -424,88 +427,67 @@ struct MeasurementsListView: View {
 
             ToolbarItem(placement: .primaryAction) {
                 Button(action: { showingImportPicker = true }) {
-                    Label("Import", systemImage: "square.and.arrow.down")
+                    Label("Import…", systemImage: "square.and.arrow.down")
                 }
-                .disabled(isComparing || isSelectingToDelete)
+                .disabled(isComparing || isSelecting)
             }
 
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button(action: { exportAllMeasurements() }) {
-                        Label("Export All… (Share / AirDrop)", systemImage: "square.and.arrow.up")
-                    }
-                    .menuIcons()
-                    Button(action: { saveAllMeasurementsToDisk() }) {
-                        Label("Save All to Disk…", systemImage: "arrow.down.doc")
-                    }
-                    .menuIcons()
+                    ExportMenuItems(groups: ExportMenus.panel.entries(for: .current)) { performPanel($0) }
                 } label: {
-                    Label("Export All", systemImage: "square.and.arrow.up")
+                    Label(ExportMenus.panel.button(for: .current), systemImage: ExportMenus.panel.symbol)
                 }
-                .disabled(analyzer.savedMeasurements.isEmpty || isComparing || isSelectingToDelete)
-                .help("Export the whole library as one .guitartap file (share/AirDrop or save to disk)")
+                .disabled(analyzer.savedMeasurements.isEmpty || isComparing || isSelecting)
+                .help("Share or export all the measurements, or the ones you select, as one .guitartap file")
             }
 
             ToolbarItem(placement: .primaryAction) {
                 SavedMeasurementsDeleteMenu(hasDuplicates: !analyzer.duplicateMeasurementIndices.isEmpty,
                                             actions: deleteMenuActions)
-                    .disabled(analyzer.savedMeasurements.isEmpty || isComparing || isSelectingToDelete)
+                    .disabled(analyzer.savedMeasurements.isEmpty || isComparing || isSelecting)
             }
             #endif
         }
     }
     
-    private func exportSingleMeasurement(_ measurement: TapToneMeasurement) {
+    /// Exports or shares one measurement as its own `.guitartap` file.
+    private func deliverMeasurement(_ measurement: TapToneMeasurement, as delivery: FileDelivery) {
+        deliverMeasurements([measurement], filename: measurement.baseFilename, as: delivery)
+    }
+
+    /// Exports or shares `measurements` as one `.guitartap` file named `filename` — the form Import reads back.
+    private func deliverMeasurements(_ measurements: [TapToneMeasurement], filename: String,
+                                     as delivery: FileDelivery) {
+        guard !measurements.isEmpty else { return }
         guard !isExportPanelInFlight else { return }   // re-entrancy: async NSSavePanel, cleared on every completion
         isExporting = true
-        analyzer.exportMeasurement(measurement) { json, measurement in
-            MeasurementFileExporter.exportJSON(json: json, measurement: measurement) {
+        analyzer.exportMeasurements(measurements) { json in
+            MeasurementFileExporter.deliver(Data(json.utf8), filename: "\(filename).guitartap",
+                                            contentType: .guitarTapMeasurement, as: delivery) {
                 self.isExporting = false
             }
         }
     }
 
-    /// Export the whole library as one `.guitartap` file (backup / migration to another
-    /// platform or browser). Reuses the JSON form persisted to saved_measurements.json.
-    private func exportAllMeasurements() {
-        guard !analyzer.savedMeasurements.isEmpty else { return }
-        guard !isExportPanelInFlight else { return }
-        isExporting = true
-        analyzer.exportAllMeasurements { json in
-            let name = "guitartap-library-\(Int(Date().timeIntervalSince1970))"
-            MeasurementFileExporter.exportJSON(json: json, suggestedName: name) {
-                self.isExporting = false
-            }
+    /// What an item of the library menu (Export on the Mac, Share on iOS) does: All shares or exports the whole
+    /// library at once; Selected ticks the measurements first.
+    private func performPanel(_ action: ExportMenus.PanelAction) {
+        let stamp = Int(Date().timeIntervalSince1970)
+        switch action {
+        case .shareAll:
+            deliverMeasurements(analyzer.savedMeasurements, filename: "guitartap-library-\(stamp)", as: .share)
+        case .exportAll:
+            deliverMeasurements(analyzer.savedMeasurements, filename: "guitartap-library-\(stamp)", as: .export)
+        case .shareSelected:
+            startSelection(.share)
+        case .exportSelected:
+            startSelection(.export)
         }
     }
-
-    #if os(macOS)
-    private func saveMeasurementToDisk(_ measurement: TapToneMeasurement) {
-        guard !isExportPanelInFlight else { return }
-        isExporting = true
-        analyzer.exportMeasurement(measurement) { json, measurement in
-            MeasurementFileExporter.saveMeasurementToDisk(json: json, measurement: measurement) {
-                self.isExporting = false
-            }
-        }
-    }
-
-    /// Save the whole library to a chosen file via NSSavePanel (macOS "Save All to Disk…").
-    private func saveAllMeasurementsToDisk() {
-        guard !analyzer.savedMeasurements.isEmpty else { return }
-        guard !isExportPanelInFlight else { return }
-        isExporting = true
-        analyzer.exportAllMeasurements { json in
-            let name = "guitartap-library-\(Int(Date().timeIntervalSince1970))"
-            MeasurementFileExporter.saveMeasurementsToDisk(json: json, suggestedName: name) {
-                self.isExporting = false
-            }
-        }
-    }
-    #endif
 
     @MainActor
-    private func exportSpectrumMeasurement(_ measurement: TapToneMeasurement) {
+    private func exportSpectrumMeasurement(_ measurement: TapToneMeasurement, as delivery: FileDelivery) {
         guard !isExportPanelInFlight else { return }
         isExporting = true
 
@@ -522,13 +504,17 @@ struct MeasurementsListView: View {
 
         // PNG uses the "spectrum" default word, not baseFilename's "measurement".
         let stem = ExportFilename.stem(name: measurement.measurementName, timestamp: measurement.timestamp, unnamed: "spectrum")
-        MeasurementFileExporter.exportSpectrumImage(imageData: imageData, basename: stem) {
+        guard let imageData else {
+            isExporting = false
+            return
+        }
+        MeasurementFileExporter.deliver(imageData, filename: "\(stem).png", contentType: .png, as: delivery) {
             self.isExporting = false
         }
     }
 
     @MainActor
-    private func exportPDFReport(for measurement: TapToneMeasurement) {
+    private func exportPDFReport(for measurement: TapToneMeasurement, as delivery: FileDelivery) {
         guard !isExportPanelInFlight else { return }
         isGeneratingReport = true
         let report: (data: Data, basename: String)?
@@ -544,7 +530,8 @@ struct MeasurementsListView: View {
             isGeneratingReport = false
             return
         }
-        MeasurementFileExporter.exportPDF(data: report.data, basename: report.basename) {
+        MeasurementFileExporter.deliver(report.data, filename: "\(report.basename).pdf", contentType: .pdf,
+                                        as: delivery) {
             self.isGeneratingReport = false
         }
     }
@@ -614,21 +601,47 @@ struct MeasurementsListView: View {
         SavedMeasurementsDeleteActions(
             all: { showingDeleteAllConfirmation = true },
             duplicates: { showingDeleteDuplicatesConfirmation = true },
-            selected: { isSelectingToDelete = true; selectedDeleteIndices = [] }
+            selected: { startSelection(.delete) }
         )
     }
 
-    private func toggleDeleteSelection(at index: Int) {
-        if selectedDeleteIndices.contains(index) {
-            selectedDeleteIndices.remove(index)
-        } else {
-            selectedDeleteIndices.insert(index)
+    /// Starts a select mode for `purpose`, nothing ticked.
+    private func startSelection(_ purpose: SelectionPurpose) {
+        selectingFor = purpose
+        selectedIndices = []
+    }
+
+    /// The select mode's confirming button: Delete asks first; Export and Share write the ticked measurements, in the
+    /// library's order, as one file.
+    private func confirmSelection(_ purpose: SelectionPurpose) {
+        switch purpose {
+        case .delete:
+            showingDeleteSelectedConfirmation = true
+        case .export, .share:
+            let chosen = selectedIndices.sorted().map { analyzer.savedMeasurements[$0] }
+            let delivery: FileDelivery = purpose == .share ? .share : .export
+            // One measurement is named as its own Export or Share names it; several, neutrally.
+            if chosen.count == 1, let only = chosen.first {
+                deliverMeasurement(only, as: delivery)
+            } else {
+                let stamp = Int(Date().timeIntervalSince1970)
+                deliverMeasurements(chosen, filename: "guitartap-measurements-\(stamp)", as: delivery)
+            }
+            exitSelection()
         }
     }
 
-    private func exitDeleteSelection() {
-        isSelectingToDelete = false
-        selectedDeleteIndices = []
+    private func toggleSelection(at index: Int) {
+        if selectedIndices.contains(index) {
+            selectedIndices.remove(index)
+        } else {
+            selectedIndices.insert(index)
+        }
+    }
+
+    private func exitSelection() {
+        selectingFor = nil
+        selectedIndices = []
     }
 
     private func openComparison() {
@@ -645,29 +658,18 @@ struct MeasurementsListView: View {
         ForEach(Array(SavedMeasurementMenu.groups.enumerated()), id: \.offset) { groupIndex, group in
             if groupIndex > 0 { Divider() }
             ForEach(group, id: \.action) { entry in
-                if shows(entry) {
-                    Button(role: entry.action == .delete ? .destructive : nil) {
-                        perform(entry.action, index: index, measurement: measurement)
-                    } label: {
-                        Label(entry.title, systemImage: entry.symbol)
-                    }
+                Button(role: entry.action == .delete ? .destructive : nil) {
+                    perform(entry.action, index: index, measurement: measurement)
+                } label: {
+                    Label(entry.title, systemImage: entry.symbol ?? "")
                 }
             }
         }
         .menuIcons()
     }
 
-    /// Whether this edition shows `entry`: the Mac-only item on the Mac alone.
-    private func shows(_ entry: SavedMeasurementMenuEntry) -> Bool {
-        #if os(macOS)
-        true
-        #else
-        !entry.macOSOnly
-        #endif
-    }
-
     /// What a saved measurement's menu item does.
-    private func perform(_ action: SavedMeasurementMenuEntry.Action, index: Int, measurement: TapToneMeasurement) {
+    private func perform(_ action: SavedMeasurementAction, index: Int, measurement: TapToneMeasurement) {
         switch action {
         case .load:
             let m = measurement
@@ -679,16 +681,18 @@ struct MeasurementsListView: View {
             showDetail(index: index, measurement: measurement)
         case .edit:
             editTarget = (index: index, measurement: measurement)
+        case .shareMeasurement:
+            deliverMeasurement(measurement, as: .share)
         case .exportMeasurement:
-            exportSingleMeasurement(measurement)
-        case .saveToDisk:
-            #if os(macOS)
-            saveMeasurementToDisk(measurement)
-            #endif
+            deliverMeasurement(measurement, as: .export)
+        case .shareSpectrum:
+            exportSpectrumMeasurement(measurement, as: .share)
         case .exportSpectrum:
-            exportSpectrumMeasurement(measurement)
+            exportSpectrumMeasurement(measurement, as: .export)
+        case .sharePDF:
+            exportPDFReport(for: measurement, as: .share)
         case .exportPDF:
-            exportPDFReport(for: measurement)
+            exportPDFReport(for: measurement, as: .export)
         case .delete:
             measurementPendingDelete = (index: index, measurement: measurement)
         }
@@ -697,10 +701,10 @@ struct MeasurementsListView: View {
     @ViewBuilder
     private func compareRowContent(at index: Int, for measurement: TapToneMeasurement) -> some View {
         let isHovered = hoveredMeasurementIndex == index
-        if isComparing || isSelectingToDelete {
+        if isComparing || isSelecting {
             // Any measurement can be deleted; only one with a spectrum can be compared.
-            let comparable = isSelectingToDelete || isComparable(measurement)
-            let selected = isSelectingToDelete ? selectedDeleteIndices.contains(index) : selectedCompareIndices.contains(index)
+            let comparable = isSelecting || isComparable(measurement)
+            let selected = isSelecting ? selectedIndices.contains(index) : selectedCompareIndices.contains(index)
             // A measurement that cannot be compared dims as one group — its circle and its row.
             HStack(spacing: 10) {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
@@ -714,26 +718,30 @@ struct MeasurementsListView: View {
         }
     }
 
-    private func importFromFile(url: URL) {
+    /// Imports the files chosen in the file picker — one or several — and shows the one message for them.
+    private func importFiles(_ urls: [URL]) {
         // Update the shared last-used directory so subsequent save panels open here.
         #if os(macOS)
-        MeasurementFileExporter.lastUsedDirectory = url.deletingLastPathComponent()
+        if let first = urls.first {
+            MeasurementFileExporter.lastUsedDirectory = first.deletingLastPathComponent()
+        }
         #endif
-        do {
-            let data: Data
-            
-            // Handle security-scoped resource for sandboxed apps
+        let files = urls.map { url in
+            // A sandboxed app reads a chosen file inside a security-scoped access pair.
             let accessing = url.startAccessingSecurityScopedResource()
             defer {
                 if accessing {
                     url.stopAccessingSecurityScopedResource()
                 }
             }
-            
-            data = try Data(contentsOf: url)
-            importSuccess = try analyzer.importAndLoadMeasurements(from: data)
-        } catch {
-            importError = TapToneAnalyzer.importErrorMessage(for: error, fileName: url.lastPathComponent)
+            return TapToneAnalyzer.ImportFile(name: url.lastPathComponent,
+                                              contents: Result { try Data(contentsOf: url) })
+        }
+        let report = analyzer.importFiles(files)
+        if report.imported {
+            importSuccess = report.message
+        } else {
+            importError = report.message
         }
     }
 }
@@ -744,11 +752,11 @@ struct MeasurementsListView: View {
 /// A simple wrapper view for DocumentPicker that can be presented as a sheet
 private struct DocumentPickerView: View {
     @Environment(\.dismiss) private var dismiss
-    let onPick: (URL) -> Void
+    let onPick: ([URL]) -> Void
     
     var body: some View {
-        DocumentPickerRepresentable(onPick: { url in
-            onPick(url)
+        DocumentPickerRepresentable(onPick: { urls in
+            onPick(urls)
             dismiss()
         })
         .ignoresSafeArea()
@@ -757,11 +765,11 @@ private struct DocumentPickerView: View {
 
 /// UIViewControllerRepresentable that directly presents the picker
 private struct DocumentPickerRepresentable: UIViewControllerRepresentable {
-    let onPick: (URL) -> Void
+    let onPick: ([URL]) -> Void
     
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.guitarTapMeasurement, .json])
-        picker.allowsMultipleSelection = false
+        picker.allowsMultipleSelection = true
         picker.delegate = context.coordinator
         return picker
     }
@@ -775,15 +783,15 @@ private struct DocumentPickerRepresentable: UIViewControllerRepresentable {
     }
     
     class Coordinator: NSObject, UIDocumentPickerDelegate {
-        let onPick: (URL) -> Void
+        let onPick: ([URL]) -> Void
         
-        init(onPick: @escaping (URL) -> Void) {
+        init(onPick: @escaping ([URL]) -> Void) {
             self.onPick = onPick
         }
         
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            if let url = urls.first {
-                onPick(url)
+            if !urls.isEmpty {
+                onPick(urls)
             }
         }
         
@@ -843,7 +851,7 @@ struct SavedMeasurementsMoreMenu: View {
     let isEmpty: Bool
     let hasDuplicates: Bool
     let importMeasurement: () -> Void
-    let exportAll: () -> Void
+    let panel: (ExportMenus.PanelAction) -> Void
     let delete: SavedMeasurementsDeleteActions
 
     var body: some View {
@@ -852,8 +860,10 @@ struct SavedMeasurementsMoreMenu: View {
                 Label("Import Measurement", systemImage: "square.and.arrow.down")
             }
 
-            Button(action: exportAll) {
-                Label("Export All Measurements", systemImage: "square.and.arrow.up")
+            Menu {
+                ExportMenuItems(groups: ExportMenus.panel.entries(for: .current), perform: panel)
+            } label: {
+                Label(ExportMenus.panel.button(for: .current), systemImage: ExportMenus.panel.symbol)
             }
             .disabled(isEmpty)
 
@@ -871,6 +881,62 @@ struct SavedMeasurementsMoreMenu: View {
     }
 }
 #endif
+
+// MARK: - Export and Share
+
+/// What a select mode in Saved Measurements ticks rows for.
+enum SelectionPurpose {
+    case delete, export, share
+
+    /// The confirming button's word, before the count: Delete (3).
+    var verb: String {
+        switch self {
+        case .delete: "Delete"
+        case .export: "Export"
+        case .share: "Share"
+        }
+    }
+
+    /// The confirming button's icon on the Mac.
+    var symbol: String {
+        switch self {
+        case .delete: "trash"
+        case .export: "doc.badge.arrow.up"
+        case .share: "square.and.arrow.up"
+        }
+    }
+
+    /// A row's help while selecting.
+    var rowHelp: String {
+        switch self {
+        case .delete: "Toggle selection for deletion"
+        case .export: "Toggle selection for export"
+        case .share: "Toggle selection for sharing"
+        }
+    }
+}
+
+/// A menu's items from its groups, a separator between groups — the library menu's and Analysis Results'.
+struct ExportMenuItems<Action: Hashable>: View {
+    let groups: [[MenuEntry<Action>]]
+    let perform: (Action) -> Void
+
+    var body: some View {
+        ForEach(Array(groups.enumerated()), id: \.offset) { groupIndex, group in
+            if groupIndex > 0 { Divider() }
+            ForEach(group, id: \.action) { entry in
+                Button { perform(entry.action) } label: {
+                    if let symbol = entry.symbol {
+                        Label(entry.title, systemImage: symbol)
+                    } else {
+                        Text(entry.title)
+                    }
+                }
+            }
+        }
+        .menuIcons()
+    }
+}
 
 // MARK: - Delete
 

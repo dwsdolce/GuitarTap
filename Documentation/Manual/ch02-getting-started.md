@@ -121,8 +121,8 @@ To import:
 2. The calibration is bound to that input device. When you switch
    away from it and back again later, the calibration reloads
    automatically.
-3. To remove all stored calibrations, use **Clear All Calibrations**
-   in the same section.
+3. To remove all stored calibrations, use **Delete All
+   Calibrations…** in the same section; it asks first.
 
 The status area indicates when a calibration is active for the
 current input.

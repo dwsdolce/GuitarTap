@@ -10,7 +10,6 @@
 /// |--------------------------|--------------------------------|--------------------------------------|
 /// | `PlatformImage`          | `NSImage`                      | `UIImage`                            |
 /// | `ImageRenderer.platformImage` | `.nsImage`                | `.uiImage`                           |
-/// | `FileExportHelper`       | `NSSavePanel`                  | `UIActivityViewController`           |
 /// | `ToolbarItemPlacement.primaryAction` | `.automatic`   | `.navigationBarTrailing`             |
 /// | `ToolbarItemPlacement.cancelAction`  | `.cancellationAction` | `.navigationBarLeading`      |
 /// | `View.platformSheet`     | `.sheet` (min 400×300 pt)      | `.sheet` inside `NavigationStack`     |
@@ -85,129 +84,6 @@ extension ImageRenderer {
         return self.uiImage?.pngData()
         #endif
     }
-}
-
-// MARK: - File Export Helpers
-
-/// Static helpers for exporting a `Data` blob to a user-chosen file location.
-///
-/// Provides a single cross-platform entry point (`exportFile(...)`) that
-/// dispatches to an `NSSavePanel` on macOS or a `UIActivityViewController`
-/// share sheet on iOS.
-struct FileExportHelper {
-
-    /// Presents the platform-appropriate export UI for `data`.
-    ///
-    /// On macOS, an `NSSavePanel` is shown pre-configured with `contentType`
-    /// and `filename` as the default name.  The `completion` closure receives
-    /// `true` if the file was written successfully, `false` otherwise.
-    ///
-    /// On iOS, the data is first written to `FileManager.temporaryDirectory`
-    /// as `filename`, then a `UIActivityViewController` share sheet is
-    /// presented.  `completion` is called with `true` after the sheet is
-    /// presented, or `false` if the root view controller could not be located.
-    ///
-    /// - Parameters:
-    ///   - data: Raw bytes to export.
-    ///   - filename: Default file name (including extension) for the saved file.
-    ///   - contentType: UTType of the file; used to filter the save panel on macOS.
-    ///   - completion: Called on the main thread with `true` on success,
-    ///     `false` on failure or user cancellation.
-    static func exportFile(
-        data: Data,
-        filename: String,
-        contentType: UTType,
-        completion: @escaping (Bool) -> Void
-    ) {
-        #if os(macOS)
-        exportFileMacOS(data: data, filename: filename, contentType: contentType, completion: completion)
-        #elseif os(iOS)
-        exportFileIOS(data: data, filename: filename, contentType: contentType, completion: completion)
-        #endif
-    }
-    
-    #if os(macOS)
-    /// macOS implementation: presents `NSSavePanel` and writes `data` to the
-    /// chosen URL on OK, or calls `completion(false)` on cancel.
-    private static func exportFileMacOS(
-        data: Data,
-        filename: String,
-        contentType: UTType,
-        completion: @escaping (Bool) -> Void
-    ) {
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [contentType]
-        savePanel.nameFieldStringValue = filename
-        savePanel.canCreateDirectories = true
-        // One source of truth for the starting directory — no local copy.
-        savePanel.directoryURL = MeasurementFileExporter.startDirectory
-
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
-                MeasurementFileExporter.lastUsedDirectory = url.deletingLastPathComponent()
-                do {
-                    try data.write(to: url)
-                    completion(true)
-                } catch {
-                    gtLog("❌ Failed to save file: \(error)")
-                    completion(false)
-                }
-            } else {
-                completion(false)
-            }
-        }
-    }
-    #endif
-    
-    #if os(iOS)
-    /// iOS implementation: writes `data` to a temporary file, then presents
-    /// `UIActivityViewController` from the topmost view controller.
-    private static func exportFileIOS(
-        data: Data,
-        filename: String,
-        contentType: UTType,
-        completion: @escaping (Bool) -> Void
-    ) {
-        // Write to temporary file
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        do {
-            try data.write(to: tempURL)
-            
-            // Present share sheet on main thread
-            DispatchQueue.main.async {
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let window = windowScene.windows.first(where: { $0.isKeyWindow }),
-                   let rootViewController = window.rootViewController {
-                    
-                    // Find the topmost presented view controller
-                    var topController = rootViewController
-                    while let presented = topController.presentedViewController {
-                        topController = presented
-                    }
-                    
-                    let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
-                    
-                    // For iPad - set source for popover
-                    if let popover = activityVC.popoverPresentationController {
-                        popover.sourceView = topController.view
-                        popover.sourceRect = CGRect(x: topController.view.bounds.midX,
-                                                    y: topController.view.bounds.midY,
-                                                    width: 0, height: 0)
-                        popover.permittedArrowDirections = []
-                    }
-                    
-                    topController.present(activityVC, animated: true)
-                    completion(true)
-                } else {
-                    completion(false)
-                }
-            }
-        } catch {
-            gtLog("❌ Failed to prepare file for export: \(error)")
-            completion(false)
-        }
-    }
-    #endif
 }
 
 // MARK: - Toolbar Placement Helpers

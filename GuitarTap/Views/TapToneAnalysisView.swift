@@ -80,13 +80,10 @@ struct TapToneAnalysisView: View {
     @StateObject private var fftAnalyzer: RealtimeFFTAnalyzer
     /// The tap-tone peak detector and measurement manager, shared with the view.
     @StateObject var tapToneAnalyzer: TapToneAnalyzer
-    #if os(macOS)
-    /// Stable class reference published into the focused scene for menu commands.
-    /// Using `@State` with an `@Observable` class ensures the same instance is
-    /// reused across every body re-evaluation, so `AppCommands` does not see a
-    /// changed focused value on each audio frame.
+    /// Stable class reference published into the focused scene for the menu bar's commands (the Mac's, and the
+    /// iPad's). Using `@State` with an `@Observable` class ensures the same instance is reused across every body
+    /// re-evaluation, so `AppCommands` does not see a changed focused value on each audio frame.
     @State private var menuActions = MenuActions()
-    #endif
 
     /// Convenience accessor for `fftAnalyzer` (preserves `@StateObject` encapsulation).
     var fft: RealtimeFFTAnalyzer { fftAnalyzer }
@@ -104,6 +101,8 @@ struct TapToneAnalysisView: View {
     @State var showingResults = false
     @State var showingSettings = false
     @State var showingHelp = false
+    /// The About sheet, from the iPad's menu bar (the Mac's About is the system's panel).
+    @State var showingAbout = false
     @State var showingHelpMenu = false
     @State var isExportingSpectrum = false
     @State var isGeneratingReport = false
@@ -299,15 +298,16 @@ struct TapToneAnalysisView: View {
         } message: {
             Text(ExportRenderError.message)
         }
+        // The menu bar's commands — the Mac's, and the iPad's — act on this view.
+        .focusedSceneValue(\.menuActions, menuActions)
+        .onAppear { bindMenuActions() }
+        .onChange(of: tap.hasResultToSaveOrExport, initial: true) { _, hasResult in
+            menuActions.hasResultToSaveOrExport = hasResult
+        }
+        .onChange(of: fft.isRunning, initial: true) { _, isRunning in
+            menuActions.isRunning = isRunning
+        }
         #if os(macOS)
-            .focusedSceneValue(\.menuActions, menuActions)
-            .onAppear { bindMenuActions() }
-            .onChange(of: tap.hasResultToSaveOrExport, initial: true) { _, hasResult in
-                menuActions.hasResultToSaveOrExport = hasResult
-            }
-            .onChange(of: fft.isRunning, initial: true) { _, isRunning in
-                menuActions.isRunning = isRunning
-            }
             .alert("Audio Engine Error", isPresented: Binding(
                 get: { engineStartError != nil },
                 set: { if !$0 { engineStartError = nil } }
@@ -317,6 +317,9 @@ struct TapToneAnalysisView: View {
                 Text(engineStartError ?? "")
             }
         #else
+            .sheet(isPresented: $showingAbout) {
+                AboutView()
+            }
             .onAppear {
                 if ProcessInfo.processInfo.isiOSAppOnMac {
                     showingWrongPlatformAlert = true
@@ -332,9 +335,8 @@ struct TapToneAnalysisView: View {
         #endif
     }
 
-    // MARK: - Menu Actions (macOS only)
+    // MARK: - Menu Actions
 
-    #if os(macOS)
     /// Populate the stable `MenuActions` object with closures that capture
     /// `self`.  Called once from `onAppear`; the `MenuActions` instance itself
     /// never changes, so `AppCommands` does not see a new focused value on
@@ -344,13 +346,18 @@ struct TapToneAnalysisView: View {
         menuActions.saveMeasurement   = { showingSaveSheet = true }
         menuActions.exportSpectrum    = { exportCurrentSpectrum() }
         menuActions.exportPDF         = { exportPDFReport() }
+        menuActions.shareSpectrum     = { exportCurrentSpectrum(as: .share) }
+        menuActions.sharePDF          = { exportPDFReport(as: .share) }
         menuActions.autoScaleDB       = { autoScaleDB() }
         menuActions.cycleAnnotations  = { tap.cycleAnnotationVisibility() }
         menuActions.showMetrics       = { showingMetrics = true }
         menuActions.showMeasurements  = { showingMeasurements = true }
         menuActions.showSettings      = { showingSettings = true }
+        #if os(iOS)
+        menuActions.showHelp          = { showingHelp = true }
+        menuActions.showAbout         = { showingAbout = true }
+        #endif
     }
-    #endif
 
     // MARK: - Layout content
 

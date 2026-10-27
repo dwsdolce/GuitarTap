@@ -14,13 +14,12 @@
 /// 1. Draws ``currentMeasurement()``'s image with `renderSpectrumImageForMeasurement` (or
 ///    `renderSpectrumImageForComparison`) — light scheme, fixed 2× scale; if it fails the export stops
 ///    and "Export Failed" is shown.
-/// 2. Hands the PNG to `FileExportHelper.exportFile(...)` to present the platform save panel.
+/// 2. Hands the PNG to `MeasurementFileExporter.deliver(...)` — the save dialog, or the share sheet.
 ///
 /// ### PDF report export (`exportPDFReport()`)
 /// 1. Builds the report of ``currentMeasurement()`` with `PDFReportGenerator.report(for:)`: a
 ///    multi-tap measurement's two pages, a comparison's report, or the single report.
-/// 2. Delegates to `MeasurementFileExporter.exportPDF(...)` to present the platform share sheet / save
-///    panel.
+/// 2. Hands it to `MeasurementFileExporter.deliver(...)` — the save dialog, or the share sheet.
 ///
 /// All export methods are `@MainActor` because `ImageRenderer` requires
 /// main-actor execution.
@@ -32,6 +31,7 @@
 //
 
 import SwiftUI
+internal import UniformTypeIdentifiers
 
 #if os(macOS)
 import AppKit
@@ -60,12 +60,25 @@ extension TapToneAnalysisView {
                                    timestamp: timestamp)
     }
 
+    // MARK: - Analysis Results' Menu
+
+    /// What an item of Analysis Results' Export (or Share) menu does.
+    @MainActor
+    func performResultsExport(_ action: ExportMenus.ResultsAction) {
+        switch action {
+        case .shareSpectrum: exportCurrentSpectrum(as: .share)
+        case .exportSpectrum: exportCurrentSpectrum(as: .export)
+        case .sharePDF: exportPDFReport(as: .share)
+        case .exportPDF: exportPDFReport(as: .export)
+        }
+    }
+
     // MARK: - PDF Report Export
 
     /// Builds the PDF report of ``currentMeasurement()`` — the same report Saved Measurements exports
-    /// for it — and exports it.
+    /// for it — and exports or shares it.
     @MainActor
-    func exportPDFReport() {
+    func exportPDFReport(as delivery: FileDelivery = .export) {
         // Re-entrancy guard: the PDF path presents an async, non-modal NSSavePanel, so a
         // repeated (or cross-type) click would stack panels (see isExportPanelInFlight, cleared on
         // every export completion path).
@@ -85,7 +98,7 @@ extension TapToneAnalysisView {
             isGeneratingReport = false
             return
         }
-        MeasurementFileExporter.exportPDF(data: report.data, basename: report.basename) {
+        MeasurementFileExporter.deliver(report.data, filename: "\(report.basename).pdf", contentType: .pdf, as: delivery) {
             self.isGeneratingReport = false
         }
     }

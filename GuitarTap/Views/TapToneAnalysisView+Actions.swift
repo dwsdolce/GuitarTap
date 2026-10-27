@@ -31,6 +31,7 @@
 //
 
 import SwiftUI
+internal import UniformTypeIdentifiers
 import AVFoundation
 
 extension TapToneAnalysisView {
@@ -291,7 +292,8 @@ extension TapToneAnalysisView {
 
     // MARK: - Spectrum Export
 
-    func exportCurrentSpectrum() {
+    /// Exports or shares the image of the result on screen.
+    func exportCurrentSpectrum(as delivery: FileDelivery = .export) {
         // Re-entrancy guard: NSSavePanel.begin is async and non-modal, so a second click
         // while a panel is open would stack another panel (see isExportPanelInFlight).
         guard !isExportPanelInFlight else { return }
@@ -323,11 +325,8 @@ extension TapToneAnalysisView {
             // A loaded measurement's own timestamp, as its other exports; the time of export only for an unsaved result.
             let stamp = tap.sourceMeasurementTimestamp ?? Date()
             let filename = "\(ExportFilename.stem(name: effectiveName, timestamp: stamp, unnamed: "spectrum")).png"
-            FileExportHelper.exportFile(data: pngData, filename: filename, contentType: .png) { success in
+            MeasurementFileExporter.deliver(pngData, filename: filename, contentType: .png, as: delivery) {
                 self.isExportingSpectrum = false
-                if !success {
-                    gtLog("❌ Failed to export spectrum")
-                }
             }
         }
     }

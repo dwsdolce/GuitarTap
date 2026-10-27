@@ -62,11 +62,11 @@ final class GuitarTapUITests: XCTestCase {
         try importCase(c.fixture, app: app)
 
         openMainExports(app)
-        press(app.buttons["Export Spectrum"].firstMatch)
+        resultsMenu(app, choose: spectrumItem)
         _ = try save(c.name, "main", app: app, expecting: "png")
         // The Taps control is a toggle, found by its label.
         press(app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Taps'")).firstMatch)
-        press(app.buttons["Export Spectrum"].firstMatch)
+        resultsMenu(app, choose: spectrumItem)
         _ = try save(c.name, "taps", app: app, expecting: "png")
         XCTAssertTrue(Self.samePicture(exported["\(c.name)/taps/png"], exported["\(c.name)/main/png"]),
                       "the image with the Taps view on is not the measurement's")
@@ -82,15 +82,15 @@ final class GuitarTapUITests: XCTestCase {
         try importCase(c.fixture, app: app)
 
         openMainExports(app)
-        press(app.buttons["Export Spectrum"].firstMatch)
+        resultsMenu(app, choose: spectrumItem)
         _ = try save(c.name, "main", app: app, expecting: "png")
-        press(app.buttons["Export PDF"].firstMatch)
+        resultsMenu(app, choose: pdfItem)
         _ = try save(c.name, "main", app: app, expecting: "pdf")
         closeMainExports(app)
 
-        rowMenu(app, fixture: c.fixture, choose: "Export Spectrum")
+        rowMenu(app, fixture: c.fixture, choose: spectrumItem)
         let png = try save(c.name, "saved", app: app, expecting: "png")
-        rowMenu(app, fixture: c.fixture, choose: "Export PDF Report")
+        rowMenu(app, fixture: c.fixture, choose: pdfItem)
         let pdf = try save(c.name, "saved", app: app, expecting: "pdf")
         // The saved export is named after the measurement, so it is the row that was imported.
         XCTAssertEqual([png, pdf], ["\(c.fixture).png", "\(c.fixture).pdf"])
@@ -233,12 +233,29 @@ final class GuitarTapUITests: XCTestCase {
     /// Each path's folder is emptied before its first export (`save`), so a retried case starts clean.
     private func clearLeftoverExports() throws {}
 
+    /// The menu items that write the spectrum image and the PDF report through a save dialog — the same words in
+    /// Analysis Results' Export menu and a saved measurement's menu.
+    private var spectrumItem: String { "Export Spectrum…" }
+    private var pdfItem: String { "Export PDF Report…" }
+
+    /// The main window's export of `item` — Export Spectrum… or Export PDF Report… — through the menu bar's File
+    /// menu (Export Spectrum Image…, Export PDF Report…), which runs what Analysis Results' Export menu runs. XCUITest
+    /// cannot open that menu while it is drawn in the app's button style (a click, a click at its centre and Space
+    /// all leave it shut), though a mouse and VoiceOver open it.
+    @MainActor private func resultsMenu(_ app: XCUIApplication, choose item: String) {
+        let barItem = item == spectrumItem ? "Export Spectrum Image…" : "Export PDF Report…"
+        press(app.menuBars.menuBarItems["File"].firstMatch)
+        let menuItem = app.menuBars.menuItems[barItem].firstMatch
+        XCTAssertTrue(menuItem.waitForExistence(timeout: 20), "no File → \(barItem)")
+        press(menuItem)
+    }
+
     /// The export buttons are always in the main window.
     @MainActor private func openMainExports(_ app: XCUIApplication) {}
     @MainActor private func closeMainExports(_ app: XCUIApplication) {}
 
     @MainActor private func pickFixture(_ fixture: String, app: XCUIApplication) throws {
-        press(app.buttons["Import"].firstMatch)
+        press(app.buttons["Import…"].firstMatch)
         let path = Self.fixtures.appendingPathComponent("\(fixture).guitartap").path
         try goTo(path, app: app)
         let open = panelButton("Open", app)
@@ -350,10 +367,23 @@ final class GuitarTapUITests: XCTestCase {
         app.navigationBars["Saved Measurements"].buttons["Done"].firstMatch
     }
 
-    /// On the iPhone the export buttons are in the Results sheet; on the iPad, in the main window.
+    /// The menu items that hand the spectrum image and the PDF report to the share sheet — the same words in
+    /// Analysis Results' Share menu and a saved measurement's menu.
+    private var spectrumItem: String { "Share Spectrum" }
+    private var pdfItem: String { "Share PDF Report" }
+
+    /// Analysis Results' Share menu, then `item` from it.
+    @MainActor private func resultsMenu(_ app: XCUIApplication, choose item: String) {
+        press(app.buttons["Share"].firstMatch)
+        let menuItem = app.collectionViews.buttons[item].firstMatch
+        XCTAssertTrue(menuItem.waitForExistence(timeout: 20), "no \(item) in Analysis Results' menu")
+        press(menuItem)
+    }
+
+    /// On the iPhone Analysis Results' Share button is in the Results sheet; on the iPad, in the main window.
     @MainActor private func openMainExports(_ app: XCUIApplication) {
-        if !app.buttons["Export Spectrum"].exists { press(app.buttons["Results"].firstMatch) }
-        XCTAssertTrue(app.buttons["Export Spectrum"].waitForExistence(timeout: 20), "no Export Spectrum")
+        if !app.buttons["Share"].exists { press(app.buttons["Results"].firstMatch) }
+        XCTAssertTrue(app.buttons["Share"].waitForExistence(timeout: 20), "no Share")
     }
 
     @MainActor private func closeMainExports(_ app: XCUIApplication) {
@@ -386,6 +416,10 @@ final class GuitarTapUITests: XCTestCase {
         }
         XCTAssertTrue(file.waitForExistence(timeout: 60), "the picker does not show \(fixture)")
         press(file)
+        // The picker takes several files, so a tap selects the file and Open imports it.
+        let open = app.buttons["Open"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 20), "no Open in the picker")
+        press(open)
     }
 
     /// The local files in the document picker or Save to Files: the sidebar on the iPad, Browse on the

@@ -163,6 +163,8 @@ notes below):
 | Save Measurement… | ⌘S | Ctrl+S |
 | Export Spectrum Image… | ⌘E | Ctrl+E |
 | Export PDF Report… | ⇧⌘E | Ctrl+Shift+E |
+| Share Spectrum Image… (macOS native only) | — | — |
+| Share PDF Report… (macOS native only) | — | — |
 | Settings… (Win / Linux Python only) | — | Ctrl+, |
 | Exit / Quit (Win / Linux Python only) | — | (system default) |
 
@@ -182,6 +184,21 @@ notes below):
 | Quick Start Guide | ⌘? | F1 |
 | User Manual | — | — |
 | About Guitar Tap… (Win / Linux Python only) | — | (no default) |
+
+**iPad.** With a keyboard or a pointer, the iPad has a menu bar too:
+move the pointer to the top of the screen, or swipe down from it.
+It has the macOS native build's menus, with the macOS shortcuts,
+and these differences:
+
+- **Guitar Tap** — **About Guitar Tap** (the name, version, build
+  and copyright) and **Settings…** (⌘,), which opens Guitar Tap's
+  Settings. The app's page in the iPad's Settings app is reached
+  from the Settings app.
+- **File** — Play Audio File…, Save Measurement…, **Share Spectrum
+  Image…** and **Share PDF Report…**; no Export items (on the iPad,
+  saving is the share sheet's Save to Files).
+
+Hold ⌘ to see the shortcuts.
 
 ## 9.5 Individual Controls
 

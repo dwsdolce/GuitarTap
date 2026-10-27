@@ -5,7 +5,7 @@
 ## Version {{version}} · Build {{build}}
 ### What's New Since Build {{since}}
 
-<!-- Notes reviewed through commit 90be580 (2026-10-25). The next update reads only `git log 90be580..HEAD`, then moves this line to the newest commit it covered. -->
+<!-- Notes reviewed through commit 9932b83 (2026-10-26). The next update reads only `git log 9932b83..HEAD`, then moves this line to the newest commit it covered. -->
 
 ---
 
@@ -18,6 +18,14 @@
 ### Sort, Filter and Delete in Saved Measurements
 
 - A new **Sort & Filter** menu sorts the list as added, by date, name or type (choose the same again to reverse it), or shows one type only — comparisons included. Your choice is remembered. **Delete All** is now a **Delete** menu: **All**, **Duplicates** (every later copy of a measurement, keeping the first) or **Selected** (tick the measurements to delete). The list itself always keeps the order the measurements were added.
+
+### Share and Export, and Several Measurements at Once
+
+- **Export** writes a file through a save dialog and **Share** opens the share sheet — the same for a measurement, its spectrum image and its PDF report. On the Mac a measurement's menu has **Export Measurement…**, **Export Spectrum…** and **Export PDF Report…**, and **Share Measurement…**, **Share Spectrum…** and **Share PDF Report…**; on iPhone and iPad, its Share items. **Save Measurement to Disk…** is now **Export Measurement…**. The Mac's File menu has **Share Spectrum Image…** and **Share PDF Report…** beside its Export items.
+- With a keyboard or pointer, the iPad's menu bar has Guitar Tap's menus, as the Mac's: **About Guitar Tap** and **Settings…**, **File** (Play Audio File…, Save Measurement…, Share Spectrum Image…, Share PDF Report…), **View** (Auto dB, Cycle Annotations, Show Metrics, Show Measurements) and **Help** (Quick Start Guide, User Manual), with the Mac's keyboard shortcuts.
+- Analysis Results has one **Export** button (**Share** on iPhone and iPad) in place of Export Spectrum and Export PDF; its menu has the same items for the spectrum image and the PDF report.
+- In Saved Measurements, the **Export** menu (on iPhone and iPad, **Share** in the **More** menu) shares or exports all your measurements, or only the ones you select, as one `.guitartap` file.
+- **Import…** (on iPhone and iPad, **Import Measurement**) takes several files at once, with one message for all of them. A single measurement is loaded, as before; several are added to the list.
 
 ### Chart Menu for a Comparison
 

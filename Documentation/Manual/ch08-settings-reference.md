@@ -36,8 +36,9 @@ launches.
   `.txt` and `.cal` two-column (frequency, dB) files. The
   selected file is bound to the currently active device and
   reloads automatically when you next select that device.
-- **Clear All Calibrations** — removes every stored calibration
-  across all devices. Use when you want a clean baseline.
+- **Delete All Calibrations…** — after asking, removes every stored
+  calibration across all devices. Use when you want a clean
+  baseline.
 
 See §2.3 and §2.4 for the workflow.
 
