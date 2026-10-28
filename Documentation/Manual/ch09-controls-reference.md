@@ -130,14 +130,14 @@ SCREENSHOT:
            full window with the toolbar and chart visible, plus one
            menu pulled down (the File menu is the most informative —
            it shows Play Audio File…, Save Measurement…, Export
-           Spectrum Image…, Export PDF Report… and their keyboard
-           shortcuts).
+           Spectrum Image…, Export PDF Report…, Share Spectrum
+           Image…, Share PDF Report… and their keyboard shortcuts).
   Notes:   macOS native or Python desktop, your choice — the
            top-of-window toolbar layout is essentially identical
            between them. Light mode.
 -->
 
-![Desktop layout — full window with the File menu pulled down to show Play Audio File, Save Measurement, Export Spectrum Image, and Export PDF Report with their shortcuts.](images/ch09-desktop.png){: .screenshot-desktop }
+![Desktop layout — full window with the File menu pulled down to show Play Audio File, Save Measurement, Export Spectrum Image, Export PDF Report, Share Spectrum Image and Share PDF Report.](images/ch09-desktop.png){: .screenshot-desktop }
 
 Both the Swift native macOS build and the Python desktop build
 (Windows, Linux, macOS Python) expose the same operations through
@@ -194,11 +194,24 @@ and these differences:
   and copyright) and **Settings…** (⌘,), which opens Guitar Tap's
   Settings. The app's page in the iPad's Settings app is reached
   from the Settings app.
-- **File** — Play Audio File…, Save Measurement…, **Share Spectrum
-  Image…** and **Share PDF Report…**; no Export items (on the iPad,
-  saving is the share sheet's Save to Files).
+- **File** — Close Window, Play Audio File…, Save Measurement…,
+  **Share Spectrum Image…** and **Share PDF Report…**; no Export
+  items (on the iPad, saving is the share sheet's Save to Files).
 
 Hold ⌘ to see the shortcuts.
+
+<!--
+SCREENSHOT:
+
+  File:    images/ch09-ipad-menubar.png
+  Subject: The iPad with a keyboard or a pointer, a completed guitar
+           measurement loaded, the menu bar showing and its File menu
+           open: Close Window, Play Audio File…, Save Measurement…,
+           Share Spectrum Image…, Share PDF Report….
+  Notes:   The full screen. Light mode.
+-->
+
+![The iPad's menu bar with the File menu open: Close Window, Play Audio File, Save Measurement, Share Spectrum Image and Share PDF Report.](images/ch09-ipad-menubar.png){: .screenshot-tablet }
 
 ## 9.5 Individual Controls
 

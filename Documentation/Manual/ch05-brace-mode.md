@@ -37,7 +37,7 @@ SCREENSHOT:
   Notes:   Crop to the settings sheet.
 -->
 
-![Settings sheet with Measurement Type set to Brace — the default Length, Width, Height, and Mass fields.](images/ch05-settings-brace.png){: .screenshot-panel }
+![Settings sheet with Measurement Type set to Brace — the default Length, Width, Height, and Mass fields.](images/ch05-settings-brace.png){: .screenshot-panel-small }
 
 Open **Settings → Measurement Type → Brace**. That is all Settings
 needs before you tap. As in plate mode, the Settings sheet holds
@@ -102,7 +102,7 @@ SCREENSHOT:
            Crop to the panel only.
 -->
 
-![Brace Results panel showing Selected Peaks (single fL row), the editable Sample Dimensions, Brace Properties, and Brace Process Instructions.](images/ch05-results-panel.png){: .screenshot-panel }
+![Brace Results panel showing Selected Peaks (single fL row), the editable Sample Dimensions, Brace Properties, and Brace Process Instructions.](images/ch05-results-panel.png){: .screenshot-panel-tall }
 
 Once the tap is captured, the Results panel is where you turn the
 frequency into material properties: you enter this strip's

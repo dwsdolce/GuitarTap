@@ -299,6 +299,8 @@ img.screenshot-tablet      { max-width: 150mm; }   /* iPad */
 img.screenshot-desktop     { max-width: 160mm; }   /* macOS / Python window */
 img.screenshot-panel       { max-width: 120mm; }   /* Settings sheet, Results panel close-up */
 img.screenshot-strip       { max-width: 150mm; }   /* Horizontal toolbar / chart-strip crops */
+img.screenshot-panel-tall  { max-width: 120mm; }   /* A tall Settings sheet or Results panel: capped lower, below */
+img.screenshot-panel-small { max-width: 95mm; }    /* A short, narrow crop of a sheet: its text at the tall panels' size */
 /* Line art with its legend set beside the drawing rather than under it, so the
    figure stays short. Capped by width like the screenshot classes. */
 img.diagram-wide           { max-width: 140mm; }   /* Brace hold/tap diagram */
@@ -316,6 +318,12 @@ img.diagram-wide           { max-width: 140mm; }   /* Brace hold/tap diagram */
 img.screenshot-mobile, img.screenshot-mobile-wide, img.screenshot-tablet,
 img.screenshot-desktop, img.screenshot-panel, img.screenshot-strip {
     max-height: 200mm;
+}
+
+/* A tall panel at the general cap fills a page with type larger than the prose's. 150mm keeps its text about the
+   size of a Mac's on-screen text printed at two-thirds — readable without dominating the page. */
+img.screenshot-panel-tall {
+    max-height: 150mm;
 }
 
 /* Full-width screenshot */
@@ -717,7 +725,14 @@ ol.steps li::before {
         break-after: avoid;
     }
 
-    table, figure, img {
+    figure, img {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* A table breaks between rows only, its header repeated (below). Kept whole, a table taller than the space left
+       on the page moves to the next one and leaves its heading and introduction behind above an empty space. */
+    tr {
         page-break-inside: avoid;
         break-inside: avoid;
     }

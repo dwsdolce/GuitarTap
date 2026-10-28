@@ -85,7 +85,7 @@ SCREENSHOT (covers §2.3 and §2.5):
            list. Crop to the sheet/window only.
 -->
 
-![Settings sheet showing Audio Input and Measurement Type sections.](images/ch02-settings-sheet.png){: .screenshot-panel }
+![Settings sheet showing Audio Input and Measurement Type sections.](images/ch02-settings-sheet.png){: .screenshot-panel-tall }
 
 Open Settings (gear icon, top toolbar) and use the **Audio Input**
 section to pick your microphone.
@@ -156,13 +156,12 @@ SCREENSHOT (covers §2.6 and §2.7):
   File:    images/ch02-threshold-peakmin-toolbar.png
   Subject: Main analysis screen on macOS with the toolbar at top
            clearly showing the Threshold slider and Peak Min slider,
-           and a live (not frozen) spectrum below with a recent tap
-           impulse still visible.
-  Notes:   Detection should be paused so the spectrum is live and
-           a representative tap peak is visible. Crop to window.
+           and a guitar spectrum below with its peaks.
+  Notes:   Crop on the right just after New Tap. No pointer over
+           the chart.
 -->
 
-![Live spectrum showing a recent tap, with the Threshold and Peak Min sliders in the toolbar above.](images/ch02-threshold-peakmin-toolbar.png){: .screenshot-strip }
+![The spectrum, with the Threshold and Peak Min sliders in the toolbar above.](images/ch02-threshold-peakmin-toolbar.png){: .screenshot-strip }
 
 The Threshold slider sets the signal level a tap must exceed before
 the analyzer captures it. You will tune it once for your

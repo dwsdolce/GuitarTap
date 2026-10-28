@@ -175,7 +175,7 @@ SCREENSHOT:
            first in Display Settings).
 -->
 
-![Advanced section of Settings showing Display Settings and Analysis Settings sub-sections.](images/ch08-settings-advanced.png){: .screenshot-panel }
+![Advanced section of Settings showing Display Settings and Analysis Settings sub-sections.](images/ch08-settings-advanced.png){: .screenshot-panel-small }
 
 - **Show Unknown Modes** (guitar only) — when on, peaks that do
   not fall within any classified mode window are still annotated

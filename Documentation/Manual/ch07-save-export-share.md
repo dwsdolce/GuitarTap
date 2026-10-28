@@ -53,18 +53,16 @@ list (§7.2).
 SCREENSHOT:
 
   File:    images/ch07-measurements-list.png
-  Subject: Saved Measurements window showing a mix of saved items:
-           several guitar measurements with the waveform indicator,
-           at least one plate and one brace (no indicator), and at
-           least one saved comparison with the chart indicator.
-           Toolbar showing Compare…, Sort & Filter, Import…, Export,
-           Delete and Done; the "Total: N measurements" line above the
-           rows.
-  Notes:   Use a real set of measurements so the dates and notes
-           are plausible. Crop tight to the window.
+  Subject: Saved Measurements window: the "Total: N measurements"
+           line, a few rows, and the toolbar (Compare…, Sort & Filter,
+           Import…, Export, Delete, Done). Any mix of measurement
+           types will do. Composited beside it, open: one row's ⋯
+           menu, and the Sort & Filter, Export and Delete menus.
+  Notes:   Use a real set of measurements so the dates and names
+           are plausible. Crop tight to the window and the menus.
 -->
 
-![Saved Measurements window with a mix of guitar, plate, brace, and comparison rows.](images/ch07-measurements-list.png){: .screenshot-desktop }
+![Saved Measurements window with a row's menu, and the Sort & Filter, Export and Delete menus open.](images/ch07-measurements-list.png){: .screenshot-desktop }
 
 Open the Measurements list with the toolbar **Measurements**
 button <img src="images/symbols/list.bullet.clipboard.png" width="18" height="18" class="inline-icon" alt="list.bullet.clipboard">, or with **⌘L** on macOS / **Ctrl+L**

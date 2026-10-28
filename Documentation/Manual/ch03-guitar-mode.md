@@ -228,7 +228,7 @@ SCREENSHOT:
            so the tap-tone ratio reads a sensible value.
 -->
 
-![Analysis Results panel with peak list, ring-out time, and tap-tone ratio.](images/ch03-results-panel.png){: .screenshot-panel }
+![Analysis Results panel with peak list, ring-out time, and tap-tone ratio.](images/ch03-results-panel.png){: .screenshot-panel-tall }
 
 For each identified peak the Analysis Results panel shows:
 
