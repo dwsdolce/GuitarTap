@@ -47,7 +47,8 @@ struct MeasurementRowView<MenuItems: View>: View {
 
     // Break down complex expressions for better compilation
     private var peaksText: String {
-        "\(measurement.peaks.count) peaks"
+        let count = measurement.peaks.count
+        return "\(count) \(count == 1 ? "peak" : "peaks")"
     }
     
     private var ratioText: String? {

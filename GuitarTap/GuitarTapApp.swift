@@ -283,6 +283,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 }
+#else
+/// iOS app delegate.
+///
+/// The iPad's menu bar adds Open… and Open Recent to the File menu of any app that opens documents. Guitar Tap
+/// opens a measurement file from Saved Measurements or from another app, never from the File menu, so the system's
+/// document items are removed — as `CommandGroup(replacing: .newItem)` removes them on the Mac.
+final class AppDelegate: UIResponder, UIApplicationDelegate {
+    override func buildMenu(with builder: any UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        guard builder.system == .main else { return }
+        builder.remove(menu: .open)
+        builder.remove(menu: .openRecent)
+    }
+}
 #endif
 
 // MARK: - App Entry Point
@@ -290,6 +304,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct GuitarTapApp: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #else
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
 
     /// True when this process was launched only to HOST a test bundle.
