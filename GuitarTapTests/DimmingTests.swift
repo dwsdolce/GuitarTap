@@ -50,17 +50,31 @@ struct DimmingTests {
     }
 
     /// The probe's centre pixel, drawn on white, as 0–1 components.
+    ///
+    /// The white behind the probe is opaque, so a drawn pixel always is: one that is not means the renderer gave back
+    /// an image with nothing in it — as a simulator's renderer does when it times out building its GPU pipeline — and
+    /// it is drawn again, up to five times, before the test fails.
     private func pixel(_ view: some View) throws -> (r: Double, g: Double, b: Double) {
-        let renderer = ImageRenderer(content: ZStack { Rectangle().fill(Color(red: 1, green: 1, blue: 1)); view }
-            .frame(width: 8, height: 8))
-        renderer.scale = 1
-        let image = try #require(renderer.cgImage)
-        var bytes = [UInt8](repeating: 0, count: 4)
-        let context = try #require(CGContext(data: &bytes, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                                             space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
-        context.draw(image, in: CGRect(x: -4, y: -4, width: image.width, height: image.height))
-        return (Double(bytes[0]) / 255, Double(bytes[1]) / 255, Double(bytes[2]) / 255)
+        for _ in 1...5 {
+            let renderer = ImageRenderer(content: ZStack { Rectangle().fill(Color(red: 1, green: 1, blue: 1)); view }
+                .frame(width: 8, height: 8))
+            renderer.scale = 1
+            let image = try #require(renderer.cgImage)
+            var bytes = [UInt8](repeating: 0, count: 4)
+            let context = try #require(CGContext(data: &bytes, width: 1, height: 1, bitsPerComponent: 8,
+                                                 bytesPerRow: 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(image, in: CGRect(x: -4, y: -4, width: image.width, height: image.height))
+            if bytes[3] == 255 {
+                return (Double(bytes[0]) / 255, Double(bytes[1]) / 255, Double(bytes[2]) / 255)
+            }
+        }
+        throw RenderError.nothingDrawn
+    }
+
+    private enum RenderError: Error, CustomStringConvertible {
+        case nothingDrawn
+        var description: String { "the renderer drew nothing, five times" }
     }
 
     @Test(arguments: ids())
