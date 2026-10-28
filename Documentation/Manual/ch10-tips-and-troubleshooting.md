@@ -23,7 +23,14 @@ before suspecting the mic or the room.
 
 **Tap location:**
 
-- **Guitar body** — on the bridge centered, on each wing of the bridge, below the bridge centered, on each side. The decision comes from experience and which node excitation is desired.
+- **Guitar body** — tap around the monopole area, where the top
+  moves in and out as one (Guitar Tap's **Top**). The main spot is
+  the top near the bridge, just off the centreline; the bridge wings
+  are two more. Keep just off the centreline: it is the dipole's
+  node line — the two halves of the top move in opposite directions
+  and the centreline stays still — so a tap on it hardly excites the
+  dipole. Bass side or treble side, behind the bridge, or on the
+  saddle usually make no difference.
 - **Plate or brace** — centre of the face. Off-centre taps bias
   the result; the centre is at the antinode of every mode the
   measurement is designed to capture.
@@ -119,6 +126,10 @@ without air coupling.
 Tap, capture, and read the top frequency. Remove the fill before
 returning to normal use.
 
+Blocking the sound hole is only for this reading: in a normal
+measurement nothing may cover it — foam string dampers included
+(§3.2).
+
 ## 10.5 Ring-Out and Decay Time
 
 Ring-out (decay time) is the time, in seconds, for the tap's
@@ -149,15 +160,18 @@ sequence the averaged-capture decay is reported.
 
 The right tap count depends on what you are measuring:
 
-- **Guitar body survey** — 1–3 taps. The body resonances are
-  stable; averaging mainly reduces the impact of an occasional
-  noisy or missed tap.
-- **Plate or brace material measurement** — 3–5 taps. Averaging
-  reduces variance from finger noise and small position
-  differences, which matters for the absolute E_L value.
-- **Diagonal (fLC) tap (plate mode)** — 1–3 taps. The diagonal
-  resonance is weaker, so position consistency matters more than
-  averaging. Tapping it repeatedly with imperfect positioning can
+- **Guitar body survey** — 3 taps: one on the top near the bridge,
+  just off the centreline, and one on each bridge wing (§10.1). The
+  body resonances are stable; averaging mainly smooths over an
+  occasional noisy or missed tap, and tapping three spots averages
+  out what any one contributes. Some luthiers take up to 10 taps,
+  the extra ones elsewhere on the top around the monopole area.
+- **Plate or brace material measurement** — 3–5 taps, the same
+  number for every phase (one Taps setting for the whole
+  measurement). Averaging reduces variance from finger noise and
+  small position differences, which matters for the absolute E_L
+  value. The diagonal (fLC) resonance is weaker, so keep its tap
+  position consistent: tapping it with imperfect positioning can
   *increase* variance rather than reduce it.
 
 **When averaging helps least.** Very quiet room, experienced

@@ -227,8 +227,8 @@ You now have everything you need.
    Peak Min are tuned per §2.6 and §2.7.
 3. Press **Resume** if you paused during tuning. The detector is
    armed and the spectrum is live.
-4. Tap the guitar — a knuckle rap on the bridge or a bouncy-ball
-   strike on the back, depending on what you are measuring. The
+4. Tap the top near the bridge, just off the centreline — a
+   knuckle rap or a bouncy-ball strike (where to tap: §10.1). The
    spectrum freezes when the tap registers.
 5. Open the **Analysis Results** panel and review the identified
    modes, frequencies, ring-out time, and tap-tone ratio.

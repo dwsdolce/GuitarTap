@@ -52,6 +52,16 @@ Type when a subtype is selected.
 4. Confirm Threshold and Peak Min are tuned for the current mic and
    room (see §2.6 and §2.7).
 
+**Preparing the guitar.** You can measure with the strings on or
+off, at tension or slack: the frequencies change little. What is
+attached to the guitar does change them, because it adds mass — the
+bridge pins, for example — so prepare the guitar the same way each
+time you mean to compare measurements: the same strings, pins, and
+anything else attached. With strings on, stop them ringing with foam
+string dampers between the strings and the fingerboard. Never let a
+damper sit over the sound hole: it changes how freely air moves
+through the sound hole, and so the air (Helmholtz) frequency.
+
 ## 3.3 Microphone Placement
 
 - **Distance:** 5 to 15 cm from the sound hole for body-cavity
@@ -72,8 +82,10 @@ Type when a subtype is selected.
 
 1. Press **New Tap** to arm the detector. The status area shows
    the analyzer is waiting for a tap.
-2. Tap the instrument: a short, crisp knuckle or fingertip rap on
-   the bridge, or a bouncy-ball strike on the back.
+2. Tap the top near the bridge, just off the centreline, with a
+   short, crisp knuckle or fingertip rap, or a bouncy-ball strike. A
+   tap on the top excites the back's resonances as well as the
+   top's (where to tap: §10.1).
 3. The **Tap Detected** indicator appears and the spectrum freezes
    automatically.
 4. Read the annotated peaks on the frozen spectrum and the Analysis
@@ -96,8 +108,11 @@ For tighter results, average several taps in one sequence.
    of taps you want (1 to 10). Five is a common choice.
 2. Press **New Tap** as before. The status bar now shows progress —
    "Tap 1/5", "Tap 2/5", and so on.
-3. Tap the instrument the required number of times. Each captured
-   tap re-arms the detector after a short cooldown; the spectrum
+3. Tap the instrument the number of times you set, moving from
+   spot to spot: for 3 taps, the top near the bridge just off the
+   centreline, then each bridge wing; for more, further spots on the
+   top around the monopole area (§10.1, §10.6). Each captured tap
+   re-arms the detector after a short cooldown; the spectrum
    re-freezes only after the final tap.
 4. When all taps are captured, the averaged spectrum is displayed
    with annotated peaks. Individual tap spectra are retained for
