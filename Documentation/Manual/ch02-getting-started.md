@@ -20,8 +20,9 @@ so Windows may say "Windows protected your PC" when it starts: choose
 
 **Linux (Python desktop build).** The project release page has the
 Linux build in three forms; each includes everything required, and
-each runs on Ubuntu 22.04 or later, or another Linux distribution of
-the same age or newer, on an x86_64 (64-bit Intel or AMD) computer.
+each needs glibc 2.35 or later — Ubuntu 22.04 or later (Linux Mint 21
+or later), Debian 12 or later, Fedora 36 or later, or Rocky Linux and
+AlmaLinux 10 or later — on an x86_64 (64-bit Intel or AMD) computer.
 Pick one:
 
 - **Debian, Ubuntu, Linux Mint and their relatives — the `.deb`**
