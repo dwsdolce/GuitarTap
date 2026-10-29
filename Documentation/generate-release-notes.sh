@@ -7,17 +7,18 @@
 # Only the NEWEST section carries placeholders, filled from git:
 #   {{version}} = MARKETING_VERSION (GuitarTap.xcodeproj)
 #   {{build}}   = git commit count at HEAD                     (this build's number)
-#   {{since}}   = git commit count at the previous release tag (the "since" build)
+#   {{since}}   = git commit count at the previous release's tag (the "since" build): the newest tag
+#                 other than this version's, so it is the same before this release is tagged and after
 # Historical sections keep their literal numbers. Cutting the next release: freeze the current
 # top section to its shipped literals and add a new placeholder top section.
 #
 # Runs automatically from generate-help.sh on the macOS build (and standalone). A condition it can't
-# satisfy (no pandoc, no tag, current version already tagged) is an Xcode WARNING and a skip (exit 0);
+# satisfy (no pandoc, no earlier tag, this version tagged at another commit) is an Xcode WARNING and a skip (exit 0);
 # pandoc failing on the notes is an Xcode ERROR and fails the build — a broken release-notes PDF must
 # not pass unnoticed.
 #
-# ORDERING: at release, generate BEFORE tagging — {{since}} is the count at the latest existing
-# tag, which must still be the PREVIOUS release.
+# Once this version is tagged, only the tagged commit builds its notes: a later commit would carry
+# this version's notes with a build number that never shipped.
 #
 # Prerequisite: pandoc with xelatex (brew install pandoc; brew install --cask basictex), as for the
 # Quick Start guide: the notes hold Unicode ("−∞", "→", "·") that pandoc's default engine cannot set.
@@ -37,13 +38,14 @@ command -v pandoc &>/dev/null || { echo "warning: generate-release-notes.sh: pan
 
 VERSION="$(grep -m1 'MARKETING_VERSION' "$PBXPROJ" | sed -E 's/.*= *([^;]+);.*/\1/' | tr -d ' ')"
 BUILD="$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null)"
-LAST_TAG="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null)"
+LAST_TAG="$(git -C "$ROOT" describe --tags --abbrev=0 --exclude "$VERSION" 2>/dev/null)"
 
 if [ -z "$VERSION" ] || [ -z "$BUILD" ] || [ -z "$LAST_TAG" ]; then
     echo "warning: generate-release-notes.sh: missing version/build/tag — no release-notes PDF." >&2; exit 0
 fi
-if [ "$LAST_TAG" = "$VERSION" ]; then
-    echo "warning: generate-release-notes.sh: latest tag ($LAST_TAG) == current version — generate BEFORE tagging; no release-notes PDF." >&2
+if git -C "$ROOT" rev-parse -q --verify "refs/tags/$VERSION" >/dev/null \
+        && [ "$(git -C "$ROOT" rev-parse "$VERSION^{commit}")" != "$(git -C "$ROOT" rev-parse HEAD)" ]; then
+    echo "warning: generate-release-notes.sh: $VERSION is tagged at another commit than the one being built; no release-notes PDF." >&2
     exit 0
 fi
 SINCE="$(git -C "$ROOT" rev-list --count "$LAST_TAG" 2>/dev/null)"
