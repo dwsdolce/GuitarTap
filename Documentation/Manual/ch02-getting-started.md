@@ -29,9 +29,12 @@ Pick one:
   (`guitar-tap-<version>.<build>-x86_64.deb`). Install it from a
   terminal, in the folder it was downloaded to:
   `sudo apt install ./guitar-tap-<version>.<build>-x86_64.deb` (the
-  `./` is needed). Guitar Tap is then in the applications menu, and
-  `guitar-tap` starts it from a terminal. Double-clicking the file may
-  open it in the archive manager instead of installing it. To remove
+  `./` is needed). apt may end with a note that the "Download is
+  performed unsandboxed as root" because the file "couldn't be accessed
+  by user '_apt'": it is harmless — the package is installed. Guitar
+  Tap is then in the applications menu, and `guitar-tap` starts it
+  from a terminal. Double-clicking the file may open it in the archive
+  manager instead of installing it. To remove
   it: `sudo apt remove guitar-tap`.
 - **Fedora and its relatives — the `.rpm`**
   (`guitar-tap-<version>.<build>-x86_64.rpm`). Install it the same
@@ -46,6 +49,10 @@ Pick one:
   double-clicking it before then says "There is no application
   installed for 'AppImage application bundle' files". It is not added
   to the applications menu; to remove it, delete the file.
+
+If, after installing the `.deb` or the `.rpm`, the applications menu
+shows a generic icon for Guitar Tap, log out and back in: some desktops
+load the menu's icons only when the session starts.
 
 The native and Python builds share the `.guitartap` file format —
 measurements written on one can be opened on the other without loss.
