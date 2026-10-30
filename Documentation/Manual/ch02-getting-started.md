@@ -14,7 +14,8 @@ install.
 **macOS / Windows (Python desktop build).** Run the installer for
 your platform from the project release page. The build is bundled
 with PyInstaller and ships with its own Python runtime — no separate
-Python installation is required. The Windows installer is not signed,
+Python installation is required. The Mac installer is for Apple
+silicon only. The Windows installer is not signed,
 so Windows may say "Windows protected your PC" when it starts: choose
 **More info**, then **Run anyway**.
 

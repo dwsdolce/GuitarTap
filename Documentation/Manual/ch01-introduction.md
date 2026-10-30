@@ -45,8 +45,8 @@ files that round-trip between the iOS, macOS, and desktop builds.
 
 **Hardware**
 
-- **A device.** Guitar Tap runs on iPhone or iPad (iOS 17 or later),
-  Mac (macOS 14 Sonoma or later), and Windows or Linux desktops via the
+- **A device.** Guitar Tap runs on iPhone or iPad (iOS 17.6 or later),
+  Mac (macOS 15 Sequoia or later), and Windows or Linux desktops via the
   Python version of the app.
 
 - **A microphone.** The built-in microphone of an iPhone, iPad, or

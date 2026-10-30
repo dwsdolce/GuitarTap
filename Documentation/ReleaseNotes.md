@@ -5,7 +5,7 @@
 ## Version {{version}} · Build {{build}}
 ### What's New Since Build {{since}}
 
-<!-- Notes reviewed through commit 4d2b978 (2026-10-27). The next update reads only `git log 4d2b978..HEAD`, then moves this line to the newest commit it covered. -->
+<!-- Notes reviewed through commit f04d596 (2026-10-30). The next update reads only `git log f04d596..HEAD`, then moves this line to the newest commit it covered. -->
 
 ---
 
@@ -58,6 +58,10 @@
 ---
 
 ## Improvements
+
+### System Requirements
+
+- Guitar Tap on a Mac now needs macOS 15 Sequoia or later.
 
 ### A Cleaner, Consistent Look
 
